@@ -118,6 +118,7 @@ body.idle,body.clean{cursor:none}
       <input type="range" id="jSpeed" min="0.25" max="3" step="0.05" value="1"></div>
     <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
     <p class="note" id="jSection">Listening for sections</p>
+    <p class="note" id="jGrid">Finding the beat</p>
     <p class="note" id="jNote">Journey is steering the settings below. Pick a preset or turn Journey off to adjust them by hand.</p>
   </section>
   <div id="sliders"></div>
@@ -996,7 +997,7 @@ const FEATS = ['perc','busy','bright','low','mid','lvl'];
 const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, lens:null, recipeSeed:{},
   cut:0, hitSeed:{none:.3, star:0, shock:0}, starN:5, starOut:'snap', starScatter:false};
 const FWEIGHT = {perc:1.2, busy:.6, bright:1, low:.8, mid:.8, lvl:.8};
-const J = {on:true, bias:.5, speed:1, clock:Math.random()*100, tension:.15, hi:.3, lo:.2, intro:1, beatN:0, spinDir:1,
+const J = {on:true, bias:.5, speed:1, clock:Math.random()*100, tension:.15, hi:.3, lo:.2, intro:1, bar:0, pos:0, upos:0, beats:0, phraseAnchor:0, novBar:0, progBeats:0, spinDir:1,
   eS:0, eM:0, eL:.2, peak:.3, tmin:.3, lastDrop:-1e9, phase:0, ringR:.2, ringSq:0, zoomFlip:0, dropGlow:0,
   fat:{}, kr:0, hr:0, fF:{}, fS:{}, fMin:{}, fMax:{}, M:null, secAge:0, identified:false, novAvg:.05, nov:0,
   pending:false, pendingSince:0, types:[], type:null, hueOff:0, ribAng:0, ribPh:0, horScroll:0, horY:.05,
@@ -1046,6 +1047,7 @@ function chooseWorld(random){
 }
 function newSection(strength){
   J.pending = false; J.secAge = 0; J.identified = 0; J.novHold = 0; J.M = {...J.fF};
+  J.phraseAnchor = J.novBar <= J.bar && J.bar - J.novBar < 8 ? J.novBar : J.bar;   // phrases count from the new section's first bar
   enterType(matchType(J.fF));
   pickStyle(strength);
   // a flourish on the bar line to mark the change
@@ -1262,7 +1264,9 @@ function stepJourney(now, dt){
   J.nov = fdist(J.fF, J.M);
   J.novAvg += (J.nov - J.novAvg)*Math.min(1, dt/20);
   const still = stillness();
-  J.novHold = J.type && J.nov > Math.max(.06*(1 - .5*still), J.novAvg*(2 - .5*still)) ? (J.novHold || 0) + dt : 0;   // the change has to last, not just be a blip
+  const wasHold = J.novHold;
+  J.novHold = J.type && J.nov > Math.max(.06*(1 - .5*still), J.novAvg*(2 - .5*still)) ? (J.novHold || 0) + dt : 0;
+  if (!wasHold && J.novHold) J.novBar = J.bar + (J.pos >= 2 ? 1 : 0);   // the downbeat nearest to where the change began   // the change has to last, not just be a blip
   if (!J.pending && J.secAge > 10 && J.novHold > 1.5) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
   if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
   // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
@@ -1373,14 +1377,14 @@ function freshJourney(){
   ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); jState.sym = 1; jState.mirror = 0;
   OPENING.casts = {};
   J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0; J.hit = null;
-  J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0; resetProgress();
+  J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0; resetProgress(); J.phraseAnchor = J.bar;
   J.recipe = null; J.lens = null; J.lensOn = false; J.lensShift = 0; jState.mods = {};
   J.types = []; J.type = null; J.M = null; J.pending = false; J.secAge = 0; J.identified = 0; J.kr = J.hr = 0;
   FEATS.forEach(f => { J.fMin[f] = J.fS[f] - .1; J.fMax[f] = J.fS[f] + .1; });
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 
-window.__jdbg = () => ({accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
+window.__jdbg = () => ({grid: {bpm: G.period && 60/G.period, locked: G.locked, conf: G.conf, down: G.down, pos: J.pos, bar: J.bar, ev: G.ev, dsure: G.dsure}, accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
 function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
 
 function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
@@ -1433,21 +1437,109 @@ function onBeatFX(){
   }
   for (const k in active.mods) if (active.mods[k].src === 'jump') jumpVal[k] = Math.random()*2 - 1;
   J.kr += .5;
-  if (J.beatN % 2 === 0) WORLD.moonTarget += Math.PI/4;
-  J.beatN++;
-  if (J.beatN % 4 === 0 && eff.star > .02) fireStar();   // the downbeat
-  if (J.on) {
-    if (J.beatN % 4 === 0) J.cutNow = true;               // held switches land on the bar line
-    if (J.beatN % 16 === 0) J.phraseNow = true;
-    if (J.pending && J.beatN % 4 === 0) newSection(J.pendStrength);
-    if (J.beatN % 4 === 0 && J.accTrig === 'bar') J.accEnv = 1;
-    if (J.beatN % 16 === 0 && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
-    // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
-    J.progBeats = (J.progBeats || 0) + 1;
-    if (J.beatN % 16 === 0 && J.type && J.progBeats >= Math.max(16, Math.round(64/J.speed/16)*16)) progress();
-    if (J.beatN % 16 === 0) J.spinDir *= -1;                        // spin reverses every 4 bars
-    if (J.beatN % 32 === 0 && Math.random() < .4) J.zoomFlip = -.03;  // occasional pull-back
+  if (!G.locked) { J.upos = (J.upos + 1) % 4; gridBeat(J.upos); }   // no beat grid yet: count the kicks themselves
+}
+// one beat of the bar (pos 0 is the downbeat), from the beat grid, or from the kicks until the grid locks
+function gridBeat(pos){
+  J.beats++; J.pos = pos;
+  if (J.beats % 2 === 0) WORLD.moonTarget += Math.PI/4;
+  const down = pos === 0;
+  if (down) J.bar++;
+  const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
+  if (down && eff.star > .02) fireStar();
+  if (!J.on) return;
+  if (down) J.cutNow = true;                             // held switches land on the bar line
+  if (phrase) J.phraseNow = true;
+  if (J.pending && down) newSection(J.pendStrength);
+  if (down && J.accTrig === 'bar') J.accEnv = 1;
+  if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
+  // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
+  J.progBeats++;
+  if (phrase && J.type && J.progBeats >= Math.max(16, Math.round(64/J.speed/16)*16)) progress();
+  if (phrase) J.spinDir *= -1;                            // spin reverses every 4 bars
+  if (down && barIn % 8 === 0 && Math.random() < .4) J.zoomFlip = -.03;   // occasional pull-back
+}
+
+/* ---------- beat grid: tempo from the kicks, a clock that keeps time through missed kicks and breakdowns,
+   and the downbeat found from where claps and snares fall (2 and 4) and where crashes and changes land (the 1) ---------- */
+const G = {period:0, next:0, n:0, down:0, locked:false, conf:0, miss:0, fit:0, prevKick:0, kicks:[], alt:0, altN:0,
+  bb:[0,0,0,0], mid:[0,0,0,0], ev:0, win:null, cand:-1, candN:0, lastT:0};
+function gridReset(keepTempo){
+  G.locked = false; G.conf = 0; G.miss = 0; G.fit = 0; G.prevKick = 0; G.kicks.length = 0; G.win = null;
+  G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; if (!keepTempo) G.period = 0;
+}
+// the beat length that best explains the gaps between recent kicks (each gap should be a whole number of beats)
+function estimatePeriod(ts){
+  let best = 0, bp = 0;
+  for (let P = .33; P <= .8; P += .003) {
+    let sc = 0;
+    for (let i = 1; i < ts.length; i++) for (let j = Math.max(0, i - 6); j < i; j++) {
+      const r = (ts[i] - ts[j])/P, k = Math.round(r); if (k < 1 || k > 8) continue;
+      const e = (r - k)*P; sc += Math.exp(-e*e/.00045)/k;
+    }
+    sc *= Math.exp(-Math.pow(Math.log2(P/.47), 2)*1.5);   // a gentle preference for dance tempos
+    if (sc > best) { best = sc; bp = P; }
   }
+  return bp;
+}
+function gridKick(t){
+  G.kicks.push(t); if (G.kicks.length > 24) G.kicks.shift();
+  if (G.kicks.length >= 6) {
+    const est = estimatePeriod(G.kicks);
+    if (est && (!G.period || !G.locked)) G.period = est;     // not locked: take the latest reading as it comes
+    else if (est && Math.abs(est/G.period - 1) < .04) { G.period += (est - G.period)*.15; G.altN = 0; }
+    else if (est) {                                       // a different tempo: believe it once it keeps coming back
+      if (Math.abs(est/(G.alt || 1) - 1) < .04) G.altN++; else { G.alt = est; G.altN = 1; }
+      if (G.altN >= 4) { G.period = est; G.altN = 0; G.locked = false; G.fit = 0; }
+    }
+  }
+  if (!G.period) return;
+  const P = G.period;
+  if (G.locked) {                                         // nudge the clock toward the kick, if it's on the grid
+    const e1 = t - (G.next - P), e2 = t - G.next, e = Math.abs(e1) < Math.abs(e2) ? e1 : e2;
+    if (Math.abs(e) < .12*P) { G.next += e*.3; G.period = Math.min(.85, Math.max(.3, P + e*.05)); G.conf = Math.min(1, G.conf + .15); G.miss = 0; }
+    else if (++G.miss >= 4) { G.locked = false; G.fit = 0; }   // lost it (a seek, a new rhythm): find the beat again
+    return;
+  }
+  // not locked: three kicks in a row on the grid and it locks, starting with this kick
+  if (G.prevKick) { const r = (t - G.prevKick)/P, k = Math.round(r); G.fit = k >= 1 && k <= 4 && Math.abs(r - k) < .08 ? G.fit + 1 : 1; }
+  else G.fit = 1;
+  G.prevKick = t;
+  if (G.fit >= 3) {
+    G.locked = true; G.conf = .5; G.miss = 0; G.next = t;
+    G.n = J.upos; G.down = 0;                            // carry on counting from where the kicks had got to
+    G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.win = null;
+  }
+}
+function gridTick(t){
+  if (G.win) {                                            // what happened just after the last beat
+    const w = G.win, a = .15; G.bb[w.slot] += (w.bb - G.bb[w.slot])*a; G.mid[w.slot] += (w.mid - G.mid[w.slot])*a; G.ev++;
+  }
+  G.n++;
+  G.win = {slot: G.n % 4, bb: 0, mid: 0, until: t + .2*G.period};
+  if (G.ev >= 16) {                                       // enough bars heard to judge where the 1 is
+    const mb = (G.bb[0] + G.bb[1] + G.bb[2] + G.bb[3])/4 + 1e-9, mm = (G.mid[0] + G.mid[1] + G.mid[2] + G.mid[3])/4 + 1e-9;
+    const S = [0, 1, 2, 3].map(d => G.bb[d]/mb + .7*(G.mid[(d + 1) % 4] + G.mid[(d + 3) % 4] - G.mid[d] - G.mid[(d + 2) % 4])/mm);
+    const best = S.indexOf(Math.max(...S));
+    if (best !== G.down && S[best] > S[G.down] + .12) {   // move the 1 only when the evidence holds for two bars
+      if (G.cand === best) G.candN++; else { G.cand = best; G.candN = 1; }
+      if (G.candN >= 8) { G.down = best; G.candN = 0; }
+    } else G.candN = 0;
+    G.dsure = Math.max(0, Math.min(1, (S[G.down] - Math.max(...S.filter((v, i) => i !== G.down)))/.5));
+  }
+  const pos = (((G.n - G.down) % 4) + 4) % 4;
+  J.upos = pos;
+  gridBeat(pos);
+}
+// run every frame: collect evidence, keep the clock ticking, let confidence fade when the kicks stop
+function gridFrame(t, fl, fh, ft){
+  const dt = Math.min(.1, t - (G.lastT || t)); G.lastT = t;
+  if (!G.locked) return;
+  G.conf -= dt/30;
+  if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }
+  while (t + .008 >= G.next) { gridTick(G.next); G.next += G.period; }   // half a frame early, so ticks land on the beat not after it
+  if (G.win && t < G.win.until) { G.win.bb = Math.max(G.win.bb, fl + ft*2 + fh*.5); G.win.mid = Math.max(G.win.mid, fh); }
+  beatPeriod = G.period;
 }
 // stabs, snares and other hits: a small ripple somewhere, comets flinch, colour nudges
 function onHitFX(){
@@ -1521,13 +1613,14 @@ function ensureAudio(){
 function stopSource(){ if (source) { source.onended = null; try { source.stop(); } catch(e){} source.disconnect(); source = null; } }
 function playFrom(offset){
   if (!buffer) return;
+  gridReset(true);
   ensureAudio(); stopSource();
   const s = actx.createBufferSource(); s.buffer = buffer; s.connect(analyser);
   s.onended = () => { if (source === s) { source = null; playing = false; nextTrack(true); } };
   s.start(0, Math.max(0, Math.min(offset, buffer.duration - .01)));
   source = s; startedAt = actx.currentTime - offset; playing = true; updatePlayUI();
 }
-function pause(){ if (!playing) return; pausedAt = actx.currentTime - startedAt; stopSource(); playing = false; updatePlayUI(); }
+function pause(){ if (!playing) return; gridReset(true); pausedAt = actx.currentTime - startedAt; stopSource(); playing = false; updatePlayUI(); }
 function togglePlay(){
   if (!buffer) { $('#fileIn').click(); return; }
   playing ? pause() : playFrom(pausedAt);
@@ -1543,7 +1636,7 @@ async function loadTrack(i){
     const ab = await tracks[i].file.arrayBuffer();
     const buf = await actx.decodeAudioData(ab);
     if (token !== loadToken) return;
-    buffer = buf; pausedAt = 0; if (J.on) freshJourney(); playFrom(0);
+    buffer = buf; pausedAt = 0; gridReset(false); if (J.on) freshJourney(); playFrom(0);
   } catch(e) {
     if (token !== loadToken) return;
     toast('Could not read that file'); tracks.splice(i,1);
@@ -1614,8 +1707,9 @@ function analyse(now){
     const iv = (now - lastBeat)/1000;
     if (iv > .25 && iv < 1.1) { intervals.push(iv); if (intervals.length > 8) intervals.shift();
       beatPeriod = [...intervals].sort((x, y) => x - y)[intervals.length >> 1]; }
-    beat = reduceMotion ? .5 : 1; lastBeat = now; hueKick += .07; onBeatFX();
+    beat = reduceMotion ? .5 : 1; lastBeat = now; hueKick += .07; gridKick(now/1000); onBeatFX();
   }
+  gridFrame(now/1000, fl, fh, ft);
   beat *= .84; hit *= .82;
 }
 
@@ -1713,6 +1807,10 @@ function render(now){
     document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
     updateTimeUI();
     $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
+    const gEl = $('#jGrid');
+    if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
+      ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
+      : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const {out, s, input} = sliders[k]; if (J.on) input.value = active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
     }
