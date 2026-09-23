@@ -1,0 +1,1611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afterglow visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000; --ink:#fff; --dim:rgba(255,255,255,.6); --line:rgba(255,255,255,.16);
+  --glass:rgba(0,0,0,.5); --accent:#5cf;
+  box-sizing:border-box; color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#000; --ink:#fff; } }
+:root[data-theme="dark"]{ --bg:#000; --ink:#fff; }
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:"Chakra Petch",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.4}
+canvas{position:fixed;top:0;left:0;width:100%;height:100%;display:block}
+button,.btn{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;
+  padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+button:hover,.btn:hover{border-color:var(--line)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+#err{position:fixed;top:10px;left:10px;right:10px;background:#300;color:#fcc;border:1px solid #f66;border-radius:8px;padding:10px 14px;font-size:13px;display:none;z-index:9;white-space:pre-wrap}
+button:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+svg{width:18px;height:18px;fill:currentColor}
+
+/* empty state */
+#welcome{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:24px;pointer-events:none;transition:opacity .6s}
+#welcome.gone{opacity:0}
+#welcome h1{font-weight:600;font-size:clamp(34px,7vw,76px);line-height:1;margin:0 0 18px;letter-spacing:-.01em;
+  text-shadow:0 0 30px var(--accent)}
+#welcome p{margin:6px 0;color:var(--dim);max-width:46ch}
+#welcome .pick{pointer-events:auto;margin-top:22px;border-color:var(--ink);padding:10px 20px;font-size:17px;font-weight:500}
+#welcome .pick:hover{background:var(--ink);color:#000}
+body.dragging #welcome h1{color:var(--accent)}
+
+/* bottom bar */
+#bar{position:fixed;left:0;right:0;bottom:0;padding:40px 18px calc(12px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0));transition:opacity .5s}
+.seekrow{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
+.seekrow input{flex:1}
+.ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+#track{flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px}
+#track small{color:var(--dim);margin-left:8px}
+.preset{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px}
+.preset span{min-width:96px;text-align:center;font-weight:500}
+.preset button{padding:6px 8px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:20px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:3px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);margin-top:-4.5px}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:var(--accent)}
+
+/* adjust panel */
+#panel{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:12px;width:290px;max-height:calc(100% - 170px);
+  overflow-y:auto;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:none}
+#panel.open{display:block}
+#panel h2{font-size:14px;font-weight:600;margin:14px 0 4px;color:var(--accent)}
+#panel h2:first-child{margin-top:0}
+.row{display:grid;grid-template-columns:1fr auto;gap:0 8px;align-items:center;font-size:13px}
+.row input{grid-column:1 / -1;width:100%}
+.row output{color:var(--dim);font-variant-numeric:tabular-nums}
+.mod{grid-column:1 / -1;display:flex;gap:8px;align-items:center;margin:-2px 0 6px}
+.mod select{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;padding:2px 4px}
+.mod select option{background:#000;color:#fff}
+.mod .depth{flex:1;visibility:hidden}
+.row.moving .mod .depth{visibility:visible}
+.row.moving label,.row.moving .mod select{color:var(--accent)}
+.meter{display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0 6px}
+.meter div{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.note{font-size:12px;color:var(--dim);margin:6px 0 0}
+#sliders.locked .row{opacity:.5;pointer-events:none}
+#panel .keys{margin-top:14px;font-size:12px;color:var(--dim);line-height:1.6}
+#panel .keys b{color:var(--ink);font-weight:500}
+#copyOut{width:100%;height:90px;margin-top:8px;background:#000;color:var(--ink);border:1px solid var(--line);font:12px/1.3 monospace;display:none}
+
+#toast{position:fixed;left:0;right:0;top:22%;text-align:center;font-size:clamp(28px,5vw,54px);font-weight:600;
+  pointer-events:none;opacity:0;transition:opacity .8s;text-shadow:0 0 24px var(--accent)}
+#toast.show{opacity:1;transition:opacity .15s}
+
+body.idle #bar,body.idle #panel,body.clean #bar,body.clean #panel{opacity:0;pointer-events:none}
+body.idle,body.clean{cursor:none}
+@media (max-width:640px){
+  #panel{left:12px;right:12px;width:auto;max-height:45%}
+  .preset span{min-width:70px}
+}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="welcome">
+  <h1>Drop in some music</h1>
+  <p>Drag MP3s anywhere on the page, or choose files. They play in your browser and are never uploaded.</p>
+  <p>Plug in an Xbox controller to play the visuals like an instrument.</p>
+  <label class="pick btn" for="fileIn" id="pickBtn" tabindex="0">Choose MP3 files</label>
+</div>
+
+<div id="toast"></div>
+<div id="err" role="alert"></div>
+
+<aside id="panel" aria-label="Adjust visuals">
+  <section>
+    <h2>Journey</h2>
+    <div class="row"><label for="jBias">Calm to intense</label><output id="jBiasOut">Balanced</output>
+      <input type="range" id="jBias" min="0" max="1" step="0.01" value="0.5"></div>
+    <div class="row"><label for="jSpeed">Evolution speed</label><output id="jSpeedOut">1.00×</output>
+      <input type="range" id="jSpeed" min="0.25" max="3" step="0.05" value="1"></div>
+    <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
+    <p class="note" id="jSection">Listening for sections</p>
+    <p class="note" id="jNote">Journey is steering the settings below. Pick a preset or turn Journey off to adjust them by hand.</p>
+  </section>
+  <div id="sliders"></div>
+  <h2>Response</h2>
+  <div class="row"><label for="react">Reactivity</label><output id="reactOut">1.00</output>
+    <input type="range" id="react" min="0" max="2" step="0.01" value="1"></div>
+  <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+    <button id="copyBtn" style="border-color:var(--line)">Copy settings</button>
+    <button id="resetBtn" style="border-color:var(--line)">Reset preset</button>
+  </div>
+  <textarea id="copyOut" readonly aria-label="Preset settings"></textarea>
+  <div class="keys">
+    <b>Space</b> play or pause<br><b>← →</b> change preset<br><b>R</b> randomize, or nudge during Journey<br><b>A</b> Journey on or off<br>
+    <b>Hold X</b> freeze trails<br>Under each slider, choose how that setting moves by itself.<br><b>N</b> next track<br><b>H</b> hide controls<br><b>F</b> fullscreen<br>
+    Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.
+  </div>
+</aside>
+
+<div id="bar">
+  <div class="seekrow"><span id="tNow">0:00</span><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek"><span id="tDur">0:00</span></div>
+  <div class="ctrl">
+    <button id="prevT" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+    <button id="nextT" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <div id="track">No track loaded</div>
+    <div class="preset">
+      <button id="prevP" aria-label="Previous preset">‹</button><span id="pName">Tunnel</span><button id="nextP" aria-label="Next preset">›</button>
+    </div>
+    <button id="randBtn">Randomize</button>
+    <button id="autoBtn" aria-pressed="true">Journey</button>
+    <button id="adjBtn" aria-pressed="false">Adjust</button>
+    <label class="btn" for="fileIn" id="addBtn" tabindex="0">Add music</label>
+    <button id="fsBtn" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+  </div>
+</div>
+<input type="file" id="fileIn" accept="audio/*,.mp3" multiple class="vh">
+
+<script>
+function showErr(m){ const e=document.getElementById('err'); if(!e) return; e.style.display='block'; e.textContent='Something went wrong: '+m; }
+addEventListener('error', e => showErr(e.message));
+addEventListener('unhandledrejection', e => showErr(String(e.reason)));
+(() => {
+const $ = s => document.querySelector(s);
+let toastT;
+let canvas = $('#gl');
+let gl = null;
+for (const type of ['webgl2', 'webgl', 'experimental-webgl']) {
+  try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false}); } catch(e) {}
+  if (gl) break;
+}
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- shaders ---------- */
+const VERT = `attribute vec2 a; varying vec2 vUv; void main(){ vUv=a*0.5+0.5; gl_Position=vec4(a,0.0,1.0); }`;
+
+const PREC = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+`;
+const FEEDBACK = PREC + `
+varying vec2 vUv;
+uniform sampler2D uPrev, uData;
+uniform vec2 uRes, uCenter, uBurstC, uRingShape; // ring: radius, squash
+uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uMid,uTreb,uBeat,uReact,uHit;
+uniform vec4 uLayers; // ring, scope, plasma, burst
+uniform vec3 uComets[3];
+uniform vec4 uShocks[8];
+uniform vec2 uFx; // comets, shockwaves
+uniform float uRib,uRibAng,uRibPh,uHor,uHorScroll,uHorY;
+float ASP;
+
+float wave(float t){ return texture2D(uData, vec2(0.001+clamp(t,0.0,1.0)*0.497,0.5)).r*2.0-1.0; }
+float spec(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
+vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
+vec3 hueRot(vec3 c,float a){ vec3 k=vec3(0.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.0-ca); }
+vec2 fold(vec2 p,float n){
+  if(n<1.5) return p;
+  float r=length(p), a=atan(p.y,p.x), seg=6.2831853/n;
+  a=mod(a,seg); a=abs(a-seg*0.5);
+  return r*vec2(cos(a),sin(a));
+}
+// shockwave fronts push everything they pass through
+vec2 shockDisp(vec2 sp){
+  vec2 d=vec2(0.0);
+  for(int i=0;i<8;i++){
+    vec4 sh=uShocks[i];
+    vec2 v=sp-sh.xy; float l=length(v)+0.0001; float x=(l-sh.z)/0.05;
+    d+=v/l*sh.w*exp(-x*x)*0.035;
+  }
+  return d*uFx.y;
+}
+vec3 sampleFb(vec2 p,float n){
+  vec2 q=mix(p,fold(p,n),uMirror);
+  float z=uZoom+uBass*uReact*0.012+uBeat*0.045*uReact;
+  float c=cos(uRot), s=sin(uRot);
+  q=mat2(c,-s,s,c)*q;
+  q/=z;
+  q+=uWarp*0.012*vec2(sin(q.y*7.0+uTime*1.3),cos(q.x*6.0-uTime*1.1));
+  vec2 uv=(q+uCenter)/vec2(ASP,1.0)+0.5;
+  uv=1.0-abs(1.0-mod(uv,2.0));
+  return texture2D(uPrev,uv).rgb;
+}
+// three ribbons sweeping across the whole screen
+vec3 ribbons(vec2 sp){
+  float ca=cos(uRibAng), sa=sin(uRibAng);
+  vec2 q=vec2(ca*sp.x+sa*sp.y,-sa*sp.x+ca*sp.y);
+  vec3 c=vec3(0.0);
+  for(int i=0;i<3;i++){
+    float fi=float(i);
+    float y=0.28*(fi-1.0)+sin(q.x*(2.0+fi*0.7)+uRibPh*(1.0+fi*0.3)+fi*2.1)*(0.08+uMid*uReact*0.25)
+           +wave(fract(q.x*0.5+0.5+fi*0.13))*0.05*uReact;
+    float d=abs(q.y-y);
+    c+=hsv(uHue+0.15+fi*0.08,0.8,1.0)*(smoothstep(0.005+0.008*uBeat,0.0,d)+0.25*smoothstep(0.05,0.0,d));
+  }
+  return c;
+}
+// a perspective floor rushing toward you, with the spectrum as a skyline
+vec3 horizon(vec2 sp){
+  vec3 c=vec3(0.0);
+  float above=sp.y-uHorY;
+  float h=spec(clamp(abs(sp.x)/(ASP*0.5),0.0,1.0)*0.8)*0.22*(0.5+uReact*0.5);
+  float ds=abs(above-h);
+  c+=hsv(uHue+0.1,0.7,1.0)*(smoothstep(0.006,0.0,ds)+0.3*smoothstep(0.03,0.0,ds))*step(abs(sp.x),ASP*0.5);
+  float y=-above;
+  if(y>0.003){
+    float z=0.25/y;
+    float fz=fract(z*2.0+uHorScroll);
+    float sd=min(fz,1.0-fz)*0.5*y*y/0.25;
+    float fx=fract(sp.x*z*4.0);
+    float sx=min(fx,1.0-fx)/4.0/z;
+    c+=hsv(uHue+0.8,0.75,1.0)*(smoothstep(0.004,0.0,sd)+smoothstep(0.003,0.0,sx))*smoothstep(0.0,0.25,y);
+  }
+  return c;
+}
+vec3 elements(vec2 p,vec2 pb,float n){
+  vec2 d=fold(p,n);
+  float r=length(d), at=abs(atan(d.y,d.x))/3.14159265;
+  float g=0.0;
+  vec2 dq=d*vec2(1.0+uRingShape.y,1.0-uRingShape.y);
+  float rq=length(dq), aq=abs(atan(dq.y,dq.x))/3.14159265;
+  float rr=uRingShape.x+uBeat*uReact*0.07+wave(aq)*0.12*(0.6+uReact*0.6);
+  float dr=abs(rq-rr);
+  g+=uLayers.x*(smoothstep(0.012,0.0,dr)+0.35*smoothstep(0.05,0.0,dr));
+  float wy=wave(clamp(d.x/ASP+0.5,0.0,1.0))*0.3*(0.6+uReact*0.5);
+  float ds=abs(d.y-wy);
+  g+=uLayers.y*(0.6+uHit*1.6)*(smoothstep(0.01,0.0,ds)+0.3*smoothstep(0.04,0.0,ds))*smoothstep(0.5*ASP,0.38*ASP,abs(d.x));
+  float v=sin(p.x*4.0+uTime*0.7)+sin(p.y*5.0-uTime*0.9)+sin(length(p)*9.0-uTime*1.7+uBass*uReact*3.0);
+  g+=uLayers.z*smoothstep(0.85,1.0,sin(v*2.5+uMid*uReact*2.0))*(0.25+uMid*uReact*0.6);
+  vec3 col=hsv(uHue+r*0.35+at*0.15,0.85,1.0)*g;
+  // spectrum burst radiates from its own centre (which follows a comet when comets are present)
+  vec2 db=fold(pb,n);
+  float rb=length(db), ab=abs(atan(db.y,db.x))/3.14159265;
+  float len=0.06+spec(pow(ab,1.3))*0.55*(0.6+uReact*0.5);
+  float f=fract(ab*48.0);
+  float bar=smoothstep(0.15,0.3,f)*smoothstep(0.85,0.7,f);
+  float gb=uLayers.w*(0.6+uHit*1.4)*bar*(smoothstep(0.015,0.0,abs(rb-len))+0.08*step(rb,len)*step(0.06,rb));
+  col+=hsv(uHue+rb*0.35+ab*0.15,0.85,1.0)*gb;
+  return col;
+}
+void main(){
+  ASP=uRes.x/uRes.y;
+  vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
+  vec2 disp=shockDisp(sp);
+  vec2 p=sp-uCenter;
+  float sym=max(uSym,1.0), n1=floor(sym), fr=sym-n1;
+
+  // feedback: last frame, transformed; symmetry crossfades between fold counts
+  vec2 pf=p+disp*0.3;
+  vec3 col=sampleFb(pf,n1);
+  if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
+  col=hueRot(col,uHueShift);
+  // the kick briefly cuts the trails, so the whole image pumps in time
+  col=max(col*(uDecay-uBeat*0.09)-0.004,0.0);
+  col-=0.16*col*col;
+
+  vec2 pe=p+disp, pb=sp-uBurstC+disp;
+  vec3 e=elements(pe,pb,n1);
+  if(fr>0.002) e=mix(e,elements(pe,pb,n1+1.0),fr);
+  col+=e*(0.35+uTreb*uReact*0.5+uBeat*0.8+uHit*0.5);
+  if(uRib>0.003) col+=ribbons(sp+disp)*uRib*(0.35+uBeat*0.8+uMid*uReact*0.4+uHit*0.7);
+  if(uHor>0.003) col+=horizon(sp+disp)*uHor*(0.4+uBeat*0.6+uHit*0.6);
+
+  for(int i=0;i<3;i++){
+    vec3 cm=uComets[i];
+    float dd=length(sp-cm.xy);
+    col+=hsv(uHue+float(i)*0.33,0.75,1.0)*uFx.x*cm.z*(smoothstep(0.018,0.0,dd)+0.35*smoothstep(0.06,0.0,dd));
+  }
+  for(int i=0;i<8;i++){
+    vec4 sh=uShocks[i];
+    float dd=abs(length(sp-sh.xy)-sh.z);
+    col+=hsv(uHue+0.5+sh.z*0.3,0.7,1.0)*uFx.y*sh.w*(smoothstep(0.006+sh.z*0.015,0.0,dd)+0.3*smoothstep(0.03+sh.z*0.03,0.0,dd));
+  }
+  gl_FragColor=vec4(min(col,vec3(1.0)),1.0);
+}`;
+
+const DISPLAY = PREC + `
+varying vec2 vUv;
+uniform sampler2D uTex, uHist; uniform vec2 uRes;
+uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uLand,uSpace,uLandY,uHistFrac,uSunX,uLightAng,uStarPh;
+uniform vec3 uPlanet;      // x, y, radius
+uniform vec4 uMoons[2];    // x, y, radius, in front (1) or behind (0)
+float ASP;
+vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+// loudness history: the right edge of the screen is now, further left is further back in the song
+float histAt(float x,float span){
+  float age=(ASP*0.5-x)/ASP*span;
+  float idx=clamp(255.0-age/0.12+uHistFrac,0.0,255.0);
+  return texture2D(uHist,vec2((idx+0.5)/256.0,0.5)).r;
+}
+vec3 sky(vec2 sp){ float t=clamp((sp.y-uLandY)/0.6,0.0,1.0); return mix(hsv(uHue+0.02,0.75,0.55),hsv(uHue+0.62,0.65,0.08),pow(t,0.7)); }
+vec3 landAbove(vec2 sp){
+  vec3 c=sky(sp);
+  vec2 sc=vec2(uSunX,uLandY+0.16); float R=0.19+uBass*uReact*0.02;
+  float d=length(sp-sc);
+  c+=hsv(uHue+0.05,0.8,1.0)*0.35*smoothstep(R*2.2,R,d);
+  if(d<R){
+    float k=(sp.y-sc.y)/R;
+    vec3 sun=mix(hsv(uHue-0.04,0.85,1.0),hsv(uHue+0.12,0.7,1.0),k*0.5+0.5);
+    float cut=1.0;
+    if(k<0.2){ float band=fract(-k*6.0+uTime*0.4); cut=step((0.2-k)*0.35*(0.6+uBass*uReact*0.8),band); }
+    c=mix(c,sun,smoothstep(R,R-0.004,d)*cut);
+  }
+  for(int i=0;i<3;i++){                 // far, middle, near ranges
+    float fi=float(i), span=30.0-fi*10.0;
+    float h=0.03+histAt(sp.x,span)*(0.22-fi*0.05)+sin(sp.x*(9.0+fi*7.0)+fi*3.0)*0.012+sin(sp.x*(31.0+fi*11.0))*0.005;
+    float top=uLandY+h;
+    if(sp.y<top){
+      float hm=uHue+0.55+fi*0.07+0.09*sin(sp.x*2.5+uTime*0.35+fi*1.7);
+      float depth=clamp((top-sp.y)/max(h,0.02),0.0,1.0);
+      vec3 m=hsv(hm,0.8-fi*0.08,0.5+0.17*fi)*(1.0-0.5*depth);
+      c=mix(m,sky(sp),0.35-fi*0.15);
+      c+=hsv(uHue+0.1+fi*0.05,0.6,1.0)*smoothstep(0.006,0.0,top-sp.y)*(0.4+uBeat*0.9)*(0.4+0.3*fi);
+    }
+  }
+  return c;
+}
+vec3 landscape(vec2 sp){
+  if(sp.y>=uLandY) return landAbove(sp);
+  float dy=uLandY-sp.y;                  // water: a rippling reflection
+  vec2 r=vec2(sp.x+sin(dy*90.0-uTime*3.0)*0.003*(1.0+uBeat*4.0)*(1.0+dy*6.0),uLandY+dy);
+  vec3 c=landAbove(r)*0.55*(0.85+0.15*sin(dy*140.0-uTime*4.0));
+  return c*mix(1.0,0.45,clamp(dy*2.0,0.0,1.0));
+}
+vec3 space(vec2 sp){
+  vec3 c=hsv(uHue+0.68,0.7,0.05);
+  float neb=sin(sp.x*2.3+uTime*0.05)*sin(sp.y*3.1-uTime*0.04)+sin((sp.x+sp.y)*4.7+uTime*0.03)*0.5;
+  c+=hsv(uHue+0.75+neb*0.08,0.6,0.14)*smoothstep(-0.2,1.2,neb);
+  for(int i=0;i<3;i++){                  // stars rushing past
+    float fi=float(i), depth=fract(fi/3.0+uStarPh), sc=mix(14.0,1.5,depth);
+    vec2 g=sp*sc+fi*17.3, cell=floor(g), f=fract(g)-0.5;
+    vec2 o=vec2(hash(cell+3.1),hash(cell+7.7))-0.5;
+    float b=step(0.75,hash(cell+fi))*smoothstep(0.08,0.0,length(f-o*0.7))*smoothstep(0.0,0.3,depth)*smoothstep(1.0,0.8,depth);
+    c+=vec3(0.85,0.9,1.0)*b*(0.6+depth);
+  }
+  vec2 d=sp-uPlanet.xy; float R=uPlanet.z, r=length(d)/R;
+  float rr=length(vec2(d.x,d.y/0.28))/R;
+  float ring=smoothstep(1.35,1.4,rr)*smoothstep(2.15,2.1,rr)*(0.55+0.45*sin(rr*38.0))*(0.6+uMid*uReact*0.8);
+  vec3 rc=hsv(uHue+0.1+rr*0.08,0.5,0.9);
+  if(d.y>0.0) c=mix(c,rc,ring*0.8);      // far side of the rings, behind the planet
+  if(r<1.0){
+    vec3 n=vec3(d/R,sqrt(1.0-r*r));
+    vec3 L=normalize(vec3(cos(uLightAng),0.35,sin(uLightAng)*0.6+0.6));
+    float diff=max(dot(n,L),0.0);
+    float lon=atan(n.x,n.z)+uTime*0.15;
+    float pat=sin(n.y*11.0+sin(lon*3.0+uTime*0.25)*1.4+uTime*0.12)+0.5*sin(n.y*23.0-lon*2.0);
+    vec3 pc=hsv(uHue+0.5+pat*0.09+sin(uTime*0.2)*0.05,0.75,1.0)*(0.08+0.92*diff);
+    pc+=hsv(uHue+0.55,0.6,1.0)*pow(1.0-n.z,3.0)*0.6;
+    c=mix(c,pc,smoothstep(1.0,0.985,r));
+  } else c+=hsv(uHue+0.55,0.6,1.0)*0.25*smoothstep(1.35,1.0,r);
+  if(d.y<=0.0) c=mix(c,rc,ring*0.9);     // near side of the rings, in front
+  for(int i=0;i<2;i++){
+    vec4 m=uMoons[i]; vec2 dm=sp-m.xy; float rm=length(dm)/m.z;
+    if(rm<1.0 && (m.w>0.5 || r>1.0)){
+      vec3 n=vec3(dm/m.z,sqrt(1.0-rm*rm));
+      c=hsv(uHue+0.1,0.3,0.95)*(0.08+max(dot(n,normalize(vec3(cos(uLightAng),0.3,0.7))),0.0));
+    }
+  }
+  return c;
+}
+void main(){
+  ASP=uRes.x/uRes.y;
+  vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
+  vec2 px=3.0/uRes;
+  vec3 c=texture2D(uTex,vUv).rgb;
+  vec3 b=(texture2D(uTex,vUv+vec2(px.x,0.0)).rgb+texture2D(uTex,vUv-vec2(px.x,0.0)).rgb
+         +texture2D(uTex,vUv+vec2(0.0,px.y)).rgb+texture2D(uTex,vUv-vec2(0.0,px.y)).rgb)*0.25;
+  c+=b*0.35;
+  // worlds sit behind the glow, drawn crisp every frame instead of smeared by the trails
+  vec3 w=vec3(0.0);
+  if(uLand>0.003) w+=landscape(sp)*uLand;
+  if(uSpace>0.003) w+=space(sp)*uSpace;
+  c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
+  c*=smoothstep(1.15,0.35,length(vUv-0.5));
+  gl_FragColor=vec4(c,1.0);
+}`;
+
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(fs, vs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs || VERT));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+  return {p, u};
+}
+const PVERT = `attribute vec3 a; uniform vec2 uScale; uniform float uSize; varying float vB;
+void main(){ vB=a.z; gl_Position=vec4(a.x*uScale.x,a.y*uScale.y,0.0,1.0); gl_PointSize=uSize; }`;
+const PFRAG = PREC + `varying float vB; uniform vec3 uCol;
+void main(){ float d=length(gl_PointCoord-0.5); gl_FragColor=vec4(uCol*vB*smoothstep(0.5,0.0,d),1.0); }`;
+let pProg = null, pBuf = null, quadBuf = null, histTex = null;
+const HIST = new Uint8Array(256);   // loudness over the last ~30 seconds, oldest first
+let fbProg = null, dispProg = null, fbos = [], cur = 0, W = 1, H = 1, dataTex = null, r2d = null;
+const dataArr = new Uint8Array(512);
+
+function makeTex(w, h){
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function setupGL(){
+  fbProg = program(FEEDBACK); dispProg = program(DISPLAY); pProg = program(PFRAG, PVERT);
+  pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
+  const quad = quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  histTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, histTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  dataTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL setup error');
+}
+function glResize(){
+  fbos.forEach(f => { gl.deleteTexture(f.tex); gl.deleteFramebuffer(f.fb); });
+  fbos = [0,1].map(() => {
+    const tex = makeTex(W, H), fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+    return {tex, fb};
+  });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+function drawGL(now, P){
+  const src = fbos[cur], dst = fbos[1-cur];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(fbProg.p); const u = fbProg.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
+  gl.uniform1i(u.uData, 1);
+  gl.uniform2f(u.uRes, W, H); gl.uniform2f(u.uCenter, P.cx, P.cy);
+  gl.uniform1f(u.uTime, now/1000);
+  gl.uniform1f(u.uZoom, P.zoom); gl.uniform1f(u.uRot, P.rot); gl.uniform1f(u.uWarp, P.warp);
+  gl.uniform1f(u.uDecay, P.decay);
+  gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
+  gl.uniform1f(u.uHue, P.hue); gl.uniform1f(u.uHueShift, P.hueShift);
+  gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
+  gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit);
+  gl.uniform4f(u.uLayers, P.ring, P.scope, P.plasma, P.burst);
+  gl.uniform2f(u.uFx, P.cometW, P.shockW);
+  gl.uniform2f(u.uBurstC, P.bcx, P.bcy);
+  gl.uniform2f(u.uRingShape, P.ringR, P.ringSq);
+  const ca = new Float32Array(9), sa = new Float32Array(32);
+  P.comets.forEach((c, i) => { ca[i*3] = c.x; ca[i*3+1] = c.y; ca[i*3+2] = c.z; });
+  P.shocks.forEach((h, i) => { sa[i*4] = h.x; sa[i*4+1] = h.y; sa[i*4+2] = h.r; sa[i*4+3] = h.s; });
+  if (u['uComets[0]']) gl.uniform3fv(u['uComets[0]'], ca);
+  if (u['uShocks[0]']) gl.uniform4fv(u['uShocks[0]'], sa);
+  gl.uniform1f(u.uRib, P.ribW); gl.uniform1f(u.uRibAng, P.ribAng); gl.uniform1f(u.uRibPh, P.ribPh);
+  gl.uniform1f(u.uHor, P.horW); gl.uniform1f(u.uHorScroll, P.horScroll); gl.uniform1f(u.uHorY, P.horY);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (P.flowW > .01) {   // flow-field particles, drawn into the trails so they leave streaks
+    gl.useProgram(pProg.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, parts);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(2, H/320));
+    gl.uniform3fv(pProg.u.uCol, P.flowCol);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, NP); gl.disable(gl.BLEND);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  }
+  cur = 1 - cur;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H);
+  gl.useProgram(dispProg.p); const v = dispProg.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dst.tex);
+  gl.uniform1i(v.uTex, 0); gl.uniform2f(v.uRes, W, H);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, histTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, HIST);
+  gl.uniform1i(v.uHist, 1);
+  gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
+  gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
+  gl.uniform1f(v.uLand, P.landW); gl.uniform1f(v.uSpace, P.spaceW); gl.uniform1f(v.uLandY, P.landY);
+  gl.uniform1f(v.uHistFrac, P.histFrac); gl.uniform1f(v.uSunX, P.sunX); gl.uniform1f(v.uLightAng, P.lightAng);
+  gl.uniform1f(v.uStarPh, P.starPh); gl.uniform3fv(v.uPlanet, P.planet);
+  if (v['uMoons[0]']) gl.uniform4fv(v['uMoons[0]'], P.moons);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+/* Simple mode: the same feedback idea with the plain 2D canvas, for browsers without WebGL */
+function make2D(view){
+  const out = view.getContext('2d');
+  const bufs = [document.createElement('canvas'), document.createElement('canvas')];
+  const ctxs = bufs.map(b => b.getContext('2d'));
+  const hasFilter = typeof ctxs[0].filter === 'string';
+  let bw = 2, bh = 2, i = 0, vignette = null;
+  function resize(w, h){
+    const sc = Math.min(1, 900 / Math.max(w, h));
+    bw = Math.max(2, Math.round(w*sc)); bh = Math.max(2, Math.round(h*sc));
+    bufs.forEach((b, k) => { b.width = bw; b.height = bh; ctxs[k].fillStyle = '#000'; ctxs[k].fillRect(0,0,bw,bh); });
+    vignette = out.createRadialGradient(w/2, h/2, Math.min(w,h)*.3, w/2, h/2, Math.hypot(w,h)*.6);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.75)');
+  }
+  function glowStroke(c, colour, weight, u){
+    if (weight < .01) return;
+    c.strokeStyle = colour(.12*weight); c.lineWidth = u*.03; c.stroke();
+    c.strokeStyle = colour(.6*weight); c.lineWidth = u*.008; c.stroke();
+  }
+  function layers(c, P, u, now, bright){
+    const col = off => a => `hsla(${((((P.hue+off)%1)+1)%1*360).toFixed(1)},95%,55%,${Math.min(1,a*bright).toFixed(3)})`;
+    if (P.ring > .01) {
+      const R = u*(P.ringR + P.beat*P.react*.07), amp = u*.12*(.6 + P.react*.6);
+      c.save(); c.scale(1/(1 + P.ringSq), 1/(1 - P.ringSq));
+      c.beginPath();
+      for (let j = 0; j <= 128; j++) {
+        const a = j/128*Math.PI*2, t = a <= Math.PI ? a/Math.PI : 2 - a/Math.PI;
+        const r = R + (dataArr[Math.min(255, Math.floor(t*255))]/128 - 1)*amp;
+        j ? c.lineTo(Math.cos(a)*r, Math.sin(a)*r) : c.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+      }
+      c.closePath(); c.restore(); glowStroke(c, col(.1), P.ring, u);
+    }
+    if (P.scope > .01) {
+      c.beginPath();
+      for (let j = 0; j <= 128; j++) {
+        const x = (j/128 - .5)*bw*.9, y = -(dataArr[j*2 > 255 ? 255 : j*2]/128 - 1)*.3*u*(.6 + P.react*.5);
+        j ? c.lineTo(x, y) : c.moveTo(x, y);
+      }
+      glowStroke(c, col(.2), P.scope*(.6 + P.hit*1.6), u);
+    }
+    if (P.plasma > .01) {
+      const s = now/1000, sz = u*(.3 + P.mid*P.react*.25);
+      for (let m = 0; m < 3; m++) {
+        c.beginPath();
+        for (let j = 0; j <= 160; j++) {
+          const t = j/160*Math.PI*2;
+          const x = Math.sin(t*(2+m) + s*(.5+m*.2))*sz, y = Math.sin(t*(3+m) - s*.7 + P.bass*P.react*2)*sz*.8;
+          j ? c.lineTo(x, y) : c.moveTo(x, y);
+        }
+        glowStroke(c, col(.3 + m*.08), P.plasma*.45, u);
+      }
+    }
+    if (P.burst > .01) {
+      c.lineWidth = u*.012;
+      for (let j = 0; j < 48; j++) {
+        const t = (j + .5)/48, sp = dataArr[256 + Math.floor(Math.pow(t, 1.3)*255)]/255;
+        const len = u*(.06 + sp*.55*(.6 + P.react*.5));
+        for (const a of [t*Math.PI, -t*Math.PI]) {
+          const cs = Math.cos(a), sn = Math.sin(a);
+          c.strokeStyle = col(t*.15)(.12*P.burst*(.6 + P.hit*1.4));
+          c.beginPath(); c.moveTo(cs*u*.06, sn*u*.06); c.lineTo(cs*len, sn*len); c.stroke();
+          c.fillStyle = col(t*.15)(P.burst*(.6 + P.hit*1.4));
+          c.beginPath(); c.arc(cs*len, sn*len, u*.01, 0, Math.PI*2); c.fill();
+        }
+      }
+    }
+  }
+  const stars = Array.from({length:220}, () => ({x:(Math.random() - .5)*3, y:(Math.random() - .5)*2, z:Math.random()}));
+  let lastStarPh = 0;
+  const hc = (h, s, l, a) => `hsla(${((((h)%1)+1)%1*360).toFixed(1)},${s}%,${l}%,${a})`;
+  function drawWorld(P, now){
+    if (P.landW < .01 && P.spaceW < .01) return;
+    const t = now/1000, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, o = out;
+    o.save();
+    if (P.landW > .01) {
+      o.globalAlpha = Math.min(1, P.landW);
+      const hy = Y(P.landY);
+      const sky = o.createLinearGradient(0, Y(P.landY + .6), 0, hy);
+      sky.addColorStop(0, hc(P.hue + .62, 65, 5, 1)); sky.addColorStop(1, hc(P.hue + .02, 75, 32, 1));
+      o.fillStyle = sky; o.fillRect(0, 0, W, hy);
+      const sx = X(P.sunX), sy = Y(P.landY + .16), R = (.19 + P.bass*P.react*.02)*u;
+      const glow = o.createRadialGradient(sx, sy, R, sx, sy, R*2.2);
+      glow.addColorStop(0, hc(P.hue + .05, 80, 55, .35)); glow.addColorStop(1, hc(P.hue + .05, 80, 55, 0));
+      o.fillStyle = glow; o.fillRect(sx - R*2.2, sy - R*2.2, R*4.4, R*4.4);
+      const sun = o.createLinearGradient(0, sy - R, 0, sy + R);
+      sun.addColorStop(0, hc(P.hue + .12, 90, 65, 1)); sun.addColorStop(1, hc(P.hue - .04, 95, 55, 1));
+      o.fillStyle = sun; o.beginPath(); o.arc(sx, sy, R, 0, Math.PI*2); o.fill();
+      o.fillStyle = sky;                                    // cut the stripes through the lower half
+      for (let k = .2; k > -1; k -= .015) {
+        const band = ((-k*6 + t*.4) % 1 + 1) % 1, w = (.2 - k)*.35*(.6 + P.bass*P.react*.8);
+        if (band < w) o.fillRect(sx - R, sy - k*R, R*2, .016*R + 1);
+      }
+      for (let i = 0; i < 3; i++) {
+        const span = 30 - i*10, top = [];
+        for (let j = 0; j <= 120; j++) {
+          const x = (j/120 - .5)*asp, age = (asp/2 - x)/asp*span;
+          const idx = Math.max(0, Math.min(255, 255 - age/.12 + P.histFrac));
+          const hv = HIST[Math.floor(idx)]/255;
+          const h = .03 + hv*(.22 - i*.05) + Math.sin(x*(9 + i*7) + i*3)*.012 + Math.sin(x*(31 + i*11))*.005;
+          top.push([X(x), Y(P.landY + h)]);
+        }
+        const g = o.createLinearGradient(0, 0, W, 0);
+        for (let q = 0; q <= 4; q++) g.addColorStop(q/4, hc(P.hue + .55 + i*.07 + .09*Math.sin(q*1.6 + t*.35 + i*1.7), 70 - i*8, 24 + i*9, 1));
+        o.fillStyle = g; o.beginPath(); o.moveTo(0, hy);
+        top.forEach(([x, y]) => o.lineTo(x, y)); o.lineTo(W, hy); o.closePath(); o.fill();
+        if (i < 2) { o.fillStyle = hc(P.hue + .62, 60, 30, .35 - i*.15); o.fill(); }   // haze on distant ranges
+        o.beginPath(); top.forEach(([x, y], j) => j ? o.lineTo(x, y) : o.moveTo(x, y));
+        o.strokeStyle = hc(P.hue + .1 + i*.05, 70, 65, Math.min(1, (.4 + P.beat*.9)*(.4 + .3*i))); o.lineWidth = Math.max(1, u*.004); o.stroke();
+      }
+      for (let yo = 0; yo < H - hy; yo += 3) {           // water: the landscape reflected in strips that ripple
+        const dy = yo/u, dx = Math.sin(dy*90 - t*3)*.003*(1 + P.beat*4)*(1 + dy*6)*u;
+        const src = hy - yo - 3; if (src < 0) break;
+        o.globalAlpha = Math.min(1, P.landW)*.5*(1 - Math.min(1, dy*2)*.5);
+        o.drawImage(o.canvas, 0, src, W, 3, dx, hy + yo, W, 3);
+      }
+    }
+    if (P.spaceW > .01) {
+      o.globalAlpha = Math.min(1, P.spaceW);
+      o.fillStyle = hc(P.hue + .68, 60, 3, 1); o.fillRect(0, 0, W, H);
+      for (let n = 0; n < 2; n++) {
+        const nx = X(Math.sin(t*.05 + n*2)*.5), ny = Y(Math.cos(t*.04 + n)*.25), nr = u*.6;
+        const ng = o.createRadialGradient(nx, ny, 0, nx, ny, nr);
+        ng.addColorStop(0, hc(P.hue + .75 + n*.08, 60, 15, .5)); ng.addColorStop(1, hc(P.hue + .75, 60, 10, 0));
+        o.fillStyle = ng; o.fillRect(nx - nr, ny - nr, nr*2, nr*2);
+      }
+      const adv = Math.max(0, P.starPh - lastStarPh)*1.5; lastStarPh = P.starPh;
+      o.fillStyle = '#dfe8ff';
+      for (const s of stars) {
+        s.z -= adv; if (s.z < .05) { s.z = 1; s.x = (Math.random() - .5)*3; s.y = (Math.random() - .5)*2; }
+        const px = X(s.x*.3/s.z), py = Y(s.y*.3/s.z), sz = Math.max(1, 2.2*(1 - s.z));
+        if (px > -5 && px < W + 5 && py > -5 && py < H + 5) o.fillRect(px, py, sz, sz);
+      }
+      const [pxw, pyw, pr] = P.planet, cx = X(pxw), cy = Y(pyw), R = pr*u;
+      const ring = (front) => {
+        for (let k = 0; k < 10; k++) {
+          const rr = 1.4 + k*.075;
+          o.beginPath(); o.ellipse(cx, cy, R*rr, R*rr*.28, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI*2);
+          o.strokeStyle = hc(P.hue + .1 + rr*.08, 50, 65, (.55 + .45*Math.sin(rr*38))*(.6 + P.mid*P.react*.8)*.8);
+          o.lineWidth = R*.06; o.stroke();
+        }
+      };
+      ring(false);
+      const halo = o.createRadialGradient(cx, cy, R, cx, cy, R*1.35);
+      halo.addColorStop(0, hc(P.hue + .55, 60, 60, .25)); halo.addColorStop(1, hc(P.hue + .55, 60, 60, 0));
+      o.fillStyle = halo; o.fillRect(cx - R*1.4, cy - R*1.4, R*2.8, R*2.8);
+      o.save(); o.beginPath(); o.arc(cx, cy, R, 0, Math.PI*2); o.clip();
+      o.fillStyle = hc(P.hue + .5, 70, 45, 1); o.fillRect(cx - R, cy - R, R*2, R*2);
+      for (let k = -12; k <= 12; k++) {                  // swirling colour bands
+        o.beginPath();
+        for (let j = 0; j <= 24; j++) {
+          const xx = cx - R + j/24*R*2, yy = cy + k*R/11 + Math.sin(j*.5 + t*.25 + k)*R*.05;
+          j ? o.lineTo(xx, yy) : o.moveTo(xx, yy);
+        }
+        o.strokeStyle = hc(P.hue + .5 + Math.sin(k*1.3 + t*.12)*.09, 75, 55, .7); o.lineWidth = R/13; o.stroke();
+      }
+      const lx = cx + Math.cos(P.lightAng)*R*.5, ly = cy - R*.3;
+      const shade = o.createRadialGradient(lx, ly, R*.1, lx, ly, R*1.9);
+      shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(.55, 'rgba(0,0,0,.35)'); shade.addColorStop(1, 'rgba(0,0,0,.92)');
+      o.fillStyle = shade; o.fillRect(cx - R, cy - R, R*2, R*2);
+      o.restore();
+      ring(true);
+      for (let m = 0; m < 2; m++) {
+        const mx = X(P.moons[m*4]), my = Y(P.moons[m*4 + 1]), mr = P.moons[m*4 + 2]*u, front = P.moons[m*4 + 3] > .5;
+        if (!front && Math.hypot(mx - cx, my - cy) < R) continue;
+        const mg = o.createRadialGradient(mx - mr*.4, my - mr*.4, mr*.1, mx, my, mr);
+        mg.addColorStop(0, hc(P.hue + .1, 30, 85, 1)); mg.addColorStop(1, hc(P.hue + .1, 30, 12, 1));
+        o.fillStyle = mg; o.beginPath(); o.arc(mx, my, mr, 0, Math.PI*2); o.fill();
+      }
+    }
+    o.restore();
+  }
+  function draw(now, P){
+    const src = bufs[i], c = ctxs[1-i]; i = 1 - i;
+    const u = bh, cx = bw/2 + P.cx*u, cy = bh/2 - P.cy*u;
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    c.fillStyle = '#000'; c.fillRect(0, 0, bw, bh);
+    const z = Math.max(1.002, P.zoom + P.bass*P.react*.035 + P.beat*.015), wob = P.warp*.012;
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(P.rot + Math.sin(now/700)*wob*.5);
+    c.scale(z*(1 + Math.sin(now/530)*wob), z*(1 + Math.cos(now/610)*wob));
+    c.translate(-cx, -cy);
+    c.globalAlpha = Math.min(.995, P.decay - P.beat*.09);
+    if (hasFilter && P.hueShift > 0) c.filter = `hue-rotate(${(P.hueShift*57.3).toFixed(2)}deg)`;
+    c.drawImage(src, 0, 0);
+    c.restore();
+    if (hasFilter) c.filter = 'none';
+    // subtract a little each frame so faint trails fully fade instead of leaving grey haze
+    c.globalAlpha = 1; c.globalCompositeOperation = 'difference';
+    c.fillStyle = 'rgb(5,5,5)'; c.fillRect(0, 0, bw, bh);
+
+    c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    const bright = .35 + P.treb*P.react*.5 + P.beat*.8;
+    const symF = Math.max(1, P.sym), n1 = Math.floor(symF), fr = symF - n1;
+    const drawSym = (n, w) => {
+      if (w < .02) return;
+      c.save(); c.translate(cx, cy);
+      if (n === 1) layers(c, P, u, now, bright*w);
+      else {
+        const seg = Math.PI*2/n, far = Math.hypot(bw, bh);
+        for (let k = 0; k < n; k++) for (const flip of [1, -1]) {
+          c.save(); c.rotate(k*seg); c.scale(1, flip);
+          c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, far, 0, seg/2 + .002); c.closePath(); c.clip();
+          layers(c, P, u, now, bright*w);
+          c.restore();
+        }
+      }
+      c.restore();
+    };
+    drawSym(n1, 1 - fr); drawSym(n1 + 1, fr);
+
+    const sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
+    if (P.cometW > .01) P.comets.forEach((cm, j) => {
+      const x = sx(cm.x), y = sy(cm.y), rad = u*.06, h = hsl(P.hue + j*.33), a = Math.min(1, P.cometW*cm.z);
+      const g = c.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, `hsla(${h},80%,75%,${a})`); g.addColorStop(.3, `hsla(${h},90%,55%,${a*.4})`); g.addColorStop(1, `hsla(${h},90%,50%,0)`);
+      c.fillStyle = g; c.fillRect(x - rad, y - rad, rad*2, rad*2);
+    });
+    if (P.shockW > .01) P.shocks.forEach(sh => {
+      if (sh.s < .02) return;
+      c.beginPath(); c.arc(sx(sh.x), sy(sh.y), sh.r*u, 0, Math.PI*2);
+      c.lineWidth = u*(.006 + sh.r*.015);
+      c.strokeStyle = `hsla(${hsl(P.hue + .5 + sh.r*.3)},80%,60%,${Math.min(1, P.shockW*sh.s)})`; c.stroke();
+    });
+
+    if (P.ribW > .01) {
+      c.save(); c.translate(bw/2, bh/2); c.rotate(-P.ribAng);
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        for (let j = 0; j <= 96; j++) {
+          const qx = (j/96 - .5)*1.6*bw/u;
+          const wv = dataArr[Math.floor((((qx*.5 + .5 + i*.13) % 1) + 1) % 1*255)]/128 - 1;
+          const yv = .28*(i - 1) + Math.sin(qx*(2 + i*.7) + P.ribPh*(1 + i*.3) + i*2.1)*(.08 + P.mid*P.react*.25) + wv*.05*P.react;
+          j ? c.lineTo(qx*u, -yv*u) : c.moveTo(qx*u, -yv*u);
+        }
+        glowStroke(c, a => `hsla(${hsl(P.hue + .15 + i*.08)},85%,60%,${Math.min(1, a).toFixed(3)})`, P.ribW*(.5 + P.beat*.8), u);
+      }
+      c.restore();
+    }
+    if (P.horW > .01) {
+      const a = Math.min(1, P.horW*(.5 + P.beat*.6)), hc = hsl(P.hue + .8), asp2 = bw/bh/2;
+      c.lineWidth = Math.max(1, u*.003);
+      const fr = ((P.horScroll % 1) + 1) % 1;
+      for (let k = 0; k < 40; k++) {
+        const z = .5*(k + 1 - fr), yy = .25/z; if (yy > P.horY + .5) continue;
+        c.strokeStyle = `hsla(${hc},80%,60%,${(a*sstep(0, .25, yy)).toFixed(3)})`;
+        c.beginPath(); c.moveTo(0, sy(P.horY - yy)); c.lineTo(bw, sy(P.horY - yy)); c.stroke();
+      }
+      const zb = .25/(P.horY + .5);
+      c.strokeStyle = `hsla(${hc},80%,60%,${(a*.8).toFixed(3)})`;
+      for (let X = -40; X <= 40; X++) { const xw = X/4;
+        c.beginPath(); c.moveTo(sx(0), sy(P.horY)); c.lineTo(sx(xw/zb), sy(-.5)); c.stroke(); }
+      c.beginPath();
+      for (let j = 0; j <= 80; j++) {
+        const xs = (j/80 - .5)*2*asp2, h = dataArr[256 + Math.floor(Math.min(1, Math.abs(xs)/asp2)*.8*255)]/255*.22*(.5 + P.react*.5);
+        j ? c.lineTo(sx(xs), sy(P.horY + h)) : c.moveTo(sx(xs), sy(P.horY + h));
+      }
+      glowStroke(c, al => `hsla(${hsl(P.hue + .1)},75%,60%,${Math.min(1, al).toFixed(3)})`, a, u);
+    }
+    if (P.flowW > .01) {
+      const [r, g, b] = P.flowCol.map(v => Math.round(Math.min(1, v)*255));
+      c.fillStyle = `rgb(${r},${g},${b})`; const s2 = Math.max(1.5, u/300);
+      for (let i = 0; i < NP; i++) c.fillRect(sx(parts[i*3]) - s2/2, sy(parts[i*3+1]) - s2/2, s2, s2);
+    }
+
+    out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
+    out.fillStyle = '#000'; out.fillRect(0, 0, W, H);
+    drawWorld(P, now);
+    out.globalCompositeOperation = 'lighter';
+    out.drawImage(bufs[i], 0, 0, W, H);
+    out.globalCompositeOperation = 'source-over';
+    out.fillStyle = vignette; out.fillRect(0, 0, W, H);
+  }
+  return {resize, draw};
+}
+
+if (gl) { try { setupGL(); } catch(e) { console.warn(e); gl = null; } }
+if (!gl) {
+  const fresh = canvas.cloneNode(); canvas.replaceWith(fresh); canvas = fresh;
+  r2d = make2D(canvas);
+  setTimeout(() => toast('Simple mode: WebGL isn’t available'), 400);
+}
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1);
+  W = Math.max(2, Math.floor(innerWidth * dpr)); H = Math.max(2, Math.floor(innerHeight * dpr));
+  canvas.width = W; canvas.height = H;
+  if (gl) glResize(); else r2d.resize(W, H);
+}
+addEventListener('resize', resize); resize();
+
+/* ---------- presets ---------- */
+const SPEC = [
+  {g:'Motion', k:'decay', label:'Trail length', min:.8, max:.995, step:.001},
+  {g:'Motion', k:'zoom', label:'Zoom', min:.94, max:1.1, step:.001},
+  {g:'Motion', k:'rot', label:'Spin', min:-.05, max:.05, step:.001},
+  {g:'Motion', k:'warp', label:'Warp', min:0, max:2, step:.01},
+  {g:'Motion', k:'wander', label:'Centre wander', min:0, max:.5, step:.01},
+  {g:'Shape', k:'sym', label:'Symmetry', min:1, max:12, step:1},
+  {g:'Shape', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
+  {g:'Layers', k:'ring', label:'Wave ring', min:0, max:1, step:.01},
+  {g:'Layers', k:'scope', label:'Scope line', min:0, max:1, step:.01},
+  {g:'Layers', k:'plasma', label:'Plasma', min:0, max:1, step:.01},
+  {g:'Layers', k:'burst', label:'Spectrum burst', min:0, max:1, step:.01},
+  {g:'Layers', k:'comets', label:'Comets', min:0, max:1, step:.01},
+  {g:'Layers', k:'shock', label:'Shockwaves', min:0, max:1, step:.01},
+  {g:'Layers', k:'flow', label:'Flow field', min:0, max:1, step:.01},
+  {g:'Layers', k:'ribbons', label:'Ribbons', min:0, max:1, step:.01},
+  {g:'Layers', k:'horizon', label:'Horizon', min:0, max:1, step:.01},
+  {g:'Worlds', k:'land', label:'Landscape', min:0, max:1, step:.01},
+  {g:'Worlds', k:'space', label:'Space', min:0, max:1, step:.01},
+  {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
+  {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
+];
+/* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
+const SOURCES = [['none','Fixed'], ['drift','Slow drift'], ['bass','Follows bass'], ['mid','Follows mids'],
+  ['treb','Follows treble'], ['pulse','Pulses on beat'], ['jump','Jumps on beat']];
+const BASE = [
+  {name:'Tunnel', decay:.955, zoom:1.035, rot:.006, warp:.15, wander:.15, sym:1, ring:1, shock:.3, colorSpeed:.08, hueDrift:.012,
+    mods:{rot:{src:'drift', amt:.4}, zoom:{src:'pulse', amt:.15}}},
+  {name:'Comets', decay:.975, zoom:1.004, rot:0, warp:.2, sym:1, comets:1, shock:.5, colorSpeed:.06, hueDrift:.01,
+    mods:{zoom:{src:'drift', amt:.12}, rot:{src:'drift', amt:.3}}},
+  {name:'Kaleido', decay:.93, zoom:1.012, rot:-.012, warp:.35, wander:.1, sym:6, mirror:1, ring:.2, scope:.6, burst:.8, colorSpeed:.12, hueDrift:.02,
+    mods:{sym:{src:'jump', amt:.35}, rot:{src:'drift', amt:.5}, hueDrift:{src:'mid', amt:.3}}},
+  {name:'Ripples', decay:.94, zoom:1.0, rot:0, warp:.5, sym:1, plasma:.15, shock:1, colorSpeed:.1, hueDrift:.02,
+    mods:{warp:{src:'bass', amt:.3}, hueDrift:{src:'drift', amt:.5}}},
+  {name:'Melt', decay:.975, zoom:.992, rot:.003, warp:1.2, wander:.2, sym:2, mirror:.3, ring:.35, plasma:1, colorSpeed:.05, hueDrift:.008,
+    mods:{warp:{src:'bass', amt:.3}, rot:{src:'drift', amt:.6}}},
+  {name:'Constellation', decay:.96, zoom:1.01, rot:.01, warp:.1, wander:.15, sym:5, mirror:1, comets:1, shock:.3, colorSpeed:.07, hueDrift:.015,
+    mods:{rot:{src:'drift', amt:.5}, sym:{src:'jump', amt:.25}}},
+  {name:'Starburst', decay:.9, zoom:1.06, rot:.02, warp:0, sym:8, burst:1, shock:.4, colorSpeed:.2, hueDrift:.03,
+    mods:{sym:{src:'jump', amt:.3}, zoom:{src:'pulse', amt:.2}}},
+  {name:'Currents', decay:.965, zoom:1.0, rot:0, warp:.3, sym:1, flow:1, ribbons:.6, colorSpeed:.04, hueDrift:.01,
+    mods:{ribbons:{src:'mid', amt:.3}, rot:{src:'drift', amt:.2}}},
+  {name:'Horizon', decay:.93, zoom:1.006, rot:0, warp:0, sym:1, horizon:1, comets:.6, shock:.3, colorSpeed:.05, hueDrift:.008,
+    mods:{zoom:{src:'pulse', amt:.1}}},
+  {name:'Sunset', decay:.94, zoom:1.0, rot:0, warp:.2, sym:1, land:1, ribbons:.35, comets:.5, colorSpeed:.02, hueDrift:.005,
+    mods:{ribbons:{src:'mid', amt:.25}}},
+  {name:'Orbit', decay:.95, zoom:1.002, rot:0, warp:.1, sym:1, space:1, comets:.7, flow:.3, colorSpeed:.03, hueDrift:.008,
+    mods:{flow:{src:'bass', amt:.2}}},
+  {name:'Scope drift', decay:.96, zoom:1.018, rot:0, warp:.6, wander:.25, sym:1, scope:1, plasma:.15, colorSpeed:.1, hueDrift:.015,
+    mods:{rot:{src:'drift', amt:.5}, warp:{src:'treb', amt:.4}}},
+];
+BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
+const clone = o => JSON.parse(JSON.stringify(o));
+const presets = BASE.map(clone);
+let pIndex = 0, active = presets[0];
+const curP = {}; SPEC.forEach(s => curP[s.k] = active[s.k]);
+const eff = {...curP}, modSm = {}, jumpVal = {};
+let auto = true, beatsInPreset = 0, presetSince = performance.now();
+
+/* ---------- flow field particles ---------- */
+const NP = 600, parts = new Float32Array(NP*3);
+function seedPart(i, asp){ parts[i*3] = (Math.random() - .5)*asp; parts[i*3+1] = Math.random() - .5; parts[i*3+2] = .3 + Math.random()*.7; }
+for (let i = 0; i < NP; i++) seedPart(i, 16/9);
+function stepParts(dt, react, now){
+  const asp = innerWidth/innerHeight, t = now/1000, hx = asp/2;
+  const speed = .06 + sMid*react*.35 + beat*.5 + J.tension*.1, drift = J.clock*.05;
+  for (let i = 0; i < NP; i++) {
+    let x = parts[i*3], y = parts[i*3+1];
+    const a = Math.sin(x*2.3 + t*.21 + drift)*1.8 + Math.cos(y*2.9 - t*.17)*1.8 + Math.sin((x + y)*1.3 + t*.1)*.9;
+    let vx = Math.cos(a)*speed, vy = Math.sin(a)*speed;
+    for (const h of shocks) {            // shockwaves shove the particles as they pass
+      if (h.s < .05) continue;
+      const dx = x - h.x, dy = y - h.y, l = Math.hypot(dx, dy) + 1e-4, q = (l - h.r)/.06, push = h.s*Math.exp(-q*q)*.8;
+      vx += dx/l*push; vy += dy/l*push;
+    }
+    x += vx*dt; y += vy*dt;
+    if (x < -hx) x += asp; else if (x > hx) x -= asp;
+    if (y < -.5) y += 1; else if (y > .5) y -= 1;
+    parts[i*3] = x; parts[i*3+1] = y;
+    if (Math.random() < dt*.05) seedPart(i, asp);
+  }
+}
+function hsv2rgb(h, s, v){
+  h = ((h % 1) + 1) % 1; const f = (n) => { const k = (n + h*6) % 6; return v - v*s*Math.max(0, Math.min(k, 4 - k, 1)); };
+  return [f(5), f(3), f(1)];
+}
+
+/* ---------- worlds: landscape and space ---------- */
+const WORLD = {histT:0, starPh:0, lightAng:0, moonAng:0, moonTarget:0, landY:-.05};
+function stepWorld(dt, react, now){
+  const t = now/1000;
+  WORLD.histT += dt;
+  while (WORLD.histT >= .12) {                        // record loudness for the mountains
+    WORLD.histT -= .12; HIST.copyWithin(0, 1);
+    const lvl = (J.eM - J.lo)/Math.max(.06, J.hi - J.lo);
+    HIST[255] = Math.round(Math.min(1, Math.max(0, lvl*.7 + sBass*.4))*255);
+  }
+  WORLD.starPh += dt*(.03 + J.tension*.25 + beat*.25);
+  WORLD.lightAng += dt*.05;
+  WORLD.moonAng += (WORLD.moonTarget - WORLD.moonAng)*Math.min(1, dt*5);
+  const R = .2 + sBass*react*.03, px = innerWidth/innerHeight*.18 + Math.sin(t*.05)*.05, py = .06 + Math.sin(t*.037)*.03;
+  WORLD.planet = [px, py, R];
+  const m = new Float32Array(8);
+  [[WORLD.moonAng, 2.6, .032], [WORLD.moonAng*.6 + 2, 3.3, .022]].forEach(([a, orbit, mr], i) => {
+    m[i*4] = px + Math.cos(a)*R*orbit; m[i*4 + 1] = py + Math.sin(a)*R*orbit*.3; m[i*4 + 2] = mr; m[i*4 + 3] = Math.sin(a) < 0 ? 1 : 0;
+  });
+  WORLD.moons = m;
+}
+
+/* ---------- Journey: one continuously evolving composition ---------- */
+const ELEMS = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
+// what each element suits. perc: steady kicks. busy: lots of stabs and hits. bright: treble-heavy.
+// low: bass-heavy. mid: melodic middle. T: overall intensity. (features run 0..1, centred on .5)
+const SUITS = {
+  ring:    {perc:.8, low:.4},
+  shock:   {perc:.5, busy:.7, T:.4},
+  burst:   {bright:.9, T:.5},
+  scope:   {mid:.7, busy:.3},
+  plasma:  {perc:-.6, T:-.5, low:.3},
+  comets:  {busy:.4, T:-.2},
+  flow:    {perc:-.5, T:-.4, mid:.3},
+  ribbons: {mid:.6, perc:-.3, bright:.3},
+  horizon: {perc:.7, low:.4, T:.3},
+};
+const FEATS = ['perc','busy','bright','low','mid','lvl'];
+const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, shock:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, symMax:3};
+const FWEIGHT = {perc:1.2, busy:.6, bright:1, low:.8, mid:.8, lvl:.8};
+const J = {on:true, bias:.5, speed:1, clock:Math.random()*100, tension:.15, hi:.3, lo:.2, intro:1, beatN:0, spinDir:1,
+  eS:0, eM:0, eL:.2, peak:.3, tmin:.3, lastDrop:-1e9, phase:0, ringR:.2, ringSq:0, zoomFlip:0, dropGlow:0,
+  fat:{}, kr:0, hr:0, fF:{}, fS:{}, fMin:{}, fMax:{}, M:null, secAge:0, identified:false, novAvg:.05, nov:0,
+  pending:false, pendingSince:0, types:[], type:null, hueOff:0, ribAng:0, ribPh:0, horScroll:0, horY:.05};
+ELEMS.forEach(k => J.fat[k] = 0);
+FEATS.forEach(f => { J.fF[f] = J.fS[f] = .5; J.fMin[f] = .4; J.fMax[f] = .6; });
+const jState = {name:'Journey', mods:{}}; SPEC.forEach(s => jState[s.k] = curP[s.k]);
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
+let beatPeriod = .5; const intervals = [];
+
+function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/FEATS.length; }
+function newType(F){
+  const used = J.types.map(t => t.hue);
+  let hue = Math.random();
+  for (let tries = 0; tries < 12 && used.some(h => Math.min(Math.abs(h - hue), 1 - Math.abs(h - hue)) < .15); tries++) hue = Math.random();
+  const seed = {}; ELEMS.forEach(k => seed[k] = (Math.random() - .5)*.7);
+  const t = {label: String.fromCharCode(65 + J.types.length % 26), F: {...F}, seed, hue, visits: 0,
+    zoomBias: (Math.random() - .3)*.015, spin: .3 + Math.random()*1.2, symMax: Math.random() < .3 ? 3 + Math.random()*3 : 1};
+  J.types.push(t); return t;
+}
+function matchType(F){
+  let best = null, bd = 1e9;
+  for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
+  return bd < .085 ? best : newType(F);
+}
+function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; updateSectionUI(); } }
+// each section can open into a world: calm, melodic, kickless parts suit the landscape; bright, intense parts suit space
+function chooseWorld(random){
+  const ty = J.type; if (!ty) return;
+  if (!ty.worldBias) ty.worldBias = {land:(Math.random() - .5)*.6, space:(Math.random() - .5)*.6};
+  const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); const T = J.tension - .5;
+  const sc = {none: .15 + (random ? Math.random()*.4 : 0),
+    land: -rf.perc*.9 + rf.mid*.4 - T*.3 + ty.worldBias.land + (random ? Math.random()*.4 : 0),
+    space: rf.bright*.5 + T*.4 + rf.busy*.2 + ty.worldBias.space + (random ? Math.random()*.4 : 0)};
+  J.world = Object.keys(sc).sort((a, b) => sc[b] - sc[a])[0]; J.worldTime = 0;
+}
+function newSection(strength){
+  J.pending = false; J.secAge = 0; J.identified = 0; J.novHold = 0; J.M = {...J.fF};
+  enterType(matchType(J.fF));
+  // a flourish on the bar line to mark the change
+  if (eff.shock > .2) {
+    const asp = innerWidth/innerHeight, n = 2 + Math.round(Math.min(1, strength)*3);
+    for (let i = 0; i < n; i++) { const sh = shocks[shockN++ % 8];
+      sh.x = (Math.random() - .5)*asp*.7; sh.y = (Math.random() - .5)*.7; sh.r = .01 + i*.04; sh.s = .9; }
+  } else { beat = Math.max(beat, 1); J.zoomFlip = Math.random() < .5 ? -.03 : .03; hueKick += .1; }
+  J.clock += 2;
+}
+// how each element behaves as an accent: on the bar's downbeat, on stabs, while melody is strong, or at the song's peaks
+const ACCENT = {ring:'bar', shock:'bar', horizon:'peak', burst:'hit', scope:'hit', comets:'hit', ribbons:'mid', plasma:'mid', flow:'peak'};
+const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
+const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', shock:'Shockwaves', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
+const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4, shock:-.3};
+function recast(fresh){
+  const ty = J.type || OPENING, wOn = J.world === 'land' || J.world === 'space', key = J.world;
+  ty.casts = ty.casts || {};
+  const keep = J.recast === 'keep';
+  J.recast = false; J.leadTime = 0;
+  if (!fresh && ty.casts[key]) { ({lead: J.lead, accent: J.accent} = ty.casts[key]); updateSectionUI(); return; }   // a returning part looks the same
+  const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5;
+  const scored = ELEMS.map(k => {
+    let v = ty.seed[k] + (fresh ? (Math.random() - .5)*.5 : 0);
+    for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
+    if (wOn) v += OVER_WORLD[k] || 0;
+    if (fresh && k === J.lead) v -= 1;         // a refresh should actually change something
+    return {k, v};
+  }).sort((a, b) => b.v - a.v);
+  J.lead = scored[0].k;
+  // the accent should contrast with the lead: a different kind of trigger where possible
+  const acc = scored.slice(1).find(r => ACCENT[r.k] !== ACCENT[J.lead]) || scored[1];
+  J.accent = acc.k; J.accEnv = 0;
+  ty.casts[key] = {lead: J.lead, accent: J.accent};
+  updateSectionUI();
+}
+function updateSectionUI(){
+  const el = $('#jSection'); if (!el || !J.type) return;
+  el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
+    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[ACCENT[J.accent]]}.` : '');
+}
+
+function features(dt){
+  // spectral shape (independent of volume), brightness, rhythm density
+  let sub = 0, lowB = 0, lmid = 0, mid = 0, hmid = 0, hi = 0, cw = 0, cs = 0;
+  for (let i = 1; i < 700; i++) {
+    const v = freq[i]/255;
+    if (i < 9) lowB += v; else if (i < 23) lmid += v; else if (i < 93) mid += v; else if (i < 280) hmid += v; else hi += v;
+    const l = LIN[freq[i]]; cw += l*i; cs += l;
+  }
+  lowB /= 8; lmid /= 14; mid /= 70; hmid /= 187; hi /= 420;
+  const tot = lowB + lmid + mid + hmid + hi + 1e-4;
+  J.kr *= Math.exp(-dt/2); J.hr *= Math.exp(-dt/2);
+  const raw = {
+    perc: Math.min(1, J.kr/2.2),
+    busy: Math.min(1, J.hr/2.5),
+    bright: cs > 0 ? Math.min(1, Math.log(1 + cw/cs)/Math.log(300)) : 0,
+    low: lowB/tot, mid: (lmid + mid)/tot,
+    lvl: Math.min(1, Math.max(0, (J.eM - J.lo)/Math.max(.06, J.hi - J.lo))),
+  };
+  for (const f of FEATS) {
+    J.fF[f] += (raw[f] - J.fF[f])*Math.min(1, dt/1.2);
+    J.fS[f] += (raw[f] - J.fS[f])*Math.min(1, dt/3);
+    J.fMax[f] = Math.max(J.fS[f], J.fMax[f] - dt*.003); J.fMin[f] = Math.min(J.fS[f], J.fMin[f] + dt*.003);
+  }
+}
+// each feature relative to this song's own range, centred on zero
+function relFeat(f){ return (J.fS[f] - J.fMin[f])/Math.max(.05, J.fMax[f] - J.fMin[f]) - .5; }
+
+function stepJourney(now, dt){
+  // energy at three timescales: right now, the last few seconds, the last ~20 seconds
+  const e = sBass*.5 + sMid*.35 + sTreb*.3;
+  J.eS += (e - J.eS)*Math.min(1, dt*6);
+  J.eM += (e - J.eM)*Math.min(1, dt/2.5);
+  J.eL += (e - J.eL)*Math.min(1, dt/20);
+  J.peak = Math.max(J.eM, J.peak - dt*.004, .05);
+  J.hi = Math.max(J.eM, J.hi - dt*.004); J.lo = Math.min(J.eM, J.lo + dt*.004);
+  const span = Math.max(.06, J.hi - J.lo);
+  const lvl = (J.eM - J.lo)/span, rise = (J.eM - J.eL)/span;
+  J.intro = Math.max(0, J.intro - dt/25);
+  const targetT = Math.min(1, Math.max(0, (lvl*.8 + rise*.5 + (J.bias - .5)*.8)*(1 - .5*J.intro)));
+  J.tension += (targetT - J.tension)*Math.min(1, dt/2);
+  J.tmin = Math.min(J.tension, J.tmin + dt*.06);
+  J.dropGlow *= Math.pow(.35, dt);
+  J.zoomFlip *= Math.pow(.25, dt);
+  features(dt);
+  if (!J.on) return;
+  if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
+
+  // ---- sections: notice when the music's character changes, and recognise parts that return
+  J.secAge += dt;
+  if (!J.M) J.M = {...J.fF};
+  for (const f of FEATS) J.M[f] += (J.fF[f] - J.M[f])*Math.min(1, dt/Math.min(8, Math.max(2, J.secAge)));
+  if (!J.type && J.secAge > 8) { enterType(newType(J.M)); J.identified = 2; }   // let the song settle before naming its first part
+  J.nov = fdist(J.fF, J.M);
+  J.novAvg += (J.nov - J.novAvg)*Math.min(1, dt/20);
+  J.novHold = J.type && J.nov > Math.max(.06, J.novAvg*2) ? (J.novHold || 0) + dt : 0;   // the change has to last, not just be a blip
+  if (!J.pending && J.secAge > 10 && J.novHold > 1.5) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
+  if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
+  // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
+  if (J.type && (J.identified < 1 && J.secAge > 6 || J.identified < 2 && J.secAge > 14)) {
+    J.identified = J.secAge > 14 ? 2 : 1;
+    const prev = J.type; enterType(matchType(J.M));
+    if (prev !== J.type && prev.visits <= 1 && J.types[J.types.length - 1] === prev && J.type !== prev) { J.types.pop(); }
+  }
+  if (J.type && J.secAge > 6) for (const f of FEATS) J.type.F[f] += (J.M[f] - J.type.F[f])*Math.min(1, dt*.05);
+
+  const T = J.tension, sp = J.speed, ty = J.type || OPENING;
+  J.clock += dt*sp*(.5 + T*.9);
+  J.phase += dt/(beatPeriod*32);            // one breath every 8 bars
+  const breath = Math.sin(J.phase*Math.PI*2);
+  const c = J.clock, n01 = (k, f) => .5 + .5*jn(c*f, k);
+  const tgt = {};
+  // worlds get a turn and then rest, so no scene lasts forever even in a one-section track
+  J.worldTime = (J.worldTime || 0) + dt;
+  if (J.worldTime > (J.world === 'none' ? 30 : 50)) {
+    if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
+    J.recast = 'keep';
+  }
+  const wOn = J.world === 'land' || J.world === 'space';
+  tgt.land = J.world === 'land' ? 1 : 0; tgt.space = J.world === 'space' ? 1 : 0;
+
+  // one lead element, chosen when the section changes; one accent that only appears when the music triggers it
+  J.leadTime = (J.leadTime || 0) + dt;
+  if (!J.lead || J.recast) recast(J.recast === 'fresh');
+  ELEMS.forEach(k => tgt[k] = 0);
+  tgt[J.lead] = wOn ? .75 : .9;
+  const trig = ACCENT[J.accent];
+  if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
+  if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
+  else J.accEnv *= Math.pow(trig === 'peak' ? .45 : .2, dt);
+  J.accEnv = Math.max(0, Math.min(1, J.accEnv));
+
+  // each section has its own colour family and way of moving
+  let dh = ty.hue - (((J.hueOff % 1) + 1) % 1); if (dh > .5) dh -= 1; if (dh < -.5) dh += 1;
+  J.hueOff += dh*Math.min(1, dt*.5);
+  J.ringR = .1 + .22*n01(370, .25); J.ringSq = jn(c*.2, 380)*.3;
+  J.ribAng = jn(c*.08, 390)*.6; J.horY = .02 + .12*n01(400, .15);
+  // kaleidoscope only in sections that have it as their character, never over a world
+  tgt.sym = wOn ? 1 : 1 + sstep(.2, .8, T)*(ty.symMax - 1);
+  tgt.mirror = !wOn && ty.symMax > 1.5 ? sstep(.4, .8, T)*.8 : 0;
+  tgt.decay = .955 - T*.05 + jn(c*.4, 320)*.012;
+  tgt.zoom = 1.0 + T*.018 + ty.zoomBias + jn(c*.3, 360)*.01 + breath*.008 + J.zoomFlip;
+  tgt.rot = (.35 + .65*Math.abs(jn(c*.35, 330)))*.03*(.4 + T)*J.spinDir*ty.spin;
+  tgt.warp = .1 + (1.3 - T)*1.1*n01(340, .5);
+  tgt.wander = .08 + (1 - T*.6)*.3*n01(350, .3);
+  tgt.colorSpeed = .015 + T*.05;
+  tgt.hueDrift = .004 + T*.02;
+  const rate = Math.min(1, dt*.4*sp);
+  if (wOn) { tgt.zoom = 1 + (tgt.zoom - 1)*.4; tgt.decay -= .04; }   // keep the glow gentle over a world
+  const swap = Math.min(1, dt*1.6);          // element changes happen over about a bar, not a long slide
+  for (const k in tgt) jState[k] += (tgt[k] - jState[k])*(k === 'zoom' ? Math.min(1, dt*2) : (k === 'land' || k === 'space') ? rate*.6 : ELEMS.includes(k) ? swap : rate);
+  if (J.accent !== J.lead) jState[J.accent] = Math.max(jState[J.accent], J.accEnv*(wOn ? .7 : .85));
+}
+function dropFX(){
+  const asp = innerWidth/innerHeight;
+  for (let i = 0; i < 6; i++) {
+    const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
+    const sh = shocks[shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;
+  }
+  beat = 1.3; hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1;
+}
+// Journey's own slow noise: each seed gets its own gentle rhythm
+function jn(t, seed){
+  const f1 = .9 + ((seed*.618) % 1)*.6, f2 = 2.1 + ((seed*.377) % 1)*.9;
+  return Math.sin(t*f1 + seed*1.7)*.65 + Math.sin(t*f2 + seed*4.1)*.35;
+}
+function freshJourney(){
+  J.intro = 1; J.hi = J.lo = J.eM; J.tension = Math.min(J.tension, .15);
+  ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); jState.sym = 1; jState.mirror = 0;
+  OPENING.casts = {};
+  J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0;
+  J.types = []; J.type = null; J.M = null; J.pending = false; J.secAge = 0; J.identified = 0; J.kr = J.hr = 0;
+  FEATS.forEach(f => { J.fMin[f] = J.fS[f] - .1; J.fMax[f] = J.fS[f] + .1; });
+  const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
+}
+
+window.__jdbg = () => ({lead: J.lead, accent: J.accent, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
+function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; if (J.type) ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); toast('Heading somewhere new'); }
+
+function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
+function applyMods(now, react){
+  const t = now/1000;
+  SPEC.forEach((s, idx) => {
+    const m = active.mods[s.k]; let target = 0;
+    if (m) {
+      const a = m.amt*(s.max - s.min);
+      if (m.src === 'drift') target = noise(t, idx + 1)*a;
+      else if (m.src === 'bass') target = sBass*react*1.8*a;
+      else if (m.src === 'mid') target = sMid*react*3*a;
+      else if (m.src === 'treb') target = sTreb*react*5*a;
+      else if (m.src === 'pulse') target = beat*a;
+      else if (m.src === 'jump') target = (jumpVal[s.k] || 0)*a;
+    }
+    const rate = m && (m.src === 'pulse' || m.src === 'jump') ? .5 : .12;
+    modSm[s.k] = (modSm[s.k] || 0) + (target - (modSm[s.k] || 0))*rate;
+    eff[s.k] = Math.min(s.max, Math.max(s.min, curP[s.k] + modSm[s.k]));
+  });
+}
+
+/* comets and shockwaves */
+const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
+const shocks = Array.from({length:8}, () => ({x:0, y:0, r:0, s:0}));
+let shockN = 0;
+function onBeatFX(){
+  const asp = innerWidth/innerHeight;
+  comets.forEach(c => {
+    const a = Math.atan2(c.dy, c.dx) + (Math.random() < .5 ? -1 : 1)*(.6 + Math.random()*1.5);
+    c.dx = Math.cos(a); c.dy = Math.sin(a); if (Math.random() < .4) c.turn *= -1; c.kick = 1;
+  });
+  if (eff.shock > .25) {
+    const from = eff.comets > .05 ? comets[shockN % 3] : {x:(Math.random() - .5)*asp*.8, y:(Math.random() - .5)*.8};
+    const sh = shocks[shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01; sh.s = Math.min(1, .5 + sBass);
+  }
+  for (const k in active.mods) if (active.mods[k].src === 'jump') jumpVal[k] = Math.random()*2 - 1;
+  J.kr += .5;
+  if (J.beatN % 2 === 0) WORLD.moonTarget += Math.PI/4;
+  if (J.on) {
+    J.beatN++;
+    if (J.pending && J.beatN % 4 === 0) newSection(J.pendStrength);
+    if (J.beatN % 4 === 0 && ACCENT[J.accent] === 'bar') J.accEnv = 1;
+    if (J.beatN % 16 === 0 && ACCENT[J.accent] === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
+    if (J.beatN % 16 === 0 && J.leadTime > 45) J.recast = 'fresh';     // a very long section gets a new lead on a phrase line
+    if (J.beatN % 16 === 0) J.spinDir *= -1;                        // spin reverses every 4 bars
+    if (J.beatN % 32 === 0 && Math.random() < .4) J.zoomFlip = -.03;  // occasional pull-back
+  }
+}
+// stabs, snares and other hits: a small ripple somewhere, comets flinch, colour nudges
+function onHitFX(){
+  if (J.on && ACCENT[J.accent] === 'hit') J.accEnv = 1;
+  J.hr += .5;
+  const asp = innerWidth/innerHeight;
+  if (eff.shock > .2) {
+    const sh = shocks[shockN++ % 8];
+    sh.x = (Math.random() - .5)*asp*.85; sh.y = (Math.random() - .5)*.85; sh.r = .005; sh.s = .7;
+  }
+  comets.forEach(c => c.kick = Math.max(c.kick, .5));
+  hueKick += .025;
+}
+function stepFX(dt, react, now){
+  const tt = now/1000;
+  const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
+  comets.forEach((c, i) => {
+    const e = bands[i]*react;
+    const a = Math.atan2(c.dy, c.dx) + c.turn*(.5 + sMid*react*2)*dt;
+    c.dx = Math.cos(a); c.dy = Math.sin(a);
+    const bend = eff.plasma*Math.sin(c.x*3 + tt)*Math.cos(c.y*3 - tt*.7)*2.5*dt;
+    const a2 = Math.atan2(c.dy, c.dx) + bend; c.dx = Math.cos(a2); c.dy = Math.sin(a2);
+    const sp = (.12 + e*.5)*(1 + c.kick*2.5)*(.7 + J.tension*.6); c.kick *= Math.pow(.02, dt);
+    c.x += c.dx*sp*dt; c.y += c.dy*sp*dt;
+    if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
+    if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
+    c.z = .5 + Math.min(1.5, e);
+  });
+  shocks.forEach(h => {
+    if (h.s <= 0) return;
+    h.r += dt*(.45 + sBass*react*.8); h.s *= Math.pow(.3, dt);
+    if (h.r > 1.6 || h.s < .01) h.s = 0;
+  });
+}
+
+function setPreset(p, label){
+  active = p; beatsInPreset = 0; presetSince = performance.now();
+  $('#pName').textContent = label || p.name; toast(label || p.name); syncSliders();
+}
+function nextPreset(dir){ if (J.on) setJourney(false); pIndex = (pIndex + dir + presets.length) % presets.length; setPreset(presets[pIndex]); }
+function randomize(){
+  if (J.on) { nudge(); return; }
+  const r = (a,b) => a + Math.random()*(b-a), pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  const p = {name:'Random', decay:r(.88,.985), zoom:r(.995,1.07), rot:r(-.03,.03), warp:r(0,1.5), wander:Math.random()<.5 ? r(.05,.3) : 0,
+    sym:Math.floor(r(1,9)), mirror:Math.random()<.4?1:0, colorSpeed:r(.03,.25), hueDrift:r(0,.035), mods:{}};
+  const layers = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
+  p.land = 0; p.space = 0; const wr = Math.random(); if (wr < .25) p.land = 1; else if (wr < .5) p.space = 1;
+  layers.forEach(l => p[l] = Math.random()<.3 ? r(.2,.7) : 0);
+  p[pick(layers)] = 1;
+  const targets = ['rot','zoom','warp','sym','decay','hueDrift','mirror','wander'].sort(() => Math.random() - .5);
+  const n = 2 + Math.floor(Math.random()*3);
+  for (const k of targets.slice(0, n)) p.mods[k] = {src:pick(['drift','drift','bass','mid','treb','pulse','jump']), amt:+r(.1,.4).toFixed(2)};
+  setPreset(p);
+}
+
+/* ---------- audio ---------- */
+let actx = null, analyser = null, source = null, buffer = null;
+let playing = false, startedAt = 0, pausedAt = 0, tracks = [], tIndex = -1, loadToken = 0;
+const freq = new Uint8Array(1024), wave = new Uint8Array(2048);
+
+function ensureAudio(){
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .2;
+    analyser.connect(actx.destination);
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+function stopSource(){ if (source) { source.onended = null; try { source.stop(); } catch(e){} source.disconnect(); source = null; } }
+function playFrom(offset){
+  if (!buffer) return;
+  ensureAudio(); stopSource();
+  const s = actx.createBufferSource(); s.buffer = buffer; s.connect(analyser);
+  s.onended = () => { if (source === s) { source = null; playing = false; nextTrack(true); } };
+  s.start(0, Math.max(0, Math.min(offset, buffer.duration - .01)));
+  source = s; startedAt = actx.currentTime - offset; playing = true; updatePlayUI();
+}
+function pause(){ if (!playing) return; pausedAt = actx.currentTime - startedAt; stopSource(); playing = false; updatePlayUI(); }
+function togglePlay(){
+  if (!buffer) { $('#fileIn').click(); return; }
+  playing ? pause() : playFrom(pausedAt);
+}
+function position(){ return buffer ? (playing ? actx.currentTime - startedAt : pausedAt) : 0; }
+
+async function loadTrack(i){
+  if (i < 0 || i >= tracks.length) return;
+  ensureAudio(); const token = ++loadToken; tIndex = i;
+  stopSource(); playing = false;
+  $('#track').innerHTML = 'Loading…';
+  try {
+    const ab = await tracks[i].file.arrayBuffer();
+    const buf = await actx.decodeAudioData(ab);
+    if (token !== loadToken) return;
+    buffer = buf; pausedAt = 0; if (J.on) freshJourney(); playFrom(0);
+  } catch(e) {
+    if (token !== loadToken) return;
+    toast('Could not read that file'); tracks.splice(i,1);
+    if (tracks.length) loadTrack(Math.min(i, tracks.length-1)); else { buffer = null; updatePlayUI(); }
+    return;
+  }
+  updateTrackUI();
+}
+function nextTrack(fromEnd){
+  if (tIndex < tracks.length - 1) loadTrack(tIndex + 1);
+  else if (fromEnd) { pausedAt = 0; updatePlayUI(); }
+  else if (tracks.length) loadTrack(0);
+}
+function prevTrack(){
+  if (position() > 3 || tIndex <= 0) { playing ? playFrom(0) : (pausedAt = 0); }
+  else loadTrack(tIndex - 1);
+}
+function addFiles(list){
+  const files = [...list].filter(f => f.type.startsWith('audio/') || /\.(mp3|m4a|wav|ogg|flac|aac)$/i.test(f.name));
+  if (!files.length) { toast('Those files aren’t audio'); return; }
+  const first = tracks.length;
+  files.forEach(f => tracks.push({file:f, name:f.name.replace(/\.[^.]+$/, '')}));
+  $('#welcome').classList.add('gone');
+  if (!buffer || !playing) loadTrack(first); else updateTrackUI();
+}
+
+/* ---------- analysis ---------- */
+let sBass = 0, sMid = 0, sTreb = 0, beat = 0, lastBeat = 0, hueKick = 0, hit = 0, lastHit = 0;
+const prevSpec = new Uint8Array(1024), loFlux = [], hiFlux = [];
+const kickFl = [], hitFl = [];
+// analyser bytes are decibels; onsets are judged on actual loudness so faint noise can't pass for a kick
+const LIN = Float32Array.from({length:256}, (_, b) => Math.pow(10, (b/255*70 - 70)/20));
+function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
+function synth(t){
+  const s = t/1000, ph = (s*2) % 1, kick = Math.exp(-ph*8);
+  for (let i = 0; i < 2048; i++) { const x = i/2048;
+    wave[i] = 128 + (Math.sin(x*Math.PI*6 + s*2)*30 + Math.sin(x*Math.PI*22 - s*3)*12) * (.5 + kick*.6); }
+  for (let i = 0; i < 1024; i++) { const f = i/1024;
+    freq[i] = Math.max(0, Math.min(255, 210*Math.exp(-f*6)*(.55+kick*.55) + 40*Math.sin(f*40+s*3)*Math.exp(-f*3))); }
+}
+function analyse(now){
+  if (buffer && analyser) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
+  else synth(now);
+  for (let i = 0; i < 256; i++) {
+    dataArr[i] = wave[i*8];
+    dataArr[256+i] = freq[Math.min(1023, 1 + Math.floor(Math.pow(i/255, 2) * 700))];
+  }
+  const avg = (a,b) => { let s = 0; for (let i = a; i < b; i++) s += freq[i]; return s / ((b-a)*255); };
+  const bass = avg(1,9), mid = avg(9,90), treb = avg(90,400);
+  sBass += (bass - sBass)*.3; sMid += (mid - sMid)*.2; sTreb += (treb - sTreb)*.25;
+  // onsets: how much the spectrum jumped since the last frame (spectral flux)
+  let fl = 0, fh = 0;
+  for (let i = 1; i < 7; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fl += d; }
+  for (let i = 12; i < 120; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fh += d; }
+  let ft = 0; for (let i = 200; i < 500; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) ft += d; }
+  prevSpec.set(freq); fl /= 6; fh /= 108; ft /= 300;
+  const lq = upper(loFlux, .6), hq = upper(hiFlux, .75);
+  // compare against the typical strength of recent kicks/hits, so quieter bleed doesn't count
+  const kT = kickFl.length > 2 ? upper(kickFl, .5)*.4 : 0, hT = hitFl.length > 2 ? upper(hitFl, .5)*.4 : 0;
+  loFlux.push(fl); if (loFlux.length > 50) loFlux.shift();
+  hiFlux.push(fh); if (hiFlux.length > 50) hiFlux.shift();
+  if (fh > Math.max(.004, hq*3.5, hT) && fh > ft*1.6 && fl < fh*.8 && now - lastHit > 160 && now - lastBeat > 90) {
+    hitFl.push(fh); if (hitFl.length > 8) hitFl.shift();
+    hit = reduceMotion ? .5 : 1; lastHit = now; onHitFX();
+  }
+  if (fl > Math.max(.03, lq*2.5, kT) && bass > .25 && now - lastBeat > 200) {
+    kickFl.push(fl); if (kickFl.length > 8) kickFl.shift();
+    const iv = (now - lastBeat)/1000;
+    if (iv > .25 && iv < 1.1) { intervals.push(iv); if (intervals.length > 8) intervals.shift();
+      beatPeriod = [...intervals].sort((x, y) => x - y)[intervals.length >> 1]; }
+    beat = reduceMotion ? .5 : 1; lastBeat = now; hueKick += .07; onBeatFX();
+  }
+  beat *= .84; hit *= .82;
+}
+
+/* ---------- controller + keyboard ---------- */
+const live = {rot:0, zoom:0, warp:0, cx:0, cy:0};
+let prevBtn = [], keyHold = false, padHold = false, padBlocked = false;
+function pollPad(){
+  let tr = 0, tz = 0, tw = 0, tx = 0, ty = 0; padHold = false;
+  let pads = [];
+  try { pads = navigator.getGamepads ? navigator.getGamepads() || [] : []; } catch(e) { padBlocked = true; }
+  const gp = [...pads].find(p => p && p.connected);
+  if (gp) {
+    const dz = v => Math.abs(v || 0) < .15 ? 0 : v;
+    const bv = i => gp.buttons[i] ? gp.buttons[i].value : 0;
+    const pressed = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const edge = i => pressed(i) && !prevBtn[i];
+    tr = dz(gp.axes[0]) * .04; tw = Math.abs(dz(gp.axes[1])) * 1.5;
+    tx = dz(gp.axes[2]) * .35; ty = -dz(gp.axes[3]) * .35;
+    tz = (bv(7) - bv(6)) * .05;
+    if (edge(0)) nextPreset(1);
+    if (edge(1)) randomize();
+    padHold = pressed(2);
+    if (edge(3)) toggleAuto();
+    if (edge(4)) prevTrack();
+    if (edge(5)) nextTrack();
+    if (edge(9)) togglePlay();
+    if (edge(14)) nextPreset(-1);
+    if (edge(15)) nextPreset(1);
+    prevBtn = gp.buttons.map(b => b.pressed);
+  }
+  live.rot += (tr - live.rot)*.15; live.zoom += (tz - live.zoom)*.15; live.warp += (tw - live.warp)*.1;
+  live.cx += (tx - live.cx)*.08; live.cy += (ty - live.cy)*.08;
+}
+addEventListener('gamepadconnected', () => toast('Controller connected'));
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.key !== ' ') return;
+  wake();
+  switch (e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); togglePlay(); break;
+    case 'arrowright': nextPreset(1); break;
+    case 'arrowleft': nextPreset(-1); break;
+    case 'r': randomize(); break;
+    case 'a': toggleAuto(); break;
+    case 'n': nextTrack(); break;
+    case 'x': keyHold = true; break;
+    case 'h': document.body.classList.toggle('clean'); break;
+    case 'f': fullscreen(); break;
+  }
+});
+addEventListener('keyup', e => { if (e.key.toLowerCase() === 'x') keyHold = false; });
+
+/* ---------- render loop ---------- */
+let frameN = 0, hueAcc = 0;
+function frame(now){
+  requestAnimationFrame(frame);
+  try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
+}
+function render(now){
+  analyse(now);
+  if (!padBlocked) pollPad();
+  const dt = Math.min(.05, Math.max(0, (now - (render.last || now))/1000)); render.last = now;
+  stepJourney(now, dt);
+  const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
+  for (const s of SPEC) curP[s.k] += (active[s.k] - curP[s.k]) * (J.on && ELEMS.includes(s.k) ? 1 : morph);
+  const react = +$('#react').value;
+  applyMods(now, react);
+  stepFX(dt, react, now);
+  stepWorld(dt, react, now);
+  J.ribPh += dt*(.4 + J.tension*1.2 + beat*2); J.horScroll += dt*(.4 + J.tension*1.6 + beat*2.5);
+  if (eff.flow > .01) stepParts(dt, react, now);
+  hueAcc += dt*eff.colorSpeed;
+  const hue = hueAcc + hueKick + (J.on ? J.hueOff : 0), t = now/1000, asp = innerWidth/innerHeight;
+  const P = {zoom: eff.zoom + live.zoom, rot: eff.rot + live.rot, warp: eff.warp + live.warp,
+    decay: (keyHold || padHold) ? .995 : eff.decay, sym: eff.sym, mirror: eff.mirror,
+    hue, hueShift: eff.hueDrift, bass: sBass, mid: sMid, treb: sTreb, beat, hit, react,
+    cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
+    ring: eff.ring, scope: eff.scope, plasma: eff.plasma, burst: eff.burst,
+    cometW: eff.comets, shockW: Math.max(eff.shock, J.dropGlow), comets, shocks,
+    ringR: J.on ? J.ringR : .2, ringSq: J.on ? J.ringSq : 0,
+    flowW: eff.flow, ribW: eff.ribbons, horW: eff.horizon, ribAng: J.on ? J.ribAng : 0, ribPh: J.ribPh,
+    horScroll: J.horScroll, horY: J.on ? J.horY : .05,
+    landW: eff.land, spaceW: eff.space, landY: WORLD.landY, histFrac: WORLD.histT/.12, sunX: Math.sin(t*.03)*.15,
+    planet: WORLD.planet, moons: WORLD.moons, lightAng: WORLD.lightAng, starPh: WORLD.starPh};
+  P.horY += (WORLD.landY - P.horY)*Math.min(1, eff.land*2);   // the grid floor lines up with the landscape's horizon
+  P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + beat*.5));
+  const pull = Math.min(1, eff.comets)*.7;
+  P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
+  if (gl) drawGL(now, P); else r2d.draw(now, P);
+
+  if (++frameN % 6 === 0) {
+    document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
+    updateTimeUI();
+    $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
+    if ($('#panel').classList.contains('open')) for (const k in sliders) {
+      const {out, s, input} = sliders[k]; if (J.on) input.value = active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
+    }
+  }
+}
+requestAnimationFrame(frame);
+
+/* ---------- UI ---------- */
+const fmt = s => { s = Math.max(0, s|0); return `${(s/60)|0}:${String(s%60).padStart(2,'0')}`; };
+let seeking = false;
+function updateTimeUI(){
+  const d = buffer ? buffer.duration : 0, p = Math.min(position(), d);
+  $('#tNow').textContent = fmt(p); $('#tDur').textContent = fmt(d);
+  if (!seeking) $('#seek').value = d ? p/d*1000 : 0;
+}
+function updatePlayUI(){
+  $('#playIcon').innerHTML = playing ? '<path d="M6 4h4v16H6zm8 0h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
+  $('#playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+}
+function updateTrackUI(){
+  const t = tracks[tIndex]; if (!t) return;
+  const el = $('#track'); el.textContent = t.name;
+  if (tracks.length > 1) { const sm = document.createElement('small'); sm.textContent = `${tIndex+1} of ${tracks.length}`; el.appendChild(sm); }
+}
+$('#seek').addEventListener('input', () => { seeking = true; });
+$('#seek').addEventListener('change', e => {
+  seeking = false; if (!buffer) return;
+  const off = e.target.value/1000 * buffer.duration;
+  playing ? playFrom(off) : (pausedAt = off);
+});
+$('#playBtn').onclick = togglePlay;
+$('#nextT').onclick = () => nextTrack();
+$('#prevT').onclick = prevTrack;
+$('#nextP').onclick = () => nextPreset(1);
+$('#prevP').onclick = () => nextPreset(-1);
+$('#randBtn').onclick = randomize;
+function setJourney(on, snapshot){
+  J.on = on;
+  $('#autoBtn').setAttribute('aria-pressed', on);
+  $('#randBtn').textContent = on ? 'Nudge' : 'Randomize';
+  $('#sliders').classList.toggle('locked', on); $('#jNote').hidden = !on;
+  if (on) { SPEC.forEach(s => jState[s.k] = curP[s.k]); if (snapshot === 'fresh') freshJourney(); active = jState; $('#pName').textContent = 'Journey'; toast('Journey'); syncSliders(); }
+  else if (snapshot) { const snap = clone(jState); snap.name = 'Snapshot'; snap.mods = {}; setPreset(snap); }
+}
+function toggleAuto(){ setJourney(!J.on, true); }
+$('#autoBtn').onclick = toggleAuto;
+$('#adjBtn').onclick = () => { const o = $('#panel').classList.toggle('open'); $('#adjBtn').setAttribute('aria-pressed', o); };
+function fullscreen(){
+  const d = document;
+  if (d.fullscreenElement) d.exitFullscreen();
+  else {
+    const el = d.documentElement, fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    const fallback = () => { document.body.classList.add('clean'); toast('Press H to show controls'); };
+    try { const r = fn ? fn.call(el) : null; if (r && r.catch) r.catch(fallback); else if (!fn) fallback(); } catch(e) { fallback(); }
+  }
+}
+$('#fsBtn').onclick = fullscreen;
+['#pickBtn','#addBtn'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); $('#fileIn').click(); } }));
+$('#fileIn').onchange = e => { if (e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
+
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
+addEventListener('drop', e => { e.preventDefault(); document.body.classList.remove('dragging');
+  if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+// sliders
+const sliders = {};
+let lastGroup = '';
+const optHTML = SOURCES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+for (const s of SPEC) {
+  if (s.g !== lastGroup) { const h = document.createElement('h2'); h.textContent = s.g; $('#sliders').appendChild(h); lastGroup = s.g; }
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<label for="s_${s.k}">${s.label}</label><output id="o_${s.k}"></output>
+    <input type="range" id="s_${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
+    <div class="mod"><select aria-label="${s.label} movement">${optHTML}</select>
+    <input type="range" class="depth" min="0.02" max="1" step="0.01" aria-label="${s.label} movement amount"></div>`;
+  $('#sliders').appendChild(row);
+  const input = row.querySelector('input'), out = row.querySelector('output');
+  const sel = row.querySelector('select'), depth = row.querySelector('.depth');
+  input.addEventListener('input', () => { active[s.k] = +input.value; });
+  sel.addEventListener('change', () => {
+    if (sel.value === 'none') delete active.mods[s.k];
+    else active.mods[s.k] = {src: sel.value, amt: active.mods[s.k] ? active.mods[s.k].amt : .25};
+    if (sel.value === 'jump') jumpVal[s.k] = Math.random()*2 - 1;
+    syncSliders();
+  });
+  depth.addEventListener('input', () => { if (active.mods[s.k]) active.mods[s.k].amt = +depth.value; });
+  sliders[s.k] = {input, out, s, sel, depth, row};
+}
+function syncSliders(){
+  for (const k in sliders) {
+    const {input, out, s, sel, depth, row} = sliders[k], m = active.mods[k];
+    input.value = active[k]; out.textContent = (+active[k]).toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
+    sel.value = m ? m.src : 'none'; depth.value = m ? m.amt : .25; row.classList.toggle('moving', !!m);
+  }
+}
+syncSliders();
+$('#jBias').addEventListener('input', e => { J.bias = +e.target.value;
+  $('#jBiasOut').textContent = J.bias < .35 ? 'Calm' : J.bias > .65 ? 'Intense' : 'Balanced'; });
+$('#jSpeed').addEventListener('input', e => { J.speed = +e.target.value; $('#jSpeedOut').textContent = J.speed.toFixed(2) + '×'; });
+setJourney(true, 'fresh');
+$('#react').addEventListener('input', e => $('#reactOut').textContent = (+e.target.value).toFixed(2));
+$('#resetBtn').onclick = () => {
+  const i = presets.indexOf(active);
+  if (i >= 0) { Object.assign(active, clone(BASE[i])); syncSliders(); toast('Preset reset'); }
+};
+$('#copyBtn').onclick = async () => {
+  const obj = {}; for (const s of SPEC) obj[s.k] = +(+active[s.k]).toFixed(3);
+  obj.reactivity = +$('#react').value;
+  obj.mods = active.mods;
+  const txt = JSON.stringify({name: active.name, ...obj});
+  try { await navigator.clipboard.writeText(txt); toast('Settings copied'); }
+  catch(e) { const ta = $('#copyOut'); ta.style.display = 'block'; ta.value = txt; ta.select(); }
+};
+
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
+
+// hide controls when idle
+let idleT;
+function wake(){
+  document.body.classList.remove('idle'); clearTimeout(idleT);
+  idleT = setTimeout(() => { if (playing && !$('#panel').classList.contains('open')) document.body.classList.add('idle'); }, 3000);
+}
+['mousemove','pointerdown','touchstart'].forEach(ev => addEventListener(ev, () => { wake(); if (actx && actx.state==='suspended') actx.resume(); }, {passive:true}));
+wake();
+})();
+</script>
+</body>
+</html>
