@@ -319,12 +319,17 @@ void main(){
 const DISPLAY = PREC + `
 varying vec2 vUv;
 uniform sampler2D uTex, uHist; uniform vec2 uRes;
-uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uLand,uSpace,uLandY,uHistFrac,uSunX,uLightAng,uStarPh;
+uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uLand,uSpace,uLandY,uHistFrac,uSunX,uLightAng,uStarPh,uAur,uCity,uCitySeed;
+uniform sampler2D uData;   // waveform and spectrum
+uniform vec4 uOut[3];      // outline echoes: radius, brightness, sides, rotation
+uniform vec4 uSpark[6];    // sparkles: x, y, size, brightness
 uniform vec3 uPlanet;      // x, y, radius
 uniform vec4 uMoons[2];    // x, y, radius, in front (1) or behind (0)
 uniform vec4 uStar;        // x, y, radius, brightness
 uniform vec3 uStarS;       // rotation, points, inner radius as a fraction
 float ASP;
+float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
+float sdNgon(vec2 p,float r,float n){ float an=3.141593/n; float a=mod(atan(p.x,p.y),2.0*an)-an; return length(p)*cos(a)-r*cos(an); }
 float sdStar(vec2 p,float R,float n,float ratio){   // tips at R, inner corners at R*ratio
   float an=3.141593/n;
   float a=abs(mod(atan(p.x,p.y),2.0*an)-an);
@@ -411,6 +416,55 @@ vec3 space(vec2 sp){
   }
   return c;
 }
+// aurora: curtains of light over a dark treeline, swelling with the melody
+vec3 aurora(vec2 sp){
+  float t=uTime;
+  vec3 c=mix(hsv(uHue+0.62,0.7,0.12),hsv(uHue+0.7,0.6,0.02),clamp(sp.y+0.5,0.0,1.0));
+  vec2 g=sp*60.0, cell=floor(g); float h=hash(cell);
+  c+=vec3(0.8)*step(0.985,h)*smoothstep(0.35,0.0,length(fract(g)-0.5))*(0.55+0.45*sin(t*2.0+h*40.0));
+  for(int i=0;i<3;i++){
+    float fi=float(i), x=sp.x*(1.2+fi*0.3)+fi*1.7;
+    float base=-0.08+fi*0.09+0.08*sin(x*1.3+t*0.15+fi)+0.04*sin(x*3.1-t*0.23)-uMid*uReact*0.05;
+    float d=sp.y-base;
+    float fold=0.5+0.5*sin(x*14.0+sin(x*3.0+t*0.4)*2.0+t*(0.6+fi*0.2));
+    float body=smoothstep(-0.015,0.02,d)*exp(-max(d,0.0)*(3.0+fi*1.5));
+    vec3 col=mix(hsv(uHue+0.33,0.8,1.0),hsv(uHue+0.8,0.7,1.0),clamp(d*2.5,0.0,1.0));
+    c+=col*body*(0.3+0.7*fold)*(0.45+0.5*uMid*uReact+0.2*uBeat)*(1.0-fi*0.25);
+  }
+  float cx=fract(sp.x*38.0)-0.5, id=floor(sp.x*38.0);
+  float top=-0.3+0.02*sin(sp.x*7.0)+0.012*sin(sp.x*23.0)+(0.03+0.05*hash(vec2(id,3.0)))*(1.0-abs(cx)*2.0);
+  if(sp.y<top) c=hsv(uHue+0.62,0.5,0.03);
+  return c;
+}
+// city: a night skyline whose rooftops follow the spectrum and whose windows change on the downbeat
+vec3 cityAbove(vec2 sp){
+  float t=uTime;
+  vec3 c=mix(hsv(uHue+0.9,0.6,0.32),hsv(uHue+0.65,0.7,0.035),pow(clamp(sp.y+0.5,0.0,1.0),0.6));
+  vec2 mp=vec2(-ASP*0.28,0.28); float md=length(sp-mp);
+  c+=hsv(uHue+0.1,0.2,1.0)*smoothstep(0.052,0.048,md)*0.8+hsv(uHue+0.1,0.3,1.0)*0.12*exp(-md*8.0);
+  for(int L=0;L<2;L++){
+    float fl=float(L), w=0.035+fl*0.035;
+    float x=sp.x+t*(0.008+fl*0.02)+fl*3.7;
+    float id=floor(x/w), lx=fract(x/w), hb=hash(vec2(id,fl+1.0));
+    float h=-0.3+(0.06+0.2*hb)*(0.8+fl*0.35)+specD(fract(id*0.137))*0.1*uReact*(0.5+fl*0.5);
+    if(sp.y<h && lx>0.06 && lx<0.94){
+      vec3 b=hsv(uHue+0.65,0.5,0.05+fl*0.04);
+      vec2 wg=vec2(lx*5.0,(h-sp.y)/(w*0.3)), wc=floor(wg), wf=fract(wg);
+      float win=step(0.25,wf.x)*step(wf.x,0.75)*step(0.3,wf.y)*step(wf.y,0.8)*step(1.0,wc.y);
+      float lit=step(0.74,hash(vec2(id*7.0+wc.x,wc.y+uCitySeed*13.0+fl*50.0)));
+      b+=hsv(uHue+0.12+0.06*hash(vec2(id,wc.y)),0.6,1.0)*win*lit*(0.45+0.3*fl+0.35*uBeat);
+      b+=hsv(uHue+0.55,0.6,1.0)*smoothstep(0.004,0.0,h-sp.y)*(0.25+uBeat*0.6)*fl;
+      c=mix(b,c,0.3*(1.0-fl));
+    }
+  }
+  return c;
+}
+vec3 city(vec2 sp){
+  if(sp.y>=-0.3) return cityAbove(sp)+hsv(uHue+0.95,0.7,1.0)*exp(-(sp.y+0.3)*14.0)*0.18;
+  float dy=-0.3-sp.y;                    // a wet street: the skyline reflected, rippling
+  vec2 r=vec2(sp.x+sin(dy*80.0-uTime*2.5)*0.004*(1.0+uBeat*3.0),-0.3+dy*1.4);
+  return cityAbove(r)*0.35*(1.0-clamp(dy*2.5,0.0,0.7))+hsv(uHue+0.95,0.7,1.0)*exp(-dy*10.0)*0.12;
+}
 void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
@@ -423,6 +477,8 @@ void main(){
   vec3 w=vec3(0.0);
   if(uLand>0.003) w+=landscape(sp)*uLand;
   if(uSpace>0.003) w+=space(sp)*uSpace;
+  if(uAur>0.003) w+=aurora(sp)*uAur;
+  if(uCity>0.003) w+=city(sp)*uCity;
   c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
   // hits sit on top, crisp, with a small halo of glow
   if(uStar.w>0.003){
@@ -432,6 +488,22 @@ void main(){
     float edge=smoothstep(0.005,0.0,abs(d));
     float halo=exp(-max(d,0.0)*26.0)*(1.0-fill);
     c+=(hsv(uHue+0.12,0.35,1.0)*fill*0.9+vec3(1.0)*edge*0.5+hsv(uHue+0.12,0.8,1.0)*halo*0.45)*uStar.w;
+  }
+  for(int i=0;i<3;i++){                  // outline: a polygon zooming out, with echoes
+    vec4 o=uOut[i];
+    if(o.y>0.003){
+      vec2 q=sp; float cs=cos(o.w), sn=sin(o.w); q=mat2(cs,-sn,sn,cs)*q;
+      float d=abs(sdNgon(q,o.x,o.z));
+      c+=(vec3(1.0)*smoothstep(0.004,0.0,d)*0.7+hsv(uHue+0.3,0.8,1.0)*exp(-d*55.0)*0.45)*o.y;
+    }
+  }
+  for(int i=0;i<6;i++){                  // sparkles: four-point glints
+    vec4 s=uSpark[i];
+    if(s.w>0.003){
+      vec2 q=(sp-s.xy)/s.z;
+      float v=exp(-abs(q.x)*9.0-abs(q.y)*0.9)+exp(-abs(q.y)*9.0-abs(q.x)*0.9)+exp(-length(q)*5.0);
+      c+=hsv(uHue+0.15,0.3,1.0)*v*s.w*0.8;
+    }
   }
   c*=smoothstep(1.15,0.35,length(vUv-0.5));
   gl_FragColor=vec4(c,1.0);
@@ -551,6 +623,10 @@ function drawGL(now, P){
   gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
   gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
   gl.uniform1f(v.uLand, P.landW); gl.uniform1f(v.uSpace, P.spaceW); gl.uniform1f(v.uLandY, P.landY);
+  gl.uniform1f(v.uAur, P.aurW); gl.uniform1f(v.uCity, P.cityW); gl.uniform1f(v.uCitySeed, P.citySeed);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
+  if (v['uOut[0]']) gl.uniform4fv(v['uOut[0]'], P.outline);
+  if (v['uSpark[0]']) gl.uniform4fv(v['uSpark[0]'], P.sparks);
   gl.uniform1f(v.uHistFrac, P.histFrac); gl.uniform1f(v.uSunX, P.sunX); gl.uniform1f(v.uLightAng, P.lightAng);
   gl.uniform1f(v.uStarPh, P.starPh); gl.uniform3fv(v.uPlanet, P.planet);
   if (v['uMoons[0]']) gl.uniform4fv(v['uMoons[0]'], P.moons);
@@ -628,7 +704,70 @@ function make2D(view){
   const stars = Array.from({length:220}, () => ({x:(Math.random() - .5)*3, y:(Math.random() - .5)*2, z:Math.random()}));
   let lastStarPh = 0;
   const hc = (h, s, l, a) => `hsla(${((((h)%1)+1)%1*360).toFixed(1)},${s}%,${l}%,${a})`;
+  function drawAurora(P, t){
+    const o = out, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;
+    o.globalAlpha = Math.min(1, P.aurW);
+    const sky = o.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, hc(P.hue + .7, 60, 2, 1)); sky.addColorStop(1, hc(P.hue + .62, 70, 10, 1));
+    o.fillStyle = sky; o.fillRect(0, 0, W, H);
+    o.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j <= 60; j++) {
+        const xs = (j/60 - .5)*asp, x = xs*(1.2 + i*.3) + i*1.7;
+        const base = -.08 + i*.09 + .08*Math.sin(x*1.3 + t*.15 + i) + .04*Math.sin(x*3.1 - t*.23) - P.mid*P.react*.05;
+        const fold = .5 + .5*Math.sin(x*14 + Math.sin(x*3 + t*.4)*2 + t*(.6 + i*.2));
+        const a = (.3 + .7*fold)*(.3 + .45*P.mid*P.react + .2*P.beat)*(1 - i*.25)*.5;
+        const g = o.createLinearGradient(0, Y(base), 0, Y(base + .3));
+        g.addColorStop(0, hc(P.hue + .33, 80, 55, a)); g.addColorStop(1, hc(P.hue + .8, 70, 50, 0));
+        o.fillStyle = g; const x0 = Math.floor(X(xs)), x1 = Math.floor(X(xs + asp/60)); o.fillRect(x0, Y(base + .3), x1 - x0, .3*u);
+      }
+    }
+    o.globalCompositeOperation = 'source-over';
+    o.fillStyle = hc(P.hue + .62, 50, 3, 1); o.beginPath(); o.moveTo(0, H);
+    for (let j = 0; j <= 76; j++) { const xs = (j/76 - .5)*asp, id = Math.floor(xs*38);
+      const top = -.3 + .02*Math.sin(xs*7) + .012*Math.sin(xs*23) + (j % 2 ? 0 : .03 + .05*((Math.sin(id*12.9898)*43758.5453) % 1 + 1) % 1);
+      o.lineTo(X(xs), Y(top)); }
+    o.lineTo(W, H); o.closePath(); o.fill();
+  }
+  const cityB = [0, 1].map(L => Array.from({length:80}, () => Math.random()));
+  function drawCity(P, t){
+    const o = out, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;
+    o.globalAlpha = Math.min(1, P.cityW);
+    const sky = o.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, hc(P.hue + .65, 70, 3, 1)); sky.addColorStop(1, hc(P.hue + .9, 60, 25, 1));
+    o.fillStyle = sky; o.fillRect(0, 0, W, H);
+    o.fillStyle = hc(P.hue + .1, 20, 85, .8); o.beginPath(); o.arc(X(-asp*.28), Y(.28), .05*u, 0, Math.PI*2); o.fill();
+    for (let L = 0; L < 2; L++) {
+      const w = .035 + L*.035, shift = t*(.008 + L*.02) + L*3.7, first = Math.floor((-asp/2 + shift)/w);
+      for (let id = first; id*w - shift < asp/2; id++) {
+        const hb = cityB[L][((id % 80) + 80) % 80], sv = dataArr[256 + Math.floor((((id*.137) % 1) + 1) % 1*255)]/255;
+        const h = -.3 + (.06 + .2*hb)*(.8 + L*.35) + sv*.1*P.react*(.5 + L*.5);
+        const x0 = X(id*w - shift + w*.06), x1 = X(id*w - shift + w*.94);
+        o.fillStyle = hc(P.hue + .65, 50, 5 + L*4, 1); o.fillRect(x0, Y(h), x1 - x0, Y(-.3) - Y(h));
+        const rows = Math.floor((h + .3)/(w*.3));
+        for (let r = 1; r < rows; r++) for (let c = 0; c < 5; c++) {
+          const lit = ((Math.sin(id*91.7 + c*12.3 + r*7.1 + P.citySeed*13 + L*50)*43758.5453) % 1 + 1) % 1 > .74;
+          if (!lit) continue;
+          o.fillStyle = hc(P.hue + .12, 60, 60, Math.min(1, .45 + .3*L + .35*P.beat));
+          o.fillRect(x0 + (x1 - x0)*(c + .25)/5, Y(h - (r + .3)*w*.3), (x1 - x0)*.1, w*.3*.5*u);
+        }
+      }
+    }
+  }
+  function drawStreet(P){                                // the street: the skyline reflected in strips
+    const o = out, gy = H/2 + .3*H;
+    o.globalAlpha = Math.min(1, P.cityW);
+    o.fillStyle = hc(P.hue + .65, 60, 3, 1); o.fillRect(0, gy, W, H - gy);
+    for (let yo = 0; yo < H - gy; yo += 3) {
+      const src = gy - yo*1.4 - 3; if (src < 0) break;
+      o.globalAlpha = Math.min(1, P.cityW)*.35*(1 - Math.min(.7, yo/H*2.5));
+      o.drawImage(o.canvas, 0, src, W, 3, Math.sin(yo*.3)*2, gy + yo, W, 3);
+    }
+  }
   function drawWorld(P, now){
+    if (P.aurW > .01) drawAurora(P, now/1000);
+    if (P.cityW > .01) { drawCity(P, now/1000); drawStreet(P); }
+    out.globalAlpha = 1;
     if (P.landW < .01 && P.spaceW < .01) return;
     const t = now/1000, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, o = out;
     o.save();
@@ -728,6 +867,30 @@ function make2D(view){
       }
     }
     o.restore();
+  }
+  function drawHits(P){
+    const u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u;
+    out.save(); out.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const r = P.outline[i*4], a = P.outline[i*4 + 1], n = P.outline[i*4 + 2], rot = P.outline[i*4 + 3];
+      if (a < .003) continue;
+      out.beginPath();
+      for (let k = 0; k <= n; k++) { const ang = rot + k/n*Math.PI*2, R = r/Math.cos(Math.PI/n)*u;
+        const px = X(0) + Math.sin(ang)*R, py = Y(0) - Math.cos(ang)*R; k ? out.lineTo(px, py) : out.moveTo(px, py); }
+      out.shadowColor = hc(P.hue + .3, 80, 60, a); out.shadowBlur = u*.02;
+      out.strokeStyle = `rgba(255,255,255,${Math.min(1, a*.8)})`; out.lineWidth = Math.max(1, u*.004); out.stroke();
+    }
+    out.shadowBlur = 0;
+    for (let i = 0; i < 6; i++) {
+      const x = P.sparks[i*4], y = P.sparks[i*4 + 1], s = P.sparks[i*4 + 2]*u, a = P.sparks[i*4 + 3];
+      if (a < .003) continue;
+      const g = out.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), s*.5);
+      g.addColorStop(0, hc(P.hue + .15, 60, 90, a)); g.addColorStop(1, hc(P.hue + .15, 60, 90, 0));
+      out.fillStyle = g; out.fillRect(X(x) - s, Y(y) - s, s*2, s*2);
+      out.fillStyle = hc(P.hue + .15, 40, 92, a*.8);
+      out.fillRect(X(x) - s, Y(y) - s*.03, s*2, s*.06); out.fillRect(X(x) - s*.03, Y(y) - s, s*.06, s*2);
+    }
+    out.restore();
   }
   function drawStar(P){
     const [x, y, r, a] = P.star; if (a < .003) return;
@@ -842,7 +1005,7 @@ function make2D(view){
     drawWorld(P, now);
     out.globalCompositeOperation = 'lighter';
     out.drawImage(bufs[i], 0, 0, W, H);
-    drawStar(P);
+    drawStar(P); drawHits(P);
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
   }
@@ -882,8 +1045,12 @@ const SPEC = [
   {g:'Layers', k:'horizon', label:'Horizon', min:0, max:1, step:.01},
   {g:'Hits', k:'shock', label:'Shockwaves', min:0, max:1, step:.01},
   {g:'Hits', k:'star', label:'Star flash', min:0, max:1, step:.01},
+  {g:'Hits', k:'outline', label:'Outline zoom', min:0, max:1, step:.01},
+  {g:'Hits', k:'sparkle', label:'Sparkles', min:0, max:1, step:.01},
   {g:'Worlds', k:'land', label:'Landscape', min:0, max:1, step:.01},
   {g:'Worlds', k:'space', label:'Space', min:0, max:1, step:.01},
+  {g:'Worlds', k:'aurora', label:'Aurora', min:0, max:1, step:.01},
+  {g:'Worlds', k:'city', label:'City', min:0, max:1, step:.01},
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
   {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
 ];
@@ -915,6 +1082,10 @@ const BASE = [
     mods:{flow:{src:'bass', amt:.2}}},
   {name:'Scope drift', decay:.96, zoom:1.018, rot:0, warp:.6, wander:.25, sym:1, scope:1, plasma:.15, colorSpeed:.1, hueDrift:.015,
     mods:{rot:{src:'drift', amt:.5}, warp:{src:'treb', amt:.4}}},
+  {name:'Northern lights', decay:.965, zoom:1.0, rot:0, warp:.4, wander:.1, sym:1, aurora:1, ribbons:.7, flow:.3, sparkle:.7, colorSpeed:.02, hueDrift:.006,
+    mods:{warp:{src:'mid', amt:.2}}},
+  {name:'Night drive', decay:.93, zoom:1.004, rot:0, warp:0, sym:1, city:1, horizon:1, comets:.5, outline:.8, colorSpeed:.04, hueDrift:.008,
+    mods:{zoom:{src:'pulse', amt:.1}}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -953,7 +1124,7 @@ function hsv2rgb(h, s, v){
 }
 
 /* ---------- worlds: landscape and space ---------- */
-const WORLD = {histT:0, starPh:0, lightAng:0, moonAng:0, moonTarget:0, landY:-.05};
+const WORLD = {citySeed:0, histT:0, starPh:0, lightAng:0, moonAng:0, moonTarget:0, landY:-.05};
 function stepWorld(dt, react, now){
   const t = now/1000;
   WORLD.histT += dt;
@@ -977,9 +1148,11 @@ function stepWorld(dt, react, now){
 /* ---------- Journey: one continuously evolving composition ---------- */
 const ELEMS = ['ring','scope','plasma','burst','comets','flow','ribbons','horizon'];
 // hits: one-off shapes fired by the music, drawn crisp rather than into the trails
-const HITS = ['shock','star'];
+const HITS = ['shock','star','outline','sparkle'];
+const WORLDS = ['land','space','aurora','city'];
+const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
-const TKEYS = [...ELEMS, 'land', 'space', 'sym', 'mirror'];
+const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror'];
 const SNAP = new Set([...TKEYS, ...HITS]);
 // what each element suits. perc: steady kicks. busy: lots of stabs and hits. bright: treble-heavy.
 // low: bass-heavy. mid: melodic middle. T: overall intensity. (features run 0..1, centred on .5)
@@ -1016,7 +1189,8 @@ function newType(F){
   const seed = {}; ELEMS.forEach(k => seed[k] = (Math.random() - .5)*.7);
   const t = {label: String.fromCharCode(65 + J.types.length % 26), F: {...F}, seed, hue, visits: 0,
     zoomBias: (Math.random() - .3)*.015, spin: .3 + Math.random()*1.2, lens: randomLens(), recipeSeed: recipeSeeds(),
-    cut: Math.random(), hitSeed: {none: (Math.random() - .3)*.5, star: (Math.random() - .5)*.6, shock: (Math.random() - .5)*.6},
+    cut: Math.random(), hitSeed: {none: (Math.random() - .3)*.5, star: (Math.random() - .5)*.6, shock: (Math.random() - .5)*.6, outline: (Math.random() - .5)*.6, sparkle: (Math.random() - .5)*.6},
+    outN: [3, 4, 4, 6][Math.floor(Math.random()*4)],
     starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
   J.types.push(t); return t;
 }
@@ -1035,14 +1209,19 @@ function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld()
 // 0 when the music has just changed, rising to 1 after about two minutes of sameness
 function stillness(){ return sstep(20, 120, J.stillT || 0); }
 function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.progStep = 0; }
-// each section can open into a world: calm, melodic, kickless parts suit the landscape; bright, intense parts suit space
+// each section can open into a world: calm, melodic, kickless parts suit the landscape or the aurora;
+// bright, intense parts suit space; steady driving parts suit the city
 function chooseWorld(random){
   const ty = J.type; if (!ty) return;
-  if (!ty.worldBias) ty.worldBias = {land:(Math.random() - .5)*.6, space:(Math.random() - .5)*.6};
+  if (!ty.worldBias) ty.worldBias = {};
+  WORLDS.forEach(k => { if (ty.worldBias[k] === undefined) ty.worldBias[k] = (Math.random() - .5)*.6; });
   const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); const T = J.tension - .5;
   const sc = {none: .15 + (random ? Math.random()*.4 : 0),
     land: -rf.perc*.9 + rf.mid*.4 - T*.3 + ty.worldBias.land + (random ? Math.random()*.4 : 0),
-    space: rf.bright*.5 + T*.4 + rf.busy*.2 + ty.worldBias.space + (random ? Math.random()*.4 : 0)};
+    space: rf.bright*.5 + T*.4 + rf.busy*.2 + ty.worldBias.space + (random ? Math.random()*.4 : 0),
+    // aurora: airy, melodic, without much bass; city: steady kicks and bass at a middling intensity
+    aurora: -rf.perc*.6 + rf.mid*.5 - rf.low*.3 - T*.4 + ty.worldBias.aurora + (random ? Math.random()*.4 : 0),
+    city: rf.perc*.6 + rf.low*.3 - Math.abs(T)*.5 + .05 + ty.worldBias.city + (random ? Math.random()*.4 : 0)};
   J.world = Object.keys(sc).sort((a, b) => sc[b] - sc[a])[0]; J.worldTime = 0;
 }
 function newSection(strength){
@@ -1072,20 +1251,21 @@ const ALT_TRIG = {burst:'bar', comets:'bar', horizon:'bar'};
 const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
 const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
 const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4};
-const HIT_WORDS = {star:'A star flashes on each downbeat', shock:'Shockwaves ripple out on the kicks'};
+const HIT_WORDS = {star:'A star flashes on each downbeat', shock:'Shockwaves ripple out on the kicks',
+  outline:'An outline zooms out on each downbeat', sparkle:'Sparkles pop on the stabs'};
 /* recipes: each preset is read as ingredients (a lead, an accent, a hit, a lens, a world, a way of moving and its movers).
    Journey picks one per section and builds on it, so the presets (including any hand edits) steer the piece */
 const MOTION = ['decay','zoom','rot','warp','wander','colorSpeed','hueDrift'], LENS = ['sym','mirror'];
 function recipeOf(p){
   const ls = ELEMS.filter(k => p[k] > .05).sort((a, b) => p[b] - p[a]);
   return {name: p.name, p, lead: ls[0] || null, accent: ls[1] || null,
-    hit: p.star > .05 ? 'star' : p.shock > .05 ? 'shock' : null,
+    hit: HITS.filter(k => p[k] > .05).sort((a, b) => p[b] - p[a])[0] || null,
     lens: p.sym >= 2 ? {n: Math.round(p.sym), mirror: p.mirror} : null,
-    world: p.land > .5 ? 'land' : p.space > .5 ? 'space' : 'none',
+    world: WORLDS.find(k => p[k] > .5) || 'none',
     T: Math.min(1, (p.colorSpeed*3 + Math.max(0, p.zoom - 1)*10 + (1 - p.decay)*5)/1.6)};
 }
 function pickRecipe(ty, rf, fresh){
-  const wOn = J.world === 'land' || J.world === 'space';
+  const wOn = worldOn();
   const rs = presets.map(p => {
     const r = recipeOf(p);
     let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0);
@@ -1101,7 +1281,7 @@ function pickRecipe(ty, rf, fresh){
 }
 // the recipe's lens, or the section's own; never over a world
 function setLens(){
-  const ty = J.type || OPENING, wOn = J.world === 'land' || J.world === 'space';
+  const ty = J.type || OPENING, wOn = worldOn();
   J.lens = wOn ? null : (J.recipe && J.recipe.lens) || ty.lens || null;
   if (!J.lens) J.lensOn = false;
   J.lensShift = 0;
@@ -1115,7 +1295,7 @@ function recipeMods(){
 }
 // how well each element fits right now: the recipe, the music, the world, and how long it has been on screen lately
 function scoreElems(ty, rf, fresh){
-  const R = J.recipe || {}, wOn = J.world === 'land' || J.world === 'space';
+  const R = J.recipe || {}, wOn = worldOn();
   return ELEMS.map(k => {
     let v = ty.seed[k] + (fresh ? (Math.random() - .5)*.5 : 0);
     if (k === R.lead) v += 1; else if (k === R.accent) v += .5;   // the recipe's ingredients come first
@@ -1138,12 +1318,15 @@ function chooseAccent(scored, avoid){
   J.accent = pick; J.accTrig = trig; J.accEnv = 0;
 }
 function chooseHit(ty, rf, fresh, avoid){
-  const wOn = J.world === 'land' || J.world === 'space', R = J.recipe || {};
+  const wOn = worldOn(), R = J.recipe || {};
   // a star suits steady kicks and intensity, shockwaves suit busy stabs. stars stay crisp over a world
   const hs = ty.hitSeed || OPENING.hitSeed, jit = () => fresh ? (Math.random() - .5)*.3 : 0;
+  // star: intense downbeats. outline: steady, bassy grooves. shockwaves: busy, driving. sparkles: bright and stabby
   const hsc = {none: .25 + hs.none + jit(),
-    star: rf.perc*.6 + rf.T*.5 + hs.star + (wOn ? .1 : 0) + jit(),
-    shock: rf.busy*.5 + rf.perc*.3 + rf.T*.3 + hs.shock - (wOn ? .2 : 0) + jit()};
+    star: rf.perc*.4 + rf.T*.6 + hs.star + (wOn ? .1 : 0) + jit(),
+    outline: rf.perc*.5 + rf.low*.4 - rf.T*.2 + (hs.outline || 0) + jit(),
+    shock: rf.busy*.4 + rf.low*.3 + rf.T*.2 + hs.shock - (wOn ? .2 : 0) + jit(),
+    sparkle: rf.busy*.5 + rf.bright*.5 - rf.low*.2 + (hs.sparkle || 0) + (wOn ? .1 : 0) + jit()};
   if (R.hit) hsc[R.hit] += .5; else hsc.none += .2;
   if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
@@ -1191,7 +1374,7 @@ function progress(){
   else if (step === 1) {
     ty.hue = (ty.hue + (Math.random() < .5 ? 1 : -1)*(.12 + Math.random()*.18) + 1) % 1;   // colour family drifts
     if (J.lens && J.lens.n > 2) J.lensShift = [-1, 1, 2][Math.floor(Math.random()*3)];
-    else if (!J.lens && !(J.world === 'land' || J.world === 'space') && Math.random() < .4) { J.lens = randomLens() || {n:2, mirror:1}; recipeMods(); }
+    else if (!J.lens && !(worldOn()) && Math.random() < .4) { J.lens = randomLens() || {n:2, mirror:1}; recipeMods(); }
   }
   else J.recast = 'fresh';
   updateSectionUI();
@@ -1290,8 +1473,8 @@ function stepJourney(now, dt){
     if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
     J.recast = 'keep'; J.style = 'fade';
   }
-  const wOn = J.world === 'land' || J.world === 'space';
-  tgt.land = J.world === 'land' ? 1 : 0; tgt.space = J.world === 'space' ? 1 : 0;
+  const wOn = worldOn();
+  WORLDS.forEach(k => tgt[k] = J.world === k ? 1 : 0);
 
   // one lead element, chosen when the section changes; one accent that only appears when the music triggers it
   // fatigue: builds while an element is on screen, recovers while it rests
@@ -1352,7 +1535,7 @@ function stepJourney(now, dt){
       if (ELEMS.includes(k) && tgt[k] < jState[k] - .3) cleared = true;
       J.held[k] = false; jState[k] = tgt[k]; snapped = true; continue;
     }
-    jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : (k === 'land' || k === 'space') ? rate*.6 : ELEMS.includes(k) ? swap : rate);
+    jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : ELEMS.includes(k) ? swap : rate);
   }
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
   if (snapped) { J.cutSince = 0; beat = Math.max(beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }
@@ -1421,6 +1604,18 @@ function starEnv(){
   return a < .16 ? 1 : Math.exp(-(a - .16)*22);
 }
 
+/* the outline: a polygon that snaps in on the downbeat and zooms out, trailing two echoes */
+const OUTL = {age:9, n:4, rot:0};
+function fireOutline(){ const ty = J.on ? J.type || OPENING : OPENING; OUTL.n = ty.outN || 4; OUTL.rot = Math.random()*Math.PI*2; OUTL.age = 0; }
+/* sparkles: small four-point glints that pop on the stabs */
+const SPARKS = Array.from({length:6}, () => ({x:0, y:0, s:.05, age:9}));
+let sparkN = 0;
+function fireSparkles(){
+  const asp = innerWidth/innerHeight, n = 2 + Math.floor(Math.random()*3);
+  for (let i = 0; i < n; i++) { const sp = SPARKS[sparkN++ % 6];
+    sp.x = (Math.random() - .5)*asp*.85; sp.y = (Math.random() - .5)*.8; sp.s = .04 + Math.random()*.05; sp.age = 0; }
+}
+
 /* comets and shockwaves */
 const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
 const shocks = Array.from({length:8}, () => ({x:0, y:0, r:0, s:0}));
@@ -1447,6 +1642,8 @@ function gridBeat(pos){
   if (down) J.bar++;
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
   if (down && eff.star > .02) fireStar();
+  if (down && eff.outline > .02) fireOutline();
+  if (down) WORLD.citySeed++;                             // the city's windows change on the downbeat
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
   if (phrase) J.phraseNow = true;
@@ -1544,6 +1741,7 @@ function gridFrame(t, fl, fh, ft){
 // stabs, snares and other hits: a small ripple somewhere, comets flinch, colour nudges
 function onHitFX(){
   if (J.on && J.accTrig === 'hit') J.accEnv = 1;
+  if (eff.sparkle > .02) fireSparkles();
   J.hr += .5;
   const asp = innerWidth/innerHeight;
   if (eff.shock > .2) {
@@ -1555,7 +1753,7 @@ function onHitFX(){
 }
 function stepFX(dt, react, now){
   const tt = now/1000;
-  STAR.age += dt; J.wipe *= Math.pow(.02, dt);
+  STAR.age += dt; OUTL.age += dt; SPARKS.forEach(p => p.age += dt); J.wipe *= Math.pow(.02, dt);
   const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
   comets.forEach((c, i) => {
     const e = bands[i]*react;
@@ -1587,9 +1785,9 @@ function randomize(){
   const p = {name:'Random', decay:r(.88,.985), zoom:r(.995,1.07), rot:r(-.03,.03), warp:r(0,1.5), wander:Math.random()<.5 ? r(.05,.3) : 0,
     sym:Math.floor(r(1,9)), mirror:Math.random()<.4?1:0, colorSpeed:r(.03,.25), hueDrift:r(0,.035), mods:{}};
   const layers = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
-  p.land = 0; p.space = 0; const wr = Math.random(); if (wr < .25) p.land = 1; else if (wr < .5) p.space = 1;
+  WORLDS.forEach(k => p[k] = 0); if (Math.random() < .5) p[pick(WORLDS)] = 1;
   layers.forEach(l => p[l] = Math.random()<.3 ? r(.2,.7) : 0);
-  p.star = Math.random() < .3 ? r(.6, 1) : 0;
+  ['star','outline','sparkle'].forEach(k => p[k] = 0); if (Math.random() < .5) p[pick(['star','outline','sparkle'])] = r(.6, 1);
   p[pick(layers)] = 1;
   const targets = ['rot','zoom','warp','sym','decay','hueDrift','mirror','wander'].sort(() => Math.random() - .5);
   const n = 2 + Math.floor(Math.random()*3);
@@ -1792,13 +1990,20 @@ function render(now){
     ringR: J.on ? J.ringR : .2, ringSq: J.on ? J.ringSq : 0,
     flowW: eff.flow, ribW: eff.ribbons, horW: eff.horizon, ribAng: J.on ? J.ribAng : 0, ribPh: J.ribPh,
     horScroll: J.horScroll, horY: J.on ? J.horY : .05,
-    landW: eff.land, spaceW: eff.space, landY: WORLD.landY, histFrac: WORLD.histT/.12, sunX: Math.sin(t*.03)*.15,
+    landW: eff.land, spaceW: eff.space, aurW: eff.aurora, cityW: eff.city, citySeed: WORLD.citySeed % 64, landY: WORLD.landY, histFrac: WORLD.histT/.12, sunX: Math.sin(t*.03)*.15,
     planet: WORLD.planet, moons: WORLD.moons, lightAng: WORLD.lightAng, starPh: WORLD.starPh};
   P.horY += (WORLD.landY - P.horY)*Math.min(1, eff.land*2);   // the grid floor lines up with the landscape's horizon
+  P.horY += (-.3 - P.horY)*Math.min(1, eff.city*2);             // and with the city's street
   P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + beat*.5));
   const sa = STAR.age;
   P.star = [STAR.x, STAR.y, STAR.size*(1 + .3*Math.exp(-sa*16))*(1 + sBass*react*.15), eff.star*starEnv()*(reduceMotion ? .5 : 1)];
   P.starRot = STAR.rot + sa*.5; P.starN = STAR.n;
+  const dim = reduceMotion ? .5 : 1;
+  P.outline = new Float32Array(12);
+  for (let i = 0; i < 3; i++) { const a = OUTL.age - i*.09; if (a < 0) continue;
+    P.outline.set([.05 + a*1.1 + sBass*react*.02, eff.outline*dim*(a < .06 ? 1 : Math.exp(-(a - .06)*3.2))*(1 - i*.3), OUTL.n, OUTL.rot + a*.3], i*4); }
+  P.sparks = new Float32Array(24);
+  SPARKS.forEach((p, i) => P.sparks.set([p.x, p.y, p.s*(1 + .5*Math.exp(-p.age*20)), eff.sparkle*dim*(p.age < .05 ? 1 : Math.exp(-(p.age - .05)*9))], i*4));
   const pull = Math.min(1, eff.comets)*.7;
   P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
   if (gl) drawGL(now, P); else r2d.draw(now, P);
