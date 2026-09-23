@@ -321,7 +321,17 @@ uniform sampler2D uTex, uHist; uniform vec2 uRes;
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uLand,uSpace,uLandY,uHistFrac,uSunX,uLightAng,uStarPh;
 uniform vec3 uPlanet;      // x, y, radius
 uniform vec4 uMoons[2];    // x, y, radius, in front (1) or behind (0)
+uniform vec4 uStar;        // x, y, radius, brightness
+uniform vec3 uStarS;       // rotation, points, inner radius as a fraction
 float ASP;
+float sdStar(vec2 p,float R,float n,float ratio){   // tips at R, inner corners at R*ratio
+  float an=3.141593/n;
+  float a=abs(mod(atan(p.x,p.y),2.0*an)-an);
+  vec2 q=length(p)*vec2(sin(a),cos(a));
+  vec2 A=vec2(0.0,R), e=ratio*R*vec2(sin(an),cos(an))-A, w=q-A;
+  float d=length(w-e*clamp(dot(w,e)/dot(e,e),0.0,1.0));
+  return e.x*w.y-e.y*w.x<0.0 ? -d : d;
+}
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 // loudness history: the right edge of the screen is now, further left is further back in the song
@@ -413,6 +423,15 @@ void main(){
   if(uLand>0.003) w+=landscape(sp)*uLand;
   if(uSpace>0.003) w+=space(sp)*uSpace;
   c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
+  // hits sit on top, crisp, with a small halo of glow
+  if(uStar.w>0.003){
+    vec2 q=sp-uStar.xy; float cs=cos(uStarS.x), sn=sin(uStarS.x); q=mat2(cs,-sn,sn,cs)*q;
+    float d=sdStar(q,uStar.z,uStarS.y,uStarS.z);
+    float fill=smoothstep(1.5/uRes.y,0.0,d);
+    float edge=smoothstep(0.005,0.0,abs(d));
+    float halo=exp(-max(d,0.0)*26.0)*(1.0-fill);
+    c+=(hsv(uHue+0.12,0.35,1.0)*fill*0.9+vec3(1.0)*edge*0.5+hsv(uHue+0.12,0.8,1.0)*halo*0.45)*uStar.w;
+  }
   c*=smoothstep(1.15,0.35,length(vUv-0.5));
   gl_FragColor=vec4(c,1.0);
 }`;
@@ -534,6 +553,7 @@ function drawGL(now, P){
   gl.uniform1f(v.uHistFrac, P.histFrac); gl.uniform1f(v.uSunX, P.sunX); gl.uniform1f(v.uLightAng, P.lightAng);
   gl.uniform1f(v.uStarPh, P.starPh); gl.uniform3fv(v.uPlanet, P.planet);
   if (v['uMoons[0]']) gl.uniform4fv(v['uMoons[0]'], P.moons);
+  gl.uniform4f(v.uStar, P.star[0], P.star[1], P.star[2], P.star[3]); gl.uniform3f(v.uStarS, P.starRot, P.starN, P.starN > 5 ? .5 : .42);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
@@ -708,6 +728,19 @@ function make2D(view){
     }
     o.restore();
   }
+  function drawStar(P){
+    const [x, y, r, a] = P.star; if (a < .003) return;
+    const u = H, n = P.starN, R = r*u, cx = W/2 + x*u, cy = H/2 - y*u, inner = R*(n > 5 ? .5 : .42);
+    out.save(); out.globalCompositeOperation = 'lighter'; out.translate(cx, cy); out.rotate(P.starRot);
+    out.beginPath();
+    for (let k = 0; k < n*2; k++) { const ang = k*Math.PI/n - Math.PI/2, rr = k % 2 ? inner : R;
+      k ? out.lineTo(Math.cos(ang)*rr, Math.sin(ang)*rr) : out.moveTo(Math.cos(ang)*rr, Math.sin(ang)*rr); }
+    out.closePath();
+    out.shadowColor = hc(P.hue + .12, 90, 60, Math.min(1, a)); out.shadowBlur = R*.5;
+    out.fillStyle = hc(P.hue + .12, 90, 85, Math.min(1, a*.9)); out.fill();
+    out.shadowBlur = 0; out.strokeStyle = `rgba(255,255,255,${Math.min(1, a*.6)})`; out.lineWidth = Math.max(1, u*.003); out.stroke();
+    out.restore();
+  }
   function draw(now, P){
     const src = bufs[i], c = ctxs[1-i]; i = 1 - i;
     const u = bh, cx = bw/2 + P.cx*u, cy = bh/2 - P.cy*u;
@@ -808,6 +841,7 @@ function make2D(view){
     drawWorld(P, now);
     out.globalCompositeOperation = 'lighter';
     out.drawImage(bufs[i], 0, 0, W, H);
+    drawStar(P);
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
   }
@@ -842,10 +876,11 @@ const SPEC = [
   {g:'Layers', k:'plasma', label:'Plasma', min:0, max:1, step:.01},
   {g:'Layers', k:'burst', label:'Spectrum burst', min:0, max:1, step:.01},
   {g:'Layers', k:'comets', label:'Comets', min:0, max:1, step:.01},
-  {g:'Layers', k:'shock', label:'Shockwaves', min:0, max:1, step:.01},
   {g:'Layers', k:'flow', label:'Flow field', min:0, max:1, step:.01},
   {g:'Layers', k:'ribbons', label:'Ribbons', min:0, max:1, step:.01},
   {g:'Layers', k:'horizon', label:'Horizon', min:0, max:1, step:.01},
+  {g:'Hits', k:'shock', label:'Shockwaves', min:0, max:1, step:.01},
+  {g:'Hits', k:'star', label:'Star flash', min:0, max:1, step:.01},
   {g:'Worlds', k:'land', label:'Landscape', min:0, max:1, step:.01},
   {g:'Worlds', k:'space', label:'Space', min:0, max:1, step:.01},
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
@@ -939,12 +974,16 @@ function stepWorld(dt, react, now){
 }
 
 /* ---------- Journey: one continuously evolving composition ---------- */
-const ELEMS = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
+const ELEMS = ['ring','scope','plasma','burst','comets','flow','ribbons','horizon'];
+// hits: one-off shapes fired by the music, drawn crisp rather than into the trails
+const HITS = ['shock','star'];
+// everything that switches in and out, so it can either fade or cut in on the bar line
+const TKEYS = [...ELEMS, 'land', 'space'];
+const SNAP = new Set([...TKEYS, ...HITS]);
 // what each element suits. perc: steady kicks. busy: lots of stabs and hits. bright: treble-heavy.
 // low: bass-heavy. mid: melodic middle. T: overall intensity. (features run 0..1, centred on .5)
 const SUITS = {
   ring:    {perc:.8, low:.4},
-  shock:   {perc:.5, busy:.7, T:.4},
   burst:   {bright:.9, T:.5},
   scope:   {mid:.7, busy:.3},
   plasma:  {perc:-.6, T:-.5, low:.3},
@@ -954,12 +993,14 @@ const SUITS = {
   horizon: {perc:.7, low:.4, T:.3},
 };
 const FEATS = ['perc','busy','bright','low','mid','lvl'];
-const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, shock:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, symMax:3};
+const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, symMax:3,
+  cut:0, hitSeed:{none:.3, star:0, shock:0}, starN:5, starOut:'snap', starScatter:false};
 const FWEIGHT = {perc:1.2, busy:.6, bright:1, low:.8, mid:.8, lvl:.8};
 const J = {on:true, bias:.5, speed:1, clock:Math.random()*100, tension:.15, hi:.3, lo:.2, intro:1, beatN:0, spinDir:1,
   eS:0, eM:0, eL:.2, peak:.3, tmin:.3, lastDrop:-1e9, phase:0, ringR:.2, ringSq:0, zoomFlip:0, dropGlow:0,
   fat:{}, kr:0, hr:0, fF:{}, fS:{}, fMin:{}, fMax:{}, M:null, secAge:0, identified:false, novAvg:.05, nov:0,
-  pending:false, pendingSince:0, types:[], type:null, hueOff:0, ribAng:0, ribPh:0, horScroll:0, horY:.05};
+  pending:false, pendingSince:0, types:[], type:null, hueOff:0, ribAng:0, ribPh:0, horScroll:0, horY:.05,
+  style:'fade', goal:{}, held:{}, cutSince:0, cutNow:false, phraseNow:false, wipe:0, hit:null};
 ELEMS.forEach(k => J.fat[k] = 0);
 FEATS.forEach(f => { J.fF[f] = J.fS[f] = .5; J.fMin[f] = .4; J.fMax[f] = .6; });
 const jState = {name:'Journey', mods:{}}; SPEC.forEach(s => jState[s.k] = curP[s.k]);
@@ -973,7 +1014,9 @@ function newType(F){
   for (let tries = 0; tries < 12 && used.some(h => Math.min(Math.abs(h - hue), 1 - Math.abs(h - hue)) < .15); tries++) hue = Math.random();
   const seed = {}; ELEMS.forEach(k => seed[k] = (Math.random() - .5)*.7);
   const t = {label: String.fromCharCode(65 + J.types.length % 26), F: {...F}, seed, hue, visits: 0,
-    zoomBias: (Math.random() - .3)*.015, spin: .3 + Math.random()*1.2, symMax: Math.random() < .3 ? 3 + Math.random()*3 : 1};
+    zoomBias: (Math.random() - .3)*.015, spin: .3 + Math.random()*1.2, symMax: Math.random() < .3 ? 3 + Math.random()*3 : 1,
+    cut: Math.random(), hitSeed: {none: (Math.random() - .3)*.5, star: (Math.random() - .5)*.6, shock: (Math.random() - .5)*.6},
+    starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
   J.types.push(t); return t;
 }
 function matchType(F){
@@ -995,6 +1038,7 @@ function chooseWorld(random){
 function newSection(strength){
   J.pending = false; J.secAge = 0; J.identified = 0; J.novHold = 0; J.M = {...J.fF};
   enterType(matchType(J.fF));
+  pickStyle(strength);
   // a flourish on the bar line to mark the change
   if (eff.shock > .2) {
     const asp = innerWidth/innerHeight, n = 2 + Math.round(Math.min(1, strength)*3);
@@ -1003,17 +1047,25 @@ function newSection(strength){
   } else { beat = Math.max(beat, 1); J.zoomFlip = Math.random() < .5 ? -.03 : .03; hueKick += .1; }
   J.clock += 2;
 }
+// how this section's changes arrive: some sections cut in hard on the bar line, others fade.
+// intense music, a strong change or a recent drop all push towards a cut
+function pickStyle(strength){
+  const ty = J.type || OPENING;
+  const recentDrop = performance.now() - J.lastDrop < 8000;
+  J.style = recentDrop || (ty.cut || 0)*.8 + J.tension*.7 + Math.min(1, strength || 0)*.4 > .9 ? 'cut' : 'fade';
+}
 // how each element behaves as an accent: on the bar's downbeat, on stabs, while melody is strong, or at the song's peaks
-const ACCENT = {ring:'bar', shock:'bar', horizon:'peak', burst:'hit', scope:'hit', comets:'hit', ribbons:'mid', plasma:'mid', flow:'peak'};
+const ACCENT = {ring:'bar', horizon:'peak', burst:'hit', scope:'hit', comets:'hit', ribbons:'mid', plasma:'mid', flow:'peak'};
 const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
-const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', shock:'Shockwaves', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
-const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4, shock:-.3};
+const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
+const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4};
+const HIT_WORDS = {star:'A star flashes on each downbeat', shock:'Shockwaves ripple out on the kicks'};
 function recast(fresh){
   const ty = J.type || OPENING, wOn = J.world === 'land' || J.world === 'space', key = J.world;
   ty.casts = ty.casts || {};
   const keep = J.recast === 'keep';
   J.recast = false; J.leadTime = 0;
-  if (!fresh && ty.casts[key]) { ({lead: J.lead, accent: J.accent} = ty.casts[key]); updateSectionUI(); return; }   // a returning part looks the same
+  if (!fresh && ty.casts[key]) { ({lead: J.lead, accent: J.accent, hit: J.hit} = ty.casts[key]); updateSectionUI(); return; }   // a returning part looks the same
   const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5;
   const scored = ELEMS.map(k => {
     let v = ty.seed[k] + (fresh ? (Math.random() - .5)*.5 : 0);
@@ -1026,13 +1078,22 @@ function recast(fresh){
   // the accent should contrast with the lead: a different kind of trigger where possible
   const acc = scored.slice(1).find(r => ACCENT[r.k] !== ACCENT[J.lead]) || scored[1];
   J.accent = acc.k; J.accEnv = 0;
-  ty.casts[key] = {lead: J.lead, accent: J.accent};
+  // a hit, or none: a star suits steady kicks and intensity, shockwaves suit busy stabs. stars stay crisp over a world
+  const hs = ty.hitSeed || OPENING.hitSeed, jit = () => fresh ? (Math.random() - .5)*.3 : 0;
+  const hsc = {none: .25 + hs.none + jit(),
+    star: rf.perc*.6 + rf.T*.5 + hs.star + (wOn ? .1 : 0) + jit(),
+    shock: rf.busy*.5 + rf.perc*.3 + rf.T*.3 + hs.shock - (wOn ? .2 : 0) + jit()};
+  const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
+  J.hit = hk === 'none' ? null : hk;
+  ty.casts[key] = {lead: J.lead, accent: J.accent, hit: J.hit};
   updateSectionUI();
 }
 function updateSectionUI(){
   const el = $('#jSection'); if (!el || !J.type) return;
   el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
-    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[ACCENT[J.accent]]}.` : '');
+    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[ACCENT[J.accent]]}.` : '')
+    + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
+    + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '');
 }
 
 function features(dt){
@@ -1108,9 +1169,10 @@ function stepJourney(now, dt){
   const tgt = {};
   // worlds get a turn and then rest, so no scene lasts forever even in a one-section track
   J.worldTime = (J.worldTime || 0) + dt;
-  if (J.worldTime > (J.world === 'none' ? 30 : 50)) {
+  const wLimit = J.world === 'none' ? 30 : 50;
+  if (J.worldTime > wLimit && (J.phraseNow || J.worldTime > wLimit + 12)) {   // wait for a phrase line (or give up if no beat comes)
     if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
-    J.recast = 'keep';
+    J.recast = 'keep'; J.style = 'fade';
   }
   const wOn = J.world === 'land' || J.world === 'space';
   tgt.land = J.world === 'land' ? 1 : 0; tgt.space = J.world === 'space' ? 1 : 0;
@@ -1120,6 +1182,8 @@ function stepJourney(now, dt){
   if (!J.lead || J.recast) recast(J.recast === 'fresh');
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
+  HITS.forEach(k => tgt[k] = 0);
+  if (J.hit) tgt[J.hit] = J.hit === 'star' ? .9 : .8;
   const trig = ACCENT[J.accent];
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
@@ -1144,7 +1208,25 @@ function stepJourney(now, dt){
   const rate = Math.min(1, dt*.4*sp);
   if (wOn) { tgt.zoom = 1 + (tgt.zoom - 1)*.4; tgt.decay -= .04; }   // keep the glow gentle over a world
   const swap = Math.min(1, dt*1.6);          // element changes happen over about a bar, not a long slide
-  for (const k in tgt) jState[k] += (tgt[k] - jState[k])*(k === 'zoom' ? Math.min(1, dt*2) : (k === 'land' || k === 'space') ? rate*.6 : ELEMS.includes(k) ? swap : rate);
+  // a switch (something arriving or leaving) either fades, or in a cut section waits for the bar line and snaps
+  for (const k of TKEYS) {
+    const was = k in J.goal ? J.goal[k] : jState[k];
+    if (Math.abs(tgt[k] - was) > .3 && J.style === 'cut') { J.held[k] = true; if (!J.cutSince) J.cutSince = now; }
+    J.goal[k] = tgt[k];
+  }
+  const cutNow = J.cutNow || (J.cutSince && now - J.cutSince > 2500);   // no bar line came: cut anyway
+  let snapped = false, cleared = false;
+  for (const k in tgt) {
+    if (J.held[k]) {
+      if (!cutNow) continue;
+      if (ELEMS.includes(k) && tgt[k] < jState[k] - .3) cleared = true;
+      J.held[k] = false; jState[k] = tgt[k]; snapped = true; continue;
+    }
+    jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : (k === 'land' || k === 'space') ? rate*.6 : ELEMS.includes(k) ? swap : rate);
+  }
+  // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
+  if (snapped) { J.cutSince = 0; beat = Math.max(beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }
+  J.cutNow = false; J.phraseNow = false;
   if (J.accent !== J.lead) jState[J.accent] = Math.max(jState[J.accent], J.accEnv*(wOn ? .7 : .85));
 }
 function dropFX(){
@@ -1153,7 +1235,7 @@ function dropFX(){
     const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
     const sh = shocks[shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;
   }
-  beat = 1.3; hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1;
+  beat = 1.3; hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1; J.style = 'cut';
 }
 // Journey's own slow noise: each seed gets its own gentle rhythm
 function jn(t, seed){
@@ -1164,14 +1246,15 @@ function freshJourney(){
   J.intro = 1; J.hi = J.lo = J.eM; J.tension = Math.min(J.tension, .15);
   ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); jState.sym = 1; jState.mirror = 0;
   OPENING.casts = {};
-  J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0;
+  J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0; J.hit = null;
+  J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0;
   J.types = []; J.type = null; J.M = null; J.pending = false; J.secAge = 0; J.identified = 0; J.kr = J.hr = 0;
   FEATS.forEach(f => { J.fMin[f] = J.fS[f] - .1; J.fMax[f] = J.fS[f] + .1; });
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 
-window.__jdbg = () => ({lead: J.lead, accent: J.accent, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
-function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; if (J.type) ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); toast('Heading somewhere new'); }
+window.__jdbg = () => ({lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
+function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); toast('Heading somewhere new'); }
 
 function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
 function applyMods(now, react){
@@ -1193,6 +1276,20 @@ function applyMods(now, react){
   });
 }
 
+/* the star: a crisp shape that snaps in on the downbeat, then snaps or flickers out */
+const STAR = {x:0, y:0, rot:0, n:5, size:.14, age:9, out:'snap'};
+function fireStar(){
+  const ty = J.on ? J.type || OPENING : OPENING, asp = innerWidth/innerHeight;
+  STAR.n = ty.starN || 5; STAR.out = ty.starOut || 'snap';
+  if (ty.starScatter) { STAR.x = (Math.random() - .5)*asp*.6; STAR.y = (Math.random() - .5)*.5; } else { STAR.x = 0; STAR.y = 0; }
+  STAR.rot = Math.random()*Math.PI*2; STAR.size = .1 + Math.random()*.05 + (J.on ? J.tension*.06 : .03); STAR.age = 0;
+}
+function starEnv(){
+  const a = STAR.age;
+  if (STAR.out === 'flicker') return a > 1.2 ? 0 : Math.exp(-a*3.5)*(a < .1 || Math.sin(a*55) > 0 ? 1 : .2);
+  return a < .16 ? 1 : Math.exp(-(a - .16)*22);
+}
+
 /* comets and shockwaves */
 const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
 const shocks = Array.from({length:8}, () => ({x:0, y:0, r:0, s:0}));
@@ -1210,8 +1307,11 @@ function onBeatFX(){
   for (const k in active.mods) if (active.mods[k].src === 'jump') jumpVal[k] = Math.random()*2 - 1;
   J.kr += .5;
   if (J.beatN % 2 === 0) WORLD.moonTarget += Math.PI/4;
+  J.beatN++;
+  if (J.beatN % 4 === 0 && eff.star > .02) fireStar();   // the downbeat
   if (J.on) {
-    J.beatN++;
+    if (J.beatN % 4 === 0) J.cutNow = true;               // held switches land on the bar line
+    if (J.beatN % 16 === 0) J.phraseNow = true;
     if (J.pending && J.beatN % 4 === 0) newSection(J.pendStrength);
     if (J.beatN % 4 === 0 && ACCENT[J.accent] === 'bar') J.accEnv = 1;
     if (J.beatN % 16 === 0 && ACCENT[J.accent] === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
@@ -1234,6 +1334,7 @@ function onHitFX(){
 }
 function stepFX(dt, react, now){
   const tt = now/1000;
+  STAR.age += dt; J.wipe *= Math.pow(.02, dt);
   const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
   comets.forEach((c, i) => {
     const e = bands[i]*react;
@@ -1267,6 +1368,7 @@ function randomize(){
   const layers = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
   p.land = 0; p.space = 0; const wr = Math.random(); if (wr < .25) p.land = 1; else if (wr < .5) p.space = 1;
   layers.forEach(l => p[l] = Math.random()<.3 ? r(.2,.7) : 0);
+  p.star = Math.random() < .3 ? r(.6, 1) : 0;
   p[pick(layers)] = 1;
   const targets = ['rot','zoom','warp','sym','decay','hueDrift','mirror','wander'].sort(() => Math.random() - .5);
   const n = 2 + Math.floor(Math.random()*3);
@@ -1449,7 +1551,7 @@ function render(now){
   const dt = Math.min(.05, Math.max(0, (now - (render.last || now))/1000)); render.last = now;
   stepJourney(now, dt);
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
-  for (const s of SPEC) curP[s.k] += (active[s.k] - curP[s.k]) * (J.on && ELEMS.includes(s.k) ? 1 : morph);
+  for (const s of SPEC) curP[s.k] += (active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
   applyMods(now, react);
   stepFX(dt, react, now);
@@ -1459,7 +1561,7 @@ function render(now){
   hueAcc += dt*eff.colorSpeed;
   const hue = hueAcc + hueKick + (J.on ? J.hueOff : 0), t = now/1000, asp = innerWidth/innerHeight;
   const P = {zoom: eff.zoom + live.zoom, rot: eff.rot + live.rot, warp: eff.warp + live.warp,
-    decay: (keyHold || padHold) ? .995 : eff.decay, sym: eff.sym, mirror: eff.mirror,
+    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift, bass: sBass, mid: sMid, treb: sTreb, beat, hit, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
     ring: eff.ring, scope: eff.scope, plasma: eff.plasma, burst: eff.burst,
@@ -1471,6 +1573,9 @@ function render(now){
     planet: WORLD.planet, moons: WORLD.moons, lightAng: WORLD.lightAng, starPh: WORLD.starPh};
   P.horY += (WORLD.landY - P.horY)*Math.min(1, eff.land*2);   // the grid floor lines up with the landscape's horizon
   P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + beat*.5));
+  const sa = STAR.age;
+  P.star = [STAR.x, STAR.y, STAR.size*(1 + .3*Math.exp(-sa*16))*(1 + sBass*react*.15), eff.star*starEnv()*(reduceMotion ? .5 : 1)];
+  P.starRot = STAR.rot + sa*.5; P.starN = STAR.n;
   const pull = Math.min(1, eff.comets)*.7;
   P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
   if (gl) drawGL(now, P); else r2d.draw(now, P);
@@ -1520,7 +1625,7 @@ function setJourney(on, snapshot){
   $('#autoBtn').setAttribute('aria-pressed', on);
   $('#randBtn').textContent = on ? 'Nudge' : 'Randomize';
   $('#sliders').classList.toggle('locked', on); $('#jNote').hidden = !on;
-  if (on) { SPEC.forEach(s => jState[s.k] = curP[s.k]); if (snapshot === 'fresh') freshJourney(); active = jState; $('#pName').textContent = 'Journey'; toast('Journey'); syncSliders(); }
+  if (on) { SPEC.forEach(s => jState[s.k] = curP[s.k]); J.goal = {}; J.held = {}; J.cutSince = 0; if (snapshot === 'fresh') freshJourney(); active = jState; $('#pName').textContent = 'Journey'; toast('Journey'); syncSliders(); }
   else if (snapshot) { const snap = clone(jState); snap.name = 'Snapshot'; snap.mods = {}; setPreset(snap); }
 }
 function toggleAuto(){ setJourney(!J.on, true); }
