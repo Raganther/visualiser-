@@ -1028,9 +1028,12 @@ function recipeSeeds(){ const o = {}; presets.forEach(p => o[p.name] = (Math.ran
 function matchType(F){
   let best = null, bd = 1e9;
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
-  return bd < .085 ? best : newType(F);
+  return bd < .085*(1 - .4*stillness()) ? best : newType(F);
 }
-function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; updateSectionUI(); } }
+function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; resetProgress(); updateSectionUI(); } }
+// 0 when the music has just changed, rising to 1 after about two minutes of sameness
+function stillness(){ return sstep(20, 120, J.stillT || 0); }
+function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.progStep = 0; }
 // each section can open into a world: calm, melodic, kickless parts suit the landscape; bright, intense parts suit space
 function chooseWorld(random){
   const ty = J.type; if (!ty) return;
@@ -1062,6 +1065,8 @@ function pickStyle(strength){
 }
 // how each element behaves as an accent: on the bar's downbeat, on stabs, while melody is strong, or at the song's peaks
 const ACCENT = {ring:'bar', horizon:'peak', burst:'hit', scope:'hit', comets:'hit', ribbons:'mid', plasma:'mid', flow:'peak'};
+// other ways an element can accent: comets and bursts can also land on the downbeat, the horizon too
+const ALT_TRIG = {burst:'bar', comets:'bar', horizon:'bar'};
 const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
 const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
 const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4};
@@ -1084,6 +1089,7 @@ function pickRecipe(ty, rf, fresh){
     let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0);
     if (r.lead) for (const f in SUITS[r.lead]) v += SUITS[r.lead][f]*rf[f]*.6;
     v -= Math.abs(r.T - J.tension)*1.2;                      // intense recipes for intense music
+    if (r.lead) v -= J.fat[r.lead]*.8;                         // and not the element that has been on all night
     if (r.world !== 'none') v += r.world === J.world ? .25 : -.6;
     if (wOn) v += (r.lens ? -.6 : 0) + (OVER_WORLD[r.lead] || 0)*.8;   // over a world: no lens, and leads that suit it
     if (J.recipe && r.name === J.recipe.name) v -= fresh ? 1 : .4;   // move on from the last one
@@ -1105,40 +1111,88 @@ function recipeMods(){
   jState.mods = m;
   syncSliders();
 }
-function recast(fresh){
-  const ty = J.type || OPENING, wOn = J.world === 'land' || J.world === 'space', key = J.world;
-  ty.casts = ty.casts || {};
-  const keep = J.recast === 'keep';
-  J.recast = false; J.leadTime = 0;
-  if (!fresh && ty.casts[key]) {                                  // a returning part looks the same
-    ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = ty.casts[key]);
-    setLens(); recipeMods(); updateSectionUI(); return;
-  }
-  const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5;
-  const R = J.recipe = pickRecipe(ty, rf, fresh);
-  setLens();
-  const scored = ELEMS.map(k => {
+// how well each element fits right now: the recipe, the music, the world, and how long it has been on screen lately
+function scoreElems(ty, rf, fresh){
+  const R = J.recipe || {}, wOn = J.world === 'land' || J.world === 'space';
+  return ELEMS.map(k => {
     let v = ty.seed[k] + (fresh ? (Math.random() - .5)*.5 : 0);
     if (k === R.lead) v += 1; else if (k === R.accent) v += .5;   // the recipe's ingredients come first
     for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
     if (wOn) v += OVER_WORLD[k] || 0;
-    if (fresh && k === J.lead) v -= 1;         // a refresh should actually change something
+    v -= J.fat[k]*1.2;                         // tired elements step back
     return {k, v};
   }).sort((a, b) => b.v - a.v);
-  J.lead = scored[0].k;
-  // the accent should contrast with the lead: a different kind of trigger where possible
-  const acc = scored.slice(1).find(r => ACCENT[r.k] !== ACCENT[J.lead]) || scored[1];
-  J.accent = acc.k; J.accEnv = 0;
-  // a hit, or none: a star suits steady kicks and intensity, shockwaves suit busy stabs. stars stay crisp over a world
+}
+// the accent should contrast with the lead: a different kind of trigger where possible
+function chooseAccent(scored, avoid){
+  const leadTrig = ACCENT[J.lead];
+  const pool = scored.filter(r => r.k !== J.lead && r.k !== avoid);
+  let pick = null, trig = null;
+  for (const r of pool) {
+    const opts = [ACCENT[r.k], ALT_TRIG[r.k]].filter(t => t && t !== leadTrig);
+    if (opts.length) { pick = r.k; trig = opts[Math.floor(Math.random()*opts.length)]; break; }
+  }
+  if (!pick) { pick = pool[0].k; trig = ACCENT[pick]; }
+  J.accent = pick; J.accTrig = trig; J.accEnv = 0;
+}
+function chooseHit(ty, rf, fresh, avoid){
+  const wOn = J.world === 'land' || J.world === 'space', R = J.recipe || {};
+  // a star suits steady kicks and intensity, shockwaves suit busy stabs. stars stay crisp over a world
   const hs = ty.hitSeed || OPENING.hitSeed, jit = () => fresh ? (Math.random() - .5)*.3 : 0;
   const hsc = {none: .25 + hs.none + jit(),
     star: rf.perc*.6 + rf.T*.5 + hs.star + (wOn ? .1 : 0) + jit(),
     shock: rf.busy*.5 + rf.perc*.3 + rf.T*.3 + hs.shock - (wOn ? .2 : 0) + jit()};
   if (R.hit) hsc[R.hit] += .5; else hsc.none += .2;
+  if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
   J.hit = hk === 'none' ? null : hk;
-  ty.casts[key] = {lead: J.lead, accent: J.accent, hit: J.hit, recipe: R};
+}
+const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
+function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe}; }
+// a small variation: a different accent, or a different hit
+function varySmall(){
+  const ty = J.type || OPENING, rf = relFeats();
+  if (Math.random() < .6) chooseAccent(scoreElems(ty, rf, true), J.accent); else chooseHit(ty, rf, true, J.hit);
+  saveCast();
+}
+function recast(fresh){
+  const ty = J.type || OPENING, key = J.world;
+  ty.casts = ty.casts || {};
+  J.recast = false;
+  const cast = ty.casts[key];
+  if (!fresh && cast) {                                           // a returning part looks the same...
+    ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
+    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0;
+    setLens();
+    if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
+    recipeMods(); updateSectionUI(); return;
+  }
+  const rf = relFeats();
+  J.recipe = pickRecipe(ty, rf, fresh);
+  setLens();
+  const prevLead = J.lead, scored = scoreElems(ty, rf, fresh);
+  if (fresh && prevLead) scored.forEach(r => { if (r.k === prevLead) r.v -= 1; });   // a refresh should actually change something
+  scored.sort((a, b) => b.v - a.v);
+  J.lead = scored[0].k;
+  chooseAccent(scored);
+  chooseHit(ty, rf, fresh);
+  saveCast();
   recipeMods(); updateSectionUI();
+}
+/* progression: when the music stays the same, Journey still moves on, one step per phrase line,
+   smallest first: a new accent or hit, then a lens or colour shift, then a new recipe and lead */
+function progress(){
+  const ty = J.type || OPENING, step = J.progStep % 3;
+  J.progStep++; J.progBeats = 0; J.progT = 0;
+  if (step === 0) varySmall();
+  else if (step === 1) {
+    ty.hue = (ty.hue + (Math.random() < .5 ? 1 : -1)*(.12 + Math.random()*.18) + 1) % 1;   // colour family drifts
+    if (J.lens && J.lens.n > 2) J.lensShift = [-1, 1, 2][Math.floor(Math.random()*3)];
+    else if (!J.lens && !(J.world === 'land' || J.world === 'space') && Math.random() < .4) { J.lens = randomLens() || {n:2, mirror:1}; recipeMods(); }
+  }
+  else J.recast = 'fresh';
+  updateSectionUI();
 }
 function updateSectionUI(){
   const el = $('#jSection'); if (!el || !J.type) return;
@@ -1146,7 +1200,8 @@ function updateSectionUI(){
   const L = J.lens;
   el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
     + (J.recipe ? `, from the ${J.recipe.name} recipe` : '')
-    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[ACCENT[J.accent]]}.` : '')
+    + (J.progStep ? `, evolved ${J.progStep}×` : '')
+    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (L ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '');
@@ -1206,7 +1261,8 @@ function stepJourney(now, dt){
   if (!J.type && J.secAge > 8) { enterType(newType(J.M)); J.identified = 2; }   // let the song settle before naming its first part
   J.nov = fdist(J.fF, J.M);
   J.novAvg += (J.nov - J.novAvg)*Math.min(1, dt/20);
-  J.novHold = J.type && J.nov > Math.max(.06, J.novAvg*2) ? (J.novHold || 0) + dt : 0;   // the change has to last, not just be a blip
+  const still = stillness();
+  J.novHold = J.type && J.nov > Math.max(.06*(1 - .5*still), J.novAvg*(2 - .5*still)) ? (J.novHold || 0) + dt : 0;   // the change has to last, not just be a blip
   if (!J.pending && J.secAge > 10 && J.novHold > 1.5) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
   if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
   // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
@@ -1234,13 +1290,16 @@ function stepJourney(now, dt){
   tgt.land = J.world === 'land' ? 1 : 0; tgt.space = J.world === 'space' ? 1 : 0;
 
   // one lead element, chosen when the section changes; one accent that only appears when the music triggers it
-  J.leadTime = (J.leadTime || 0) + dt;
+  // fatigue: builds while an element is on screen, recovers while it rests
+  ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/90) + dt*Math.min(1, jState[k])/60);
+  J.stillT = (J.stillT || 0) + dt; J.progT = (J.progT || 0) + dt;
+  if (J.type && now - lastBeat > 4000 && J.progT > 30/J.speed) progress();   // no kick to count: go by time
   if (!J.lead || J.recast) recast(J.recast === 'fresh');
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
   HITS.forEach(k => tgt[k] = 0);
   if (J.hit) tgt[J.hit] = J.hit === 'star' ? .9 : .8;
-  const trig = ACCENT[J.accent];
+  const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
   else J.accEnv *= Math.pow(trig === 'peak' ? .45 : .2, dt);
@@ -1314,14 +1373,14 @@ function freshJourney(){
   ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); jState.sym = 1; jState.mirror = 0;
   OPENING.casts = {};
   J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0; J.hit = null;
-  J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0;
+  J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0; resetProgress();
   J.recipe = null; J.lens = null; J.lensOn = false; J.lensShift = 0; jState.mods = {};
   J.types = []; J.type = null; J.M = null; J.pending = false; J.secAge = 0; J.identified = 0; J.kr = J.hr = 0;
   FEATS.forEach(f => { J.fMin[f] = J.fS[f] - .1; J.fMax[f] = J.fS[f] + .1; });
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 
-window.__jdbg = () => ({recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
+window.__jdbg = () => ({accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
 function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
 
 function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
@@ -1381,16 +1440,18 @@ function onBeatFX(){
     if (J.beatN % 4 === 0) J.cutNow = true;               // held switches land on the bar line
     if (J.beatN % 16 === 0) J.phraseNow = true;
     if (J.pending && J.beatN % 4 === 0) newSection(J.pendStrength);
-    if (J.beatN % 4 === 0 && ACCENT[J.accent] === 'bar') J.accEnv = 1;
-    if (J.beatN % 16 === 0 && ACCENT[J.accent] === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
-    if (J.beatN % 16 === 0 && J.leadTime > 45) J.recast = 'fresh';     // a very long section gets a new lead on a phrase line
+    if (J.beatN % 4 === 0 && J.accTrig === 'bar') J.accEnv = 1;
+    if (J.beatN % 16 === 0 && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
+    // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
+    J.progBeats = (J.progBeats || 0) + 1;
+    if (J.beatN % 16 === 0 && J.type && J.progBeats >= Math.max(16, Math.round(64/J.speed/16)*16)) progress();
     if (J.beatN % 16 === 0) J.spinDir *= -1;                        // spin reverses every 4 bars
     if (J.beatN % 32 === 0 && Math.random() < .4) J.zoomFlip = -.03;  // occasional pull-back
   }
 }
 // stabs, snares and other hits: a small ripple somewhere, comets flinch, colour nudges
 function onHitFX(){
-  if (J.on && ACCENT[J.accent] === 'hit') J.accEnv = 1;
+  if (J.on && J.accTrig === 'hit') J.accEnv = 1;
   J.hr += .5;
   const asp = innerWidth/innerHeight;
   if (eff.shock > .2) {
