@@ -27,7 +27,7 @@ const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
 uniform float uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright;
 uniform vec2 uPos; uniform vec3 uHinge;
-varying vec4 vCol; varying float vSide;
+varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
@@ -60,10 +60,18 @@ void main(){
     col=hsv(uHue+uPartHue+0.5,0.9,1.0); a=uEdge>0.5 ? a*0.2 : (aInfo.x<7.5 ? uGlow*1.4 : 0.0);
   }
   vCol=vec4(mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a*uBright*(1.0-gone),uEdge>0.5 ? 1.0 : uDark*uBright*(1.0-gone));
+  vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
+  vFillW=(aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass, not in the holes
   gl_Position=vec4(s.x*2.0/uAsp,s.y*2.0,-p.z/3.0,1.0);   // nearer is smaller depth, for hiding the far side
 }`;
-const FS = `precision mediump float; varying vec4 vCol; varying float vSide;
-void main(){ float f=vSide==0.0 ? 1.0 : 1.0-vSide*vSide; gl_FragColor=vec4(vCol.rgb*f,vCol.a*f); }`;
+const FS = `precision mediump float; varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
+uniform sampler2D uFillTex; uniform float uFillAmt, uCover;
+void main(){
+  if(uCover>0.5){ gl_FragColor=vec4(vec3(step(0.001,vFillW)),1.0); return; }   // the silhouette, for masks
+  float f=vSide==0.0 ? 1.0 : 1.0-vSide*vSide; vec3 c=vCol.rgb*f;
+  if(vSide==0.0 && uFillAmt>0.0) c+=texture2D(uFillTex,vScr).rgb*uFillAmt*vFillW;   // a fill seen through the glass
+  gl_FragColor=vec4(c,vCol.a*f);
+}`;
 
 export function meshGL(gl, mesh){
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
@@ -84,7 +92,8 @@ export function meshGL(gl, mesh){
   const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); return {b, n: data.length/16}; };
   const B = {fill: buf(fill), edge: buf(edge)};
   // on screen: the far side's edges show faintly through, then the glass panes (darkening what's behind them and
-  // hiding the far side), then the near edges in full. Into the trails (no depth there): the edges only, dimmer.
+  // hiding the far side, and holding a fill if it has one: U.fillTex, U.fillAmt), then the near edges in full.
+  // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
   return function draw(U, W, H, stage){
     gl.useProgram(p);
     gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
@@ -93,6 +102,7 @@ export function meshGL(gl, mesh){
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
     gl.uniform1f(u.uSpark, U.spark); gl.uniform1f(u.uSparkSeed, U.sparkSeed); gl.uniform1f(u.uGlow, U.glow);
     gl.uniform1f(u.uLine, Math.max(1, U.line*H/720)); gl.uniform1f(u.uH, H*2);   // U.line px wide on a 720-line screen, scaled
+    gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0); gl.uniform1f(u.uFillAmt, 0);
     gl.disableVertexAttribArray(0); ATT.forEach((a, i) => gl.enableVertexAttribArray(i + 1));
     const pass = (k, bright) => {
       const b = B[k]; gl.uniform1f(u.uEdge, k === 'edge' ? 1 : 0); gl.uniform1f(u.uBright, bright*U.w);
@@ -100,13 +110,16 @@ export function meshGL(gl, mesh){
       [3, 3, 3, 3, 4].reduce((off, n, i) => { gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, 64, off*4); return off + n; }, 0);
       gl.drawArrays(gl.TRIANGLES, 0, b.n);
     };
-    gl.enable(gl.BLEND);
-    if (stage === 'trails') { gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.trail); }
+    if (stage === 'cover') pass('fill', 1);
+    else if (stage === 'trails') { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.trail); }
     else {
+      gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.xray);
       gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);          // panes sit just behind their own edges
+      if (U.fillTex) { gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, U.fillTex); gl.uniform1i(u.uFillTex, 4); gl.uniform1f(u.uFillAmt, U.fillAmt); }
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); pass('fill', 1);
+      gl.uniform1f(u.uFillAmt, 0);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
       gl.blendFunc(gl.ONE, gl.ONE); pass('edge', 1);
       gl.depthMask(true); gl.disable(gl.DEPTH_TEST);
@@ -121,7 +134,8 @@ export function meshGL(gl, mesh){
 const rx = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], c*p[1] - s*p[2], s*p[1] + c*p[2]]; };
 const ry = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [c*p[0] + s*p[2], p[1], -s*p[0] + c*p[2]]; };
 const hsl = (h, l, a) => `hsla(${((h % 1) + 1) % 1*360},75%,${l}%,${Math.max(0, Math.min(1, a)).toFixed(3)})`;
-export function meshDraw2d(o, panes, hinge, U){
+// every visible pane, placed and projected onto the canvas, back to front
+function project2d(o, panes, hinge, U){
   const Wc = o.canvas.width, Hc = o.canvas.height, sc = Hc*U.size*FOCAL;
   const place = (q, p) => {
     let c = q.c, n = q.n;
@@ -138,7 +152,14 @@ export function meshDraw2d(o, panes, hinge, U){
     const pts = q.v.map(v => place(q, v)), nw = rx(ry(q.n, U.rot), U.pitch);
     L.push({q, s: pts.map(proj), z: (pts[0][2] + pts[1][2] + pts[2][2])/3, face: .5 + .5*nw[2]});
   }
-  L.sort((a, b) => a.z - b.z);
+  return L.sort((a, b) => a.z - b.z);
+}
+const tri = (o, s) => { o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); };
+// the object's silhouette as a path (for masks): every visible pane, holes included
+export function meshPath2d(o, panes, hinge, U){ o.beginPath(); for (const {s} of project2d(o, panes, hinge, U)) tri(o, s); }
+// U.fillImg (a canvas) and U.fillAmt: a fill seen through the glass of the near panes, the holes left dark
+export function meshDraw2d(o, panes, hinge, U){
+  const Hc = o.canvas.height, L = project2d(o, panes, hinge, U);
   o.lineJoin = 'round'; o.lineWidth = Math.max(1, U.line*Hc/720*.8);   // back to front: dark glass over what's behind, then light
   for (const {q, s, face} of L) {
     const sweep = U.sweepAmt*Math.exp(-(((q.c[1] - (.55 - U.sweep*1.1))*7)**2)), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
@@ -149,6 +170,14 @@ export function meshDraw2d(o, panes, hinge, U){
     o.globalCompositeOperation = 'lighter';
     if (fa > .01) { o.fillStyle = hsl(h, 55, fa*w*.5); o.fill(); }
     o.strokeStyle = hsl(h, 55 + 30*Math.min(1, sweep + spark), ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)); o.stroke();
+  }
+  if (U.fillImg) {                                      // the fill, clipped to the near glass, then its edges again on top
+    const near = L.filter(p => p.face > .5 && p.q.part < 7);
+    o.save(); o.beginPath(); for (const {s} of near) tri(o, s); o.clip();
+    o.globalCompositeOperation = 'lighter'; o.globalAlpha = Math.min(1, U.fillAmt*U.w); o.drawImage(U.fillImg, 0, 0, o.canvas.width, Hc);
+    o.restore();
+    o.globalCompositeOperation = 'lighter';
+    for (const {q, s} of near) { o.beginPath(); tri(o, s); o.strokeStyle = hsl(U.hue + U.partHue + q.part*.11, 60, .5*U.w); o.stroke(); }
   }
   o.globalCompositeOperation = 'source-over';
 }

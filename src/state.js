@@ -15,5 +15,6 @@ export const S = {
   hueKick: 0,                    // colour nudges from pulses, drops and section changes
   shockN: 0,                     // next shockwave slot to reuse
   pausedAt: 0,                   // playback position while paused
+  scene: null,                   // the manual preset's scene (scene/graph.js); none means the default
   syncMs: 0,                     // the Sync slider: + draws the beat later, - earlier (for this device's speakers and screen)
 };

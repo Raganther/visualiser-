@@ -62,6 +62,25 @@ vec3 landscape(vec2 sp){
 }`,
     fn: 'landscape',
   },
+  // its front plane, for scenes that put things between its layers: the nearest ridge
+  front: {
+    fn: 'landFront',
+    glsl: `
+float landFront(vec2 sp){
+  float h=0.03+histAt(sp.x,10.0)*0.12+sin(sp.x*23.0+6.0)*0.012+sin(sp.x*53.0)*0.005;
+  return (sp.y>=uLandY && sp.y<uLandY+h) ? 1.0 : 0.0;
+}`,
+    path2d(o, P){
+      const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, i = 2, span = 30 - i*10;
+      o.moveTo(0, Y(P.landY));
+      for (let j = 0; j <= 120; j++) {
+        const x = (j/120 - .5)*asp, age = (asp/2 - x)/asp*span, idx = Math.max(0, Math.min(255, 255 - age/.12 + P.histFrac));
+        const h = .03 + HIST[Math.floor(idx)]/255*(.22 - i*.05) + Math.sin(x*(9 + i*7) + i*3)*.012 + Math.sin(x*(31 + i*11))*.005;
+        o.lineTo(X(x), Y(P.landY + h));
+      }
+      o.lineTo(W, Y(P.landY)); o.closePath();
+    },
+  },
   uniforms(gl, u, P){ gl.uniform1f(u.uLandY, P.landY); gl.uniform1f(u.uHistFrac, P.histFrac); gl.uniform1f(u.uSunX, P.sunX); },
   draw2d(o, P, t){
     const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;

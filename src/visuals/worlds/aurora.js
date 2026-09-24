@@ -30,6 +30,24 @@ vec3 aurora(vec2 sp){
 }`,
     fn: 'aurora',
   },
+  // its front plane, for scenes that put things between its layers: the treeline
+  front: {
+    fn: 'auroraFront',
+    glsl: `
+float auroraFront(vec2 sp){
+  float cx=fract(sp.x*38.0)-0.5, id=floor(sp.x*38.0);
+  float top=-0.3+0.02*sin(sp.x*7.0)+0.012*sin(sp.x*23.0)+(0.03+0.05*hash(vec2(id,3.0)))*(1.0-abs(cx)*2.0);
+  return sp.y<top ? 1.0 : 0.0;
+}`,
+    path2d(o){
+      const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;
+      o.moveTo(0, H);
+      for (let j = 0; j <= 76; j++) { const xs = (j/76 - .5)*asp, id = Math.floor(xs*38);
+        const top = -.3 + .02*Math.sin(xs*7) + .012*Math.sin(xs*23) + (j % 2 ? 0 : .03 + .05*((Math.sin(id*12.9898)*43758.5453) % 1 + 1) % 1);
+        o.lineTo(X(xs), Y(top)); }
+      o.lineTo(W, H); o.closePath();
+    },
+  },
   draw2d(o, P, t){
     const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;
     o.globalAlpha = Math.min(1, P.w.aurora);

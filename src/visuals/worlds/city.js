@@ -45,6 +45,27 @@ vec3 city(vec2 sp){
 }`,
     fn: 'city',
   },
+  // its front plane, for scenes that put things between its layers: the near row of buildings
+  front: {
+    fn: 'cityFront',
+    glsl: `
+float cityFront(vec2 sp){
+  if(sp.y<-0.3) return 0.0;
+  float w=0.07, x=sp.x+uTime*0.028+3.7, id=floor(x/w), lx=fract(x/w), hb=hash(vec2(id,2.0));
+  float h=-0.3+(0.06+0.2*hb)*1.15+specD(fract(id*0.137))*0.1*uReact;
+  return (sp.y<h && lx>0.06 && lx<0.94) ? 1.0 : 0.0;
+}`,
+    path2d(o, P, t){
+      const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, L = 1;
+      const w = .035 + L*.035, shift = t*(.008 + L*.02) + L*3.7, first = Math.floor((-asp/2 + shift)/w);
+      for (let id = first; id*w - shift < asp/2; id++) {
+        const hb = cityB[L][((id % 80) + 80) % 80], sv = dataArr[256 + Math.floor((((id*.137) % 1) + 1) % 1*255)]/255;
+        const h = -.3 + (.06 + .2*hb)*(.8 + L*.35) + sv*.1*P.react*(.5 + L*.5);
+        const x0 = X(id*w - shift + w*.06), x1 = X(id*w - shift + w*.94);
+        o.rect(x0, Y(h), x1 - x0, Y(-.3) - Y(h));
+      }
+    },
+  },
   uniforms(gl, u, P){ gl.uniform1f(u.uCitySeed, P.citySeed); },
   init2d(){ cityB = [0, 1].map(L => Array.from({length:80}, () => Math.random())); },
   draw2d(o, P, t){ drawCity(o, P, t); drawStreet(o, P); },

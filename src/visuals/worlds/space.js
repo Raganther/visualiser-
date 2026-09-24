@@ -66,6 +66,16 @@ vec3 space(vec2 sp){
 }`,
     fn: 'space',
   },
+  // its front plane, for scenes that put things between its layers: the planet
+  front: {
+    fn: 'spaceFront',
+    glsl: `
+float spaceFront(vec2 sp){ return length(sp-uPlanet.xy)<uPlanet.z ? 1.0 : 0.0; }`,
+    path2d(o, P){
+      const W = o.canvas.width, H = o.canvas.height, [px, py, pr] = P.planet;
+      o.moveTo(W/2 + px*H + pr*H, H/2 - py*H); o.arc(W/2 + px*H, H/2 - py*H, pr*H, 0, Math.PI*2);
+    },
+  },
   uniforms(gl, u, P){
     gl.uniform1f(u.uLightAng, P.lightAng); gl.uniform1f(u.uStarPh, P.starPh); gl.uniform3fv(u.uPlanet, P.planet);
     if (u['uMoons[0]']) gl.uniform4fv(u['uMoons[0]'], P.moons);

@@ -7,11 +7,14 @@ export function composeDisplay(){
   const worlds = WORLD_VISUALS.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
   // an object returns premultiplied colour and coverage; it covers what's behind it
   const objects = OBJECT_VISUALS.filter(v => v.glsl).map(v => `  if(uO_${v.key}>0.003){ vec4 ob=${v.glsl.fn}(sp); c=c*(1.0-ob.a*uO_${v.key})+ob.rgb*uO_${v.key}; }`).join('\n');
+  // between: the worlds' front planes (buildings, ridge, treeline, planet) repaint their own colour over the trails
+  const fronts = WORLD_VISUALS.filter(v => v.front).map(v => `    if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   return PREC + `
 varying vec2 vUv;
 uniform sampler2D uTex, uHist; uniform vec2 uRes;
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact;
+uniform sampler2D uMask; uniform float uMaskOn,uMaskIn,uBetween;   // the trails only inside (or outside) an object's silhouette
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
 ${OBJECT_VISUALS.filter(v => v.glsl).map(v => `uniform float uO_${v.key};`).join('\n')}
@@ -21,6 +24,7 @@ float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 ${VISUALS.filter(v => v.glsl && v.glsl.functions).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
+${WORLD_VISUALS.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
 void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
@@ -31,10 +35,14 @@ void main(){
   c+=b*0.35;
   // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
   c*=1.0+uBeat*0.6;
+  if(uMaskOn>0.5){ float m=texture2D(uMask,vUv).r; c*=mix(1.0-m,m,uMaskIn); }
   // worlds sit behind the glow, drawn crisp every frame instead of smeared by the trails
   vec3 w=vec3(0.0);
 ${worlds}
   c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
+  if(uBetween>0.5){ float fc=0.0;
+${fronts}
+    c=mix(c,w,fc); }
   // objects stand in front of the world and the glow, solid and crisp
 ${objects}
   // hits sit on top, crisp, with a small halo of glow
@@ -59,6 +67,7 @@ varying vec2 vUv;
 uniform sampler2D uPrev, uData;
 uniform vec2 uRes, uCenter, uBurstC;
 uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uMid,uTreb,uBeat,uReact,uHit;
+uniform float uFillMode,uFillGain,uFillZoom;   // 1: draw a fill instead (the chosen layers alone, through the kaleidoscope, no trails)
 ${layers.map(v => `uniform float uL_${v.key};`).join('\n')}
 ${part('uniforms')}
 float ASP;
@@ -97,6 +106,7 @@ ${part('folded')}
 void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
+  if(uFillMode>0.5){ vec2 fp=sp*uFillZoom; gl_FragColor=vec4(min(elements(fp,fp-uBurstC,max(uSym,1.0))*uFillGain*(0.6+uBeat*0.4),vec3(1.0)),1.0); return; }
   vec2 disp=vec2(0.0);
 ${displace}
   vec2 p=sp-uCenter;

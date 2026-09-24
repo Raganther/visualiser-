@@ -6,7 +6,7 @@
 // Look and motion come from TUNE.mesh; TUNE[key] gives its size, hinge swing and Journey chance.
 import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
-import { meshDraw2d, meshGL, panesOf } from '../../render/mesh.js';
+import { meshDraw2d, meshGL, meshPath2d, panesOf } from '../../render/mesh.js';
 
 export function meshObject({key, label, words, mesh}){
   let drawGL = null, panes2d = null;
@@ -46,5 +46,6 @@ export function meshObject({key, label, words, mesh}){
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (!drawGL) drawGL = meshGL(gl, mesh); drawGL(P.m[key], W, H, stage); },
     draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
+    path2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshPath2d(o, panes2d, mesh.hinge, P.m[key]); },   // its silhouette, for masks
   };
 }

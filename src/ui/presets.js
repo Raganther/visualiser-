@@ -10,7 +10,7 @@ import { toast } from './toast.js';
 import { $ } from '../util.js';
 
 export function setPreset(p, label){
-  S.active = p; S.beatsInPreset = 0; S.presetSince = performance.now();
+  S.active = p; S.scene = p.scene || null; S.beatsInPreset = 0; S.presetSince = performance.now();
   $('#pName').textContent = label || p.name; toast(label || p.name); syncSliders();
 }
 export function nextPreset(dir){ if (J.on) setJourney(false); S.pIndex = (S.pIndex + dir + presets.length) % presets.length; setPreset(presets[S.pIndex]); }

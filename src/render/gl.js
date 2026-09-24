@@ -3,7 +3,8 @@ import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
 import { composeDisplay, composeFeedback } from './compose.js';
 import { PFRAG, PVERT, VERT } from './shaders.js';
-import { LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
+import { TUNE } from '../tuning.js';
 import { HIST, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
@@ -58,7 +59,15 @@ function setupGL(){
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL setup error');
 }
+// half-size targets for a scene's fills and masks, made when a scene first needs them
+let fills = {}, mask = null;
+function halfTarget(){
+  const w = Math.max(1, W >> 1), h = Math.max(1, H >> 1), tex = makeTex(w, h), fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return {tex, fb, w, h};
+}
 function glResize(){
+  [...Object.values(fills), mask].forEach(t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } }); fills = {}; mask = null;
   fbos.forEach(f => { gl.deleteTexture(f.tex); gl.deleteFramebuffer(f.fb); });
   fbos = [0,1].map(() => {
     const tex = makeTex(W, H), fb = gl.createFramebuffer();
@@ -84,7 +93,7 @@ export function drawGL(now, P){
   gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
   gl.uniform1f(u.uHue, P.hue); gl.uniform1f(u.uHueShift, P.hueShift);
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
-  gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit);
+  gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
   for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], P.l[l.key]);
   for (const vis of VISUALS) if (vis.fbUniforms) vis.fbUniforms(gl, u, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -99,6 +108,24 @@ export function drawGL(now, P){
   }
   const meshes = OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003);   // mesh objects (their own programs)
   for (const o of meshes) o.drawGL(gl, P, W, H, 'trails');
+  // the scene's fills: the chosen layers alone, through the kaleidoscope, drawn by the trails' own shader in fill mode
+  const sc = P.sc;
+  for (const key in sc.fills) if (P.o[key] > .003) {
+    const f = sc.fills[key], t = fills[key] || (fills[key] = halfTarget());
+    gl.useProgram(fbProg.p); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h);
+    gl.uniform1f(u.uFillMode, 1); gl.uniform1f(u.uFillGain, TUNE.scene.fillGain); gl.uniform1f(u.uFillZoom, f.zoom || TUNE.scene.fillZoom); gl.uniform1f(u.uSym, f.kaleido); gl.uniform1f(u.uMirror, 0);
+    for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], f.layers.includes(l.key) ? 1 : 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.uniform1f(u.uFillMode, 0);
+    P.m[key].fillTex = t.tex; P.m[key].fillAmt = TUNE.scene.fillAmt;
+  }
+  // the scene's mask: an object's silhouette, which the trails are shown inside (or outside) of
+  const masked = sc.mask && byKey[sc.mask.object] && P.o[sc.mask.object] > .003;
+  if (masked) {
+    mask = mask || halfTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, mask.fb); gl.viewport(0, 0, mask.w, mask.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    byKey[sc.mask.object].drawGL(gl, P, W, H, 'cover');
+  }
   cur = 1 - cur;
   gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H);
   gl.useProgram(dispProg.p); const v = dispProg.u;
@@ -113,6 +140,8 @@ export function drawGL(now, P){
   for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
   for (const o of OBJECT_VISUALS) if (o.glsl) gl.uniform1f(v['uO_' + o.key], P.o[o.key]);
   for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
+  gl.uniform1f(v.uMaskOn, masked ? 1 : 0); gl.uniform1f(v.uBetween, sc.between ? 1 : 0);
+  if (masked) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, mask.tex); gl.uniform1i(v.uMask, 5); gl.uniform1f(v.uMaskIn, sc.mask.inside ? 1 : 0); }
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   for (const o of meshes) o.drawGL(gl, P, W, H, 'screen');
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
