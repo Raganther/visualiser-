@@ -28,7 +28,7 @@ src/audio/                 player, analysis (levels, onsets), synth (built-in be
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
-tests/                     npm test: smoke, media, objects, grid, journey, golden (see Testing)
+tests/                     npm test: smoke, media, objects, sync, grid, journey, golden (see Testing)
 tools/build.mjs            the bundler for dist/afterglow.html
 ```
 
@@ -102,6 +102,8 @@ Its slider, shader code, drawing, narration and Journey scoring all follow from 
 Presets with `journey: false` are manual-mode looks only; Journey's recipe pool skips them.
 
 - **Movers** (`mods` on a preset): per-setting automation such as drift, follows bass/mids/treble, pulses on beat, or jumps on beat.
+  - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
+  - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
 - **Presets** (`BASE`, 14 of them): hand-made looks for manual mode. Journey also reads them as **recipes**.
 
 ## Journey (the automatic director)
@@ -160,6 +162,14 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
   - section changes, spin reversals and progression.
 
   Until the grid locks, detected kicks drive it directly.
+- **Sync with real audio.** The grid ticks `G.lead` seconds ahead of the kicks as detected. `G.lead` is the sum of:
+  - plus the analyser's delay (half its window);
+  - plus the screen's delay (`TUNE.sync.displayMs`);
+  - minus the speakers' delay (`outputLatency`, which is big on Bluetooth);
+  - minus the user's **Sync** slider (`S.syncMs`, remembered in `localStorage`).
+
+  With the built-in beat there's nothing to hear, so `G.lead` is 0.
+- **The pulse lands on the kick.** The kick's flash is in the display pass (`c*=1+uBeat*…`, and the matching second draw in simple mode), not in the trails. Brightness added in the trails builds up over the next frames and peaked about 8 frames late. So beat-driven brightness doesn't go in the feedback pass. `tests/sync.mjs` checks both.
 - **Phrases.** 4-bar lines are counted from the first bar of the current section (`J.phraseAnchor`).
 
 ## Conventions
@@ -210,6 +220,10 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). Tests use headless Chromium via the global Playwright (`npm root -g`).
 - `tests/smoke.mjs`: the page loads, draws and locks the beat grid in both renderers with no errors, and `?lab=` / `?tune=` apply.
 - `tests/media.mjs`: an image and Chromium's fake camera (`FAKE_CAMERA` flags in `lib.mjs`) show through the tunnel in both renderers, and Journey hands it the lead and takes it back.
+- `tests/sync.mjs`:
+  - with real audio through the analyser, a synthetic loop in real time, the pulse is drawn a screen's delay before the kick is heard;
+  - the kick frame is the brightest;
+  - each "follows" mover moves with its own part of the groove.
 - `tests/objects.mjs`: the skull draws and breaks apart in both renderers, and with `?lab=skull` Journey casts it as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;

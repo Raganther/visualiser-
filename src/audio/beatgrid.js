@@ -37,7 +37,8 @@ function gridBeat(pos){
 /* ---------- beat grid: tempo from the kicks, a clock that keeps time through missed kicks and breakdowns,
    and the downbeat found from where claps and snares fall (2 and 4) and where crashes and changes land (the 1) ---------- */
 export const G = {period:0, next:0, n:0, down:0, locked:false, conf:0, miss:0, fit:0, prevKick:0, kicks:[], alt:0, altN:0,
-  bb:[0,0,0,0], mid:[0,0,0,0], ev:0, win:null, cand:-1, candN:0, lastT:0};
+  bb:[0,0,0,0], mid:[0,0,0,0], ev:0, win:null, cand:-1, candN:0, lastT:0,
+  lead:0};   // seconds to tick ahead of the kicks as detected, so the beat is seen as it's heard
 export function gridReset(keepTempo){
   G.locked = false; G.conf = 0; G.miss = 0; G.fit = 0; G.prevKick = 0; G.kicks.length = 0; G.win = null;
   G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; if (!keepTempo) G.period = 0;
@@ -111,7 +112,7 @@ export function gridFrame(t, fl, fh, ft){
   if (!G.locked) return;
   G.conf -= dt/TUNE.grid.holdSecs;
   if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }
-  while (t + .008 >= G.next) { gridTick(G.next); G.next += G.period; }   // half a frame early, so ticks land on the beat not after it
+  while (t + .008 + G.lead >= G.next) { gridTick(G.next); G.next += G.period; }   // half a frame early, so ticks land on the beat not after it
   if (G.win && t < G.win.until) { G.win.bb = Math.max(G.win.bb, fl + ft*2 + fh*.5); G.win.mid = Math.max(G.win.mid, fh); }
   S.beatPeriod = G.period;
 }

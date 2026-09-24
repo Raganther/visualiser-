@@ -64,6 +64,11 @@ export const TUNE = {
     explodeSecs: 1.6,          // how long it takes to pull itself back together
   },
 
+  // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
+  sync: {
+    displayMs: 30,             // how long a drawn frame takes to reach the screen
+  },
+
   // beat grid
   grid: {
     onGrid: .12,               // a kick within this fraction of a beat counts as on the grid

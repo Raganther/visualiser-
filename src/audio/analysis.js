@@ -1,13 +1,14 @@
 // Audio analysis: levels, and onsets for kicks and stabs.
 import { S } from '../state.js';
-import { gridFrame, gridKick, onBeatFX } from './beatgrid.js';
-import { analyser, buffer } from './player.js';
+import { G, gridFrame, gridKick, onBeatFX } from './beatgrid.js';
+import { actx, analyser, buffer } from './player.js';
 import { synth } from './synth.js';
 import { onHitFX } from '../fx/effects.js';
 import { PACE } from '../journey/pace.js';
 import { dataArr, freq, wave, waveS } from '../state.js';
 import { reduceMotion } from '../util.js';
 import { MEDIA } from '../media/source.js';
+import { TUNE } from '../tuning.js';
 
 const intervals = [];
 /* ---------- analysis ---------- */
@@ -16,11 +17,24 @@ const prevSpec = new Uint8Array(1024), loFlux = [], hiFlux = [];
 const kickFl = [], hitFl = [];
 // analyser bytes are decibels; onsets are judged on actual loudness so faint noise can't pass for a kick
 export const LIN = Float32Array.from({length:256}, (_, b) => Math.pow(10, (b/255*70 - 70)/20));
+// each band's own rhythm, 0..1 against its recent quiet and loud, for the "follows" movers: bass pumps with the kick,
+// mids with claps, stabs and chords, treble with the hats (the raw levels mostly just sit high and barely move)
+export const bands = {bass: 0, mid: 0, treb: 0};
+const bandRange = {bass: [0, .01], mid: [0, .01], treb: [0, .01]};
+function followBand(k, v){
+  const r = bandRange[k];
+  r[0] += (v - r[0])*(v < r[0] ? .3 : .004); r[1] += (v - r[1])*(v > r[1] ? .3 : .004);   // the quiet and loud ends drift in slowly
+  bands[k] = Math.max(Math.min(1, Math.max(0, (v - r[0])/Math.max(.03, r[1] - r[0]))), bands[k]*.8);
+}
 function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
 export function analyse(now){
   // a track, or a video's own sound; otherwise the built-in beat
-  if ((buffer || MEDIA.audio) && analyser) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
+  const real = (buffer || MEDIA.audio) && analyser;
+  if (real) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
   else synth(now);
+  // kicks are detected about half an analysis window late, and the frame reaches the screen later still, while the sound
+  // reaches the speakers later than the analyser hears it; the grid ticks early or late by the difference
+  G.lead = real ? analyser.fftSize/2/actx.sampleRate + TUNE.sync.displayMs/1000 - (actx.outputLatency || actx.baseLatency || 0) - S.syncMs/1000 : 0;
   for (let i = 0; i < 256; i++) {
     dataArr[i] = wave[i*8];
     dataArr[256+i] = freq[Math.min(1023, 1 + Math.floor(Math.pow(i/255, 2) * 700))];
@@ -29,6 +43,7 @@ export function analyse(now){
   const avg = (a,b) => { let s = 0; for (let i = a; i < b; i++) s += freq[i]; return s / ((b-a)*255); };
   const bass = avg(1,9), mid = avg(9,90), treb = avg(90,400);
   sBass += (bass - sBass)*.3; sMid += (mid - sMid)*.2; sTreb += (treb - sTreb)*.25;
+  followBand('bass', bass); followBand('mid', mid); followBand('treb', treb);
   // onsets: how much the spectrum jumped since the last frame (spectral flux)
   let fl = 0, fh = 0;
   for (let i = 1; i < 7; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fl += d; }

@@ -50,7 +50,7 @@ export function make2D(view){
     c.rotate(P.rot + Math.sin(now/700)*wob*.5);
     c.scale(z*(1 + Math.sin(now/530)*wob), z*(1 + Math.cos(now/610)*wob));
     c.translate(-cx, -cy);
-    c.globalAlpha = Math.min(.995, P.decay - P.beat*.09);
+    c.globalAlpha = Math.min(.995, P.decay);
     if (hasFilter && P.hueShift > 0) c.filter = `hue-rotate(${(P.hueShift*57.3).toFixed(2)}deg)`;
     c.drawImage(src, 0, 0);
     c.restore();
@@ -61,7 +61,7 @@ export function make2D(view){
 
     c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
     c.lineJoin = 'round'; c.lineCap = 'round';
-    const bright = .35 + P.treb*P.react*.5 + P.beat*.8;
+    const bright = .35 + P.treb*P.react*.5;   // no kick boost here: in the trails it would build up and peak late
     const symF = Math.max(1, P.sym), n1 = Math.floor(symF), fr = symF - n1;
     const drawSym = (n, w) => {
       if (w < .02) return;
@@ -89,6 +89,8 @@ export function make2D(view){
     drawWorlds(P, now);
     out.globalCompositeOperation = 'lighter';
     out.drawImage(bufs[i], 0, 0, W, H);
+    // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
+    if (P.beat > .01) { out.globalAlpha = Math.min(1, P.beat*.6); out.drawImage(bufs[i], 0, 0, W, H); out.globalAlpha = 1; }
     drawObjects(P);
     drawHits(P);
     out.globalCompositeOperation = 'source-over';

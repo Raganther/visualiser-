@@ -29,6 +29,8 @@ void main(){
   vec3 b=(texture2D(uTex,vUv+vec2(px.x,0.0)).rgb+texture2D(uTex,vUv-vec2(px.x,0.0)).rgb
          +texture2D(uTex,vUv+vec2(0.0,px.y)).rgb+texture2D(uTex,vUv-vec2(0.0,px.y)).rgb)*0.25;
   c+=b*0.35;
+  // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
+  c*=1.0+uBeat*0.6;
   // worlds sit behind the glow, drawn crisp every frame instead of smeared by the trails
   vec3 w=vec3(0.0);
 ${worlds}
@@ -105,14 +107,13 @@ ${displace}
   vec3 col=sampleFb(pf,n1);
   if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
   col=hueRot(col,uHueShift);
-  // the kick briefly cuts the trails, so the whole image pumps in time
-  col=max(col*(uDecay-uBeat*0.09)-0.004,0.0);
+  col=max(col*uDecay-0.004,0.0);
   col-=0.16*col*col;
 
   vec2 pe=p+disp, pb=sp-uBurstC+disp;
   vec3 e=elements(pe,pb,n1);
   if(fr>0.002) e=mix(e,elements(pe,pb,n1+1.0),fr);
-  col+=e*(0.35+uTreb*uReact*0.5+uBeat*0.8+uHit*0.5);
+  col+=e*(0.35+uTreb*uReact*0.5+uHit*0.5);   // no kick boost here: in the trails it would build up and peak late
 ${main}
   gl_FragColor=vec4(min(col,vec3(1.0)),1.0);
 }`;

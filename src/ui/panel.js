@@ -42,9 +42,10 @@ for (const s of SPEC) {
     if (sel.value === 'none') delete S.active.mods[s.k];
     else S.active.mods[s.k] = {src: sel.value, amt: S.active.mods[s.k] ? S.active.mods[s.k].amt : .25};
     if (sel.value === 'jump') jumpVal[s.k] = Math.random()*2 - 1;
+    if (J.on) J.userMods[s.k] = S.active.mods[s.k] ? {...S.active.mods[s.k]} : null;   // Journey keeps your choice from section to section
     syncSliders();
   });
-  depth.addEventListener('input', () => { if (S.active.mods[s.k]) S.active.mods[s.k].amt = +depth.value; });
+  depth.addEventListener('input', () => { const m = S.active.mods[s.k]; if (!m) return; m.amt = +depth.value; if (J.on) J.userMods[s.k] = {...m}; });
   sliders[s.k] = {input, out, s, sel, depth, row};
 }
 export function syncSliders(){
@@ -60,6 +61,10 @@ $('#jBias').addEventListener('input', e => { J.bias = +e.target.value;
 $('#jSpeed').addEventListener('input', e => { J.speed = +e.target.value; $('#jSpeedOut').textContent = J.speed.toFixed(2) + '×'; });
 setJourney(true, 'fresh');
 $('#react').addEventListener('input', e => $('#reactOut').textContent = (+e.target.value).toFixed(2));
+// Sync: this device's speaker and screen delays, remembered between visits
+const showSync = v => { S.syncMs = v; $('#sync').value = v; $('#syncOut').textContent = (v > 0 ? '+' : '') + v + ' ms'; };
+try { showSync(+(localStorage.getItem('afterglow.syncMs') || 0)); } catch (e) {}
+$('#sync').addEventListener('input', e => { showSync(+e.target.value); try { localStorage.setItem('afterglow.syncMs', S.syncMs); } catch (e) {} });
 $('#resetBtn').onclick = () => {
   const i = presets.indexOf(S.active);
   if (i >= 0) { Object.assign(S.active, clone(BASE[i])); syncSliders(); toast('Preset reset'); }

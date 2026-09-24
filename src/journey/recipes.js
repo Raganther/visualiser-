@@ -42,6 +42,7 @@ export function setLens(){
 export function recipeMods(){
   const m = {}, src = J.recipe ? J.recipe.p.mods : {};
   for (const k in src) if (MOTION.includes(k) || (LENS.includes(k) && J.lensOn)) m[k] = {...src[k]};
+  for (const k in J.userMods) if (J.userMods[k]) m[k] = {...J.userMods[k]}; else delete m[k];   // movers you set by hand stay
   jState.mods = m;
   syncSliders();
 }
