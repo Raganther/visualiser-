@@ -93,7 +93,7 @@ export function stepJourney(now, dt){
     if (MEDIA.on) { tgt[J.lead] = 0; WORLDS.forEach(k => tgt[k] = 0); }
   }
   // a centrepiece object stands in front; the lead steps back a little so it isn't crowded (the tunnel wins while media is on)
-  for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE[v.key].level : 0;
+  for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE.mesh.level : 0;
   if (J.centre && !MEDIA.on) tgt[J.lead] *= .7;
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;

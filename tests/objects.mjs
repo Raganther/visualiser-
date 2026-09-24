@@ -1,5 +1,5 @@
-// Objects test: the skull draws in both renderers and breaks apart; with ?lab=skull, Journey casts it as a centrepiece
-// (never under a lens). Runs on index.html (reads the modules).
+// Objects test: every mesh object (the wire skull, the unicorn, the maths shapes) draws and shatters in both renderers;
+// with ?lab=skull, Journey casts the skull as a centrepiece (never under a lens). Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('objects: skipped for', ENTRY); process.exit(0); }
@@ -8,25 +8,31 @@ let failed = false;
 const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0)/a.length;
 for (const mode of ['2d', 'gl']) {
   const browser = await launch(mode);
-  // by hand: everything off but the skull, then compare with it off, and mid-break
+  // by hand, each object alone: compare with nothing on, then mid-shatter
   let page = await openPage(browser, url, {groove: false});
-  const r = await page.evaluate(`(async () => {
+  const res = await page.evaluate(`(async () => {
+    const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {OBJECT_VISUALS} = await import('/src/visuals/registry.js');
     document.querySelector('#autoBtn').click();
-    const set = (k, v) => { const s = document.querySelector('#s_' + k); s.value = v; s.dispatchEvent(new Event('input')); };
+    const set = (k, v) => { S.active[k] = v; curP[k] = v; };   // at once, instead of easing there
     for (const s of document.querySelectorAll('input[id^=s_]')) if (!/decay|zoom|colorSpeed/.test(s.id)) set(s.id.slice(2), 0);
-    set('sym', 1); __step(60);
-    const off = ${THUMB};
-    set('skull', 1); __step(60);
-    const on = ${THUMB};
-    (await import('/src/visuals/objects/skull.js')).default.breakApart(); __step(14);
-    const apart = ${THUMB};
-    return {off, on, apart};
+    set('sym', 1); S.active.mods = {}; __step(60);
+    const off = ${THUMB}, out = {};
+    for (const v of OBJECT_VISUALS) {
+      set(v.key, 1); __step(${mode === 'gl' ? 50 : 90});
+      const on = ${THUMB};
+      v.breakApart(); __step(14);
+      const apart = ${THUMB};
+      set(v.key, 0); __step(40);
+      out[v.key] = {on, apart};
+    }
+    return {off, out};
   })()`);
-  const shown = diff(r.off, r.on), broke = diff(r.on, r.apart);
   let errors = await page.errors(); await page.close();
-  let ok = shown > 3 && broke > 1.5 && !errors.length;
-  console.log(`${mode}: ${ok ? 'ok' : 'FAILED'}  skull drawn (change ${shown.toFixed(1)}), breaks apart (change ${broke.toFixed(1)})`, errors.length ? errors : '');
-  if (!ok) failed = true;
+  for (const [k, {on, apart}] of Object.entries(res.out)) {
+    const shown = diff(res.off, on), broke = diff(on, apart), ok = shown > .6 && broke > .5 && !errors.length;   // few-edged shapes (the dodecahedron) change the least
+    console.log(`${mode}: ${ok ? 'ok' : 'FAILED'}  ${k} drawn (change ${shown.toFixed(1)}), shatters (change ${broke.toFixed(1)})`, errors.length ? errors : '');
+    if (!ok) failed = true;
+  }
   // Journey with the skull lab: it becomes a centrepiece, with no lens over it (simple mode only; WebGL is too slow to run sections)
   if (mode === '2d') {
     page = await openPage(browser, url, {query: '?lab=skull'});
@@ -38,7 +44,7 @@ for (const mode of ['2d', 'gl']) {
       return {seen, frames, lensOver, sec: document.querySelector('#jSection').textContent};
     });
     errors = await page.errors(); await page.close();
-    ok = j.seen && !j.lensOver && !errors.length;
+    const ok = j.seen && !j.lensOver && !errors.length;
     console.log(`journey: ${ok ? 'ok' : 'FAILED'}  skull as centrepiece for ${j.frames} of 240 s, under a lens ${j.lensOver} s`, errors.length ? errors : '');
     if (!ok) failed = true;
   }

@@ -9,7 +9,7 @@
     "golden:update": "node tests/golden.mjs --update",
     "build": "node tools/build.mjs",
     "test:dist": "node tools/build.mjs && AFTERGLOW_ENTRY=dist/afterglow.html node tests/run.mjs",
-    "mesh": "node tools/skull-mesh.mjs"
+    "mesh": "node tools/skull-mesh.mjs && node tools/unicorn-mesh.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

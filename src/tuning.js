@@ -53,21 +53,27 @@ export const TUNE = {
     drift: .015,               // how fast the view wanders across the source
   },
 
-  // the wire skull (a 3D centrepiece); Journey leaves it out while chance is 0
-  skull: {
-    chance: 0,                 // how often a section gets it as its centrepiece (try ?lab=skull)
-    level: .9,                 // how strongly it shows as the centrepiece
-    size: .42,                 // how big it is (about 1.1 × this, as a fraction of the screen's height)
-    spin: .25,                 // how fast it turns (motion time, so it slows with the pace)
-    jaw: .3,                   // how far the jaw drops on the pulse, in radians
-    explode: 1,                // how far the panes fly when it shatters
+  // 3D mesh objects (the wire skull, the unicorn, the maths shapes): how they all look and move
+  mesh: {
+    level: .9,                 // how strongly one shows as a section's centrepiece
+    spin: .25,                 // how fast they turn (motion time, so they slow with the pace)
+    explode: 1,                // how far the panes fly when one shatters
     explodeSecs: 1.2,          // how long it takes to pull itself back together
     line: 2.2,                 // edge width in pixels, on a 720-line screen
     fill: .12,                 // how much light the glass panes hold
     dark: .75,                 // how much the glass darkens what's behind it (so it reads as a solid)
     xray: .22,                 // how brightly the far side's edges show through
-    trail: .15,                // how bright the ghosts it leaves in the trails are
+    trail: .15,                // how bright the ghosts they leave in the trails are
   },
+  // each object: chance (how often Journey makes it a section's centrepiece; 0 = never, try ?lab=skull or ?lab=objects),
+  // size (about 1.1 × this, as a fraction of the screen's height) and hinge (its hinged piece's swing on the pulse, radians)
+  skull: {chance: 0, size: .42, hinge: .3},       // the jaw drops
+  unicorn: {chance: 0, size: .42, hinge: .15},    // the head nods
+  geosphere: {chance: 0, size: .4, hinge: 0},
+  torus: {chance: 0, size: .48, hinge: 0},
+  knot: {chance: 0, size: .52, hinge: 0},
+  dodeca: {chance: 0, size: .4, hinge: 0},
+  spikes: {chance: 0, size: .4, hinge: 0},
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {
