@@ -1,0 +1,19 @@
+{
+  "name": "afterglow",
+  "private": true,
+  "type": "module",
+  "description": "Browser music visualiser with an automatic director (Journey)",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "node tests/run.mjs",
+    "golden:update": "node tests/golden.mjs --update",
+    "build": "node tools/build.mjs",
+    "test:dist": "node tools/build.mjs && AFTERGLOW_ENTRY=dist/afterglow.html node tests/run.mjs",
+    "mesh": "node tools/skull-mesh.mjs && node tools/unicorn-mesh.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "isosurface": "^1.0.0",
+    "meshoptimizer": "^1.2.0"
+  }
+}
