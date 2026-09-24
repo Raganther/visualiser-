@@ -2,8 +2,15 @@
 
 A music visualiser that runs entirely in the browser. You drop in MP3s, it analyses them live with Web Audio, and it draws a glowing feedback piece that follows the music. Its automatic director, **Journey**, decides what appears, when, and how it moves.
 
-- Everything lives in one file, `afterglow.html` (about 2,200 lines of HTML, CSS, GLSL and JS). There's no build step, no dependencies and no server. The only external request is the Chakra Petch font from Google Fonts.
-- The published copy is a claude.ai Artifact: https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. To update it, republish `afterglow.html` to that URL.
+- The code is plain ES modules with no runtime dependencies:
+  - `index.html` holds the markup and `styles.css` the styles;
+  - `src/` holds the code, one module per concern (`audio/`, `journey/`, `fx/`, `render/`, `ui/`), plus `main.js`, `state.js`, `presets.js` and `util.js`;
+  - the only external request is the Chakra Petch font.
+- To develop, serve the folder (`npm run serve`, which runs `python3 -m http.server`) and open `index.html`. Modules don't load from `file://`.
+- The published copy is a claude.ai Artifact: https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. To publish:
+  1. `npm run build` bundles everything into one self-contained `dist/afterglow.html` (esbuild, the only dev dependency).
+  2. Republish that file to the URL.
+- **Shared state.** Variables that several modules reassign live on `S` in `src/state.js` (`S.beat`, `S.active`, `S.MT` …), because ES module imports are read-only.
 - The user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
 ## How it draws

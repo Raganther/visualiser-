@@ -1,0 +1,147 @@
+// WebGL renderer: context, framebuffers, the feedback and display passes, and the choice between WebGL and simple mode.
+import { NP, parts } from '../fx/particles.js';
+import { make2D } from './canvas2d.js';
+import { DISPLAY, FEEDBACK, PFRAG, PVERT, VERT } from './shaders.js';
+import { HIST, dataArr } from '../state.js';
+import { toast } from '../ui/toast.js';
+import { $ } from '../util.js';
+
+let canvas = $('#gl');
+export let gl = null;
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(fs, vs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs || VERT));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+  return {p, u};
+}
+let pProg = null, pBuf = null, quadBuf = null, histTex = null;
+export let fbProg = null, dispProg = null, fbos = [], cur = 0, W = 1, H = 1, dataTex = null, r2d = null;
+function makeTex(w, h){
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function setupGL(){
+  fbProg = program(FEEDBACK); dispProg = program(DISPLAY); pProg = program(PFRAG, PVERT);
+  pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
+  const quad = quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  histTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, histTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  dataTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL setup error');
+}
+function glResize(){
+  fbos.forEach(f => { gl.deleteTexture(f.tex); gl.deleteFramebuffer(f.fb); });
+  fbos = [0,1].map(() => {
+    const tex = makeTex(W, H), fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+    return {tex, fb};
+  });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+export function drawGL(now, P){
+  const src = fbos[cur], dst = fbos[1-cur];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(fbProg.p); const u = fbProg.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
+  gl.uniform1i(u.uData, 1);
+  gl.uniform2f(u.uRes, W, H); gl.uniform2f(u.uCenter, P.cx, P.cy);
+  gl.uniform1f(u.uTime, now/1000);
+  gl.uniform1f(u.uZoom, P.zoom); gl.uniform1f(u.uRot, P.rot); gl.uniform1f(u.uWarp, P.warp);
+  gl.uniform1f(u.uDecay, P.decay);
+  gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
+  gl.uniform1f(u.uHue, P.hue); gl.uniform1f(u.uHueShift, P.hueShift);
+  gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
+  gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit);
+  gl.uniform4f(u.uLayers, P.ring, P.scope, P.plasma, P.burst);
+  gl.uniform2f(u.uFx, P.cometW, P.shockW);
+  gl.uniform2f(u.uBurstC, P.bcx, P.bcy);
+  gl.uniform2f(u.uRingShape, P.ringR, P.ringSq);
+  const ca = new Float32Array(9), sa = new Float32Array(32);
+  P.comets.forEach((c, i) => { ca[i*3] = c.x; ca[i*3+1] = c.y; ca[i*3+2] = c.z; });
+  P.shocks.forEach((h, i) => { sa[i*4] = h.x; sa[i*4+1] = h.y; sa[i*4+2] = h.r; sa[i*4+3] = h.s; });
+  if (u['uComets[0]']) gl.uniform3fv(u['uComets[0]'], ca);
+  if (u['uShocks[0]']) gl.uniform4fv(u['uShocks[0]'], sa);
+  gl.uniform1f(u.uRib, P.ribW); gl.uniform1f(u.uRibAng, P.ribAng); gl.uniform1f(u.uRibPh, P.ribPh);
+  gl.uniform1f(u.uHor, P.horW); gl.uniform1f(u.uHorScroll, P.horScroll); gl.uniform1f(u.uHorY, P.horY);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (P.flowW > .01) {   // flow-field particles, drawn into the trails so they leave streaks
+    gl.useProgram(pProg.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, parts);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(2, H/320));
+    gl.uniform3fv(pProg.u.uCol, P.flowCol);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, NP); gl.disable(gl.BLEND);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  }
+  cur = 1 - cur;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H);
+  gl.useProgram(dispProg.p); const v = dispProg.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dst.tex);
+  gl.uniform1i(v.uTex, 0); gl.uniform2f(v.uRes, W, H);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, histTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, HIST);
+  gl.uniform1i(v.uHist, 1);
+  gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
+  gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
+  gl.uniform1f(v.uLand, P.landW); gl.uniform1f(v.uSpace, P.spaceW); gl.uniform1f(v.uLandY, P.landY);
+  gl.uniform1f(v.uAur, P.aurW); gl.uniform1f(v.uCity, P.cityW); gl.uniform1f(v.uCitySeed, P.citySeed);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
+  if (v['uOut[0]']) gl.uniform4fv(v['uOut[0]'], P.outline);
+  if (v['uSpark[0]']) gl.uniform4fv(v['uSpark[0]'], P.sparks);
+  gl.uniform1f(v.uHistFrac, P.histFrac); gl.uniform1f(v.uSunX, P.sunX); gl.uniform1f(v.uLightAng, P.lightAng);
+  gl.uniform1f(v.uStarPh, P.starPh); gl.uniform3fv(v.uPlanet, P.planet);
+  if (v['uMoons[0]']) gl.uniform4fv(v['uMoons[0]'], P.moons);
+  gl.uniform4f(v.uStar, P.star[0], P.star[1], P.star[2], P.star[3]); gl.uniform3f(v.uStarS, P.starRot, P.starN, P.starN > 5 ? .5 : .42);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+// pick WebGL if it works, otherwise the simple 2D renderer
+export function initRenderer(){
+  for (const type of ['webgl2', 'webgl', 'experimental-webgl']) {
+    try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false}); } catch(e) {}
+    if (gl) break;
+  }
+  if (gl) { try { setupGL(); } catch(e) { console.warn(e); gl = null; } }
+  if (!gl) {
+    const fresh = canvas.cloneNode(); canvas.replaceWith(fresh); canvas = fresh;
+    r2d = make2D(canvas);
+    setTimeout(() => toast('Simple mode: WebGL isn’t available'), 400);
+  }
+  addEventListener('resize', resize); resize();
+}
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1);
+  W = Math.max(2, Math.floor(innerWidth * dpr)); H = Math.max(2, Math.floor(innerHeight * dpr));
+  canvas.width = W; canvas.height = H;
+  if (gl) glResize(); else r2d.resize(W, H);
+}

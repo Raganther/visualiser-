@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const ENTRY = process.env.AFTERGLOW_ENTRY || 'afterglow.html';
+export const ENTRY = process.env.AFTERGLOW_ENTRY || 'index.html';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(path.join(execSync('npm root -g').toString().trim(), 'playwright'));

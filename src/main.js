@@ -1,0 +1,123 @@
+// Boot and the render loop: sets up the renderer, seeds the particles and Journey clock, then runs a frame per animation tick.
+import './util.js';
+import './ui/toast.js';
+import './render/gl.js';
+import './render/shaders.js';
+import './state.js';
+import './render/canvas2d.js';
+import './presets.js';
+import './fx/particles.js';
+import './fx/world.js';
+import './journey/core.js';
+import './audio/analysis.js';
+import './journey/sections.js';
+import './journey/worlds.js';
+import './journey/transitions.js';
+import './journey/cast.js';
+import './journey/recipes.js';
+import './journey/progression.js';
+import './ui/panel.js';
+import './journey/director.js';
+import './fx/movers.js';
+import './journey/pace.js';
+import './fx/pulse.js';
+import './fx/hits.js';
+import './fx/effects.js';
+import './audio/beatgrid.js';
+import './ui/presets.js';
+import './audio/player.js';
+import './audio/synth.js';
+import './ui/controls.js';
+import './ui/transport.js';
+import { S } from './state.js';
+import { analyse, hit, sBass, sMid, sTreb } from './audio/analysis.js';
+import { G } from './audio/beatgrid.js';
+import { comets, shocks, stepFX } from './fx/effects.js';
+import { OUTL, SPARKS, STAR, starEnv } from './fx/hits.js';
+import { applyMods } from './fx/movers.js';
+import { seedParticles, stepParts } from './fx/particles.js';
+import { WORLD, stepWorld } from './fx/world.js';
+import { J, SNAP } from './journey/core.js';
+import { stepJourney } from './journey/director.js';
+import { PACE, setPace } from './journey/pace.js';
+import { SPEC, curP, eff } from './presets.js';
+import { drawGL, gl, initRenderer, r2d } from './render/gl.js';
+import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
+import { sliders, updateSectionUI } from './ui/panel.js';
+import { updateTimeUI } from './ui/transport.js';
+import { $, hsv2rgb, noise, reduceMotion } from './util.js';
+
+initRenderer();
+seedParticles();
+J.clock = Math.random()*100;
+/* ---------- render loop ---------- */
+let frameN = 0, hueAcc = 0;
+const VIS = {bass:0, mid:0, treb:0};
+function frame(now){
+  requestAnimationFrame(frame);
+  try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
+}
+function render(now){
+  analyse(now);
+  if (!padBlocked) pollPad();
+  const dt = Math.min(.05, Math.max(0, (now - (render.last || now))/1000)); render.last = now;
+  stepJourney(now, dt);
+  const pv = J.on && J.pace !== undefined ? J.pace : 1;
+  if (Math.abs(pv - PACE.v) > .001 || PACE.div !== (pv < .3 ? 4 : pv < .6 ? 2 : 1)) {
+    const d0 = PACE.div; setPace(pv); if (d0 !== PACE.div && J.on) updateSectionUI();
+  }
+  const mdt = dt*PACE.ts; S.MT += mdt;
+  const vk = Math.min(1, .06 + .94*PACE.v);           // calm sections follow the levels more gently
+  VIS.bass += (sBass - VIS.bass)*vk; VIS.mid += (sMid - VIS.mid)*vk; VIS.treb += (sTreb - VIS.treb)*vk;
+  const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
+  for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
+  const react = +$('#react').value;
+  applyMods(now, react);
+  stepFX(dt, react, S.MT*1000);
+  stepWorld(dt, react, S.MT*1000);
+  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
+  if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
+  hueAcc += mdt*eff.colorSpeed;
+  const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
+  // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
+  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
+    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
+    hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
+    cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
+    ring: eff.ring, scope: eff.scope, plasma: eff.plasma, burst: eff.burst,
+    cometW: eff.comets, shockW: Math.max(eff.shock, J.dropGlow), comets, shocks,
+    ringR: J.on ? J.ringR : .2, ringSq: J.on ? J.ringSq : 0,
+    flowW: eff.flow, ribW: eff.ribbons, horW: eff.horizon, ribAng: J.on ? J.ribAng : 0, ribPh: J.ribPh,
+    horScroll: J.horScroll, horY: J.on ? J.horY : .05,
+    landW: eff.land, spaceW: eff.space, aurW: eff.aurora, cityW: eff.city, citySeed: WORLD.citySeed % 64, landY: WORLD.landY, histFrac: WORLD.histT/.12, sunX: Math.sin(t*.03)*.15,
+    planet: WORLD.planet, moons: WORLD.moons, lightAng: WORLD.lightAng, starPh: WORLD.starPh};
+  P.horY += (WORLD.landY - P.horY)*Math.min(1, eff.land*2);   // the grid floor lines up with the landscape's horizon
+  P.horY += (-.3 - P.horY)*Math.min(1, eff.city*2);             // and with the city's street
+  P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + S.beat*.5));
+  const sa = STAR.age;
+  P.star = [STAR.x, STAR.y, STAR.size*(1 + .3*Math.exp(-sa*16))*(1 + sBass*react*.15), eff.star*starEnv()*(reduceMotion ? .5 : 1)];
+  P.starRot = STAR.rot + sa*.5; P.starN = STAR.n;
+  const dim = reduceMotion ? .5 : 1;
+  P.outline = new Float32Array(12);
+  for (let i = 0; i < 3; i++) { const a = OUTL.age - i*.09; if (a < 0) continue;
+    P.outline.set([.05 + a*1.1 + sBass*react*.02, eff.outline*dim*(a < .06 ? 1 : Math.exp(-(a - .06)*3.2))*(1 - i*.3), OUTL.n, OUTL.rot + a*.3], i*4); }
+  P.sparks = new Float32Array(24);
+  SPARKS.forEach((p, i) => P.sparks.set([p.x, p.y, p.s*(1 + .5*Math.exp(-p.age*20)), eff.sparkle*dim*(p.age < .05 ? 1 : Math.exp(-(p.age - .05)*9))], i*4));
+  const pull = Math.min(1, eff.comets)*.7;
+  P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
+  if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);
+
+  if (++frameN % 6 === 0) {
+    document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
+    updateTimeUI();
+    $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
+    const gEl = $('#jGrid');
+    if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
+      ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
+      : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
+    if ($('#panel').classList.contains('open')) for (const k in sliders) {
+      const {out, s, input} = sliders[k]; if (J.on) input.value = S.active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
+    }
+  }
+}
+requestAnimationFrame(frame);

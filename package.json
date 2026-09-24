@@ -6,6 +6,11 @@
   "scripts": {
     "serve": "python3 -m http.server 8000",
     "test": "node tests/run.mjs",
-    "golden:update": "node tests/golden.mjs --update"
+    "golden:update": "node tests/golden.mjs --update",
+    "build": "node tools/build.mjs",
+    "test:dist": "node tools/build.mjs && AFTERGLOW_ENTRY=dist/afterglow.html node tests/run.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afterglow visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="welcome">
+  <h1>Drop in some music</h1>
+  <p>Drag MP3s anywhere on the page, or choose files. They play in your browser and are never uploaded.</p>
+  <p>Plug in an Xbox controller to play the visuals like an instrument.</p>
+  <label class="pick btn" for="fileIn" id="pickBtn" tabindex="0">Choose MP3 files</label>
+</div>
+
+<div id="toast"></div>
+<div id="err" role="alert"></div>
+
+<aside id="panel" aria-label="Adjust visuals">
+  <section>
+    <h2>Journey</h2>
+    <div class="row"><label for="jBias">Calm to intense</label><output id="jBiasOut">Balanced</output>
+      <input type="range" id="jBias" min="0" max="1" step="0.01" value="0.5"></div>
+    <div class="row"><label for="jSpeed">Evolution speed</label><output id="jSpeedOut">1.00×</output>
+      <input type="range" id="jSpeed" min="0.25" max="3" step="0.05" value="1"></div>
+    <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
+    <p class="note" id="jSection">Listening for sections</p>
+    <p class="note" id="jGrid">Finding the beat</p>
+    <p class="note" id="jNote">Journey is steering the settings below. Pick a preset or turn Journey off to adjust them by hand.</p>
+  </section>
+  <div id="sliders"></div>
+  <h2>Response</h2>
+  <div class="row"><label for="react">Reactivity</label><output id="reactOut">1.00</output>
+    <input type="range" id="react" min="0" max="2" step="0.01" value="1"></div>
+  <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+    <button id="copyBtn" style="border-color:var(--line)">Copy settings</button>
+    <button id="resetBtn" style="border-color:var(--line)">Reset preset</button>
+  </div>
+  <textarea id="copyOut" readonly aria-label="Preset settings"></textarea>
+  <div class="keys">
+    <b>Space</b> play or pause<br><b>← →</b> change preset<br><b>R</b> randomize, or nudge during Journey<br><b>A</b> Journey on or off<br>
+    <b>Hold X</b> freeze trails<br>Under each slider, choose how that setting moves by itself.<br><b>N</b> next track<br><b>H</b> hide controls<br><b>F</b> fullscreen<br>
+    Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.
+  </div>
+</aside>
+
+<div id="bar">
+  <div class="seekrow"><span id="tNow">0:00</span><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek"><span id="tDur">0:00</span></div>
+  <div class="ctrl">
+    <button id="prevT" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+    <button id="nextT" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <div id="track">No track loaded</div>
+    <div class="preset">
+      <button id="prevP" aria-label="Previous preset">‹</button><span id="pName">Tunnel</span><button id="nextP" aria-label="Next preset">›</button>
+    </div>
+    <button id="randBtn">Randomize</button>
+    <button id="autoBtn" aria-pressed="true">Journey</button>
+    <button id="adjBtn" aria-pressed="false">Adjust</button>
+    <label class="btn" for="fileIn" id="addBtn" tabindex="0">Add music</label>
+    <button id="fsBtn" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+  </div>
+</div>
+<input type="file" id="fileIn" accept="audio/*,.mp3" multiple class="vh">
+
+<script>
+function showErr(m){ const e=document.getElementById('err'); if(!e) return; e.style.display='block'; e.textContent='Something went wrong: '+m; }
+addEventListener('error', e => showErr(e.message));
+addEventListener('unhandledrejection', e => showErr(String(e.reason)));
+</script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
