@@ -25,6 +25,7 @@ export const TUNE = {
 
   // worlds (backgrounds)
   worldSecs: 50, worldRestSecs: 30,  // how long a world lasts, and how long black lasts between worlds
+  worldFatigueWeight: 1,       // how much a world (or the black) that's been on lately counts against choosing it again
   worldWaitSecs: 12,           // how long to wait for a phrase line before changing anyway
 
   // lens (kaleidoscope, mirror): comes in above lensOn intensity, leaves below lensOff

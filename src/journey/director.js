@@ -74,6 +74,8 @@ export function stepJourney(now, dt){
   }
   const wOn = worldOn();
   WORLDS.forEach(k => tgt[k] = J.world === k ? 1 : 0);
+  // world fatigue, like the layers': builds while a world (or the black) is on screen, recovers while it isn't
+  for (const k of [...WORLDS, 'none']) J.wFat[k] = (J.wFat[k] || 0)*Math.exp(-dt/TUNE.fatigueRecoverSecs) + (J.world === k ? dt/TUNE.fatigueBuildSecs : 0);
 
   // one lead element, chosen when the section changes; one accent that only appears when the music triggers it
   // fatigue: builds while an element is on screen, recovers while it rests
@@ -164,7 +166,7 @@ function dropFX(){
 }
 export function freshJourney(){
   J.intro = 1; J.hi = J.lo = J.eM; J.tension = Math.min(J.tension, .15);
-  ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); jState.sym = 1; jState.mirror = 0;
+  ELEMS.forEach(k => { jState[k] *= .15; J.fat[k] = 0; }); J.wFat = {}; jState.sym = 1; jState.mirror = 0;
   OPENING.casts = {};
   J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0; J.hit = null;
   J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0; resetProgress(); J.phraseAnchor = J.bar;

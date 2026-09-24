@@ -138,7 +138,7 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - then a colour, lens or pace shift;
    - then a new recipe and lead.
 
-   **Adaptive sensitivity** (`stillness()`): the longer nothing changes, the smaller a change needs to be to count as a new section. **Fatigue** (`J.fat`) builds while a layer is on screen and counts against choosing it again.
+   **Adaptive sensitivity** (`stillness()`): the longer nothing changes, the smaller a change needs to be to count as a new section. **Fatigue** (`J.fat`) builds while a layer is on screen and counts against choosing it again. Worlds, and the black rest between them, have their own fatigue (`J.wFat`, weighted by `TUNE.worldFatigueWeight`). Without it, a long steady track got the same world after every rest (on minimal techno, the city), and sometimes a second black rest in a row.
 7. **Pace** (`pace.js`). Each section gets a pace from 0 (floating) to 1 (frantic), contrasting with the last. `setPace()` maps it (ranges in `TUNE.pace`) to:
    - motion speed, applied through `S.MT`;
    - kick strength;
