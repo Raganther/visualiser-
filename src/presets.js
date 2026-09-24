@@ -59,6 +59,13 @@ export const BASE = [
     mods:{ring:{src:'bass', amt:.3}}},
   {name:'Unicorn', journey:false, decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, unicorn:1, ribbons:.4, colorSpeed:.03, hueDrift:.005,
     mods:{ribbons:{src:'mid', amt:.3}}},
+  // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
+  {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{world:{}}, {trails:{mask:{object:'skull', keep:'outside'}}}, {hits:{}}, {object:'skull', fill:{layers:['plasma', 'ring', 'burst', 'scope'], kaleido:6}}]},
+  {name:'City comets', journey:false, decay:.96, zoom:1.002, rot:0, warp:.1, sym:1, city:1, comets:1, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:{between:true}}, {trails:{}}, {hits:{}}, {objects:{}}]},
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
 ];

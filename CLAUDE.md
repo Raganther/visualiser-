@@ -27,8 +27,9 @@ src/journey/               core (J, jState), sections, worlds, cast, recipes, tr
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
+src/scene/                 signals.js (the signal bus: everything that changes, by name), graph.js (scenes: fills, masks, world planes)
 src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
-tests/                     npm test: smoke, media, objects, sync, grid, journey, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, golden (see Testing)
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 ```
@@ -102,7 +103,7 @@ Its slider, shader code, drawing, narration and Journey scoring all follow from 
 
 Presets with `journey: false` are manual-mode looks only; Journey's recipe pool skips them.
 
-- **Movers** (`mods` on a preset): per-setting automation such as drift, follows bass/mids/treble, pulses on beat, or jumps on beat.
+- **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
 - **Presets** (`BASE`, 14 of them): hand-made looks for manual mode. Journey also reads them as **recipes**.
@@ -255,6 +256,38 @@ Every pane faces away from its own inside point: the centre, or for the tube sha
   Every object is off by default (`chance: 0`). `?lab=skull` gives the skull .5; `?lab=objects` gives every object an equal share of about half the sections.
 - **Manual:** the "Skull", "Unicorn" and "Torus knot" presets (`journey:false`). Every object also has a slider under "Media and objects".
 
+## Scenes: composing the pictures
+
+The first-principles model is three kinds of thing plus one rule:
+- **signals:** anything that changes over time (`scene/signals.js`);
+- **images:** every visual is a picture with coverage;
+- **operators:** the kaleidoscope, trails and masks;
+- **the rule:** a **scene** is a stack of images in which one image can fill, mask or sit between others.
+
+**The signal bus** (`src/scene/signals.js`, a leaf module) holds `SIG`, fed once a frame by `main.js` (`updateSignals`).
+- **Signals:** the band followers, the pulse, every kick, stabs, loudness, the beat and bar ramps, energy (tension) and a section-change swell.
+- **Movers:** they read it with `sig(key, react)`. Every slider's dropdown lists the whole bus (`SIGNALS`).
+- **Adding a signal:** add it to `SIG`, feed it in `updateSignals`, and give it a line in `SIGNALS`.
+
+**Scenes** (`src/scene/graph.js`) are plain data: a stack, bottom to top. `resolveScene()` turns one into what the renderers need, `P.sc`.
+- **Where scenes come from.** A manual preset can carry `scene`, and `setPreset` sets `S.scene`. Journey always uses `DEFAULT_SCENE`, which is exactly the fixed order the page has always drawn. With the default scene nothing changes: the golden recording proves it.
+- **Fixed order.** This round the stack's order is fixed: world, trails, world front, hits, then objects on top. A scene chooses how its entries relate.
+- **Fill.** `{object: key, fill: {layers, kaleido, zoom?}}`: the object's glass holds the chosen folded layers (ring, scope, plasma, burst) through a kaleidoscope.
+  - WebGL: the trails' own shader, in fill mode (`uFillMode`), draws them alone into a half-size texture. `render/mesh.js` samples it in screen space inside the near panes, never in the holes.
+  - Simple mode: `drawSym` draws them into a fill canvas, which is clipped to the near panes.
+  - Tuning: `TUNE.scene` has `fillAmt`, `fillGain` and `fillZoom`. The gain is there because a fill is one frame of its layers, with no trails to build it up.
+- **Mask.** `{trails: {mask: {object, keep: 'inside' | 'outside'}}}`: the trails show only inside, or only outside, an object's silhouette.
+  - WebGL: the mesh is drawn flat white ('cover' stage) into a half-size texture, and the display pass multiplies the trails by it.
+  - Simple mode: the glow is cut with the object's path (`path2d`).
+  - The mask applies only while the object is on screen.
+- **Between.** `{world: {between: true}}`: each world's **front plane** comes in front of the trails.
+  - The front planes: the city's near buildings, the land's nearest ridge, the aurora's treeline and space's planet.
+  - A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
+  - The display pass repaints the world's own colour there (`c = mix(c, w, fc)`). Simple mode redraws a copy of the worlds through the outlines.
+- **Cost.** A fill is one half-size pass and a mask one small pass, only while a scene uses them. "Between" costs no extra pass.
+- **Demos:** the "Skull kaleidoscope" and "City comets" presets (manual only).
+- **Not yet:** a scene UI; Journey composing scenes; trails per group (so different layers can sit at different depths); objects placed between a world's planes.
+
 ## Experiments
 
 Everything here is opt-in from the URL, so the normal page is unaffected:
@@ -272,6 +305,10 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - with real audio through the analyser, a synthetic loop in real time, the pulse is drawn a screen's delay before the kick is heard;
   - the kick frame is the brightest;
   - each "follows" mover moves with its own part of the groove.
+- `tests/scene.mjs`: in both renderers, each against the same run without it:
+  - a fill shows inside the skull and not around it;
+  - masked to inside the skull, the trails leave the screen's edges;
+  - with `between`, the city's near buildings cover the comets.
 - `tests/objects.mjs`: every mesh object draws and shatters in both renderers, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
