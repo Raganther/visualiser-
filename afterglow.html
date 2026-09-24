@@ -1897,6 +1897,7 @@ const kickFl = [], hitFl = [];
 const LIN = Float32Array.from({length:256}, (_, b) => Math.pow(10, (b/255*70 - 70)/20));
 function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
 function synth(t){
+  if (window.__synth && window.__synth(t, freq, wave)) return;   // tests can feed their own groove
   const s = t/1000, ph = (s*2) % 1, kick = Math.exp(-ph*8);
   for (let i = 0; i < 2048; i++) { const x = i/2048;
     wave[i] = 128 + (Math.sin(x*Math.PI*6 + s*2)*30 + Math.sin(x*Math.PI*22 - s*3)*12) * (.5 + kick*.6); }

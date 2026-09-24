@@ -98,7 +98,15 @@ Journey lives in `stepJourney()` plus the helpers around it. The main principle,
 
 ## Testing
 
-There's no test suite. Verify changes in headless Chromium with Playwright:
+Run `npm test` (or `node tests/run.mjs`) before every PR. It runs, in both renderers:
+- `tests/smoke.mjs`: the page loads, draws, locks the beat grid, and logs no errors.
+- `tests/golden.mjs`: a **deterministic** run on the synthetic groove (`tests/fixtures/groove.js`), with a seeded `Math.random` and a fake 60 fps clock stepped by the test. It compares Journey's `__jdbg()` timeline (180 s in simple mode, 45 s in WebGL) and canvas thumbnails against `tests/golden/*.json`.
+  - A refactor must match the recording exactly.
+  - An intended behaviour change re-records it with `npm run golden:update`, and the PR says why.
+
+`tests/lib.mjs` has the helpers: a static server, launch flags per renderer, `openPage` (seed, clock, groove) and `THUMB`. The page's `synth()` defers to `window.__synth` when a test sets it.
+
+For exploratory checks beyond the suite, use headless Chromium with Playwright:
 - `npm root -g` has `playwright`.
 - Launch with `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` for WebGL, or `--disable-webgl` for simple mode.
 - Keep test harnesses in the scratchpad, not the repo.

@@ -1,0 +1,11 @@
+{
+  "name": "afterglow",
+  "private": true,
+  "type": "module",
+  "description": "Browser music visualiser with an automatic director (Journey)",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "node tests/run.mjs",
+    "golden:update": "node tests/golden.mjs --update"
+  }
+}
