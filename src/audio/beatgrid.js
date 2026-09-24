@@ -1,13 +1,12 @@
 // The beat grid: tempo, a steady clock, the downbeat, and the per-beat hook.
 import { S } from '../state.js';
-import { fireOutline, fireStar } from '../fx/hits.js';
 import { firePulse } from '../fx/pulse.js';
-import { WORLD } from '../fx/world.js';
-import { J } from '../journey/core.js';
+import { J, OPENING } from '../journey/core.js';
 import { PACE } from '../journey/pace.js';
 import { progress } from '../journey/progression.js';
 import { newSection } from '../journey/sections.js';
 import { eff } from '../presets.js';
+import { HIT_VISUALS, VISUALS } from '../visuals/registry.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -17,13 +16,11 @@ export function onBeatFX(){
 function gridBeat(pos){
   J.beats++; J.pos = pos;
   if (pos % PACE.div === 0) firePulse();
-  if (J.beats % 2 === 0) WORLD.moonTarget += Math.PI/4;
+  for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
   const down = pos === 0;
   if (down) J.bar++;
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
-  if (down && eff.star > .02) fireStar();
-  if (down && eff.outline > .02) fireOutline();
-  if (down) WORLD.citySeed++;                             // the city's windows change on the downbeat
+  if (down) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
   if (phrase) J.phraseNow = true;

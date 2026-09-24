@@ -7,7 +7,6 @@ import './state.js';
 import './render/canvas2d.js';
 import './presets.js';
 import './fx/particles.js';
-import './fx/world.js';
 import './journey/core.js';
 import './audio/analysis.js';
 import './journey/sections.js';
@@ -21,7 +20,6 @@ import './journey/director.js';
 import './fx/movers.js';
 import './journey/pace.js';
 import './fx/pulse.js';
-import './fx/hits.js';
 import './fx/effects.js';
 import './audio/beatgrid.js';
 import './ui/presets.js';
@@ -33,10 +31,8 @@ import { S } from './state.js';
 import { analyse, hit, sBass, sMid, sTreb } from './audio/analysis.js';
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
-import { OUTL, SPARKS, STAR, starEnv } from './fx/hits.js';
 import { applyMods } from './fx/movers.js';
 import { seedParticles, stepParts } from './fx/particles.js';
-import { WORLD, stepWorld } from './fx/world.js';
 import { J, SNAP } from './journey/core.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, setPace } from './journey/pace.js';
@@ -46,6 +42,7 @@ import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { $, hsv2rgb, noise, reduceMotion } from './util.js';
+import { VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 initRenderer();
 seedParticles();
@@ -74,7 +71,8 @@ function render(now){
   const react = +$('#react').value;
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
-  stepWorld(dt, react, S.MT*1000);
+  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000};
+  for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
   hueAcc += mdt*eff.colorSpeed;
@@ -89,20 +87,14 @@ function render(now){
     ringR: J.on ? J.ringR : .2, ringSq: J.on ? J.ringSq : 0,
     flowW: eff.flow, ribW: eff.ribbons, horW: eff.horizon, ribAng: J.on ? J.ribAng : 0, ribPh: J.ribPh,
     horScroll: J.horScroll, horY: J.on ? J.horY : .05,
-    landW: eff.land, spaceW: eff.space, aurW: eff.aurora, cityW: eff.city, citySeed: WORLD.citySeed % 64, landY: WORLD.landY, histFrac: WORLD.histT/.12, sunX: Math.sin(t*.03)*.15,
-    planet: WORLD.planet, moons: WORLD.moons, lightAng: WORLD.lightAng, starPh: WORLD.starPh};
-  P.horY += (WORLD.landY - P.horY)*Math.min(1, eff.land*2);   // the grid floor lines up with the landscape's horizon
-  P.horY += (-.3 - P.horY)*Math.min(1, eff.city*2);             // and with the city's street
+    w: {}};
+  for (const v of WORLD_VISUALS) {                              // world weights; the horizon's grid floor lines up with a world's ground
+    P.w[v.key] = eff[v.key];
+    if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);
+  }
   P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + S.beat*.5));
-  const sa = STAR.age;
-  P.star = [STAR.x, STAR.y, STAR.size*(1 + .3*Math.exp(-sa*16))*(1 + sBass*react*.15), eff.star*starEnv()*(reduceMotion ? .5 : 1)];
-  P.starRot = STAR.rot + sa*.5; P.starN = STAR.n;
-  const dim = reduceMotion ? .5 : 1;
-  P.outline = new Float32Array(12);
-  for (let i = 0; i < 3; i++) { const a = OUTL.age - i*.09; if (a < 0) continue;
-    P.outline.set([.05 + a*1.1 + sBass*react*.02, eff.outline*dim*(a < .06 ? 1 : Math.exp(-(a - .06)*3.2))*(1 - i*.3), OUTL.n, OUTL.rot + a*.3], i*4); }
-  P.sparks = new Float32Array(24);
-  SPARKS.forEach((p, i) => P.sparks.set([p.x, p.y, p.s*(1 + .5*Math.exp(-p.age*20)), eff.sparkle*dim*(p.age < .05 ? 1 : Math.exp(-(p.age - .05)*9))], i*4));
+  const vx = {eff, react, sBass, dim: reduceMotion ? .5 : 1, t};
+  for (const v of VISUALS) if (v.params) v.params(P, vx);      // each world and hit adds what it draws with
   const pull = Math.min(1, eff.comets)*.7;
   P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
   if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);

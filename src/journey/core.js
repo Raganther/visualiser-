@@ -4,8 +4,8 @@ import { SPEC, curP } from '../presets.js';
 /* ---------- Journey: one continuously evolving composition ---------- */
 export const ELEMS = ['ring','scope','plasma','burst','comets','flow','ribbons','horizon'];
 // hits: one-off shapes fired by the music, drawn crisp rather than into the trails
-export const HITS = ['shock','star','outline','sparkle'];
-export const WORLDS = ['land','space','aurora','city'];
+import { HITS, WORLDS } from '../visuals/registry.js';
+export { HITS, WORLDS };
 export const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
 export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror'];

@@ -7,6 +7,7 @@ export function hsv2rgb(h, s, v){
   h = ((h % 1) + 1) % 1; const f = (n) => { const k = (n + h*6) % 6; return v - v*s*Math.max(0, Math.min(k, 4 - k, 1)); };
   return [f(5), f(3), f(1)];
 }
+export const hc = (h, s, l, a) => `hsla(${((((h)%1)+1)%1*360).toFixed(1)},${s}%,${l}%,${a})`;
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 // Journey's own slow noise: each seed gets its own gentle rhythm
 export function jn(t, seed){

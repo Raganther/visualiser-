@@ -1,7 +1,9 @@
 // WebGL renderer: context, framebuffers, the feedback and display passes, and the choice between WebGL and simple mode.
 import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
-import { DISPLAY, FEEDBACK, PFRAG, PVERT, VERT } from './shaders.js';
+import { composeDisplay } from './compose.js';
+import { FEEDBACK, PFRAG, PVERT, VERT } from './shaders.js';
+import { VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 import { HIST, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
@@ -35,7 +37,7 @@ function makeTex(w, h){
   return t;
 }
 function setupGL(){
-  fbProg = program(FEEDBACK); dispProg = program(DISPLAY); pProg = program(PFRAG, PVERT);
+  fbProg = program(FEEDBACK); dispProg = program(composeDisplay()); pProg = program(PFRAG, PVERT);
   pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
   const quad = quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -114,15 +116,9 @@ export function drawGL(now, P){
   gl.uniform1i(v.uHist, 1);
   gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
   gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
-  gl.uniform1f(v.uLand, P.landW); gl.uniform1f(v.uSpace, P.spaceW); gl.uniform1f(v.uLandY, P.landY);
-  gl.uniform1f(v.uAur, P.aurW); gl.uniform1f(v.uCity, P.cityW); gl.uniform1f(v.uCitySeed, P.citySeed);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
-  if (v['uOut[0]']) gl.uniform4fv(v['uOut[0]'], P.outline);
-  if (v['uSpark[0]']) gl.uniform4fv(v['uSpark[0]'], P.sparks);
-  gl.uniform1f(v.uHistFrac, P.histFrac); gl.uniform1f(v.uSunX, P.sunX); gl.uniform1f(v.uLightAng, P.lightAng);
-  gl.uniform1f(v.uStarPh, P.starPh); gl.uniform3fv(v.uPlanet, P.planet);
-  if (v['uMoons[0]']) gl.uniform4fv(v['uMoons[0]'], P.moons);
-  gl.uniform4f(v.uStar, P.star[0], P.star[1], P.star[2], P.star[3]); gl.uniform3f(v.uStarS, P.starRot, P.starN, P.starN > 5 ? .5 : .42);
+  for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
+  for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 // pick WebGL if it works, otherwise the simple 2D renderer

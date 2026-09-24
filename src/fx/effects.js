@@ -1,10 +1,10 @@
 // Comets and shockwaves, and what stabs do.
 import { S } from '../state.js';
 import { sBass, sMid, sTreb } from '../audio/analysis.js';
-import { OUTL, SPARKS, STAR, fireSparkles } from './hits.js';
-import { J } from '../journey/core.js';
+import { J, OPENING } from '../journey/core.js';
 import { PACE } from '../journey/pace.js';
 import { eff } from '../presets.js';
+import { HIT_VISUALS } from '../visuals/registry.js';
 
 /* comets and shockwaves */
 export const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
@@ -12,7 +12,7 @@ export const shocks = Array.from({length:8}, () => ({x:0, y:0, r:0, s:0}));
 // stabs, snares and other hits: a small ripple somewhere, comets flinch, colour nudges
 export function onHitFX(){
   if (J.on && J.accTrig === 'hit') J.accEnv = 1;
-  if (eff.sparkle > .02) fireSparkles();
+  for (const h of HIT_VISUALS) if (h.trigger === 'stab' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   J.hr += .5;
   const asp = innerWidth/innerHeight;
   if (eff.shock > .2) {
@@ -24,7 +24,8 @@ export function onHitFX(){
 }
 export function stepFX(dt, react, now){
   const tt = now/1000, rdt = dt; dt *= PACE.ts;             // now is motion time; hits still age in real time
-  STAR.age += rdt; OUTL.age += rdt; SPARKS.forEach(p => p.age += rdt); J.wipe *= Math.pow(.02, rdt);
+  for (const h of HIT_VISUALS) if (h.step) h.step(rdt);
+  J.wipe *= Math.pow(.02, rdt);
   const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
   comets.forEach((c, i) => {
     const e = bands[i]*react;

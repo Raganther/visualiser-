@@ -2,7 +2,7 @@
 import { S } from '../state.js';
 import { LIN } from '../audio/analysis.js';
 import { shocks } from '../fx/effects.js';
-import { ELEMS, FEATS, FWEIGHT, J } from './core.js';
+import { ELEMS, FEATS, FWEIGHT, HITS, J } from './core.js';
 import { pickStyle } from './transitions.js';
 import { chooseWorld } from './worlds.js';
 import { eff, presets } from '../presets.js';
@@ -18,10 +18,16 @@ export function newType(F){
   const seed = {}; ELEMS.forEach(k => seed[k] = (Math.random() - .5)*.7);
   const t = {label: String.fromCharCode(65 + J.types.length % 26), F: {...F}, seed, hue, visits: 0,
     zoomBias: (Math.random() - .3)*.015, spin: .3 + Math.random()*1.2, lens: randomLens(), recipeSeed: recipeSeeds(),
-    cut: Math.random(), hitSeed: {none: (Math.random() - .3)*.5, star: (Math.random() - .5)*.6, shock: (Math.random() - .5)*.6, outline: (Math.random() - .5)*.6, sparkle: (Math.random() - .5)*.6},
+    cut: Math.random(), hitSeed: hitSeeds(),
     outN: [3, 4, 4, 6][Math.floor(Math.random()*4)],
     starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
   J.types.push(t); return t;
+}
+// how much a section likes each hit, drawn once; the first four keep their legacy draw order (for the golden recording)
+function hitSeeds(){
+  const o = {none: (Math.random() - .3)*.5}, legacy = ['star', 'shock', 'outline', 'sparkle'];
+  for (const k of [...legacy, ...HITS.filter(k => !legacy.includes(k))]) if (HITS.includes(k)) o[k] = (Math.random() - .5)*.6;
+  return o;
 }
 // a section's own lens, used when its recipe has none: most have none, a few mirror or fold
 export function randomLens(){

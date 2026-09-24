@@ -3,7 +3,8 @@ import { S } from '../state.js';
 import { lastBeat, sBass, sMid, sTreb } from '../audio/analysis.js';
 import { G } from '../audio/beatgrid.js';
 import { comets, shocks } from '../fx/effects.js';
-import { STAR } from '../fx/hits.js';
+import { STAR } from '../visuals/hits/star.js';
+import { byKey } from '../visuals/registry.js';
 import { recast } from './cast.js';
 import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from './core.js';
 import { PACE, paceName, pickPace } from './pace.js';
@@ -81,7 +82,7 @@ export function stepJourney(now, dt){
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
   HITS.forEach(k => tgt[k] = 0);
-  if (J.hit) tgt[J.hit] = J.hit === 'star' ? .9 : .8;
+  if (J.hit) tgt[J.hit] = byKey[J.hit].level;
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
