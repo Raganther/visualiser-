@@ -15,6 +15,7 @@ import { chooseWorld } from './worlds.js';
 import { eff } from '../presets.js';
 import { toast } from '../ui/toast.js';
 import { $, jn, reduceMotion } from '../util.js';
+import { TUNE } from '../tuning.js';
 
 export function stepJourney(now, dt){
   // energy at three timescales: right now, the last few seconds, the last ~20 seconds
@@ -45,9 +46,9 @@ export function stepJourney(now, dt){
   J.novAvg += (J.nov - J.novAvg)*Math.min(1, dt/20);
   const still = stillness();
   const wasHold = J.novHold;
-  J.novHold = J.type && J.nov > Math.max(.06*(1 - .5*still), J.novAvg*(2 - .5*still)) ? (J.novHold || 0) + dt : 0;
+  J.novHold = J.type && J.nov > Math.max(TUNE.novelty*(1 - .5*still), J.novAvg*(TUNE.noveltyVsAvg - .5*still)) ? (J.novHold || 0) + dt : 0;
   if (!wasHold && J.novHold) J.novBar = J.bar + (J.pos >= 2 ? 1 : 0);   // the downbeat nearest to where the change began   // the change has to last, not just be a blip
-  if (!J.pending && J.secAge > 10 && J.novHold > 1.5) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
+  if (!J.pending && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
   if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
   // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
   if (J.type && (J.identified < 1 && J.secAge > 6 || J.identified < 2 && J.secAge > 14)) {
@@ -65,8 +66,8 @@ export function stepJourney(now, dt){
   const tgt = {};
   // worlds get a turn and then rest, so no scene lasts forever even in a one-section track
   J.worldTime = (J.worldTime || 0) + dt;
-  const wLimit = J.world === 'none' ? 30 : 50;
-  if (J.worldTime > wLimit && (J.phraseNow || J.worldTime > wLimit + 12)) {   // wait for a phrase line (or give up if no beat comes)
+  const wLimit = J.world === 'none' ? TUNE.worldRestSecs : TUNE.worldSecs;
+  if (J.worldTime > wLimit && (J.phraseNow || J.worldTime > wLimit + TUNE.worldWaitSecs)) {   // wait for a phrase line (or give up if no beat comes)
     if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
     J.recast = 'keep'; J.style = 'fade';
   }
@@ -75,9 +76,9 @@ export function stepJourney(now, dt){
 
   // one lead element, chosen when the section changes; one accent that only appears when the music triggers it
   // fatigue: builds while an element is on screen, recovers while it rests
-  ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/90) + dt*Math.min(1, jState[k])/60);
+  ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/TUNE.fatigueRecoverSecs) + dt*Math.min(1, jState[k])/TUNE.fatigueBuildSecs);
   J.stillT = (J.stillT || 0) + dt; J.progT = (J.progT || 0) + dt;
-  if (J.type && now - lastBeat > 4000 && J.progT > 30/J.speed) progress();   // no kick to count: go by time
+  if (J.type && now - lastBeat > TUNE.noKickMs && J.progT > TUNE.progressNoKickSecs/J.speed) progress();   // no kick to count: go by time
   if (!J.lead || J.recast) recast(J.recast === 'fresh');
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
@@ -98,7 +99,7 @@ export function stepJourney(now, dt){
   if (J.lens === undefined) setLens();
   if (J.lens && wOn) { setLens(); recipeMods(); }
   if (J.cutNow || now - lastBeat > 3000) {
-    const want = !!J.lens && (J.lensOn ? T > .2 : T > .35);
+    const want = !!J.lens && (J.lensOn ? T > TUNE.lensOff : T > TUNE.lensOn);
     if (want !== !!J.lensOn) { J.lensOn = want; recipeMods(); }
   }
   // on intense phrase lines the kaleidoscope changes its fold count

@@ -35,7 +35,7 @@ import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { stepJourney } from './journey/director.js';
-import { PACE, setPace } from './journey/pace.js';
+import { PACE, paceDiv, setPace } from './journey/pace.js';
 import { SPEC, curP, eff } from './presets.js';
 import { drawGL, gl, initRenderer, r2d } from './render/gl.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
@@ -43,7 +43,11 @@ import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+import * as registry from './visuals/registry.js';
+import { LABS, applyLabs, applyTune } from './lab.js';
+import { TUNE } from './tuning.js';
 
+applyTune();                                          // ?tune= overrides, before anything reads TUNE
 initRenderer();
 seedParticles();
 J.clock = Math.random()*100;
@@ -60,7 +64,7 @@ function render(now){
   const dt = Math.min(.05, Math.max(0, (now - (render.last || now))/1000)); render.last = now;
   stepJourney(now, dt);
   const pv = J.on && J.pace !== undefined ? J.pace : 1;
-  if (Math.abs(pv - PACE.v) > .001 || PACE.div !== (pv < .3 ? 4 : pv < .6 ? 2 : 1)) {
+  if (Math.abs(pv - PACE.v) > .001 || PACE.div !== paceDiv(pv)) {
     const d0 = PACE.div; setPace(pv); if (d0 !== PACE.div && J.on) updateSectionUI();
   }
   const mdt = dt*PACE.ts; S.MT += mdt;
@@ -106,4 +110,6 @@ function render(now){
     }
   }
 }
-requestAnimationFrame(frame);
+// ?lab= experiments load before the first frame; without them the loop starts straight away
+if (LABS.length) applyLabs({TUNE, J, PACE, registry}).then(() => requestAnimationFrame(frame));
+else requestAnimationFrame(frame);

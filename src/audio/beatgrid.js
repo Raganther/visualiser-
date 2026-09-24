@@ -7,6 +7,7 @@ import { progress } from '../journey/progression.js';
 import { newSection } from '../journey/sections.js';
 import { eff } from '../presets.js';
 import { HIT_VISUALS, VISUALS } from '../visuals/registry.js';
+import { TUNE } from '../tuning.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -29,7 +30,7 @@ function gridBeat(pos){
   if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
   // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
   J.progBeats++;
-  if (phrase && J.type && J.progBeats >= Math.max(16, Math.round(64/J.speed/16)*16)) progress();
+  if (phrase && J.type && J.progBeats >= Math.max(16, Math.round(TUNE.progressBeats/J.speed/16)*16)) progress();
   if (phrase) J.spinDir *= -1;                            // spin reverses every 4 bars
   if (down && barIn % 8 === 0 && Math.random() < .4) J.zoomFlip = -.03;   // occasional pull-back
 }
@@ -70,12 +71,12 @@ export function gridKick(t){
   const P = G.period;
   if (G.locked) {                                         // nudge the clock toward the kick, if it's on the grid
     const e1 = t - (G.next - P), e2 = t - G.next, e = Math.abs(e1) < Math.abs(e2) ? e1 : e2;
-    if (Math.abs(e) < .12*P) { G.next += e*.3; G.period = Math.min(.85, Math.max(.3, P + e*.05)); G.conf = Math.min(1, G.conf + .15); G.miss = 0; }
+    if (Math.abs(e) < TUNE.grid.onGrid*P) { G.next += e*.3; G.period = Math.min(.85, Math.max(.3, P + e*.05)); G.conf = Math.min(1, G.conf + .15); G.miss = 0; }
     else if (++G.miss >= 4) { G.locked = false; G.fit = 0; }   // lost it (a seek, a new rhythm): find the beat again
     return;
   }
   // not locked: three kicks in a row on the grid and it locks, starting with this kick
-  if (G.prevKick) { const r = (t - G.prevKick)/P, k = Math.round(r); G.fit = k >= 1 && k <= 4 && Math.abs(r - k) < .08 ? G.fit + 1 : 1; }
+  if (G.prevKick) { const r = (t - G.prevKick)/P, k = Math.round(r); G.fit = k >= 1 && k <= 4 && Math.abs(r - k) < TUNE.grid.lockFit ? G.fit + 1 : 1; }
   else G.fit = 1;
   G.prevKick = t;
   if (G.fit >= 3) {
@@ -90,13 +91,13 @@ function gridTick(t){
   }
   G.n++;
   G.win = {slot: G.n % 4, bb: 0, mid: 0, until: t + .2*G.period};
-  if (G.ev >= 16) {                                       // enough bars heard to judge where the 1 is
+  if (G.ev >= TUNE.grid.downMinBeats) {                                       // enough bars heard to judge where the 1 is
     const mb = (G.bb[0] + G.bb[1] + G.bb[2] + G.bb[3])/4 + 1e-9, mm = (G.mid[0] + G.mid[1] + G.mid[2] + G.mid[3])/4 + 1e-9;
-    const S = [0, 1, 2, 3].map(d => G.bb[d]/mb + .7*(G.mid[(d + 1) % 4] + G.mid[(d + 3) % 4] - G.mid[d] - G.mid[(d + 2) % 4])/mm);
+    const S = [0, 1, 2, 3].map(d => G.bb[d]/mb + TUNE.grid.clapWeight*(G.mid[(d + 1) % 4] + G.mid[(d + 3) % 4] - G.mid[d] - G.mid[(d + 2) % 4])/mm);
     const best = S.indexOf(Math.max(...S));
-    if (best !== G.down && S[best] > S[G.down] + .12) {   // move the 1 only when the evidence holds for two bars
+    if (best !== G.down && S[best] > S[G.down] + TUNE.grid.downMargin) {   // move the 1 only when the evidence holds for two bars
       if (G.cand === best) G.candN++; else { G.cand = best; G.candN = 1; }
-      if (G.candN >= 8) { G.down = best; G.candN = 0; }
+      if (G.candN >= TUNE.grid.downHoldBeats) { G.down = best; G.candN = 0; }
     } else G.candN = 0;
     G.dsure = Math.max(0, Math.min(1, (S[G.down] - Math.max(...S.filter((v, i) => i !== G.down)))/.5));
   }
@@ -108,7 +109,7 @@ function gridTick(t){
 export function gridFrame(t, fl, fh, ft){
   const dt = Math.min(.1, t - (G.lastT || t)); G.lastT = t;
   if (!G.locked) return;
-  G.conf -= dt/30;
+  G.conf -= dt/TUNE.grid.holdSecs;
   if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }
   while (t + .008 >= G.next) { gridTick(G.next); G.next += G.period; }   // half a frame early, so ticks land on the beat not after it
   if (G.win && t < G.win.until) { G.win.bb = Math.max(G.win.bb, fl + ft*2 + fh*.5); G.win.mid = Math.max(G.win.mid, fh); }

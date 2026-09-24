@@ -3,6 +3,7 @@ import { OVER_WORLD } from './cast.js';
 import { ELEMS, HITS, J, OPENING, SUITS, WORLDS, jState, worldOn } from './core.js';
 import { presets } from '../presets.js';
 import { syncSliders } from '../ui/panel.js';
+import { TUNE } from '../tuning.js';
 
 /* recipes: each preset is read as ingredients (a lead, an accent, a hit, a lens, a world, a way of moving and its movers).
    Journey picks one per section and builds on it, so the presets (including any hand edits) steer the piece */
@@ -22,7 +23,7 @@ export function pickRecipe(ty, rf, fresh){
     let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0);
     if (r.lead) for (const f in SUITS[r.lead]) v += SUITS[r.lead][f]*rf[f]*.6;
     v -= Math.abs(r.T - J.tension)*1.2;                      // intense recipes for intense music
-    if (r.lead) v -= J.fat[r.lead]*.8;                         // and not the element that has been on all night
+    if (r.lead) v -= J.fat[r.lead]*TUNE.fatigueRecipeWeight;                         // and not the element that has been on all night
     if (r.world !== 'none') v += r.world === J.world ? .25 : -.6;
     if (wOn) v += (r.lens ? -.6 : 0) + (OVER_WORLD[r.lead] || 0)*.8;   // over a world: no lens, and leads that suit it
     if (J.recipe && r.name === J.recipe.name) v -= fresh ? 1 : .4;   // move on from the last one

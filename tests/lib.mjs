@@ -44,7 +44,7 @@ const DETERMINISM = seed => `
 })();`;
 
 // open the page with a fixed seed and clock; groove: feed tests/fixtures/groove.js instead of the built-in beat
-export async function openPage(browser, url, {seed = 1, groove = true, width = 320, height = 180} = {}){
+export async function openPage(browser, url, {seed = 1, groove = true, width = 320, height = 180, query = ''} = {}){
   const page = await browser.newPage({viewport: {width, height}});
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -52,7 +52,7 @@ export async function openPage(browser, url, {seed = 1, groove = true, width = 3
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.addInitScript(DETERMINISM(seed));
   if (groove) await page.addInitScript({path: path.join(ROOT, 'tests/fixtures/groove.js')});
-  await page.goto(url + ENTRY);
+  await page.goto(url + ENTRY + query);
   page.errors = async () => errors.concat(await page.evaluate(() => { const e = document.querySelector('#err'); return e && e.textContent ? [e.textContent] : []; }));
   return page;
 }

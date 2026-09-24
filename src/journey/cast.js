@@ -4,6 +4,7 @@ import { pickRecipe, recipeMods, setLens } from './recipes.js';
 import { relFeat } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OVER_WORLD } from '../visuals/registry.js';
+import { TUNE } from '../tuning.js';
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -16,7 +17,7 @@ function scoreElems(ty, rf, fresh){
     if (k === R.lead) v += 1; else if (k === R.accent) v += .5;   // the recipe's ingredients come first
     for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
     if (wOn) v += OVER_WORLD[k] || 0;
-    v -= J.fat[k]*1.2;                         // tired elements step back
+    v -= J.fat[k]*TUNE.fatigueWeight;                         // tired elements step back
     return {k, v};
   }).sort((a, b) => b.v - a.v);
 }
@@ -37,9 +38,9 @@ function chooseHit(ty, rf, fresh, avoid){
   // a star suits steady kicks and intensity, shockwaves suit busy stabs. stars stay crisp over a world
   const hs = ty.hitSeed || OPENING.hitSeed, jit = () => fresh ? (Math.random() - .5)*.3 : 0;
   // star: intense downbeats. outline: steady, bassy grooves. shockwaves: busy, driving. sparkles: bright and stabby
-  const hsc = {none: .25 + hs.none + jit()};
+  const hsc = {none: TUNE.hitNone + hs.none + jit()};
   for (const v of HIT_VISUALS) hsc[v.key] = v.suits(rf, wOn, hs[v.key] || 0) + jit();   // each hit's module says what suits it
-  if (R.hit) hsc[R.hit] += .5; else hsc.none += .2;
+  if (R.hit) hsc[R.hit] += .5; else hsc.none += TUNE.hitNoneNoRecipe;
   if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
   J.hit = hk === 'none' ? null : hk;

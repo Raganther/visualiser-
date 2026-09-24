@@ -9,6 +9,7 @@ import { eff, presets } from '../presets.js';
 import { freq } from '../state.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { sstep } from '../util.js';
+import { TUNE } from '../tuning.js';
 
 export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/FEATS.length; }
 export function newType(F){
@@ -38,11 +39,11 @@ export function recipeSeeds(){ const o = {}; presets.forEach(p => o[p.name] = (M
 export function matchType(F){
   let best = null, bd = 1e9;
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
-  return bd < .085*(1 - .4*stillness()) ? best : newType(F);
+  return bd < TUNE.sameType*(1 - .4*stillness()) ? best : newType(F);
 }
 export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; resetProgress(); updateSectionUI(); } }
 // 0 when the music has just changed, rising to 1 after about two minutes of sameness
-export function stillness(){ return sstep(20, 120, J.stillT || 0); }
+export function stillness(){ return sstep(TUNE.stillFrom, TUNE.stillTo, J.stillT || 0); }
 export function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.progStep = 0; }
 export function newSection(strength){
   J.pending = false; J.secAge = 0; J.identified = 0; J.novHold = 0; J.M = {...J.fF};
