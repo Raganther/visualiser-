@@ -3,11 +3,11 @@ import { SPEC, curP } from '../presets.js';
 
 /* ---------- Journey: one continuously evolving composition ---------- */
 // layers, hits and worlds, and what Journey knows about each, come from the visual registry
-import { ELEMS, HITS, SUITS, WORLDS } from '../visuals/registry.js';
+import { ELEMS, HITS, OPT_IN, SUITS, WORLDS } from '../visuals/registry.js';
 export { ELEMS, HITS, SUITS, WORLDS };
 export const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
-export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror'];
+export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror', ...OPT_IN];
 export const SNAP = new Set([...TKEYS, ...HITS]);
 export const FEATS = ['perc','busy','bright','low','mid','lvl'];
 export const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, lens:null, recipeSeed:{},

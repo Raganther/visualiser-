@@ -29,7 +29,9 @@ export const MODES = {
   gl: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   '2d': ['--disable-gpu', '--disable-webgl'],
 };
-export const launch = mode => chromium.launch({args: MODES[mode]});
+export const launch = (mode, extra = []) => chromium.launch({args: [...MODES[mode], ...extra]});
+// a fake camera (a moving test pattern) that getUserMedia can open without asking
+export const FAKE_CAMERA = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'];
 
 const DETERMINISM = seed => `
 (() => {

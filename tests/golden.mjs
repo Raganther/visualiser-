@@ -11,8 +11,12 @@ const update = process.argv.includes('--update');
 const only = process.argv.find(a => a in RUNS);
 
 // numbers compared with a little slack, so harmless reordering of float maths doesn't fail the test
+// a setting that didn't exist when the recording was made, and stays 0 throughout, can't have changed anything:
+// it's listed, not failed (new opt-in visuals add these)
+const added = new Set();
 function diff(a, b, where, out){
   if (out.length > 20) return;
+  if (b === undefined && a === 0) { added.add(where.split('.').pop()); return; }
   if (typeof a === 'number' && typeof b === 'number') {
     if (Math.abs(a - b) > 1e-6*Math.max(1, Math.abs(a), Math.abs(b))) out.push(`${where}: ${b} -> ${a}`);
   } else if (a && b && typeof a === 'object' && typeof b === 'object') {
@@ -51,7 +55,8 @@ for (const mode of only ? [only] : Object.keys(RUNS)) {
     if (d > 1.5) problems.push(`frame at ${th.t} s differs by ${d.toFixed(2)} grey levels on average`);
   });
   if (problems.length) { failed = true; console.log(`${mode}: DIFFERS from golden\n  ` + problems.slice(0, 20).join('\n  ')); }
-  else console.log(`${mode}: matches golden (${got.timeline.length} s, ${got.thumbs.length} frames, ${((Date.now() - t0)/1000).toFixed(0)} s)`);
+  else console.log(`${mode}: matches golden (${got.timeline.length} s, ${got.thumbs.length} frames, ${((Date.now() - t0)/1000).toFixed(0)} s)`
+    + (added.size ? `; new settings, 0 throughout: ${[...added].join(', ')}` : ''));
 }
 srv.close();
 process.exit(failed ? 1 : 0);

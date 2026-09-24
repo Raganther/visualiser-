@@ -4,10 +4,13 @@ import { actx, addFiles, nextTrack, playing, prevTrack, togglePlay } from '../au
 import { J, jState } from '../journey/core.js';
 import { freshJourney } from '../journey/director.js';
 import { SPEC, curP } from '../presets.js';
-import { syncSliders } from './panel.js';
+import { syncSliders, updateSectionUI } from './panel.js';
 import { nextPreset, randomize, setPreset } from './presets.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
+import { MEDIA, clearMedia, startCamera } from '../media/source.js';
+import { unhookMediaAudio } from '../audio/player.js';
+import { TUNE } from '../tuning.js';
 
 /* ---------- controller + keyboard ---------- */
 export const live = {rot:0, zoom:0, warp:0, cx:0, cy:0};
@@ -77,6 +80,17 @@ function fullscreen(){
   }
 }
 $('#fsBtn').onclick = fullscreen;
+// the camera into the mirror tunnel; press again to stop
+$('#camBtn').onclick = async () => {
+  const b = $('#camBtn');
+  if (MEDIA.kind === 'camera') { clearMedia(); b.setAttribute('aria-pressed', false); updateSectionUI(); toast('Camera off'); return; }
+  try {
+    if (!await startCamera()) throw new Error('no camera');
+    unhookMediaAudio(); b.setAttribute('aria-pressed', true); $('#welcome').classList.add('gone');
+    if (!J.on) { S.active.tunnel = TUNE.tunnel.level; syncSliders(); }
+    updateSectionUI(); toast('Camera into the mirror tunnel');
+  } catch (e) { toast('The camera isn’t available here'); }
+};
 ['#pickBtn','#addBtn'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); $('#fileIn').click(); } }));
 $('#fileIn').onchange = e => { if (e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
 addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });

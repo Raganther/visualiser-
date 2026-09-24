@@ -20,7 +20,7 @@ const r = await page.evaluate(async (N) => {
     worlds[J.world] = (worlds[J.world] || 0) + 1; hits[J.hit || 'none'] = (hits[J.hit || 'none'] || 0) + 1;
     recipes[J.recipe.name] = (recipes[J.recipe.name] || 0) + 1;
   }
-  return {worlds, hits, recipes, allWorlds: ['none', ...reg.WORLDS], allHits: reg.HITS, allRecipes: presets.map(p => p.name)};
+  return {worlds, hits, recipes, allWorlds: ['none', ...reg.WORLDS], allHits: reg.HITS, allRecipes: presets.filter(p => p.journey !== false).map(p => p.name)};
 }, N);
 const errors = await page.errors();
 await browser.close(); srv.close();

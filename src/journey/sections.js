@@ -35,7 +35,7 @@ export function randomLens(){
   const r = Math.random();
   return r < .06 ? {n:2, mirror:1} : r < .15 ? {n:3 + Math.floor(Math.random()*4), mirror:.8} : null;
 }
-export function recipeSeeds(){ const o = {}; presets.forEach(p => o[p.name] = (Math.random() - .5)*.7); return o; }
+export function recipeSeeds(){ const o = {}; presets.filter(p => p.journey !== false).forEach(p => o[p.name] = (Math.random() - .5)*.7); return o; }
 export function matchType(F){
   let best = null, bd = 1e9;
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }

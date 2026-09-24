@@ -18,7 +18,7 @@ function recipeOf(p){
 }
 export function pickRecipe(ty, rf, fresh){
   const wOn = worldOn();
-  const rs = presets.map(p => {
+  const rs = presets.filter(p => p.journey !== false).map(p => {
     const r = recipeOf(p);
     let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0);
     if (r.lead) for (const f in SUITS[r.lead]) v += SUITS[r.lead][f]*rf[f]*.6;

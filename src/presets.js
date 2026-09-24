@@ -1,7 +1,7 @@
 // Settings (SPEC), movers, and the hand-made presets that Journey also reads as recipes.
 import { S } from './state.js';
 import { clone } from './util.js';
-import { HIT_VISUALS, LAYER_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 /* ---------- presets ---------- */
 export const SPEC = [
@@ -12,11 +12,13 @@ export const SPEC = [
   {g:'Motion', k:'wander', label:'Centre wander', min:0, max:.5, step:.01},
   {g:'Lens', k:'sym', label:'Kaleidoscope folds', min:1, max:12, step:1},
   {g:'Lens', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
-  ...LAYER_VISUALS.map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  ...LAYER_VISUALS.filter(v => !v.optIn).map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...HIT_VISUALS.map(v => ({g:'Hits', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...WORLD_VISUALS.map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
   {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
+  // opt-in visuals last, so the settings above keep their places (movers seed their drift by position)
+  ...VISUALS.filter(v => v.optIn).map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ['drift','Slow drift'], ['bass','Follows bass'], ['mid','Follows mids'],
@@ -50,6 +52,9 @@ export const BASE = [
     mods:{warp:{src:'mid', amt:.2}}},
   {name:'Night drive', decay:.93, zoom:1.004, rot:0, warp:0, sym:1, city:1, horizon:1, comets:.5, outline:.8, colorSpeed:.04, hueDrift:.008,
     mods:{zoom:{src:'pulse', amt:.1}}},
+  // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
+  {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,
+    mods:{rot:{src:'drift', amt:.2}}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
 export const presets = BASE.map(clone);

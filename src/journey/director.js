@@ -4,7 +4,7 @@ import { lastBeat, sBass, sMid, sTreb } from '../audio/analysis.js';
 import { G } from '../audio/beatgrid.js';
 import { comets, shocks } from '../fx/effects.js';
 import { STAR } from '../visuals/hits/star.js';
-import { byKey } from '../visuals/registry.js';
+import { OPT_IN, byKey } from '../visuals/registry.js';
 import { recast } from './cast.js';
 import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from './core.js';
 import { PACE, paceName, pickPace } from './pace.js';
@@ -16,6 +16,7 @@ import { eff } from '../presets.js';
 import { toast } from '../ui/toast.js';
 import { $, jn, reduceMotion } from '../util.js';
 import { TUNE } from '../tuning.js';
+import { MEDIA } from '../media/source.js';
 
 export function stepJourney(now, dt){
   // energy at three timescales: right now, the last few seconds, the last ~20 seconds
@@ -84,6 +85,11 @@ export function stepJourney(now, dt){
   tgt[J.lead] = wOn ? .75 : .9;
   HITS.forEach(k => tgt[k] = 0);
   if (J.hit) tgt[J.hit] = byKey[J.hit].level;
+  // with a video, image or camera loaded, the mirror tunnel takes over as the lead and worlds rest (it fills the screen)
+  if (byKey.tunnel) {
+    tgt.tunnel = MEDIA.on ? TUNE.tunnel.level : 0;
+    if (MEDIA.on) { tgt[J.lead] = 0; WORLDS.forEach(k => tgt[k] = 0); }
+  }
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
@@ -137,7 +143,7 @@ export function stepJourney(now, dt){
       if (ELEMS.includes(k) && tgt[k] < jState[k] - .3) cleared = true;
       J.held[k] = false; jState[k] = tgt[k]; snapped = true; continue;
     }
-    jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : ELEMS.includes(k) ? swap : rate);
+    jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k)) ? swap : rate);
   }
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
   if (snapped) { J.cutSince = 0; S.beat = Math.max(S.beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }

@@ -6,6 +6,9 @@ import { freshJourney } from '../journey/director.js';
 import { toast } from '../ui/toast.js';
 import { updatePlayUI, updateTrackUI } from '../ui/transport.js';
 import { $ } from '../util.js';
+import { MEDIA, isMediaFile, setMediaFile } from '../media/source.js';
+import { TUNE } from '../tuning.js';
+import { syncSliders, updateSectionUI } from '../ui/panel.js';
 
 /* ---------- audio ---------- */
 export let actx = null, analyser = null, source = null, buffer = null;
@@ -62,10 +65,36 @@ export function prevTrack(){
   else loadTrack(tIndex - 1);
 }
 export function addFiles(list){
+  // videos and images go to the mirror tunnel (the last one wins); audio goes to the playlist
+  const media = [...list].filter(isMediaFile);
+  if (media.length) addMedia(media[media.length - 1]);
   const files = [...list].filter(f => f.type.startsWith('audio/') || /\.(mp3|m4a|wav|ogg|flac|aac)$/i.test(f.name));
-  if (!files.length) { toast('Those files aren’t audio'); return; }
+  if (!files.length) { if (!media.length) toast('Those files aren’t audio, video or images'); return; }
+  unhookMediaAudio();
   const first = tracks.length;
   files.forEach(f => tracks.push({file:f, name:f.name.replace(/\.[^.]+$/, '')}));
   $('#welcome').classList.add('gone');
   if (!buffer || !playing) loadTrack(first); else updateTrackUI();
+}
+
+/* ---------- media for the mirror tunnel ---------- */
+let mediaAudio = null;
+// a video or image into the mirror tunnel. With no music loaded, a video's own sound drives the visuals.
+export function addMedia(file){
+  unhookMediaAudio();
+  const kind = setMediaFile(file);
+  $('#welcome').classList.add('gone');
+  if (!J.on) { S.active.tunnel = TUNE.tunnel.level; syncSliders(); }   // in manual mode, turn the tunnel up for it
+  if (kind === 'video' && !buffer) {
+    ensureAudio();
+    try { mediaAudio = actx.createMediaElementSource(MEDIA.el); mediaAudio.connect(analyser); MEDIA.el.muted = false; MEDIA.audio = true; } catch (e) {}
+  }
+  updateSectionUI();
+  toast(kind === 'image' ? 'Mirror tunnel: image' : MEDIA.audio ? 'Mirror tunnel: video (and its sound)' : 'Mirror tunnel: video');
+}
+// music takes over from a video's sound
+export function unhookMediaAudio(){
+  if (mediaAudio) { try { mediaAudio.disconnect(); } catch (e) {} mediaAudio = null; }
+  if (MEDIA.el && MEDIA.kind === 'video') MEDIA.el.muted = true;
+  MEDIA.audio = false;
 }

@@ -7,6 +7,7 @@ import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
 import { setJourney } from './controls.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
+import { MEDIA } from '../media/source.js';
 
 export function updateSectionUI(){
   const el = $('#jSection'); if (!el || !J.type) return;
@@ -15,7 +16,7 @@ export function updateSectionUI(){
   el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
     + (J.recipe ? `, from the ${J.recipe.name} recipe` : '')
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
-    + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
+    + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (L ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')

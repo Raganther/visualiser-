@@ -7,6 +7,7 @@ import { onHitFX } from '../fx/effects.js';
 import { PACE } from '../journey/pace.js';
 import { dataArr, freq, wave, waveS } from '../state.js';
 import { reduceMotion } from '../util.js';
+import { MEDIA } from '../media/source.js';
 
 const intervals = [];
 /* ---------- analysis ---------- */
@@ -17,7 +18,8 @@ const kickFl = [], hitFl = [];
 export const LIN = Float32Array.from({length:256}, (_, b) => Math.pow(10, (b/255*70 - 70)/20));
 function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
 export function analyse(now){
-  if (buffer && analyser) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
+  // a track, or a video's own sound; otherwise the built-in beat
+  if ((buffer || MEDIA.audio) && analyser) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
   else synth(now);
   for (let i = 0; i < 256; i++) {
     dataArr[i] = wave[i*8];

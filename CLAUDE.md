@@ -26,6 +26,7 @@ src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), comp
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
+src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
 tests/                     npm test: smoke, grid, journey, golden (see Testing)
 tools/build.mjs            the bundler for dist/afterglow.html
@@ -48,6 +49,7 @@ tools/build.mjs            the bundler for dist/afterglow.html
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
+| **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel) | Journey brings the tunnel in as the lead while media is loaded |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
 
@@ -85,6 +87,13 @@ Its slider, shader code, drawing, narration and Journey scoring all follow from 
 - **Imports.** Visual modules import only leaf modules (`state.js`, `util.js`); the engine passes them everything else. This keeps load order safe.
 - **Recipes.** Optionally, give the visual a preset in `BASE` (presets double as Journey's recipes).
 - **Checks.** Test it alone in both renderers, as in Testing below.
+
+**Opt-in visuals** (`optIn: true`) sit outside Journey's choices, so adding one never changes how Journey behaves:
+- They're left out of `ELEMS`, `SUITS` and the other Journey tables.
+- Their sliders go in a "Media and objects" group at the end of `SPEC`, so earlier settings keep their positions; movers seed their drift by position.
+- The golden test lists them as new settings that stay at 0, rather than failing.
+
+Presets with `journey: false` are manual-mode looks only; Journey's recipe pool skips them.
 
 - **Movers** (`mods` on a preset): per-setting automation such as drift, follows bass/mids/treble, pulses on beat, or jumps on beat.
 - **Presets** (`BASE`, 14 of them): hand-made looks for manual mode. Journey also reads them as **recipes**.
@@ -158,6 +167,20 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
 - **Accessibility.** Respect `reduceMotion`, which halves flashes. Keep the UI usable at phone width.
 - **Narration.** The Adjust panel narrates Journey (`updateSectionUI`, `#jGrid`). Keep it accurate when behaviour changes.
 
+## Media and the mirror tunnel
+
+The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleidoscope.
+- **Folding:** `foldTri` reflects each point back into a triangle, which tiles the view endlessly.
+- **Orb:** the tiled view can be bent onto a lit sphere (`TUNE.tunnel.orb`).
+- **What's in the tube:** whatever is in `MEDIA`. With no media, it shows built-in rods and beads that move with the music.
+- **Sources:**
+  - dropped videos and images (the file picker accepts them too);
+  - the **Camera** button (`getUserMedia`, back camera on phones);
+  - a video's own sound drives the analysis when no music is loaded.
+- **Journey:** while media is loaded the tunnel is the lead: the chosen lead is muted and worlds rest.
+- **Drawing:** in WebGL it's blended over the trails (not added), so pictures stay recognisable. Its media texture uses texture unit 3, and a still image uploads once. Simple mode draws a six-way mirror.
+- **Caveat:** hosts that sandbox the page (possibly the claude.ai Artifact) may block the camera; files still work.
+
 ## Experiments
 
 Everything here is opt-in from the URL, so the normal page is unaffected:
@@ -170,6 +193,7 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 
 Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). Tests use headless Chromium via the global Playwright (`npm root -g`).
 - `tests/smoke.mjs`: the page loads, draws and locks the beat grid in both renderers with no errors, and `?lab=` / `?tune=` apply.
+- `tests/media.mjs`: an image and Chromium's fake camera (`FAKE_CAMERA` flags in `lib.mjs`) show through the tunnel in both renderers, and Journey hands it the lead and takes it back.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;

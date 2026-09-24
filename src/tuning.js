@@ -43,6 +43,15 @@ export const TUNE = {
     divBar: .3, divHalf: .6,   // below divBar the visuals pulse once a bar, below divHalf every other beat, else every beat
   },
 
+  // the mirror tunnel (a video, image or camera through a three-mirror kaleidoscope)
+  tunnel: {
+    level: .85,                // how bright it is as the lead while media is loaded
+    orb: .85,                  // 0 = flat endless pattern, 1 = bent onto a lit sphere
+    spin: .12,                 // how fast the image turns inside the mirrors
+    zoom: 1,                   // how far down the tube you look (bigger = more, smaller reflections)
+    drift: .015,               // how fast the view wanders across the source
+  },
+
   // beat grid
   grid: {
     onGrid: .12,               // a kick within this fraction of a beat counts as on the grid
