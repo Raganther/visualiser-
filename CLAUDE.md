@@ -22,7 +22,7 @@ src/presets.js             SPEC (settings and sliders, partly from the registry)
 src/util.js                $, maths, colour (hc, hsv2rgb), noise
 src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
-src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs)
+src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
@@ -30,6 +30,7 @@ src/media/source.js        MEDIA: the video, image or camera feeding the mirror 
 src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
 tests/                     npm test: smoke, media, objects, sync, grid, journey, golden (see Testing)
 tools/build.mjs            the bundler for dist/afterglow.html
+tools/skull-mesh.mjs       makes the wire skull's mesh (npm run mesh)
 ```
 
 ## How it draws
@@ -49,7 +50,7 @@ tools/build.mjs            the bundler for dist/afterglow.html
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
-| **Objects** | 3D centrepieces, ray-marched, crisp (display pass, in front of the glow, behind the hits) | `skull` | Fade; breaks apart and reassembles |
+| **Objects** | 3D centrepieces, crisp: meshes drawn over the finished picture (or ray-marched in the display pass) | `skull` (the wire skull) | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel), `skull` | The tunnel comes in as the lead while media is loaded; the skull only with `TUNE.skull.chance > 0` |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
@@ -79,9 +80,9 @@ Each visual is **one module** exporting an object. From it the engine builds the
   - 2D drawing: `folded2d(c, P, x)` inside the fold, or `trails2d(c, P, x)`.
   - Flow's WebGL points pass is the one piece kept in `render/gl.js`, because it needs its own program.
 - **Objects:**
-  - `words` (narration).
-  - `glsl: {uniforms, functions, fn}`: `fn(sp)` returns premultiplied colour and coverage (`vec4`); it covers what's behind it. The weight arrives as `uO_<key>` (and `P.o[key]`).
-  - `uniforms(gl, u, P)`, `draw2d(o, P)` (drawn over the glow, source-over).
+  - `words` (narration). The weight arrives as `P.o[key]`.
+  - A mesh object (like the skull): `drawGL(gl, P, W, H, stage)` is called twice a frame. With `'trails'` it draws into the feedback buffer, so the object leaves ghosts; with `'screen'` it draws over the finished picture. It also has `draw2d(o, P)`. Both hand off to `render/mesh.js`.
+  - A ray-marched object (none at the moment; the old skull was one): `glsl: {uniforms, functions, fn}` in the display pass, where `fn(sp)` returns premultiplied colour and coverage. Its weight also arrives as `uO_<key>`.
   - Journey tuning in `TUNE.<key>`: `chance` (per section; 0 = never, with no random draw) and `level`.
 
 **Adding a visual:**
@@ -197,14 +198,45 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Drawing:** in WebGL it's blended over the trails (not added), so pictures stay recognisable. Its media texture uses texture unit 3, and a still image uploads once. Simple mode draws a six-way mirror.
 - **Caveat:** hosts that sandbox the page (possibly the claude.ai Artifact) may block the camera; files still work.
 
-## The skull (objects)
+## Meshes and the wire skull
 
-The skull (`src/visuals/objects/skull.js`) is ray-marched in the display shader from ellipsoids and rounded boxes, blended smoothly.
-- **Parts:** cranium, face, cheekbones, jaw, teeth and eyes each carry an id, so each takes its own colour and flies its own way.
-- **Music:** it looks side to side at motion time (`spin`, `turn`), the jaw drops on the pulse, stabs move the parts round the colour wheel, and the eyes and a halo flare on the downbeat.
-- **Breaking apart:** on a drop, a new section or a progression step (every 8 bars by hand), then it pulls itself back together over `explodeSecs`. `breakApart()` does it on demand.
-- **Journey:** a section's optional **centrepiece** (`J.centre`, chosen in `recast` and remembered with the cast). The lead steps back to 70%, there's never a lens over it, and the mirror tunnel wins while media is loaded. It's off by default (`TUNE.skull.chance = 0`); `?lab=skull` sets it to .5.
-- **Simple mode:** a flat front-on skull with the same colours, jaw and break-apart.
+**The mesh engine** (`src/render/mesh.js`, a leaf module) draws any triangle mesh as glowing wire edges over dark glass panes.
+- **Data.** A mesh is `{pieces: [{pos, tri, part, hinge?}], hinge}`. `panesOf()` turns it into panes, each with its corners, centre, normal, part, piece and a fixed random seed.
+- **Per-pane motion.** It's worked out in the vertex shader, and again in JavaScript for simple mode:
+  - a hinged piece rotates about `hinge` (the jaw);
+  - panes fly out along their normals, spinning about their own centres (`ex`);
+  - panes vanish by seed (`gone`);
+  - a band of light runs down the object (`sweep`);
+  - random panes flash (`spark`).
+- **WebGL drawing.**
+  - Edges are drawn as screen-space bands, because WebGL lines are only 1 px wide.
+  - On screen it's three passes: the far side's edges faintly (`xray`), then the panes (depth-tested, darkening what's behind them), then the near edges.
+  - Into the trails it draws edges only (`trail`). The trail buffers have no depth.
+- **Simple mode.** The panes are painted back to front, each as dark glass followed by its lit edges.
+- **Setup.** The main canvas asks for a depth buffer for this.
+
+**The skull's mesh** (`src/visuals/objects/meshes/skull.js`) is generated, not hand-edited. `tools/skull-mesh.mjs` (`npm run mesh`):
+- describes a detailed skull as distance functions;
+- meshes it with `isosurface`;
+- simplifies it with `meshoptimizer` to about 900 panes for the skull and 260 for the jaw. Both are dev dependencies; the page has none.
+- tags every pane with its part: 1 cranium, 2 face, 3 cheekbones, 4 jaw, 5 teeth, 6 brow, 7 eye sockets, 8 nose.
+- The sockets and nose are drawn as dark holes, and the sockets glow on the downbeat.
+- **Replacing the skull.** A free-licence skull model couldn't be fetched here (those hosts are blocked). A real model can replace this mesh: convert it to the same `{pos, tri, part}` arrays, and nothing else needs to change.
+
+**The wire skull** (`src/visuals/objects/skull.js`):
+- **Music:**
+  - it turns at motion time (`spin`);
+  - the jaw drops on the pulse;
+  - a band of light runs down it each downbeat;
+  - a scatter of panes flashes on stabs, and the parts' colours move round the wheel.
+- **Arriving and leaving.** It arrives by assembling out of flying panes. When it leaves, its panes wink out.
+- **Shattering.** It shatters on a drop, a new section or a progression step (every 8 bars when playing by hand), then pulls back together over `explodeSecs`. `breakApart()` does it on demand.
+- **Journey.** A section's optional **centrepiece** (`J.centre`, chosen in `recast` and remembered with the cast):
+  - the lead steps back to 70%;
+  - there's never a lens over it;
+  - the mirror tunnel wins while media is loaded.
+
+  It's off by default (`TUNE.skull.chance = 0`); `?lab=skull` sets it to .5.
 - **Manual:** the "Skull" preset (`journey:false`).
 
 ## Experiments
@@ -224,7 +256,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - with real audio through the analyser, a synthetic loop in real time, the pulse is drawn a screen's delay before the kick is heard;
   - the kick frame is the brightest;
   - each "follows" mover moves with its own part of the groove.
-- `tests/objects.mjs`: the skull draws and breaks apart in both renderers, and with `?lab=skull` Journey casts it as a centrepiece, never under a lens.
+- `tests/objects.mjs`: the wire skull draws and shatters in both renderers, and with `?lab=skull` Journey casts it as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;

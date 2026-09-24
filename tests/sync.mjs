@@ -29,19 +29,20 @@ const report = (ok, msg) => { if (!ok) failed = true; console.log(`${ok ? 'ok  '
     for (let i = 0; i < n; i++) dv.setInt16(44 + i*2, Math.max(-1, Math.min(1, x[i]))*32000, true);
     const dt = new DataTransfer(); dt.items.add(new File([buf], 'loop.wav', {type: 'audio/wav'}));
     const fi = document.querySelector('#fileIn'); fi.files = dt.files; fi.dispatchEvent(new Event('change'));
-    const pl = await import('/src/audio/player.js'), {S} = await import('/src/state.js'), {G} = await import('/src/audio/beatgrid.js');
+    const pl = await import('/src/audio/player.js'), {G} = await import('/src/audio/beatgrid.js'), {J} = await import('/src/journey/core.js');
     for (let i = 0; i < 100 && !pl.playing; i++) await new Promise(r => setTimeout(r, 50));
-    const errs = []; let lastB = 0;
+    const errs = []; let lastN = J.beats;
     await new Promise(done => { const f = () => {
       const pos = pl.actx.currentTime - pl.startedAt, o = pl.actx.getOutputTimestamp(), heard = o.contextTime + (performance.now() - o.performanceTime)/1000 - pl.startedAt;
-      if (S.beat > lastB + .2 && G.locked) { let e = 9; for (const k of kicks) if (Math.abs(heard - k) < Math.abs(e)) e = heard - k; errs.push(e*1000); }
-      lastB = S.beat; if (pos < 20) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
+      if (J.beats !== lastN && G.locked) { let e = 9; for (const k of kicks) if (Math.abs(heard - k) < Math.abs(e)) e = heard - k; errs.push(e*1000); }
+      // every beat of the grid (the pulse itself fires on only some of them, by the section's pace)
+      lastN = J.beats; if (pos < 20) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
     const {TUNE} = await import('/src/tuning.js');
     return {errs: errs.sort((a, b) => a - b), display: TUNE.sync.displayMs};
   });
   const med = r.errs[r.errs.length >> 1];
   // drawn a screen's delay before it's heard, so it's seen as it's heard; real-time timing in a busy test machine, so a loose window
-  report(r.errs.length > 15 && Math.abs(med + r.display) < 25, `pulse with real audio: ${Math.round(med)} ms against the kick as heard (aim ${-r.display}, drawn early by the screen's delay), ${r.errs.length} pulses`);
+  report(r.errs.length > 20 && Math.abs(med + r.display) < 25, `beats with real audio: ${Math.round(med)} ms against the kick as heard (aim ${-r.display}, drawn early by the screen's delay), ${r.errs.length} beats`);
   await browser.close();
 }
 

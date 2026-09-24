@@ -53,16 +53,20 @@ export const TUNE = {
     drift: .015,               // how fast the view wanders across the source
   },
 
-  // the skull (a 3D centrepiece); Journey leaves it out while chance is 0
+  // the wire skull (a 3D centrepiece); Journey leaves it out while chance is 0
   skull: {
     chance: 0,                 // how often a section gets it as its centrepiece (try ?lab=skull)
-    level: .9,                 // how solid it is as the centrepiece
-    size: .34,                 // its height, as a fraction of the screen
-    spin: .35,                 // how fast it looks side to side (motion time, so it slows with the pace)
-    turn: .8,                  // how far it turns each way, in radians
-    jaw: .35,                  // how far the jaw drops on the pulse
-    explode: 1,                // how far the parts fly when it breaks apart
-    explodeSecs: 1.6,          // how long it takes to pull itself back together
+    level: .9,                 // how strongly it shows as the centrepiece
+    size: .42,                 // how big it is (about 1.1 × this, as a fraction of the screen's height)
+    spin: .25,                 // how fast it turns (motion time, so it slows with the pace)
+    jaw: .3,                   // how far the jaw drops on the pulse, in radians
+    explode: 1,                // how far the panes fly when it shatters
+    explodeSecs: 1.2,          // how long it takes to pull itself back together
+    line: 2.2,                 // edge width in pixels, on a 720-line screen
+    fill: .12,                 // how much light the glass panes hold
+    dark: .75,                 // how much the glass darkens what's behind it (so it reads as a solid)
+    xray: .22,                 // how brightly the far side's edges show through
+    trail: .15,                // how bright the ghosts it leaves in the trails are
   },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'

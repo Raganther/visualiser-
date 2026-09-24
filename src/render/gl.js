@@ -97,6 +97,8 @@ export function drawGL(now, P){
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, NP); gl.disable(gl.BLEND);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   }
+  const meshes = OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003);   // mesh objects (their own programs)
+  for (const o of meshes) o.drawGL(gl, P, W, H, 'trails');
   cur = 1 - cur;
   gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H);
   gl.useProgram(dispProg.p); const v = dispProg.u;
@@ -109,14 +111,16 @@ export function drawGL(now, P){
   gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
   for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
-  for (const o of OBJECT_VISUALS) gl.uniform1f(v['uO_' + o.key], P.o[o.key]);
+  for (const o of OBJECT_VISUALS) if (o.glsl) gl.uniform1f(v['uO_' + o.key], P.o[o.key]);
   for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  for (const o of meshes) o.drawGL(gl, P, W, H, 'screen');
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 }
 // pick WebGL if it works, otherwise the simple 2D renderer
 export function initRenderer(){
   for (const type of ['webgl2', 'webgl', 'experimental-webgl']) {
-    try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false}); } catch(e) {}
+    try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false, depth:true}); } catch(e) {}
     if (gl) break;
   }
   if (gl) { try { setupGL(); } catch(e) { console.warn(e); gl = null; } }
