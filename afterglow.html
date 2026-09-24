@@ -531,7 +531,7 @@ void main(){ float d=length(gl_PointCoord-0.5); gl_FragColor=vec4(uCol*vB*smooth
 let pProg = null, pBuf = null, quadBuf = null, histTex = null;
 const HIST = new Uint8Array(256);   // loudness over the last ~30 seconds, oldest first
 let fbProg = null, dispProg = null, fbos = [], cur = 0, W = 1, H = 1, dataTex = null, r2d = null;
-const dataArr = new Uint8Array(512);
+const dataArr = new Uint8Array(512), waveS = new Float32Array(512).fill(128);
 
 function makeTex(w, h){
   const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -1133,7 +1133,7 @@ function stepWorld(dt, react, now){
     const lvl = (J.eM - J.lo)/Math.max(.06, J.hi - J.lo);
     HIST[255] = Math.round(Math.min(1, Math.max(0, lvl*.7 + sBass*.4))*255);
   }
-  WORLD.starPh += dt*(.03 + J.tension*.25 + beat*.25);
+  WORLD.starPh += dt*PACE.ts*(.03 + J.tension*.25 + beat*.25);
   WORLD.lightAng += dt*.05;
   WORLD.moonAng += (WORLD.moonTarget - WORLD.moonAng)*Math.min(1, dt*5);
   const R = .2 + sBass*react*.03, px = innerWidth/innerHeight*.18 + Math.sin(t*.05)*.05, py = .06 + Math.sin(t*.037)*.03;
@@ -1373,6 +1373,7 @@ function progress(){
   if (step === 0) varySmall();
   else if (step === 1) {
     ty.hue = (ty.hue + (Math.random() < .5 ? 1 : -1)*(.12 + Math.random()*.18) + 1) % 1;   // colour family drifts
+    ty.pace = pickPace();                                                                   // and the pace changes
     if (J.lens && J.lens.n > 2) J.lensShift = [-1, 1, 2][Math.floor(Math.random()*3)];
     else if (!J.lens && !(worldOn()) && Math.random() < .4) { J.lens = randomLens() || {n:2, mirror:1}; recipeMods(); }
   }
@@ -1389,7 +1390,8 @@ function updateSectionUI(){
     + (J.lead ? `. ${NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (L ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
-    + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '');
+    + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
+    + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}.` : '');
 }
 
 function features(dt){
@@ -1515,6 +1517,10 @@ function stepJourney(now, dt){
   tgt.wander = .08 + (1 - T*.6)*.3*n01(350, .3);
   tgt.colorSpeed = .015 + T*.05;
   tgt.hueDrift = .004 + T*.02;
+  // pace: the section's own character, lifted by intensity and the calm-to-intense slider; glides over a few seconds
+  if (ty.pace === undefined) ty.pace = pickPace();
+  const paceT = Math.min(1, Math.max(.03, ty.pace*.65 + T*.35 + (J.bias - .5)*.3 + breath*.04));
+  J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;
   const rate = Math.min(1, dt*.4*sp);
@@ -1567,7 +1573,7 @@ function freshJourney(){
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 
-window.__jdbg = () => ({grid: {bpm: G.period && 60/G.period, locked: G.locked, conf: G.conf, down: G.down, pos: J.pos, bar: J.bar, ev: G.ev, dsure: G.dsure}, accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
+window.__jdbg = () => ({pace: {v: PACE.v, name: paceName(PACE.v), div: PACE.div, ts: PACE.ts, punch: PACE.punch}, grid: {bpm: G.period && 60/G.period, locked: G.locked, conf: G.conf, down: G.down, pos: J.pos, bar: J.bar, ev: G.ev, dsure: G.dsure}, accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
 function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
 
 function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
@@ -1581,13 +1587,44 @@ function applyMods(now, react){
       else if (m.src === 'bass') target = sBass*react*1.8*a;
       else if (m.src === 'mid') target = sMid*react*3*a;
       else if (m.src === 'treb') target = sTreb*react*5*a;
-      else if (m.src === 'pulse') target = beat*a;
+      else if (m.src === 'pulse') target = beat*a;          // the pace's pulse, not every kick
       else if (m.src === 'jump') target = (jumpVal[s.k] || 0)*a;
     }
     const rate = m && (m.src === 'pulse' || m.src === 'jump') ? .5 : .12;
     modSm[s.k] = (modSm[s.k] || 0) + (target - (modSm[s.k] || 0))*rate;
     eff[s.k] = Math.min(s.max, Math.max(s.min, curP[s.k] + modSm[s.k]));
   });
+}
+
+/* pace: how fast everything moves, how hard the kick lands, and how often the visuals pulse.
+   0 is floating (slow, soft, once a bar), 1 is frantic (full speed, every beat). each section has its own */
+const PACE = {v:1, ts:1, punch:1, div:1, k:1};
+let MT = 0;                                            // motion time: runs slower in calm sections
+const PACE_NAMES = [[.3, 'floating'], [.55, 'steady'], [.8, 'driving'], [2, 'frantic']];
+const paceName = v => PACE_NAMES.find(([lim]) => v < lim)[1];
+function setPace(v){
+  PACE.v = v; PACE.ts = .3 + .7*v; PACE.punch = .2 + .8*v; PACE.k = .08 + .92*v;
+  PACE.div = v < .3 ? 4 : v < .6 ? 2 : 1;
+}
+// a new pace that contrasts with the current one, so the piece doesn't sit at one speed
+function pickPace(){
+  const cur = J.pace === undefined ? .5 : J.pace; let p = Math.random();
+  for (let i = 0; i < 12 && Math.abs(p - cur) < .3; i++) p = Math.random();
+  return p;
+}
+// the visual pulse: on the section's division of the beat, as hard as its pace allows
+function firePulse(){
+  const asp = innerWidth/innerHeight, k = PACE.punch;
+  beat = Math.max(beat, (reduceMotion ? .5 : 1)*k); hueKick += .07*k;
+  comets.forEach(c => {
+    const a = Math.atan2(c.dy, c.dx) + (Math.random() < .5 ? -1 : 1)*(.6 + Math.random()*1.5)*(.4 + .6*k);
+    c.dx = Math.cos(a); c.dy = Math.sin(a); if (Math.random() < .4) c.turn *= -1; c.kick = k;
+  });
+  if (eff.shock > .25) {
+    const from = eff.comets > .05 ? comets[shockN % 3] : {x:(Math.random() - .5)*asp*.8, y:(Math.random() - .5)*.8};
+    const sh = shocks[shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01; sh.s = Math.min(1, .5 + sBass);
+  }
+  for (const m in active.mods) if (active.mods[m].src === 'jump') jumpVal[m] = Math.random()*2 - 1;
 }
 
 /* the star: a crisp shape that snaps in on the downbeat, then snaps or flickers out */
@@ -1621,22 +1658,13 @@ const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*
 const shocks = Array.from({length:8}, () => ({x:0, y:0, r:0, s:0}));
 let shockN = 0;
 function onBeatFX(){
-  const asp = innerWidth/innerHeight;
-  comets.forEach(c => {
-    const a = Math.atan2(c.dy, c.dx) + (Math.random() < .5 ? -1 : 1)*(.6 + Math.random()*1.5);
-    c.dx = Math.cos(a); c.dy = Math.sin(a); if (Math.random() < .4) c.turn *= -1; c.kick = 1;
-  });
-  if (eff.shock > .25) {
-    const from = eff.comets > .05 ? comets[shockN % 3] : {x:(Math.random() - .5)*asp*.8, y:(Math.random() - .5)*.8};
-    const sh = shocks[shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01; sh.s = Math.min(1, .5 + sBass);
-  }
-  for (const k in active.mods) if (active.mods[k].src === 'jump') jumpVal[k] = Math.random()*2 - 1;
   J.kr += .5;
   if (!G.locked) { J.upos = (J.upos + 1) % 4; gridBeat(J.upos); }   // no beat grid yet: count the kicks themselves
 }
 // one beat of the bar (pos 0 is the downbeat), from the beat grid, or from the kicks until the grid locks
 function gridBeat(pos){
   J.beats++; J.pos = pos;
+  if (pos % PACE.div === 0) firePulse();
   if (J.beats % 2 === 0) WORLD.moonTarget += Math.PI/4;
   const down = pos === 0;
   if (down) J.bar++;
@@ -1752,8 +1780,8 @@ function onHitFX(){
   hueKick += .025;
 }
 function stepFX(dt, react, now){
-  const tt = now/1000;
-  STAR.age += dt; OUTL.age += dt; SPARKS.forEach(p => p.age += dt); J.wipe *= Math.pow(.02, dt);
+  const tt = now/1000, rdt = dt; dt *= PACE.ts;             // now is motion time; hits still age in real time
+  STAR.age += rdt; OUTL.age += rdt; SPARKS.forEach(p => p.age += rdt); J.wipe *= Math.pow(.02, rdt);
   const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
   comets.forEach((c, i) => {
     const e = bands[i]*react;
@@ -1761,7 +1789,7 @@ function stepFX(dt, react, now){
     c.dx = Math.cos(a); c.dy = Math.sin(a);
     const bend = eff.plasma*Math.sin(c.x*3 + tt)*Math.cos(c.y*3 - tt*.7)*2.5*dt;
     const a2 = Math.atan2(c.dy, c.dx) + bend; c.dx = Math.cos(a2); c.dy = Math.sin(a2);
-    const sp = (.12 + e*.5)*(1 + c.kick*2.5)*(.7 + J.tension*.6); c.kick *= Math.pow(.02, dt);
+    const sp = (.12 + e*.5)*(1 + c.kick*2.5)*(.7 + J.tension*.6); c.kick *= Math.pow(.02, rdt);
     c.x += c.dx*sp*dt; c.y += c.dy*sp*dt;
     if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
     if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
@@ -1882,6 +1910,7 @@ function analyse(now){
     dataArr[i] = wave[i*8];
     dataArr[256+i] = freq[Math.min(1023, 1 + Math.floor(Math.pow(i/255, 2) * 700))];
   }
+  for (let i = 0; i < 512; i++) { waveS[i] += (dataArr[i] - waveS[i])*PACE.k; dataArr[i] = waveS[i]; }
   const avg = (a,b) => { let s = 0; for (let i = a; i < b; i++) s += freq[i]; return s / ((b-a)*255); };
   const bass = avg(1,9), mid = avg(9,90), treb = avg(90,400);
   sBass += (bass - sBass)*.3; sMid += (mid - sMid)*.2; sTreb += (treb - sTreb)*.25;
@@ -1905,10 +1934,10 @@ function analyse(now){
     const iv = (now - lastBeat)/1000;
     if (iv > .25 && iv < 1.1) { intervals.push(iv); if (intervals.length > 8) intervals.shift();
       beatPeriod = [...intervals].sort((x, y) => x - y)[intervals.length >> 1]; }
-    beat = reduceMotion ? .5 : 1; lastBeat = now; hueKick += .07; gridKick(now/1000); onBeatFX();
+    lastBeat = now; gridKick(now/1000); onBeatFX();
   }
   gridFrame(now/1000, fl, fh, ft);
-  beat *= .84; hit *= .82;
+  beat *= .93 - .09*PACE.v; hit *= .82;               // calm pulses swell and fade; frantic ones snap
 }
 
 /* ---------- controller + keyboard ---------- */
@@ -1961,7 +1990,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (e.key.toLowerCase() === 'x') keyHold = false; });
 
 /* ---------- render loop ---------- */
-let frameN = 0, hueAcc = 0;
+let frameN = 0, hueAcc = 0; const VIS = {bass:0, mid:0, treb:0};
 function frame(now){
   requestAnimationFrame(frame);
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
@@ -1971,19 +2000,27 @@ function render(now){
   if (!padBlocked) pollPad();
   const dt = Math.min(.05, Math.max(0, (now - (render.last || now))/1000)); render.last = now;
   stepJourney(now, dt);
+  const pv = J.on && J.pace !== undefined ? J.pace : 1;
+  if (Math.abs(pv - PACE.v) > .001 || PACE.div !== (pv < .3 ? 4 : pv < .6 ? 2 : 1)) {
+    const d0 = PACE.div; setPace(pv); if (d0 !== PACE.div && J.on) updateSectionUI();
+  }
+  const mdt = dt*PACE.ts; MT += mdt;
+  const vk = Math.min(1, .06 + .94*PACE.v);           // calm sections follow the levels more gently
+  VIS.bass += (sBass - VIS.bass)*vk; VIS.mid += (sMid - VIS.mid)*vk; VIS.treb += (sTreb - VIS.treb)*vk;
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
   for (const s of SPEC) curP[s.k] += (active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
   applyMods(now, react);
-  stepFX(dt, react, now);
-  stepWorld(dt, react, now);
-  J.ribPh += dt*(.4 + J.tension*1.2 + beat*2); J.horScroll += dt*(.4 + J.tension*1.6 + beat*2.5);
-  if (eff.flow > .01) stepParts(dt, react, now);
-  hueAcc += dt*eff.colorSpeed;
-  const hue = hueAcc + hueKick + (J.on ? J.hueOff : 0), t = now/1000, asp = innerWidth/innerHeight;
-  const P = {zoom: eff.zoom + live.zoom, rot: eff.rot + live.rot, warp: eff.warp + live.warp,
+  stepFX(dt, react, MT*1000);
+  stepWorld(dt, react, MT*1000);
+  J.ribPh += mdt*(.4 + J.tension*1.2 + beat*2); J.horScroll += mdt*(.4 + J.tension*1.6 + beat*2.5);
+  if (eff.flow > .01) stepParts(mdt, react, MT*1000);
+  hueAcc += mdt*eff.colorSpeed;
+  const hue = hueAcc + hueKick + (J.on ? J.hueOff : 0), t = MT, asp = innerWidth/innerHeight;
+  // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
+  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
-    hue, hueShift: eff.hueDrift, bass: sBass, mid: sMid, treb: sTreb, beat, hit, react,
+    hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
     ring: eff.ring, scope: eff.scope, plasma: eff.plasma, burst: eff.burst,
     cometW: eff.comets, shockW: Math.max(eff.shock, J.dropGlow), comets, shocks,
@@ -2006,7 +2043,7 @@ function render(now){
   SPARKS.forEach((p, i) => P.sparks.set([p.x, p.y, p.s*(1 + .5*Math.exp(-p.age*20)), eff.sparkle*dim*(p.age < .05 ? 1 : Math.exp(-(p.age - .05)*9))], i*4));
   const pull = Math.min(1, eff.comets)*.7;
   P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
-  if (gl) drawGL(now, P); else r2d.draw(now, P);
+  if (gl) drawGL(MT*1000, P); else r2d.draw(MT*1000, P);
 
   if (++frameN % 6 === 0) {
     document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
