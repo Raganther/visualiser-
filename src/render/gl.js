@@ -1,9 +1,9 @@
 // WebGL renderer: context, framebuffers, the feedback and display passes, and the choice between WebGL and simple mode.
 import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
-import { composeDisplay } from './compose.js';
-import { FEEDBACK, PFRAG, PVERT, VERT } from './shaders.js';
-import { VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { composeDisplay, composeFeedback } from './compose.js';
+import { PFRAG, PVERT, VERT } from './shaders.js';
+import { LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 import { HIST, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
@@ -37,7 +37,7 @@ function makeTex(w, h){
   return t;
 }
 function setupGL(){
-  fbProg = program(FEEDBACK); dispProg = program(composeDisplay()); pProg = program(PFRAG, PVERT);
+  fbProg = program(composeFeedback()); dispProg = program(composeDisplay()); pProg = program(PFRAG, PVERT);
   pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
   const quad = quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -85,19 +85,10 @@ export function drawGL(now, P){
   gl.uniform1f(u.uHue, P.hue); gl.uniform1f(u.uHueShift, P.hueShift);
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit);
-  gl.uniform4f(u.uLayers, P.ring, P.scope, P.plasma, P.burst);
-  gl.uniform2f(u.uFx, P.cometW, P.shockW);
-  gl.uniform2f(u.uBurstC, P.bcx, P.bcy);
-  gl.uniform2f(u.uRingShape, P.ringR, P.ringSq);
-  const ca = new Float32Array(9), sa = new Float32Array(32);
-  P.comets.forEach((c, i) => { ca[i*3] = c.x; ca[i*3+1] = c.y; ca[i*3+2] = c.z; });
-  P.shocks.forEach((h, i) => { sa[i*4] = h.x; sa[i*4+1] = h.y; sa[i*4+2] = h.r; sa[i*4+3] = h.s; });
-  if (u['uComets[0]']) gl.uniform3fv(u['uComets[0]'], ca);
-  if (u['uShocks[0]']) gl.uniform4fv(u['uShocks[0]'], sa);
-  gl.uniform1f(u.uRib, P.ribW); gl.uniform1f(u.uRibAng, P.ribAng); gl.uniform1f(u.uRibPh, P.ribPh);
-  gl.uniform1f(u.uHor, P.horW); gl.uniform1f(u.uHorScroll, P.horScroll); gl.uniform1f(u.uHorY, P.horY);
+  for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], P.l[l.key]);
+  for (const vis of VISUALS) if (vis.fbUniforms) vis.fbUniforms(gl, u, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  if (P.flowW > .01) {   // flow-field particles, drawn into the trails so they leave streaks
+  if (P.l.flow > .01) {   // flow-field particles, drawn into the trails so they leave streaks (kept here: they need their own program)
     gl.useProgram(pProg.p);
     gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, parts);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);

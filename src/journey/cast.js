@@ -3,15 +3,10 @@ import { ELEMS, FEATS, J, OPENING, SUITS, worldOn } from './core.js';
 import { pickRecipe, recipeMods, setLens } from './recipes.js';
 import { relFeat } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
-import { HIT_VISUALS } from '../visuals/registry.js';
+import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OVER_WORLD } from '../visuals/registry.js';
+export { NAMES, OVER_WORLD };
 
-// how each element behaves as an accent: on the bar's downbeat, on stabs, while melody is strong, or at the song's peaks
-const ACCENT = {ring:'bar', horizon:'peak', burst:'hit', scope:'hit', comets:'hit', ribbons:'mid', plasma:'mid', flow:'peak'};
-// other ways an element can accent: comets and bursts can also land on the downbeat, the horizon too
-const ALT_TRIG = {burst:'bar', comets:'bar', horizon:'bar'};
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
-export const NAMES = {ring:'Wave ring', scope:'Scope line', plasma:'Plasma', burst:'Spectrum burst', comets:'Comets', flow:'Flow field', ribbons:'Ribbons', horizon:'Horizon'};
-export const OVER_WORLD = {comets:.3, ribbons:.3, flow:.3, horizon:.1, scope:-.1, ring:-.5, plasma:-.6, burst:-.4};
 export const HIT_WORDS = Object.fromEntries(HIT_VISUALS.map(v => [v.key, v.words]));
 // how well each element fits right now: the recipe, the music, the world, and how long it has been on screen lately
 function scoreElems(ty, rf, fresh){

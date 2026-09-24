@@ -32,7 +32,7 @@ import { analyse, hit, sBass, sMid, sTreb } from './audio/analysis.js';
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
-import { seedParticles, stepParts } from './fx/particles.js';
+import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, setPace } from './journey/pace.js';
@@ -41,8 +41,8 @@ import { drawGL, gl, initRenderer, r2d } from './render/gl.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
-import { $, hsv2rgb, noise, reduceMotion } from './util.js';
-import { VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+import { $, noise, reduceMotion } from './util.js';
+import { HIT_VISUALS, LAYER_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 initRenderer();
 seedParticles();
@@ -82,21 +82,15 @@ function render(now){
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
-    ring: eff.ring, scope: eff.scope, plasma: eff.plasma, burst: eff.burst,
-    cometW: eff.comets, shockW: Math.max(eff.shock, J.dropGlow), comets, shocks,
-    ringR: J.on ? J.ringR : .2, ringSq: J.on ? J.ringSq : 0,
-    flowW: eff.flow, ribW: eff.ribbons, horW: eff.horizon, ribAng: J.on ? J.ribAng : 0, ribPh: J.ribPh,
-    horScroll: J.horScroll, horY: J.on ? J.horY : .05,
-    w: {}};
+    l: {}, w: {}};
+  // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
+  const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, J, comets, shocks, parts, NP};
+  for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
   for (const v of WORLD_VISUALS) {                              // world weights; the horizon's grid floor lines up with a world's ground
     P.w[v.key] = eff[v.key];
     if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);
   }
-  P.flowCol = hsv2rgb(hue + .55, .6, 1).map(v => v*eff.flow*(.4 + sTreb*react*1.5 + S.beat*.5));
-  const vx = {eff, react, sBass, dim: reduceMotion ? .5 : 1, t};
-  for (const v of VISUALS) if (v.params) v.params(P, vx);      // each world and hit adds what it draws with
-  const pull = Math.min(1, eff.comets)*.7;
-  P.bcx = P.cx + (comets[0].x - P.cx)*pull; P.bcy = P.cy + (comets[0].y - P.cy)*pull;
+  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS]) if (v.params) v.params(P, vx);
   if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);
 
   if (++frameN % 6 === 0) {

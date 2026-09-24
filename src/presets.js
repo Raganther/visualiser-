@@ -1,7 +1,7 @@
 // Settings (SPEC), movers, and the hand-made presets that Journey also reads as recipes.
 import { S } from './state.js';
 import { clone } from './util.js';
-import { HIT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 /* ---------- presets ---------- */
 export const SPEC = [
@@ -12,14 +12,7 @@ export const SPEC = [
   {g:'Motion', k:'wander', label:'Centre wander', min:0, max:.5, step:.01},
   {g:'Lens', k:'sym', label:'Kaleidoscope folds', min:1, max:12, step:1},
   {g:'Lens', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
-  {g:'Layers', k:'ring', label:'Wave ring', min:0, max:1, step:.01},
-  {g:'Layers', k:'scope', label:'Scope line', min:0, max:1, step:.01},
-  {g:'Layers', k:'plasma', label:'Plasma', min:0, max:1, step:.01},
-  {g:'Layers', k:'burst', label:'Spectrum burst', min:0, max:1, step:.01},
-  {g:'Layers', k:'comets', label:'Comets', min:0, max:1, step:.01},
-  {g:'Layers', k:'flow', label:'Flow field', min:0, max:1, step:.01},
-  {g:'Layers', k:'ribbons', label:'Ribbons', min:0, max:1, step:.01},
-  {g:'Layers', k:'horizon', label:'Horizon', min:0, max:1, step:.01},
+  ...LAYER_VISUALS.map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...HIT_VISUALS.map(v => ({g:'Hits', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...WORLD_VISUALS.map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},

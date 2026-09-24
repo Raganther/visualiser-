@@ -1,6 +1,6 @@
 // Switching, stepping and randomizing presets.
 import { S } from '../state.js';
-import { HITS, J, WORLDS } from '../journey/core.js';
+import { ELEMS, HITS, J, WORLDS } from '../journey/core.js';
 import { byKey } from '../visuals/registry.js';
 import { nudge } from '../journey/director.js';
 import { presets } from '../presets.js';
@@ -19,7 +19,7 @@ export function randomize(){
   const r = (a,b) => a + Math.random()*(b-a), pick = arr => arr[Math.floor(Math.random()*arr.length)];
   const p = {name:'Random', decay:r(.88,.985), zoom:r(.995,1.07), rot:r(-.03,.03), warp:r(0,1.5), wander:Math.random()<.5 ? r(.05,.3) : 0,
     sym:Math.floor(r(1,9)), mirror:Math.random()<.4?1:0, colorSpeed:r(.03,.25), hueDrift:r(0,.035), mods:{}};
-  const layers = ['ring','scope','plasma','burst','comets','shock','flow','ribbons','horizon'];
+  const layers = [...ELEMS, ...HITS.filter(k => byKey[k].inTrails)];   // every layer, plus shockwaves (they live in the trails)
   WORLDS.forEach(k => p[k] = 0); if (Math.random() < .5) p[pick(WORLDS)] = 1;
   layers.forEach(l => p[l] = Math.random()<.3 ? r(.2,.7) : 0);
   const hits = HITS.filter(k => byKey[k].trigger !== 'pulse');   // shockwaves are handled with the layers above

@@ -2,26 +2,13 @@
 import { SPEC, curP } from '../presets.js';
 
 /* ---------- Journey: one continuously evolving composition ---------- */
-export const ELEMS = ['ring','scope','plasma','burst','comets','flow','ribbons','horizon'];
-// hits: one-off shapes fired by the music, drawn crisp rather than into the trails
-import { HITS, WORLDS } from '../visuals/registry.js';
-export { HITS, WORLDS };
+// layers, hits and worlds, and what Journey knows about each, come from the visual registry
+import { ELEMS, HITS, SUITS, WORLDS } from '../visuals/registry.js';
+export { ELEMS, HITS, SUITS, WORLDS };
 export const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
 export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror'];
 export const SNAP = new Set([...TKEYS, ...HITS]);
-// what each element suits. perc: steady kicks. busy: lots of stabs and hits. bright: treble-heavy.
-// low: bass-heavy. mid: melodic middle. T: overall intensity. (features run 0..1, centred on .5)
-export const SUITS = {
-  ring:    {perc:.8, low:.4},
-  burst:   {bright:.9, T:.5},
-  scope:   {mid:.7, busy:.3},
-  plasma:  {perc:-.6, T:-.5, low:.3},
-  comets:  {busy:.4, T:-.2},
-  flow:    {perc:-.5, T:-.4, mid:.3},
-  ribbons: {mid:.6, perc:-.3, bright:.3},
-  horizon: {perc:.7, low:.4, T:.3},
-};
 export const FEATS = ['perc','busy','bright','low','mid','lvl'];
 export const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, lens:null, recipeSeed:{},
   cut:0, hitSeed:{none:.3, star:0, shock:0}, starN:5, starOut:'snap', starScatter:false};
