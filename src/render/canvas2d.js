@@ -10,10 +10,12 @@ export function make2D(view){
   const ctxs = bufs.map(b => b.getContext('2d'));
   const hasFilter = typeof ctxs[0].filter === 'string';
   let bw = 2, bh = 2, i = 0, vignette = null;
+  const groups = {};   // extra trail groups' buffer pairs, made on first use
   function resize(w, h){
     const sc = Math.min(1, 900 / Math.max(w, h));
     bw = Math.max(2, Math.round(w*sc)); bh = Math.max(2, Math.round(h*sc));
     bufs.forEach((b, k) => { b.width = bw; b.height = bh; ctxs[k].fillStyle = '#000'; ctxs[k].fillRect(0,0,bw,bh); });
+    for (const g in groups) delete groups[g];
     vignette = out.createRadialGradient(w/2, h/2, Math.min(w,h)*.3, w/2, h/2, Math.hypot(w,h)*.6);
     vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.75)');
   }
@@ -47,7 +49,7 @@ export function make2D(view){
   }
   // a scene's fills and mask: a fill is the chosen layers alone, folded, in their own canvas; a mask cuts the glow to
   // (or away from) an object's silhouette in a canvas the size of the screen
-  const fillCan = {}, maskCan = document.createElement('canvas'), mctx = maskCan.getContext('2d');
+  const fillCan = {};
   function drawFills(P, now){
     for (const key in P.sc.fills) {
       if (!(P.o[key] > .01)) continue;
@@ -56,7 +58,7 @@ export function make2D(view){
       g.globalCompositeOperation = 'source-over'; g.fillStyle = '#000'; g.fillRect(0, 0, bw, bh);
       g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round'; g.lineCap = 'round';
       const l = {}; for (const k in P.l) l[k] = f.layers.includes(k) ? 1 : 0;
-      drawSym(g, {...P, l}, Math.max(1, Math.round(f.kaleido)), 1, bw/2, bh/2, now, .35*TUNE.scene.fillGain, f.zoom || TUNE.scene.fillZoom);
+      drawSym(g, {...P, l}, Math.max(1, Math.round(f.fold)), 1, bw/2, bh/2, now, .35*TUNE.scene.fillGain, f.zoom || TUNE.scene.fillZoom);
       P.m[key].fillImg = fc; P.m[key].fillAmt = TUNE.scene.fillAmt;
     }
   }
@@ -71,12 +73,18 @@ export function make2D(view){
     for (const v of WORLD_VISUALS) if (v.front && P.w[v.key] > .01) v.front.path2d(out, P, now/1000);
     out.clip(); out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1; out.drawImage(worldCan, 0, 0); out.restore();
   }
-  function maskedGlow(P, src){
-    if (maskCan.width !== W || maskCan.height !== H) { maskCan.width = W; maskCan.height = H; }
+  // a trail group cut to (or away from) a shape: an object's silhouette or the worlds' front planes
+  const maskCans = [];
+  function maskedGlow(P, src, m, k){
+    const mc = maskCans[k] || (maskCans[k] = document.createElement('canvas')), mctx = mc.getContext('2d');
+    if (mc.width !== W || mc.height !== H) { mc.width = W; mc.height = H; }
     mctx.globalCompositeOperation = 'source-over'; mctx.globalAlpha = 1; mctx.clearRect(0, 0, W, H); mctx.drawImage(src, 0, 0, W, H);
-    mctx.globalCompositeOperation = P.sc.mask.inside ? 'destination-in' : 'destination-out';
-    byKey[P.sc.mask.object].path2d(mctx, P); mctx.fillStyle = '#fff'; mctx.fill();
-    return maskCan;
+    mctx.globalCompositeOperation = m.inside ? 'destination-in' : 'destination-out';
+    mctx.beginPath();
+    if (m.world) { for (const v of WORLD_VISUALS) if (v.front && P.w[v.key] > .01) v.front.path2d(mctx, P, P.t2d); }
+    else byKey[m.object].path2d(mctx, P);
+    mctx.fillStyle = '#fff'; mctx.fill();
+    return mc;
   }
   // everything else in the trails, in the same paint order as WebGL
   const trails2d = VISUALS.filter(v => v.trails2d).sort((a, b) => a.paint - b.paint);
@@ -84,14 +92,26 @@ export function make2D(view){
   function drawWorlds(P, now){
     for (const v of WORLD_VISUALS) if (P.w[v.key] > .01) { out.save(); v.draw2d(out, P, now/1000); out.restore(); }
   }
-  function drawObjects(P){
-    for (const v of OBJECT_VISUALS) if (P.o[v.key] > .01) { out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore(); }
+  function drawObjects(P, step){
+    for (const v of OBJECT_VISUALS) if (P.o[v.key] > .01 && (step.mesh === '*' ? !P.sc.placed.has(v.key) : v.key === step.mesh)) {
+      out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore(); }
   }
   function drawHits(P){
     for (const v of HIT_VISUALS) if (v.draw2d) { out.save(); v.draw2d(out, P); out.restore(); }
   }
-  function draw(now, P){
-    const src = bufs[i], c = ctxs[1-i]; i = 1 - i;
+  // one trail group's feedback: its last frame moved and faded, then its own layers drawn on top
+  function trails(now, P, g){
+    const sc = P.sc, inG = k => sc.groupOf(k) === g;
+    let pr = g === 'main' ? null : groups[g];
+    if (g !== 'main' && !pr) { const b = [0, 1].map(() => { const e = document.createElement('canvas'); e.width = bw; e.height = bh; const x = e.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, bw, bh); return e; });
+      pr = groups[g] = {bufs: b, ctxs: b.map(e => e.getContext('2d')), i: 0}; }
+    const B = pr ? pr.bufs : bufs, C = pr ? pr.ctxs : ctxs, k = pr ? pr.i : i;
+    const src = B[k], c = C[1-k];
+    if (pr) pr.i = 1 - k; else i = 1 - i;
+    // only this group's layers (and hits drawn in the trails) show in it
+    const Pg = {...P, l: {}};
+    for (const key in P.l) Pg.l[key] = inG(key) ? P.l[key] : 0;
+    for (const h of HIT_VISUALS) if (h.inTrails && !inG(h.key)) Pg[h.trailWeight] = 0;
     const u = bh, cx = bw/2 + P.cx*u, cy = bh/2 - P.cy*u;
     c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     c.fillStyle = '#000'; c.fillRect(0, 0, bw, bh);
@@ -114,27 +134,46 @@ export function make2D(view){
     c.lineJoin = 'round'; c.lineCap = 'round';
     const bright = .35 + P.treb*P.react*.5;   // no kick boost here: in the trails it would build up and peak late
     const symF = Math.max(1, P.sym), n1 = Math.floor(symF), fr = symF - n1;
-    drawSym(c, P, n1, 1 - fr, cx, cy, now, bright); drawSym(c, P, n1 + 1, fr, cx, cy, now, bright);
+    drawSym(c, Pg, n1, 1 - fr, cx, cy, now, bright); drawSym(c, Pg, n1 + 1, fr, cx, cy, now, bright);
 
     const sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
     const tx = {u, bw, bh, sx, sy, hsl, glowStroke};
-    for (const v of trails2d) { c.save(); v.trails2d(c, P, tx); c.restore(); }
-
+    for (const v of trails2d) { c.save(); v.trails2d(c, Pg, tx); c.restore(); }
+    return B[1-k];
+  }
+  // the stack, bottom to top, drawn straight onto the screen
+  function draw(now, P){
+    const sc = P.sc, glows = {};
+    P.t2d = now/1000;
+    for (const g in sc.groups) glows[g] = trails(now, P, g);
     out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
     out.fillStyle = '#000'; out.fillRect(0, 0, W, H);
-    drawWorlds(P, now);
-    if (P.sc.between) keepWorlds();
-    out.globalCompositeOperation = 'lighter';
-    const m = P.sc.mask, glow = m && byKey[m.object] && P.o[m.object] > .01 ? maskedGlow(P, bufs[i]) : bufs[i];
-    out.drawImage(glow, 0, 0, W, H);
-    // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
-    if (P.beat > .01) { out.globalAlpha = Math.min(1, P.beat*.6); out.drawImage(glow, 0, 0, W, H); out.globalAlpha = 1; }
-    if (P.sc.between) drawFronts(P, now);
     drawFills(P, now);
-    drawObjects(P);
-    drawHits(P);
+    let kept = false;
+    for (const st of sc.steps) {
+      if (st.mesh) { drawObjects(P, st); continue; }
+      for (const it of st.seg) {
+        if (it.t === 'world') { drawWorlds(P, now); if (sc.front) { keepWorlds(); kept = true; } }
+        else if (it.t === 'front') { if (!kept) { keepBlankWorlds(P, now); kept = true; } drawFronts(P, now); }
+        else if (it.t === 'hits') drawHits(P);
+        else {
+          const m = it.mask, on = m && (m.world || byKey[m.object] && P.o[m.object] > .01);
+          const glow = on ? maskedGlow(P, glows[it.g], m, sc.masks.indexOf(m.object) + 1) : glows[it.g];
+          out.globalCompositeOperation = 'lighter';
+          out.drawImage(glow, 0, 0, W, H);
+          // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
+          if (P.beat > .01) { out.globalAlpha = Math.min(1, P.beat*.6); out.drawImage(glow, 0, 0, W, H); out.globalAlpha = 1; }
+        }
+      }
+    }
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
+  }
+  // the worlds alone, for front planes when nothing below drew them
+  function keepBlankWorlds(P, now){
+    if (worldCan.width !== W || worldCan.height !== H) { worldCan.width = W; worldCan.height = H; }
+    wctx.globalCompositeOperation = 'source-over'; wctx.globalAlpha = 1; wctx.fillStyle = '#000'; wctx.fillRect(0, 0, W, H);
+    for (const v of WORLD_VISUALS) if (P.w[v.key] > .01) { wctx.save(); v.draw2d(wctx, P, now/1000); wctx.restore(); }
   }
   return {resize, draw};
 }

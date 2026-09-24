@@ -1,23 +1,41 @@
-// Builds both shaders from the registry. The display shader: shared helpers, then each visual's uniforms and functions,
-// then main(), which lays the worlds behind the glow, the objects in front of it and the hits on top.
+// Builds the shaders from the registry. A display segment: shared helpers, every visual's uniforms and functions, then
+// main(), which runs the segment's items in stack order over what's below (black, or the picture so far).
 import { PREC } from './shaders.js';
-import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
-export function composeDisplay(){
+// texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
+export const UNIT = {main: 0, group: 6, under: 7, mask: [5, 4]};
+// one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
+// c holds the picture so far; each item lays itself over it
+export function composeSegment(seg, plan){
   const worlds = WORLD_VISUALS.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
-  // an object returns premultiplied colour and coverage; it covers what's behind it
-  const objects = OBJECT_VISUALS.filter(v => v.glsl).map(v => `  if(uO_${v.key}>0.003){ vec4 ob=${v.glsl.fn}(sp); c=c*(1.0-ob.a*uO_${v.key})+ob.rgb*uO_${v.key}; }`).join('\n');
-  // between: the worlds' front planes (buildings, ridge, treeline, planet) repaint their own colour over the trails
-  const fronts = WORLD_VISUALS.filter(v => v.front).map(v => `    if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
+  const fronts = WORLD_VISUALS.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
+  const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
+  const needW = seg.seg.some(it => it.t === 'world' || it.t === 'front');
+  const body = seg.seg.map(it => {
+    if (it.t === 'world') return '  c+=w;   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails';
+    if (it.t === 'front') return '  c=mix(c,w,frontCov(sp));   // the worlds\' front planes repaint their own colour over what\'s below';
+    if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
+    const tex = `uT_${it.g}`, m = it.mask;
+    const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
+      : `    { float m=texture2D(uMask${plan.masks.indexOf(m.object)},vUv).r; t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`;
+    return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
+    vec3 t=texture2D(${tex},vUv).rgb;
+    vec3 b=(texture2D(${tex},vUv+vec2(px.x,0.0)).rgb+texture2D(${tex},vUv-vec2(px.x,0.0)).rgb
+           +texture2D(${tex},vUv+vec2(0.0,px.y)).rgb+texture2D(${tex},vUv-vec2(0.0,px.y)).rgb)*0.25;
+    t+=b*0.35;
+    t*=1.0+uBeat*0.6;   // the kick flashes here, after the trails, so the brightest moment lands on the kick
+${mask}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
+  }`;
+  }).join('\n');
   return PREC + `
 varying vec2 vUv;
-uniform sampler2D uTex, uHist; uniform vec2 uRes;
+uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes;
+${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact;
-uniform sampler2D uMask; uniform float uMaskOn,uMaskIn,uBetween;   // the trails only inside (or outside) an object's silhouette
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
-${OBJECT_VISUALS.filter(v => v.glsl).map(v => `uniform float uO_${v.key};`).join('\n')}
 ${VISUALS.filter(v => v.glsl && v.glsl.uniforms).map(v => v.glsl.uniforms).join('\n')}
 float ASP;
 float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
@@ -25,29 +43,17 @@ vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 ${VISUALS.filter(v => v.glsl && v.glsl.functions).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
 ${WORLD_VISUALS.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
+float frontCov(vec2 sp){ float fc=0.0;
+${fronts}
+  return fc; }
 void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
   vec2 px=3.0/uRes;
-  vec3 c=texture2D(uTex,vUv).rgb;
-  vec3 b=(texture2D(uTex,vUv+vec2(px.x,0.0)).rgb+texture2D(uTex,vUv-vec2(px.x,0.0)).rgb
-         +texture2D(uTex,vUv+vec2(0.0,px.y)).rgb+texture2D(uTex,vUv-vec2(0.0,px.y)).rgb)*0.25;
-  c+=b*0.35;
-  // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
-  c*=1.0+uBeat*0.6;
-  if(uMaskOn>0.5){ float m=texture2D(uMask,vUv).r; c*=mix(1.0-m,m,uMaskIn); }
-  // worlds sit behind the glow, drawn crisp every frame instead of smeared by the trails
-  vec3 w=vec3(0.0);
-${worlds}
-  c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
-  if(uBetween>0.5){ float fc=0.0;
-${fronts}
-    c=mix(c,w,fc); }
-  // objects stand in front of the world and the glow, solid and crisp
-${objects}
-  // hits sit on top, crisp, with a small halo of glow
-${hits}
-  c*=smoothstep(1.15,0.35,length(vUv-0.5));
+  vec3 c=${seg.first ? 'vec3(0.0)' : 'texture2D(uUnder,vUv).rgb'};
+${needW ? '  vec3 w=vec3(0.0);\n' + worlds : ''}
+${body}
+${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}
   gl_FragColor=vec4(c,1.0);
 }`;
 }

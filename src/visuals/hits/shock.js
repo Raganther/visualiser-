@@ -1,7 +1,7 @@
 // Shockwaves: rings that ripple out on the pulse and push everything they pass through.
 // They live in the trails: they draw in the feedback pass and displace everything there. Their motion is in fx/effects.js.
 export default {
-  key: 'shock', kind: 'hit', label: 'Shockwaves', trigger: 'pulse', level: .8, inTrails: true,
+  key: 'shock', kind: 'hit', label: 'Shockwaves', trigger: 'pulse', level: .8, inTrails: true, trailWeight: 'shockW',   // drawn in a trail group; its weight in P
   paint: 4,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   words: 'Shockwaves ripple out on the kicks',
   // busy, driving music; less suited to a world

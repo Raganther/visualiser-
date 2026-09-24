@@ -37,12 +37,12 @@ for (const mode of ['2d', 'gl']) {
   const browser = await launch(mode), n = mode === 'gl' ? 90 : 200;
   // fill: the skull's glass holds a kaleidoscope of the folded layers
   const plain = await run(browser, {skull: 1}, null, n);
-  const filled = await run(browser, {skull: 1}, [{object: 'skull', fill: {layers: ['plasma', 'ring', 'burst', 'scope'], kaleido: 6}}], n);
+  const filled = await run(browser, {skull: 1}, [{world: 'all'}, {trails: 'main'}, {hits: true}, {object: 'skull', fill: {layers: ['plasma', 'ring', 'burst', 'scope'], fold: 6}}], n);
   const inD = diff(plain, filled, MID), outD = diff(plain, filled, EDGE);
   report(inD > 2 && inD > outD*4, `${mode}: a fill shows inside the skull (change ${inD.toFixed(1)}) and not around it (${outD.toFixed(1)})`);
   // mask: comets' trails only inside the skull, so the screen's edges go dark
   const trails = await run(browser, {skull: 1, comets: 1, decay: .95}, null, n);
-  const masked = await run(browser, {skull: 1, comets: 1, decay: .95}, [{trails: {mask: {object: 'skull', keep: 'inside'}}}], n);
+  const masked = await run(browser, {skull: 1, comets: 1, decay: .95}, [{world: 'all'}, {trails: 'main', mask: {object: 'skull', keep: 'inside'}}, {hits: true}, {objects: true}], n);
   report(mean(trails, EDGE) > 1 && mean(masked, EDGE) < mean(trails, EDGE)*.5,
     `${mode}: masked to inside the skull, the trails at the edges fall from ${mean(trails, EDGE).toFixed(1)} to ${mean(masked, EDGE).toFixed(1)}`);
   // between: the city's near buildings come in front of the comets. Comets move about, so compare their light over the
@@ -52,7 +52,7 @@ for (const mode of ['2d', 'gl']) {
   for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540, 660]) {
     const settings = {city: 1, comets: 1, decay: .96}, bare = await run(browser, {city: 1, decay: .96}, null, f);
     over += diff(bare, await run(browser, settings, null, f), BAND);
-    under += diff(bare, await run(browser, settings, [{world: {between: true}}], f), BAND);
+    under += diff(bare, await run(browser, settings, [{world: 'all'}, {trails: 'main'}, {world: 'front'}, {hits: true}, {objects: true}], f), BAND);
   }
   report(over > 1 && under < over*.6, `${mode}: comets over the buildings' band: ${over.toFixed(1)} in front, ${under.toFixed(1)} between (the near buildings cover them)`);
   await browser.close();

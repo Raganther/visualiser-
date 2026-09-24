@@ -1,27 +1,47 @@
-// Scenes: how the pictures are put together, as plain data. A scene is a stack, bottom to top, of entries that can relate
-// to each other: a world's near parts in front of the trails, the trails only inside (or outside) an object, an object's
-// glass filled with layers seen through a kaleidoscope. A leaf module; presets carry scenes, the renderers read resolveScene().
-//
-// This round the stack's order is fixed (the world behind, the trails, the world's front, the hits, the objects on top);
-// what a scene chooses is how its entries relate:
-//   {world: {between: true}}                                   the world's front plane (buildings, ridge, treeline, planet)
-//                                                               comes in front of the trails
-//   {trails: {mask: {object: 'skull', keep: 'inside'}}}        the trails only inside (or 'outside') an object's silhouette
-//   {object: 'skull', fill: {layers: ['plasma'], kaleido: 6, zoom?}}  an object's glass filled with those layers, folded n
-//                                                               ways (zoom: how much smaller the pattern is; TUNE.scene.fillZoom)
-export const DEFAULT_SCENE = [{world: {}}, {trails: {}}, {hits: {}}, {objects: {}}];   // what the page has always drawn
+// Scenes: how the pictures are put together, as plain data, compiled into a draw plan both renderers run.
+// A scene is a stack, bottom to top, in any order. Its entries:
+//   {world: 'all'}                          every world on screen, whole (behind whatever comes after)
+//   {world: 'front'}                        the worlds' front planes (near buildings, ridge, treeline, planet) repainted
+//                                            over what's below, so what's below sits between the world's planes
+//   {trails: 'main', mask?}                 a trail group: a feedback buffer of layers. 'main' holds every layer no other
+//   {trails: 'back', layers: ['comets']}    group claims; another group names its layers (at most TUNE.scene.maxGroups)
+//     mask: {object: 'skull', keep: 'inside' | 'outside'} or {world: 'front', keep}: shown only inside (outside) that shape
+//   {hits: true}                            the one-shot hits (star, outline, sparkles)
+//   {objects: true}                         every 3D object on screen that isn't placed by its own entry
+//   {object: 'skull', fill?}                one object here; fill: {layers: ['plasma'], fold: 6, zoom?} fills its glass
+// A leaf module: presets carry scenes, the renderers run resolveScene()'s plan.
+export const DEFAULT_SCENE = [{world: 'all'}, {trails: 'main'}, {hits: true}, {objects: true}];   // what the page has always drawn
 
 const cache = new WeakMap();
-// everything the renderers need from a scene, worked out once per scene
+// the plan: groups {name: layers or null for "the rest"}, steps (segments of full-screen items, and object draws),
+// fills {object: spec}, masks (objects whose silhouettes are needed), front (whether any world plane is used)
 export function resolveScene(scene){
   scene = scene || DEFAULT_SCENE;
   if (cache.has(scene)) return cache.get(scene);
-  const r = {between: false, mask: null, fills: {}};
+  const r = {groups: {}, steps: [], fills: {}, masks: [], front: false, placed: new Set()};
+  let seg = null;
+  const item = it => { if (!seg) r.steps.push(seg = {seg: []}); seg.seg.push(it); };
   for (const e of scene) {
-    if (e.world && e.world.between) r.between = true;
-    if (e.trails && e.trails.mask) r.mask = {object: e.trails.mask.object, inside: e.trails.mask.keep !== 'outside'};
-    if (e.object && e.fill) r.fills[e.object] = {layers: e.fill.layers || [], kaleido: e.fill.kaleido || 1, zoom: e.fill.zoom};
+    if (e.world) { item({t: e.world === 'front' ? 'front' : 'world'}); if (e.world === 'front') r.front = true; }
+    else if (e.trails) {
+      const g = typeof e.trails === 'string' ? e.trails : 'main';
+      r.groups[g] = g === 'main' ? null : e.layers || [];
+      const m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
+      if (m && m.object && !r.masks.includes(m.object)) r.masks.push(m.object);
+      if (m && m.world) r.front = true;
+      item({t: 'trails', g, mask: m});
+    }
+    else if (e.hits) item({t: 'hits'});
+    else if (e.objects || e.object) {
+      if (e.object) { r.placed.add(e.object); if (e.fill) r.fills[e.object] = {layers: e.fill.layers || [], fold: e.fill.fold || e.fill.kaleido || 1, zoom: e.fill.zoom}; }
+      r.steps.push({mesh: e.object || '*'}); seg = null;
+    }
   }
+  // which group each trail layer draws into (anything unclaimed goes to main)
+  r.groupOf = key => { for (const g in r.groups) if (r.groups[g] && r.groups[g].includes(key)) return g; return 'main'; };
+  const segs = r.steps.filter(s => s.seg);
+  segs.forEach((s, i) => { s.first = r.steps[0] === s; s.last = i === segs.length - 1;
+    s.key = (s.first ? '' : 'u:') + s.seg.map(it => it.t + (it.g ? ':' + it.g : '') + (!it.mask ? '' : ':m' + (it.mask.world ? 'w' : r.masks.indexOf(it.mask.object)) + (it.mask.inside ? 'i' : 'o'))).join('|') + (s.last ? ':end' : ''); });
   r.anyFill = Object.keys(r.fills).length > 0;
   cache.set(scene, r);
   return r;
