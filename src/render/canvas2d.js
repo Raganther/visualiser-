@@ -27,13 +27,11 @@ export function make2D(view){
     const x = {u, now, bw, col, glowStroke};
     for (const v of LAYER_VISUALS) if (v.folded2d) v.folded2d(c, P, x);
   }
-  // everything else in the trails, in paint order (legacy simple-mode order: comets, shockwaves, ribbons, horizon, flow)
-  const trails2d = VISUALS.filter(v => v.trails2d).sort((a, b) => a.paint2d - b.paint2d);
+  // everything else in the trails, in the same paint order as WebGL
+  const trails2d = VISUALS.filter(v => v.trails2d).sort((a, b) => a.paint - b.paint);
   WORLD_VISUALS.forEach(v => v.init2d && v.init2d());    // worlds that keep their own simple-mode state (in registry order)
-  // simple mode draws aurora and city before land and space (legacy order, kept so the golden recording matches)
-  const worlds2d = [...WORLD_VISUALS].sort((a, b) => (a.order2d || 0) - (b.order2d || 0));
   function drawWorlds(P, now){
-    for (const v of worlds2d) if (P.w[v.key] > .01) { out.save(); v.draw2d(out, P, now/1000); out.restore(); }
+    for (const v of WORLD_VISUALS) if (P.w[v.key] > .01) { out.save(); v.draw2d(out, P, now/1000); out.restore(); }
   }
   function drawHits(P){
     for (const v of HIT_VISUALS) if (v.draw2d) { out.save(); v.draw2d(out, P); out.restore(); }

@@ -6,7 +6,6 @@ const st = {starPh:0, lightAng:0, moonAng:0, moonTarget:0, planet:null, moons:nu
 let stars = null, lastStarPh = 0;                      // simple mode's own starfield
 export default {
   key: 'space', kind: 'world', label: 'Space',
-  order2d: 1,
   // bright, intense parts
   suits: (rf, T) => rf.bright*.5 + T*.4 + rf.busy*.2,
   step(dt, x){

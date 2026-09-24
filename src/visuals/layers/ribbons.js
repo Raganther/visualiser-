@@ -5,6 +5,7 @@ export default {
   key: 'ribbons', kind: 'layer', label: 'Ribbons',
   suits: {mid:.6, perc:-.3, bright:.3},   // what music it suits (features centred on 0)
   overWorld: .3,   // how well it sits over a world
+  paint: 1,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   accent: 'mid',   // how it fires when it's the accent
   params(P, x){ P.ribAng = x.J.on ? x.J.ribAng : 0; P.ribPh = x.J.ribPh; },
   feedback: {
@@ -26,10 +27,8 @@ vec3 ribbons(vec2 sp){
 }`,
     main: `
   if(uL_ribbons>0.003) col+=ribbons(sp+disp)*uL_ribbons*(0.35+uBeat*0.8+uMid*uReact*0.4+uHit*0.7);`,
-    paint: 1,
   },
   fbUniforms(gl, u, P){ gl.uniform1f(u.uRibAng, P.ribAng); gl.uniform1f(u.uRibPh, P.ribPh); },
-  paint2d: 3,
   trails2d(c, P, x){
     const {u, bw, bh, sx, sy, hsl, glowStroke} = x;
     if (P.l.ribbons > .01) {

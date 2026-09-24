@@ -6,7 +6,6 @@ const st = {histT:0, landY:-.05};
 export default {
   key: 'land', kind: 'world', label: 'Landscape',
   horizonY: st.landY,                                  // the horizon layer's grid floor lines up with the water
-  order2d: 1,                                          // simple mode draws this after aurora and city (legacy order)
   // calm, melodic, kickless parts
   suits: (rf, T) => -rf.perc*.9 + rf.mid*.4 - T*.3,
   step(dt, x){

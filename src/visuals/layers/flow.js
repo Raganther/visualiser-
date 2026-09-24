@@ -6,9 +6,9 @@ export default {
   key: 'flow', kind: 'layer', label: 'Flow field',
   suits: {perc:-.5, T:-.4, mid:.3},   // what music it suits (features centred on 0)
   overWorld: .3,   // how well it sits over a world
+  paint: 5,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   accent: 'peak',   // how it fires when it's the accent
   params(P, x){ P.flowCol = hsv2rgb(P.hue + .55, .6, 1).map(v => v*x.eff.flow*(.4 + x.sTreb*x.react*1.5 + P.beat*.5)); P.parts = x.parts; P.NP = x.NP; },
-  paint2d: 5,
   trails2d(c, P, x){
     const {u, sx, sy} = x, NP = P.NP, parts = P.parts;
     if (P.l.flow > .01) {

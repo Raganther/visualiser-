@@ -24,10 +24,10 @@ export function newType(F){
     starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
   J.types.push(t); return t;
 }
-// how much a section likes each hit, drawn once; the first four keep their legacy draw order (for the golden recording)
+// how much a section likes each hit (and having none), drawn once when the section is first heard
 function hitSeeds(){
-  const o = {none: (Math.random() - .3)*.5}, legacy = ['star', 'shock', 'outline', 'sparkle'];
-  for (const k of [...legacy, ...HITS.filter(k => !legacy.includes(k))]) if (HITS.includes(k)) o[k] = (Math.random() - .5)*.6;
+  const o = {none: (Math.random() - .3)*.5};
+  for (const k of HITS) o[k] = (Math.random() - .5)*.6;
   return o;
 }
 // a section's own lens, used when its recipe has none: most have none, a few mirror or fold

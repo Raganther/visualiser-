@@ -3,7 +3,6 @@ import { hc } from '../../util.js';
 
 export default {
   key: 'aurora', kind: 'world', label: 'Aurora',
-  order2d: 0,
   // airy, melodic, without much bass
   suits: (rf, T) => -rf.perc*.6 + rf.mid*.5 - rf.low*.3 - T*.4,
   glsl: {

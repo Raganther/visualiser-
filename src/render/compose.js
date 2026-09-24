@@ -44,7 +44,7 @@ export function composeFeedback(){
   const fb = VISUALS.filter(v => v.feedback).map(v => v.feedback);
   const part = (k, sep = '\n') => fb.filter(f => f[k]).map(f => f[k].replace(/^\n/, '')).join(sep);
   const layers = LAYER_VISUALS.filter(v => v.feedback);
-  const main = VISUALS.filter(v => v.feedback && v.feedback.main).sort((a, b) => a.feedback.paint - b.feedback.paint)
+  const main = VISUALS.filter(v => v.feedback && v.feedback.main).sort((a, b) => a.paint - b.paint)
     .map(v => v.feedback.main.replace(/^\n/, '')).join('\n');
   const displace = fb.filter(f => f.displace).map(f => `  disp+=${f.displace};`).join('\n');
   return PREC + `

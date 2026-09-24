@@ -7,7 +7,6 @@ let cityB = null;                                      // simple mode's building
 export default {
   key: 'city', kind: 'world', label: 'City',
   horizonY: -.3,                                       // the horizon layer's grid floor lines up with the street
-  order2d: 0,
   // steady kicks and bass at a middling intensity
   suits: (rf, T) => rf.perc*.6 + rf.low*.3 - Math.abs(T)*.5 + .05,
   onBeat(pos){ if (pos === 0) st.seed++; },             // the windows change on the downbeat
