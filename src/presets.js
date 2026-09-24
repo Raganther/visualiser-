@@ -1,6 +1,7 @@
 // Settings (SPEC), movers, and the hand-made presets that Journey also reads as recipes.
 import { S } from './state.js';
 import { clone } from './util.js';
+import { SIGNALS } from './scene/signals.js';
 import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 /* ---------- presets ---------- */
@@ -21,8 +22,7 @@ export const SPEC = [
   ...VISUALS.filter(v => v.optIn).map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
-export const SOURCES = [['none','Fixed'], ['drift','Slow drift'], ['bass','Follows bass'], ['mid','Follows mids'],
-  ['treb','Follows treble'], ['pulse','Pulses on beat'], ['jump','Jumps on beat']];
+export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
 export const BASE = [
   {name:'Tunnel', decay:.955, zoom:1.035, rot:.006, warp:.15, wander:.15, sym:1, ring:1, shock:.3, colorSpeed:.08, hueDrift:.012,
     mods:{rot:{src:'drift', amt:.4}, zoom:{src:'pulse', amt:.15}}},

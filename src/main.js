@@ -28,7 +28,8 @@ import './audio/synth.js';
 import './ui/controls.js';
 import './ui/transport.js';
 import { S } from './state.js';
-import { analyse, hit, sBass, sMid, sTreb } from './audio/analysis.js';
+import { analyse, bands, hit, sBass, sMid, sTreb } from './audio/analysis.js';
+import { updateSignals } from './scene/signals.js';
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
@@ -73,6 +74,8 @@ function render(now){
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
+  updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
+    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000};
