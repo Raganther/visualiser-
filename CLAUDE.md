@@ -140,6 +140,10 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - then a colour, lens or pace shift;
    - then a new recipe and lead.
 
+   **Energy** (`energyLevel()` in `sections.js`, used for tension and the section fingerprint):
+   - It's measured against the loudest the song has been lately, over a range no narrower than `TUNE.energy.minSpan`, blended with an absolute scale (`quiet`, `loud`, `absMix`).
+   - Before this, the range could shrink to nothing on a steady track, so full-on minimal techno read as quiet after a minute or two. Tension fell to about 0, the pace to "floating", and tiny wobbles made short false sections.
+
    **Adaptive sensitivity** (`stillness()`): the longer nothing changes, the smaller a change needs to be to count as a new section. **Fatigue** (`J.fat`) builds while a layer is on screen and counts against choosing it again. Worlds, and the black rest between them, have their own fatigue (`J.wFat`, weighted by `TUNE.worldFatigueWeight`). Without it, a long steady track got the same world after every rest (on minimal techno, the city), and sometimes a second black rest in a row.
 7. **Pace** (`pace.js`). Each section gets a pace from 0 (floating) to 1 (frantic), contrasting with the last. `setPace()` maps it (ranges in `TUNE.pace`) to:
    - motion speed, applied through `S.MT`;
@@ -147,11 +151,18 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - pulse division: once a bar, every other beat, or every beat;
    - how closely shapes follow the audio.
 
+   The pulse rate only changes once the pace is `TUNE.pace.divHyst` past a line, so the pace's gentle breathing doesn't flip it back and forth.
+
    Hits still age in real time. Manual mode runs at pace 1.
 
 ## Timing: kicks, stabs, and the beat grid
 
 - **Onsets** (`audio/analysis.js`): kicks are sudden rises in the low band, and stabs are rises in the mids. Kicks feed the beat grid; stabs fire `onHitFX` (`stab` hits, "on stabs" accents).
+  - **Kicks, not bass notes.** Minimal techno puts bass notes between the kicks: on the off-beat, and often a 16th before each kick. They rise in the same low band at about half the kick's strength. A real track showed the detector firing twice a beat, and the grid never locking (29 of 272 s, at 173 BPM for a 130 BPM track).
+  - **The fix.** A low-end hit waits a moment (`TUNE.kick.windowMs`, about three frames), because a kick's sub-bass often lands a frame or two after the hit starts. It counts as a kick only if at least `TUNE.kick.subShare` of its weighted rise (`TUNE.kick.weights`) over that moment came in the lowest bin, about 21 Hz. It's timed from its start, so the grid gets no extra lag.
+  - **Why a share.** A share rather than a strength doesn't depend on where in the frame the hit fell, which made strength unreliable. Measured over the window: the track's kicks put .15–.32 there, its bass notes mostly under .1, and an 808-style sweep kick (the sync test's) .22–.28.
+  - **Result.** The same track now locks for 207 of 272 s, at a median of 129.9 BPM. A few bass notes still get through in busy stretches, but the grid holds.
+  - **Test.** `tests/fixtures/offbeat.js` is a synthetic groove built this way, and `tests/grid.mjs` checks it.
 - **Beat grid** (`audio/beatgrid.js`: `G`, `gridKick` / `gridTick` / `gridFrame`; tolerances in `TUNE.grid`):
   - **Tempo.** `estimatePeriod` finds the beat length that best explains the gaps between recent kicks as whole numbers of beats.
   - **Clock.** It locks after three kicks on the grid, and each on-grid kick nudges it back into phase. It keeps ticking through missed kicks and breakdowns (about `holdSecs`).
@@ -315,6 +326,8 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - hold the tempo within 0.5 BPM;
   - time beats within 15 ms;
   - find the real downbeat at a steady tempo.
+
+  On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo.
 - `tests/journey.mjs`: over 400 simulated sections:
   - every world and hit is chosen;
   - nearly every recipe is;
@@ -340,7 +353,10 @@ Useful facts:
 
 ## Known limits
 
-- **Tuned on synthetic audio.** Real-music tuning comes from the user's listening feedback.
+- **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
+  - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
+  - Feed those frames to `window.__synth`, and step the page with `__step`.
+  - The user's tracks stay out of the repo.
 - **Downbeat after a tempo change.** It can slip to beat 3 and stay there. `tests/grid.mjs` reports it (about 47% right after the change in the groove).
 - **Unsure downbeat.** Minimal techno with no clap or crash may never pin the 1; the panel says "unsure of the 1".
 - **History.** Earlier work, oldest first:

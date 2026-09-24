@@ -25,6 +25,12 @@ export const TUNE = {
 
   // worlds (backgrounds)
   worldSecs: 50, worldRestSecs: 30,  // how long a world lasts, and how long black lasts between worlds
+  // how loud Journey thinks it is (journey/sections.js energyLevel): against the loudest lately, and an absolute scale
+  energy: {
+    minSpan: .15,              // the song's range never counts as narrower than this, so a steady track doesn't read as quiet
+    quiet: .4, loud: .75,      // the analyser's energy for quiet and full (a mastered techno track runs about .5 to .75)
+    absMix: .35,               // how much the absolute scale counts, against the song's own range
+  },
   worldFatigueWeight: 1,       // how much a world (or the black) that's been on lately counts against choosing it again
   worldWaitSecs: 12,           // how long to wait for a phrase line before changing anyway
 
@@ -42,6 +48,7 @@ export const TUNE = {
     punch: [.2, .8],           // how hard the kick lands
     follow: [.08, .92],        // how closely shapes follow the audio
     divBar: .3, divHalf: .6,   // below divBar the visuals pulse once a bar, below divHalf every other beat, else every beat
+    divHyst: .05,              // how far past a line the pace must go before the pulse rate changes
   },
 
   // the mirror tunnel (a video, image or camera through a three-mirror kaleidoscope)
@@ -85,6 +92,14 @@ export const TUNE = {
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {
     displayMs: 30,             // how long a drawn frame takes to reach the screen
+  },
+
+  // kick detection (audio/analysis.js)
+  kick: {
+    weights: [2.2, 1.6, 1, .6, .35, .25],   // how much each low bin (21 Hz up to 129 Hz) counts: the sub-bass is the kick's own
+    subShare: .18,             // over its first moment, a kick puts at least this much of its (weighted) rise in the lowest bin;
+                               // on a real track kicks put .15-.32, bass notes between them mostly under .1; an 808-style kick .22-.28
+    windowMs: 30,              // that first moment: the hit's first three frames or so (the sub often lands a frame or two late)
   },
 
   // beat grid

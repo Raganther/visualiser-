@@ -10,7 +10,7 @@ import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from '
 import { PACE, paceName, pickPace } from './pace.js';
 import { progress } from './progression.js';
 import { MOTION, recipeMods, setLens } from './recipes.js';
-import { enterType, fdist, features, matchType, newSection, newType, recipeSeeds, relFeat, resetProgress, stillness } from './sections.js';
+import { energyLevel, energySpan, enterType, fdist, features, matchType, newSection, newType, recipeSeeds, relFeat, resetProgress, stillness } from './sections.js';
 import { chooseWorld } from './worlds.js';
 import { eff } from '../presets.js';
 import { toast } from '../ui/toast.js';
@@ -26,8 +26,7 @@ export function stepJourney(now, dt){
   J.eL += (e - J.eL)*Math.min(1, dt/20);
   J.peak = Math.max(J.eM, J.peak - dt*.004, .05);
   J.hi = Math.max(J.eM, J.hi - dt*.004); J.lo = Math.min(J.eM, J.lo + dt*.004);
-  const span = Math.max(.06, J.hi - J.lo);
-  const lvl = (J.eM - J.lo)/span, rise = (J.eM - J.eL)/span;
+  const span = energySpan(), lvl = energyLevel(), rise = (J.eM - J.eL)/span;
   J.intro = Math.max(0, J.intro - dt/25);
   const targetT = Math.min(1, Math.max(0, (lvl*.8 + rise*.5 + (J.bias - .5)*.8)*(1 - .5*J.intro)));
   J.tension += (targetT - J.tension)*Math.min(1, dt/2);
@@ -151,6 +150,7 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k)) ? swap : rate);
   }
+  if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
   if (snapped) { J.cutSince = 0; S.beat = Math.max(S.beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }
   J.cutNow = false; J.phraseNow = false;

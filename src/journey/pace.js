@@ -11,7 +11,9 @@ export const paceDiv = v => v < TUNE.pace.divBar ? 4 : v < TUNE.pace.divHalf ? 2
 export function setPace(v){
   const T = TUNE.pace;
   PACE.v = v; PACE.ts = T.speed[0] + T.speed[1]*v; PACE.punch = T.punch[0] + T.punch[1]*v; PACE.k = T.follow[0] + T.follow[1]*v;
-  PACE.div = paceDiv(v);
+  // the pulse rate moves only once the pace is clearly past a line, so the pace's gentle breathing doesn't flip it to and fro
+  const lo = paceDiv(v - T.divHyst), hi = paceDiv(v + T.divHyst);
+  PACE.div = lo === hi || (PACE.div !== lo && PACE.div !== hi) ? paceDiv(v) : PACE.div;
 }
 // a new pace that contrasts with the current one, so the piece doesn't sit at one speed
 export function pickPace(){

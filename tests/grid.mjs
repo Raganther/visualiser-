@@ -1,38 +1,57 @@
 // Beat grid test: on the synthetic groove (124 bpm, then 128 bpm; claps on 2 and 4, crash on 1, dropped kicks,
-// an 8 s breakdown), the grid must find the tempo, stay in time, and find the real downbeat.
+// an 8 s breakdown), the grid must find the tempo, stay in time, and find the real downbeat. On a minimal-techno groove
+// (tests/fixtures/offbeat.js: bass notes between the kicks) it must find one kick per beat and lock to the right tempo.
 // Reads the grid through the modules, so it runs on index.html (not the single-file bundle).
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('grid: skipped for', ENTRY); process.exit(0); }
 const {srv, url} = await serve();
-const browser = await launch('2d'), page = await openPage(browser, url);
-const beats = await page.evaluate(async () => {
-  const {J} = await import('/src/journey/core.js'), {G} = await import('/src/audio/beatgrid.js');
-  const out = []; let last = J.beats;
-  for (let f = 1; f <= 100*60; f++) {
-    __step(1);
-    if (J.beats !== last) { last = J.beats;
-      out.push({t: f/60, pos: J.pos, locked: G.locked, truth: __truth, err: __truthErr, bpm: G.period ? 60/G.period : 0, trueBpm: __trueBpm}); }
-  }
-  return out;
-});
-const errors = await page.errors();
-await browser.close(); srv.close();
+const browser = await launch('2d');
+// every beat the grid gives, with the truth at that moment; and how many kicks the detector found
+async function run(groove, secs){
+  const page = await openPage(browser, url, {groove});
+  const r = await page.evaluate(async secs => {
+    const {J} = await import('/src/journey/core.js'), {G} = await import('/src/audio/beatgrid.js'), an = await import('/src/audio/analysis.js');
+    const out = []; let last = J.beats, lb = an.lastBeat, kicks = 0;
+    for (let f = 1; f <= secs*60; f++) {
+      __step(1);
+      if (an.lastBeat !== lb) { lb = an.lastBeat; if (f > 20*60) kicks++; }
+      if (J.beats !== last) { last = J.beats;
+        out.push({t: f/60, pos: J.pos, locked: G.locked, truth: __truth, err: __truthErr, bpm: G.period ? 60/G.period : 0, trueBpm: __trueBpm}); }
+    }
+    return {beats: out, kicks};
+  }, secs);
+  r.errors = await page.errors(); await page.close();
+  return r;
+}
+const pct = (n, d) => d ? Math.round(n/d*100) : 0;
+const checks = [];
 
+// 1. the groove: 124 then 128 bpm, dropped kicks, a breakdown
+const g = await run(true, 100), beats = g.beats;
 const settled = beats.filter(b => b.t > 30 && !(b.t > 70 && b.t < 80));   // after the grid settles, away from the tempo change
 const locked = settled.filter(b => b.locked);
 const steady = locked.filter(b => b.t < 70);                               // the steady-tempo stretch, before the change
 const after = beats.filter(b => b.t > 80 && b.locked);
-const pct = (n, d) => d ? Math.round(n/d*100) : 0;
-const checks = [
+checks.push(
   ['locked for most beats', pct(locked.length, settled.length), v => v >= 90, '%'],
   ['tempo within 0.5 BPM', pct(locked.filter(b => Math.abs(b.bpm - b.trueBpm) < .5).length, locked.length), v => v >= 95, '%'],
   ['mean timing error', Math.round(locked.reduce((a, b) => a + Math.abs(b.err), 0)/Math.max(1, locked.length)*1000), v => v < 15, ' ms'],
   ['downbeat right at a steady tempo', pct(steady.filter(b => b.pos === b.truth).length, steady.length), v => v >= 95, '%'],
   // known limit: after a tempo change the downbeat can slip to beat 3 and stay there; reported, not yet required
   ['(known limit) downbeat right after the tempo change', pct(after.filter(b => b.pos === b.truth).length, after.length), () => true, '%'],
-  ['no page errors', errors.length, v => v === 0, ''],
-];
+  ['no page errors', g.errors.length, v => v === 0, '']);
+
+// 2. minimal techno: bass on the off-beats and a 16th before each kick, which must not count as kicks
+const o = await run('offbeat', 70), ob = o.beats.filter(b => b.t > 20), ol = ob.filter(b => b.locked);
+checks.push(
+  ['off-beat bass: one kick found per beat', +(o.kicks/((70 - 20)*128/60)).toFixed(2), v => v > .85 && v < 1.15, ' per beat'],
+  ['off-beat bass: locked for most beats', pct(ol.length, ob.length), v => v >= 90, '%'],
+  ['off-beat bass: tempo within 0.5 BPM', pct(ol.filter(b => Math.abs(b.bpm - b.trueBpm) < .5).length, ol.length), v => v >= 95, '%'],
+  ['off-beat bass: mean timing error', Math.round(ol.reduce((a, b) => a + Math.abs(b.err), 0)/Math.max(1, ol.length)*1000), v => v < 15, ' ms'],
+  ['off-beat bass: no page errors', o.errors.length, v => v === 0, '']);
+await browser.close(); srv.close();
+
 let failed = false;
 for (const [name, v, ok, unit] of checks) { const pass = ok(v); if (!pass) failed = true; console.log(`${pass ? 'ok  ' : 'FAIL'} ${name}: ${v}${unit}`); }
 process.exit(failed ? 1 : 0);
