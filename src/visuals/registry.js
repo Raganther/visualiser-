@@ -1,4 +1,4 @@
-// The registry: every world and hit, one module each. Everything else (settings, sliders, the shader,
+// The registry: every world, hit, layer and object, one module each. Everything else (settings, sliders, the shader,
 // simple mode, Journey's choices) is built from these lists. To add a visual, write its module and list it here.
 // Visual modules import only leaf modules (state.js, util.js); the engine hands them what they need.
 import land from './worlds/land.js';
@@ -18,11 +18,13 @@ import flow from './layers/flow.js';
 import ribbons from './layers/ribbons.js';
 import horizon from './layers/horizon.js';
 import tunnel from './layers/tunnel.js';
+import skull from './objects/skull.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city];
 export const HIT_VISUALS = [star, outline, shock, sparkle];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, tunnel];
-export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS];
+export const OBJECT_VISUALS = [skull];   // 3D centrepieces, drawn crisp between the glow and the hits
+export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);
 // opt-in visuals are drawn and get a slider, but Journey leaves them out of its usual choices (the tunnel comes in with media)

@@ -20,15 +20,15 @@ src/tuning.js              TUNE: every feel number, one commented line each
 src/lab.js, src/lab/       ?tune= and ?lab= experiment hooks (src/lab/example.js shows a lab)
 src/presets.js             SPEC (settings and sliders, partly from the registry), movers, BASE presets/recipes
 src/util.js                $, maths, colour (hc, hsv2rgb), noise
-src/visuals/registry.js    lists every world, hit and layer; everything else is built from it
-src/visuals/worlds|hits|layers/*.js   one module per visual (see below)
+src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
+src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
 src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
-tests/                     npm test: smoke, grid, journey, golden (see Testing)
+tests/                     npm test: smoke, media, objects, grid, journey, golden (see Testing)
 tools/build.mjs            the bundler for dist/afterglow.html
 ```
 
@@ -49,14 +49,15 @@ tools/build.mjs            the bundler for dist/afterglow.html
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
-| **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel) | Journey brings the tunnel in as the lead while media is loaded |
+| **Objects** | 3D centrepieces, ray-marched, crisp (display pass, in front of the glow, behind the hits) | `skull` | Fade; breaks apart and reassembles |
+| **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel), `skull` | The tunnel comes in as the lead while media is loaded; the skull only with `TUNE.skull.chance > 0` |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
 
 Each visual is **one module** exporting an object. From it the engine builds the slider, the shaders, both renderers' drawing and Journey's choices. The fields:
 - **Everyone:**
   - `key`, `kind`, `label`
-  - `params(P, x)`: add fields to `P`. `x` carries `eff`, `react`, `sBass`, `sTreb`, `dim`, `t`, `J`, `comets`, `shocks`, `parts`, `NP`.
+  - `params(P, x)`: add fields to `P`. `x` carries `eff`, `react`, `sBass`, `sTreb`, `dim`, `t`, `dt`, `hit`, `J`, `comets`, `shocks`, `parts`, `NP`.
   - `onBeat(pos, beats)`
 - **Worlds:**
   - `suits(rf, T)`: the Journey score.
@@ -77,6 +78,11 @@ Each visual is **one module** exporting an object. From it the engine builds the
   - `fbUniforms(gl, u, P)`. The layer's weight arrives as `uL_<key>`.
   - 2D drawing: `folded2d(c, P, x)` inside the fold, or `trails2d(c, P, x)`.
   - Flow's WebGL points pass is the one piece kept in `render/gl.js`, because it needs its own program.
+- **Objects:**
+  - `words` (narration).
+  - `glsl: {uniforms, functions, fn}`: `fn(sp)` returns premultiplied colour and coverage (`vec4`); it covers what's behind it. The weight arrives as `uO_<key>` (and `P.o[key]`).
+  - `uniforms(gl, u, P)`, `draw2d(o, P)` (drawn over the glow, source-over).
+  - Journey tuning in `TUNE.<key>`: `chance` (per section; 0 = never, with no random draw) and `level`.
 
 **Adding a visual:**
 1. Copy the closest module in `src/visuals/…/`.
@@ -181,6 +187,16 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Drawing:** in WebGL it's blended over the trails (not added), so pictures stay recognisable. Its media texture uses texture unit 3, and a still image uploads once. Simple mode draws a six-way mirror.
 - **Caveat:** hosts that sandbox the page (possibly the claude.ai Artifact) may block the camera; files still work.
 
+## The skull (objects)
+
+The skull (`src/visuals/objects/skull.js`) is ray-marched in the display shader from ellipsoids and rounded boxes, blended smoothly.
+- **Parts:** cranium, face, cheekbones, jaw, teeth and eyes each carry an id, so each takes its own colour and flies its own way.
+- **Music:** it looks side to side at motion time (`spin`, `turn`), the jaw drops on the pulse, stabs move the parts round the colour wheel, and the eyes and a halo flare on the downbeat.
+- **Breaking apart:** on a drop, a new section or a progression step (every 8 bars by hand), then it pulls itself back together over `explodeSecs`. `breakApart()` does it on demand.
+- **Journey:** a section's optional **centrepiece** (`J.centre`, chosen in `recast` and remembered with the cast). The lead steps back to 70%, there's never a lens over it, and the mirror tunnel wins while media is loaded. It's off by default (`TUNE.skull.chance = 0`); `?lab=skull` sets it to .5.
+- **Simple mode:** a flat front-on skull with the same colours, jaw and break-apart.
+- **Manual:** the "Skull" preset (`journey:false`).
+
 ## Experiments
 
 Everything here is opt-in from the URL, so the normal page is unaffected:
@@ -194,6 +210,7 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). Tests use headless Chromium via the global Playwright (`npm root -g`).
 - `tests/smoke.mjs`: the page loads, draws and locks the beat grid in both renderers with no errors, and `?lab=` / `?tune=` apply.
 - `tests/media.mjs`: an image and Chromium's fake camera (`FAKE_CAMERA` flags in `lib.mjs`) show through the tunnel in both renderers, and Journey hands it the lead and takes it back.
+- `tests/objects.mjs`: the skull draws and breaks apart in both renderers, and with `?lab=skull` Journey casts it as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;

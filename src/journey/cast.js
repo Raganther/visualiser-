@@ -3,12 +3,13 @@ import { ELEMS, FEATS, J, OPENING, SUITS, worldOn } from './core.js';
 import { pickRecipe, recipeMods, setLens } from './recipes.js';
 import { relFeat } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
-import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OVER_WORLD } from '../visuals/registry.js';
+import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
 export const HIT_WORDS = Object.fromEntries(HIT_VISUALS.map(v => [v.key, v.words]));
+export const OBJECT_WORDS = Object.fromEntries(OBJECT_VISUALS.map(v => [v.key, v.words]));
 // how well each element fits right now: the recipe, the music, the world, and how long it has been on screen lately
 function scoreElems(ty, rf, fresh){
   const R = J.recipe || {}, wOn = worldOn();
@@ -45,9 +46,14 @@ function chooseHit(ty, rf, fresh, avoid){
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
   J.hit = hk === 'none' ? null : hk;
 }
+// a 3D centrepiece, now and then. Opt-in: with every object's chance at 0 there's no draw at all, so Journey is unchanged
+function chooseCentre(){
+  J.centre = null;
+  for (const v of OBJECT_VISUALS) { const c = (TUNE[v.key] || {}).chance || 0; if (c > 0 && Math.random() < c) { J.centre = v.key; break; } }
+}
 const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
 function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
-  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe}; }
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre}; }
 // a small variation: a different accent, or a different hit
 export function varySmall(){
   const ty = J.type || OPENING, rf = relFeats();
@@ -61,7 +67,7 @@ export function recast(fresh){
   const cast = ty.casts[key];
   if (!fresh && cast) {                                           // a returning part looks the same...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
-    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0;
+    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null;
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;
@@ -75,6 +81,7 @@ export function recast(fresh){
   J.lead = scored[0].k;
   chooseAccent(scored);
   chooseHit(ty, rf, fresh);
+  chooseCentre();
   saveCast();
   recipeMods(); updateSectionUI();
 }

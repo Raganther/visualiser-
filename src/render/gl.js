@@ -3,7 +3,7 @@ import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
 import { composeDisplay, composeFeedback } from './compose.js';
 import { PFRAG, PVERT, VERT } from './shaders.js';
-import { LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 import { HIST, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
@@ -109,6 +109,7 @@ export function drawGL(now, P){
   gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
   for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
+  for (const o of OBJECT_VISUALS) gl.uniform1f(v['uO_' + o.key], P.o[o.key]);
   for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

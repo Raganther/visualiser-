@@ -4,7 +4,7 @@ import { lastBeat, sBass, sMid, sTreb } from '../audio/analysis.js';
 import { G } from '../audio/beatgrid.js';
 import { comets, shocks } from '../fx/effects.js';
 import { STAR } from '../visuals/hits/star.js';
-import { OPT_IN, byKey } from '../visuals/registry.js';
+import { OBJECT_VISUALS, OPT_IN, byKey } from '../visuals/registry.js';
 import { recast } from './cast.js';
 import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from './core.js';
 import { PACE, paceName, pickPace } from './pace.js';
@@ -90,6 +90,9 @@ export function stepJourney(now, dt){
     tgt.tunnel = MEDIA.on ? TUNE.tunnel.level : 0;
     if (MEDIA.on) { tgt[J.lead] = 0; WORLDS.forEach(k => tgt[k] = 0); }
   }
+  // a centrepiece object stands in front; the lead steps back a little so it isn't crowded (the tunnel wins while media is on)
+  for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE[v.key].level : 0;
+  if (J.centre && !MEDIA.on) tgt[J.lead] *= .7;
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
@@ -112,6 +115,7 @@ export function stepJourney(now, dt){
   if (J.phraseNow && J.lensOn && J.lens.n > 2) J.lensShift = T > .55 && Math.random() < .6 ? [-1, 1, 2][Math.floor(Math.random()*3)] : 0;
   tgt.sym = J.lensOn ? Math.max(2, J.lens.n + J.lensShift) : 1;
   tgt.mirror = J.lensOn ? J.lens.mirror : 0;
+  if (J.centre) { tgt.sym = 1; tgt.mirror = 0; }   // never a lens over a centrepiece: the copies would crowd it
   tgt.decay = .955 - T*.05 + jn(c*.4, 320)*.012;
   tgt.zoom = 1.0 + T*.018 + ty.zoomBias + jn(c*.3, 360)*.01 + breath*.008 + J.zoomFlip;
   tgt.rot = (.35 + .65*Math.abs(jn(c*.35, 330)))*.03*(.4 + T)*J.spinDir*ty.spin;
@@ -164,7 +168,7 @@ export function freshJourney(){
   OPENING.casts = {};
   J.world = 'none'; J.worldTime = 0; J.lead = null; J.accent = null; J.accEnv = 0; J.hit = null;
   J.style = 'fade'; J.goal = {}; J.held = {}; J.cutSince = 0; resetProgress(); J.phraseAnchor = J.bar;
-  J.recipe = null; J.lens = null; J.lensOn = false; J.lensShift = 0; jState.mods = {};
+  J.recipe = null; J.lens = null; J.lensOn = false; J.lensShift = 0; J.centre = null; jState.mods = {};
   J.types = []; J.type = null; J.M = null; J.pending = false; J.secAge = 0; J.identified = 0; J.kr = J.hr = 0;
   FEATS.forEach(f => { J.fMin[f] = J.fS[f] - .1; J.fMax[f] = J.fS[f] + .1; });
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';

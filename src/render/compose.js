@@ -1,10 +1,12 @@
 // Builds both shaders from the registry. The display shader: shared helpers, then each visual's uniforms and functions,
-// then main(), which lays the worlds behind the glow and the hits on top of it.
+// then main(), which lays the worlds behind the glow, the objects in front of it and the hits on top.
 import { PREC } from './shaders.js';
-import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 export function composeDisplay(){
   const worlds = WORLD_VISUALS.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
+  // an object returns premultiplied colour and coverage; it covers what's behind it
+  const objects = OBJECT_VISUALS.map(v => `  if(uO_${v.key}>0.003){ vec4 ob=${v.glsl.fn}(sp); c=c*(1.0-ob.a*uO_${v.key})+ob.rgb*uO_${v.key}; }`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   return PREC + `
 varying vec2 vUv;
@@ -12,6 +14,7 @@ uniform sampler2D uTex, uHist; uniform vec2 uRes;
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact;
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
+${OBJECT_VISUALS.map(v => `uniform float uO_${v.key};`).join('\n')}
 ${VISUALS.filter(v => v.glsl && v.glsl.uniforms).map(v => v.glsl.uniforms).join('\n')}
 float ASP;
 float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
@@ -30,6 +33,8 @@ void main(){
   vec3 w=vec3(0.0);
 ${worlds}
   c=w*(1.0-0.4*clamp(max(c.r,max(c.g,c.b)),0.0,1.0))+c;
+  // objects stand in front of the world and the glow, solid and crisp
+${objects}
   // hits sit on top, crisp, with a small halo of glow
 ${hits}
   c*=smoothstep(1.15,0.35,length(vUv-0.5));

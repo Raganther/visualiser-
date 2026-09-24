@@ -52,6 +52,18 @@ export const TUNE = {
     drift: .015,               // how fast the view wanders across the source
   },
 
+  // the skull (a 3D centrepiece); Journey leaves it out while chance is 0
+  skull: {
+    chance: 0,                 // how often a section gets it as its centrepiece (try ?lab=skull)
+    level: .9,                 // how solid it is as the centrepiece
+    size: .34,                 // its height, as a fraction of the screen
+    spin: .35,                 // how fast it looks side to side (motion time, so it slows with the pace)
+    turn: .8,                  // how far it turns each way, in radians
+    jaw: .35,                  // how far the jaw drops on the pulse
+    explode: 1,                // how far the parts fly when it breaks apart
+    explodeSecs: 1.6,          // how long it takes to pull itself back together
+  },
+
   // beat grid
   grid: {
     onGrid: .12,               // a kick within this fraction of a beat counts as on the grid

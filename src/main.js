@@ -42,7 +42,7 @@ import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { $, noise, reduceMotion } from './util.js';
-import { HIT_VISUALS, LAYER_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 import * as registry from './visuals/registry.js';
 import { LABS, applyLabs, applyTune } from './lab.js';
 import { TUNE } from './tuning.js';
@@ -86,15 +86,16 @@ function render(now){
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
-    l: {}, w: {}};
+    l: {}, w: {}, o: {}};
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
-  const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, J, comets, shocks, parts, NP};
+  const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
   for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
   for (const v of WORLD_VISUALS) {                              // world weights; the horizon's grid floor lines up with a world's ground
     P.w[v.key] = eff[v.key];
     if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);
   }
-  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS]) if (v.params) v.params(P, vx);
+  for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
+  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
   if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);
 
   if (++frameN % 6 === 0) {

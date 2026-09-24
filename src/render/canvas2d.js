@@ -1,6 +1,6 @@
 // Simple mode: the same picture drawn with the Canvas 2D API, for browsers without WebGL.
 import { H, W } from './gl.js';
-import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 /* Simple mode: the same feedback idea with the plain 2D canvas, for browsers without WebGL */
 export function make2D(view){
@@ -32,6 +32,9 @@ export function make2D(view){
   WORLD_VISUALS.forEach(v => v.init2d && v.init2d());    // worlds that keep their own simple-mode state (in registry order)
   function drawWorlds(P, now){
     for (const v of WORLD_VISUALS) if (P.w[v.key] > .01) { out.save(); v.draw2d(out, P, now/1000); out.restore(); }
+  }
+  function drawObjects(P){
+    for (const v of OBJECT_VISUALS) if (P.o[v.key] > .01) { out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore(); }
   }
   function drawHits(P){
     for (const v of HIT_VISUALS) if (v.draw2d) { out.save(); v.draw2d(out, P); out.restore(); }
@@ -86,6 +89,7 @@ export function make2D(view){
     drawWorlds(P, now);
     out.globalCompositeOperation = 'lighter';
     out.drawImage(bufs[i], 0, 0, W, H);
+    drawObjects(P);
     drawHits(P);
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);

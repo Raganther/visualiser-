@@ -55,6 +55,8 @@ export const BASE = [
   // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
   {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,
     mods:{rot:{src:'drift', amt:.2}}},
+  {name:'Skull', journey:false, decay:.9, zoom:1.006, rot:0, warp:.15, sym:1, space:1, skull:1, ring:.6, comets:.3, colorSpeed:.03, hueDrift:.005,
+    mods:{ring:{src:'bass', amt:.3}}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
 export const presets = BASE.map(clone);

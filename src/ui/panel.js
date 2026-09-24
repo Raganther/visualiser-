@@ -1,6 +1,6 @@
 // The Adjust panel: sliders built from SPEC, and Journey's narration.
 import { S } from '../state.js';
-import { ACC_WORDS, HIT_WORDS, NAMES } from '../journey/cast.js';
+import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS } from '../journey/cast.js';
 import { J } from '../journey/core.js';
 import { PACE, paceName } from '../journey/pace.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
@@ -17,7 +17,8 @@ export function updateSectionUI(){
     + (J.recipe ? `, from the ${J.recipe.name} recipe` : '')
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
-    + (L ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
+    + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
+    + (L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
     + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}.` : '');
