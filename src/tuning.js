@@ -77,17 +77,28 @@ export const TUNE = {
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
   },
-  // the cosmos (visuals/worlds/cosmos.js, ?lab=cosmos): a camera exploring generated star systems
+  // the cosmos (visuals/worlds/cosmos/): a camera exploring generated star systems, led by the track's shape
   cosmos: {
     shotBars: 8,               // bars per camera shot (a section change or a drop moves on sooner)
+    buildFast: 2, buildSlow: 14,   // seconds: the tension's quick and slow averages; the quick one pulling ahead is a build
+    buildSpan: .12,            // how far ahead the quick average must get for a full build
+    buildFloor: .3,            // no build below this tension (a quiet wobble isn't one)
+    buildStart: .5,            // how much build draws the camera in
+    buildGrace: 16,            // seconds into a track before a build can draw the camera (its tension is still settling)
+    pushMin: .015, pushRate: .045,   // how fast a build closes the distance (share of the way a second, plus more as it grows): 15-25 s
+    pushNarrow: .25,           // how much a full build narrows the view
+    fizzleSecs: 4,             // a build that fades for this long lets the camera go
+    dropJump: .6,              // how often a drop jumps to another system (otherwise it pulls back to the whole system)
+    dropWiden: 18,             // degrees a drop's pull back widens the view, easing off
+    quietSecs: 3, quietSlow: .5,   // no kick for this long is the quiet: the camera drifts or circles, this much slower
     maxShotSecs: 40,           // a shot ends after this much motion time even with no bars to count
-    newSystem: .35,            // how often a new section jumps to another star system rather than a new body in this one
+    newSystem: .35,            // how often a new section on the same arm (the same mood) still goes to another star system
     jumpGapSecs: 20,           // a drop jumps to hyperspace only this long after the last jump
     warpUp: 1.2, warpDown: 1.8,   // seconds into and out of a jump
     fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
     kick: 1.2,                 // degrees the kick nudges the view in
     lookK: 1.5,                // how much quicker the view turns than the camera moves
-    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5},   // how quickly the camera follows each shot (per second)
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6},   // how quickly the camera follows each shot (per second)
   },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {
@@ -103,6 +114,8 @@ export const TUNE = {
     windRibbons: 8,            // how much faster the ribbons wave in a strong wind
     windObject: .6,            // how far an object sways
     light: .6,                 // how strongly a world's light falls on the objects
+    flyWind: .8,               // how much a moving world's camera (the cosmos) blows the wind: the glow slides with the view
+    flyZoom: .5,               // and how much flying in zooms the trails (streaming out from the middle as it closes in)
   },
   // palettes: three hues (offsets from the running hue) that every layer, hit and object takes its colours from.
   // Each section picks one (weights below); manual mode uses the triad

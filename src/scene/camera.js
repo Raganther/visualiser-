@@ -60,6 +60,15 @@ export const SHOTS = {
       return {pos: add(p, add(mul(st.dir, d), mul([0, 1, 0], r*.6))), look: add(p, mul(side, r*.7*st.side)), fov: 48};
     },
   },
+  // drawn in towards the subject as the music builds: c.prog (0..1, how far the build has got) sets the distance, not
+  // the time, so the camera closes in exactly as fast as the tension climbs
+  push: {
+    start: (c, s) => ({dir: norm(sub(c.cam.pos, c.subj.p)), side: s[0] < .5 ? -1 : 1}),
+    goal: (c, st) => {
+      const {p, r} = c.subj, e = ease(c.prog), d = r*(14 - 11.8*e), side = norm(cross(st.dir, [0, 1, 0]));
+      return {pos: add(p, add(mul(st.dir, d), mul([0, 1, 0], r*.4*(1 - e)))), look: add(p, mul(side, r*.5*st.side*(1 - e))), fov: 50};
+    },
+  },
   // pass close by the subject, turning to follow it
   flyby: {
     start: (c, s) => { const d = norm(sub(c.subj.p, c.cam.pos)); return {d, side: norm(cross(d, [0, s[0] < .5 ? 1 : -1, 0])), dur: 10 + s[1]*6}; },

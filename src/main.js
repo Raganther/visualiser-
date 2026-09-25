@@ -29,8 +29,10 @@ import './ui/controls.js';
 import './ui/transport.js';
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
+import { showCaption } from './ui/caption.js';
 import { S } from './state.js';
-import { analyse, bands, hit, sBass, sMid, sTreb } from './audio/analysis.js';
+import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
+import { tIndex, tracks } from './audio/player.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
 import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
@@ -99,17 +101,18 @@ function render(now){
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
-    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light}))});
+    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion}))});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
-  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel()};
+  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
-  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
+  // (a world's camera flying in streams the trails outwards: CTX.fly.z)
+  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
@@ -130,6 +133,7 @@ function render(now){
   if (++frameN % 6 === 0) {
     document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
     updateTimeUI();
+    const cw = WORLD_VISUALS.find(v => v.caption && eff[v.key] > .3); if (cw) showCaption(cw.caption());   // what a world's camera is doing
     $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
     const gEl = $('#jGrid');
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked

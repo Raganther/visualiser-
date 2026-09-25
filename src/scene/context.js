@@ -5,10 +5,11 @@
 // A leaf module: main.js updates it once a frame (updateContext); visuals read CTX, or the fields it puts in P.
 import { TUNE } from '../tuning.js';
 
-export const CTX = {pal: [0, .33, .67], palName: 'triad', wind: {x: 0, y: 0, s: 0, a: 0}, light: {hue: 0, sat: 0, amt: 0, x: -.4, y: .6}, gust: 0};
+export const CTX = {pal: [0, .33, .67], palName: 'triad', wind: {x: 0, y: 0, s: 0, a: 0}, light: {hue: 0, sat: 0, amt: 0, x: -.4, y: .6}, gust: 0,
+  fly: {x: 0, y: 0, z: 0}};   // fly: a moving world's camera (how the view slides, screens a second; how fast it closes in)
 const cur = [0, .33, .67];
 // x: pal (the target offsets), clock (Journey's clock), dt, bass (0..1 band), section (the section-change swell),
-// drop (the drop glow), worlds [{w, light}] (each world's weight and its light, or null)
+// drop (the drop glow), worlds [{w, light, motion}] (each world's weight, its light and its camera's movement, or null)
 export function updateContext(x){
   const T = TUNE.ctx, k = Math.min(1, x.dt/T.palSecs);
   for (let i = 0; i < 3; i++) { let d = x.pal[i] - cur[i]; d -= Math.round(d); cur[i] += d*k; CTX.pal[i] = cur[i]; }   // the short way round
@@ -18,7 +19,10 @@ export function updateContext(x){
   CTX.gust = Math.max(CTX.gust*Math.exp(-x.dt/T.gustSecs), x.section, x.drop);
   const s = T.windBase + x.bass*T.windBass + CTX.gust*T.windGust;
   W.s += (s - W.s)*Math.min(1, x.dt*2);
-  W.x = Math.cos(W.a)*W.s; W.y = Math.sin(W.a)*W.s*.6;   // mostly sideways, like weather
+  // a world with a moving camera adds its movement, so everything drifts the way the view does
+  const F = CTX.fly; F.x = F.y = F.z = 0;
+  for (const {w, motion} of x.worlds) if (motion && w > .01) { const k = Math.min(1, w); F.x += motion.x*k; F.y += motion.y*k; F.z += motion.z*k; }
+  W.x = Math.cos(W.a)*W.s + F.x*T.flyWind; W.y = Math.sin(W.a)*W.s*.6 + F.y*T.flyWind;   // mostly sideways, like weather
   // the light: the worlds' lights, by weight
   const L = CTX.light; let tw = 0, h = 0, sat = 0, lx = 0, ly = 0, hx = 0, hy = 0;
   for (const {w, light} of x.worlds) if (light && w > .01) {

@@ -94,6 +94,10 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 #fps.ok::first-line{color:#fc4}
 #fps.bad::first-line{color:#f66}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:8px}
+#caption{position:fixed;left:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:5;pointer-events:none;font-size:15px;
+  letter-spacing:.04em;opacity:0;transition:opacity 1.2s;text-shadow:0 0 12px #000;max-width:calc(100% - 32px)}
+#caption.show{opacity:.85}
+body.clean #caption{bottom:16px}
 #toast.show{opacity:1;transition:opacity .15s}
 
 body.idle #bar,body.idle #panel,body.clean #bar,body.clean #panel{opacity:0;pointer-events:none}
