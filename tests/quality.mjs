@@ -1,5 +1,6 @@
 // Speed: the resolution follows the frame rate (render/quality.js), and the trails' shader built from just the visuals
 // drawing matches the full one pixel for pixel.
+// (read from what the page shows, the canvas size and the frame-rate readout, so it runs on the bundle too)
 import { serve, launch, openPage, THUMB } from './lib.mjs';
 
 const {srv, url} = await serve();
@@ -12,9 +13,8 @@ for (const mode of ['2d', 'gl']) {
   const page = await openPage(browser, url, {groove: false, width: gl ? 160 : 480, height: gl ? 90 : 270,
     query: gl ? '?tune=render.auto.graceMs=500&tune=render.auto.upMs=1500&tune=render.auto.settleMs=500' : ''});
   const r = await page.evaluate(async gl => {
-    const {Q} = await import('/src/render/quality.js');
     const w = () => document.querySelector('canvas').width, out = {};
-    __step(60*(gl ? 1 : 6)); out.steady = [Q.scale, w()];
+    __step(60*(gl ? 1 : 6)); const w0 = w(), Q = {get scale(){ return Math.round(w()/w0*100)/100; }}; out.steady = [Q.scale, w()];
     __step(25*(gl ? 4 : 12), 40); out.slow = [Q.scale, w()];   // 25 fps: steps down
     __step(25*(gl ? 4 : 20), 40); out.floor = Q.scale;          // and no further than the floor
     __step(60*(gl ? 20 : 90)); out.back = [Q.scale, w()];       // steady again: back up, a step at a time
@@ -26,7 +26,7 @@ for (const mode of ['2d', 'gl']) {
   if (gl) { await browser.close(); continue; }
   // a step up that makes it slow again: it goes back down and stays under that step for a while
   const p = await page.evaluate(async () => {
-    const {Q} = await import('/src/render/quality.js');
+    const w0 = document.querySelector('canvas').width, Q = {get scale(){ return Math.round(document.querySelector("canvas").width/w0*100)/100; }};
     __step(25*12, 40); const low = Q.scale; let t = 0;
     while (Q.scale === low && t++ < 60*30) __step(1);          // steady until it tries a step up
     const tried = Q.scale; __step(25*4, 40); const after = Q.scale;
@@ -41,7 +41,7 @@ const runs = {};
 for (const q of ['?tune=render.fbCache=0', '']) {
   const browser = await launch('gl'), page = await openPage(browser, url, {width: 160, height: 90, query: q + (q ? '&' : '?') + 'tune=render.auto.on=0'});
   runs[q || 'built'] = await page.evaluate(async thumb => {
-    const {fbInfo} = await import('/src/render/gl.js'); const out = [];
+    const fbInfo = () => (document.querySelector('#fps').textContent.match(/trails shader: (.*)/) || [, '?'])[1], out = [];
     for (let i = 0; i < 6; i++) { __step(60*3); out.push({px: eval(thumb), fb: fbInfo()}); }
     return out;
   }, THUMB);
