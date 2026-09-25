@@ -6,6 +6,7 @@ const st = {starPh:0, lightAng:0, moonAng:0, moonTarget:0, planet:null, moons:nu
 let stars = null, lastStarPh = 0;                      // simple mode's own starfield
 export default {
   key: 'space', kind: 'world', label: 'Space',
+  light: {hue: .1, sat: .25, x: -.7, y: .3},            // a pale starlight from the left (for objects: scene/context.js)
   // bright, intense parts
   suits: (rf, T) => rf.bright*.5 + T*.4 + rf.busy*.2,
   step(dt, x){

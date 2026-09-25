@@ -105,6 +105,7 @@ function trailPass(now, P, g, first){
   gl.uniform1f(u.uHue, P.hue); gl.uniform1f(u.uHueShift, P.hueShift);
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
+  gl.uniform3fv(u.uPal, P.pal); gl.uniform2f(u.uDrift, P.drift[0], P.drift[1]);
   // only this group's layers (and hits drawn in the trails) show in it
   const Pg = {...P};
   for (const h of HIT_VISUALS) if (h.inTrails && !inG(h.key)) Pg[h.trailWeight] = 0;
@@ -192,7 +193,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   const sc = P.sc, pr = segProg(st, sc), v = pr.u;
   gl.useProgram(pr.p);
   gl.uniform2f(v.uRes, W, H);
-  gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain);
+  gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
   for (const g in out) { gl.activeTexture(gl.TEXTURE0 + (g === 'main' ? UNIT.main : UNIT.group)); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], g === 'main' ? UNIT.main : UNIT.group); }
   if (under) { gl.activeTexture(gl.TEXTURE0 + UNIT.under); gl.bindTexture(gl.TEXTURE_2D, under.tex); gl.uniform1i(v.uUnder, UNIT.under); }
   sc.masks.forEach((k, j) => { if (maskOn[j]) { gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, masks[j].tex); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });

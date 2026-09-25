@@ -33,7 +33,7 @@ ${mask}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes;
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
-uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain;   // shrinks and brightens the picture (for one filling an object)
+uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
 ${VISUALS.filter(v => v.glsl && v.glsl.uniforms).map(v => v.glsl.uniforms).join('\n')}
@@ -73,6 +73,7 @@ varying vec2 vUv;
 uniform sampler2D uPrev, uData;
 uniform vec2 uRes, uCenter, uBurstC;
 uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uMid,uTreb,uBeat,uReact,uHit;
+uniform vec3 uPal; uniform vec2 uDrift;   // the palette's three hue offsets; the wind's push on the trails this frame
 uniform float uFillMode,uFillGain,uFillZoom;   // 1: draw a fill instead (the chosen layers alone, through the kaleidoscope, no trails)
 ${layers.map(v => `uniform float uL_${v.key};`).join('\n')}
 ${part('uniforms')}
@@ -96,6 +97,7 @@ vec3 sampleFb(vec2 p,float n){
   q=mat2(c,-s,s,c)*q;
   q/=z;
   q+=uWarp*0.012*vec2(sin(q.y*7.0+uTime*1.3),cos(q.x*6.0-uTime*1.1));
+  q-=uDrift;   // the trails stream downwind
   vec2 uv=(q+uCenter)/vec2(ASP,1.0)+0.5;
   uv=1.0-abs(1.0-mod(uv,2.0));
   return texture2D(uPrev,uv).rgb;

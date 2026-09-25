@@ -6,6 +6,7 @@ const st = {seed:0};
 let cityB = null;                                      // simple mode's building heights
 export default {
   key: 'city', kind: 'world', label: 'City',
+  light: {hue: .12, sat: .6, x: .2, y: -.7},             // the windows' warm glow, from below (for objects: scene/context.js)
   horizonY: -.3,                                       // the horizon layer's grid floor lines up with the street
   // steady kicks and bass at a middling intensity
   suits: (rf, T) => rf.perc*.6 + rf.low*.3 - Math.abs(T)*.5 + .05,

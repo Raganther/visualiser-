@@ -27,7 +27,7 @@ mesh draws, and small fill/mask prep passes.
 - [x] 2. Free order, world planes and objects anywhere (the skull among the buildings).
 - [x] 3. Trail groups (comets behind the buildings, rings in front).
 - [x] 4. Fills and masks from any image (the city in the skull's glass, the tunnel in its eyes).
-- [ ] 5. Shared context: section palette, wind, light.
+- [x] 5. Shared context: section palette, wind, light.
 - [ ] 6. Journey composes scenes from templates, within a budget.
 - [ ] 7. Scene UI in the Adjust panel: what / where / driven by.
 - [ ] 8. Cleanup, docs, final publish.
@@ -36,3 +36,4 @@ mesh draws, and small fill/mask prep passes.
 - Stage 1: scenes compile to a draw plan (trail groups, full-screen segments composed per run of items and cached, object draws between them). Both renderers run the plan; the default and demo scenes draw as before (golden matches).
 - Stages 2–3: any order works, so an object can stand among a world's planes ("Skull in the city"), and trail groups put one layer behind the buildings and another in front ("Behind and in front"). A scene may run `TUNE.scene.maxGroups` groups. Tested in both renderers.
 - Stage 4: an object's glass can hold any image: layers (any, the media tunnel too), a trail group seen only through it, or the worlds shrunk into it; and a fill can be limited to one part (the eyes). Demos: "Sunset in the skull", "Comets in the glass", "Tunnel eyes". Masks can be an object or the worlds' front planes.
+- Stage 5: `scene/context.js` gives every visual one palette (each section picks triad, analogous, split or contrast), one wind (comets, flow, ribbons, objects and the trails all move with it; gusts on section changes and drops) and one light (the world's, falling on the objects). Golden re-recorded: the colours and motion change on purpose.

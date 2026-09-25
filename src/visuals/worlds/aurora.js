@@ -3,6 +3,7 @@ import { hc } from '../../util.js';
 
 export default {
   key: 'aurora', kind: 'world', label: 'Aurora',
+  light: {hue: .33, sat: .7, x: 0, y: .9},              // the curtains' green, from above (for objects: scene/context.js)
   // airy, melodic, without much bass
   suits: (rf, T) => -rf.perc*.6 + rf.mid*.5 - rf.low*.3 - T*.4,
   glsl: {

@@ -5,6 +5,7 @@ import { hc } from '../../util.js';
 const st = {histT:0, landY:-.05};
 export default {
   key: 'land', kind: 'world', label: 'Landscape',
+  light: {hue: .04, sat: .8, x: 0, y: .2},               // the low sun, ahead (for objects: scene/context.js)
   horizonY: st.landY,                                  // the horizon layer's grid floor lines up with the water
   // calm, melodic, kickless parts
   suits: (rf, T) => -rf.perc*.9 + rf.mid*.4 - T*.3,

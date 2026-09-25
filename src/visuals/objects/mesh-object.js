@@ -35,7 +35,9 @@ export function meshObject({key, label, words, mesh}){
       st.sw = Math.min(1, st.sw + dt/Math.max(.25, S.beatPeriod));   // the band takes one beat to run down
       P.m = P.m || {};
       P.m[key] = {
-        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: T.size*(1 + x.sBass*x.react*.03), pos: [0, .02],
+        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: T.size*(1 + x.sBass*x.react*.03),
+        pos: [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],   // it sways in the wind
+        pal: P.pal, light: P.light,
         jaw: P.beat*T.hinge, ex: st.ex*st.ex*M.explode,   // squared: flies out fast, snaps home cleanly
         gone: Math.max(0, 1 - w/.6),                     // leaving: panes wink out, the weight takes the rest
         fill: M.fill*(.6 + P.beat*.8), dark: M.dark, xray: M.xray, line: M.line, hue: P.hue, partHue: st.hue,

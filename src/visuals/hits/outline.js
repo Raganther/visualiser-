@@ -24,7 +24,7 @@ float sdNgon(vec2 p,float r,float n){ float an=3.141593/n; float a=mod(atan(p.x,
     if(o.y>0.003){
       vec2 q=sp; float cs=cos(o.w), sn=sin(o.w); q=mat2(cs,-sn,sn,cs)*q;
       float d=abs(sdNgon(q,o.x,o.z));
-      c+=(vec3(1.0)*smoothstep(0.004,0.0,d)*0.7+hsv(uHue+0.3,0.8,1.0)*exp(-d*55.0)*0.45)*o.y;
+      c+=(vec3(1.0)*smoothstep(0.004,0.0,d)*0.7+hsv(uHue+uPal.y,0.8,1.0)*exp(-d*55.0)*0.45)*o.y;
     }
   }`,
   },
@@ -38,7 +38,7 @@ float sdNgon(vec2 p,float r,float n){ float an=3.141593/n; float a=mod(atan(p.x,
       o.beginPath();
       for (let k = 0; k <= n; k++) { const ang = rot + k/n*Math.PI*2, R = r/Math.cos(Math.PI/n)*u;
         const px = X(0) + Math.sin(ang)*R, py = Y(0) - Math.cos(ang)*R; k ? o.lineTo(px, py) : o.moveTo(px, py); }
-      o.shadowColor = hc(P.hue + .3, 80, 60, a); o.shadowBlur = u*.02;
+      o.shadowColor = hc(P.hue + P.pal[1], 80, 60, a); o.shadowBlur = u*.02;
       o.strokeStyle = `rgba(255,255,255,${Math.min(1, a*.8)})`; o.lineWidth = Math.max(1, u*.004); o.stroke();
     }
   },

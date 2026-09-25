@@ -61,6 +61,25 @@ export const TUNE = {
   },
 
   // scenes (scene/graph.js): how their fills show
+  // the shared context (scene/context.js): one palette, one wind, one light for every visual
+  ctx: {
+    palSecs: 4,                // how long a new section's palette takes to come in
+    windTurn: .05,             // how fast the wind's direction turns (radians per second of motion time)
+    windBase: .025,            // the wind's steady strength (screen heights per second)
+    windBass: .05,             // plus this much on bass swells
+    windGust: .15,             // plus this much in a gust (a new section or a drop)
+    gustSecs: 3,               // how long a gust takes to die down
+    windComets: 1,             // how much the wind carries the comets
+    windFlow: 1.2,             // the flow's particles
+    windTrails: .5,            // the trails (they stream downwind)
+    windRibbons: 8,            // how much faster the ribbons wave in a strong wind
+    windObject: .6,            // how far an object sways
+    light: .6,                 // how strongly a world's light falls on the objects
+  },
+  // palettes: three hues (offsets from the running hue) that every layer, hit and object takes its colours from.
+  // Each section picks one (weights below); manual mode uses the triad
+  palettes: {triad: [0, .33, .67], analogous: [0, .08, .16], split: [0, .42, .58], contrast: [0, .5, .1]},
+  paletteWeights: {triad: 1, analogous: 1.2, split: .8, contrast: .8},
   scene: {
     fillAmt: .9,               // how brightly a fill shows through an object's glass
     fillZoom: 2.4,             // how many times smaller a fill's pattern is than the full-screen layer (so it tiles inside an object)

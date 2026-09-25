@@ -26,7 +26,7 @@ export function panesOf(mesh){
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
 uniform float uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
-uniform vec2 uPos; uniform vec3 uHinge;
+uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
@@ -53,11 +53,14 @@ void main(){
   float face=0.5+0.5*nw.z;                               // facing us (1) or away (0): the far side is dimmer
   float sweep=uSweepAmt*exp(-pow((aCen.y-(0.55-uSweep*1.1))*7.0,2.0));   // a band of light running down the object
   float spark=uSpark*step(0.88,fract(aInfo.z*91.7+uSparkSeed));          // a few panes flash on stabs
-  vec3 col=hsv(uHue+uPartHue+aInfo.x*0.11,0.75,1.0);
+  float pk=mod(aInfo.x,3.0);                             // parts take the palette's hues in turn
+  vec3 col=hsv(uHue+uPartHue+(pk<0.5 ? uPal.x : pk<1.5 ? uPal.y : uPal.z)+floor(aInfo.x/3.0)*0.04,0.75,1.0);
+  float lit=max(dot(nw,normalize(vec3(uLightDir,0.6))),0.0)*uLight.z;   // the world's light on the side facing it
+  col=mix(col,hsv(uHue+uLight.x,uLight.y,1.0),lit*0.6);
   float a=uEdge>0.5 ? (0.35+0.65*face)*(0.8+uGlow*0.8)+sweep*1.5+spark*1.2
-                    : (uFill*(0.3+0.7*face)*(0.4+0.6*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0))+sweep*0.5+spark*0.9);
+                    : (uFill*(0.3+0.7*face)*(0.4+0.6*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0))+sweep*0.5+spark*0.9+lit*0.25);
   if(aInfo.x>6.5){                                        // the holes (eye sockets, nose): dark, faint edges; the sockets glow on the downbeat
-    col=hsv(uHue+uPartHue+0.5,0.9,1.0); a=uEdge>0.5 ? a*0.2 : (aInfo.x<7.5 ? uGlow*1.4 : 0.0);
+    col=hsv(uHue+uPartHue+uPal.z+0.5,0.9,1.0); a=uEdge>0.5 ? a*0.2 : (aInfo.x<7.5 ? uGlow*1.4 : 0.0);
   }
   vCol=vec4(mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a*uBright*(1.0-gone),uEdge>0.5 ? 1.0 : uDark*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
@@ -99,7 +102,8 @@ export function meshGL(gl, mesh){
     gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
     gl.uniform2f(u.uPos, U.pos[0], U.pos[1]); gl.uniform3fv(u.uHinge, mesh.hinge); gl.uniform1f(u.uJaw, U.jaw);
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
-    gl.uniform1f(u.uPartHue, U.partHue); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
+    gl.uniform1f(u.uPartHue, U.partHue); gl.uniform3fv(u.uPal, U.pal || [0, .33, .67]);
+    const L = U.light || {amt: 0}; gl.uniform3f(u.uLight, L.hue || 0, L.sat || 0, L.amt); gl.uniform2f(u.uLightDir, L.x || 0, L.y || 0); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
     gl.uniform1f(u.uSpark, U.spark); gl.uniform1f(u.uSparkSeed, U.sparkSeed); gl.uniform1f(u.uGlow, U.glow);
     gl.uniform1f(u.uLine, Math.max(1, U.line*H/720)); gl.uniform1f(u.uH, H*2);   // U.line px wide on a 720-line screen, scaled
     gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0); gl.uniform1f(u.uFillAmt, 0); gl.uniform1f(u.uFillPart, stage === 'cover' ? 0 : U.fillPart || 0);
@@ -150,7 +154,8 @@ function project2d(o, panes, hinge, U){
   for (const q of panes) {
     if (q.seed < U.gone) continue;
     const pts = q.v.map(v => place(q, v)), nw = rx(ry(q.n, U.rot), U.pitch);
-    L.push({q, s: pts.map(proj), z: (pts[0][2] + pts[1][2] + pts[2][2])/3, face: .5 + .5*nw[2]});
+    const Lt = U.light || {amt: 0}, ld = [Lt.x || 0, Lt.y || 0, .6], dl = Math.hypot(...ld);   // the world's light on the side facing it
+    L.push({q, s: pts.map(proj), z: (pts[0][2] + pts[1][2] + pts[2][2])/3, face: .5 + .5*nw[2], lit: Math.max(0, (nw[0]*ld[0] + nw[1]*ld[1] + nw[2]*ld[2])/dl)*Lt.amt});
   }
   return L.sort((a, b) => a.z - b.z);
 }
@@ -161,14 +166,16 @@ export function meshPath2d(o, panes, hinge, U){ o.beginPath(); for (const {s} of
 export function meshDraw2d(o, panes, hinge, U){
   const Hc = o.canvas.height, L = project2d(o, panes, hinge, U);
   o.lineJoin = 'round'; o.lineWidth = Math.max(1, U.line*Hc/720*.8);   // back to front: dark glass over what's behind, then light
-  for (const {q, s, face} of L) {
+  const pal = U.pal || [0, .33, .67], ph = part => pal[part % 3] + Math.floor(part/3)*.04;   // parts take the palette's hues in turn
+  for (const {q, s, face, lit} of L) {
     const sweep = U.sweepAmt*Math.exp(-(((q.c[1] - (.55 - U.sweep*1.1))*7)**2)), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
-    const hole = q.part >= 7, h = hole ? U.hue + U.partHue + .5 : U.hue + U.partHue + q.part*.11, w = U.w;   // eye sockets and nose: dark holes
+    const hole = q.part >= 7, h = hole ? U.hue + U.partHue + pal[2] + .5 : U.hue + U.partHue + ph(q.part), w = U.w;   // eye sockets and nose: dark holes
     o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath();
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
     o.globalCompositeOperation = 'source-over'; o.fillStyle = `rgba(0,0,0,${(U.dark*w).toFixed(3)})`; o.fill();
     o.globalCompositeOperation = 'lighter';
     if (fa > .01) { o.fillStyle = hsl(h, 55, fa*w*.5); o.fill(); }
+    if (lit > .02 && !hole) { o.fillStyle = `hsla(${((U.hue + U.light.hue) % 1 + 1) % 1*360},${Math.round(U.light.sat*100)}%,60%,${(lit*.3*w).toFixed(3)})`; o.fill(); }
     o.strokeStyle = hsl(h, 55 + 30*Math.min(1, sweep + spark), ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)); o.stroke();
   }
   if (U.fillImg) {                                      // the fill, clipped to the near glass, then its edges again on top
@@ -177,7 +184,7 @@ export function meshDraw2d(o, panes, hinge, U){
     o.globalCompositeOperation = 'lighter'; o.globalAlpha = Math.min(1, U.fillAmt*U.w); o.drawImage(U.fillImg, 0, 0, o.canvas.width, Hc);
     o.restore();
     o.globalCompositeOperation = 'lighter';
-    for (const {q, s} of near) { o.beginPath(); tri(o, s); o.strokeStyle = hsl(U.hue + U.partHue + q.part*.11, 60, .5*U.w); o.stroke(); }
+    for (const {q, s} of near) { o.beginPath(); tri(o, s); o.strokeStyle = hsl(U.hue + U.partHue + ph(q.part), 60, .5*U.w); o.stroke(); }
   }
   o.globalCompositeOperation = 'source-over';
 }

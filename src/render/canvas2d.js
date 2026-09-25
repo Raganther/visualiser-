@@ -139,7 +139,7 @@ export function make2D(view){
     c.translate(-cx, -cy);
     c.globalAlpha = Math.min(.995, P.decay);
     if (hasFilter && P.hueShift > 0) c.filter = `hue-rotate(${(P.hueShift*57.3).toFixed(2)}deg)`;
-    c.drawImage(src, 0, 0);
+    c.drawImage(src, P.drift[0]*u, -P.drift[1]*u);   // the trails stream downwind
     c.restore();
     if (hasFilter) c.filter = 'none';
     // subtract a little each frame so faint trails fully fade instead of leaving grey haze

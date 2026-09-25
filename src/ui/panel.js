@@ -9,6 +9,7 @@ import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { MEDIA } from '../media/source.js';
 
+const PAL_WORDS = {triad: 'three far-apart hues', analogous: 'neighbouring hues', split: 'one hue against two', contrast: 'opposites'};
 export function updateSectionUI(){
   const el = $('#jSection'); if (!el || !J.type) return;
   if (J.on && J.recipe) $('#pName').textContent = J.recipe.name;
@@ -21,6 +22,7 @@ export function updateSectionUI(){
     + (L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
+    + (J.type.pal ? ` Colours: ${PAL_WORDS[J.type.pal]}.` : '')
     + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}.` : '');
 }
 // sliders

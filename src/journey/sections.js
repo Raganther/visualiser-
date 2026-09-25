@@ -22,7 +22,15 @@ export function newType(F){
     cut: Math.random(), hitSeed: hitSeeds(),
     outN: [3, 4, 4, 6][Math.floor(Math.random()*4)],
     starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
+  t.pal = pickPalette();                               // its colours: one palette every visual takes its hues from
   J.types.push(t); return t;
+}
+// a palette for a new section, by the weights in TUNE
+function pickPalette(){
+  const W = TUNE.paletteWeights, tot = Object.values(W).reduce((a, b) => a + b, 0);
+  let r = Math.random()*tot;
+  for (const k in W) if ((r -= W[k]) <= 0) return k;
+  return 'triad';
 }
 // how much a section likes each hit (and having none), drawn once when the section is first heard
 function hitSeeds(){

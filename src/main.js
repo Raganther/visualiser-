@@ -29,7 +29,8 @@ import './ui/controls.js';
 import './ui/transport.js';
 import { S } from './state.js';
 import { analyse, bands, hit, sBass, sMid, sTreb } from './audio/analysis.js';
-import { updateSignals } from './scene/signals.js';
+import { SIG, updateSignals } from './scene/signals.js';
+import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
@@ -77,11 +78,14 @@ function render(now){
   const react = +$('#react').value;
   updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
+  // the shared context: the section's palette, one wind, the worlds' light
+  updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
+    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light}))});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
-  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
+  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
@@ -90,7 +94,8 @@ function render(now){
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
-    l: {}, w: {}, o: {}, sc: resolveScene(J.on ? null : S.scene)};   // Journey keeps the default scene
+    l: {}, w: {}, o: {}, sc: resolveScene(J.on ? null : S.scene),   // Journey keeps the default scene
+    pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
   for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }

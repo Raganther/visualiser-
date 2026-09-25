@@ -21,7 +21,7 @@ vec3 ribbons(vec2 sp){
     float y=0.28*(fi-1.0)+sin(q.x*(2.0+fi*0.7)+uRibPh*(1.0+fi*0.3)+fi*2.1)*(0.08+uMid*uReact*0.25)
            +wave(fract(q.x*0.5+0.5+fi*0.13))*0.05*uReact;
     float d=abs(q.y-y);
-    c+=hsv(uHue+0.15+fi*0.08,0.8,1.0)*(smoothstep(0.005+0.008*uBeat,0.0,d)+0.25*smoothstep(0.05,0.0,d));
+    c+=hsv(uHue+(i==0?uPal.x:i==1?uPal.y:uPal.z),0.8,1.0)*(smoothstep(0.005+0.008*uBeat,0.0,d)+0.25*smoothstep(0.05,0.0,d));
   }
   return c;
 }`,
@@ -41,7 +41,7 @@ vec3 ribbons(vec2 sp){
           const yv = .28*(i - 1) + Math.sin(qx*(2 + i*.7) + P.ribPh*(1 + i*.3) + i*2.1)*(.08 + P.mid*P.react*.25) + wv*.05*P.react;
           j ? c.lineTo(qx*u, -yv*u) : c.moveTo(qx*u, -yv*u);
         }
-        glowStroke(c, a => `hsla(${hsl(P.hue + .15 + i*.08)},85%,60%,${Math.min(1, a).toFixed(3)})`, P.l.ribbons*(.5 + P.beat*.8), u);
+        glowStroke(c, a => `hsla(${hsl(P.hue + P.pal[i])},85%,60%,${Math.min(1, a).toFixed(3)})`, P.l.ribbons*(.5 + P.beat*.8), u);
       }
       c.restore();
     }
