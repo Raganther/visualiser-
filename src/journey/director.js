@@ -71,8 +71,9 @@ export function stepJourney(now, dt){
     if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
     J.recast = 'keep'; J.style = 'fade';
   }
-  const wOn = worldOn();
+  const wOn = worldOn() || !!J.worldHold;
   WORLDS.forEach(k => tgt[k] = J.world === k ? 1 : 0);
+  if (J.worldHold) { WORLDS.forEach(k => tgt[k] = 0); tgt[J.worldHold] = 1; }   // a lab holding one world on screen (the cosmos)
   // world fatigue, like the layers': builds while a world (or the black) is on screen, recovers while it isn't
   // scene templates and centrepieces tire the same way, so a long track moves through them
   if (J.sceneKey) J.sFat[J.sceneKey] = (J.sFat[J.sceneKey] || 0) + dt/TUNE.fatigueBuildSecs;
@@ -93,7 +94,7 @@ export function stepJourney(now, dt){
   // with a video, image or camera loaded, the mirror tunnel takes over as the lead and worlds rest (it fills the screen)
   if (byKey.tunnel) {
     tgt.tunnel = MEDIA.on ? TUNE.tunnel.level : 0;
-    if (MEDIA.on) { tgt[J.lead] = 0; WORLDS.forEach(k => tgt[k] = 0); }
+    if (MEDIA.on) { tgt[J.lead] = 0; WORLDS.forEach(k => tgt[k] = 0); if (J.worldHold) tgt[J.worldHold] = 0; }
   }
   // a centrepiece object stands in front; the lead steps back a little so it isn't crowded (the tunnel wins while media is on)
   for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE.mesh.level : 0;

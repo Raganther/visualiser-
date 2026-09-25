@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 // heaviest first, so the two lanes finish together: WebGL-heavy and simple-mode-heavy files alternate
-const FILES = ['scene.mjs', 'golden.mjs', 'objects.mjs', 'sync.mjs', 'grid.mjs', 'media.mjs', 'journey.mjs', 'quality.mjs', 'smoke.mjs'];
+const FILES = ['scene.mjs', 'golden.mjs', 'objects.mjs', 'sync.mjs', 'grid.mjs', 'media.mjs', 'journey.mjs', 'quality.mjs', 'cosmos.mjs', 'smoke.mjs'];
 const jobs = +(process.env.TEST_JOBS || 2), queue = [...FILES], results = [];
 const one = t => new Promise(done => {
   const t0 = Date.now(), p = spawn(process.execPath, [path.join(dir, t)]); let out = '';

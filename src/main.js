@@ -52,7 +52,7 @@ import { updateTimeUI } from './ui/transport.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 import * as registry from './visuals/registry.js';
-import { LABS, applyLabs, applyTune } from './lab.js';
+import { LABS, applyLabs, applyTune, bindLabToggles } from './lab.js';
 import { TUNE } from './tuning.js';
 
 applyTune();                                          // ?tune= overrides, before anything reads TUNE
@@ -146,5 +146,6 @@ function render(now){
 setTimeout(() => { const c = {world: 'city', lead: 'ring', accent: 'comets', centre: 'skull', label: k => k};
   warmScenes([...TEMPLATES.map(t => t.build(c)).filter(Boolean), ...BASE.filter(p => p.scene).map(p => p.scene)]); }, 1500);
 // ?lab= experiments load before the first frame; without them the loop starts straight away
+bindLabToggles({TUNE, J, PACE, registry});
 if (LABS.length) applyLabs({TUNE, J, PACE, registry}).then(() => requestAnimationFrame(frame));
 else requestAnimationFrame(frame);

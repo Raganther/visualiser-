@@ -73,9 +73,21 @@ export const TUNE = {
     fbLinger: 8000,            // ms a visual stays in the trails' shader after it last drew (so accents don't swap shaders each time)
     // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
     auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
-      probeMs: 6000, ceilMs: 120000, stallMs: 250},   // probe: a drop this soon after a step up keeps it under that step for ceilMs
+      probeMs: 6000, ceilMs: 120000, stallMs: 1000},   // probe: a drop this soon after a step up keeps it under that step for ceilMs; stall: a gap this long (a hidden tab) restarts the count
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
+  },
+  // the cosmos (visuals/worlds/cosmos.js, ?lab=cosmos): a camera exploring generated star systems
+  cosmos: {
+    shotBars: 8,               // bars per camera shot (a section change or a drop moves on sooner)
+    maxShotSecs: 40,           // a shot ends after this much motion time even with no bars to count
+    newSystem: .35,            // how often a new section jumps to another star system rather than a new body in this one
+    jumpGapSecs: 20,           // a drop jumps to hyperspace only this long after the last jump
+    warpUp: 1.2, warpDown: 1.8,   // seconds into and out of a jump
+    fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
+    kick: 1.2,                 // degrees the kick nudges the view in
+    lookK: 1.5,                // how much quicker the view turns than the camera moves
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5},   // how quickly the camera follows each shot (per second)
   },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {

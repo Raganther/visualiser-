@@ -15,11 +15,11 @@ export const SPEC = [
   {g:'Lens', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
   ...LAYER_VISUALS.filter(v => !v.optIn).map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...HIT_VISUALS.map(v => ({g:'Hits', k:v.key, label:v.label, min:0, max:1, step:.01})),
-  ...WORLD_VISUALS.map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  ...WORLD_VISUALS.filter(v => !v.optIn).map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
   {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
   // opt-in visuals last, so the settings above keep their places (movers seed their drift by position)
-  ...VISUALS.filter(v => v.optIn).map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  ...[...VISUALS.filter(v => v.optIn && v.kind !== 'world'), ...WORLD_VISUALS.filter(v => v.optIn)].map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
