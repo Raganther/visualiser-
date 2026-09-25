@@ -25,7 +25,7 @@ export function panesOf(mesh){
 // ---- WebGL ----
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
-uniform float uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright;
+uniform float uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
 uniform vec2 uPos; uniform vec3 uHinge;
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
@@ -61,7 +61,7 @@ void main(){
   }
   vCol=vec4(mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a*uBright*(1.0-gone),uEdge>0.5 ? 1.0 : uDark*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
-  vFillW=(aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass, not in the holes
+  vFillW=(uFillPart>0.5 ? step(abs(aInfo.x-uFillPart),0.5) : aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass (or one part), not in the holes
   gl_Position=vec4(s.x*2.0/uAsp,s.y*2.0,-p.z/3.0,1.0);   // nearer is smaller depth, for hiding the far side
 }`;
 const FS = `precision mediump float; varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
@@ -102,7 +102,7 @@ export function meshGL(gl, mesh){
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
     gl.uniform1f(u.uSpark, U.spark); gl.uniform1f(u.uSparkSeed, U.sparkSeed); gl.uniform1f(u.uGlow, U.glow);
     gl.uniform1f(u.uLine, Math.max(1, U.line*H/720)); gl.uniform1f(u.uH, H*2);   // U.line px wide on a 720-line screen, scaled
-    gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0); gl.uniform1f(u.uFillAmt, 0);
+    gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0); gl.uniform1f(u.uFillAmt, 0); gl.uniform1f(u.uFillPart, stage === 'cover' ? 0 : U.fillPart || 0);
     gl.disableVertexAttribArray(0); ATT.forEach((a, i) => gl.enableVertexAttribArray(i + 1));
     const pass = (k, bright) => {
       const b = B[k]; gl.uniform1f(u.uEdge, k === 'edge' ? 1 : 0); gl.uniform1f(u.uBright, bright*U.w);
@@ -157,7 +157,7 @@ function project2d(o, panes, hinge, U){
 const tri = (o, s) => { o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); };
 // the object's silhouette as a path (for masks): every visible pane, holes included
 export function meshPath2d(o, panes, hinge, U){ o.beginPath(); for (const {s} of project2d(o, panes, hinge, U)) tri(o, s); }
-// U.fillImg (a canvas) and U.fillAmt: a fill seen through the glass of the near panes, the holes left dark
+// U.fillImg (a canvas) and U.fillAmt: a fill seen through the glass of the near panes, the holes left dark (or through one part, U.fillPart)
 export function meshDraw2d(o, panes, hinge, U){
   const Hc = o.canvas.height, L = project2d(o, panes, hinge, U);
   o.lineJoin = 'round'; o.lineWidth = Math.max(1, U.line*Hc/720*.8);   // back to front: dark glass over what's behind, then light
@@ -172,7 +172,7 @@ export function meshDraw2d(o, panes, hinge, U){
     o.strokeStyle = hsl(h, 55 + 30*Math.min(1, sweep + spark), ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)); o.stroke();
   }
   if (U.fillImg) {                                      // the fill, clipped to the near glass, then its edges again on top
-    const near = L.filter(p => p.face > .5 && p.q.part < 7);
+    const near = U.fillPart ? L.filter(p => p.q.part === U.fillPart) : L.filter(p => p.face > .5 && p.q.part < 7);
     o.save(); o.beginPath(); for (const {s} of near) tri(o, s); o.clip();
     o.globalCompositeOperation = 'lighter'; o.globalAlpha = Math.min(1, U.fillAmt*U.w); o.drawImage(U.fillImg, 0, 0, o.canvas.width, Hc);
     o.restore();

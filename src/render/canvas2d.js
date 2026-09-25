@@ -47,19 +47,35 @@ export function make2D(view){
     }
     g.restore();
   }
-  // a scene's fills and mask: a fill is the chosen layers alone, folded, in their own canvas; a mask cuts the glow to
-  // (or away from) an object's silhouette in a canvas the size of the screen
+  // a scene's fills: another image seen through an object's glass. A trail group is already a picture; layers are drawn
+  // alone (folded ones through the kaleidoscope, the rest as they are); worlds are drawn whole, then shrunk
   const fillCan = {};
-  function drawFills(P, now){
+  function drawFills(P, now, glows){
     for (const key in P.sc.fills) {
       if (!(P.o[key] > .01)) continue;
-      const f = P.sc.fills[key], fc = fillCan[key] || (fillCan[key] = document.createElement('canvas')), g = fc.getContext('2d');
+      const f = P.sc.fills[key];
+      P.m[key].fillAmt = TUNE.scene.fillAmt*(f.part ? TUNE.scene.partFillAmt : 1); P.m[key].fillPart = f.part;
+
+      const fc = fillCan[key] || (fillCan[key] = document.createElement('canvas')), g = fc.getContext('2d');
       if (fc.width !== bw || fc.height !== bh) { fc.width = bw; fc.height = bh; }
-      g.globalCompositeOperation = 'source-over'; g.fillStyle = '#000'; g.fillRect(0, 0, bw, bh);
-      g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round'; g.lineCap = 'round';
-      const l = {}; for (const k in P.l) l[k] = f.layers.includes(k) ? 1 : 0;
-      drawSym(g, {...P, l}, Math.max(1, Math.round(f.fold)), 1, bw/2, bh/2, now, .35*TUNE.scene.fillGain, f.zoom || TUNE.scene.fillZoom);
-      P.m[key].fillImg = fc; P.m[key].fillAmt = TUNE.scene.fillAmt;
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, bw, bh);
+      if (f.src !== 'layers') {   // a world or a trail group, shrunk into the glass (a world brightened: it's mostly dark sky)
+        const img = f.src === 'world' ? (keepBlankWorlds(P, now), worldCan) : glows[f.g], z = 1/f.zoom;
+        g.drawImage(img, bw*(1 - z)/2, bh*(1 - z)/2, bw*z, bh*z);
+        if (f.src === 'world') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.min(1, TUNE.scene.worldFillGain - 1); g.drawImage(fc, 0, 0); g.globalAlpha = 1; }
+      } else {
+        g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round'; g.lineCap = 'round';
+        const Pf = {...P, l: {}};
+        for (const k in P.l) Pf.l[k] = f.layers.includes(k) ? 1 : 0;
+        for (const h of HIT_VISUALS) if (h.inTrails && !f.layers.includes(h.key)) Pf[h.trailWeight] = 0;
+        const zoom = f.zoom || TUNE.scene.fillZoom;
+        drawSym(g, Pf, Math.max(1, Math.round(f.fold)), 1, bw/2, bh/2, now, .35*TUNE.scene.fillGain, zoom);
+        const u = bh, sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
+        g.save(); g.translate(bw/2, bh/2); g.scale(1/zoom, 1/zoom); g.translate(-bw/2, -bh/2);
+        for (const v of trails2d) if (f.layers.includes(v.key)) { g.save(); v.trails2d(g, Pf, {u, bw, bh, sx, sy, hsl, glowStroke}); g.restore(); }
+        g.restore();
+      }
+      P.m[key].fillImg = fc;
     }
   }
   // between: a copy of the worlds, laid back over the trails through their front planes' outlines
@@ -148,7 +164,7 @@ export function make2D(view){
     for (const g in sc.groups) glows[g] = trails(now, P, g);
     out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
     out.fillStyle = '#000'; out.fillRect(0, 0, W, H);
-    drawFills(P, now);
+    drawFills(P, now, glows);
     let kept = false;
     for (const st of sc.steps) {
       if (st.mesh) { drawObjects(P, st); continue; }

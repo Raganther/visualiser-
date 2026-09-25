@@ -130,15 +130,27 @@ export function drawGL(now, P){
   const sc = P.sc, out = {};
   Object.keys(sc.groups).forEach((g, i) => out[g] = trailPass(now, P, g, i === 0));
   const u = fbProg.u;
-  // the scene's fills: the chosen layers alone, through the kaleidoscope, drawn by the trails' own shader in fill mode
+  // the scene's fills: another image seen through an object's glass. A trail group is already a picture; layers are drawn
+  // alone by the trails' own shader in fill mode; worlds by a display segment, shrunk
   for (const key in sc.fills) if (P.o[key] > .003) {
-    const f = sc.fills[key], t = fills[key] || (fills[key] = halfTarget());
-    gl.useProgram(fbProg.p); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h);
+    const f = sc.fills[key];
+    P.m[key].fillAmt = TUNE.scene.fillAmt*(f.part ? TUNE.scene.partFillAmt : 1); P.m[key].fillPart = f.part;
+    const t = fills[key] || (fills[key] = halfTarget());
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h);
+    if (f.src !== 'layers') {   // a world or a trail group, shrunk into the glass by a display segment
+      drawSeg(now, P, f.src === 'world' ? WORLD_FILL : trailFill(f.g), null, f.zoom, out, [], f.src === 'world' ? TUNE.scene.worldFillGain : 1);
+      P.m[key].fillTex = t.tex; continue;
+    }
+    gl.useProgram(fbProg.p);
+    const Pf = {...P, l: {}};
+    for (const k in P.l) Pf.l[k] = f.layers.includes(k) ? 1 : 0;
+    for (const h of HIT_VISUALS) if (h.inTrails && !f.layers.includes(h.key)) Pf[h.trailWeight] = 0;
+    for (const vis of VISUALS) if (vis.fbUniforms) vis.fbUniforms(gl, u, Pf);
     gl.uniform1f(u.uFillMode, 1); gl.uniform1f(u.uFillGain, TUNE.scene.fillGain); gl.uniform1f(u.uFillZoom, f.zoom || TUNE.scene.fillZoom); gl.uniform1f(u.uSym, f.fold); gl.uniform1f(u.uMirror, 0);
-    for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], f.layers.includes(l.key) ? 1 : 0);
+    for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], Pf.l[l.key] || 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.uniform1f(u.uFillMode, 0);
-    P.m[key].fillTex = t.tex; P.m[key].fillAmt = TUNE.scene.fillAmt;
+    P.m[key].fillTex = t.tex;
   }
   // the scene's masks: objects' silhouettes, which trails are shown inside (or outside) of
   const maskOn = sc.masks.map((key, i) => {
@@ -167,27 +179,35 @@ export function drawGL(now, P){
     let dst = null;
     if (later) { si = under && under === surfs[0] ? 1 : 0; dst = surfs[si] || (surfs[si] = target(W, H, true)); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.fb : null); gl.viewport(0, 0, W, H);
-    const pr = segProg(st, sc), v = pr.u;
-    gl.useProgram(pr.p);
-    gl.uniform2f(v.uRes, W, H);
-    for (const g in out) { gl.activeTexture(gl.TEXTURE0 + (g === 'main' ? UNIT.main : UNIT.group)); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], g === 'main' ? UNIT.main : UNIT.group); }
-    if (under) { gl.activeTexture(gl.TEXTURE0 + UNIT.under); gl.bindTexture(gl.TEXTURE_2D, under.tex); gl.uniform1i(v.uUnder, UNIT.under); }
-    sc.masks.forEach((k, j) => { if (maskOn[j]) { gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, masks[j].tex); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, histTex);
-    if (!drawGL.histAt || drawGL.histAt !== now) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, HIST); drawGL.histAt = now; }
-    gl.uniform1i(v.uHist, 1);
-    gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
-    gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
-    for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
-    for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
-    // a mask whose object isn't on screen shows everything (it applies only while the object is there)
-    st.seg.forEach(it => { if (it.mask && it.mask.object && !maskOn[sc.masks.indexOf(it.mask.object)]) {
-      const j = sc.masks.indexOf(it.mask.object); gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, blankTex(it.mask.inside)); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    drawSeg(now, P, st, under, 1, out, maskOn);
     surf = dst;
   });
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+// the worlds alone, for a world filling an object
+const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, key: 'world-fill'};
+const trailFills = {}, trailFill = g => trailFills[g] || (trailFills[g] = {seg: [{t: 'trails', g}], first: true, last: false, fill: true, key: 'trail-fill:' + g});
+// one display segment over the picture so far (under), into whatever is bound
+function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
+  const sc = P.sc, pr = segProg(st, sc), v = pr.u;
+  gl.useProgram(pr.p);
+  gl.uniform2f(v.uRes, W, H);
+  gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain);
+  for (const g in out) { gl.activeTexture(gl.TEXTURE0 + (g === 'main' ? UNIT.main : UNIT.group)); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], g === 'main' ? UNIT.main : UNIT.group); }
+  if (under) { gl.activeTexture(gl.TEXTURE0 + UNIT.under); gl.bindTexture(gl.TEXTURE_2D, under.tex); gl.uniform1i(v.uUnder, UNIT.under); }
+  sc.masks.forEach((k, j) => { if (maskOn[j]) { gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, masks[j].tex); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, histTex);
+  if (!drawGL.histAt || drawGL.histAt !== now) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, HIST); drawGL.histAt = now; }
+  gl.uniform1i(v.uHist, 1);
+  gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
+  gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
+  for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
+  for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
+  // a mask whose object isn't on screen shows everything (it applies only while the object is there)
+  st.seg.forEach(it => { if (it.mask && it.mask.object && !maskOn[sc.masks.indexOf(it.mask.object)]) {
+    const j = sc.masks.indexOf(it.mask.object); gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, blankTex(it.mask.inside)); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 // a 1x1 texture that lets a mask show everything: white when keeping inside, black when keeping outside
 const blanks = {};

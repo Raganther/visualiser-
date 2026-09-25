@@ -19,6 +19,8 @@ const diff = (a, b, idx) => idx.reduce((s, i) => s + Math.abs(a[i] - b[i]), 0)/i
 
 const AMONG = [{world: 'all'}, {trails: 'main'}, {object: 'skull'}, {world: 'front'}, {hits: true}];
 const GROUPS = [{world: 'all'}, {trails: 'back', layers: ['comets']}, {world: 'front'}, {trails: 'main'}, {hits: true}, {objects: true}];
+const WORLD_IN = [{trails: 'main'}, {object: 'skull', fill: {world: true}}, {hits: true}];
+const COMETS_IN = [{world: 'all'}, {trails: 'main'}, {object: 'skull', fill: {trails: 'inner', layers: ['comets']}}, {hits: true}];
 async function run(browser, settings, scene, frames){
   const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0'});
   const t = await page.evaluate(`(async () => {
@@ -73,6 +75,17 @@ for (const mode of ['2d', 'gl']) {
     rB += diff(bare, await run(browser, {city: 1, ring: 1, decay: .96}, GROUPS, f), BAND);
   }
   report(cF > 1 && cB < cF*.6 && rB > cB, `${mode}: groups: comets ${cF.toFixed(1)} alone, ${cB.toFixed(1)} in the back group; the ring in front ${rB.toFixed(1)}`);
+  // fills from any image: a world only inside the skull; a trail group seen only through its glass
+  const skullOnly = await run(browser, {skull: 1}, WORLD_IN, n), cityIn = await run(browser, {skull: 1, city: 1}, WORLD_IN, n);
+  const wIn = diff(skullOnly, cityIn, MID), wOut = diff(skullOnly, cityIn, EDGE);
+  report(wIn > 2 && wOut < .5, `${mode}: the city fills the skull (change ${wIn.toFixed(1)}) and nowhere else (${wOut.toFixed(1)})`);
+  let open = 0, glass = 0;
+  for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540]) {
+    const bare = await run(browser, {skull: 1, decay: .96}, COMETS_IN, f);
+    open += diff(bare, await run(browser, {skull: 1, comets: 1, decay: .96}, null, f), EDGE);
+    glass += diff(bare, await run(browser, {skull: 1, comets: 1, decay: .96}, COMETS_IN, f), EDGE);
+  }
+  report(open > 1 && glass < open*.2, `${mode}: comets at the screen's edges: ${open.toFixed(1)} as usual, ${glass.toFixed(1)} when they're only in the skull's glass`);
   await browser.close();
 }
 srv.close();

@@ -17,13 +17,13 @@ export function composeSegment(seg, plan){
     if (it.t === 'world') return '  c+=w;   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails';
     if (it.t === 'front') return '  c=mix(c,w,frontCov(sp));   // the worlds\' front planes repaint their own colour over what\'s below';
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
-    const tex = `uT_${it.g}`, m = it.mask;
+    const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
     const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
       : `    { float m=texture2D(uMask${plan.masks.indexOf(m.object)},vUv).r; t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`;
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
-    vec3 t=texture2D(${tex},vUv).rgb;
-    vec3 b=(texture2D(${tex},vUv+vec2(px.x,0.0)).rgb+texture2D(${tex},vUv-vec2(px.x,0.0)).rgb
-           +texture2D(${tex},vUv+vec2(0.0,px.y)).rgb+texture2D(${tex},vUv-vec2(0.0,px.y)).rgb)*0.25;
+    vec3 t=texture2D(${tex},uv).rgb;
+    vec3 b=(texture2D(${tex},uv+vec2(px.x,0.0)).rgb+texture2D(${tex},uv-vec2(px.x,0.0)).rgb
+           +texture2D(${tex},uv+vec2(0.0,px.y)).rgb+texture2D(${tex},uv-vec2(0.0,px.y)).rgb)*0.25;
     t+=b*0.35;
     t*=1.0+uBeat*0.6;   // the kick flashes here, after the trails, so the brightest moment lands on the kick
 ${mask}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
@@ -33,7 +33,7 @@ ${mask}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes;
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
-uniform float uTime,uHue,uBass,uMid,uBeat,uReact;
+uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain;   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
 ${VISUALS.filter(v => v.glsl && v.glsl.uniforms).map(v => v.glsl.uniforms).join('\n')}
@@ -48,12 +48,12 @@ ${fronts}
   return fc; }
 void main(){
   ASP=uRes.x/uRes.y;
-  vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
+  vec2 sp=(vUv-0.5)*vec2(ASP,1.0)*max(uSpZ,1.0), uv=${seg.fill ? '(vUv-0.5)*uSpZ+0.5' : 'vUv'};
   vec2 px=3.0/uRes;
   vec3 c=${seg.first ? 'vec3(0.0)' : 'texture2D(uUnder,vUv).rgb'};
 ${needW ? '  vec3 w=vec3(0.0);\n' + worlds : ''}
 ${body}
-${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}
+${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}${seg.fill ? '  c*=uGain;' : ''}
   gl_FragColor=vec4(c,1.0);
 }`;
 }
@@ -112,7 +112,8 @@ ${part('folded')}
 void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0);
-  if(uFillMode>0.5){ vec2 fp=sp*uFillZoom; gl_FragColor=vec4(min(elements(fp,fp-uBurstC,max(uSym,1.0))*uFillGain*(0.6+uBeat*0.4),vec3(1.0)),1.0); return; }
+  bool fill=uFillMode>0.5;   // a fill: the chosen layers alone, smaller, with no trails, brought up to trail brightness
+  if(fill) sp*=uFillZoom;
   vec2 disp=vec2(0.0);
 ${displace}
   vec2 p=sp-uCenter;
@@ -120,16 +121,19 @@ ${displace}
 
   // feedback: last frame, transformed; symmetry crossfades between fold counts
   vec2 pf=p+disp*0.3;
-  vec3 col=sampleFb(pf,n1);
-  if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
-  col=hueRot(col,uHueShift);
-  col=max(col*uDecay-0.004,0.0);
-  col-=0.16*col*col;
+  vec3 col=vec3(0.0);
+  if(!fill){
+    col=sampleFb(pf,n1);
+    if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
+    col=hueRot(col,uHueShift);
+    col=max(col*uDecay-0.004,0.0);
+    col-=0.16*col*col;
+  }
 
   vec2 pe=p+disp, pb=sp-uBurstC+disp;
   vec3 e=elements(pe,pb,n1);
   if(fr>0.002) e=mix(e,elements(pe,pb,n1+1.0),fr);
-  col+=e*(0.35+uTreb*uReact*0.5+uHit*0.5);   // no kick boost here: in the trails it would build up and peak late
+  col+=e*(fill ? uFillGain*(0.6+uBeat*0.4) : 0.35+uTreb*uReact*0.5+uHit*0.5);   // no kick boost in the trails: it would build up and peak late
 ${main}
   gl_FragColor=vec4(min(col,vec3(1.0)),1.0);
 }`;

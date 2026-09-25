@@ -8,13 +8,29 @@
 //     mask: {object: 'skull', keep: 'inside' | 'outside'} or {world: 'front', keep}: shown only inside (outside) that shape
 //   {hits: true}                            the one-shot hits (star, outline, sparkles)
 //   {objects: true}                         every 3D object on screen that isn't placed by its own entry
-//   {object: 'skull', fill?}                one object here; fill: {layers: ['plasma'], fold: 6, zoom?} fills its glass
+//   {object: 'skull', fill?}                one object here, its glass filled with another image:
+//     fill: {layers: ['plasma', 'tunnel'], fold: 6, zoom?}   those layers alone (any layer, the media tunnel too), folded
+//           {trails: 'inner', layers: ['comets']}           a trail group seen only through the glass
+//           {world: true, zoom?}                            the worlds, shrunk into the glass
+//     and part: 7 fills only that part (7 is the eyes of the skull and unicorn)
 // Presets (and Journey) carry scenes, the renderers run resolveScene()'s plan. Imports only the tuning file.
 import { TUNE } from '../tuning.js';
 
 export const DEFAULT_SCENE = [{world: 'all'}, {trails: 'main'}, {hits: true}, {objects: true}];   // what the page has always drawn
 
 const cache = new WeakMap();
+// a trail group for the scene, within the budget (null: over it)
+function group(r, g, layers){
+  if (!(g in r.groups) && Object.keys(r.groups).length >= TUNE.scene.maxGroups) return null;
+  if (!(g in r.groups)) r.groups[g] = g === 'main' ? null : layers || [];
+  return g;
+}
+function fillOf(f, r){
+  const part = f.part || 0;
+  if (f.trails && group(r, f.trails, f.layers)) return {src: 'trails', g: f.trails, zoom: f.zoom || TUNE.scene.fillZoom, part};
+  if (f.world) return {src: 'world', zoom: f.zoom || TUNE.scene.worldFillZoom, part};
+  return {src: 'layers', layers: f.layers || [], fold: f.fold || 1, zoom: f.zoom, part};
+}
 // the plan: groups {name: layers or null for "the rest"}, steps (segments of full-screen items, and object draws),
 // fills {object: spec}, masks (objects whose silhouettes are needed), front (whether any world plane is used)
 export function resolveScene(scene){
@@ -26,9 +42,7 @@ export function resolveScene(scene){
   for (const e of scene) {
     if (e.world) { item({t: e.world === 'front' ? 'front' : 'world'}); if (e.world === 'front') r.front = true; }
     else if (e.trails) {
-      let g = typeof e.trails === 'string' ? e.trails : 'main';
-      if (!(g in r.groups) && Object.keys(r.groups).length >= TUNE.scene.maxGroups) g = 'main';   // over budget: into main
-      if (!(g in r.groups)) r.groups[g] = g === 'main' ? null : e.layers || [];
+      const g = group(r, typeof e.trails === 'string' ? e.trails : 'main', e.layers) || group(r, 'main') || 'main';   // over budget: into main
       const m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
       if (m && m.object && !r.masks.includes(m.object)) r.masks.push(m.object);
       if (m && m.world) r.front = true;
@@ -36,7 +50,7 @@ export function resolveScene(scene){
     }
     else if (e.hits) item({t: 'hits'});
     else if (e.objects || e.object) {
-      if (e.object) { r.placed.add(e.object); if (e.fill) r.fills[e.object] = {layers: e.fill.layers || [], fold: e.fill.fold || e.fill.kaleido || 1, zoom: e.fill.zoom}; }
+      if (e.object) { r.placed.add(e.object); if (e.fill) r.fills[e.object] = fillOf(e.fill, r); }
       r.steps.push({mesh: e.object || '*'}); seg = null;
     }
   }

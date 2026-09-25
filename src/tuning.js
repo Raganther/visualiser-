@@ -65,6 +65,9 @@ export const TUNE = {
     fillAmt: .9,               // how brightly a fill shows through an object's glass
     fillZoom: 2.4,             // how many times smaller a fill's pattern is than the full-screen layer (so it tiles inside an object)
     fillGain: 10,              // a fill is one frame of its layers, with no trails to build it up: this brings it to trail brightness
+    worldFillZoom: 2.6,        // how many times smaller a world is when it fills an object's glass (its horizon comes up into the glass)
+    worldFillGain: 2.2,        // and how much brighter: worlds are mostly dark sky, which would vanish into the dark glass
+    partFillAmt: 2,            // a fill in one part (the eyes) is small, so it shows this many times brighter
     maxGroups: 2,              // trail groups a scene may run (each is a full-size feedback pass); layers of any beyond this go to main
   },
 

@@ -73,6 +73,16 @@ export const BASE = [
   {name:'Behind and in front', journey:false, decay:.95, zoom:1.003, rot:0, warp:.1, sym:1, city:1, comets:1, ring:.7, colorSpeed:.04, hueDrift:.008,
     mods:{ring:{src:'kick', amt:.3}},
     scene:[{world:'all'}, {trails:'back', layers:['comets']}, {world:'front'}, {trails:'main'}, {hits:true}, {objects:true}]},
+  // fills from any image: the sunset landscape only inside the skull; comets seen only through its glass; the mirror tunnel in its eyes
+  {name:'Sunset in the skull', journey:false, decay:.92, zoom:1.004, rot:0, warp:.1, sym:1, land:1, skull:1, ring:.5, colorSpeed:.04, hueDrift:.008,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{trails:'main'}, {object:'skull', fill:{world:true}}, {hits:true}]},
+  {name:'Comets in the glass', journey:false, decay:.95, zoom:1.004, rot:0, warp:.1, sym:1, space:1, skull:1, comets:1, ring:.5, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull', fill:{trails:'inner', layers:['comets']}}, {hits:true}]},
+  {name:'Tunnel eyes', journey:false, decay:.92, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, skull:1, ribbons:.4, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull', fill:{layers:['tunnel'], part:7, zoom:1.5}}, {hits:true}]},
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
 ];
