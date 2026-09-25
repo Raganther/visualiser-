@@ -65,7 +65,8 @@ for (const mode of ['2d', 'gl']) {
   const city = await run(browser, {city: 1, decay: .9}, null, n);
   const onTop = diff(city, await run(browser, {city: 1, skull: 1, decay: .9}, null, n), LOW);
   const among = diff(await run(browser, {city: 1, decay: .9}, AMONG, n), await run(browser, {city: 1, skull: 1, decay: .9}, AMONG, n), LOW);
-  report(onTop > 2 && among < onTop*.6, `${mode}: the skull's lower half: ${onTop.toFixed(1)} on top, ${among.toFixed(1)} among the buildings`);
+  // .7: the skull shows through the gaps between the near buildings, which vary with the city's layout
+  report(onTop > 2 && among < onTop*.7, `${mode}: the skull's lower half: ${onTop.toFixed(1)} on top, ${among.toFixed(1)} among the buildings`);
   // trail groups: comets in a group behind the buildings, the ring in main in front of them
   let cB = 0, cF = 0, rB = 0;
   for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540, 660]) {

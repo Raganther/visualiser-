@@ -214,6 +214,18 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Drawing:** in WebGL it's blended over the trails (not added), so pictures stay recognisable. Its media texture uses texture unit 3, and a still image uploads once. Simple mode draws a six-way mirror.
 - **Caveat:** hosts that sandbox the page (possibly the claude.ai Artifact) may block the camera; files still work.
 
+## The city
+
+`visuals/worlds/city.js`, rebuilt after the user found the old skyline "naff" (flat rectangles, noisy windows, no depth):
+- **Four rows**, far to near (`row()`, and the same numbers in the shader): the far rows are the tall towers downtown, faded into the haze; the near rows are darker and shorter. They scroll at different speeds.
+- **Silhouettes:** gaps between buildings, a narrower crown on some (setbacks), antennas on others, whose red lights blink on the beat.
+- **Windows** in each building's own style (warm or cool, office widths, some buildings dark), lit floor by floor; a share change on the downbeat (`uCitySeed`).
+- **Neon signs** down the side of some near buildings, in the palette's colour, lit harder on the beat.
+- **Sky:** the city's glow low down, a few clouds lit from below, the moon with a halo in the haze.
+- **Street:** the skyline reflected and rippling, and traffic: headlights one way, tail lights the other, with streaks on the wet road.
+- **Front plane:** the two nearest rows, so things "between" sit behind the near buildings and in front of the towers.
+- Simple mode draws the same rows, windows, neon, antenna lights and traffic, plainer.
+
 ## Meshes: the wire skull, the unicorn and the maths shapes
 
 **The mesh engine** (`src/render/mesh.js`, a leaf module) draws any triangle mesh as glowing wire edges over dark glass panes.
@@ -285,7 +297,7 @@ The first-principles model (the rebuild is logged in `docs/composition-plan.md`)
 - **Adding a signal:** add it to `SIG`, feed it in `updateSignals`, and give it a line in `SIGNALS`.
 
 **Scenes** (`src/scene/graph.js`) are plain data, a stack bottom to top. `resolveScene()` compiles one into a draw plan (`P.sc`), cached per scene object, so a scene is never edited in place: a change is a new array.
-- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's near buildings, the land's nearest ridge, the aurora's treeline, space's planet) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
+- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's two nearest rows of buildings, the land's nearest ridge, the aurora's treeline, space's planet) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
 - `{trails: 'main'}`: the trail group holding every layer no other group claims. `{trails: 'back', layers: ['comets']}`: another group (at most `TUNE.scene.maxGroups`, each a full-size feedback pass). So comets can fly behind the buildings while the ring pulses in front.
 - `mask: {object: 'skull', keep: 'inside' | 'outside'}` or `{world: 'front', keep}` on a trails entry: shown only inside (outside) that shape. It applies only while the object is on screen.
 - `{hits: true}`, `{objects: true}` (every object on screen that no entry places), `{object: 'skull', fill?}` (one object, here in the stack: among a world's planes, under the hits, anywhere).
