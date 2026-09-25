@@ -135,29 +135,53 @@ export function meshGL(gl, mesh){
 
 
 // ---- simple mode: the same motion worked out here, panes filled back to front, edges stroked in light ----
-const rx = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], c*p[1] - s*p[2], s*p[1] + c*p[2]]; };
-const ry = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [c*p[0] + s*p[2], p[1], -s*p[0] + c*p[2]]; };
+// hue, saturation, value (0..1) to rgb (0..1), for simple mode's glass
+const hsvRgb = (h, sa, v) => [0, 2/3, 1/3].map(o => { const p = Math.abs(((h + o) % 1 + 1) % 1*6 - 3); return v*(1 - sa + sa*Math.min(1, Math.max(0, p - 1))); });
 const hsl = (h, l, a) => `hsla(${((h % 1) + 1) % 1*360},75%,${l}%,${Math.max(0, Math.min(1, a)).toFixed(3)})`;
 // every visible pane, placed and projected onto the canvas, back to front
 function project2d(o, panes, hinge, U){
-  const Wc = o.canvas.width, Hc = o.canvas.height, sc = Hc*U.size*FOCAL;
-  const place = (q, p) => {
-    let c = q.c, n = q.n;
-    if (q.hinged) { const h = v => rx(v.map((x, k) => x - hinge[k]), U.jaw).map((x, k) => x + hinge[k]); p = h(p); c = h(c); n = rx(n, U.jaw); }
-    const e = U.ex*(.5 + q.seed), cl = Math.hypot(...c) || 1, d0 = n.map((x, k) => x + c[k]/cl*.8), dl = Math.hypot(...d0);
-    const r = ry(rx(p.map((x, k) => x - c[k]), e*(q.seed*9 - 4.5)), e*(q.seed*7 - 3.5));
-    p = r.map((x, k) => c[k] + x*(1 - .3*e) + d0[k]/dl*e*.9);
-    return rx(ry(p, U.rot), U.pitch);
+  const Wc = o.canvas.width, Hc = o.canvas.height, sc = Hc*U.size*FOCAL, key = Wc + 'x' + Hc;
+  if (U.proj && U.proj.key === key) return U.proj.L;   // once a frame: a mask and the drawing share it
+  // plain arithmetic, no arrays per vertex: this runs for every pane every frame
+  const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), spi = Math.sin(U.pitch), cj = Math.cos(U.jaw), sj = Math.sin(U.jaw);
+  const [hx, hy, hz] = hinge || [0, 0, 0], Lt = U.light || {amt: 0}, lx = Lt.x || 0, ly = Lt.y || 0, ll = Math.hypot(lx, ly, .6);
+  const out = [0, 0, 0];
+  // a point after the hinge, the pane's own flight and spin (e), then the whole object's turn, into out
+  const place = (x, y, z, hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz) => {
+    if (hinged) { const y0 = y - hy, z0 = z - hz; y = cj*y0 - sj*z0 + hy; z = sj*y0 + cj*z0 + hz; }
+    if (e > 1e-5) {
+      let px = x - cx, py = y - cy, pz = z - cz;
+      const py2 = ca*py - sa*pz, pz2 = sa*py + ca*pz; py = py2; pz = pz2;             // rx
+      const px3 = cb*px + sb*pz, pz3 = -sb*px + cb*pz; px = px3; pz = pz3;            // ry
+      const k = 1 - .3*e; x = cx + px*k + dx; y = cy + py*k + dy; z = cz + pz*k + dz;
+    }
+    const x1 = cr*x + sr*z, z1 = -sr*x + cr*z;                                          // ry(rot)
+    out[0] = x1; out[1] = cp*y - spi*z1; out[2] = spi*y + cp*z1;                        // rx(pitch)
   };
-  const proj = p => [Wc/2 + (U.pos[0] + p[0]*sc/(CAM - p[2])/Hc)*Hc, Hc/2 - (U.pos[1] + p[1]*sc/(CAM - p[2])/Hc)*Hc];
   const L = [];
   for (const q of panes) {
     if (q.seed < U.gone) continue;
-    const pts = q.v.map(v => place(q, v)), nw = rx(ry(q.n, U.rot), U.pitch);
-    const Lt = U.light || {amt: 0}, ld = [Lt.x || 0, Lt.y || 0, .6], dl = Math.hypot(...ld);   // the world's light on the side facing it
-    L.push({q, s: pts.map(proj), z: (pts[0][2] + pts[1][2] + pts[2][2])/3, face: .5 + .5*nw[2], lit: Math.max(0, (nw[0]*ld[0] + nw[1]*ld[1] + nw[2]*ld[2])/dl)*Lt.amt});
+    let [cx, cy, cz] = q.c, [nx, ny, nz] = q.n;
+    if (q.hinged) { const y0 = cy - hy, z0 = cz - hz; cy = cj*y0 - sj*z0 + hy; cz = sj*y0 + cj*z0 + hz; const ny2 = cj*ny - sj*nz; nz = sj*ny + cj*nz; ny = ny2; }
+    const e = U.ex*(.5 + q.seed);
+    let ca = 1, sa = 0, cb = 1, sb = 0, dx = 0, dy = 0, dz = 0;
+    if (e > 1e-5) {
+      ca = Math.cos(e*(q.seed*9 - 4.5)); sa = Math.sin(e*(q.seed*9 - 4.5)); cb = Math.cos(e*(q.seed*7 - 3.5)); sb = Math.sin(e*(q.seed*7 - 3.5));
+      const cl = Math.hypot(cx, cy, cz) || 1, ex = nx + cx/cl*.8, ey = ny + cy/cl*.8, ez = nz + cz/cl*.8, dl = Math.hypot(ex, ey, ez), f = e*.9/dl;
+      dx = ex*f; dy = ey*f; dz = ez*f;
+    }
+    const s = [], v = q.v; let zs = 0;
+    for (let i = 0; i < 3; i++) {
+      place(v[i][0], v[i][1], v[i][2], q.hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz);
+      const w = sc/(CAM - out[2]); zs += out[2];
+      s.push([Wc/2 + U.pos[0]*Hc + out[0]*w, Hc/2 - U.pos[1]*Hc - out[1]*w]);
+    }
+    const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1;   // the pane's facing
+    L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt});
   }
-  return L.sort((a, b) => a.z - b.z);
+  L.sort((a, b) => a.z - b.z);
+  U.proj = {key, L};
+  return L;
 }
 const tri = (o, s) => { o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); };
 // the object's silhouette as a path (for masks): every visible pane, holes included
@@ -167,17 +191,30 @@ export function meshDraw2d(o, panes, hinge, U){
   const Hc = o.canvas.height, L = project2d(o, panes, hinge, U);
   o.lineJoin = 'round'; o.lineWidth = Math.max(1, U.line*Hc/720*.8);   // back to front: dark glass over what's behind, then light
   const pal = U.pal || [0, .33, .67], ph = part => pal[part % 3] + Math.floor(part/3)*.04;   // parts take the palette's hues in turn
+  // glass first, back to front; then the edges, gathered by colour into a few paths (stroking panes one by one was the
+  // cost). The far side's edges show faintly through the near glass, as WebGL's x-ray pass does
+  o.globalCompositeOperation = 'source-over';
+  const edges = new Map(), lh = ((U.hue + (U.light ? U.light.hue : 0)) % 1 + 1) % 1*360;
   for (const {q, s, face, lit} of L) {
     const sweep = U.sweepAmt*Math.exp(-(((q.c[1] - (.55 - U.sweep*1.1))*7)**2)), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
     const hole = q.part >= 7, h = hole ? U.hue + U.partHue + pal[2] + .5 : U.hue + U.partHue + ph(q.part), w = U.w;   // eye sockets and nose: dark holes
-    o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath();
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
-    o.globalCompositeOperation = 'source-over'; o.fillStyle = `rgba(0,0,0,${(U.dark*w).toFixed(3)})`; o.fill();
-    o.globalCompositeOperation = 'lighter';
-    if (fa > .01) { o.fillStyle = hsl(h, 55, fa*w*.5); o.fill(); }
-    if (lit > .02 && !hole) { o.fillStyle = `hsla(${((U.hue + U.light.hue) % 1 + 1) % 1*360},${Math.round(U.light.sat*100)}%,60%,${(lit*.3*w).toFixed(3)})`; o.fill(); }
-    o.strokeStyle = hsl(h, 55 + 30*Math.min(1, sweep + spark), ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)); o.stroke();
+    const back = face < .45 && !sweep && !spark;   // the far side: edges only (the near glass covers it)
+    if (!back) {   // one fill: the dark glass over what's behind, with its own glow and the world's light mixed in
+      const d = Math.max(.05, U.dark*w), g = hsvRgb(h, .55, Math.min(1, fa*w*.5)), l = hole ? [0, 0, 0] : hsvRgb(lh/360, U.light ? U.light.sat : 0, lit*.3*w);
+      const c = k => Math.min(255, Math.round((g[k] + l[k])/d*255));
+      o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath();
+      o.fillStyle = `rgba(${c(0)},${c(1)},${c(2)},${d.toFixed(3)})`; o.fill();
+    }
+    const a = ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)*(back ? .6 : 1);
+    if (a < .01) continue;
+    const hk = Math.round((((h % 1) + 1) % 1)*72), lk = Math.round((55 + 30*Math.min(1, sweep + spark))/5)*5, ak = Math.min(25, Math.round(a*25));
+    const key = hk*10000 + lk*100 + ak;
+    let e = edges.get(key); if (!e) edges.set(key, e = {h: hk/72, l: lk, a: ak/25, p: new Path2D()});
+    e.p.moveTo(s[0][0], s[0][1]); e.p.lineTo(s[1][0], s[1][1]); e.p.lineTo(s[2][0], s[2][1]); e.p.closePath();
   }
+  o.globalCompositeOperation = 'lighter';
+  for (const e of edges.values()) { o.strokeStyle = hsl(e.h, e.l, e.a); o.stroke(e.p); }
   if (U.fillImg) {                                      // the fill, clipped to the near glass, then its edges again on top
     const near = U.fillPart ? L.filter(p => p.q.part === U.fillPart) : L.filter(p => p.face > .5 && p.q.part < 7);
     o.save(); o.beginPath(); for (const {s} of near) tri(o, s); o.clip();

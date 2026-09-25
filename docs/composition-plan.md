@@ -30,7 +30,7 @@ mesh draws, and small fill/mask prep passes.
 - [x] 5. Shared context: section palette, wind, light.
 - [x] 6. Journey composes scenes from templates, within a budget.
 - [x] 7. Scene UI in the Adjust panel: what / where / driven by.
-- [ ] 8. Cleanup, docs, final publish.
+- [x] 8. Cleanup, docs, final publish.
 
 ## Log
 - Stage 1: scenes compile to a draw plan (trail groups, full-screen segments composed per run of items and cached, object draws between them). Both renderers run the plan; the default and demo scenes draw as before (golden matches).
@@ -39,3 +39,10 @@ mesh draws, and small fill/mask prep passes.
 - Stage 5: `scene/context.js` gives every visual one palette (each section picks triad, analogous, split or contrast), one wind (comets, flow, ribbons, objects and the trails all move with it; gusts on section changes and drops) and one light (the world's, falling on the objects). Golden re-recorded: the colours and motion change on purpose.
 - Stage 6: Journey composes every section from a scene template (`scene/templates.js`): plain, between, split, among, reflect, inside, window, glass. Each fits a cast (a world, a centrepiece, an accent), suits some music, and tires like the layers do; scenes change on a bar line and return with their section. A centrepiece now comes in about 30% of sections (`TUNE.scene.centreChance`). Over 400 simulated sections every template is chosen. Golden re-recorded.
 - Stage 7: the Adjust panel's "Scene" part lists the stack top to bottom. In Journey it shows the live scene; by hand you can compose from a template (it brings in a world, an object or a second layer if needed), move and remove entries, add new ones, mask trails, fill an object's glass, and drive a world's or the trails' weight by any signal (`drive` on an entry). CLAUDE.md rewritten for the new model.
+- Stage 8: simple mode's objects drawn faster (projection without allocations and shared per frame, one fill per pane, edges batched by colour: the knot's cost fell from about 30 to 23 ms a frame headless). CLAUDE.md covers the whole model. Checked on the user's real track offline: Journey moved through split, between, inside, window, glass and plain scenes, with the unicorn and the spiky star as centrepieces; returning sections kept their scenes and varied on a third visit; the beat grid still held 207 of 272 s.
+
+## What's next (not in this rebuild)
+- Tune the scene weights, centrepiece share, wind and light by listening (they're first guesses).
+- Objects in more places: two objects at once, objects in the trails' groups, an object masking a world.
+- More front planes per world (a middle plane), so things can sit at more depths.
+- Transitions as scene operations (a new scene wiping in through an object's shape).

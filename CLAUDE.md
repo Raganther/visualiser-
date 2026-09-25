@@ -227,7 +227,7 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
   - Edges are drawn as screen-space bands, because WebGL lines are only 1 px wide.
   - On screen it's three passes: the far side's edges faintly (`xray`), then the panes (depth-tested, darkening what's behind them), then the near edges.
   - Into the trails it draws edges only (`trail`). The trail buffers have no depth.
-- **Simple mode.** The panes are painted back to front, each as dark glass followed by its lit edges.
+- **Simple mode.** The glass is painted back to front, one fill per near pane (dark glass, its glow and the world's light in one colour); then the edges are gathered by colour into a few paths and stroked, the far side's dimmer, like WebGL's x-ray. The projection is plain arithmetic, done once a frame and shared by a mask and the drawing.
 - **Setup.** The main canvas asks for a depth buffer for this.
 
 **Generated meshes** live in `src/visuals/objects/meshes/*.js` and aren't edited by hand. `npm run mesh` runs `tools/skull-mesh.mjs` and `tools/unicorn-mesh.mjs`, which share `tools/mesh-kit.mjs`. The skull tool:
@@ -369,7 +369,7 @@ Useful facts:
 
 ## Known limits
 
-- **Simple mode with objects is heavy.** The knot (1,680 panes) and the torus (768) are painted pane by pane each frame, twice when they also mask or fill. On a slow device without WebGL, sections with them can drop frames.
+- **Simple mode with objects is heavy.** In headless software rendering at 960×540, the knot (1,680 panes) adds about 23 ms a frame (from 30 before the simple-mode rework). On a slow device without WebGL, sections with the big shapes can drop frames.
 - **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
 - **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
   - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
