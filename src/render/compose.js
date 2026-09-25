@@ -65,12 +65,14 @@ ${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}${seg.fill ? '  
 // glow (adds to the shared brightness g, coloured by one gradient), folded (own colour, inside the kaleidoscope fold),
 // main (drawn over everything, in paint order), displace (pushes where everything is sampled, like shockwaves).
 export function composeFeedback(){
-  const fb = VISUALS.filter(v => v.feedback).map(v => v.feedback);
-  const part = (k, sep = '\n') => fb.filter(f => f[k]).map(f => f[k].replace(/^\n/, '')).join(sep);
+  // every visual's code runs only while it has weight: most are off at any moment, and this shader runs for every pixel of
+  // every trail group (a layer's weight is uL_<key>; a hit drawn in the trails names its own, fbWeight)
+  const fbv = VISUALS.filter(v => v.feedback), wt = v => v.fbWeight || 'uL_' + v.key;
+  const guard = (v, code) => `  if(${wt(v)}>0.003){\n${code.replace(/^\n/, '')}\n  }`;
+  const part = (k, sep = '\n') => fbv.filter(v => v.feedback[k]).map(v => k === 'uniforms' || k === 'functions' ? v.feedback[k].replace(/^\n/, '') : guard(v, v.feedback[k])).join(sep);
   const layers = LAYER_VISUALS.filter(v => v.feedback);
-  const main = VISUALS.filter(v => v.feedback && v.feedback.main).sort((a, b) => a.paint - b.paint)
-    .map(v => v.feedback.main.replace(/^\n/, '')).join('\n');
-  const displace = fb.filter(f => f.displace).map(f => `  disp+=${f.displace};`).join('\n');
+  const main = fbv.filter(v => v.feedback.main).sort((a, b) => a.paint - b.paint).map(v => guard(v, v.feedback.main)).join('\n');
+  const displace = fbv.filter(v => v.feedback.displace).map(v => `  if(${wt(v)}>0.003) disp+=${v.feedback.displace};`).join('\n');
   return PREC + `
 varying vec2 vUv;
 uniform sampler2D uPrev, uData;

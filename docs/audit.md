@@ -26,16 +26,17 @@ The full `npm test` took 25–30 min, most of it WebGL frames in `scene.mjs` and
 - [x] Scene editor: keeps focus across edits, lets the same template be picked twice, dedupes worlds and hits, names extra groups uniquely.
 
 ## Wave 3: performance
-- [ ] The feedback shader ran every layer on every pixel whatever its weight: each layer (and the shockwaves) skipped when off.
-- [ ] Depth buffers only where an object is drawn; none on the canvas.
-- [ ] Segment shaders for every template compiled when the page is idle, so a scene change doesn't hitch on the downbeat.
-- [ ] Per-frame allocations trimmed (a reused per-group settings object, hoisted lists).
+- [x] The feedback shader ran every layer on every pixel whatever its weight: each layer (and the shockwaves) skipped when off.
+- [x] No depth buffer on the canvas (everything is drawn on surfaces, which have their own).
+- [x] Segment shaders for every template compiled when the page is idle, so a scene change doesn't hitch on the downbeat.
+- [-] Per-frame allocations trimmed: measured, they're small next to the GPU passes; left as they are.
+- [x] Trails drawn at ¾ of the screen's resolution (`TUNE.render.trailScale`): they're softened anyway, and it looks the same. Comets alone went from 49 to 41 ms a frame in software WebGL (the guards above gave 4% there; on a real GPU a branch on a uniform is almost free).
 
 ## Wave 4: structure
-- [ ] `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` import cycles removed.
-- [ ] The city's numbers written once (interpolated into its shader).
-- [ ] Dead exports removed; the build checks its replacements and escapes `<!--` and `</style`.
-- [ ] CLAUDE.md corrected (25 presets; trails clamp at 1, surfaces don't).
+- [x] `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` import cycles removed.
+- [x] The city's numbers written once (interpolated into its shader).
+- [x] Dead exports removed; the build checks its replacements and escapes `<!--` and `</style`.
+- [x] CLAUDE.md corrected (25 presets; trails clamp at 1, surfaces don't).
 - [-] UI hooks to break engine → UI imports: a wide refactor of load order for no visible gain; the cycles are all function-level and safe. Noted in CLAUDE.md.
 
 ## Wave 5: creative
@@ -46,3 +47,4 @@ The full `npm test` took 25–30 min, most of it WebGL frames in `scene.mjs` and
 
 ## Log
 - Waves 1–2: the suite runs two files at a time with each file's time, `scene.mjs` caches deterministic runs and takes several snapshots per run, and tests that only read Journey don't draw: `npm test` about 9½ min (from 25–30). All the correctness fixes above landed, with regression checks: a quieter stretch after a loud one (`grid.mjs`; .03 kicks a beat before, .35 after, at 22 dB down) and the scenes that used to break (`scene.mjs`). Golden re-recorded: the kick floor now forgets after 1.5 s without a kick (the groove's breakdown), and the landscape reads the fixed energy.
+- Waves 3–4: the trails' shader guards every visual by its weight; the trails run at ¾ resolution; every template's shaders compile at idle. Cycles `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` removed; the city's numbers are written once and interpolated into its shader; the build fails loudly if index.html changes shape, and escapes `<!--` and `</style`. Golden re-recorded (the trails' resolution).

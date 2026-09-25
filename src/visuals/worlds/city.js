@@ -6,9 +6,14 @@ import { hc } from '../../util.js';
 
 const st = {seed:0};
 const ROWS = 4, GROUND = -.3;
-// a row's building layout, the same in both renderers: width, scroll speed, how tall, how hazy (far rows fade most)
+// a row's building layout, the same numbers in both renderers (each draws its own buildings): width, scroll speed, how
+// tall, how hazy (far rows fade most)
 const TALL = [1.35, 1.1, .95, .85], HAZE = [.8, .56, .3, .06];   // far rows are the tall towers downtown, faded into the haze
-const row = L => ({w: .03 + L*.018, speed: .004 + L*.009, tall: TALL[L], haze: HAZE[L], off: L*3.7});
+const R0 = {w: .03, dw: .018, speed: .004, dspeed: .009, off: 3.7};   // a row's width, scroll speed and offset grow nearer
+const row = L => ({w: R0.w + L*R0.dw, speed: R0.speed + L*R0.dspeed, tall: TALL[L], haze: HAZE[L], off: L*R0.off});
+// the same numbers in GLSL: a float, and a pick by row (L) from a table
+const f = x => x.toFixed(4), byRow = a => a.map((v, i) => i < a.length - 1 ? `L<${i}.5 ? ${f(v)} : ` : f(v)).join('');
+const GW = `${f(R0.w)}+L*${f(R0.dw)}`;
 let rnd2d = null;                                      // simple mode's building randoms, per row
 export default {
   key: 'city', kind: 'world', label: 'City',
@@ -23,10 +28,10 @@ export default {
     functions: `
 // city: a building of row L at x: its top, and which building (id) and where across it (lx, 0..1), for width w
 float cityRow(float x,float L,float w,out float id,out float lx){
-  float xs=x+uTime*(0.004+L*0.009)+L*3.7;
+  float xs=x+uTime*(${f(R0.speed)}+L*${f(R0.dspeed)})+L*${f(R0.off)};
   id=floor(xs/w); lx=fract(xs/w);
   float hb=hash(vec2(id,L+1.0));
-  return -0.3+(0.05+0.2*hb*hb+0.04*hash(vec2(id,L+5.0)))*(L<0.5 ? 1.35 : L<1.5 ? 1.1 : L<2.5 ? 0.95 : 0.85)+specD(fract(id*0.137+L*0.31))*0.05*uReact*(0.3+L*0.25);
+  return -0.3+(0.05+0.2*hb*hb+0.04*hash(vec2(id,L+5.0)))*(${byRow(TALL)})+specD(fract(id*0.137+L*0.31))*0.05*uReact*(0.3+L*0.25);
 }
 // its outline: the body with a gap each side, a narrower crown on some (a setback), an antenna on others
 float cityShape(float lx,float y,float h,float id,float L,float w){
@@ -54,7 +59,7 @@ vec3 citySky(vec2 sp){
 vec3 cityAbove(vec2 sp){
   vec3 c=citySky(sp), haze=hsv(uHue+0.94,0.5,0.3);
   for(int i=0;i<4;i++){
-    float L=float(i), w=0.03+L*0.018, id, lx;
+    float L=float(i), w=${GW}, id, lx;
     float h=cityRow(sp.x,L,w,id,lx);
     if(cityShape(lx,sp.y,h,id,L,w)<0.5) continue;
     float fl=L/3.0, style=hash(vec2(id,L+3.0));
@@ -80,7 +85,7 @@ vec3 cityAbove(vec2 sp){
     // an antenna's light, blinking on the beat
     float ah=hash(vec2(id,L+11.0))>0.8 ? 0.02+0.05*fract(hash(vec2(id,L+11.0))*13.0) : -1.0;
     if(ah>0.0) b+=vec3(1.0,0.15,0.1)*smoothstep(0.004,0.0,length(vec2((lx-0.5)*w,sp.y-h-ah)))*(0.3+uBeat*1.2);
-    c=mix(b,haze,L<0.5 ? 0.8 : L<1.5 ? 0.56 : L<2.5 ? 0.3 : 0.06);                 // far rows fade into the haze (row() in JS)
+    c=mix(b,haze,${byRow(HAZE)});                                               // far rows fade into the haze
   }
   c+=hsv(uHue+0.95,0.6,1.0)*exp(-(sp.y+0.3)*16.0)*0.14;                            // fog glowing over the street
   return c;
@@ -114,7 +119,7 @@ vec3 city(vec2 sp){
 float cityFront(vec2 sp){
   if(sp.y<-0.3) return 0.0;
   float f=0.0;
-  for(int i=2;i<4;i++){ float L=float(i), w=0.03+L*0.018, id, lx, h=cityRow(sp.x,L,w,id,lx); f=max(f,cityShape(lx,sp.y,h,id,L,w)); }
+  for(int i=2;i<4;i++){ float L=float(i), w=${GW}, id, lx, h=cityRow(sp.x,L,w,id,lx); f=max(f,cityShape(lx,sp.y,h,id,L,w)); }
   return f;
 }`,
     path2d(o, P, t){ const g = geo(o, P); for (const L of [2, 3]) buildings2d(g, L, t, P, (x0, y0, x1, y1) => o.rect(x0, y0, x1 - x0, y1 - y0)); },

@@ -63,6 +63,7 @@ export const TUNE = {
   // scenes (scene/graph.js): how their fills show
   // the picture's finish (render/gl.js; bloom also in simple mode)
   render: {
+    trailScale: .75,           // the trails' resolution against the screen's (they're soft anyway; a phone draws 44% fewer pixels)
     trailSoft: 1,              // how far (in pixels) the trails are softened each frame, so fast shapes smear instead of stepping
     trailFloor: .0015,         // what the trails lose each frame besides fading, so faint tails end (8-bit trails need .004)
     bloom: .6,                 // how strongly bright parts glow onto their surroundings (0: off)

@@ -2,6 +2,7 @@
 import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
 import { UNIT, composeFeedback, composeSegment } from './compose.js';
+import { resolveScene } from '../scene/graph.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -27,7 +28,8 @@ function program(fs, vs){
   return {p, u};
 }
 let pProg = null, pBuf = null, quadBuf = null, histTex = null, post = null, hdr = null;
-export let fbProg = null, fbos = [], cur = 0, W = 1, H = 1, dataTex = null, r2d = null;
+let fbProg = null, fbos = [], cur = 0, dataTex = null;
+export let W = 1, H = 1, r2d = null;
 // half-float colour where the device can render to it: smooth trail tails, no banding, and brightness above 1 kept for
 // the finish to roll off (null: plain 8-bit)
 function detectHdr(){
@@ -82,9 +84,19 @@ function segProg(seg, plan){
   if (!p) segProgs.set(seg.key, p = program(composeSegment(seg, plan)));
   return p;
 }
+// compile the segment shaders these scenes will need, one at a time while the page is idle, so a scene's first bar line
+// doesn't stall on a shader compile
+export function warmScenes(scenes){
+  if (!gl) return;
+  const todo = [];
+  for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) todo.push([st, plan]); }
+  const idle = window.requestIdleCallback || (f => setTimeout(f, 50));
+  const next = () => { if (!todo.length || lost) return; const [st, plan] = todo.shift(); try { segProg(st, plan); } catch (e) {} idle(next); };
+  idle(next);
+}
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
-let fills = {}, masks = [], groups = {}, surfs = [], blooms = [];
+let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
 function target(w, h, depth, f){
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
@@ -99,12 +111,13 @@ const drop = t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb)
 function glResize(){
   [...Object.values(fills), ...masks, ...surfs, ...blooms, ...Object.values(groups).flatMap(g => g.fbos), ...fbos].forEach(drop);
   fills = {}; masks = []; groups = {}; surfs = [];
-  fbos = [0, 1].map(() => target(W, H, false, hdr));
+  TW = Math.max(2, Math.round(W*TUNE.render.trailScale)); TH = Math.max(2, Math.round(H*TUNE.render.trailScale));
+  fbos = [0, 1].map(() => target(TW, TH, false, hdr));
   blooms = [0, 1].map(() => target(Math.max(1, W >> 2), Math.max(1, H >> 2), false, hdr));   // the glow, at quarter size
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 // a trail group's buffer pair: main is the page's own, others are made on first use
-const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ cur = v; }} : groups[g] || (groups[g] = {fbos: [target(W, H, false, hdr), target(W, H, false, hdr)], cur: 0});
+const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ cur = v; }} : groups[g] || (groups[g] = {fbos: [target(TW, TH, false, hdr), target(TW, TH, false, hdr)], cur: 0});
 // one feedback pass for a trail group: the last frame moved and faded, and the group's own layers drawn on top
 // the trails' shader settings every pass shares (trail groups and fills), and this frame's audio data: once a frame
 function fbShared(now, P){
@@ -112,7 +125,7 @@ function fbShared(now, P){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dataTex);
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
   gl.uniform1i(u.uData, 1);
-  gl.uniform2f(u.uRes, W, H); gl.uniform2f(u.uCenter, P.cx, P.cy);
+  gl.uniform2f(u.uRes, TW, TH); gl.uniform2f(u.uCenter, P.cx, P.cy);
   gl.uniform1f(u.uTime, now/1000);
   gl.uniform1f(u.uZoom, P.zoom); gl.uniform1f(u.uRot, P.rot); gl.uniform1f(u.uWarp, P.warp);
   gl.uniform1f(u.uDecay, P.decay);
@@ -121,11 +134,11 @@ function fbShared(now, P){
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
   gl.uniform3fv(u.uPal, P.pal); gl.uniform2f(u.uDrift, P.drift[0], P.drift[1]);
-  const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/W, R.trailSoft*.5/H); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
+  const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/TW, R.trailSoft*.5/TH); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
 }
 function trailPass(now, P, g){
   const sc = P.sc, pr = pairOf(g), src = pr.fbos[pr.cur], dst = pr.fbos[1 - pr.cur], inG = k => sc.groupOf(k) === g;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,W,H);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,TW,TH);
   gl.useProgram(fbProg.p); const u = fbProg.u;
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
   gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
@@ -140,12 +153,12 @@ function trailPass(now, P, g){
     gl.useProgram(pProg.p);
     gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, parts);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(2, H/320));
+    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(2, TH/320));
     gl.uniform3fv(pProg.u.uCol, P.flowCol);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, NP); gl.disable(gl.BLEND);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   }
-  for (const o of OBJECT_VISUALS) if (o.drawGL && P.o[o.key] > .003 && inG(o.key)) o.drawGL(gl, P, W, H, 'trails');   // objects leave ghosts
+  for (const o of OBJECT_VISUALS) if (o.drawGL && P.o[o.key] > .003 && inG(o.key)) o.drawGL(gl, P, TW, TH, 'trails');   // objects leave ghosts
   pr.cur = 1 - pr.cur;
   return dst;
 }

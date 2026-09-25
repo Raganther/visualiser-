@@ -1,5 +1,4 @@
 // Simple mode: the same picture drawn with the Canvas 2D API, for browsers without WebGL.
-import { H, W } from './gl.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 
@@ -9,9 +8,10 @@ export function make2D(view){
   const bufs = [document.createElement('canvas'), document.createElement('canvas')];
   const ctxs = bufs.map(b => b.getContext('2d'));
   const hasFilter = typeof ctxs[0].filter === 'string';
-  let bw = 2, bh = 2, i = 0, vignette = null;
+  let W = 2, H = 2, bw = 2, bh = 2, i = 0, vignette = null;   // W, H: the screen's size (from resize)
   const groups = {};   // extra trail groups' buffer pairs, made on first use
   function resize(w, h){
+    W = w; H = h;
     const sc = Math.min(1, 900 / Math.max(w, h));
     bw = Math.max(2, Math.round(w*sc)); bh = Math.max(2, Math.round(h*sc));
     bufs.forEach((b, k) => { b.width = bw; b.height = bh; ctxs[k].fillStyle = '#000'; ctxs[k].fillRect(0,0,bw,bh); });

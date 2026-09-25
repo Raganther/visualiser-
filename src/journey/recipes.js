@@ -1,5 +1,5 @@
 // Journey: reading presets as recipes, the lens, and the recipe's movers.
-import { OVER_WORLD } from './cast.js';
+import { OVER_WORLD } from '../visuals/registry.js';
 import { ELEMS, HITS, J, OPENING, SUITS, WORLDS, jState, worldOn } from './core.js';
 import { presets } from '../presets.js';
 import { syncSliders } from '../ui/panel.js';

@@ -42,9 +42,10 @@ tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh),
   - **segments**: a run of flat entries (worlds, their front planes, trail groups, hits) drawn in one full-screen pass over the picture so far. `render/compose.js` builds each segment's shader from the registry, once per shape of run, and caches it.
   - **object draws** between segments. When something is drawn over an object later, WebGL builds the picture on a surface with depth and the next segment reads it back.
   - small **fill and mask** passes at half size, only when a scene uses them.
-- **The finish** (`TUNE.render`). Trail groups and surfaces are half-float where the device can render to it (`detectHdr`), so tails fade smoothly and brightness above 1 survives; the last frame is softened slightly as it's read back (`trailSoft`), so fast shapes smear. After the whole scene: the bright parts are picked out at quarter size, blurred both ways and added back as a glow (`bloom`), bright colours roll off softly instead of clipping to white (`knee`), and a dither hides banding. Simple mode gets the glow too, from a contrast filter and a blur on a quarter-size copy. Fast thin shapes (ribbons, the horizon grid) still leave separate echo lines: that's the feedback itself, and would need drawing them twice a frame.
+- **The finish** (`TUNE.render`). Trail groups and surfaces are half-float where the device can render to it (`detectHdr`), so tails fade smoothly (the trails themselves still clamp at 1; brightness above 1 survives on the surfaces, for the roll-off). The trails are drawn at `trailScale` (¾) of the screen's resolution, since they're soft anyway; the last frame is softened slightly as it's read back (`trailSoft`), so fast shapes smear. After the whole scene: the bright parts are picked out at quarter size, blurred both ways and added back as a glow (`bloom`), bright colours roll off softly instead of clipping to white (`knee`), and a dither hides banding. Simple mode gets the glow too, from a contrast filter and a blur on a quarter-size copy. Fast thin shapes (ribbons, the horizon grid) still leave separate echo lines: that's the feedback itself, and would need drawing them twice a frame.
 - **Crisp layers.** Worlds (backgrounds) and hits are drawn in segments every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
 - **Simple mode.** `render/canvas2d.js` (`make2D`) is a Canvas 2D fallback for browsers without WebGL. **Every visual needs a version in both renderers.** The 2D one can be plainer.
+- **Robustness.** Drawing is capped at 60 fps (feel numbers are per frame). A lost WebGL context stops drawing and is rebuilt on restore (visuals with their own GL objects check `S.glGen`). Resizes are debounced. The trails' shader skips every visual whose weight is 0, and every template's segment shaders are compiled while the page is idle (`warmScenes`).
 - **Parameters.** `render()` in `main.js` builds `P` each frame. Each visual's `params()` adds its own fields. `t` is *motion time* (`S.MT`), not wall time; see Pace below.
 
 ## Visuals and the registry
@@ -108,7 +109,7 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 14 of them): hand-made looks for manual mode. Journey also reads them as **recipes**.
+- **Presets** (`BASE`, 25 of them: 14 Journey reads as **recipes**, and 11 manual-only looks and demos with `journey: false`).
 
 ## Journey (the automatic director)
 
@@ -333,7 +334,7 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 
 ## Testing
 
-Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). Tests use headless Chromium via the global Playwright (`npm root -g`).
+Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). It runs two files at a time and prints each one's time (about 10 min; `TEST_JOBS=1` for one at a time). `openPage(…, {noDraw: true})` skips drawing for tests that only read Journey or the grid. Tests use headless Chromium via the global Playwright (`npm root -g`).
 - `tests/smoke.mjs`: the page loads, draws and locks the beat grid in both renderers with no errors, and `?lab=` / `?tune=` apply.
 - `tests/media.mjs`: an image and Chromium's fake camera (`FAKE_CAMERA` flags in `lib.mjs`) show through the tunnel in both renderers, and Journey hands it the lead and takes it back.
 - `tests/sync.mjs`:
@@ -384,6 +385,8 @@ Useful facts:
 
 - **Simple mode with objects is heavy.** In headless software rendering at 960×540, the knot (1,680 panes) adds about 23 ms a frame (from 30 before the simple-mode rework). On a slow device without WebGL, sections with the big shapes can drop frames.
 - **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
+- **Engine → UI imports.** Journey and audio modules call into `ui/panel.js` (`updateSectionUI`, `syncSliders`), so there are import cycles. They're all function-level (nothing runs at import time across them), so they're safe; untangling them (a hooks module) was judged not worth the churn in the 2026-09 audit (`docs/audit.md`).
+- **Very quiet tracks.** After a loud one the kick floor is forgotten within 1.5 s, but the detector's fixed floors still miss some kicks 20 dB down (`tests/grid.mjs` reports it).
 - **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
   - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
   - Feed those frames to `window.__synth`, and step the page with `__step`.

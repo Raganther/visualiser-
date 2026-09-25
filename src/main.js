@@ -41,8 +41,9 @@ import { J, SNAP } from './journey/core.js';
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
-import { SPEC, curP, eff } from './presets.js';
-import { drawGL, gl, initRenderer, r2d } from './render/gl.js';
+import { BASE, SPEC, curP, eff } from './presets.js';
+import { drawGL, gl, initRenderer, r2d, warmScenes } from './render/gl.js';
+import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
@@ -127,6 +128,10 @@ function render(now){
     }
   }
 }
+// the shaders every scene template and scene preset will need, compiled while the page is idle (the cast doesn't change
+// a scene's shape, so any stands in)
+setTimeout(() => { const c = {world: 'city', lead: 'ring', accent: 'comets', centre: 'skull', label: k => k};
+  warmScenes([...TEMPLATES.map(t => t.build(c)).filter(Boolean), ...BASE.filter(p => p.scene).map(p => p.scene)]); }, 1500);
 // ?lab= experiments load before the first frame; without them the loop starts straight away
 if (LABS.length) applyLabs({TUNE, J, PACE, registry}).then(() => requestAnimationFrame(frame));
 else requestAnimationFrame(frame);
