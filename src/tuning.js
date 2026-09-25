@@ -65,6 +65,7 @@ export const TUNE = {
     fillAmt: .9,               // how brightly a fill shows through an object's glass
     fillZoom: 2.4,             // how many times smaller a fill's pattern is than the full-screen layer (so it tiles inside an object)
     fillGain: 10,              // a fill is one frame of its layers, with no trails to build it up: this brings it to trail brightness
+    maxGroups: 2,              // trail groups a scene may run (each is a full-size feedback pass); layers of any beyond this go to main
   },
 
   // 3D mesh objects (the wire skull, the unicorn, the maths shapes): how they all look and move

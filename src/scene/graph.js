@@ -9,7 +9,9 @@
 //   {hits: true}                            the one-shot hits (star, outline, sparkles)
 //   {objects: true}                         every 3D object on screen that isn't placed by its own entry
 //   {object: 'skull', fill?}                one object here; fill: {layers: ['plasma'], fold: 6, zoom?} fills its glass
-// A leaf module: presets carry scenes, the renderers run resolveScene()'s plan.
+// Presets (and Journey) carry scenes, the renderers run resolveScene()'s plan. Imports only the tuning file.
+import { TUNE } from '../tuning.js';
+
 export const DEFAULT_SCENE = [{world: 'all'}, {trails: 'main'}, {hits: true}, {objects: true}];   // what the page has always drawn
 
 const cache = new WeakMap();
@@ -24,8 +26,9 @@ export function resolveScene(scene){
   for (const e of scene) {
     if (e.world) { item({t: e.world === 'front' ? 'front' : 'world'}); if (e.world === 'front') r.front = true; }
     else if (e.trails) {
-      const g = typeof e.trails === 'string' ? e.trails : 'main';
-      r.groups[g] = g === 'main' ? null : e.layers || [];
+      let g = typeof e.trails === 'string' ? e.trails : 'main';
+      if (!(g in r.groups) && Object.keys(r.groups).length >= TUNE.scene.maxGroups) g = 'main';   // over budget: into main
+      if (!(g in r.groups)) r.groups[g] = g === 'main' ? null : e.layers || [];
       const m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
       if (m && m.object && !r.masks.includes(m.object)) r.masks.push(m.object);
       if (m && m.world) r.front = true;

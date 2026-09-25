@@ -24,8 +24,8 @@ mesh draws, and small fill/mask prep passes.
 
 ## Stages
 - [x] 1. Compositor refactor: draw plans, both renderers run them; default and demo scenes unchanged (golden matches).
-- [ ] 2. Free order, world planes and objects anywhere (the skull among the buildings).
-- [ ] 3. Trail groups (comets behind the buildings, rings in front).
+- [x] 2. Free order, world planes and objects anywhere (the skull among the buildings).
+- [x] 3. Trail groups (comets behind the buildings, rings in front).
 - [ ] 4. Fills and masks from any image (the city in the skull's glass, the tunnel in its eyes).
 - [ ] 5. Shared context: section palette, wind, light.
 - [ ] 6. Journey composes scenes from templates, within a budget.
@@ -34,3 +34,4 @@ mesh draws, and small fill/mask prep passes.
 
 ## Log
 - Stage 1: scenes compile to a draw plan (trail groups, full-screen segments composed per run of items and cached, object draws between them). Both renderers run the plan; the default and demo scenes draw as before (golden matches).
+- Stages 2–3: any order works, so an object can stand among a world's planes ("Skull in the city"), and trail groups put one layer behind the buildings and another in front ("Behind and in front"). A scene may run `TUNE.scene.maxGroups` groups. Tested in both renderers.

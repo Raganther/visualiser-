@@ -1,6 +1,7 @@
 // Scene test: composition features in both renderers, each against the same run without it (same seed and steps, so the
 // only difference is the scene). A fill shows inside the skull and not around it; a mask keeps the trails to one side of its
-// silhouette; a world's front plane (between) covers the comets where its near buildings are. Runs on index.html.
+// silhouette; a world's front plane (between) covers the comets where its near buildings are; an object can stand among
+// a world's planes; trail groups put one layer behind the buildings and another in front. Runs on index.html.
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('scene: skipped for', ENTRY); process.exit(0); }
@@ -16,6 +17,8 @@ for (let ty = 0; ty < 18; ty++) for (let tx = 0; tx < 32; tx++) {
 const mean = (t, idx) => idx.reduce((s, i) => s + t[i], 0)/idx.length;
 const diff = (a, b, idx) => idx.reduce((s, i) => s + Math.abs(a[i] - b[i]), 0)/idx.length;
 
+const AMONG = [{world: 'all'}, {trails: 'main'}, {object: 'skull'}, {world: 'front'}, {hits: true}];
+const GROUPS = [{world: 'all'}, {trails: 'back', layers: ['comets']}, {world: 'front'}, {trails: 'main'}, {hits: true}, {objects: true}];
 async function run(browser, settings, scene, frames){
   const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0'});
   const t = await page.evaluate(`(async () => {
@@ -55,6 +58,21 @@ for (const mode of ['2d', 'gl']) {
     under += diff(bare, await run(browser, settings, [{world: 'all'}, {trails: 'main'}, {world: 'front'}, {hits: true}, {objects: true}], f), BAND);
   }
   report(over > 1 && under < over*.6, `${mode}: comets over the buildings' band: ${over.toFixed(1)} in front, ${under.toFixed(1)} between (the near buildings cover them)`);
+  // an object between the world's planes: the near buildings hide the skull's lower half, which shows on top by default
+  const LOW = []; for (let ty = 11; ty <= 13; ty++) for (let tx = 12; tx <= 19; tx++) LOW.push(ty*32 + tx);   // below the skull's middle
+  const city = await run(browser, {city: 1, decay: .9}, null, n);
+  const onTop = diff(city, await run(browser, {city: 1, skull: 1, decay: .9}, null, n), LOW);
+  const among = diff(await run(browser, {city: 1, decay: .9}, AMONG, n), await run(browser, {city: 1, skull: 1, decay: .9}, AMONG, n), LOW);
+  report(onTop > 2 && among < onTop*.6, `${mode}: the skull's lower half: ${onTop.toFixed(1)} on top, ${among.toFixed(1)} among the buildings`);
+  // trail groups: comets in a group behind the buildings, the ring in main in front of them
+  let cB = 0, cF = 0, rB = 0;
+  for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540, 660]) {
+    const bare = await run(browser, {city: 1, decay: .96}, GROUPS, f);
+    cF += diff(bare, await run(browser, {city: 1, comets: 1, decay: .96}, null, f), BAND);
+    cB += diff(bare, await run(browser, {city: 1, comets: 1, decay: .96}, GROUPS, f), BAND);
+    rB += diff(bare, await run(browser, {city: 1, ring: 1, decay: .96}, GROUPS, f), BAND);
+  }
+  report(cF > 1 && cB < cF*.6 && rB > cB, `${mode}: groups: comets ${cF.toFixed(1)} alone, ${cB.toFixed(1)} in the back group; the ring in front ${rB.toFixed(1)}`);
   await browser.close();
 }
 srv.close();

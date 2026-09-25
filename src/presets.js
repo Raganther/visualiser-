@@ -66,6 +66,13 @@ export const BASE = [
   {name:'City comets', journey:false, decay:.96, zoom:1.002, rot:0, warp:.1, sym:1, city:1, comets:1, colorSpeed:.04, hueDrift:.008,
     mods:{},
     scene:[{world:'all'}, {trails:'main'}, {world:'front'}, {hits:true}, {objects:true}]},
+  // an object standing among the city's buildings; comets flying behind the buildings while the ring pulses in front
+  {name:'Skull in the city', journey:false, decay:.93, zoom:1.004, rot:0, warp:.1, sym:1, city:1, skull:1, comets:.6, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull'}, {world:'front'}, {hits:true}]},
+  {name:'Behind and in front', journey:false, decay:.95, zoom:1.003, rot:0, warp:.1, sym:1, city:1, comets:1, ring:.7, colorSpeed:.04, hueDrift:.008,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{world:'all'}, {trails:'back', layers:['comets']}, {world:'front'}, {trails:'main'}, {hits:true}, {objects:true}]},
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
 ];
