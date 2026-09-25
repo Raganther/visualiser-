@@ -86,6 +86,14 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 
 #toast{position:fixed;left:0;right:0;top:22%;text-align:center;font-size:clamp(28px,5vw,54px);font-weight:600;
   pointer-events:none;opacity:0;transition:opacity .8s;text-shadow:0 0 24px var(--accent)}
+#fps{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;margin:0;padding:6px 9px;z-index:8;pointer-events:none;
+  font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;width:max-content;max-width:calc(100% - 16px);
+  background:rgba(0,0,0,.6);border:1px solid var(--line);border-radius:6px;color:var(--dim)}
+#fps::first-line{font-size:15px;font-weight:600}
+#fps.good::first-line{color:#6e6}
+#fps.ok::first-line{color:#fc4}
+#fps.bad::first-line{color:#f66}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:8px}
 #toast.show{opacity:1;transition:opacity .15s}
 
 body.idle #bar,body.idle #panel,body.clean #bar,body.clean #panel{opacity:0;pointer-events:none}

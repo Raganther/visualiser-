@@ -28,6 +28,7 @@ import './audio/synth.js';
 import './ui/controls.js';
 import './ui/transport.js';
 import { refreshScene } from './ui/scene.js';
+import { fpsTick } from './ui/fps.js';
 import { S } from './state.js';
 import { analyse, bands, hit, sBass, sMid, sTreb } from './audio/analysis.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
@@ -65,7 +66,16 @@ function frame(now){
   // 60 frames a second at most: trails, fades and flashes are counted per frame, so a 120 Hz screen would halve them
   if (now - (frame.last || -1e9) < 1000/60 - 2) return;
   frame.last = now;
+  const t0 = performance.now();
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
+  fpsTick(now, performance.now() - t0, fpsInfo);
+}
+// the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene
+function fpsInfo(){
+  const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
+  const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
+  const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}\n${what}; scene ${sc}`;
 }
 function render(now){
   analyse(now);

@@ -28,7 +28,7 @@ src/audio/                 player, analysis (levels, onsets), synth (built-in be
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light)
-src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
+src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
@@ -46,6 +46,7 @@ tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh),
 - **Crisp layers.** Worlds (backgrounds) and hits are drawn in segments every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
 - **Simple mode.** `render/canvas2d.js` (`make2D`) is a Canvas 2D fallback for browsers without WebGL. **Every visual needs a version in both renderers.** The 2D one can be plainer.
 - **Robustness.** Drawing is capped at 60 fps (feel numbers are per frame). A lost WebGL context stops drawing and is rebuilt on restore (visuals with their own GL objects check `S.glGen`). Resizes are debounced. The trails' shader skips every visual whose weight is 0, and every template's segment shaders are compiled while the page is idle (`warmScenes`).
+- **Frame rate.** `ui/fps.js` shows frames drawn a second (green at 55+, amber at 30+, red below), the longest gap between frames, the script's time per frame, the renderer and its size, and what's on screen. It's on until hidden with **P** or the panel's "Show frame rate" (remembered in `localStorage`). In WebGL the script time leaves out the GPU's work, so a low fps with little script time means the shaders are the cost.
 - **Parameters.** `render()` in `main.js` builds `P` each frame. Each visual's `params()` adds its own fields. `t` is *motion time* (`S.MT`), not wall time; see Pace below.
 
 ## Visuals and the registry
