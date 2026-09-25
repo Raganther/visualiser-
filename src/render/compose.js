@@ -76,6 +76,7 @@ uniform sampler2D uPrev, uData;
 uniform vec2 uRes, uCenter, uBurstC;
 uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uMid,uTreb,uBeat,uReact,uHit;
 uniform vec3 uPal; uniform vec2 uDrift;   // the palette's three hue offsets; the wind's push on the trails this frame
+uniform vec2 uSoft; uniform float uFloor;   // how far the last frame is softened as it's read (so fast shapes smear), and what it loses
 uniform float uFillMode,uFillGain,uFillZoom;   // 1: draw a fill instead (the chosen layers alone, through the kaleidoscope, no trails)
 ${layers.map(v => `uniform float uL_${v.key};`).join('\n')}
 ${part('uniforms')}
@@ -102,7 +103,7 @@ vec3 sampleFb(vec2 p,float n){
   q-=uDrift;   // the trails stream downwind
   vec2 uv=(q+uCenter)/vec2(ASP,1.0)+0.5;
   uv=1.0-abs(1.0-mod(uv,2.0));
-  return texture2D(uPrev,uv).rgb;
+  return (texture2D(uPrev,uv+uSoft)+texture2D(uPrev,uv-uSoft)+texture2D(uPrev,uv+vec2(uSoft.x,-uSoft.y))+texture2D(uPrev,uv+vec2(-uSoft.x,uSoft.y))).rgb*0.25;
 }
 vec3 elements(vec2 p,vec2 pb,float n){
   vec2 d=fold(p,n);
@@ -130,7 +131,7 @@ ${displace}
     col=sampleFb(pf,n1);
     if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
     col=hueRot(col,uHueShift);
-    col=max(col*uDecay-0.004,0.0);
+    col=max(col*uDecay-uFloor,0.0);
     col-=0.16*col*col;
   }
 

@@ -184,8 +184,20 @@ export function make2D(view){
         }
       }
     }
+    glow2d();
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
+  }
+  // the glow: the picture at quarter size, its darks pushed down (a rough bright-pass: contrast), blurred, and added back.
+  // Browsers without canvas filters go without
+  const bloomCan = document.createElement('canvas'), bctx = bloomCan.getContext('2d');
+  function glow2d(){
+    const R = TUNE.render; if (!hasFilter || R.bloom <= 0) return;
+    const w = Math.max(1, W >> 2), h = Math.max(1, H >> 2);
+    if (bloomCan.width !== w || bloomCan.height !== h) { bloomCan.width = w; bloomCan.height = h; }
+    bctx.globalCompositeOperation = 'copy'; bctx.filter = `contrast(${(1/(1 - R.bloomThresh)).toFixed(2)}) blur(${(R.bloomRadius*1.5).toFixed(1)}px)`;
+    bctx.drawImage(out.canvas, 0, 0, w, h); bctx.filter = 'none';
+    out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, R.bloom*.6); out.drawImage(bloomCan, 0, 0, W, H); out.globalAlpha = 1;
   }
   // the worlds alone, for front planes when nothing below drew them
   function keepBlankWorlds(P, now){

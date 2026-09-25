@@ -2,7 +2,7 @@
 import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
 import { UNIT, composeFeedback, composeSegment } from './compose.js';
-import { PFRAG, PVERT, VERT } from './shaders.js';
+import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { HIST, dataArr } from '../state.js';
@@ -26,11 +26,26 @@ function program(fs, vs){
   for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
   return {p, u};
 }
-let pProg = null, pBuf = null, quadBuf = null, histTex = null;
+let pProg = null, pBuf = null, quadBuf = null, histTex = null, post = null, hdr = null;
 export let fbProg = null, fbos = [], cur = 0, W = 1, H = 1, dataTex = null, r2d = null;
-function makeTex(w, h){
+// half-float colour where the device can render to it: smooth trail tails, no banding, and brightness above 1 kept for
+// the finish to roll off (null: plain 8-bit)
+function detectHdr(){
+  const isGL2 = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
+  let f = null;
+  if (isGL2 && gl.getExtension('EXT_color_buffer_float')) f = {internal: gl.RGBA16F, type: gl.HALF_FLOAT};
+  else if (!isGL2) { const h = gl.getExtension('OES_texture_half_float');
+    if (h && gl.getExtension('EXT_color_buffer_half_float') && gl.getExtension('OES_texture_half_float_linear')) f = {internal: gl.RGBA, type: h.HALF_FLOAT_OES}; }
+  if (!f) return null;
+  const t = makeTex(4, 4, f), fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(t);
+  return ok ? f : null;
+}
+function makeTex(w, h, f){
   const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texImage2D(gl.TEXTURE_2D, 0, f ? f.internal : gl.RGBA, w, h, 0, gl.RGBA, f ? f.type : gl.UNSIGNED_BYTE, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -39,6 +54,7 @@ function makeTex(w, h){
 }
 function setupGL(){
   fbProg = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
+  post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
   pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
   const quad = quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -68,9 +84,9 @@ function segProg(seg, plan){
 }
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
-let fills = {}, masks = [], groups = {}, surfs = [];
-function target(w, h, depth){
-  const tex = makeTex(w, h), fb = gl.createFramebuffer();
+let fills = {}, masks = [], groups = {}, surfs = [], blooms = [];
+function target(w, h, depth, f){
+  const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
   let rb = null;
   if (depth) { rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
@@ -81,13 +97,14 @@ function target(w, h, depth){
 const halfTarget = () => target(Math.max(1, W >> 1), Math.max(1, H >> 1));
 const drop = t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); if (t.rb) gl.deleteRenderbuffer(t.rb); } };
 function glResize(){
-  [...Object.values(fills), ...masks, ...surfs, ...Object.values(groups).flatMap(g => g.fbos), ...fbos].forEach(drop);
+  [...Object.values(fills), ...masks, ...surfs, ...blooms, ...Object.values(groups).flatMap(g => g.fbos), ...fbos].forEach(drop);
   fills = {}; masks = []; groups = {}; surfs = [];
-  fbos = [0, 1].map(() => target(W, H));
+  fbos = [0, 1].map(() => target(W, H, false, hdr));
+  blooms = [0, 1].map(() => target(Math.max(1, W >> 2), Math.max(1, H >> 2), false, hdr));   // the glow, at quarter size
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 // a trail group's buffer pair: main is the page's own, others are made on first use
-const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ cur = v; }} : groups[g] || (groups[g] = {fbos: [target(W, H), target(W, H)], cur: 0});
+const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ cur = v; }} : groups[g] || (groups[g] = {fbos: [target(W, H, false, hdr), target(W, H, false, hdr)], cur: 0});
 // one feedback pass for a trail group: the last frame moved and faded, and the group's own layers drawn on top
 function trailPass(now, P, g, first){
   const sc = P.sc, pr = pairOf(g), src = pr.fbos[pr.cur], dst = pr.fbos[1 - pr.cur], inG = k => sc.groupOf(k) === g;
@@ -106,6 +123,7 @@ function trailPass(now, P, g, first){
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
   gl.uniform3fv(u.uPal, P.pal); gl.uniform2f(u.uDrift, P.drift[0], P.drift[1]);
+  const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/W, R.trailSoft*.5/H); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
   // only this group's layers (and hits drawn in the trails) show in it
   const Pg = {...P};
   for (const h of HIT_VISUALS) if (h.inTrails && !inG(h.key)) Pg[h.trailWeight] = 0;
@@ -166,7 +184,7 @@ export function drawGL(now, P){
   // the stack, bottom to top: each segment is one full-screen pass over the picture so far; objects draw between them.
   // Everything goes straight to the screen unless something has to be drawn over later, then it's built on a surface
   let surf = null, si = 0;
-  const onSurf = () => { if (!surf) { surf = surfs[si] || (surfs[si] = target(W, H, true)); gl.bindFramebuffer(gl.FRAMEBUFFER, surf.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); } };
+  const onSurf = () => { if (!surf) { surf = surfs[si] || (surfs[si] = target(W, H, true, hdr)); gl.bindFramebuffer(gl.FRAMEBUFFER, surf.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); } };
   sc.steps.forEach((st, i) => {
     if (st.mesh) {
       if (i === 0) onSurf();
@@ -176,14 +194,27 @@ export function drawGL(now, P){
       gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       return;
     }
-    const under = surf, later = sc.steps.slice(i + 1).some(s => s.seg);   // a later segment draws over this one: build on a surface
-    let dst = null;
-    if (later) { si = under && under === surfs[0] ? 1 : 0; dst = surfs[si] || (surfs[si] = target(W, H, true)); }
+    const under = surf;   // everything is built on a surface, for the finish; a later segment reads this one back
+    si = under && under === surfs[0] ? 1 : 0;
+    const dst = surfs[si] || (surfs[si] = target(W, H, true, hdr));
     gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.fb : null); gl.viewport(0, 0, W, H);
     drawSeg(now, P, st, under, 1, out, maskOn);
     surf = dst;
   });
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  finish(surf);
+}
+// the finish: the bright parts glow onto their surroundings, bright colours roll off instead of clipping, and a dither
+function finish(surf){
+  const R = TUNE.render, run = (pr, dst, w, h, fn) => { gl.bindFramebuffer(gl.FRAMEBUFFER, dst); gl.viewport(0, 0, w, h); gl.useProgram(pr.p); fn(pr.u); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+  const tex = (unit, t, loc) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); };
+  if (!surf) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); return; }
+  const [a, b] = blooms, bw = a.w, bh = a.h;
+  if (R.bloom > 0) {
+    run(post.bright, a.fb, bw, bh, u => { tex(0, surf.tex, u.uTex); gl.uniform2f(u.uPx, 1/W, 1/H); gl.uniform1f(u.uThresh, R.bloomThresh); });
+    run(post.blur, b.fb, bw, bh, u => { tex(0, a.tex, u.uTex); gl.uniform2f(u.uDir, R.bloomRadius/bw, 0); });
+    run(post.blur, a.fb, bw, bh, u => { tex(0, b.tex, u.uTex); gl.uniform2f(u.uDir, 0, R.bloomRadius/bh); });
+  }
+  run(post.finish, null, W, H, u => { tex(0, surf.tex, u.uTex); tex(1, a.tex, u.uBloom); gl.uniform1f(u.uAmt, R.bloom); gl.uniform1f(u.uKnee, R.knee); });
 }
 // the worlds alone, for a world filling an object
 const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, key: 'world-fill'};

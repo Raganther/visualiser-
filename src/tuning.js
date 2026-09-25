@@ -61,6 +61,15 @@ export const TUNE = {
   },
 
   // scenes (scene/graph.js): how their fills show
+  // the picture's finish (render/gl.js; bloom also in simple mode)
+  render: {
+    trailSoft: 1,              // how far (in pixels) the trails are softened each frame, so fast shapes smear instead of stepping
+    trailFloor: .0015,         // what the trails lose each frame besides fading, so faint tails end (8-bit trails need .004)
+    bloom: .6,                 // how strongly bright parts glow onto their surroundings (0: off)
+    bloomThresh: .5,           // how bright a part must be to glow
+    bloomRadius: 1.6,          // how wide the glow spreads (in blur steps)
+    knee: .78,                 // brightness above which colours roll off softly instead of clipping to white
+  },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {
     palSecs: 4,                // how long a new section's palette takes to come in
