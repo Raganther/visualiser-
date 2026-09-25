@@ -153,7 +153,7 @@ function trailPass(now, P, g){
     gl.useProgram(pProg.p);
     gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, parts);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(2, TH/320));
+    gl.uniform2f(pProg.u.uScale, 2/(W/H), 2); gl.uniform1f(pProg.u.uSize, Math.max(3, TH/190));   // big enough to read on its own
     gl.uniform3fv(pProg.u.uCol, P.flowCol);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, NP); gl.disable(gl.BLEND);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);

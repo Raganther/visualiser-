@@ -32,7 +32,8 @@ uniform vec4 uMoons[2];    // x, y, radius, in front (1) or behind (0)`,
 vec3 space(vec2 sp){
   vec3 c=hsv(uHue+0.68,0.7,0.05);
   float neb=sin(sp.x*2.3+uTime*0.05)*sin(sp.y*3.1-uTime*0.04)+sin((sp.x+sp.y)*4.7+uTime*0.03)*0.5;
-  c+=hsv(uHue+0.75+neb*0.08,0.6,0.14)*smoothstep(-0.2,1.2,neb);
+  float neb2=sin(sp.x*5.1-uTime*0.02+sin(sp.y*3.7)*1.5)*sin(sp.y*4.3+uTime*0.03+sin(sp.x*2.9));
+  c+=hsv(uHue+0.75+neb*0.08,0.6,0.2)*smoothstep(-0.2,1.2,neb)+hsv(uHue+0.95,0.55,0.12)*smoothstep(0.1,1.0,neb2);   // two clouds of gas
   for(int i=0;i<3;i++){                  // stars rushing past
     float fi=float(i), depth=fract(fi/3.0+uStarPh), sc=mix(14.0,1.5,depth);
     vec2 g=sp*sc+fi*17.3, cell=floor(g), f=fract(g)-0.5;
@@ -42,8 +43,11 @@ vec3 space(vec2 sp){
   }
   vec2 d=sp-uPlanet.xy; float R=uPlanet.z, r=length(d)/R;
   float rr=length(vec2(d.x,d.y/0.28))/R;
-  float ring=smoothstep(1.35,1.4,rr)*smoothstep(2.15,2.1,rr)*(0.55+0.45*sin(rr*38.0))*(0.6+uMid*uReact*0.8);
-  vec3 rc=hsv(uHue+0.1+rr*0.08,0.5,0.9);
+  float band=0.5+0.5*sin(rr*38.0)*sin(rr*11.0+1.3), gap=smoothstep(0.03,0.0,abs(rr-1.78));   // bands, and a dark division
+  float ring=smoothstep(1.35,1.4,rr)*smoothstep(2.15,2.1,rr)*(0.35+0.65*band)*(1.0-0.85*gap)*(0.6+uMid*uReact*0.8);
+  vec3 rc=mix(hsv(uHue+0.08,0.35,0.95),hsv(uHue+0.55,0.45,0.8),smoothstep(1.4,2.1,rr));
+  vec2 ld=normalize(vec2(cos(uLightAng),0.35)); float along=dot(d,-ld);           // the planet's shadow falls across the rings
+  rc*=1.0-0.8*step(0.0,along)*smoothstep(R*1.02,R*0.9,length(d+ld*along));
   if(d.y>0.0) c=mix(c,rc,ring*0.8);      // far side of the rings, behind the planet
   if(r<1.0){
     vec3 n=vec3(d/R,sqrt(1.0-r*r));
@@ -90,7 +94,7 @@ float spaceFront(vec2 sp){ return length(sp-uPlanet.xy)<uPlanet.z ? 1.0 : 0.0; }
     for (let n = 0; n < 2; n++) {
       const nx = X(Math.sin(t*.05 + n*2)*.5), ny = Y(Math.cos(t*.04 + n)*.25), nr = u*.6;
       const ng = o.createRadialGradient(nx, ny, 0, nx, ny, nr);
-      ng.addColorStop(0, hc(P.hue + .75 + n*.08, 60, 15, .5)); ng.addColorStop(1, hc(P.hue + .75, 60, 10, 0));
+      ng.addColorStop(0, hc(P.hue + .75 + n*.2, 60, 18, .6)); ng.addColorStop(1, hc(P.hue + .75, 60, 10, 0));
       o.fillStyle = ng; o.fillRect(nx - nr, ny - nr, nr*2, nr*2);
     }
     const adv = Math.max(0, P.starPh - lastStarPh)*1.5; lastStarPh = P.starPh;
@@ -105,7 +109,8 @@ float spaceFront(vec2 sp){ return length(sp-uPlanet.xy)<uPlanet.z ? 1.0 : 0.0; }
       for (let k = 0; k < 10; k++) {
         const rr = 1.4 + k*.075;
         o.beginPath(); o.ellipse(cx, cy, R*rr, R*rr*.28, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI*2);
-        o.strokeStyle = hc(P.hue + .1 + rr*.08, 50, 65, (.55 + .45*Math.sin(rr*38))*(.6 + P.mid*P.react*.8)*.8);
+        const band = .35 + .65*(.5 + .5*Math.sin(rr*38)*Math.sin(rr*11 + 1.3)), gap = Math.abs(rr - 1.78) < .04 ? .15 : 1;   // bands, a division
+        o.strokeStyle = hc(P.hue + .08 + (rr - 1.4)*.6, 40, 70, band*gap*(.6 + P.mid*P.react*.8)*.8);
         o.lineWidth = R*.06; o.stroke();
       }
     };

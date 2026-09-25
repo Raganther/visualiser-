@@ -40,11 +40,12 @@ The full `npm test` took 25–30 min, most of it WebGL frames in `scene.mjs` and
 - [-] UI hooks to break engine → UI imports: a wide refactor of load order for no visible gain; the cycles are all function-level and safe. Noted in CLAUDE.md.
 
 ## Wave 5: creative
-- [ ] Landscape: ridges with depth tint and valley mist.
-- [ ] Space: banded rings the planet shadows, a stronger nebula.
-- [ ] Aurora: rays in the curtains, a lake reflecting them under the treeline.
-- [ ] Flow: bigger particles drawn as short streaks along their motion.
+- [x] Landscape: nearer ranges darker, far ones fading into the sky, rock striations, slopes facing the sun lit, mist on the water, glints under the sun.
+- [x] Space: banded rings with a dark division and the planet's shadow across them, two clouds of gas.
+- [x] Aurora: rays near the curtains' foot, and a still lake below the treeline mirroring the sky.
+- [x] Flow: bigger, brighter particles in the palette's third hue (they already streak in the trails).
 
 ## Log
 - Waves 1–2: the suite runs two files at a time with each file's time, `scene.mjs` caches deterministic runs and takes several snapshots per run, and tests that only read Journey don't draw: `npm test` about 9½ min (from 25–30). All the correctness fixes above landed, with regression checks: a quieter stretch after a loud one (`grid.mjs`; .03 kicks a beat before, .35 after, at 22 dB down) and the scenes that used to break (`scene.mjs`). Golden re-recorded: the kick floor now forgets after 1.5 s without a kick (the groove's breakdown), and the landscape reads the fixed energy.
 - Waves 3–4: the trails' shader guards every visual by its weight; the trails run at ¾ resolution; every template's shaders compile at idle. Cycles `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` removed; the city's numbers are written once and interpolated into its shader; the build fails loudly if index.html changes shape, and escapes `<!--` and `</style`. Golden re-recorded (the trails' resolution).
+- Wave 5: the landscape, space, aurora and flow polished in both renderers (before-and-after screenshots checked). Golden re-recorded (the worlds look different on purpose). `npm test` and `npm run test:dist` pass.

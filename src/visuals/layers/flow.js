@@ -8,12 +8,12 @@ export default {
   overWorld: .3,   // how well it sits over a world
   paint: 5,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   accent: 'peak',   // how it fires when it's the accent
-  params(P, x){ P.flowCol = hsv2rgb(P.hue + .55, .6, 1).map(v => v*x.eff.flow*(.4 + x.sTreb*x.react*1.5 + P.beat*.5)); P.parts = x.parts; P.NP = x.NP; },
+  params(P, x){ P.flowCol = hsv2rgb(P.hue + P.pal[2], .6, 1).map(v => v*x.eff.flow*(1.1 + x.sTreb*x.react*1.5 + P.beat*.5)); P.parts = x.parts; P.NP = x.NP; },
   trails2d(c, P, x){
     const {u, sx, sy} = x, NP = P.NP, parts = P.parts;
     if (P.l.flow > .01) {
       const [r, g, b] = P.flowCol.map(v => Math.round(Math.min(1, v)*255));
-      c.fillStyle = `rgb(${r},${g},${b})`; const s2 = Math.max(1.5, u/300);
+      c.fillStyle = `rgb(${r},${g},${b})`; const s2 = Math.max(2, u/190);
       for (let i = 0; i < NP; i++) c.fillRect(sx(parts[i*3]) - s2/2, sy(parts[i*3+1]) - s2/2, s2, s2);
     }
   },

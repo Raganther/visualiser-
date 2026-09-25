@@ -227,6 +227,12 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Front plane:** the two nearest rows, so things "between" sit behind the near buildings and in front of the towers.
 - Simple mode draws the same rows, windows, neon, antenna lights and traffic, plainer.
 
+## The other worlds
+
+- **Landscape:** three ranges shaped by the song's loudness history (Journey's energy), nearer ones darker and far ones fading into the sky, with rock striations, slopes facing the sun lit, mist on the water and glints under the sun.
+- **Space:** stars rushing past, two clouds of gas, and a ringed planet: the rings are banded with a dark division, and the planet's shadow falls across them; two moons step round every other beat.
+- **Aurora:** curtains with rays near their foot, swelling with the melody, over a treeline and a still lake that mirrors them.
+
 ## Meshes: the wire skull, the unicorn and the maths shapes
 
 **The mesh engine** (`src/render/mesh.js`, a leaf module) draws any triangle mesh as glowing wire edges over dark glass panes.
