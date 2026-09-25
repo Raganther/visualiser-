@@ -19,18 +19,18 @@ explores, shots picked by the music. This plan grows it in three parts, each lan
       panel). The lab stays for flying it by hand.
 
 ## Part 2: more to discover
-- [ ] **Asteroid belts** to fly through: rocks rushing past up close (a `belt` shot).
-- [ ] **Set pieces:** a black hole bending the starlight, with a glowing disk (for the biggest drops); pulsars whose
+- [x] **Asteroid belts** to fly through: rocks rushing past up close (a `belt` shot).
+- [x] **Set pieces:** a black hole bending the starlight, with a glowing disk (for the biggest drops); pulsars whose
       beams sweep on the beat; binary stars.
-- [ ] **Livelier planets:** storms in gas giants with lightning on the hi-hats, city lights on night sides, auroras
+- [x] **Livelier planets:** storms in gas giants with lightning on the hi-hats, city lights on night sides, auroras
       pulsing on the kick, ocean worlds catching the star's glint, lava flaring on stabs.
-- [ ] **Built things:** a giant ring structure round some stars; the centrepiece (the skull, the unicorn, the maths
+- [x] **Built things:** a giant ring structure round some stars; the centrepiece (the skull, the unicorn, the maths
       shapes) as a vast monument in orbit.
 
 ## Part 3: from the galaxy to the surface
-- [ ] **The galaxy view.** The systems are points on a spiral galaxy's arms (by mood); a big drop can pull all the way
+- [x] **The galaxy view.** The systems are points on a spiral galaxy's arms (by mood); a big drop can pull all the way
       out to it and dive back into another system.
-- [ ] **Skimming a surface.** A low-orbit shot racing over a planet's curved horizon, its surface gaining detail up close.
+- [x] **Skimming a surface.** A low-orbit shot racing over a planet's curved horizon, its surface gaining detail up close.
 
 ## Log
 - **Part 1.** The cosmos moved into its own folder (`system`, `fly`, `look`, `draw2d`, `index`) and became one of Journey's
@@ -40,3 +40,12 @@ explores, shots picked by the music. This plan grows it in three parts, each lan
   having nowhere to return to. Two bugs found on the way: the tension averages started at 0, so every track opened with
   a false build (they now start level); and a build moved in about 10 s, too fast for techno's long builds. Golden was
   re-recorded: Journey's world pool grew.
+- **Parts 2 and 3** (drafted in a copy while part 1's tests ran, then applied together). Stars can be twin, a pulsar or a
+  black hole (by arm); planets carry cities, auroras, storms and clouds, and ocean worlds join the kinds; belts sit in
+  gaps; a ring is sometimes built round the star; the centrepiece stands as a monument (`P.anchor`, read by the mesh
+  objects). The black hole looks the sky up along a bent ray and draws its disk twice (straight, and the far side bent
+  over the top). The belt's rocks come from a grid the ray steps through (28 cells at most), so any number of rocks costs
+  the same. The galaxy is its own view, faded in over the system (`uGal`), with its own camera; the biggest drops can go
+  out to it. Skimming lets the camera within 3% of the surface. Two things found on the way: the music kept taking the
+  camera back from shots picked by hand (now a shot by hand holds it for `handSecs`), and the first draft's tests were
+  too weak to notice (they now check where the camera actually is).

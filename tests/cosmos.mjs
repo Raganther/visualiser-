@@ -55,5 +55,37 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   check(r.arms[0] === 0 && r.arms[1] === 2 && r.back, `a calm section goes to the cold arm, an intense one to the hot arm, and the calm one comes back to its system (arms ${r.arms.join(', ')})`);
   await browser.close();
 }
+// the set pieces and the rest of the space, in both renderers: black hole, pulsar, twin stars, the belt, skimming a
+// surface, the galaxy trip, and a centrepiece standing as a monument; each draws with no errors
+for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boolean)) {
+  const gl = mode === 'gl', browser = await launch(mode), page = await openPage(browser, url, {width: gl ? 160 : 320, height: gl ? 90 : 180, query: '?lab=cosmos'});
+  await page.waitForFunction(async () => (await import('/src/journey/core.js')).J.worldHold === 'cosmos', null, {timeout: 20000, polling: 100});
+  const r = await page.evaluate(async ({gl, thumb}) => {
+    const {byKey} = await import('/src/visuals/registry.js'), {J} = await import('/src/journey/core.js'), cz = byKey.cosmos, out = {};
+    const lit = () => eval(thumb).filter(v => v > 12).length, f = gl ? 1 : 2;
+    __step(60*3); cz.hold(600);   // the music leaves the camera alone: each shot is checked on its own
+    for (const what of ['hole', 'pulsar', 'binary', 'belt']) {
+      cz.visit(what); __step(60*4*f);
+      const i = cz.info(); out[what] = {got: what === 'belt' ? i.belt : i.star === what, lit: lit(), cap: i.caption};
+    }
+    cz.shot('belt'); cz.hold(600); __step(60*8*f); const bi = cz.info(); out.beltShot = {shot: bi.shot, cap: bi.caption, lit: lit(), off: Math.abs(bi.eyeR - bi.beltR), y: bi.eyeY};
+    cz.shot('skim'); cz.hold(600); __step(60*10*f); const sk = cz.info(); out.skim = {shot: sk.shot, cap: sk.caption, clear: sk.clear, near: sk.near, lit: lit()};
+    cz.galaxy(); __step(60*4); out.galCap = cz.info().caption; out.galOut = cz.info().galaxy; const from = cz.info().system; out.galLit = lit();
+    let n = 0; while (cz.info().galPhase && n++ < 60) __step(60);
+    out.galBack = {phase: cz.info().galPhase, moved: cz.info().system !== from, cap: cz.info().caption};
+    cz.shot('orbit'); for (let i = 0; i < 60; i++) { J.centre = 'skull'; __step(6); }
+    out.mon = cz.info().mon; out.monCap = cz.info().caption; out.monSubj = cz.info().subject;
+    return out;
+  }, {gl, thumb: THUMB});
+  const errors = await page.errors();
+  const words = {hole: 'black hole', pulsar: 'pulsar', binary: 'twin stars', belt: ''};
+  for (const what of ['hole', 'pulsar', 'binary', 'belt']) check(r[what].got && r[what].lit > 10 && r[what].cap.includes(words[what]), `${mode}: visits a system with ${what === 'belt' ? 'an asteroid belt' : what === 'hole' ? 'a black hole' : what === 'pulsar' ? 'a pulsar' : 'twin stars'} and draws it (${r[what].lit}/576 lit; "${r[what].cap}")`);
+  check(r.beltShot.shot === 'belt' && r.beltShot.cap === 'Through the asteroid belt' && r.beltShot.off < 8 && Math.abs(r.beltShot.y) < 3 && r.beltShot.lit > 10, `${mode}: flies through the belt, inside it (${r.beltShot.off.toFixed(1)} from its middle)`);
+  check(r.skim.shot === 'skim' && r.skim.near < 1.3 && r.skim.near >= 1.0 && r.skim.lit > 10, `${mode}: skims low over a surface without going under it ("${r.skim.cap}", ${r.skim.near.toFixed(2)} radii from its centre)`);
+  check(r.galOut > .9 && r.galLit > 10 && r.galCap === 'Out to the galaxy' && !r.galBack.phase && r.galBack.moved, `${mode}: goes out to the galaxy (${r.galLit}/576 lit) and dives into another system ("${r.galBack.cap}")`);
+  check(r.mon && r.monSubj === 'the monument', `${mode}: a centrepiece stands as a monument, and the camera circles it ("${r.monCap}")`);
+  check(!errors.length, `${mode}: no page errors${errors.length ? ': ' + errors : ''}`);
+  await browser.close();
+}
 srv.close();
 process.exit(failed ? 1 : 0);

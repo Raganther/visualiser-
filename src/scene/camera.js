@@ -77,6 +77,24 @@ export const SHOTS = {
       return {pos: add(p, add(mul(st.side, r*2.6), mul(st.d, r*14*x))), look: p, fov: 58};
     },
   },
+  // through an asteroid belt, along it, the rocks rushing past (sys.belt: its radius, width, height)
+  belt: {
+    start: (c, s) => { const b = c.sys.belt, p = c.cam.pos; return {a0: Math.atan2(p[2], p[0]), dir: s[0] < .5 ? -1 : 1, y: (s[1] - .5)*b.H, off: (s[2] - .5)*b.W*.8}; },
+    goal: (c, st, t) => {
+      const b = c.sys.belt, R = b.R + st.off, a = st.a0 + st.dir*t*2.2/R;
+      const pos = [Math.cos(a)*R, st.y, Math.sin(a)*R], tg = [-Math.sin(a)*st.dir, 0, Math.cos(a)*st.dir];
+      return {pos, look: add(pos, add(mul(tg, 12), [-Math.cos(a)*1.5, -.3, -Math.sin(a)*1.5])), fov: 64};
+    },
+  },
+  // skim low over the subject's surface along a great circle, its curved horizon ahead
+  skim: {
+    start: (c, s) => { const u = norm(sub(c.cam.pos, c.subj.p)); let v = cross(u, c.subj.axis); if (V.len(v) < .1) v = cross(u, [1, 0, 0]);
+      return {u, v: norm(v), a0: 0, w: (.16 + s[0]*.1)*(s[1] < .5 ? -1 : 1)}; },
+    goal: (c, st, t) => {
+      const {p, r} = c.subj, at = a => add(mul(st.u, Math.cos(a)), mul(st.v, Math.sin(a))), a = st.a0 + st.w*t;
+      return {pos: add(p, mul(at(a), r*1.06)), look: add(p, mul(at(a + Math.sign(st.w)*.45), r*1.04)), fov: 70};
+    },
+  },
   // pull back to take in the whole system
   reveal: {
     start: (c, s) => ({a: s[0]*Math.PI*2, h: .18 + s[1]*.22}),

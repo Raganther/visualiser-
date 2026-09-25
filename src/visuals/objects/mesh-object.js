@@ -34,12 +34,13 @@ export function meshObject({key, label, words, mesh}){
       st.glow *= Math.exp(-dt*3); st.spark *= Math.exp(-dt*5);
       st.sw = Math.min(1, st.sw + dt/Math.max(.25, S.beatPeriod));   // the band takes one beat to run down
       P.m = P.m || {};
+      const An = P.anchor;   // a world can hold it somewhere in its space (the cosmos's monument): there, at that size
       P.m[key] = {
-        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: T.size*(1 + x.sBass*x.react*.03),
-        pos: [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],   // it sways in the wind
+        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: (An && An.size || T.size)*(1 + x.sBass*x.react*.03),
+        pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],   // it sways in the wind
         pal: P.pal, light: P.light,
         jaw: P.beat*T.hinge, ex: st.ex*st.ex*M.explode,   // squared: flies out fast, snaps home cleanly
-        gone: Math.max(0, 1 - w/.6),                     // leaving: panes wink out, the weight takes the rest
+        gone: An && An.hide ? 1 : Math.max(0, 1 - w/.6),   // leaving: panes wink out, the weight takes the rest (or behind the camera)
         fill: M.fill*(.6 + P.beat*.8), dark: M.dark, xray: M.xray, line: M.line, hue: P.hue, partHue: st.hue,
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
         trail: M.trail, w: Math.min(1, w*1.2),

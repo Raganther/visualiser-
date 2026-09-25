@@ -98,7 +98,10 @@ export const TUNE = {
     fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
     kick: 1.2,                 // degrees the kick nudges the view in
     lookK: 1.5,                // how much quicker the view turns than the camera moves
-    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6},   // how quickly the camera follows each shot (per second)
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9},   // how quickly the camera follows each shot (per second)
+    galaxyChance: .45,         // how often the biggest drops (after a full build) go out to the galaxy and back (else a black hole)
+    handSecs: 30,              // seconds a shot picked by hand (the lab's keys) holds the camera before the music takes over again
+    galFade: 1.8, galHoldSecs: 9,   // seconds to fade out to the galaxy (and back), and to look across it before diving
   },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {

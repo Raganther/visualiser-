@@ -246,30 +246,56 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **place:** how far along the arm it is.
 
   A system's heat comes from its arm:
-  - cold systems have ice worlds and pale stars;
+  - cold systems have ice and ocean worlds and pale stars;
   - hot ones have lava, rock and bigger, deeper-coloured stars;
   - inside planets are hotter than outside ones.
 
-  Each system has three to six planets, some with rings, and moons, which orbit in motion time.
-- **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, and `push` (a build). The camera is pushed out of any body it gets too near. The track's shape leads (`TUNE.cosmos`):
+  Each system has three to six planets, some with rings, and moons, which orbit in motion time. There's more to find:
+  - **The star can be a set piece:** twin stars (warm and hot arms), a pulsar (warm and cold), or a black hole (hot).
+  - **Planets carry life and weather:** cities on night sides, auroras at the poles, a great storm in a gas giant, clouds.
+  - **Belts and built rings:** an asteroid belt in a gap between two planets, and sometimes a vast ring built round the star (`halo`).
+  - **The monument** (`sys.mon`): where a centrepiece stands, in orbit round the first planet.
+
+  `galPos(idx)` places each system on its arm's spiral, for the galaxy view.
+- **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, `push` (a build), `belt` (through an asteroid belt, the rocks rushing past) and `skim` (low over a solid world's surface, its horizon curving ahead). The camera is pushed out of any body it gets too near (for a skim, only just above the surface). The track's shape leads (`TUNE.cosmos`):
   - **A build:** the tension's quick average (`buildFast`) pulls ahead of its slow one (`buildSlow`). The camera is drawn toward the biggest world near by; how close it gets follows how far the build has got, not the clock. The view narrows and the stars start to stretch. A build that fades for `fizzleSecs` lets the camera go.
-  - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`).
+  - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`). The biggest drops, after a full build, go out to the **galaxy** (`galaxyChance`) or to a black hole. On the galaxy trip, the system falls away to a point on its arm; the camera takes in the whole spiral (three arms in the moods' colours, a bright core, where it's been and where it's going) for `galHoldSecs`, then dives to the next system's point and arrives there.
   - **The quiet:** no kick for `quietSecs` drifts or circles, slower. The kick coming back moves on at the next bar.
   - **A new section** goes to a system on the arm that suits it: another system, or sometimes another body when it's already on the right arm (`newSystem`). The first section owns where the camera already is. A returning section goes back to its system and body (remembered on the section type).
-  - **Otherwise** a new shot every `shotBars` bars: calm music floats and circles, intense music swoops close.
+  - **Arriving at a set piece** (twin stars, a pulsar, a black hole), it circles it first.
+  - **A centrepiece coming in** stands in the space as a vast monument, and the camera goes to circle it.
+  - **Otherwise** a new shot every `shotBars` bars: calm music floats and circles, intense music swoops close (through the belt and skimming surfaces more when it's intense).
+  - **A shot picked by hand** holds the camera for `handSecs`, so the music doesn't take it straight back.
   - The kick nudges the view in, harder in a build, and the pace sets how quickly the camera moves.
 - **The layers join the space.** The camera's movement (`motion`: how the far view slides, and how fast the camera closes in) goes into the shared context (`CTX.fly`). It becomes wind (`TUNE.ctx.flyWind`), so the comets, flow and trails slide with the view, and trail zoom (`flyZoom`), so the glow streams outwards as the camera flies in. The star is the world's `light`, so objects are lit from where it is on screen. A world's `motion` and `light` are set in its `params` while it's on screen.
+- **A place can hold the centrepiece** (`P.anchor`, set by a world's `params`: where on screen, how big, or hidden behind the camera). The mesh objects use it instead of their usual place, so in the cosmos the skull (or any object) is a monument the camera can circle.
 - **Drawing.**
   - **WebGL** (`look.js`): each pixel's ray is tested against the star and the six bodies that look biggest.
-    - Surfaces are rock, banded gas, cracked ice, or lava glowing through its cracks, lit from the star, with atmospheres at the edge.
-    - Rings have bands, a gap and the planet's shadow.
-    - The star's glow shows round anything in front of it.
-    - Far off are gas clouds and stars, which streak in a jump and start to in a build.
-  - **Simple mode** (`draw2d.js`): shaded discs, far to near, with rings split behind and in front.
+    - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star, gain detail up close, and have atmospheres at the edge.
+    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds.
+    - **Rings** have bands, a gap and the planet's shadow.
+    - **The star's glow** shows round anything in front of it.
+    - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
+    - **A black hole** bends the light from behind it: the sky is looked up along a bent ray. It has a shadow, a bright ring at its edge, and a disk with Doppler brightening, whose far side's image is bent up over the top.
+    - **Twin stars** are drawn, and both glow.
+    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold a rock; from afar, it's a band of glinting dust.
+    - **The built ring:** a cylinder band round the star, its inner face lit, with seams, windows, and a pulse running round on the beat.
+    - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
+    - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
+  - **Simple mode** (`draw2d.js`): the same, plainer.
+    - Bodies are shaded discs, far to near, with rings split behind and in front.
+    - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
+    - The built ring is its edges and a pulse line.
+    - The belt is a pool of rocks that follows the camera.
+    - Oceans, storms, city lights and auroras are drawn.
+    - The galaxy is 1,400 points on its arms.
 
   It costs the same however big the universe is.
 - **Narration.** A world with a `caption()` (the cosmos: "Approaching a ringed gas giant", "Drawn towards a lava world", "Arriving at a hot star: …") shows it at the bottom left (`ui/caption.js`) while the world is on screen. The panel says how the camera follows the track.
-- **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen (`J.worldHold`, which Journey's director reads; media still wins), and adds keys: 1–6 pick shots, J jumps.
+- **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
+  - 1–7 pick shots (7 is the belt), and S skims;
+  - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
+  - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes
 
@@ -405,7 +431,14 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
 - `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/cosmos.mjs`:
   - with `?lab=cosmos`, in both renderers: it draws, the shots change with the music, a jump reaches another system, and the camera never goes inside a body;
-  - driving the camera directly: a build draws it in, a drop lets it go, the quiet drifts, and sections land on the arm that suits them and come back to their own system.
+  - driving the camera directly: a build draws it in, a drop lets it go, the quiet drifts, and sections land on the arm that suits them and come back to their own system;
+  - with the camera held, in both renderers:
+    - it visits a black hole, a pulsar, twin stars and a belt;
+    - it flies through the belt (inside it);
+    - it skims a surface (just above it);
+    - it goes out to the galaxy and dives into another system;
+    - a centrepiece stands as the monument the camera circles;
+    - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.
 - `tests/journey.mjs`: over 400 simulated sections:
