@@ -13,6 +13,7 @@ window.__synth = function(t, freq, wave){
     else if (i < 9) v += Math.max(190*kick, 168*bass);           // the low end: kick and bass (the bass about half the kick, linearly)
     if (i >= 12 && i < 120) v += 150*clap + 50*kick;             // claps, and the kick's click
     if (i >= 200 && i < 500) v += 120*hat;
+    if (s > (window.__dropAt || 1e9)) v -= window.__drop || 0;   // a quieter stretch (a quieter track), in the analyser's byte scale
     freq[i] = Math.max(0, Math.min(255, v));
   }
   const bn = Math.round(x); window.__truth = ((bn % 4) + 4) % 4; window.__truthErr = (x - bn)*P; window.__trueBpm = 128;

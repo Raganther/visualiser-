@@ -8,19 +8,20 @@ if (!ENTRY.endsWith('index.html')) { console.log('grid: skipped for', ENTRY); pr
 const {srv, url} = await serve();
 const browser = await launch('2d');
 // every beat the grid gives, with the truth at that moment; and how many kicks the detector found
-async function run(groove, secs){
-  const page = await openPage(browser, url, {groove});
-  const r = await page.evaluate(async secs => {
+async function run(groove, secs, {dropAt = 0, drop = 0, from = 20} = {}){
+  const page = await openPage(browser, url, {groove, noDraw: true});
+  if (dropAt) await page.evaluate(([a, d]) => { window.__dropAt = a; window.__drop = d; }, [dropAt, drop]);
+  const r = await page.evaluate(async ([secs, from]) => {
     const {J} = await import('/src/journey/core.js'), {G} = await import('/src/audio/beatgrid.js'), an = await import('/src/audio/analysis.js');
     const out = []; let last = J.beats, lb = an.lastBeat, kicks = 0;
     for (let f = 1; f <= secs*60; f++) {
       __step(1);
-      if (an.lastBeat !== lb) { lb = an.lastBeat; if (f > 20*60) kicks++; }
+      if (an.lastBeat !== lb) { lb = an.lastBeat; if (f > from*60) kicks++; }
       if (J.beats !== last) { last = J.beats;
         out.push({t: f/60, pos: J.pos, locked: G.locked, truth: __truth, err: __truthErr, bpm: G.period ? 60/G.period : 0, trueBpm: __trueBpm}); }
     }
     return {beats: out, kicks};
-  }, secs);
+  }, [secs, from]);
   r.errors = await page.errors(); await page.close();
   return r;
 }
@@ -50,6 +51,12 @@ checks.push(
   ['off-beat bass: tempo within 0.5 BPM', pct(ol.filter(b => Math.abs(b.bpm - b.trueBpm) < .5).length, ol.length), v => v >= 95, '%'],
   ['off-beat bass: mean timing error', Math.round(ol.reduce((a, b) => a + Math.abs(b.err), 0)/Math.max(1, ol.length)*1000), v => v < 15, ' ms'],
   ['off-beat bass: no page errors', o.errors.length, v => v === 0, '']);
+
+// 3. a much quieter stretch after a loud one (about 22 dB down after 25 s): the floor learnt from the loud kicks must not
+// lock the quieter ones out. It did: nothing learnt was ever forgotten (.03 kicks a beat, so the grid never came back).
+// The detector's fixed floors still miss some of them (about .35 a beat): a known limit
+const q = await run('offbeat', 60, {dropAt: 25, drop: 80, from: 32});
+checks.push(['much quieter after louder: kicks still found', +(q.kicks/((60 - 32)*128/60)).toFixed(2), v => v > .2, ' per beat']);
 await browser.close(); srv.close();
 
 let failed = false;

@@ -94,6 +94,7 @@ export function meshGL(gl, mesh){
   }
   const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); return {b, n: data.length/16}; };
   const B = {fill: buf(fill), edge: buf(edge)};
+  let blank = null;
   // on screen: the far side's edges show faintly through, then the glass panes (darkening what's behind them and
   // hiding the far side, and holding a fill if it has one: U.fillTex, U.fillAmt), then the near edges in full.
   // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
@@ -106,6 +107,8 @@ export function meshGL(gl, mesh){
     const L = U.light || {amt: 0}; gl.uniform3f(u.uLight, L.hue || 0, L.sat || 0, L.amt); gl.uniform2f(u.uLightDir, L.x || 0, L.y || 0); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
     gl.uniform1f(u.uSpark, U.spark); gl.uniform1f(u.uSparkSeed, U.sparkSeed); gl.uniform1f(u.uGlow, U.glow);
     gl.uniform1f(u.uLine, Math.max(1, U.line*H/720)); gl.uniform1f(u.uH, H*2);   // U.line px wide on a 720-line screen, scaled
+    if (!blank) { blank = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, blank); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); }
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, blank); gl.uniform1i(u.uFillTex, 4);   // never the texture being drawn into
     gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0); gl.uniform1f(u.uFillAmt, 0); gl.uniform1f(u.uFillPart, stage === 'cover' ? 0 : U.fillPart || 0);
     gl.disableVertexAttribArray(0); ATT.forEach((a, i) => gl.enableVertexAttribArray(i + 1));
     const pass = (k, bright) => {
@@ -121,7 +124,9 @@ export function meshGL(gl, mesh){
       gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.xray);
       gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);          // panes sit just behind their own edges
-      if (U.fillTex) { gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, U.fillTex); gl.uniform1i(u.uFillTex, 4); gl.uniform1f(u.uFillAmt, U.fillAmt); }
+      // the fill, if it has one (otherwise the blank bound above)
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, U.fillTex || blank); gl.uniform1i(u.uFillTex, 4);
+      if (U.fillTex) gl.uniform1f(u.uFillAmt, U.fillAmt);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); pass('fill', 1);
       gl.uniform1f(u.uFillAmt, 0);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);

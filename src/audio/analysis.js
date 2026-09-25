@@ -28,6 +28,8 @@ function followBand(k, v){
   bands[k] = Math.max(Math.min(1, Math.max(0, (v - r[0])/Math.max(.03, r[1] - r[0]))), bands[k]*.8);
 }
 function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
+// a new track: nothing learnt from the last one carries over
+export function resetOnsets(){ kickFl.length = hitFl.length = intervals.length = kickFlux.length = loFlux.length = hiFlux.length = 0; pend = null; }
 export function analyse(now){
   // a track, or a video's own sound; otherwise the built-in beat
   const real = (buffer || MEDIA.audio) && analyser;
@@ -58,6 +60,10 @@ export function analyse(now){
   prevSpec.set(freq); fl /= 6; fh /= 108; ft /= 300;
   const lq = upper(loFlux, .6), hq = upper(hiFlux, .75);
   // compare against the typical strength of recent kicks/hits, so quieter bleed doesn't count
+  // the floors learnt from recent kicks and stabs are forgotten after a quiet spell, so a quieter track (or a breakdown's
+  // softer kick) isn't locked out by a louder one before it
+  if (now - lastBeat > TUNE.kick.forgetMs) kickFl.length = 0;
+  if (now - lastHit > TUNE.kick.forgetMs*2) hitFl.length = 0;
   const K = TUNE.kick, kq = upper(kickFlux, .6), kT = kickFl.length > 2 ? upper(kickFl, .5)*.4 : 0, hT = hitFl.length > 2 ? upper(hitFl, .5)*.4 : 0;
   loFlux.push(fl); if (loFlux.length > 50) loFlux.shift();
   kickFlux.push(fk); if (kickFlux.length > 50) kickFlux.shift();

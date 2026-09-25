@@ -38,6 +38,7 @@ import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
+import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
 import { SPEC, curP, eff } from './presets.js';
@@ -60,6 +61,9 @@ let frameN = 0, hueAcc = 0;
 const VIS = {bass:0, mid:0, treb:0};
 function frame(now){
   requestAnimationFrame(frame);
+  // 60 frames a second at most: trails, fades and flashes are counted per frame, so a 120 Hz screen would halve them
+  if (now - (frame.last || -1e9) < 1000/60 - 2) return;
+  frame.last = now;
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
 }
 function render(now){
@@ -84,7 +88,7 @@ function render(now){
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light}))});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
-  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000};
+  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel()};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
@@ -96,7 +100,7 @@ function render(now){
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
-    pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
+    frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
@@ -107,7 +111,7 @@ function render(now){
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
   for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
-  if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);
+  if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {
     document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);

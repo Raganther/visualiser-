@@ -5,7 +5,7 @@ import { UNIT, composeFeedback, composeSegment } from './compose.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
-import { HIST, dataArr } from '../state.js';
+import { HIST, S, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
 
@@ -106,13 +106,11 @@ function glResize(){
 // a trail group's buffer pair: main is the page's own, others are made on first use
 const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ cur = v; }} : groups[g] || (groups[g] = {fbos: [target(W, H, false, hdr), target(W, H, false, hdr)], cur: 0});
 // one feedback pass for a trail group: the last frame moved and faded, and the group's own layers drawn on top
-function trailPass(now, P, g, first){
-  const sc = P.sc, pr = pairOf(g), src = pr.fbos[pr.cur], dst = pr.fbos[1 - pr.cur], inG = k => sc.groupOf(k) === g;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,W,H);
+// the trails' shader settings every pass shares (trail groups and fills), and this frame's audio data: once a frame
+function fbShared(now, P){
   gl.useProgram(fbProg.p); const u = fbProg.u;
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dataTex);
-  if (first) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
   gl.uniform1i(u.uData, 1);
   gl.uniform2f(u.uRes, W, H); gl.uniform2f(u.uCenter, P.cx, P.cy);
   gl.uniform1f(u.uTime, now/1000);
@@ -124,8 +122,16 @@ function trailPass(now, P, g, first){
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
   gl.uniform3fv(u.uPal, P.pal); gl.uniform2f(u.uDrift, P.drift[0], P.drift[1]);
   const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/W, R.trailSoft*.5/H); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
+}
+function trailPass(now, P, g){
+  const sc = P.sc, pr = pairOf(g), src = pr.fbos[pr.cur], dst = pr.fbos[1 - pr.cur], inG = k => sc.groupOf(k) === g;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(fbProg.p); const u = fbProg.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
+  gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
   // only this group's layers (and hits drawn in the trails) show in it
-  const Pg = {...P};
+  const Pg = {...P, l: {}};
+  for (const k in P.l) Pg.l[k] = inG(k) ? P.l[k] : 0;
   for (const h of HIT_VISUALS) if (h.inTrails && !inG(h.key)) Pg[h.trailWeight] = 0;
   for (const l of LAYER_VISUALS) if (l.feedback) gl.uniform1f(u['uL_' + l.key], inG(l.key) ? P.l[l.key] : 0);
   for (const vis of VISUALS) if (vis.fbUniforms) vis.fbUniforms(gl, u, Pg);
@@ -146,8 +152,11 @@ function trailPass(now, P, g, first){
 // the objects a mesh step draws: one placed object, or every object on screen that no entry places
 const meshesOf = (P, step) => OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003 && (step.mesh === '*' ? !P.sc.placed.has(o.key) : o.key === step.mesh));
 export function drawGL(now, P){
+  if (lost) return;
   const sc = P.sc, out = {};
-  Object.keys(sc.groups).forEach((g, i) => out[g] = trailPass(now, P, g, i === 0));
+  for (const g in groups) if (!(g in sc.groups)) { groups[g].fbos.forEach(drop); delete groups[g]; }   // a group this scene doesn't use: gone (no stale frames later)
+  fbShared(now, P);
+  for (const g in sc.groups) out[g] = trailPass(now, P, g);
   const u = fbProg.u;
   // the scene's fills: another image seen through an object's glass. A trail group is already a picture; layers are drawn
   // alone by the trails' own shader in fill mode; worlds by a display segment, shrunk
@@ -226,9 +235,13 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   gl.uniform2f(v.uRes, W, H);
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
   for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
-  for (const g in out) { gl.activeTexture(gl.TEXTURE0 + (g === 'main' ? UNIT.main : UNIT.group)); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], g === 'main' ? UNIT.main : UNIT.group); }
+  for (const g in out) { const unit = g === 'main' ? UNIT.main : UNIT.group[sc.extra.indexOf(g)];
+    if (unit === undefined) continue;
+    gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], unit); }
   if (under) { gl.activeTexture(gl.TEXTURE0 + UNIT.under); gl.bindTexture(gl.TEXTURE_2D, under.tex); gl.uniform1i(v.uUnder, UNIT.under); }
-  sc.masks.forEach((k, j) => { if (maskOn[j]) { gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, masks[j].tex); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
+  sc.masks.forEach((k, j) => {   // a mask whose object isn't on screen shows everything (uMaskOn 0)
+    gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, maskOn[j] ? masks[j].tex : blankTex(true));
+    gl.uniform1i(v['uMask' + j], UNIT.mask[j]); gl.uniform1f(v['uMaskOn' + j], maskOn[j] ? 1 : 0); });
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, histTex);
   if (!drawGL.histAt || drawGL.histAt !== now) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, HIST); drawGL.histAt = now; }
   gl.uniform1i(v.uHist, 1);
@@ -237,9 +250,6 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
   for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
   for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
-  // a mask whose object isn't on screen shows everything (it applies only while the object is there)
-  st.seg.forEach(it => { if (it.mask && it.mask.object && !maskOn[sc.masks.indexOf(it.mask.object)]) {
-    const j = sc.masks.indexOf(it.mask.object); gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, blankTex(it.mask.inside)); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 // a 1x1 texture that lets a mask show everything: white when keeping inside, black when keeping outside
@@ -253,7 +263,7 @@ function blankTex(inside){
 // pick WebGL if it works, otherwise the simple 2D renderer
 export function initRenderer(){
   for (const type of ['webgl2', 'webgl', 'experimental-webgl']) {
-    try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false, depth:true}); } catch(e) {}
+    try { gl = canvas.getContext(type, {antialias:false, alpha:false, premultipliedAlpha:false, depth:false}); } catch(e) {}   // objects draw on surfaces with their own depth
     if (gl) break;
   }
   if (gl) { try { setupGL(); } catch(e) { console.warn(e); gl = null; } }
@@ -262,11 +272,24 @@ export function initRenderer(){
     r2d = make2D(canvas);
     setTimeout(() => toast('Simple mode: WebGL isn’t available'), 400);
   }
-  addEventListener('resize', resize); resize();
+  if (gl) {
+    // a lost context (a phone backgrounding the tab, a GPU reset): stop drawing, and rebuild everything when it comes back
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
+    canvas.addEventListener('webglcontextrestored', () => {
+      try { setupGL(); for (const k in blanks) delete blanks[k]; fills = {}; masks = []; groups = {}; surfs = []; fbos = []; blooms = [];
+        S.glGen++; glResize(); lost = false; }
+      catch (e) { console.warn(e); toast('The picture was lost: reload the page'); }
+    });
+  }
+  // debounced, and only when the size really changed (phones fire resize as the address bar moves, which wiped the trails)
+  let pending = 0;
+  addEventListener('resize', () => { clearTimeout(pending); pending = setTimeout(resize, 150); }); resize();
 }
+let lost = false;
 function resize(){
   const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1);
-  W = Math.max(2, Math.floor(innerWidth * dpr)); H = Math.max(2, Math.floor(innerHeight * dpr));
-  canvas.width = W; canvas.height = H;
+  const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(innerHeight * dpr));
+  if (w === W && h === H && (!gl || fbos.length)) return;
+  W = w; H = h; canvas.width = W; canvas.height = H;
   if (gl) glResize(); else r2d.resize(W, H);
 }

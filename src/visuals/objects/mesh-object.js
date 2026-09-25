@@ -9,7 +9,7 @@ import { TUNE } from '../../tuning.js';
 import { meshDraw2d, meshGL, meshPath2d, panesOf } from '../../render/mesh.js';
 
 export function meshObject({key, label, words, mesh}){
-  let drawGL = null, panes2d = null;
+  let drawGL = null, glGen = -1, panes2d = null;
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
     key, kind: 'object', label, words, optIn: true,
@@ -46,7 +46,7 @@ export function meshObject({key, label, words, mesh}){
       };
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
-    drawGL(gl, P, W, H, stage){ if (!drawGL) drawGL = meshGL(gl, mesh); drawGL(P.m[key], W, H, stage); },
+    drawGL(gl, P, W, H, stage){ if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },
     draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
     path2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshPath2d(o, panes2d, mesh.hinge, P.m[key]); },   // its silhouette, for masks
   };

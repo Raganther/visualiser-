@@ -108,10 +108,13 @@ function gridTick(t){
 }
 // run every frame: collect evidence, keep the clock ticking, let confidence fade when the kicks stop
 export function gridFrame(t, fl, fh, ft){
-  const dt = Math.min(.1, t - (G.lastT || t)); G.lastT = t;
+  const gap = t - (G.lastT || t), dt = Math.min(.1, gap); G.lastT = t;
   if (!G.locked) return;
-  G.conf -= dt/TUNE.grid.holdSecs;
+  G.conf -= (gap > 1 ? gap : dt)/TUNE.grid.holdSecs;       // a long gap (a hidden tab) counts in full
   if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }
+  // missed whole bars are skipped, not ticked all at once (that fired a burst of beats, sections and shatters in one frame)
+  const behind = t + .008 + G.lead - G.next, bar = 4*G.period;
+  if (behind > bar) G.next += Math.floor(behind/bar)*bar;
   while (t + .008 + G.lead >= G.next) { gridTick(G.next); G.next += G.period; }   // half a frame early, so ticks land on the beat not after it
   if (G.win && t < G.win.until) { G.win.bb = Math.max(G.win.bb, fl + ft*2 + fh*.5); G.win.mid = Math.max(G.win.mid, fh); }
   S.beatPeriod = G.period;

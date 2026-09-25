@@ -39,6 +39,8 @@ function label(e){
   return name(e.object);
 }
 const cur = () => S.scene || DEFAULT_SCENE;
+// a name for another trail group that no entry uses yet
+const groupName = () => { let n = 'back', k = 1; while (cur().some(e => e.trails === n || (e.fill && e.fill.trails === n))) n = 'back' + ++k; return n; };
 function set(scene){ S.scene = scene; if (S.active) S.active.scene = scene; render(); }   // a new array each edit, so its plan is rebuilt
 function edit(i, fn){ const sc = cur().map(e => ({...e})); fn(sc, sc[i]); set(sc); }
 
@@ -53,6 +55,8 @@ export function render(){
   $('#scNote').textContent = live ? 'Journey is composing the scene (below, bottom to top). Leave Journey (A) to edit it by hand.'
     : 'Top to bottom. Move entries to put things behind or in front; mask the trails with a shape; fill an object\'s glass.';
   const objs = OBJECT_VISUALS.map(v => v.key).filter(k => (live ? J.centre === k : curP[k] > .01) || sc.some(e => e.object === k));   // the objects in play
+  // keep the keyboard where it was: note the focused control, rebuild, then focus its twin in the same row
+  const f = document.activeElement, fr = f && el.contains(f) ? {i: f.closest('li').dataset.i, sel: f.dataset.k ? `[data-k=${f.dataset.k}]` : `[data-a=${f.dataset.a}]`} : null;
   el.innerHTML = sc.map((e, i) => {
     let extra = '';
     if (e.trails) {
@@ -67,15 +71,17 @@ export function render(){
     return `<li data-i="${i}"><span>${label(e)}</span>${live ? '' : `<span class="acts"><button data-a="up" aria-label="Move up">↑</button><button data-a="down" aria-label="Move down">↓</button><button data-a="del" aria-label="Remove">✕</button></span>`}${extra}</li>`;
   }).reverse().join('');   // listed top first
   el.querySelectorAll('select').forEach(s => s.disabled = live);
+  if (fr) { const t = el.querySelector(`li[data-i="${fr.i}"] ${fr.sel}`); if (t) t.focus(); }
 }
 function init(){
   if (!$('#scStack')) return;
-  $('#scTpl').innerHTML = TEMPLATES.map(t => opt(t.key, WORDS[t.key] || t.key)).join('');
+  $('#scTpl').innerHTML = opt('', 'Compose from a template…') + TEMPLATES.map(t => opt(t.key, WORDS[t.key] || t.key)).join('');
   $('#scAdd').innerHTML = opt('', 'Add to the top…') + opt('world', 'The world') + opt('front', 'The world\'s front') + opt('trails', 'Trails')
     + opt('group', 'A second trail group') + opt('hits', 'Hits') + OBJECT_VISUALS.map(v => opt('o:' + v.key, v.label)).join('');
   // compose from a template, using what's on screen; a template that needs a world or an object brings one in
   $('#scTpl').addEventListener('change', e => {
-    const t = TEMPLATES.find(x => x.key === e.target.value); let c = castNow();
+    const t = TEMPLATES.find(x => x.key === e.target.value); e.target.value = ''; if (!t) return;   // back to the prompt, so it can be picked again
+    let c = castNow();
     if (t.needs.world && c.world === 'none') { S.active.city = 1; c = {...c, world: 'city'}; }
     if (t.needs.centre && !c.centre) { S.active.skull = 1; c = {...c, centre: 'skull'}; }
     if (t.needs.accent && !c.accent) { const a = c.lead === 'comets' ? 'ring' : 'comets'; S.active[a] = .8; c = {...c, accent: a}; }
@@ -84,7 +90,7 @@ function init(){
   });
   $('#scAdd').addEventListener('change', e => {
     const v = e.target.value; e.target.value = ''; if (!v) return;
-    const add = v === 'world' ? {world: 'all'} : v === 'front' ? {world: 'front'} : v === 'trails' ? {trails: 'main'} : v === 'group' ? {trails: 'back', layers: ['comets']}
+    const add = v === 'world' ? {world: 'all'} : v === 'front' ? {world: 'front'} : v === 'trails' ? {trails: 'main'} : v === 'group' ? {trails: groupName(), layers: ['comets']}
       : v === 'hits' ? {hits: true} : {object: v.slice(2)};
     if (add.object) S.active[add.object] = Math.max(S.active[add.object] || 0, 1);
     set([...cur().filter(x => !(add.object && x.object === add.object)), add]);

@@ -4,7 +4,7 @@ import { PREC } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
-export const UNIT = {main: 0, group: 6, under: 7, mask: [5, 4]};
+export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4]};   // 3 (media) is free in a segment
 // one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
 // c holds the picture so far; each item lays itself over it
 export function composeSegment(seg, plan){
@@ -19,8 +19,9 @@ export function composeSegment(seg, plan){
     if (it.t === 'front') return `  c=mix(c,w,frontCov(sp)${k});   // the worlds' front planes repaint their own colour over what's below`;
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
     const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
+    const j = m && !m.world ? plan.masks.indexOf(m.object) : -1;   // an object's mask applies only while it's on screen (uMaskOn)
     const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
-      : `    { float m=texture2D(uMask${plan.masks.indexOf(m.object)},vUv).r; t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`;
+      : `    { float m=texture2D(uMask${j},vUv).r; t*=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j}); }\n`;
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
     vec3 t=texture2D(${tex},uv).rgb;
     vec3 b=(texture2D(${tex},uv+vec2(px.x,0.0)).rgb+texture2D(${tex},uv-vec2(px.x,0.0)).rgb
@@ -32,7 +33,7 @@ ${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t
   }).join('\n');
   return PREC + `
 varying vec2 vUv;
-uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes;
+uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1;
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)

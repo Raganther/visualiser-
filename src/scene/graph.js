@@ -22,7 +22,8 @@ export const DEFAULT_SCENE = [{world: 'all'}, {trails: 'main'}, {hits: true}, {o
 const cache = new WeakMap();
 // a trail group for the scene, within the budget (null: over it)
 function group(r, g, layers){
-  if (!(g in r.groups) && Object.keys(r.groups).length >= TUNE.scene.maxGroups) return null;
+  const extra = Object.keys(r.groups).filter(k => k !== 'main').length;   // main is always allowed: it holds everything unclaimed
+  if (g !== 'main' && !(g in r.groups) && extra >= TUNE.scene.maxGroups - 1) return null;
   if (!(g in r.groups)) r.groups[g] = g === 'main' ? null : layers || [];
   return g;
 }
@@ -40,12 +41,15 @@ export function resolveScene(scene){
   const r = {groups: {}, steps: [], fills: {}, masks: [], front: false, placed: new Set(), driven: []};
   let seg = null;
   const item = (it, e) => { if (e.drive) { it.drive = e.drive; it.i = r.driven.length; r.driven.push(it); } if (!seg) r.steps.push(seg = {seg: []}); seg.seg.push(it); };
+  const once = new Set();   // a world, its front or the hits listed twice would draw twice as bright: the first one counts
   for (const e of scene) {
+    const dup = e.world ? 'w:' + e.world : e.hits ? 'hits' : null;
+    if (dup) { if (once.has(dup)) continue; once.add(dup); }
     if (e.world) { item({t: e.world === 'front' ? 'front' : 'world'}, e); if (e.world === 'front') r.front = true; }
     else if (e.trails) {
       const g = group(r, typeof e.trails === 'string' ? e.trails : 'main', e.layers) || group(r, 'main') || 'main';   // over budget: into main
-      const m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
-      if (m && m.object && !r.masks.includes(m.object)) r.masks.push(m.object);
+      let m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
+      if (m && m.object && !r.masks.includes(m.object)) { if (r.masks.length < 2) r.masks.push(m.object); else m = null; }   // two object masks at most
       if (m && m.world) r.front = true;
       item({t: 'trails', g, mask: m}, e);
     }
@@ -60,6 +64,7 @@ export function resolveScene(scene){
   const segs = r.steps.filter(s => s.seg);
   segs.forEach((s, i) => { s.first = r.steps[0] === s; s.last = i === segs.length - 1;
     s.key = (s.first ? '' : 'u:') + s.seg.map(it => it.t + (it.g ? ':' + it.g : '') + (!it.mask ? '' : ':m' + (it.mask.world ? 'w' : r.masks.indexOf(it.mask.object)) + (it.mask.inside ? 'i' : 'o')) + (it.drive ? ':k' + it.i : '')).join('|') + (s.last ? ':end' : ''); });
+  r.extra = Object.keys(r.groups).filter(g => g !== 'main');   // groups beside main, in order (each gets its own texture unit)
   r.anyFill = Object.keys(r.fills).length > 0;
   cache.set(scene, r);
   return r;

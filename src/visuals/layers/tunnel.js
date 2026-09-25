@@ -2,9 +2,10 @@
 // or, with none, rods and beads that move with the music) is reflected into an endless triangular pattern, and can be
 // bent onto a lit sphere so it reads as a solid, evolving orb. Opt-in: Journey only uses it while media is loaded.
 import { MEDIA } from '../../media/source.js';
+import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 
-let tex = null, uploaded = -1;
+let tex = null, uploaded = -1, upFrame = -1, glGen = -1;
 export default {
   key: 'tunnel', kind: 'layer', label: 'Mirror tunnel', optIn: true,
   suits: {mid:.4, T:.2},   // what music it suits (features centred on 0); unused until it joins Journey's pool
@@ -72,12 +73,15 @@ vec3 tubeImage(vec2 q){
     gl.uniform1f(u.uMediaOn, on ? 1 : 0);
     if (!on) return;
     gl.activeTexture(gl.TEXTURE3);
-    if (!tex) {                                         // the media's own texture, made the first time it's needed
+    if (!tex || glGen !== S.glGen) {                  // the media's own texture, made the first time it's needed (or after a lost context)
+      glGen = S.glGen; uploaded = -1;
       tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     } else gl.bindTexture(gl.TEXTURE_2D, tex);
-    if (MEDIA.kind !== 'image' || uploaded !== MEDIA.version) {   // video and camera every frame, a still image once
+    // video and camera once a frame (however many passes draw the tunnel), a still image once
+    if (uploaded !== MEDIA.version || MEDIA.kind !== 'image' && upFrame !== P.frame) {
+      upFrame = P.frame;
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, MEDIA.el); uploaded = MEDIA.version; } catch (e) {}
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);

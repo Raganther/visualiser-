@@ -21,7 +21,12 @@ const AMONG = [{world: 'all'}, {trails: 'main'}, {object: 'skull'}, {world: 'fro
 const GROUPS = [{world: 'all'}, {trails: 'back', layers: ['comets']}, {world: 'front'}, {trails: 'main'}, {hits: true}, {objects: true}];
 const WORLD_IN = [{trails: 'main'}, {object: 'skull', fill: {world: true}}, {hits: true}];
 const COMETS_IN = [{world: 'all'}, {trails: 'main'}, {object: 'skull', fill: {trails: 'inner', layers: ['comets']}}, {hits: true}];
-async function run(browser, settings, scene, frames){
+// thumbnails of one run (settings and scene) at each of several frame counts. Runs are deterministic, so one page load
+// gives every snapshot a separate run would, and a repeated run comes from the cache
+let cache = new Map();
+async function runs(browser, settings, scene, frames){
+  const key = JSON.stringify([settings, scene, frames]);
+  if (cache.has(key)) return cache.get(key);
   const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0&tune=render.bloom=0'});   // the glow off: this is about what covers what
   const t = await page.evaluate(`(async () => {
     const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {setJourney} = await import('/src/ui/controls.js');
@@ -31,15 +36,21 @@ async function run(browser, settings, scene, frames){
     set('sym', 1); S.active.mods = {};
     for (const [k, v] of Object.entries(${JSON.stringify(settings)})) set(k, v);
     S.scene = ${JSON.stringify(scene)};
-    __step(${frames}); return ${THUMB};
+    const out = []; let done = 0;
+    for (const f of ${JSON.stringify(frames)}) { __step(f - done); done = f; out.push(${THUMB}); }
+    return out;
   })()`);
   const errors = await page.errors(); await page.close();
   if (errors.length) { failed = true; console.log('errors', errors); }
+  cache.set(key, t);
   return t;
 }
+const run = async (browser, settings, scene, f) => (await runs(browser, settings, scene, [f]))[0];
+const sum = (a, b, idx) => a.reduce((s, t, i) => s + diff(t, b[i], idx), 0);
 
 for (const mode of ['2d', 'gl']) {
-  const browser = await launch(mode), n = mode === 'gl' ? 90 : 200;
+  const browser = await launch(mode), n = mode === 'gl' ? 90 : 200, F = mode === 'gl' ? [150, 210] : [300, 420, 540, 660];
+  cache = new Map();
   // fill: the skull's glass holds a kaleidoscope of the folded layers
   const plain = await run(browser, {skull: 1}, null, n);
   const filled = await run(browser, {skull: 1}, [{world: 'all'}, {trails: 'main'}, {hits: true}, {object: 'skull', fill: {layers: ['plasma', 'ring', 'burst', 'scope'], fold: 6}}], n);
@@ -53,12 +64,9 @@ for (const mode of ['2d', 'gl']) {
   // between: the city's near buildings come in front of the comets. Comets move about, so compare their light over the
   // buildings' band summed over several moments, with and without
   const BAND = []; for (let ty = 11; ty <= 13; ty++) for (let tx = 0; tx < 32; tx++) BAND.push(ty*32 + tx);   // the near rooftops and walls
-  let over = 0, under = 0;
-  for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540, 660]) {
-    const settings = {city: 1, comets: 1, decay: .96}, bare = await run(browser, {city: 1, decay: .96}, null, f);
-    over += diff(bare, await run(browser, settings, null, f), BAND);
-    under += diff(bare, await run(browser, settings, [{world: 'all'}, {trails: 'main'}, {world: 'front'}, {hits: true}, {objects: true}], f), BAND);
-  }
+  const comets = {city: 1, comets: 1, decay: .96}, bare = await runs(browser, {city: 1, decay: .96}, null, F);
+  const over = sum(bare, await runs(browser, comets, null, F), BAND);
+  const under = sum(bare, await runs(browser, comets, [{world: 'all'}, {trails: 'main'}, {world: 'front'}, {hits: true}, {objects: true}], F), BAND);
   report(over > 1 && under < over*.6, `${mode}: comets over the buildings' band: ${over.toFixed(1)} in front, ${under.toFixed(1)} between (the near buildings cover them)`);
   // an object between the world's planes: the near buildings hide the skull's lower half, which shows on top by default
   const LOW = []; for (let ty = 11; ty <= 13; ty++) for (let tx = 12; tx <= 19; tx++) LOW.push(ty*32 + tx);   // below the skull's middle
@@ -68,25 +76,29 @@ for (const mode of ['2d', 'gl']) {
   // .7: the skull shows through the gaps between the near buildings, which vary with the city's layout
   report(onTop > 2 && among < onTop*.7, `${mode}: the skull's lower half: ${onTop.toFixed(1)} on top, ${among.toFixed(1)} among the buildings`);
   // trail groups: comets in a group behind the buildings, the ring in main in front of them
-  let cB = 0, cF = 0, rB = 0;
-  for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540, 660]) {
-    const bare = await run(browser, {city: 1, decay: .96}, GROUPS, f);
-    cF += diff(bare, await run(browser, {city: 1, comets: 1, decay: .96}, null, f), BAND);
-    cB += diff(bare, await run(browser, {city: 1, comets: 1, decay: .96}, GROUPS, f), BAND);
-    rB += diff(bare, await run(browser, {city: 1, ring: 1, decay: .96}, GROUPS, f), BAND);
-  }
+  const bareG = await runs(browser, {city: 1, decay: .96}, GROUPS, F);
+  const cF = sum(bareG, await runs(browser, comets, null, F), BAND), cB = sum(bareG, await runs(browser, comets, GROUPS, F), BAND);
+  const rB = sum(bareG, await runs(browser, {city: 1, ring: 1, decay: .96}, GROUPS, F), BAND);
   report(cF > 1 && cB < cF*.6 && rB > cB, `${mode}: groups: comets ${cF.toFixed(1)} alone, ${cB.toFixed(1)} in the back group; the ring in front ${rB.toFixed(1)}`);
   // fills from any image: a world only inside the skull; a trail group seen only through its glass
   const skullOnly = await run(browser, {skull: 1}, WORLD_IN, n), cityIn = await run(browser, {skull: 1, city: 1}, WORLD_IN, n);
   const wIn = diff(skullOnly, cityIn, MID), wOut = diff(skullOnly, cityIn, EDGE);
   report(wIn > 2 && wOut < .5, `${mode}: the city fills the skull (change ${wIn.toFixed(1)}) and nowhere else (${wOut.toFixed(1)})`);
-  let open = 0, glass = 0;
-  for (const f of mode === 'gl' ? [150, 210] : [300, 420, 540]) {
-    const bare = await run(browser, {skull: 1, decay: .96}, COMETS_IN, f);
-    open += diff(bare, await run(browser, {skull: 1, comets: 1, decay: .96}, null, f), EDGE);
-    glass += diff(bare, await run(browser, {skull: 1, comets: 1, decay: .96}, COMETS_IN, f), EDGE);
-  }
+  const F3 = F.slice(0, 3), bareS = await runs(browser, {skull: 1, decay: .96}, COMETS_IN, F3);
+  const open = sum(bareS, await runs(browser, {skull: 1, comets: 1, decay: .96}, null, F3), EDGE);
+  const glass = sum(bareS, await runs(browser, {skull: 1, comets: 1, decay: .96}, COMETS_IN, F3), EDGE);
   report(open > 1 && glass < open*.2, `${mode}: comets at the screen's edges: ${open.toFixed(1)} as usual, ${glass.toFixed(1)} when they're only in the skull's glass`);
+  // robustness: scenes the editor can make that used to break. More groups than the budget (simple mode crashed every
+  // frame with no main group left), three masked objects (a shader compile error), and no trails at all (the skull sampled
+  // the surface it was drawing into, and vanished in WebGL)
+  const errs0 = failed;
+  await run(browser, {skull: 1, comets: 1, ring: 1, city: 1}, [{world: 'all'}, {trails: 'back', layers: ['comets']}, {trails: 'b2', layers: ['ring']},
+    {object: 'skull', fill: {trails: 'inner', layers: ['plasma']}}, {hits: true}], n);
+  await run(browser, {skull: 1, knot: 1, torus: 1, comets: 1}, [{world: 'all'}, {trails: 'main', mask: {object: 'skull', keep: 'inside'}},
+    {trails: 'x', layers: ['comets'], mask: {object: 'knot', keep: 'outside'}}, {trails: 'main', mask: {object: 'torus', keep: 'inside'}}, {objects: true}], n);
+  const noTrails = [{world: 'all'}, {hits: true}, {objects: true}];
+  const bareN = await run(browser, {}, noTrails, n), skullN = await run(browser, {skull: 1}, noTrails, n);
+  report(!failed && errs0 === failed && diff(bareN, skullN, MID) > 2, `${mode}: over-budget groups, three masks and no trails draw without errors; the skull shows with no trails (${diff(bareN, skullN, MID).toFixed(1)})`);
   await browser.close();
 }
 // the scene editor: compose from a template by hand, move an entry, drive a weight by a signal

@@ -100,7 +100,7 @@ export const TUNE = {
     worldFillZoom: 2.6,        // how many times smaller a world is when it fills an object's glass (its horizon comes up into the glass)
     worldFillGain: 2.2,        // and how much brighter: worlds are mostly dark sky, which would vanish into the dark glass
     partFillAmt: 2,            // a fill in one part (the eyes) is small, so it shows this many times brighter
-    maxGroups: 2,              // trail groups a scene may run (each is a full-size feedback pass); layers of any beyond this go to main
+    maxGroups: 2,              // trail groups a scene may run, main included (each is a full-size feedback pass; 3 at most); layers of any beyond go to main
   },
 
   // 3D mesh objects (the wire skull, the unicorn, the maths shapes): how they all look and move
@@ -136,6 +136,7 @@ export const TUNE = {
     subShare: .18,             // over its first moment, a kick puts at least this much of its (weighted) rise in the lowest bin;
                                // on a real track kicks put .15-.32, bass notes between them mostly under .1; an 808-style kick .22-.28
     windowMs: 30,              // that first moment: the hit's first three frames or so (the sub often lands a frame or two late)
+    forgetMs: 1500,            // after this long with no kick, the floor learnt from past kicks is dropped (a quieter part can be heard)
   },
 
   // beat grid

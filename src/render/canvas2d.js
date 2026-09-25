@@ -161,6 +161,7 @@ export function make2D(view){
   function draw(now, P){
     const sc = P.sc, glows = {};
     P.t2d = now/1000;
+    for (const g in groups) if (!(g in sc.groups)) delete groups[g];   // a group this scene doesn't use: gone (no stale frames later)
     for (const g in sc.groups) glows[g] = trails(now, P, g);
     out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
     out.fillStyle = '#000'; out.fillRect(0, 0, W, H);
@@ -174,6 +175,7 @@ export function make2D(view){
         else if (it.t === 'front') { if (!kept) { keepBlankWorlds(P, now); kept = true; } drawFronts(P, now, Math.min(1, kw)); }
         else if (it.t === 'hits') drawHits(P);
         else {
+          if (!glows[it.g]) continue;
           const m = it.mask, on = m && (m.world || byKey[m.object] && P.o[m.object] > .01);
           const glow = on ? maskedGlow(P, glows[it.g], m, sc.masks.indexOf(m.object) + 1) : glows[it.g];
           out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, kw);

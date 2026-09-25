@@ -5,7 +5,7 @@ import { serve, launch, openPage, ENTRY } from './lib.mjs';
 if (!ENTRY.endsWith('index.html')) { console.log('journey: skipped for', ENTRY); process.exit(0); }
 const N = 400;
 const {srv, url} = await serve();
-const browser = await launch('2d'), page = await openPage(browser, url, {groove: false});
+const browser = await launch('2d'), page = await openPage(browser, url, {groove: false, noDraw: true});
 const r = await page.evaluate(async (N) => {
   const {J} = await import('/src/journey/core.js'), {chooseWorld} = await import('/src/journey/worlds.js');
   const {presets} = await import('/src/presets.js'), reg = await import('/src/visuals/registry.js'), {TEMPLATES} = await import('/src/scene/templates.js');

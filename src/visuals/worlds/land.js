@@ -13,8 +13,7 @@ export default {
     st.histT += dt;
     while (st.histT >= .12) {                          // record loudness for the mountains
       st.histT -= .12; HIST.copyWithin(0, 1);
-      const J = x.J, lvl = (J.eM - J.lo)/Math.max(.06, J.hi - J.lo);
-      HIST[255] = Math.round(Math.min(1, Math.max(0, lvl*.7 + x.sBass*.4))*255);
+      HIST[255] = Math.round(Math.min(1, Math.max(0, x.lvl*.7 + x.sBass*.4))*255);   // Journey's energy (which doesn't sink on steady tracks)
     }
   },
   params(P, x){ P.landY = st.landY; P.histFrac = st.histT/.12; P.sunX = Math.sin(x.t*.03)*.15; },
