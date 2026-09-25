@@ -1,6 +1,6 @@
 // The Adjust panel: sliders built from SPEC, and Journey's narration.
 import { S } from '../state.js';
-import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS } from '../journey/cast.js';
+import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS, sceneWords } from '../journey/cast.js';
 import { J } from '../journey/core.js';
 import { PACE, paceName } from '../journey/pace.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
@@ -19,6 +19,7 @@ export function updateSectionUI(){
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
+    + (J.lead && sceneWords() ? ` ${sceneWords()}` : '')
     + (L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
