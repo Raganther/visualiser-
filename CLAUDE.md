@@ -22,14 +22,14 @@ src/presets.js             SPEC (settings and sliders, partly from the registry)
 src/util.js                $, maths, colour (hc, hsv2rgb), noise
 src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
-src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes)
+src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes), quality.js (resolution that follows the frame rate)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout)
-tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
@@ -46,6 +46,9 @@ tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh),
 - **Crisp layers.** Worlds (backgrounds) and hits are drawn in segments every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
 - **Simple mode.** `render/canvas2d.js` (`make2D`) is a Canvas 2D fallback for browsers without WebGL. **Every visual needs a version in both renderers.** The 2D one can be plainer.
 - **Robustness.** Drawing is capped at 60 fps (feel numbers are per frame). A lost WebGL context stops drawing and is rebuilt on restore (visuals with their own GL objects check `S.glGen`). Resizes are debounced. The trails' shader skips every visual whose weight is 0, and every template's segment shaders are compiled while the page is idle (`warmScenes`).
+- **Speed.** Two things keep it quick as visuals are added:
+  - **The trails' shader holds only what's drawing.** It runs for every pixel of every trail group, so each visual in it cost something even at weight 0. `fbPick()` in `gl.js` builds one from the visuals with weight (and any a fill shows), kept for `TUNE.render.fbLinger` after they stop so accents don't swap shaders, and cached per set (`fbCache`; 0 turns this off). While a new one compiles in the background (`KHR_parallel_shader_compile`, or `fbWait`), the smallest ready one that covers the set is used, or the full one, which is always there. In software WebGL this took a plain section from about 6–7 to 9–11 fps. `tests/quality.mjs` checks it draws exactly what the full one does.
+  - **The resolution follows the frame rate** (`render/quality.js`, `TUNE.render.auto`). Under `low` fps for `slowN` seconds running (so one hitch doesn't count), it draws a step smaller (×`step`, down to `min`; the canvas is stretched to fit, and the main trails are carried across); at `high` for `upMs`, a step back up. A step up that's slow again within `probeMs` is taken back and not tried again for `ceilMs`. It waits `graceMs` at the start, while shaders compile. The readout says when it's lowered.
 - **Frame rate.** `ui/fps.js` shows frames drawn a second (green at 55+, amber at 30+, red below), the longest gap between frames, the script's time per frame, the renderer and its size, and what's on screen. It's on until hidden with **P** or the panel's "Show frame rate" (remembered in `localStorage`). In WebGL the script time leaves out the GPU's work, so a low fps with little script time means the shaders are the cost.
 - **Parameters.** `render()` in `main.js` builds `P` each frame. Each visual's `params()` adds its own fields. `t` is *motion time* (`S.MT`), not wall time; see Pace below.
 
@@ -365,6 +368,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - find the real downbeat at a steady tempo.
 
   On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo.
+- `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/journey.mjs`: over 400 simulated sections:
   - every world, hit and scene template is chosen;
   - nearly every recipe is;

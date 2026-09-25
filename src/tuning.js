@@ -70,6 +70,12 @@ export const TUNE = {
     bloomThresh: .5,           // how bright a part must be to glow
     bloomRadius: 1.6,          // how wide the glow spreads (in blur steps)
     knee: .78,                 // brightness above which colours roll off softly instead of clipping to white
+    fbLinger: 8000,            // ms a visual stays in the trails' shader after it last drew (so accents don't swap shaders each time)
+    // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
+    auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
+      probeMs: 6000, ceilMs: 120000, stallMs: 250},   // probe: a drop this soon after a step up keeps it under that step for ceilMs
+    fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
+    fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
   },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {

@@ -1,11 +1,12 @@
 // WebGL renderer: context, framebuffers, the feedback and display passes, and the choice between WebGL and simple mode.
 import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
-import { UNIT, composeFeedback, composeSegment } from './compose.js';
+import { FB_VISUALS, UNIT, composeFeedback, composeSegment } from './compose.js';
 import { resolveScene } from '../scene/graph.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
+import { Q } from './quality.js';
 import { HIST, S, dataArr } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
@@ -17,16 +18,25 @@ function compile(type, src){
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
   return s;
 }
-function program(fs, vs){
-  const p = gl.createProgram();
-  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs || VERT));
-  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+// start compiling and linking a program; linked() waits for it (and reads its uniforms), so a driver that compiles in the
+// background (KHR_parallel_shader_compile) can be left to finish while frames go on
+function startProgram(fs, vs){
+  const p = gl.createProgram(), sh = [gl.createShader(gl.VERTEX_SHADER), gl.createShader(gl.FRAGMENT_SHADER)];
+  [vs || VERT, fs].forEach((src, i) => { gl.shaderSource(sh[i], src); gl.compileShader(sh[i]); gl.attachShader(p, sh[i]); });
   gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return {p, sh};
+}
+function linked({p, sh}){
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const log = sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(p);
+    sh.forEach(x => gl.deleteShader(x)); gl.deleteProgram(p); throw new Error(log);
+  }
+  sh.forEach(x => gl.deleteShader(x));
   const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
   return {p, u};
 }
+const program = (fs, vs) => linked(startProgram(fs, vs));
 let pProg = null, pBuf = null, quadBuf = null, histTex = null, post = null, hdr = null;
 let fbProg = null, fbos = [], cur = 0, dataTex = null;
 export let W = 1, H = 1, r2d = null;
@@ -54,8 +64,49 @@ function makeTex(w, h, f){
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   return t;
 }
+// The trails' shader is built from just the visuals drawing in it: every visual added to the registry would otherwise make
+// it bigger for every pixel of every frame, drawing or not. The full one (every visual) is always there, used while a
+// smaller one compiles in the background; a visual counts as drawing for fbLinger after it last had weight, so an accent
+// that comes and goes doesn't swap programs each time
+const FB = {all: null, progs: new Map(), seen: {}, par: null, key: '*'};
+function fbPick(P){
+  if (!TUNE.render.fbCache) { fbProg = FB.all; FB.key = '*'; return; }   // 0: always the full shader
+  const t = performance.now(), sc = P.sc, L = TUNE.render.fbLinger;
+  for (const v of FB_VISUALS) {
+    const w = v.kind === 'layer' ? P.l[v.key] : P[v.trailWeight];
+    let on = w > 0;
+    for (const k in sc.fills) if (P.o[k] > .003 && sc.fills[k].src === 'layers' && sc.fills[k].layers.includes(v.key)) on = true;
+    if (on) FB.seen[v.key] = t;
+  }
+  const keys = FB_VISUALS.filter(v => t - (FB.seen[v.key] ?? -1e9) < L).map(v => v.key), key = keys.join(',');
+  let e = FB.progs.get(key);
+  if (!e) {   // start it compiling; until it's ready a bigger one that covers it does
+    if (FB.progs.size >= TUNE.render.fbCache) {   // forget the one used longest ago
+      let old = null; for (const [k, c] of FB.progs) if (!c.job && (!old || c.used < old[1].used)) old = [k, c];
+      if (old) { if (old[1].prog) gl.deleteProgram(old[1].prog.p); FB.progs.delete(old[0]); }
+    }
+    e = {keys: new Set(keys), job: null, prog: null, used: t, at: t};
+    try { e.job = startProgram(composeFeedback(e.keys)); } catch (err) { e.failed = true; }
+    FB.progs.set(key, e);
+  }
+  // ready: the driver says so, or (without that extension) a moment has passed, since browsers mostly compile off the page's thread
+  if (e && e.job && (FB.par ? gl.getProgramParameter(e.job.p, FB.par.COMPLETION_STATUS_KHR) : t - e.at > TUNE.render.fbWait)) {
+    try { e.prog = linked(e.job); } catch (err) { console.warn(err); e.failed = true; }
+    e.job = null;
+  }
+  let best = e && e.prog ? e : null;
+  if (!best) for (const c of FB.progs.values())
+    if (c.prog && keys.every(k => c.keys.has(k)) && (!best || c.keys.size < best.keys.size)) best = c;
+  if (best) best.used = t;
+  FB.key = best ? [...best.keys].join(', ') || 'none' : '*';
+  fbProg = best ? best.prog : FB.all;
+}
+// what the trails' shader holds now, for the frame-rate readout
+export const fbInfo = () => FB.key === '*' ? `all ${FB_VISUALS.length} visuals` : FB.key;
 function setupGL(){
-  fbProg = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
+  for (const e of FB.progs.values()) if (e.prog) gl.deleteProgram(e.prog.p);
+  FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile');
+  fbProg = FB.all = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
   post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
   pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
   const quad = quadBuf = gl.createBuffer();
@@ -109,10 +160,16 @@ function target(w, h, depth, f){
 const halfTarget = () => target(Math.max(1, W >> 1), Math.max(1, H >> 1));
 const drop = t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); if (t.rb) gl.deleteRenderbuffer(t.rb); } };
 function glResize(){
-  [...Object.values(fills), ...masks, ...surfs, ...blooms, ...Object.values(groups).flatMap(g => g.fbos), ...fbos].forEach(drop);
+  const old = fbos[cur];   // the main trails, carried over so a change of resolution doesn't wipe them
+  [...Object.values(fills), ...masks, ...surfs, ...blooms, ...Object.values(groups).flatMap(g => g.fbos), ...fbos.filter(t => t !== old)].forEach(drop);
   fills = {}; masks = []; groups = {}; surfs = [];
   TW = Math.max(2, Math.round(W*TUNE.render.trailScale)); TH = Math.max(2, Math.round(H*TUNE.render.trailScale));
   fbos = [0, 1].map(() => target(TW, TH, false, hdr));
+  if (old) {   // copied with the blur's program, blurring nothing
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[cur].fb); gl.viewport(0, 0, TW, TH); gl.useProgram(post.blur.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, old.tex); gl.uniform1i(post.blur.u.uTex, 0); gl.uniform2f(post.blur.u.uDir, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); drop(old);
+  }
   blooms = [0, 1].map(() => target(Math.max(1, W >> 2), Math.max(1, H >> 2), false, hdr));   // the glow, at quarter size
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
@@ -168,6 +225,7 @@ export function drawGL(now, P){
   if (lost) return;
   const sc = P.sc, out = {};
   for (const g in groups) if (!(g in sc.groups)) { groups[g].fbos.forEach(drop); delete groups[g]; }   // a group this scene doesn't use: gone (no stale frames later)
+  fbPick(P);
   fbShared(now, P);
   for (const g in sc.groups) out[g] = trailPass(now, P, g);
   const u = fbProg.u;
@@ -299,8 +357,8 @@ export function initRenderer(){
   addEventListener('resize', () => { clearTimeout(pending); pending = setTimeout(resize, 150); }); resize();
 }
 let lost = false;
-function resize(){
-  const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1);
+export function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1)*Q.scale;   // Q.scale: drawn smaller while frames run slow
   const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(innerHeight * dpr));
   if (w === W && h === H && (!gl || fbos.length)) return;
   W = w; H = h; canvas.width = W; canvas.height = H;

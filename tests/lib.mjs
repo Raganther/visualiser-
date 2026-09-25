@@ -41,7 +41,7 @@ const DETERMINISM = seed => `
   let now = 0; const q = [];
   performance.now = () => now;
   window.requestAnimationFrame = cb => { q.push(cb); return q.length; };
-  window.__step = n => { for (let i = 0; i < n; i++) { now += 1000/60; q.splice(0).forEach(cb => cb(now)); } };
+  window.__step = (n, dt = 1000/60) => { for (let i = 0; i < n; i++) { now += dt; q.splice(0).forEach(cb => cb(now)); } };   // dt: slower frames
   window.__now = () => now;
 })();`;
 

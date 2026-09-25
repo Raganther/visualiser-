@@ -43,7 +43,8 @@ import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
 import { BASE, SPEC, curP, eff } from './presets.js';
-import { drawGL, gl, initRenderer, r2d, warmScenes } from './render/gl.js';
+import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
+import { Q, qualityTick } from './render/quality.js';
 import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
@@ -69,13 +70,15 @@ function frame(now){
   const t0 = performance.now();
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
   fpsTick(now, performance.now() - t0, fpsInfo);
+  if (!window.__noDraw && qualityTick(performance.now())) resize();   // slow frames: draw smaller (render/quality.js)
 }
 // the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene
 function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}\n${what}; scene ${sc}`;
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '')
+    + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 function render(now){
   analyse(now);

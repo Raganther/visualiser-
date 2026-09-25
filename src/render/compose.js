@@ -1,7 +1,7 @@
 // Builds the shaders from the registry. A display segment: shared helpers, every visual's uniforms and functions, then
 // main(), which runs the segment's items in stack order over what's below (black, or the picture so far).
 import { PREC } from './shaders.js';
-import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
 export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4]};   // 3 (media) is free in a segment
@@ -64,13 +64,15 @@ ${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}${seg.fill ? '  
 // The feedback pass: last frame zoomed, spun, warped and faded, with the layers drawn on top. Layers slot in by role:
 // glow (adds to the shared brightness g, coloured by one gradient), folded (own colour, inside the kaleidoscope fold),
 // main (drawn over everything, in paint order), displace (pushes where everything is sampled, like shockwaves).
-export function composeFeedback(){
+// keys: build it from just these visuals (the ones drawing now), or from every one when left out
+export const FB_VISUALS = VISUALS.filter(v => v.feedback);
+export function composeFeedback(keys){
   // every visual's code runs only while it has weight: most are off at any moment, and this shader runs for every pixel of
   // every trail group (a layer's weight is uL_<key>; a hit drawn in the trails names its own, fbWeight)
-  const fbv = VISUALS.filter(v => v.feedback), wt = v => v.fbWeight || 'uL_' + v.key;
+  const fbv = FB_VISUALS.filter(v => !keys || keys.has(v.key)), wt = v => v.fbWeight || 'uL_' + v.key;
   const guard = (v, code) => `  if(${wt(v)}>0.003){\n${code.replace(/^\n/, '')}\n  }`;
   const part = (k, sep = '\n') => fbv.filter(v => v.feedback[k]).map(v => k === 'uniforms' || k === 'functions' ? v.feedback[k].replace(/^\n/, '') : guard(v, v.feedback[k])).join(sep);
-  const layers = LAYER_VISUALS.filter(v => v.feedback);
+  const layers = fbv.filter(v => v.kind === 'layer');
   const main = fbv.filter(v => v.feedback.main).sort((a, b) => a.paint - b.paint).map(v => guard(v, v.feedback.main)).join('\n');
   const displace = fbv.filter(v => v.feedback.displace).map(v => `  if(${wt(v)}>0.003) disp+=${v.feedback.displace};`).join('\n');
   return PREC + `
