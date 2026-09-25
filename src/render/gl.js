@@ -194,6 +194,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   gl.useProgram(pr.p);
   gl.uniform2f(v.uRes, W, H);
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
+  for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
   for (const g in out) { gl.activeTexture(gl.TEXTURE0 + (g === 'main' ? UNIT.main : UNIT.group)); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], g === 'main' ? UNIT.main : UNIT.group); }
   if (under) { gl.activeTexture(gl.TEXTURE0 + UNIT.under); gl.bindTexture(gl.TEXTURE_2D, under.tex); gl.uniform1i(v.uUnder, UNIT.under); }
   sc.masks.forEach((k, j) => { if (maskOn[j]) { gl.activeTexture(gl.TEXTURE0 + UNIT.mask[j]); gl.bindTexture(gl.TEXTURE_2D, masks[j].tex); gl.uniform1i(v['uMask' + j], UNIT.mask[j]); } });

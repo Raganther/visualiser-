@@ -69,6 +69,16 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 .meter div{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
 .meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .note{font-size:12px;color:var(--dim);margin:6px 0 0}
+.pick{grid-column:1 / -1;width:100%;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;padding:3px 4px;margin:2px 0}
+.pick option,.stack select option{background:#000;color:#fff}
+.stack{list-style:none;margin:6px 0;padding:0;font-size:13px}
+.stack li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 0;border-top:1px solid var(--line)}
+.stack li>span:first-child{flex:1;min-width:0}
+.stack .acts{display:flex;gap:2px}
+.stack button{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;min-width:28px;min-height:28px;cursor:pointer}
+.stack button:hover{color:var(--ink)}
+.stack select{flex-basis:100%;background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;padding:2px 4px}
+.pick:disabled,.stack select:disabled{opacity:.6}
 #sliders.locked .row{opacity:.5;pointer-events:none}
 #panel .keys{margin-top:14px;font-size:12px;color:var(--dim);line-height:1.6}
 #panel .keys b{color:var(--ink);font-weight:500}

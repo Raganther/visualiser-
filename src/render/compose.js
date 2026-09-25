@@ -14,8 +14,9 @@ export function composeSegment(seg, plan){
   const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
   const needW = seg.seg.some(it => it.t === 'world' || it.t === 'front');
   const body = seg.seg.map(it => {
-    if (it.t === 'world') return '  c+=w;   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails';
-    if (it.t === 'front') return '  c=mix(c,w,frontCov(sp));   // the worlds\' front planes repaint their own colour over what\'s below';
+    const k = it.drive ? `*uK${it.i}` : '';   // a weight that follows a signal
+    if (it.t === 'world') return `  c+=w${k};   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails`;
+    if (it.t === 'front') return `  c=mix(c,w,frontCov(sp)${k});   // the worlds' front planes repaint their own colour over what's below`;
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
     const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
     const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
@@ -26,13 +27,14 @@ export function composeSegment(seg, plan){
            +texture2D(${tex},uv+vec2(0.0,px.y)).rgb+texture2D(${tex},uv-vec2(0.0,px.y)).rgb)*0.25;
     t+=b*0.35;
     t*=1.0+uBeat*0.6;   // the kick flashes here, after the trails, so the brightest moment lands on the kick
-${mask}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
+${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
   }`;
   }).join('\n');
   return PREC + `
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes;
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
+${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}

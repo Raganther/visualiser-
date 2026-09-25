@@ -84,10 +84,10 @@ export function make2D(view){
     if (worldCan.width !== W || worldCan.height !== H) { worldCan.width = W; worldCan.height = H; }
     wctx.globalCompositeOperation = 'copy'; wctx.drawImage(out.canvas, 0, 0);
   }
-  function drawFronts(P, now){
+  function drawFronts(P, now, a = 1){
     out.save(); out.beginPath();
     for (const v of WORLD_VISUALS) if (v.front && P.w[v.key] > .01) v.front.path2d(out, P, now/1000);
-    out.clip(); out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1; out.drawImage(worldCan, 0, 0); out.restore();
+    out.clip(); out.globalCompositeOperation = 'source-over'; out.globalAlpha = a; out.drawImage(worldCan, 0, 0); out.restore();
   }
   // a trail group cut to (or away from) a shape: an object's silhouette or the worlds' front planes
   const maskCans = [];
@@ -169,16 +169,18 @@ export function make2D(view){
     for (const st of sc.steps) {
       if (st.mesh) { drawObjects(P, st); continue; }
       for (const it of st.seg) {
-        if (it.t === 'world') { drawWorlds(P, now); if (sc.front) { keepWorlds(); kept = true; } }
-        else if (it.t === 'front') { if (!kept) { keepBlankWorlds(P, now); kept = true; } drawFronts(P, now); }
+        const kw = it.drive ? P.kw[it.i] : 1;   // a weight that follows a signal
+        if (it.t === 'world') { drawWorlds(kw === 1 ? P : {...P, w: Object.fromEntries(Object.entries(P.w).map(([k, v]) => [k, v*kw]))}, now); if (sc.front) { keepWorlds(); kept = true; } }
+        else if (it.t === 'front') { if (!kept) { keepBlankWorlds(P, now); kept = true; } drawFronts(P, now, Math.min(1, kw)); }
         else if (it.t === 'hits') drawHits(P);
         else {
           const m = it.mask, on = m && (m.world || byKey[m.object] && P.o[m.object] > .01);
           const glow = on ? maskedGlow(P, glows[it.g], m, sc.masks.indexOf(m.object) + 1) : glows[it.g];
-          out.globalCompositeOperation = 'lighter';
+          out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, kw);
           out.drawImage(glow, 0, 0, W, H);
           // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
-          if (P.beat > .01) { out.globalAlpha = Math.min(1, P.beat*.6); out.drawImage(glow, 0, 0, W, H); out.globalAlpha = 1; }
+          if (P.beat > .01) { out.globalAlpha = Math.min(1, P.beat*.6*kw); out.drawImage(glow, 0, 0, W, H); }
+          out.globalAlpha = 1;
         }
       }
     }

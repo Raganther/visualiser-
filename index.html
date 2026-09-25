@@ -35,6 +35,14 @@
     <p class="note" id="jGrid">Finding the beat</p>
     <p class="note" id="jNote">Journey is steering the settings below. Pick a preset or turn Journey off to adjust them by hand.</p>
   </section>
+  <section id="scene">
+    <h2>Scene</h2>
+    <div class="row"><label for="scTpl">Compose</label>
+      <select id="scTpl" class="pick" aria-describedby="scNote"></select></div>
+    <ol id="scStack" class="stack" aria-label="The scene, top to bottom"></ol>
+    <select id="scAdd" class="pick" aria-label="Add to the scene"></select>
+    <p class="note" id="scNote"></p>
+  </section>
   <div id="sliders"></div>
   <h2>Response</h2>
   <div class="row"><label for="react">Reactivity</label><output id="reactOut">1.00</output>

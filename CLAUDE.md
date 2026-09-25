@@ -27,20 +27,22 @@ src/journey/               core (J, jState), sections, worlds, cast, recipes, tr
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
-src/scene/                 signals.js (the signal bus: everything that changes, by name), graph.js (scenes: fills, masks, world planes)
-src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
+src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light)
+src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
 tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, golden (see Testing)
+docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 ```
 
 ## How it draws
 
-- **Feedback engine.** Each frame redraws the last frame zoomed, spun, warped and faded (`decay`), then adds the layers on top. This is what makes the glowing trails.
-  - WebGL: the feedback shader ping-pongs between two framebuffers.
-  - The display shader then composites the result onto the screen.
-  - Both shaders are assembled by `render/compose.js` from the registry.
-- **Crisp layers.** Worlds (backgrounds) and hits are drawn in the display pass every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
+- **Everything is composed.** Each frame draws the current **scene** (see Scenes below): a stack, bottom to top, that `scene/graph.js` compiles into a **draw plan**, which both renderers run step by step:
+  - **trail passes**, one per trail group: the group's last frame zoomed, spun, warped, faded (`decay`) and pushed by the wind, with the group's own layers drawn on top. This is what makes the glowing trails. In WebGL each group ping-pongs between two framebuffers.
+  - **segments**: a run of flat entries (worlds, their front planes, trail groups, hits) drawn in one full-screen pass over the picture so far. `render/compose.js` builds each segment's shader from the registry, once per shape of run, and caches it.
+  - **object draws** between segments. When something is drawn over an object later, WebGL builds the picture on a surface with depth and the next segment reads it back.
+  - small **fill and mask** passes at half size, only when a scene uses them.
+- **Crisp layers.** Worlds (backgrounds) and hits are drawn in segments every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
 - **Simple mode.** `render/canvas2d.js` (`make2D`) is a Canvas 2D fallback for browsers without WebGL. **Every visual needs a version in both renderers.** The 2D one can be plainer.
 - **Parameters.** `render()` in `main.js` builds `P` each frame. Each visual's `params()` adds its own fields. `t` is *motion time* (`S.MT`), not wall time; see Pace below.
 
@@ -51,8 +53,8 @@ tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh),
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
-| **Objects** | 3D centrepieces, crisp: meshes drawn over the finished picture (or ray-marched in the display pass) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
-| **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; an object only with `TUNE[key].chance > 0` |
+| **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
+| **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
 
@@ -83,7 +85,6 @@ Each visual is **one module** exporting an object. From it the engine builds the
 - **Objects:**
   - `words` (narration). The weight arrives as `P.o[key]`.
   - A mesh object, made by `meshObject()` in `objects/mesh-object.js`: `drawGL(gl, P, W, H, stage)` is called twice a frame. With `'trails'` it draws into the feedback buffer, so the object leaves ghosts; with `'screen'` it draws over the finished picture. It also has `draw2d(o, P)`. Both hand off to `render/mesh.js`.
-  - A ray-marched object (none at the moment; the old skull was one): `glsl: {uniforms, functions, fn}` in the display pass, where `fn(sp)` returns premultiplied colour and coverage. Its weight also arrives as `uO_<key>`.
   - Tuning: `TUNE.mesh` sets how all mesh objects look and move, including Journey's `level`. `TUNE[key]` holds each object's `chance` (per section; 0 = never, with no random draw), `size` and `hinge` swing.
 
 **Adding a visual:**
@@ -117,7 +118,9 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - one **lead** layer, held for the whole section;
    - one **accent** layer that fires on its trigger;
    - at most one **hit**;
-   - optionally a **lens**.
+   - optionally a **lens**;
+   - optionally a 3D **centrepiece**;
+   - a **scene** that relates them (see Scenes: Journey composes scenes).
 
    `recast()` in `cast.js` does the choosing, via `scoreElems`, `chooseAccent` and `chooseHit`, each asking the registry.
 2. **Sections** (`sections.js`). A running fingerprint of the music (kick density, stabs, brightness, bass, melody, loudness) is compared against its recent average.
@@ -264,40 +267,48 @@ Every pane faces away from its own inside point: the centre, or for the tube sha
   - there's never a lens over it;
   - the mirror tunnel wins while media is loaded.
 
-  Every object is off by default (`chance: 0`). `?lab=skull` gives the skull .5; `?lab=objects` gives every object an equal share of about half the sections.
+  A centrepiece comes in about `TUNE.scene.centreChance` of sections, and the section's scene template decides how it relates to the rest (among the world's planes, holding a fill, masking the trails). `?lab=skull` gives the skull .5 of sections instead; `?lab=objects` gives every object an equal share of about half.
 - **Manual:** the "Skull", "Unicorn" and "Torus knot" presets (`journey:false`). Every object also has a slider under "Media and objects".
 
 ## Scenes: composing the pictures
 
-The first-principles model is three kinds of thing plus one rule:
+The first-principles model (the rebuild is logged in `docs/composition-plan.md`) is three kinds of thing plus one rule:
 - **signals:** anything that changes over time (`scene/signals.js`);
-- **images:** every visual is a picture with coverage;
-- **operators:** the kaleidoscope, trails and masks;
-- **the rule:** a **scene** is a stack of images in which one image can fill, mask or sit between others.
+- **images:** every visual is a picture with coverage: worlds (with a front plane), trail groups, hits, objects;
+- **operators:** trails, the kaleidoscope, masks, fills, and a weight that follows a signal;
+- **the rule:** a **scene** is a stack of images in any order, in which one image can fill, mask or sit between others.
 
 **The signal bus** (`src/scene/signals.js`, a leaf module) holds `SIG`, fed once a frame by `main.js` (`updateSignals`).
 - **Signals:** the band followers, the pulse, every kick, stabs, loudness, the beat and bar ramps, energy (tension) and a section-change swell.
-- **Movers:** they read it with `sig(key, react)`. Every slider's dropdown lists the whole bus (`SIGNALS`).
+- **Readers:** movers (`sig(key, react)`, every slider's dropdown lists the bus), and scene entries' `drive`.
 - **Adding a signal:** add it to `SIG`, feed it in `updateSignals`, and give it a line in `SIGNALS`.
 
-**Scenes** (`src/scene/graph.js`) are plain data: a stack, bottom to top. `resolveScene()` turns one into what the renderers need, `P.sc`.
-- **Where scenes come from.** A manual preset can carry `scene`, and `setPreset` sets `S.scene`. Journey always uses `DEFAULT_SCENE`, which is exactly the fixed order the page has always drawn. With the default scene nothing changes: the golden recording proves it.
-- **Fixed order.** This round the stack's order is fixed: world, trails, world front, hits, then objects on top. A scene chooses how its entries relate.
-- **Fill.** `{object: key, fill: {layers, kaleido, zoom?}}`: the object's glass holds the chosen folded layers (ring, scope, plasma, burst) through a kaleidoscope.
-  - WebGL: the trails' own shader, in fill mode (`uFillMode`), draws them alone into a half-size texture. `render/mesh.js` samples it in screen space inside the near panes, never in the holes.
-  - Simple mode: `drawSym` draws them into a fill canvas, which is clipped to the near panes.
-  - Tuning: `TUNE.scene` has `fillAmt`, `fillGain` and `fillZoom`. The gain is there because a fill is one frame of its layers, with no trails to build it up.
-- **Mask.** `{trails: {mask: {object, keep: 'inside' | 'outside'}}}`: the trails show only inside, or only outside, an object's silhouette.
-  - WebGL: the mesh is drawn flat white ('cover' stage) into a half-size texture, and the display pass multiplies the trails by it.
-  - Simple mode: the glow is cut with the object's path (`path2d`).
-  - The mask applies only while the object is on screen.
-- **Between.** `{world: {between: true}}`: each world's **front plane** comes in front of the trails.
-  - The front planes: the city's near buildings, the land's nearest ridge, the aurora's treeline and space's planet.
-  - A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
-  - The display pass repaints the world's own colour there (`c = mix(c, w, fc)`). Simple mode redraws a copy of the worlds through the outlines.
-- **Cost.** A fill is one half-size pass and a mask one small pass, only while a scene uses them. "Between" costs no extra pass.
-- **Demos:** the "Skull kaleidoscope" and "City comets" presets (manual only).
-- **Not yet:** a scene UI; Journey composing scenes; trails per group (so different layers can sit at different depths); objects placed between a world's planes.
+**Scenes** (`src/scene/graph.js`) are plain data, a stack bottom to top. `resolveScene()` compiles one into a draw plan (`P.sc`), cached per scene object, so a scene is never edited in place: a change is a new array.
+- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's near buildings, the land's nearest ridge, the aurora's treeline, space's planet) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
+- `{trails: 'main'}`: the trail group holding every layer no other group claims. `{trails: 'back', layers: ['comets']}`: another group (at most `TUNE.scene.maxGroups`, each a full-size feedback pass). So comets can fly behind the buildings while the ring pulses in front.
+- `mask: {object: 'skull', keep: 'inside' | 'outside'}` or `{world: 'front', keep}` on a trails entry: shown only inside (outside) that shape. It applies only while the object is on screen.
+- `{hits: true}`, `{objects: true}` (every object on screen that no entry places), `{object: 'skull', fill?}` (one object, here in the stack: among a world's planes, under the hits, anywhere).
+- **Fills**: an object's glass shows another image: `{layers: [...], fold, zoom?}` (those layers alone, any layer, the media tunnel too), `{trails: 'inner', layers: [...]}` (a group seen only through the glass, shrunk in), `{world: true}` (the worlds shrunk in, brightened), and `part: 7` limits it to one part (the eyes). Tuning: `TUNE.scene` (`fillAmt`, `fillGain`, `fillZoom`, `worldFillZoom`, `worldFillGain`, `partFillAmt`).
+- `drive: {src: 'kick', amt: .7}` on a world or trails entry: its weight follows a signal.
+- **Cost.** A fill is one half-size pass, a mask one small pass, a second trail group one full pass, and an object between two segments one extra full pass. "Between" costs nothing.
+
+**The shared context** (`src/scene/context.js`, a leaf module) is what makes the visuals feel like one piece. `main.js` updates it once a frame (`updateContext`):
+- **one palette:** three hues (offsets from the running hue). Each section picks one (`TUNE.palettes`, `paletteWeights`: triad, analogous, split, contrast); manual mode uses the triad. Comets, ribbons, shockwaves, the star, sparkles, the outline and the objects' parts take their hues from it (`P.pal`, `uPal`), rather than each inventing its own. The panel narrates it.
+- **one wind:** it turns slowly, blows harder on bass swells, and gusts on section changes and drops. It carries the comets and the flow, speeds the ribbons, sways the objects and streams the trails downwind (`P.drift`, `uDrift`). Tuning: `TUNE.ctx`.
+- **one light:** each world has a `light` (hue offset, saturation, direction): the city's windows from below, the low sun, the aurora's green from above, pale starlight. The objects' glass and edges catch it on the side facing it.
+
+**Journey composes scenes** (`src/scene/templates.js`, chosen in `recast` in `journey/cast.js`). Each section gets a template built from its cast (world, lead, accent, centrepiece):
+- `plain`, `between` (the glow behind the world's front), `split` (the accent behind it, the lead in front), `among` (the centrepiece between the world's planes), `reflect` (the world in its glass), `inside` (a kaleidoscope in it, the glow kept out), `window` (the glow seen only through it), `glass` (the accent only in its glass).
+- Each says what it `needs` and what music `suits` it. Journey adds a base weight (`TUNE.sceneTemplates`), fatigue (`J.sFat`) and a little chance, remembers the choice with the section's cast, and may vary it on a third visit (`varySmall`).
+- The scene changes on a bar line (`J.sceneLive`). With media loaded it stays plain.
+- A template never adds things, only relations between what's already there: "few things at once" holds.
+- A **centrepiece** comes in about `TUNE.scene.centreChance` of sections, the least tired object first (`J.oFat`). A per-object `TUNE[key].chance` above 0 (a lab's) takes over the draw.
+
+**The scene editor** (`src/ui/scene.js`, the "Scene" part of the Adjust panel):
+- In Journey it shows the live scene, top to bottom.
+- By hand: **Compose** builds a template from what's on screen (bringing in the city, the skull or a second layer if the template needs one); each row can move up or down or be removed; trails rows choose a mask (and a second group its layer), object rows choose what fills their glass, world and trails rows choose what drives their weight. **Add** puts a new entry on top. Edits are kept on the preset.
+
+**Demos** (manual presets): "Skull kaleidoscope", "City comets", "Skull in the city", "Behind and in front", "Sunset in the skull", "Comets in the glass", "Tunnel eyes".
 
 ## Experiments
 
@@ -319,7 +330,12 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
 - `tests/scene.mjs`: in both renderers, each against the same run without it:
   - a fill shows inside the skull and not around it;
   - masked to inside the skull, the trails leave the screen's edges;
-  - with `between`, the city's near buildings cover the comets.
+  - with `between`, the city's near buildings cover the comets;
+  - the skull stands among the city's buildings (they hide its lower half);
+  - trail groups put the comets behind the buildings and the ring in front;
+  - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
+
+  And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
 - `tests/objects.mjs`: every mesh object draws and shatters in both renderers, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
@@ -329,9 +345,9 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
 
   On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo.
 - `tests/journey.mjs`: over 400 simulated sections:
-  - every world and hit is chosen;
+  - every world, hit and scene template is chosen;
   - nearly every recipe is;
-  - hits appear in 15–40% of sections.
+  - hits appear in 15–40% of sections, and a centrepiece in 15–45%.
 - `tests/golden.mjs`: a **deterministic** run on the synthetic groove (`tests/fixtures/groove.js`), with a seeded `Math.random` and a fake 60 fps clock stepped by the test. It compares Journey's `__jdbg()` timeline (180 s in simple mode, 45 s in WebGL) and canvas thumbnails against `tests/golden/*.json`.
   - A refactor must match the recording exactly.
   - An intended behaviour change re-records it (`npm run golden:update`), and the PR says why.
@@ -353,6 +369,8 @@ Useful facts:
 
 ## Known limits
 
+- **Simple mode with objects is heavy.** The knot (1,680 panes) and the torus (768) are painted pane by pane each frame, twice when they also mask or fill. On a slow device without WebGL, sections with them can drop frames.
+- **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
 - **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
   - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
   - Feed those frames to `window.__synth`, and step the page with `__step`.
@@ -366,5 +384,6 @@ Useful facts:
   - recipes and lens, progression and fatigue, the beat grid;
   - aurora, city, outline and sparkles, and pace;
   - then the modular restructure with its registry, tuning file and tests.
+  - then the mesh engine (skull, unicorn, maths shapes), the real-track kick and energy fixes, and the composition rebuild: scenes as draw plans, trail groups, fills from any image, the shared palette, wind and light, Journey composing scenes, and the scene editor (`docs/composition-plan.md`).
 
   `git log` has the details.

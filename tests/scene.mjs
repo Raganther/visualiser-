@@ -88,5 +88,26 @@ for (const mode of ['2d', 'gl']) {
   report(open > 1 && glass < open*.2, `${mode}: comets at the screen's edges: ${open.toFixed(1)} as usual, ${glass.toFixed(1)} when they're only in the skull's glass`);
   await browser.close();
 }
+// the scene editor: compose from a template by hand, move an entry, drive a weight by a signal
+{
+  const browser = await launch('2d'), page = await openPage(browser, url, {groove: true});
+  const r = await page.evaluate(`(async () => {
+    const {S} = await import('/src/state.js'), {setJourney} = await import('/src/ui/controls.js');
+    setJourney(false);
+    const pick = (sel, v) => { const e = document.querySelector(sel); e.value = v; e.dispatchEvent(new Event('change', {bubbles: true})); };
+    pick('#scTpl', 'among');
+    const among = JSON.stringify(S.scene), rows = document.querySelectorAll('#scStack li').length;
+    const top = S.scene[S.scene.length - 1];
+    document.querySelector('#scStack li [data-a=down]').click();   // the top row moves down one
+    const moved = S.scene[S.scene.length - 2] === top || JSON.stringify(S.scene[S.scene.length - 2]) === JSON.stringify(top);
+    const li = [...document.querySelectorAll('#scStack li')].find(l => l.textContent.startsWith('Trails'));
+    const d = li.querySelector('[data-k=drive]'); d.value = 'kick'; d.dispatchEvent(new Event('change', {bubbles: true}));
+    __step(120);
+    return {among, rows, moved, driven: S.scene.some(e => e.trails && e.drive && e.drive.src === 'kick'), skull: S.active.skull, city: S.active.city};
+  })()`);
+  const errors = await page.errors(); await browser.close();
+  report(r.rows >= 4 && /"object":"skull"/.test(r.among) && r.skull === 1 && r.city === 1, `editor: "among" composes the skull among the city's buildings (${r.rows} rows)`);
+  report(r.moved && r.driven && !errors.length, `editor: an entry moves, and the trails' weight follows every kick${errors.length ? ' ' + errors : ''}`);
+}
 srv.close();
 process.exit(failed ? 1 : 0);

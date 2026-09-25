@@ -29,7 +29,7 @@ mesh draws, and small fill/mask prep passes.
 - [x] 4. Fills and masks from any image (the city in the skull's glass, the tunnel in its eyes).
 - [x] 5. Shared context: section palette, wind, light.
 - [x] 6. Journey composes scenes from templates, within a budget.
-- [ ] 7. Scene UI in the Adjust panel: what / where / driven by.
+- [x] 7. Scene UI in the Adjust panel: what / where / driven by.
 - [ ] 8. Cleanup, docs, final publish.
 
 ## Log
@@ -38,3 +38,4 @@ mesh draws, and small fill/mask prep passes.
 - Stage 4: an object's glass can hold any image: layers (any, the media tunnel too), a trail group seen only through it, or the worlds shrunk into it; and a fill can be limited to one part (the eyes). Demos: "Sunset in the skull", "Comets in the glass", "Tunnel eyes". Masks can be an object or the worlds' front planes.
 - Stage 5: `scene/context.js` gives every visual one palette (each section picks triad, analogous, split or contrast), one wind (comets, flow, ribbons, objects and the trails all move with it; gusts on section changes and drops) and one light (the world's, falling on the objects). Golden re-recorded: the colours and motion change on purpose.
 - Stage 6: Journey composes every section from a scene template (`scene/templates.js`): plain, between, split, among, reflect, inside, window, glass. Each fits a cast (a world, a centrepiece, an accent), suits some music, and tires like the layers do; scenes change on a bar line and return with their section. A centrepiece now comes in about 30% of sections (`TUNE.scene.centreChance`). Over 400 simulated sections every template is chosen. Golden re-recorded.
+- Stage 7: the Adjust panel's "Scene" part lists the stack top to bottom. In Journey it shows the live scene; by hand you can compose from a template (it brings in a world, an object or a second layer if needed), move and remove entries, add new ones, mask trails, fill an object's glass, and drive a world's or the trails' weight by any signal (`drive` on an entry). CLAUDE.md rewritten for the new model.

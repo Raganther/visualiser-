@@ -27,9 +27,10 @@ import './audio/player.js';
 import './audio/synth.js';
 import './ui/controls.js';
 import './ui/transport.js';
+import { refreshScene } from './ui/scene.js';
 import { S } from './state.js';
 import { analyse, bands, hit, sBass, sMid, sTreb } from './audio/analysis.js';
-import { SIG, updateSignals } from './scene/signals.js';
+import { SIG, sig, updateSignals } from './scene/signals.js';
 import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
 import { G } from './audio/beatgrid.js';
@@ -96,6 +97,7 @@ function render(now){
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
     pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
+  P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
   for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
@@ -115,6 +117,7 @@ function render(now){
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
       ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
       : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
+    if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const {out, s, input} = sliders[k]; if (J.on) input.value = S.active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
     }
