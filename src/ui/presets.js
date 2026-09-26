@@ -1,13 +1,13 @@
 // Switching, stepping and randomizing presets.
 import { S } from '../state.js';
 import { ELEMS, HITS, J, WORLDS } from '../journey/core.js';
-import { byKey } from '../visuals/registry.js';
+import { VISUALS, byKey } from '../visuals/registry.js';
 import { nudge } from '../journey/director.js';
-import { presets } from '../presets.js';
+import { curP, presets } from '../presets.js';
 import { setJourney } from './controls.js';
 import { syncSliders } from './panel.js';
 import { toast } from './toast.js';
-import { $ } from '../util.js';
+import { $, clone } from '../util.js';
 
 export function setPreset(p, label){
   S.active = p; S.scene = p.scene || null; S.beatsInPreset = 0; S.presetSince = performance.now();
@@ -29,4 +29,13 @@ export function randomize(){
   const n = 2 + Math.floor(Math.random()*3);
   for (const k of targets.slice(0, n)) p.mods[k] = {src:pick(['drift','drift','bass','mid','treb','pulse','jump']), amt:+r(.1,.4).toFixed(2)};
   setPreset(p);
+}
+// one visual alone, to see it with nothing over it: Journey off, every other visual at 0, no lens or movers, a plain scene
+export function solo(key){
+  if (J.on) setJourney(false);
+  const p = {...clone(S.active), name: `${byKey[key].label} alone`, mods: {}, sym: 1, mirror: 0};
+  delete p.scene; delete p.journey;
+  for (const v of VISUALS) p[v.key] = 0;
+  p[key] = 1; setPreset(p);
+  for (const k of [...VISUALS.map(v => v.key), 'sym', 'mirror']) curP[k] = p[k];   // at once, not faded: nothing else left over it
 }

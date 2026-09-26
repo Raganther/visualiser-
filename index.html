@@ -27,6 +27,10 @@
 
 <aside id="panel" aria-label="Adjust visuals">
   <section>
+    <h2>On screen</h2>
+    <p class="note" id="onNow" aria-live="off"></p>
+  </section>
+  <section>
     <h2>Journey</h2>
     <div class="row"><label for="jBias">Calm to intense</label><output id="jBiasOut">Balanced</output>
       <input type="range" id="jBias" min="0" max="1" step="0.01" value="0.5"></div>
@@ -35,7 +39,7 @@
     <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
     <p class="note" id="jSection">Listening for sections</p>
     <p class="note" id="jGrid">Finding the beat</p>
-    <p class="note" id="jNote">Journey is steering the settings below. Pick a preset or turn Journey off to adjust them by hand.</p>
+    <p class="note" id="jNote">Journey is steering the settings below; a dot marks what's on screen. Solo shows one thing alone; a preset, or A, turns Journey off to adjust them by hand.</p>
   </section>
   <section id="scene">
     <h2>Scene</h2>
@@ -52,7 +56,7 @@
   <div class="row"><label for="sync">Sync (visuals earlier or later)</label><output id="syncOut">0 ms</output>
     <input type="range" id="sync" min="-200" max="200" step="5" value="0"></div>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
-  <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen (keys 1–6 pick shots, J jumps)</label>
+  <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey (keys 1–7 pick shots, S skims, J jumps, G the galaxy, 8 a black hole, 9 a pulsar, 0 twin stars)</label>
   <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
   <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
     <button id="copyBtn" style="border-color:var(--line)">Copy settings</button>
@@ -61,7 +65,7 @@
   <textarea id="copyOut" readonly aria-label="Preset settings"></textarea>
   <div class="keys">
     <b>Space</b> play or pause<br><b>← →</b> change preset<br><b>R</b> randomize, or nudge during Journey<br><b>A</b> Journey on or off<br>
-    <b>Hold X</b> freeze trails<br>Under each slider, choose how that setting moves by itself.<br><b>N</b> next track<br><b>H</b> hide controls<br><b>F</b> fullscreen<br><b>P</b> frame rate<br>
+    <b>Hold X</b> freeze trails<br>Under each slider, choose how that setting moves by itself.<br><b>N</b> next track<br><b>H</b> hide controls<br><b>F</b> fullscreen<br><b>P</b> frame rate<br><b>+ −</b> like or dislike what's on screen now, so Claude learns your taste<br>
     Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.
   </div>
 </aside>
@@ -76,6 +80,7 @@
     <div class="preset">
       <button id="prevP" aria-label="Previous preset">‹</button><span id="pName">Tunnel</span><button id="nextP" aria-label="Next preset">›</button>
     </div>
+    <button id="likeBtn" class="rate" aria-label="I like this" title="I like this (+)">👍</button><button id="dislikeBtn" class="rate" aria-label="Not for me" title="Not for me (−)">👎</button>
     <button id="randBtn">Randomize</button>
     <button id="autoBtn" aria-pressed="true">Journey</button>
     <button id="adjBtn" aria-pressed="false">Adjust</button>

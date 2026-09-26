@@ -29,6 +29,8 @@ import './ui/controls.js';
 import './ui/transport.js';
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
+import { showNow } from './ui/panel.js';
+import { tasteFrame } from './ui/taste.js';
 import { showCaption } from './ui/caption.js';
 import { S } from './state.js';
 import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
@@ -72,6 +74,8 @@ function frame(now){
   const t0 = performance.now();
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
   fpsTick(now, performance.now() - t0, fpsInfo);
+  tasteFrame();   // a like or dislike takes this frame's picture
+  if (now - (frame.now || 0) > 500) { frame.now = now; showNow(eff); }   // the panel's "On screen" line
   if (!window.__noDraw && qualityTick(performance.now())) resize();   // slow frames: draw smaller (render/quality.js)
 }
 // the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene

@@ -4,10 +4,13 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
 
 - The code is plain ES modules with no runtime dependencies. The only external request is the Chakra Petch font.
 - **Develop:** run `npm run serve` (which runs `python3 -m http.server`) and open `index.html`. Modules don't load from `file://`.
-- **Publish:** the published copy is a claude.ai Artifact: https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ.
-  1. `npm run build` bundles everything into one self-contained `dist/afterglow.html`, using esbuild, the only dev dependency (`npm install`).
-  2. Run `npm run test:dist` to check the bundle.
-  3. Republish `dist/afterglow.html` to that URL.
+- **Publish:** the published copy is a claude.ai Artifact: https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. `npm run build` bundles everything into one self-contained `dist/afterglow.html` (esbuild, the only dev dependency). The steps are in the `publish` skill.
+- **Skills** (`.claude/skills/`):
+  - `publish`: build, test the bundle, republish;
+  - `check-visual`: one visual alone in both renderers, with stills (`tools/look.mjs`);
+  - `track-run`: a real track through the page offline, and what the grid and Journey did (`tools/track-run.mjs`);
+  - `taste-review`: the user's 👍 / 👎 moments from the published page, turned into `docs/taste.md` and tuning.
+- **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
 ## Layout
@@ -28,11 +31,15 @@ src/audio/                 player, analysis (levels, onsets), synth (built-in be
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
-src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing)
+src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, cosmos, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
+tools/look.mjs             one visual alone in both renderers, saved as stills (the check-visual skill)
+tools/track-run.mjs        a real track through the page offline, with a summary (the track-run skill)
+.claude/skills/            publish, check-visual, track-run, taste-review
+docs/taste.md              the user's taste: principles with their evidence, open questions, a log
 ```
 
 ## How it draws
@@ -113,7 +120,17 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 25 of them: 14 Journey reads as **recipes**, and 11 manual-only looks and demos with `journey: false`).
+- **Presets** (`BASE`, 26 of them: 14 Journey reads as **recipes**, and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
+
+## The panel: what's on screen, presets, Solo and Journey
+
+The user found this confusing, so the panel says it plainly:
+- **Settings** are the sliders (Motion, Lens, Layers, Hits, Worlds, Colour, Media and objects). Together they are one picture.
+- **A preset** is a saved set of every slider (the name in the bottom bar). With Journey off, the sliders are what's drawn.
+- **Journey** doesn't play presets whole: it reads them as recipes (see below) and composes each section from roles, writing the sliders itself (they're greyed while it does).
+- **On screen** (`showNow` in `ui/panel.js`, twice a second from `main.js`): the top of the panel names what's drawn (worlds, layers, hits, objects, a kaleidoscope) and what set it (Journey's recipe, or the preset). A dot marks those sliders' rows.
+- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
+- **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
 
 ## Journey (the automatic director)
 
@@ -292,7 +309,8 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 
   It costs the same however big the universe is.
 - **Narration.** A world with a `caption()` (the cosmos: "Approaching a ringed gas giant", "Drawn towards a lava world", "Arriving at a hot star: …") shows it at the bottom left (`ui/caption.js`) while the world is on screen. The panel says how the camera follows the track.
-- **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
+- **To look at it alone:** the "Cosmos" preset, or Solo on its slider. The camera still flies with the music without Journey.
+- **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen in Journey, with Journey's layers over it (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
   - 1–7 pick shots (7 is the belt), and S skims;
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
   - G goes out to the galaxy.
@@ -461,7 +479,7 @@ Useful facts:
 - **Built-in beat.** With no track loaded, `synth()` generates a steady 120 bpm kick, so the page reacts without audio. Tests set `window.__synth` to feed their own groove.
 - **Debug state.** `window.__jdbg()` returns Journey's state: recipe, lead, accent, hit, world, lens, pace, grid, fatigue, progression and more.
 - **Software WebGL is slow** (about 6 fps). Use deterministic stepping (`__step(n)` in tests) for timing, and WebGL for screenshots and shader checks.
-- **Checking one visual.** In manual mode (press `A` to leave Journey), set every slider to 0 except the one under test, then compare frames.
+- **Checking one visual.** Solo it (the panel's button, or `tools/look.mjs <key>`, the `check-visual` skill), then compare stills in both renderers.
 - **Scratch harnesses** go in the scratchpad, not the repo.
 
 ## Known limits
@@ -470,19 +488,7 @@ Useful facts:
 - **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
 - **Engine → UI imports.** Journey and audio modules call into `ui/panel.js` (`updateSectionUI`, `syncSliders`), so there are import cycles. They're all function-level (nothing runs at import time across them), so they're safe; untangling them (a hooks module) was judged not worth the churn in the 2026-09 audit (`docs/audit.md`).
 - **Very quiet tracks.** After a loud one the kick floor is forgotten within 1.5 s, but the detector's fixed floors still miss some kicks 20 dB down (`tests/grid.mjs` reports it).
-- **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
-  - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
-  - Feed those frames to `window.__synth`, and step the page with `__step`.
-  - The user's tracks stay out of the repo.
+- **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline (`tools/track-run.mjs`, the `track-run` skill). The user's tracks stay out of the repo.
 - **Downbeat after a tempo change.** It can slip to beat 3 and stay there. `tests/grid.mjs` reports it (about 47% right after the change in the groove).
 - **Unsure downbeat.** Minimal techno with no clap or crash may never pin the 1; the panel says "unsure of the 1".
-- **History.** Earlier work, oldest first:
-  - a WebGL-failure fix, simple mode, movers, comets and shockwaves;
-  - Journey, onset-based kicks and stabs, section fingerprints;
-  - three-role layering, cut transitions and the star;
-  - recipes and lens, progression and fatigue, the beat grid;
-  - aurora, city, outline and sparkles, and pace;
-  - then the modular restructure with its registry, tuning file and tests.
-  - then the mesh engine (skull, unicorn, maths shapes), the real-track kick and energy fixes, and the composition rebuild: scenes as draw plans, trail groups, fills from any image, the shared palette, wind and light, Journey composing scenes, and the scene editor (`docs/composition-plan.md`).
-
-  `git log` has the details.
+- **History.** `git log`, and the plans in `docs/` (`composition-plan.md`, `audit.md`, `cosmos-plan.md`), have it.
