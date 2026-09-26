@@ -85,6 +85,8 @@ export const BASE = [
     scene:[{world:'all'}, {trails:'main'}, {object:'skull', fill:{layers:['tunnel'], part:7, zoom:1.5}}, {hits:true}]},
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
+  // a world alone, to look at it: the cosmos with nothing over it (Solo on any slider does the same for anything)
+  {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
 export const presets = BASE.map(clone);

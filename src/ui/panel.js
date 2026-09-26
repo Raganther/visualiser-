@@ -8,6 +8,8 @@ import { setJourney } from './controls.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { MEDIA } from '../media/source.js';
+import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { solo } from './presets.js';
 
 const PAL_WORDS = {triad: 'three far-apart hues', analogous: 'neighbouring hues', split: 'one hue against two', contrast: 'opposites'};
 export function updateSectionUI(){
@@ -30,11 +32,12 @@ export function updateSectionUI(){
 // sliders
 export const sliders = {};
 let lastGroup = '';
+const SOLO = new Set(['Layers', 'Hits', 'Worlds', 'Media and objects']);   // the groups that are pictures, which Solo can show alone
 const optHTML = SOURCES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
 for (const s of SPEC) {
   if (s.g !== lastGroup) { const h = document.createElement('h2'); h.textContent = s.g; $('#sliders').appendChild(h); lastGroup = s.g; }
   const row = document.createElement('div'); row.className = 'row';
-  row.innerHTML = `<label for="s_${s.k}">${s.label}</label><output id="o_${s.k}"></output>
+  row.innerHTML = `<label for="s_${s.k}">${s.label}</label><output id="o_${s.k}"></output>${SOLO.has(s.g) ? `<button class="solo" aria-label="Show ${s.label} alone">Solo</button>` : ''}
     <input type="range" id="s_${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
     <div class="mod"><select aria-label="${s.label} movement">${optHTML}</select>
     <input type="range" class="depth" min="0.02" max="1" step="0.01" aria-label="${s.label} movement amount"></div>`;
@@ -42,6 +45,7 @@ for (const s of SPEC) {
   const input = row.querySelector('input'), out = row.querySelector('output');
   const sel = row.querySelector('select'), depth = row.querySelector('.depth');
   input.addEventListener('input', () => { S.active[s.k] = +input.value; });
+  if (SOLO.has(s.g)) row.querySelector('.solo').onclick = () => solo(s.k);
   sel.addEventListener('change', () => {
     if (sel.value === 'none') delete S.active.mods[s.k];
     else S.active.mods[s.k] = {src: sel.value, amt: S.active.mods[s.k] ? S.active.mods[s.k].amt : .25};
@@ -60,6 +64,18 @@ export function syncSliders(){
   }
 }
 syncSliders();
+/* what's on screen and what set it (twice a second from main.js), so anything over a world can be traced to its slider;
+   the rows of the pictures on screen are marked, in Journey too */
+export function showNow(e){
+  const on = vs => vs.filter(v => e[v.key] > .05).map(v => v.label);
+  const w = on(WORLD_VISUALS), l = on(LAYER_VISUALS), h = on(HIT_VISUALS), o = on(OBJECT_VISUALS);
+  const parts = [w.length ? w.join(' and ') : 'no world', l.length ? `layers ${l.join(', ')}` : 'no layers'];
+  if (h.length) parts.push(`hits ${h.join(', ')}`);
+  if (o.length) parts.push(o.join(', '));
+  if (e.sym >= 1.5) parts.push(`a ${Math.round(e.sym)}-way kaleidoscope`);
+  $('#onNow').textContent = `${parts.join('; ')}. Set by ${J.on ? `Journey${J.recipe ? `, from the ${J.recipe.name} recipe` : ''}` : `the ${S.active.name} preset`}.`;
+  for (const k in sliders) if (SOLO.has(sliders[k].s.g)) sliders[k].row.classList.toggle('on', e[k] > .05);
+}
 $('#jBias').addEventListener('input', e => { J.bias = +e.target.value;
   $('#jBiasOut').textContent = J.bias < .35 ? 'Calm' : J.bias > .65 ? 'Intense' : 'Balanced'; });
 $('#jSpeed').addEventListener('input', e => { J.speed = +e.target.value; $('#jSpeedOut').textContent = J.speed.toFixed(2) + '×'; });
