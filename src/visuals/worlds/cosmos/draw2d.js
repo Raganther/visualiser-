@@ -173,10 +173,11 @@ export function draw2d(o, P){
       const ah = hue + at[1], dn = at[2], ox = lx*R*.18, oy = -ly*R*.18, Ro = R*(1 + at[0]*2.6);
       o.save(); o.globalCompositeOperation = 'lighter';
       const gi = o.createRadialGradient(it.x + ox, it.y + oy, R*.55, it.x, it.y, R);
-      gi.addColorStop(0, hc(ah, 55, 60, 0)); gi.addColorStop(1, hc(ah, 55, 60, .32*dn*lit)); o.fillStyle = gi;
+      gi.addColorStop(0, hc(ah, 55, 60, 0)); gi.addColorStop(1, hc(ah, 55, 60, .4*dn*Math.max(lit, .25))); o.fillStyle = gi;
       o.beginPath(); o.arc(it.x, it.y, R, 0, 7); o.fill();
       const go = o.createRadialGradient(it.x + ox, it.y + oy, R*.96, it.x + ox*.4, it.y + oy*.4, Ro);
-      go.addColorStop(0, hc(ah, 60, 65, .45*dn*(.3 + .7*lit))); go.addColorStop(.35, hc(ah + .9, 70, 55, .12*dn)); go.addColorStop(1, hc(ah, 60, 60, 0));
+      const back = Math.max(0, dot(L, c.Z));   // the star behind it: a ring of light all round
+      go.addColorStop(0, hc(ah, 60, 68, Math.min(.9, dn*(.2 + .45*lit + .6*back)))); go.addColorStop(.35, hc(ah + .9, 70, 55, .15*dn*(1 + back))); go.addColorStop(1, hc(ah, 60, 60, 0));
       o.fillStyle = go; o.beginPath(); o.arc(it.x, it.y, Ro + Math.abs(ox) + Math.abs(oy), 0, 7); o.arc(it.x, it.y, R*.98, 0, 7, true); o.fill('evenodd');
       o.restore(); }
     ring(false);

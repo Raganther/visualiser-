@@ -67,7 +67,9 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
     vec3 cd=vec3(uTime*0.02,0.0,0.0); float cl=smoothstep(0.52,0.62,czF(q*3.0+cd)), cs=smoothstep(0.52,0.62,czF((q+Lq*0.03)*3.0+cd));
     base*=1.0-0.55*cs*E.w*(1.0-cl); base=mix(base,vec3(0.92),cl*E.w); land*=1.0-cl; }
   vec3 col=base*(0.03+0.97*diff)+emit;
-  if(E.x>0.5) col+=vec3(1.0,0.75,0.4)*step(0.7,czN(qs*22.0))*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat);   // cities on the night side
+  if(E.x>0.5){   // cities on the night side: sprawls of lights, finer the closer the camera
+    float sprawl=smoothstep(0.58,0.72,czN(qs*5.0)), f=40.0+close*260.0, dots=step(0.86,czH(floor(qs*f)))*(0.4+0.6*czH(floor(qs*f)+7.0));
+    col+=vec3(1.0,0.75,0.4)*sprawl*(dots+0.12*sprawl)*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat); }
   if(E.y>0.5){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
     col+=hsv(hue+0.33,0.8,1.0)*smoothstep(0.7,0.85,abs(lat))*smoothstep(1.0,0.9,abs(lat))*(0.5+0.5*sin(lon*18.0+uTime*2.0))*(0.25+uBeat*0.9)*(0.4+0.6*smoothstep(0.2,-0.2,nl)); }
   return col;
@@ -79,14 +81,16 @@ vec4 czAtmo(vec3 d,vec3 c,float r,vec4 T,float hue,float tmax){
   float Ra=r*(1.0+T.x), b=dot(c,d), h=b*b-dot(c,c)+Ra*Ra; if(T.x<=0.0||h<=0.0) return vec4(0.0,0.0,0.0,1.0);
   h=sqrt(h); float t0=max(b-h,0.0), t1=min(b+h,tmax); if(t1<=t0) return vec4(0.0,0.0,0.0,1.0);
   vec3 L=normalize(uCosSun.xyz-c), sky=hsv(hue,0.55,1.0), dusk=vec3(1.0,0.42,0.18), acc=vec3(0.0);
-  float H=r*T.x*0.32, ds=(t1-t0)/7.0, k=T.z*0.09, tr=1.0, mu=dot(d,L);
-  for(int i=0;i<7;i++){
-    vec3 p=d*(t0+ds*(float(i)+0.5))-c; float lp=length(p), up=dot(p/lp,L);
+  float H=r*T.x*0.32, k=T.z*0.14, tr=1.0, mu=dot(d,L), tc=clamp(b,t0,t1), ta=t0;
+  // the samples bunch up where the view passes lowest (the dense air there is thin, and even steps would step over it)
+  for(int i=1;i<=10;i++){
+    float s=-1.0+0.2*float(i), tb=s<0.0?tc-s*s*(tc-t0):tc+s*s*(t1-tc), ds=tb-ta;
+    vec3 p=d*(ta+ds*0.5)-c; float lp=length(p), up=dot(p/lp,L); ta=tb;
     float a=1.0-exp(-exp(-max(lp-r,0.0)/H)*ds/H*k);
     acc+=mix(dusk,sky,smoothstep(-0.05,0.4,up))*smoothstep(-0.35,0.2,up)*a*tr; tr*=1.0-a;
   }
-  float ph=0.7+0.3*mu*mu+1.6*pow(max(mu,0.0),10.0);   // a little brighter back towards the star, and a glow round a planet in front of it
-  return vec4(acc*uCosSunC*0.55*ph*(0.92+uBeat*0.12),tr);
+  float ph=0.75+0.25*mu*mu+3.0*pow(max(mu,0.0),8.0);   // brighter towards the star: a planet in front of it wears a ring of light
+  return vec4(acc*uCosSunC*0.8*ph*(0.92+uBeat*0.12),tr);
 }
 // a body's ring where the view crosses it in front of what's already hit (premultiplied colour, cover)
 vec4 czRing(vec3 d,vec3 c,float r,vec4 A,float hue,float tmax){
