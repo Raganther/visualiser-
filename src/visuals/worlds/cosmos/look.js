@@ -87,7 +87,7 @@ vec4 czAtmo(vec3 d,vec3 c,float r,vec4 T,float hue,float tmax){
     float s=-1.0+0.2*float(i), tb=s<0.0?tc-s*s*(tc-t0):tc+s*s*(t1-tc), ds=tb-ta;
     vec3 p=d*(ta+ds*0.5)-c; float lp=length(p), up=dot(p/lp,L); ta=tb;
     float a=1.0-exp(-exp(-max(lp-r,0.0)/H)*ds/H*k);
-    acc+=mix(dusk,sky,smoothstep(-0.05,0.4,up))*smoothstep(-0.35,0.2,up)*a*tr; tr*=1.0-a;
+    acc+=mix(dusk,sky,smoothstep(-0.05,0.4,up))*smoothstep(-0.22,0.2,up)*a*tr; tr*=1.0-a;
   }
   float ph=0.75+0.25*mu*mu+3.0*pow(max(mu,0.0),8.0);   // brighter towards the star: a planet in front of it wears a ring of light
   return vec4(acc*uCosSunC*0.8*ph*(0.92+uBeat*0.12),tr);
