@@ -1,8 +1,9 @@
 // The cosmos in WebGL: each pixel's ray tested against the star (or twin stars, a pulsar with its beams, a black hole
 // bending the light behind it round a glowing disk) and the nearest bodies: rock, banded gas with storms, cracked ice,
 // ocean worlds catching the star's glint, lava glowing through its cracks; cities on night sides, auroras at the poles.
-// An asteroid belt's rocks rush past up close (the ray steps through a grid of cells) and show as dust from afar; a vast
-// ring can be built round the star. Far off, gas clouds and stars, which stretch in a build and streak in a jump.
+// An asteroid belt's rocks (each its own lumpy, cratered, tumbling shape) rush past up close, lying in gas and dust that
+// streams away from the star; a vast ring can be built round the star. Far off, gas clouds and stars, which stretch in a
+// build and streak in a jump.
 export const GLSL = {
   uniforms: `uniform vec3 uCosX,uCosY,uCosZ,uCosEye; uniform float uCosTan,uCosWarp,uCosSeed;   // the camera: axes, where it is, field of view; the jump
 uniform vec4 uCosSun; uniform vec3 uCosSunC,uCosAxis; uniform vec4 uCosStar;   // the star: where (from the camera), size, colour; beam or disk axis; kind
@@ -74,23 +75,75 @@ vec4 czRing(vec3 d,vec3 c,float r,vec4 A,float hue,float tmax){
   float sh=czHit(normalize(uCosSun.xyz-p),c-p,r)>0.0?0.15:1.0;   // the planet's shadow across it
   return vec4(mix(hsv(hue+0.08,0.3,0.9),hsv(hue+0.55,0.4,0.75),x)*sh*(0.6+uMid*uReact*0.6)*a,a);
 }
-// the belt's rocks near the camera: the ray steps through a grid of cells, and each cell in the belt may hold a rock
+// one asteroid's shape, in its own turned frame (q from its centre): a stretched blob, lumpy, ridged and pitted with craters
+float czRockD(vec3 q,vec3 sc,float rad,float sd){
+  vec3 u=q/rad;
+  float b=(length(q/sc)-rad)*min(sc.x,min(sc.y,sc.z));
+  b-=rad*(0.3*(czN(u*1.6+sd)-0.5)+0.12*(czN(u*4.1+sd*3.0)-0.5));   // lumps and ridges
+  return b+rad*0.07*smoothstep(0.62,0.85,czN(u*2.7-sd*2.0));     // craters
+}
+vec3 czTurn(vec3 q,vec3 ax,float a){ float c=cos(a), s=sin(a); return q*c+cross(ax,q)*s+ax*dot(ax,q)*(1.0-c); }
+// the belt's rocks near the camera: the ray steps through a grid of cells; a cell in the belt may hold an asteroid of its
+// own size, shape and tumble, which is marched only where the ray meets its bounds (so the cost stays small)
 vec4 czRocks(vec3 d,float tmax){
-  const float S=1.6;
+  const float S=2.2;
   vec3 o=uCosEye/S, cell=floor(o), st=sign(d)+step(0.0,-abs(sign(d))), inv=1.0/max(abs(d),vec3(1e-4)), tm=(st*(cell-o)+st*0.5+0.5)*inv;
+  float clump=0.0;
   for(int i=0;i<28;i++){
-    vec3 cc=(cell+0.5)*S; float rr=length(cc.xz);
-    if(abs(rr-uCosBelt.x)<uCosBelt.y&&abs(cc.y)<uCosBelt.z&&czH(cell)>0.55){
-      vec3 ctr=cc+(vec3(czH(cell+3.1),czH(cell+5.7),czH(cell+9.2))-0.5)*0.8-uCosEye; float rad=S*(0.1+0.22*czH(cell+1.3));
-      float t=czHit(d,ctr,rad);
-      if(t>0.0&&t<tmax){ vec3 n=normalize(d*t-ctr), L=normalize(uCosSun.xyz-d*t);
-        float g=czF(n*3.0+cell); vec3 c=hsv(uHue+0.06,0.25,0.35+0.35*g)*(0.04+0.96*max(dot(n,L),0.0));
-        return vec4(c*(1.0-smoothstep(25.0,44.0,t)),t); }
+    vec3 cc=(cell+0.5)*S; float rr=length(cc.xz), h=czH(cell);
+    clump=czN(cc*0.08+uCosSeed);   // denser in some stretches than others
+    if(abs(rr-uCosBelt.x)<uCosBelt.y&&abs(cc.y)<uCosBelt.z&&h>0.78-0.4*clump){
+      float big=czH(cell+1.3), rad=S*(0.05+0.24*big*big+0.1*step(0.93,big));   // mostly small, a few big boulders
+      vec3 sc=vec3(1.0,0.5+0.45*czH(cell+2.1),0.4+0.5*czH(cell+4.4));          // stretched: lumps, shards, potatoes
+      float bound=rad*1.35, room=max(0.0,0.5*S-bound);
+      vec3 ctr=cc+(vec3(czH(cell+3.1),czH(cell+5.7),czH(cell+9.2))-0.5)*2.0*room-uCosEye;
+      float b=dot(ctr,d), hh=b*b-dot(ctr,ctr)+bound*bound;
+      if(hh>0.0){
+        float t=max(b-sqrt(hh),0.0), t1=min(b+sqrt(hh),tmax);
+        vec3 ax=normalize(vec3(czH(cell+7.7),czH(cell+8.8),czH(cell+6.6))-0.5); float ang=h*6.28+uTime*(0.1+0.3*czH(cell+5.5));   // it tumbles
+        for(int k=0;k<20;k++){
+          if(t>t1) break;
+          float e=czRockD(czTurn(d*t-ctr,ax,ang),sc,rad,h*9.0);
+          if(e<0.003*t+0.002){
+            vec3 p=d*t-ctr, L=normalize(uCosSun.xyz-d*t); float ep=rad*0.04;
+            vec3 n=normalize(vec3(czRockD(czTurn(p+vec3(ep,0.0,0.0),ax,ang),sc,rad,h*9.0),czRockD(czTurn(p+vec3(0.0,ep,0.0),ax,ang),sc,rad,h*9.0),
+              czRockD(czTurn(p+vec3(0.0,0.0,ep),ax,ang),sc,rad,h*9.0))-e);
+            vec3 u=czTurn(p,ax,ang)/rad; float g=czF(u*2.5+h*5.0), pit=smoothstep(0.62,0.85,czN(u*2.7-h*18.0));
+            vec3 c=hsv(uHue+0.05+0.08*(czH(cell+0.7)-0.5),0.2+0.15*czH(cell+1.9),0.28+0.4*g)*(1.0-0.45*pit);   // each its own grey-brown
+            c=c*(0.03+0.97*max(dot(n,L),0.0))+uCosSunC*0.08*pow(1.0-max(dot(n,-d),0.0),3.0);   // lit from the star, a rim of its glow
+            return vec4(c*(1.0-smoothstep(28.0,50.0,t)),t);
+          }
+          t+=max(e*0.8,0.01);
+        }
+      }
     }
     if(tm.x<tm.y){ if(tm.x<tm.z){ cell.x+=st.x; tm.x+=inv.x; } else { cell.z+=st.z; tm.z+=inv.z; } }
     else { if(tm.y<tm.z){ cell.y+=st.y; tm.y+=inv.y; } else { cell.z+=st.z; tm.z+=inv.z; } }
   }
   return vec4(0.0,0.0,0.0,-1.0);
+}
+// gas and dust lying through the belt: sampled along the view where it passes through the belt's thick ring, lit by the
+// star (brighter looking towards it), with wisps streaming away from the star like outgassing tails; returns the light it
+// adds and how much of what's behind still shows
+vec4 czGas(vec3 d,float tmax){
+  vec3 o=uCosEye, sw=uCosEye+uCosSun.xyz; float R=uCosBelt.x, Wg=uCosBelt.y*1.8, Hg=uCosBelt.z*3.0, t0=0.0, t1=min(tmax,600.0);
+  if(abs(d.y)>1e-4){ float ta=(-Hg-o.y)/d.y, tb=(Hg-o.y)/d.y; t0=max(t0,min(ta,tb)); t1=min(t1,max(ta,tb)); }
+  else if(abs(o.y)>Hg) return vec4(0.0,0.0,0.0,1.0);
+  if(t1<=t0) return vec4(0.0,0.0,0.0,1.0);
+  vec3 acc=vec3(0.0); float tr=1.0, dt=(t1-t0)/10.0;
+  for(int i=0;i<10;i++){
+    float t=t0+dt*(float(i)+0.5+0.8*(czH(d*37.0+float(i))-0.5)); vec3 p=o+d*t;
+    float rr=length(p.xz), ring=exp(-pow((rr-R)/Wg,2.0)-2.0*pow(p.y/Hg,2.0));
+    if(ring<0.02) continue;
+    vec3 away=normalize(p-sw), q=p*0.07; q-=away*dot(q,away)*0.7;   // stretched along the star's outward line: wisps
+    float n=czF(q+vec3(uTime*0.015,0.0,uTime*0.01)+uCosSeed), n2=czN(p*0.02-uCosSeed);
+    float dens=ring*smoothstep(0.3,0.72,n)*(1.0+uBass*uReact*0.3)*0.065*dt;
+    float g=max(dot(d,normalize(sw-p)),0.0), sr=length(p-sw)/(R*1.3);
+    vec3 c=mix(hsv(uHue+0.08,0.4,1.0),hsv(uHue+0.55,0.45,0.9),n2)*0.6+uCosSunC*0.25;
+    acc+=tr*dens*c*(0.35+1.4*pow(g,6.0))/(1.0+sr*sr);
+    tr*=1.0-min(dens*0.7,0.9);
+  }
+  return vec4(acc,tr);
 }
 // the vast built ring round the star: its inner face lit, seams and lights on it, a pulse running round on the beat
 vec4 czHalo(vec3 d,float tmax){
@@ -150,6 +203,7 @@ vec3 czSystem(vec2 sp){
   for(int i=0;i<6;i++){ vec4 B=uCosB[i]; if(B.w<=0.0) continue; float t=czHit(d,B.xyz,B.w); if(t>0.0&&t<tMin){ tMin=t; hit=i; } }
   for(int i=0;i<6;i++) if(i==hit) col=czBody(d,tMin,uCosB[i].xyz,uCosB[i].w,uCosK[i],uCosA[i],uCosE[i]);
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
+  if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
   if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a band of glinting dust across the system's plane
     float tp=-uCosEye.y/d.y; vec3 pp=uCosEye+d*tp;
     if(tp>0.0&&tp<tMin){ float band=smoothstep(uCosBelt.y,uCosBelt.y*0.4,abs(length(pp.xz)-uCosBelt.x));

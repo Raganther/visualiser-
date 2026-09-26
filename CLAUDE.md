@@ -278,7 +278,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
     - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
     - **A black hole** bends the light from behind it: the sky is looked up along a bent ray. It has a shadow, a bright ring at its edge, and a disk with Doppler brightening, whose far side's image is bent up over the top.
     - **Twin stars** are drawn, and both glow.
-    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold a rock; from afar, it's a band of glinting dust.
+    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a band of glinting dust in that haze.
     - **The built ring:** a cylinder band round the star, its inner face lit, with seams, windows, and a pulse running round on the beat.
     - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
     - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
@@ -286,7 +286,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
     - Bodies are shaded discs, far to near, with rings split behind and in front.
     - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
     - The built ring is its edges and a pulse line.
-    - The belt is a pool of rocks that follows the camera.
+    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and bands of gas along its ring from afar.
     - Oceans, storms, city lights and auroras are drawn.
     - The galaxy is 1,400 points on its arms.
 
