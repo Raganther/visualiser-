@@ -1,6 +1,7 @@
 // Audio playback: loading tracks, play, pause, seek and the playlist.
 import { S } from '../state.js';
 import { gridReset } from './beatgrid.js';
+import { resetOnsets } from './analysis.js';
 import { J } from '../journey/core.js';
 import { freshJourney } from '../journey/director.js';
 import { toast } from '../ui/toast.js';
@@ -18,6 +19,9 @@ function ensureAudio(){
     actx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .2;
     analyser.connect(actx.destination);
+    // an interruption (a call, a route change on iOS) suspends the context: resume on the next touch or return to the page
+    const wake = () => { if (actx.state !== 'running' && playing) actx.resume().catch(() => {}); };
+    addEventListener('pointerdown', wake); document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
   }
   if (actx.state === 'suspended') actx.resume();
 }
@@ -46,7 +50,7 @@ async function loadTrack(i){
     const ab = await tracks[i].file.arrayBuffer();
     const buf = await actx.decodeAudioData(ab);
     if (token !== loadToken) return;
-    buffer = buf; S.pausedAt = 0; gridReset(false); if (J.on) freshJourney(); playFrom(0);
+    buffer = buf; S.pausedAt = 0; gridReset(false); resetOnsets(); if (J.on) freshJourney(); playFrom(0);
   } catch(e) {
     if (token !== loadToken) return;
     toast('Could not read that file'); tracks.splice(i,1);

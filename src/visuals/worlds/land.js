@@ -5,6 +5,7 @@ import { hc } from '../../util.js';
 const st = {histT:0, landY:-.05};
 export default {
   key: 'land', kind: 'world', label: 'Landscape',
+  light: {hue: .04, sat: .8, x: 0, y: .2},               // the low sun, ahead (for objects: scene/context.js)
   horizonY: st.landY,                                  // the horizon layer's grid floor lines up with the water
   // calm, melodic, kickless parts
   suits: (rf, T) => -rf.perc*.9 + rf.mid*.4 - T*.3,
@@ -12,8 +13,7 @@ export default {
     st.histT += dt;
     while (st.histT >= .12) {                          // record loudness for the mountains
       st.histT -= .12; HIST.copyWithin(0, 1);
-      const J = x.J, lvl = (J.eM - J.lo)/Math.max(.06, J.hi - J.lo);
-      HIST[255] = Math.round(Math.min(1, Math.max(0, lvl*.7 + x.sBass*.4))*255);
+      HIST[255] = Math.round(Math.min(1, Math.max(0, x.lvl*.7 + x.sBass*.4))*255);   // Journey's energy (which doesn't sink on steady tracks)
     }
   },
   params(P, x){ P.landY = st.landY; P.histFrac = st.histT/.12; P.sunX = Math.sin(x.t*.03)*.15; },
@@ -44,13 +44,16 @@ vec3 landAbove(vec2 sp){
     float h=0.03+histAt(sp.x,span)*(0.22-fi*0.05)+sin(sp.x*(9.0+fi*7.0)+fi*3.0)*0.012+sin(sp.x*(31.0+fi*11.0))*0.005;
     float top=uLandY+h;
     if(sp.y<top){
-      float hm=uHue+0.55+fi*0.07+0.09*sin(sp.x*2.5+uTime*0.35+fi*1.7);
+      float hm=uHue+0.58+fi*0.05+0.06*sin(sp.x*2.5+uTime*0.35+fi*1.7);
       float depth=clamp((top-sp.y)/max(h,0.02),0.0,1.0);
-      vec3 m=hsv(hm,0.8-fi*0.08,0.5+0.17*fi)*(1.0-0.5*depth);
-      c=mix(m,sky(sp),0.35-fi*0.15);
-      c+=hsv(uHue+0.1+fi*0.05,0.6,1.0)*smoothstep(0.006,0.0,top-sp.y)*(0.4+uBeat*0.9)*(0.4+0.3*fi);
+      float rock=0.82+0.18*sin(sp.x*(70.0+fi*40.0)+sin(sp.y*90.0+sp.x*9.0)*1.5);   // striations in the rock
+      vec3 m=hsv(hm,0.55+fi*0.1,0.42-0.12*fi)*(1.0-0.55*depth)*rock;              // nearer ranges are darker
+      m+=hsv(uHue+0.04,0.8,1.0)*exp(-abs(sp.x-uSunX)*2.5)*(1.0-depth)*0.12*(1.0-fi*0.3);   // slopes facing the low sun catch it
+      c=mix(m,sky(sp),0.62-fi*0.26);                                              // far ranges fade into the sky
+      c+=hsv(uHue+0.08,0.6,1.0)*smoothstep(0.005,0.0,top-sp.y)*(0.35+uBeat*0.9)*(0.3+0.3*fi);   // light along the crest
     }
   }
+  c+=hsv(uHue+0.04,0.35,0.55)*exp(-(sp.y-uLandY)*28.0)*0.22;                   // mist lying on the water
   return c;
 }
 vec3 landscape(vec2 sp){
@@ -58,9 +61,30 @@ vec3 landscape(vec2 sp){
   float dy=uLandY-sp.y;                  // water: a rippling reflection
   vec2 r=vec2(sp.x+sin(dy*90.0-uTime*3.0)*0.003*(1.0+uBeat*4.0)*(1.0+dy*6.0),uLandY+dy);
   vec3 c=landAbove(r)*0.55*(0.85+0.15*sin(dy*140.0-uTime*4.0));
-  return c*mix(1.0,0.45,clamp(dy*2.0,0.0,1.0));
+  c*=mix(1.0,0.45,clamp(dy*2.0,0.0,1.0));
+  float gh=hash(floor(vec2(sp.x*140.0,dy*300.0-uTime*1.5)));                     // glints on the water under the sun
+  return c+hsv(uHue+0.08,0.5,1.0)*step(0.992,gh)*exp(-abs(sp.x-uSunX)*5.0)*(0.6+uBeat)*0.8;
 }`,
     fn: 'landscape',
+  },
+  // its front plane, for scenes that put things between its layers: the nearest ridge
+  front: {
+    fn: 'landFront',
+    glsl: `
+float landFront(vec2 sp){
+  float h=0.03+histAt(sp.x,10.0)*0.12+sin(sp.x*23.0+6.0)*0.012+sin(sp.x*53.0)*0.005;
+  return (sp.y>=uLandY && sp.y<uLandY+h) ? 1.0 : 0.0;
+}`,
+    path2d(o, P){
+      const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, i = 2, span = 30 - i*10;
+      o.moveTo(0, Y(P.landY));
+      for (let j = 0; j <= 120; j++) {
+        const x = (j/120 - .5)*asp, age = (asp/2 - x)/asp*span, idx = Math.max(0, Math.min(255, 255 - age/.12 + P.histFrac));
+        const h = .03 + HIST[Math.floor(idx)]/255*(.22 - i*.05) + Math.sin(x*(9 + i*7) + i*3)*.012 + Math.sin(x*(31 + i*11))*.005;
+        o.lineTo(X(x), Y(P.landY + h));
+      }
+      o.lineTo(W, Y(P.landY)); o.closePath();
+    },
   },
   uniforms(gl, u, P){ gl.uniform1f(u.uLandY, P.landY); gl.uniform1f(u.uHistFrac, P.histFrac); gl.uniform1f(u.uSunX, P.sunX); },
   draw2d(o, P, t){
@@ -93,18 +117,26 @@ vec3 landscape(vec2 sp){
         top.push([X(x), Y(P.landY + h)]);
       }
       const g = o.createLinearGradient(0, 0, W, 0);
-      for (let q = 0; q <= 4; q++) g.addColorStop(q/4, hc(P.hue + .55 + i*.07 + .09*Math.sin(q*1.6 + t*.35 + i*1.7), 70 - i*8, 24 + i*9, 1));
+      for (let q = 0; q <= 4; q++) g.addColorStop(q/4, hc(P.hue + .58 + i*.05 + .06*Math.sin(q*1.6 + t*.35 + i*1.7), 55 + i*10, 22 - i*6, 1));   // nearer: darker
       o.fillStyle = g; o.beginPath(); o.moveTo(0, hy);
       top.forEach(([x, y]) => o.lineTo(x, y)); o.lineTo(W, hy); o.closePath(); o.fill();
-      if (i < 2) { o.fillStyle = hc(P.hue + .62, 60, 30, .35 - i*.15); o.fill(); }   // haze on distant ranges
+      if (i < 2) { o.fillStyle = hc(P.hue + .02, 60, 34, .55 - i*.25); o.fill(); }   // far ranges fade into the sky
       o.beginPath(); top.forEach(([x, y], j) => j ? o.lineTo(x, y) : o.moveTo(x, y));
       o.strokeStyle = hc(P.hue + .1 + i*.05, 70, 65, Math.min(1, (.4 + P.beat*.9)*(.4 + .3*i))); o.lineWidth = Math.max(1, u*.004); o.stroke();
     }
+    const mist = o.createLinearGradient(0, Y(P.landY + .08), 0, hy);   // mist lying on the water
+    mist.addColorStop(0, hc(P.hue + .04, 35, 55, 0)); mist.addColorStop(1, hc(P.hue + .04, 35, 55, .22));
+    o.fillStyle = mist; o.fillRect(0, Y(P.landY + .08), W, hy - Y(P.landY + .08));
     for (let yo = 0; yo < H - hy; yo += 3) {           // water: the landscape reflected in strips that ripple
       const dy = yo/u, dx = Math.sin(dy*90 - t*3)*.003*(1 + P.beat*4)*(1 + dy*6)*u;
       const src = hy - yo - 3; if (src < 0) break;
       o.globalAlpha = Math.min(1, P.w.land)*.5*(1 - Math.min(1, dy*2)*.5);
       o.drawImage(o.canvas, 0, src, W, 3, dx, hy + yo, W, 3);
+    }
+    o.globalAlpha = Math.min(1, P.w.land); o.fillStyle = hc(P.hue + .08, 60, 85, .8);   // glints on the water under the sun
+    for (let k = 0; k < 24; k++) {
+      const gx = sx + Math.sin(k*91.7 + Math.floor(t*3)*13.1)*R*.9, gy = hy + (((Math.sin(k*12.9 + Math.floor(t*3))*43758.5) % 1 + 1) % 1)*(H - hy)*.6;
+      o.fillRect(gx, gy, Math.max(1, u*.006), 1);
     }
   }
   },

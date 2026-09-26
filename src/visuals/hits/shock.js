@@ -1,7 +1,7 @@
 // Shockwaves: rings that ripple out on the pulse and push everything they pass through.
 // They live in the trails: they draw in the feedback pass and displace everything there. Their motion is in fx/effects.js.
 export default {
-  key: 'shock', kind: 'hit', label: 'Shockwaves', trigger: 'pulse', level: .8, inTrails: true,
+  key: 'shock', kind: 'hit', label: 'Shockwaves', trigger: 'pulse', level: .8, inTrails: true, trailWeight: 'shockW', fbWeight: 'uShockW',   // drawn in a trail group; its weight in P, and in the shader
   paint: 4,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   words: 'Shockwaves ripple out on the kicks',
   // busy, driving music; less suited to a world
@@ -25,7 +25,7 @@ vec2 shockDisp(vec2 sp){
   for(int i=0;i<8;i++){
     vec4 sh=uShocks[i];
     float dd=abs(length(sp-sh.xy)-sh.z);
-    col+=hsv(uHue+0.5+sh.z*0.3,0.7,1.0)*uShockW*sh.w*(smoothstep(0.006+sh.z*0.015,0.0,dd)+0.3*smoothstep(0.03+sh.z*0.03,0.0,dd));
+    col+=hsv(uHue+uPal.z+sh.z*0.3,0.7,1.0)*uShockW*sh.w*(smoothstep(0.006+sh.z*0.015,0.0,dd)+0.3*smoothstep(0.03+sh.z*0.03,0.0,dd));
   }`,
   },
   fbUniforms(gl, u, P){
@@ -39,7 +39,7 @@ vec2 shockDisp(vec2 sp){
       if (sh.s < .02) return;
       c.beginPath(); c.arc(sx(sh.x), sy(sh.y), sh.r*u, 0, Math.PI*2);
       c.lineWidth = u*(.006 + sh.r*.015);
-      c.strokeStyle = `hsla(${hsl(P.hue + .5 + sh.r*.3)},80%,60%,${Math.min(1, P.shockW*sh.s)})`; c.stroke();
+      c.strokeStyle = `hsla(${hsl(P.hue + P.pal[2] + sh.r*.3)},80%,60%,${Math.min(1, P.shockW*sh.s)})`; c.stroke();
     });
   },
 };

@@ -5,6 +5,8 @@ import { J, OPENING } from '../journey/core.js';
 import { PACE } from '../journey/pace.js';
 import { eff } from '../presets.js';
 import { HIT_VISUALS } from '../visuals/registry.js';
+import { CTX } from '../scene/context.js';
+import { TUNE } from '../tuning.js';
 
 /* comets and shockwaves */
 export const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
@@ -34,7 +36,7 @@ export function stepFX(dt, react, now){
     const bend = eff.plasma*Math.sin(c.x*3 + tt)*Math.cos(c.y*3 - tt*.7)*2.5*dt;
     const a2 = Math.atan2(c.dy, c.dx) + bend; c.dx = Math.cos(a2); c.dy = Math.sin(a2);
     const sp = (.12 + e*.5)*(1 + c.kick*2.5)*(.7 + J.tension*.6); c.kick *= Math.pow(.02, rdt);
-    c.x += c.dx*sp*dt; c.y += c.dy*sp*dt;
+    c.x += (c.dx*sp + CTX.wind.x*TUNE.ctx.windComets)*dt; c.y += (c.dy*sp + CTX.wind.y*TUNE.ctx.windComets)*dt;   // the wind carries them
     if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
     if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
     c.z = .5 + Math.min(1.5, e);

@@ -43,7 +43,7 @@ float sdStar(vec2 p,float R,float n,float ratio){   // tips at R, inner corners 
     float fill=smoothstep(1.5/uRes.y,0.0,d);
     float edge=smoothstep(0.005,0.0,abs(d));
     float halo=exp(-max(d,0.0)*26.0)*(1.0-fill);
-    c+=(hsv(uHue+0.12,0.35,1.0)*fill*0.9+vec3(1.0)*edge*0.5+hsv(uHue+0.12,0.8,1.0)*halo*0.45)*uStar.w;
+    c+=(hsv(uHue+uPal.y,0.35,1.0)*fill*0.9+vec3(1.0)*edge*0.5+hsv(uHue+uPal.y,0.8,1.0)*halo*0.45)*uStar.w;
   }`,
   },
   uniforms(gl, u, P){ gl.uniform4f(u.uStar, P.star[0], P.star[1], P.star[2], P.star[3]); gl.uniform3f(u.uStarS, P.starRot, P.starN, P.starN > 5 ? .5 : .42); },
@@ -55,8 +55,8 @@ float sdStar(vec2 p,float R,float n,float ratio){   // tips at R, inner corners 
     for (let k = 0; k < n*2; k++) { const ang = k*Math.PI/n - Math.PI/2, rr = k % 2 ? inner : R;
       k ? o.lineTo(Math.cos(ang)*rr, Math.sin(ang)*rr) : o.moveTo(Math.cos(ang)*rr, Math.sin(ang)*rr); }
     o.closePath();
-    o.shadowColor = hc(P.hue + .12, 90, 60, Math.min(1, a)); o.shadowBlur = R*.5;
-    o.fillStyle = hc(P.hue + .12, 90, 85, Math.min(1, a*.9)); o.fill();
+    o.shadowColor = hc(P.hue + P.pal[1], 90, 60, Math.min(1, a)); o.shadowBlur = R*.5;
+    o.fillStyle = hc(P.hue + P.pal[1], 90, 85, Math.min(1, a*.9)); o.fill();
     o.shadowBlur = 0; o.strokeStyle = `rgba(255,255,255,${Math.min(1, a*.6)})`; o.lineWidth = Math.max(1, u*.003); o.stroke();
     o.restore();
   },

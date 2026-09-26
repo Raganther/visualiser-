@@ -1,6 +1,6 @@
 // The Adjust panel: sliders built from SPEC, and Journey's narration.
 import { S } from '../state.js';
-import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS } from '../journey/cast.js';
+import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS, sceneWords } from '../journey/cast.js';
 import { J } from '../journey/core.js';
 import { PACE, paceName } from '../journey/pace.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
@@ -9,6 +9,7 @@ import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { MEDIA } from '../media/source.js';
 
+const PAL_WORDS = {triad: 'three far-apart hues', analogous: 'neighbouring hues', split: 'one hue against two', contrast: 'opposites'};
 export function updateSectionUI(){
   const el = $('#jSection'); if (!el || !J.type) return;
   if (J.on && J.recipe) $('#pName').textContent = J.recipe.name;
@@ -18,9 +19,12 @@ export function updateSectionUI(){
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
+    + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' : '')
+    + (J.lead && sceneWords() ? ` ${sceneWords()}` : '')
     + (L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
+    + (J.type.pal ? ` Colours: ${PAL_WORDS[J.type.pal]}.` : '')
     + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}.` : '');
 }
 // sliders

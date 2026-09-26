@@ -25,6 +25,12 @@ export const TUNE = {
 
   // worlds (backgrounds)
   worldSecs: 50, worldRestSecs: 30,  // how long a world lasts, and how long black lasts between worlds
+  // how loud Journey thinks it is (journey/sections.js energyLevel): against the loudest lately, and an absolute scale
+  energy: {
+    minSpan: .15,              // the song's range never counts as narrower than this, so a steady track doesn't read as quiet
+    quiet: .4, loud: .75,      // the analyser's energy for quiet and full (a mastered techno track runs about .5 to .75)
+    absMix: .35,               // how much the absolute scale counts, against the song's own range
+  },
   worldFatigueWeight: 1,       // how much a world (or the black) that's been on lately counts against choosing it again
   worldWaitSecs: 12,           // how long to wait for a phrase line before changing anyway
 
@@ -42,6 +48,7 @@ export const TUNE = {
     punch: [.2, .8],           // how hard the kick lands
     follow: [.08, .92],        // how closely shapes follow the audio
     divBar: .3, divHalf: .6,   // below divBar the visuals pulse once a bar, below divHalf every other beat, else every beat
+    divHyst: .05,              // how far past a line the pace must go before the pulse rate changes
   },
 
   // the mirror tunnel (a video, image or camera through a three-mirror kaleidoscope)
@@ -51,6 +58,84 @@ export const TUNE = {
     spin: .12,                 // how fast the image turns inside the mirrors
     zoom: 1,                   // how far down the tube you look (bigger = more, smaller reflections)
     drift: .015,               // how fast the view wanders across the source
+  },
+
+  // scenes (scene/graph.js): how their fills show
+  // the picture's finish (render/gl.js; bloom also in simple mode)
+  render: {
+    trailScale: .75,           // the trails' resolution against the screen's (they're soft anyway; a phone draws 44% fewer pixels)
+    trailSoft: 1,              // how far (in pixels) the trails are softened each frame, so fast shapes smear instead of stepping
+    trailFloor: .0015,         // what the trails lose each frame besides fading, so faint tails end (8-bit trails need .004)
+    bloom: .6,                 // how strongly bright parts glow onto their surroundings (0: off)
+    bloomThresh: .5,           // how bright a part must be to glow
+    bloomRadius: 1.6,          // how wide the glow spreads (in blur steps)
+    knee: .78,                 // brightness above which colours roll off softly instead of clipping to white
+    fbLinger: 8000,            // ms a visual stays in the trails' shader after it last drew (so accents don't swap shaders each time)
+    // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
+    auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
+      probeMs: 6000, ceilMs: 120000, stallMs: 1000},   // probe: a drop this soon after a step up keeps it under that step for ceilMs; stall: a gap this long (a hidden tab) restarts the count
+    fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
+    fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
+  },
+  // the cosmos (visuals/worlds/cosmos/): a camera exploring generated star systems, led by the track's shape
+  cosmos: {
+    shotBars: 8,               // bars per camera shot (a section change or a drop moves on sooner)
+    buildFast: 2, buildSlow: 14,   // seconds: the tension's quick and slow averages; the quick one pulling ahead is a build
+    buildSpan: .12,            // how far ahead the quick average must get for a full build
+    buildFloor: .3,            // no build below this tension (a quiet wobble isn't one)
+    buildStart: .5,            // how much build draws the camera in
+    buildGrace: 16,            // seconds into a track before a build can draw the camera (its tension is still settling)
+    pushMin: .015, pushRate: .045,   // how fast a build closes the distance (share of the way a second, plus more as it grows): 15-25 s
+    pushNarrow: .25,           // how much a full build narrows the view
+    fizzleSecs: 4,             // a build that fades for this long lets the camera go
+    dropJump: .6,              // how often a drop jumps to another system (otherwise it pulls back to the whole system)
+    dropWiden: 18,             // degrees a drop's pull back widens the view, easing off
+    quietSecs: 3, quietSlow: .5,   // no kick for this long is the quiet: the camera drifts or circles, this much slower
+    maxShotSecs: 40,           // a shot ends after this much motion time even with no bars to count
+    newSystem: .35,            // how often a new section on the same arm (the same mood) still goes to another star system
+    jumpGapSecs: 20,           // a drop jumps to hyperspace only this long after the last jump
+    warpUp: 1.2, warpDown: 1.8,   // seconds into and out of a jump
+    fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
+    kick: 1.2,                 // degrees the kick nudges the view in
+    lookK: 1.5,                // how much quicker the view turns than the camera moves
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9},   // how quickly the camera follows each shot (per second)
+    galaxyChance: .45,         // how often the biggest drops (after a full build) go out to the galaxy and back (else a black hole)
+    handSecs: 30,              // seconds a shot picked by hand (the lab's keys) holds the camera before the music takes over again
+    galFade: 1.8, galHoldSecs: 9,   // seconds to fade out to the galaxy (and back), and to look across it before diving
+  },
+  // the shared context (scene/context.js): one palette, one wind, one light for every visual
+  ctx: {
+    palSecs: 4,                // how long a new section's palette takes to come in
+    windTurn: .05,             // how fast the wind's direction turns (radians per second of motion time)
+    windBase: .025,            // the wind's steady strength (screen heights per second)
+    windBass: .05,             // plus this much on bass swells
+    windGust: .15,             // plus this much in a gust (a new section or a drop)
+    gustSecs: 3,               // how long a gust takes to die down
+    windComets: 1,             // how much the wind carries the comets
+    windFlow: 1.2,             // the flow's particles
+    windTrails: .5,            // the trails (they stream downwind)
+    windRibbons: 8,            // how much faster the ribbons wave in a strong wind
+    windObject: .6,            // how far an object sways
+    light: .6,                 // how strongly a world's light falls on the objects
+    flyWind: .8,               // how much a moving world's camera (the cosmos) blows the wind: the glow slides with the view
+    flyZoom: .5,               // and how much flying in zooms the trails (streaming out from the middle as it closes in)
+  },
+  // palettes: three hues (offsets from the running hue) that every layer, hit and object takes its colours from.
+  // Each section picks one (weights below); manual mode uses the triad
+  palettes: {triad: [0, .33, .67], analogous: [0, .08, .16], split: [0, .42, .58], contrast: [0, .5, .1]},
+  paletteWeights: {triad: 1, analogous: 1.2, split: .8, contrast: .8},
+  // Journey composing scenes (scene/templates.js): each template's base weight, and how much tiredness counts against it
+  sceneTemplates: {plain: .3, between: .25, split: .4, among: .6, reflect: .55, inside: .5, window: .5, glass: .45},
+  sceneFatigueWeight: .8,
+  scene: {
+    centreChance: .3,          // Journey: the share of sections with a 3D centrepiece (a per-object TUNE[key].chance above 0 overrides)
+    fillAmt: .9,               // how brightly a fill shows through an object's glass
+    fillZoom: 2.4,             // how many times smaller a fill's pattern is than the full-screen layer (so it tiles inside an object)
+    fillGain: 10,              // a fill is one frame of its layers, with no trails to build it up: this brings it to trail brightness
+    worldFillZoom: 2.6,        // how many times smaller a world is when it fills an object's glass (its horizon comes up into the glass)
+    worldFillGain: 2.2,        // and how much brighter: worlds are mostly dark sky, which would vanish into the dark glass
+    partFillAmt: 2,            // a fill in one part (the eyes) is small, so it shows this many times brighter
+    maxGroups: 2,              // trail groups a scene may run, main included (each is a full-size feedback pass; 3 at most); layers of any beyond go to main
   },
 
   // 3D mesh objects (the wire skull, the unicorn, the maths shapes): how they all look and move
@@ -78,6 +163,15 @@ export const TUNE = {
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {
     displayMs: 30,             // how long a drawn frame takes to reach the screen
+  },
+
+  // kick detection (audio/analysis.js)
+  kick: {
+    weights: [2.2, 1.6, 1, .6, .35, .25],   // how much each low bin (21 Hz up to 129 Hz) counts: the sub-bass is the kick's own
+    subShare: .18,             // over its first moment, a kick puts at least this much of its (weighted) rise in the lowest bin;
+                               // on a real track kicks put .15-.32, bass notes between them mostly under .1; an 808-style kick .22-.28
+    windowMs: 30,              // that first moment: the hit's first three frames or so (the sub often lands a frame or two late)
+    forgetMs: 1500,            // after this long with no kick, the floor learnt from past kicks is dropped (a quieter part can be heard)
   },
 
   // beat grid

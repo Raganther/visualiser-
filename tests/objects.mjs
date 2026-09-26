@@ -35,7 +35,7 @@ for (const mode of ['2d', 'gl']) {
   }
   // Journey with the skull lab: it becomes a centrepiece, with no lens over it (simple mode only; WebGL is too slow to run sections)
   if (mode === '2d') {
-    page = await openPage(browser, url, {query: '?lab=skull'});
+    page = await openPage(browser, url, {query: '?lab=skull', noDraw: true});
     const j = await page.evaluate(async () => {
       const {J} = await import('/src/journey/core.js'), {TUNE} = await import('/src/tuning.js');
       for (let i = 0; i < 50 && !TUNE.skull.chance; i++) await new Promise(r => setTimeout(r, 50));   // the lab loads before the first frame

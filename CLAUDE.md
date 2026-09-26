@@ -22,36 +22,45 @@ src/presets.js             SPEC (settings and sliders, partly from the registry)
 src/util.js                $, maths, colour (hc, hsv2rgb), noise
 src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
-src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes)
+src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes), quality.js (resolution that follows the frame rate)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
-src/ui/                    panel (sliders, narration), presets (switch/randomize), controls (keys, pad, buttons), transport, toast
-tests/                     npm test: smoke, media, objects, sync, grid, journey, golden (see Testing)
+src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
+src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, cosmos, golden (see Testing)
+docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 ```
 
 ## How it draws
 
-- **Feedback engine.** Each frame redraws the last frame zoomed, spun, warped and faded (`decay`), then adds the layers on top. This is what makes the glowing trails.
-  - WebGL: the feedback shader ping-pongs between two framebuffers.
-  - The display shader then composites the result onto the screen.
-  - Both shaders are assembled by `render/compose.js` from the registry.
-- **Crisp layers.** Worlds (backgrounds) and hits are drawn in the display pass every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
+- **Everything is composed.** Each frame draws the current **scene** (see Scenes below): a stack, bottom to top, that `scene/graph.js` compiles into a **draw plan**, which both renderers run step by step:
+  - **trail passes**, one per trail group: the group's last frame zoomed, spun, warped, faded (`decay`) and pushed by the wind, with the group's own layers drawn on top. This is what makes the glowing trails. In WebGL each group ping-pongs between two framebuffers.
+  - **segments**: a run of flat entries (worlds, their front planes, trail groups, hits) drawn in one full-screen pass over the picture so far. `render/compose.js` builds each segment's shader from the registry, once per shape of run, and caches it.
+  - **object draws** between segments. When something is drawn over an object later, WebGL builds the picture on a surface with depth and the next segment reads it back.
+  - small **fill and mask** passes at half size, only when a scene uses them.
+- **The finish** (`TUNE.render`). Trail groups and surfaces are half-float where the device can render to it (`detectHdr`), so tails fade smoothly (the trails themselves still clamp at 1; brightness above 1 survives on the surfaces, for the roll-off). The trails are drawn at `trailScale` (¾) of the screen's resolution, since they're soft anyway; the last frame is softened slightly as it's read back (`trailSoft`), so fast shapes smear. After the whole scene: the bright parts are picked out at quarter size, blurred both ways and added back as a glow (`bloom`), bright colours roll off softly instead of clipping to white (`knee`), and a dither hides banding. Simple mode gets the glow too, from a contrast filter and a blur on a quarter-size copy. Fast thin shapes (ribbons, the horizon grid) still leave separate echo lines: that's the feedback itself, and would need drawing them twice a frame.
+- **Crisp layers.** Worlds (backgrounds) and hits are drawn in segments every frame, *outside* the trails, so they never smear. Anything that has to appear or vanish cleanly belongs there.
 - **Simple mode.** `render/canvas2d.js` (`make2D`) is a Canvas 2D fallback for browsers without WebGL. **Every visual needs a version in both renderers.** The 2D one can be plainer.
+- **Robustness.** Drawing is capped at 60 fps (feel numbers are per frame). A lost WebGL context stops drawing and is rebuilt on restore (visuals with their own GL objects check `S.glGen`). Resizes are debounced. The trails' shader skips every visual whose weight is 0, and every template's segment shaders are compiled while the page is idle (`warmScenes`).
+- **Speed.** Two things keep it quick as visuals are added:
+  - **The trails' shader holds only what's drawing.** It runs for every pixel of every trail group, so each visual in it cost something even at weight 0. `fbPick()` in `gl.js` builds one from the visuals with weight (and any a fill shows), kept for `TUNE.render.fbLinger` after they stop so accents don't swap shaders, and cached per set (`fbCache`; 0 turns this off). While a new one compiles in the background (`KHR_parallel_shader_compile`, or `fbWait`), the smallest ready one that covers the set is used, or the full one, which is always there. In software WebGL this took a plain section from about 6–7 to 9–11 fps. `tests/quality.mjs` checks it draws exactly what the full one does.
+  - **The resolution follows the frame rate** (`render/quality.js`, `TUNE.render.auto`). Under `low` fps for `slowN` seconds running (so one hitch doesn't count), it draws a step smaller (×`step`, down to `min`; the canvas is stretched to fit, and the main trails are carried across); at `high` for `upMs`, a step back up. A step up that's slow again within `probeMs` is taken back and not tried again for `ceilMs`. It waits `graceMs` at the start, while shaders compile. The readout says when it's lowered.
+- **Frame rate.** `ui/fps.js` shows frames drawn a second (green at 55+, amber at 30+, red below), the longest gap between frames, the script's time per frame, the renderer and its size, and what's on screen. It's on until hidden with **P** or the panel's "Show frame rate" (remembered in `localStorage`). In WebGL the script time leaves out the GPU's work, so a low fps with little script time means the shaders are the cost.
 - **Parameters.** `render()` in `main.js` builds `P` each frame. Each visual's `params()` adds its own fields. `t` is *motion time* (`S.MT`), not wall time; see Pace below.
 
 ## Visuals and the registry
 
 | Kind | What it is | Modules | How it arrives |
 |---|---|---|---|
-| **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city` (plus none/black) | Fade, or cut on the bar |
+| **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos) (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
-| **Objects** | 3D centrepieces, crisp: meshes drawn over the finished picture (or ray-marched in the display pass) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
-| **Opt-in** | Drawn and given a slider, but outside Journey's usual pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; an object only with `TUNE[key].chance > 0` |
+| **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
+| **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
 
@@ -82,7 +91,6 @@ Each visual is **one module** exporting an object. From it the engine builds the
 - **Objects:**
   - `words` (narration). The weight arrives as `P.o[key]`.
   - A mesh object, made by `meshObject()` in `objects/mesh-object.js`: `drawGL(gl, P, W, H, stage)` is called twice a frame. With `'trails'` it draws into the feedback buffer, so the object leaves ghosts; with `'screen'` it draws over the finished picture. It also has `draw2d(o, P)`. Both hand off to `render/mesh.js`.
-  - A ray-marched object (none at the moment; the old skull was one): `glsl: {uniforms, functions, fn}` in the display pass, where `fn(sp)` returns premultiplied colour and coverage. Its weight also arrives as `uO_<key>`.
   - Tuning: `TUNE.mesh` sets how all mesh objects look and move, including Journey's `level`. `TUNE[key]` holds each object's `chance` (per section; 0 = never, with no random draw), `size` and `hinge` swing.
 
 **Adding a visual:**
@@ -102,10 +110,10 @@ Its slider, shader code, drawing, narration and Journey scoring all follow from 
 
 Presets with `journey: false` are manual-mode looks only; Journey's recipe pool skips them.
 
-- **Movers** (`mods` on a preset): per-setting automation such as drift, follows bass/mids/treble, pulses on beat, or jumps on beat.
+- **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 14 of them): hand-made looks for manual mode. Journey also reads them as **recipes**.
+- **Presets** (`BASE`, 25 of them: 14 Journey reads as **recipes**, and 11 manual-only looks and demos with `journey: false`).
 
 ## Journey (the automatic director)
 
@@ -116,7 +124,9 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - one **lead** layer, held for the whole section;
    - one **accent** layer that fires on its trigger;
    - at most one **hit**;
-   - optionally a **lens**.
+   - optionally a **lens**;
+   - optionally a 3D **centrepiece**;
+   - a **scene** that relates them (see Scenes: Journey composes scenes).
 
    `recast()` in `cast.js` does the choosing, via `scoreElems`, `chooseAccent` and `chooseHit`, each asking the registry.
 2. **Sections** (`sections.js`). A running fingerprint of the music (kick density, stabs, brightness, bass, melody, loudness) is compared against its recent average.
@@ -139,6 +149,10 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - then a colour, lens or pace shift;
    - then a new recipe and lead.
 
+   **Energy** (`energyLevel()` in `sections.js`, used for tension and the section fingerprint):
+   - It's measured against the loudest the song has been lately, over a range no narrower than `TUNE.energy.minSpan`, blended with an absolute scale (`quiet`, `loud`, `absMix`).
+   - Before this, the range could shrink to nothing on a steady track, so full-on minimal techno read as quiet after a minute or two. Tension fell to about 0, the pace to "floating", and tiny wobbles made short false sections.
+
    **Adaptive sensitivity** (`stillness()`): the longer nothing changes, the smaller a change needs to be to count as a new section. **Fatigue** (`J.fat`) builds while a layer is on screen and counts against choosing it again. Worlds, and the black rest between them, have their own fatigue (`J.wFat`, weighted by `TUNE.worldFatigueWeight`). Without it, a long steady track got the same world after every rest (on minimal techno, the city), and sometimes a second black rest in a row.
 7. **Pace** (`pace.js`). Each section gets a pace from 0 (floating) to 1 (frantic), contrasting with the last. `setPace()` maps it (ranges in `TUNE.pace`) to:
    - motion speed, applied through `S.MT`;
@@ -146,11 +160,18 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
    - pulse division: once a bar, every other beat, or every beat;
    - how closely shapes follow the audio.
 
+   The pulse rate only changes once the pace is `TUNE.pace.divHyst` past a line, so the pace's gentle breathing doesn't flip it back and forth.
+
    Hits still age in real time. Manual mode runs at pace 1.
 
 ## Timing: kicks, stabs, and the beat grid
 
 - **Onsets** (`audio/analysis.js`): kicks are sudden rises in the low band, and stabs are rises in the mids. Kicks feed the beat grid; stabs fire `onHitFX` (`stab` hits, "on stabs" accents).
+  - **Kicks, not bass notes.** Minimal techno puts bass notes between the kicks: on the off-beat, and often a 16th before each kick. They rise in the same low band at about half the kick's strength. A real track showed the detector firing twice a beat, and the grid never locking (29 of 272 s, at 173 BPM for a 130 BPM track).
+  - **The fix.** A low-end hit waits a moment (`TUNE.kick.windowMs`, about three frames), because a kick's sub-bass often lands a frame or two after the hit starts. It counts as a kick only if at least `TUNE.kick.subShare` of its weighted rise (`TUNE.kick.weights`) over that moment came in the lowest bin, about 21 Hz. It's timed from its start, so the grid gets no extra lag.
+  - **Why a share.** A share rather than a strength doesn't depend on where in the frame the hit fell, which made strength unreliable. Measured over the window: the track's kicks put .15–.32 there, its bass notes mostly under .1, and an 808-style sweep kick (the sync test's) .22–.28.
+  - **Result.** The same track now locks for 207 of 272 s, at a median of 129.9 BPM. A few bass notes still get through in busy stretches, but the grid holds.
+  - **Test.** `tests/fixtures/offbeat.js` is a synthetic groove built this way, and `tests/grid.mjs` checks it.
 - **Beat grid** (`audio/beatgrid.js`: `G`, `gridKick` / `gridTick` / `gridFrame`; tolerances in `TUNE.grid`):
   - **Tempo.** `estimatePeriod` finds the beat length that best explains the gaps between recent kicks as whole numbers of beats.
   - **Clock.** It locks after three kicks on the grid, and each on-grid kick nudges it back into phase. It keeps ticking through missed kicks and breakdowns (about `holdSecs`).
@@ -198,6 +219,84 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Drawing:** in WebGL it's blended over the trails (not added), so pictures stay recognisable. Its media texture uses texture unit 3, and a still image uploads once. Simple mode draws a six-way mirror.
 - **Caveat:** hosts that sandbox the page (possibly the claude.ai Artifact) may block the camera; files still work.
 
+## The city
+
+`visuals/worlds/city.js`, rebuilt after the user found the old skyline "naff" (flat rectangles, noisy windows, no depth):
+- **Four rows**, far to near (`row()`, and the same numbers in the shader): the far rows are the tall towers downtown, faded into the haze; the near rows are darker and shorter. They scroll at different speeds.
+- **Silhouettes:** gaps between buildings, a narrower crown on some (setbacks), antennas on others, whose red lights blink on the beat.
+- **Windows** in each building's own style (warm or cool, office widths, some buildings dark), lit floor by floor; a share change on the downbeat (`uCitySeed`).
+- **Neon signs** down the side of some near buildings, in the palette's colour, lit harder on the beat.
+- **Sky:** the city's glow low down, a few clouds lit from below, the moon with a halo in the haze.
+- **Street:** the skyline reflected and rippling, and traffic: headlights one way, tail lights the other, with streaks on the wet road.
+- **Front plane:** the two nearest rows, so things "between" sit behind the near buildings and in front of the towers.
+- Simple mode draws the same rows, windows, neon, antenna lights and traffic, plainer.
+
+## The other worlds
+
+- **Landscape:** three ranges shaped by the song's loudness history (Journey's energy), nearer ones darker and far ones fading into the sky, with rock striations, slopes facing the sun lit, mist on the water and glints under the sun.
+- **Space:** stars rushing past, two clouds of gas, and a ringed planet: the rings are banded with a dark division, and the planet's shadow falls across them; two moons step round every other beat.
+- **Aurora:** curtains with rays near their foot, swelling with the melody, over a treeline and a still lake that mirrors them.
+
+## The cosmos: space as a place the camera explores
+
+A world that is a 3D place rather than a painted backdrop: generated star systems a camera flies through, with the track's shape leading. It's one of Journey's worlds. The staged plan and its log are in `docs/cosmos-plan.md`. It lives in `visuals/worlds/cosmos/`:
+- **`system.js`: the places.** Star systems grow from an index (`makeSystem(idx)`, with its own seeded numbers, so a system is the same every visit and the page's random draws are untouched). The index says where a system sits:
+  - **galaxy:** the track's, a hash of its name (`hashStr`), so the same track takes the same journey;
+  - **arm:** its mood, cold, warm or hot (`armFor(T, pace)`);
+  - **place:** how far along the arm it is.
+
+  A system's heat comes from its arm:
+  - cold systems have ice and ocean worlds and pale stars;
+  - hot ones have lava, rock and bigger, deeper-coloured stars;
+  - inside planets are hotter than outside ones.
+
+  Each system has three to six planets, some with rings, and moons, which orbit in motion time. There's more to find:
+  - **The star can be a set piece:** twin stars (warm and hot arms), a pulsar (warm and cold), or a black hole (hot).
+  - **Planets carry life and weather:** cities on night sides, auroras at the poles, a great storm in a gas giant, clouds.
+  - **Belts and built rings:** an asteroid belt in a gap between two planets, and sometimes a vast ring built round the star (`halo`).
+  - **The monument** (`sys.mon`): where a centrepiece stands, in orbit round the first planet.
+
+  `galPos(idx)` places each system on its arm's spiral, for the galaxy view.
+- **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, `push` (a build), `belt` (through an asteroid belt, the rocks rushing past) and `skim` (low over a solid world's surface, its horizon curving ahead). The camera is pushed out of any body it gets too near (for a skim, only just above the surface). The track's shape leads (`TUNE.cosmos`):
+  - **A build:** the tension's quick average (`buildFast`) pulls ahead of its slow one (`buildSlow`). The camera is drawn toward the biggest world near by; how close it gets follows how far the build has got, not the clock. The view narrows and the stars start to stretch. A build that fades for `fizzleSecs` lets the camera go.
+  - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`). The biggest drops, after a full build, go out to the **galaxy** (`galaxyChance`) or to a black hole. On the galaxy trip, the system falls away to a point on its arm; the camera takes in the whole spiral (three arms in the moods' colours, a bright core, where it's been and where it's going) for `galHoldSecs`, then dives to the next system's point and arrives there.
+  - **The quiet:** no kick for `quietSecs` drifts or circles, slower. The kick coming back moves on at the next bar.
+  - **A new section** goes to a system on the arm that suits it: another system, or sometimes another body when it's already on the right arm (`newSystem`). The first section owns where the camera already is. A returning section goes back to its system and body (remembered on the section type).
+  - **Arriving at a set piece** (twin stars, a pulsar, a black hole), it circles it first.
+  - **A centrepiece coming in** stands in the space as a vast monument, and the camera goes to circle it.
+  - **Otherwise** a new shot every `shotBars` bars: calm music floats and circles, intense music swoops close (through the belt and skimming surfaces more when it's intense).
+  - **A shot picked by hand** holds the camera for `handSecs`, so the music doesn't take it straight back.
+  - The kick nudges the view in, harder in a build, and the pace sets how quickly the camera moves.
+- **The layers join the space.** The camera's movement (`motion`: how the far view slides, and how fast the camera closes in) goes into the shared context (`CTX.fly`). It becomes wind (`TUNE.ctx.flyWind`), so the comets, flow and trails slide with the view, and trail zoom (`flyZoom`), so the glow streams outwards as the camera flies in. The star is the world's `light`, so objects are lit from where it is on screen. A world's `motion` and `light` are set in its `params` while it's on screen.
+- **A place can hold the centrepiece** (`P.anchor`, set by a world's `params`: where on screen, how big, or hidden behind the camera). The mesh objects use it instead of their usual place, so in the cosmos the skull (or any object) is a monument the camera can circle.
+- **Drawing.**
+  - **WebGL** (`look.js`): each pixel's ray is tested against the star and the six bodies that look biggest.
+    - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star, gain detail up close, and have atmospheres at the edge.
+    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds.
+    - **Rings** have bands, a gap and the planet's shadow.
+    - **The star's glow** shows round anything in front of it.
+    - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
+    - **A black hole** bends the light from behind it: the sky is looked up along a bent ray. It has a shadow, a bright ring at its edge, and a disk with Doppler brightening, whose far side's image is bent up over the top.
+    - **Twin stars** are drawn, and both glow.
+    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a band of glinting dust in that haze.
+    - **The built ring:** a cylinder band round the star, its inner face lit, with seams, windows, and a pulse running round on the beat.
+    - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
+    - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
+  - **Simple mode** (`draw2d.js`): the same, plainer.
+    - Bodies are shaded discs, far to near, with rings split behind and in front.
+    - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
+    - The built ring is its edges and a pulse line.
+    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and bands of gas along its ring from afar.
+    - Oceans, storms, city lights and auroras are drawn.
+    - The galaxy is 1,400 points on its arms.
+
+  It costs the same however big the universe is.
+- **Narration.** A world with a `caption()` (the cosmos: "Approaching a ringed gas giant", "Drawn towards a lava world", "Arriving at a hot star: …") shows it at the bottom left (`ui/caption.js`) while the world is on screen. The panel says how the camera follows the track.
+- **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
+  - 1–7 pick shots (7 is the belt), and S skims;
+  - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
+  - G goes out to the galaxy.
+
 ## Meshes: the wire skull, the unicorn and the maths shapes
 
 **The mesh engine** (`src/render/mesh.js`, a leaf module) draws any triangle mesh as glowing wire edges over dark glass panes.
@@ -212,7 +311,7 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
   - Edges are drawn as screen-space bands, because WebGL lines are only 1 px wide.
   - On screen it's three passes: the far side's edges faintly (`xray`), then the panes (depth-tested, darkening what's behind them), then the near edges.
   - Into the trails it draws edges only (`trail`). The trail buffers have no depth.
-- **Simple mode.** The panes are painted back to front, each as dark glass followed by its lit edges.
+- **Simple mode.** The glass is painted back to front, one fill per near pane (dark glass, its glow and the world's light in one colour); then the edges are gathered by colour into a few paths and stroked, the far side's dimmer, like WebGL's x-ray. The projection is plain arithmetic, done once a frame and shared by a mask and the drawing.
 - **Setup.** The main canvas asks for a depth buffer for this.
 
 **Generated meshes** live in `src/visuals/objects/meshes/*.js` and aren't edited by hand. `npm run mesh` runs `tools/skull-mesh.mjs` and `tools/unicorn-mesh.mjs`, which share `tools/mesh-kit.mjs`. The skull tool:
@@ -252,8 +351,48 @@ Every pane faces away from its own inside point: the centre, or for the tube sha
   - there's never a lens over it;
   - the mirror tunnel wins while media is loaded.
 
-  Every object is off by default (`chance: 0`). `?lab=skull` gives the skull .5; `?lab=objects` gives every object an equal share of about half the sections.
+  A centrepiece comes in about `TUNE.scene.centreChance` of sections, and the section's scene template decides how it relates to the rest (among the world's planes, holding a fill, masking the trails). `?lab=skull` gives the skull .5 of sections instead; `?lab=objects` gives every object an equal share of about half.
 - **Manual:** the "Skull", "Unicorn" and "Torus knot" presets (`journey:false`). Every object also has a slider under "Media and objects".
+
+## Scenes: composing the pictures
+
+The first-principles model (the rebuild is logged in `docs/composition-plan.md`) is three kinds of thing plus one rule:
+- **signals:** anything that changes over time (`scene/signals.js`);
+- **images:** every visual is a picture with coverage: worlds (with a front plane), trail groups, hits, objects;
+- **operators:** trails, the kaleidoscope, masks, fills, and a weight that follows a signal;
+- **the rule:** a **scene** is a stack of images in any order, in which one image can fill, mask or sit between others.
+
+**The signal bus** (`src/scene/signals.js`, a leaf module) holds `SIG`, fed once a frame by `main.js` (`updateSignals`).
+- **Signals:** the band followers, the pulse, every kick, stabs, loudness, the beat and bar ramps, energy (tension) and a section-change swell.
+- **Readers:** movers (`sig(key, react)`, every slider's dropdown lists the bus), and scene entries' `drive`.
+- **Adding a signal:** add it to `SIG`, feed it in `updateSignals`, and give it a line in `SIGNALS`.
+
+**Scenes** (`src/scene/graph.js`) are plain data, a stack bottom to top. `resolveScene()` compiles one into a draw plan (`P.sc`), cached per scene object, so a scene is never edited in place: a change is a new array.
+- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's two nearest rows of buildings, the land's nearest ridge, the aurora's treeline, space's planet) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
+- `{trails: 'main'}`: the trail group holding every layer no other group claims. `{trails: 'back', layers: ['comets']}`: another group (at most `TUNE.scene.maxGroups`, each a full-size feedback pass). So comets can fly behind the buildings while the ring pulses in front.
+- `mask: {object: 'skull', keep: 'inside' | 'outside'}` or `{world: 'front', keep}` on a trails entry: shown only inside (outside) that shape. It applies only while the object is on screen.
+- `{hits: true}`, `{objects: true}` (every object on screen that no entry places), `{object: 'skull', fill?}` (one object, here in the stack: among a world's planes, under the hits, anywhere).
+- **Fills**: an object's glass shows another image: `{layers: [...], fold, zoom?}` (those layers alone, any layer, the media tunnel too), `{trails: 'inner', layers: [...]}` (a group seen only through the glass, shrunk in), `{world: true}` (the worlds shrunk in, brightened), and `part: 7` limits it to one part (the eyes). Tuning: `TUNE.scene` (`fillAmt`, `fillGain`, `fillZoom`, `worldFillZoom`, `worldFillGain`, `partFillAmt`).
+- `drive: {src: 'kick', amt: .7}` on a world or trails entry: its weight follows a signal.
+- **Cost.** A fill is one half-size pass, a mask one small pass, a second trail group one full pass, and an object between two segments one extra full pass. "Between" costs nothing.
+
+**The shared context** (`src/scene/context.js`, a leaf module) is what makes the visuals feel like one piece. `main.js` updates it once a frame (`updateContext`):
+- **one palette:** three hues (offsets from the running hue). Each section picks one (`TUNE.palettes`, `paletteWeights`: triad, analogous, split, contrast); manual mode uses the triad. Comets, ribbons, shockwaves, the star, sparkles, the outline and the objects' parts take their hues from it (`P.pal`, `uPal`), rather than each inventing its own. The panel narrates it.
+- **one wind:** it turns slowly, blows harder on bass swells, and gusts on section changes and drops. It carries the comets and the flow, speeds the ribbons, sways the objects and streams the trails downwind (`P.drift`, `uDrift`). Tuning: `TUNE.ctx`.
+- **one light:** each world has a `light` (hue offset, saturation, direction): the city's windows from below, the low sun, the aurora's green from above, pale starlight. The objects' glass and edges catch it on the side facing it.
+
+**Journey composes scenes** (`src/scene/templates.js`, chosen in `recast` in `journey/cast.js`). Each section gets a template built from its cast (world, lead, accent, centrepiece):
+- `plain`, `between` (the glow behind the world's front), `split` (the accent behind it, the lead in front), `among` (the centrepiece between the world's planes), `reflect` (the world in its glass), `inside` (a kaleidoscope in it, the glow kept out), `window` (the glow seen only through it), `glass` (the accent only in its glass).
+- Each says what it `needs` and what music `suits` it. Journey adds a base weight (`TUNE.sceneTemplates`), fatigue (`J.sFat`) and a little chance, remembers the choice with the section's cast, and may vary it on a third visit (`varySmall`).
+- The scene changes on a bar line (`J.sceneLive`). With media loaded it stays plain.
+- A template never adds things, only relations between what's already there: "few things at once" holds.
+- A **centrepiece** comes in about `TUNE.scene.centreChance` of sections, the least tired object first (`J.oFat`). A per-object `TUNE[key].chance` above 0 (a lab's) takes over the draw.
+
+**The scene editor** (`src/ui/scene.js`, the "Scene" part of the Adjust panel):
+- In Journey it shows the live scene, top to bottom.
+- By hand: **Compose** builds a template from what's on screen (bringing in the city, the skull or a second layer if the template needs one); each row can move up or down or be removed; trails rows choose a mask (and a second group its layer), object rows choose what fills their glass, world and trails rows choose what drives their weight. **Add** puts a new entry on top. Edits are kept on the preset.
+
+**Demos** (manual presets): "Skull kaleidoscope", "City comets", "Skull in the city", "Behind and in front", "Sunset in the skull", "Comets in the glass", "Tunnel eyes".
 
 ## Experiments
 
@@ -265,23 +404,47 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 
 ## Testing
 
-Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). Tests use headless Chromium via the global Playwright (`npm root -g`).
+Run `npm test` before every PR (`npm run test:dist` also builds and tests the bundle). It runs two files at a time and prints each one's time (about 10 min; `TEST_JOBS=1` for one at a time). `openPage(…, {noDraw: true})` skips drawing for tests that only read Journey or the grid. Tests use headless Chromium via the global Playwright (`npm root -g`).
 - `tests/smoke.mjs`: the page loads, draws and locks the beat grid in both renderers with no errors, and `?lab=` / `?tune=` apply.
 - `tests/media.mjs`: an image and Chromium's fake camera (`FAKE_CAMERA` flags in `lib.mjs`) show through the tunnel in both renderers, and Journey hands it the lead and takes it back.
 - `tests/sync.mjs`:
   - with real audio through the analyser, a synthetic loop in real time, the pulse is drawn a screen's delay before the kick is heard;
   - the kick frame is the brightest;
   - each "follows" mover moves with its own part of the groove.
+- `tests/scene.mjs`: in both renderers, each against the same run without it:
+  - a fill shows inside the skull and not around it;
+  - masked to inside the skull, the trails leave the screen's edges;
+  - with `between`, the city's near buildings cover the comets;
+  - the skull stands among the city's buildings (they hide its lower half);
+  - trail groups put the comets behind the buildings and the ring in front;
+  - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
+
+  And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
 - `tests/objects.mjs`: every mesh object draws and shatters in both renderers, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;
   - time beats within 15 ms;
   - find the real downbeat at a steady tempo.
+
+  On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo.
+- `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
+- `tests/cosmos.mjs`:
+  - with `?lab=cosmos`, in both renderers: it draws, the shots change with the music, a jump reaches another system, and the camera never goes inside a body;
+  - driving the camera directly: a build draws it in, a drop lets it go, the quiet drifts, and sections land on the arm that suits them and come back to their own system;
+  - with the camera held, in both renderers:
+    - it visits a black hole, a pulsar, twin stars and a belt;
+    - it flies through the belt (inside it);
+    - it skims a surface (just above it);
+    - it goes out to the galaxy and dives into another system;
+    - a centrepiece stands as the monument the camera circles;
+    - there are no page errors.
+
+  `COSMOS_MODES=` runs just the camera's logic.
 - `tests/journey.mjs`: over 400 simulated sections:
-  - every world and hit is chosen;
+  - every world, hit and scene template is chosen;
   - nearly every recipe is;
-  - hits appear in 15–40% of sections.
+  - hits appear in 15–40% of sections, and a centrepiece in 15–45%.
 - `tests/golden.mjs`: a **deterministic** run on the synthetic groove (`tests/fixtures/groove.js`), with a seeded `Math.random` and a fake 60 fps clock stepped by the test. It compares Journey's `__jdbg()` timeline (180 s in simple mode, 45 s in WebGL) and canvas thumbnails against `tests/golden/*.json`.
   - A refactor must match the recording exactly.
   - An intended behaviour change re-records it (`npm run golden:update`), and the PR says why.
@@ -303,7 +466,14 @@ Useful facts:
 
 ## Known limits
 
-- **Tuned on synthetic audio.** Real-music tuning comes from the user's listening feedback.
+- **Simple mode with objects is heavy.** In headless software rendering at 960×540, the knot (1,680 panes) adds about 23 ms a frame (from 30 before the simple-mode rework). On a slow device without WebGL, sections with the big shapes can drop frames.
+- **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
+- **Engine → UI imports.** Journey and audio modules call into `ui/panel.js` (`updateSectionUI`, `syncSliders`), so there are import cycles. They're all function-level (nothing runs at import time across them), so they're safe; untangling them (a hooks module) was judged not worth the churn in the 2026-09 audit (`docs/audit.md`).
+- **Very quiet tracks.** After a loud one the kick floor is forgotten within 1.5 s, but the detector's fixed floors still miss some kicks 20 dB down (`tests/grid.mjs` reports it).
+- **Tuned mostly on synthetic audio.** Real-music tuning comes from the user's listening feedback, and from running their tracks through the page offline:
+  - Render the track through an `OfflineAudioContext` with the page's analyser settings, reading it at 60 fps (`suspend` at each frame).
+  - Feed those frames to `window.__synth`, and step the page with `__step`.
+  - The user's tracks stay out of the repo.
 - **Downbeat after a tempo change.** It can slip to beat 3 and stay there. `tests/grid.mjs` reports it (about 47% right after the change in the groove).
 - **Unsure downbeat.** Minimal techno with no clap or crash may never pin the 1; the panel says "unsure of the 1".
 - **History.** Earlier work, oldest first:
@@ -313,5 +483,6 @@ Useful facts:
   - recipes and lens, progression and fatigue, the beat grid;
   - aurora, city, outline and sparkles, and pace;
   - then the modular restructure with its registry, tuning file and tests.
+  - then the mesh engine (skull, unicorn, maths shapes), the real-track kick and energy fixes, and the composition rebuild: scenes as draw plans, trail groups, fills from any image, the shared palette, wind and light, Journey composing scenes, and the scene editor (`docs/composition-plan.md`).
 
   `git log` has the details.

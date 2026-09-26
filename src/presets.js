@@ -1,6 +1,7 @@
 // Settings (SPEC), movers, and the hand-made presets that Journey also reads as recipes.
 import { S } from './state.js';
 import { clone } from './util.js';
+import { SIGNALS } from './scene/signals.js';
 import { HIT_VISUALS, LAYER_VISUALS, VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 
 /* ---------- presets ---------- */
@@ -14,15 +15,14 @@ export const SPEC = [
   {g:'Lens', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
   ...LAYER_VISUALS.filter(v => !v.optIn).map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...HIT_VISUALS.map(v => ({g:'Hits', k:v.key, label:v.label, min:0, max:1, step:.01})),
-  ...WORLD_VISUALS.map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  ...WORLD_VISUALS.filter(v => !v.optIn).map(v => ({g:'Worlds', k:v.key, label:v.label, min:0, max:1, step:.01})),
   {g:'Colour', k:'colorSpeed', label:'Colour cycle', min:0, max:.5, step:.005},
   {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
   // opt-in visuals last, so the settings above keep their places (movers seed their drift by position)
-  ...VISUALS.filter(v => v.optIn).map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  ...[...VISUALS.filter(v => v.optIn && v.kind !== 'world'), ...WORLD_VISUALS.filter(v => v.optIn)].map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
-export const SOURCES = [['none','Fixed'], ['drift','Slow drift'], ['bass','Follows bass'], ['mid','Follows mids'],
-  ['treb','Follows treble'], ['pulse','Pulses on beat'], ['jump','Jumps on beat']];
+export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
 export const BASE = [
   {name:'Tunnel', decay:.955, zoom:1.035, rot:.006, warp:.15, wander:.15, sym:1, ring:1, shock:.3, colorSpeed:.08, hueDrift:.012,
     mods:{rot:{src:'drift', amt:.4}, zoom:{src:'pulse', amt:.15}}},
@@ -59,6 +59,30 @@ export const BASE = [
     mods:{ring:{src:'bass', amt:.3}}},
   {name:'Unicorn', journey:false, decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, unicorn:1, ribbons:.4, colorSpeed:.03, hueDrift:.005,
     mods:{ribbons:{src:'mid', amt:.3}}},
+  // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
+  {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{world:'all'}, {trails:'main', mask:{object:'skull', keep:'outside'}}, {hits:true}, {object:'skull', fill:{layers:['plasma', 'ring', 'burst', 'scope'], fold:6}}]},
+  {name:'City comets', journey:false, decay:.96, zoom:1.002, rot:0, warp:.1, sym:1, city:1, comets:1, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {world:'front'}, {hits:true}, {objects:true}]},
+  // an object standing among the city's buildings; comets flying behind the buildings while the ring pulses in front
+  {name:'Skull in the city', journey:false, decay:.93, zoom:1.004, rot:0, warp:.1, sym:1, city:1, skull:1, comets:.6, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull'}, {world:'front'}, {hits:true}]},
+  {name:'Behind and in front', journey:false, decay:.95, zoom:1.003, rot:0, warp:.1, sym:1, city:1, comets:1, ring:.7, colorSpeed:.04, hueDrift:.008,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{world:'all'}, {trails:'back', layers:['comets']}, {world:'front'}, {trails:'main'}, {hits:true}, {objects:true}]},
+  // fills from any image: the sunset landscape only inside the skull; comets seen only through its glass; the mirror tunnel in its eyes
+  {name:'Sunset in the skull', journey:false, decay:.92, zoom:1.004, rot:0, warp:.1, sym:1, land:1, skull:1, ring:.5, colorSpeed:.04, hueDrift:.008,
+    mods:{ring:{src:'kick', amt:.3}},
+    scene:[{trails:'main'}, {object:'skull', fill:{world:true}}, {hits:true}]},
+  {name:'Comets in the glass', journey:false, decay:.95, zoom:1.004, rot:0, warp:.1, sym:1, space:1, skull:1, comets:1, ring:.5, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull', fill:{trails:'inner', layers:['comets']}}, {hits:true}]},
+  {name:'Tunnel eyes', journey:false, decay:.92, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, skull:1, ribbons:.4, colorSpeed:.04, hueDrift:.008,
+    mods:{},
+    scene:[{world:'all'}, {trails:'main'}, {object:'skull', fill:{layers:['tunnel'], part:7, zoom:1.5}}, {hits:true}]},
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
 ];

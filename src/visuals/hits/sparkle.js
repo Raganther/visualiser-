@@ -27,7 +27,7 @@ export default {
     if(s.w>0.003){
       vec2 q=(sp-s.xy)/s.z;
       float v=exp(-abs(q.x)*9.0-abs(q.y)*0.9)+exp(-abs(q.y)*9.0-abs(q.x)*0.9)+exp(-length(q)*5.0);
-      c+=hsv(uHue+0.15,0.3,1.0)*v*s.w*0.8;
+      c+=hsv(uHue+uPal.z,0.3,1.0)*v*s.w*0.8;
     }
   }`,
   },
@@ -39,9 +39,9 @@ export default {
       const x = P.sparks[i*4], y = P.sparks[i*4 + 1], s = P.sparks[i*4 + 2]*u, a = P.sparks[i*4 + 3];
       if (a < .003) continue;
       const g = o.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), s*.5);
-      g.addColorStop(0, hc(P.hue + .15, 60, 90, a)); g.addColorStop(1, hc(P.hue + .15, 60, 90, 0));
+      g.addColorStop(0, hc(P.hue + P.pal[2], 60, 90, a)); g.addColorStop(1, hc(P.hue + P.pal[2], 60, 90, 0));
       o.fillStyle = g; o.fillRect(X(x) - s, Y(y) - s, s*2, s*2);
-      o.fillStyle = hc(P.hue + .15, 40, 92, a*.8);
+      o.fillStyle = hc(P.hue + P.pal[2], 40, 92, a*.8);
       o.fillRect(X(x) - s, Y(y) - s*.03, s*2, s*.06); o.fillRect(X(x) - s*.03, Y(y) - s, s*.06, s*2);
     }
   },

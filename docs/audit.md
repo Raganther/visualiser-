@@ -1,0 +1,51 @@
+# Full audit, 2026-09-25
+
+A second audit of the whole system, after the composition rebuild, the engine finish and the new city. Two read-only code
+audits (correctness; architecture and performance) plus a visual pass over every world and layer. Findings are grouped into
+waves, worked through in order; each wave lands with the tests green. `[x]` done, `[-]` decided against (with why).
+
+## Wave 1: the test suite (so everything after it is quicker to check)
+The full `npm test` took 25–30 min, most of it WebGL frames in `scene.mjs` and golden, and simple-mode frames that nobody looks at.
+- [x] `scene.mjs`: one run per (settings, scene), several snapshots per run, cached; duplicate runs removed.
+- [x] A `__noDraw` hook, so tests that only read Journey or the grid (grid, journey, the objects lab) don't draw.
+- [x] `tests/run.mjs` runs files two at a time and prints each file's time.
+
+## Wave 2: correctness and robustness
+- [x] Kick floor lock-out: after a loud track, a quieter one could never pass the kick floor (`kickFl` never resets or decays). Reset on a new track, and let the floor relax after silence.
+- [x] WebGL context loss: not handled at all; a phone backgrounding the tab could leave it black for good. Handle loss and restore (rebuild programs, targets, meshes, the tunnel's texture).
+- [x] Hidden tab: the beat grid caught up every missed beat in one frame (hundreds of section changes and shatters). Skip ahead instead.
+- [x] Trail groups over budget could leave no `main` group, crashing simple mode every frame; every extra group shared one texture unit; a third masked object broke the shader; an off-screen mask's blank was shared between inside and outside. Main always allowed, a unit per group, masks capped at two, a per-mask "on" uniform.
+- [x] With no trails in a scene, the audio data and shared uniforms went stale and a mesh could sample the surface it draws into. Upload once per frame, unbind after the finish, give meshes a blank fill texture.
+- [x] Groups a scene no longer uses kept their old frames (and memory): cleared when dropped.
+- [x] The tunnel re-uploaded video for every group and fill: once per frame.
+- [x] Frame rate: feel numbers are per frame, so 120 Hz screens halved trails and flashes. Cap drawing at 60 fps.
+- [x] Objects popped out (and in late) when a centrepiece changed within a template: templates keep `{objects: true}`.
+- [x] Resize: debounced, and skipped when the size didn't change (phones fire it when the address bar moves, wiping the trails).
+- [x] The landscape's mountains used the old energy formula that collapses on steady tracks.
+- [x] A suspended audio context (iOS interruptions) is resumed.
+- [x] Scene editor: keeps focus across edits, lets the same template be picked twice, dedupes worlds and hits, names extra groups uniquely.
+
+## Wave 3: performance
+- [x] The feedback shader ran every layer on every pixel whatever its weight: each layer (and the shockwaves) skipped when off.
+- [x] No depth buffer on the canvas (everything is drawn on surfaces, which have their own).
+- [x] Segment shaders for every template compiled when the page is idle, so a scene change doesn't hitch on the downbeat.
+- [-] Per-frame allocations trimmed: measured, they're small next to the GPU passes; left as they are.
+- [x] Trails drawn at ¾ of the screen's resolution (`TUNE.render.trailScale`): they're softened anyway, and it looks the same. Comets alone went from 49 to 41 ms a frame in software WebGL (the guards above gave 4% there; on a real GPU a branch on a uniform is almost free).
+
+## Wave 4: structure
+- [x] `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` import cycles removed.
+- [x] The city's numbers written once (interpolated into its shader).
+- [x] Dead exports removed; the build checks its replacements and escapes `<!--` and `</style`.
+- [x] CLAUDE.md corrected (25 presets; trails clamp at 1, surfaces don't).
+- [-] UI hooks to break engine → UI imports: a wide refactor of load order for no visible gain; the cycles are all function-level and safe. Noted in CLAUDE.md.
+
+## Wave 5: creative
+- [x] Landscape: nearer ranges darker, far ones fading into the sky, rock striations, slopes facing the sun lit, mist on the water, glints under the sun.
+- [x] Space: banded rings with a dark division and the planet's shadow across them, two clouds of gas.
+- [x] Aurora: rays near the curtains' foot, and a still lake below the treeline mirroring the sky.
+- [x] Flow: bigger, brighter particles in the palette's third hue (they already streak in the trails).
+
+## Log
+- Waves 1–2: the suite runs two files at a time with each file's time, `scene.mjs` caches deterministic runs and takes several snapshots per run, and tests that only read Journey don't draw: `npm test` about 9½ min (from 25–30). All the correctness fixes above landed, with regression checks: a quieter stretch after a loud one (`grid.mjs`; .03 kicks a beat before, .35 after, at 22 dB down) and the scenes that used to break (`scene.mjs`). Golden re-recorded: the kick floor now forgets after 1.5 s without a kick (the groove's breakdown), and the landscape reads the fixed energy.
+- Waves 3–4: the trails' shader guards every visual by its weight; the trails run at ¾ resolution; every template's shaders compile at idle. Cycles `gl.js` ↔ `canvas2d.js` and `cast.js` ↔ `recipes.js` removed; the city's numbers are written once and interpolated into its shader; the build fails loudly if index.html changes shape, and escapes `<!--` and `</style`. Golden re-recorded (the trails' resolution).
+- Wave 5: the landscape, space, aurora and flow polished in both renderers (before-and-after screenshots checked). Golden re-recorded (the worlds look different on purpose). `npm test` and `npm run test:dist` pass.

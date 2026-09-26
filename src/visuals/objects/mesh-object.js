@@ -6,10 +6,10 @@
 // Look and motion come from TUNE.mesh; TUNE[key] gives its size, hinge swing and Journey chance.
 import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
-import { meshDraw2d, meshGL, panesOf } from '../../render/mesh.js';
+import { meshDraw2d, meshGL, meshPath2d, panesOf } from '../../render/mesh.js';
 
 export function meshObject({key, label, words, mesh}){
-  let drawGL = null, panes2d = null;
+  let drawGL = null, glGen = -1, panes2d = null;
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
     key, kind: 'object', label, words, optIn: true,
@@ -34,17 +34,21 @@ export function meshObject({key, label, words, mesh}){
       st.glow *= Math.exp(-dt*3); st.spark *= Math.exp(-dt*5);
       st.sw = Math.min(1, st.sw + dt/Math.max(.25, S.beatPeriod));   // the band takes one beat to run down
       P.m = P.m || {};
+      const An = P.anchor;   // a world can hold it somewhere in its space (the cosmos's monument): there, at that size
       P.m[key] = {
-        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: T.size*(1 + x.sBass*x.react*.03), pos: [0, .02],
+        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: (An && An.size || T.size)*(1 + x.sBass*x.react*.03),
+        pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],   // it sways in the wind
+        pal: P.pal, light: P.light,
         jaw: P.beat*T.hinge, ex: st.ex*st.ex*M.explode,   // squared: flies out fast, snaps home cleanly
-        gone: Math.max(0, 1 - w/.6),                     // leaving: panes wink out, the weight takes the rest
+        gone: An && An.hide ? 1 : Math.max(0, 1 - w/.6),   // leaving: panes wink out, the weight takes the rest (or behind the camera)
         fill: M.fill*(.6 + P.beat*.8), dark: M.dark, xray: M.xray, line: M.line, hue: P.hue, partHue: st.hue,
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
         trail: M.trail, w: Math.min(1, w*1.2),
       };
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
-    drawGL(gl, P, W, H, stage){ if (!drawGL) drawGL = meshGL(gl, mesh); drawGL(P.m[key], W, H, stage); },
+    drawGL(gl, P, W, H, stage){ if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },
     draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
+    path2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshPath2d(o, panes2d, mesh.hinge, P.m[key]); },   // its silhouette, for masks
   };
 }

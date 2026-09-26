@@ -27,24 +27,34 @@ import './audio/player.js';
 import './audio/synth.js';
 import './ui/controls.js';
 import './ui/transport.js';
+import { refreshScene } from './ui/scene.js';
+import { fpsTick } from './ui/fps.js';
+import { showCaption } from './ui/caption.js';
 import { S } from './state.js';
-import { analyse, hit, sBass, sMid, sTreb } from './audio/analysis.js';
+import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
+import { tIndex, tracks } from './audio/player.js';
+import { SIG, sig, updateSignals } from './scene/signals.js';
+import { CTX, updateContext } from './scene/context.js';
+import { resolveScene } from './scene/graph.js';
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
+import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
-import { SPEC, curP, eff } from './presets.js';
-import { drawGL, gl, initRenderer, r2d } from './render/gl.js';
+import { BASE, SPEC, curP, eff } from './presets.js';
+import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
+import { Q, qualityTick } from './render/quality.js';
+import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 import * as registry from './visuals/registry.js';
-import { LABS, applyLabs, applyTune } from './lab.js';
+import { LABS, applyLabs, applyTune, bindLabToggles } from './lab.js';
 import { TUNE } from './tuning.js';
 
 applyTune();                                          // ?tune= overrides, before anything reads TUNE
@@ -56,7 +66,21 @@ let frameN = 0, hueAcc = 0;
 const VIS = {bass:0, mid:0, treb:0};
 function frame(now){
   requestAnimationFrame(frame);
+  // 60 frames a second at most: trails, fades and flashes are counted per frame, so a 120 Hz screen would halve them
+  if (now - (frame.last || -1e9) < 1000/60 - 2) return;
+  frame.last = now;
+  const t0 = performance.now();
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
+  fpsTick(now, performance.now() - t0, fpsInfo);
+  if (!window.__noDraw && qualityTick(performance.now())) resize();   // slow frames: draw smaller (render/quality.js)
+}
+// the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene
+function fpsInfo(){
+  const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
+  const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
+  const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '')
+    + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 function render(now){
   analyse(now);
@@ -73,20 +97,28 @@ function render(now){
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
+  updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
+    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
+  // the shared context: the section's palette, one wind, the worlds' light
+  updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
+    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion}))});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
-  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000};
+  const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
-  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
+  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
-  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
+  // (a world's camera flying in streams the trails outwards: CTX.fly.z)
+  const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
-    l: {}, w: {}, o: {}};
+    l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
+    frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
+  P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
   for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
@@ -96,21 +128,28 @@ function render(now){
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
   for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
-  if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P);
+  if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {
     document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
     updateTimeUI();
+    const cw = WORLD_VISUALS.find(v => v.caption && eff[v.key] > .3); if (cw) showCaption(cw.caption());   // what a world's camera is doing
     $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
     const gEl = $('#jGrid');
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
       ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
       : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
+    if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const {out, s, input} = sliders[k]; if (J.on) input.value = S.active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
     }
   }
 }
+// the shaders every scene template and scene preset will need, compiled while the page is idle (the cast doesn't change
+// a scene's shape, so any stands in)
+setTimeout(() => { const c = {world: 'city', lead: 'ring', accent: 'comets', centre: 'skull', label: k => k};
+  warmScenes([...TEMPLATES.map(t => t.build(c)).filter(Boolean), ...BASE.filter(p => p.scene).map(p => p.scene)]); }, 1500);
 // ?lab= experiments load before the first frame; without them the loop starts straight away
+bindLabToggles({TUNE, J, PACE, registry});
 if (LABS.length) applyLabs({TUNE, J, PACE, registry}).then(() => requestAnimationFrame(frame));
 else requestAnimationFrame(frame);

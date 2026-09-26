@@ -41,19 +41,21 @@ const DETERMINISM = seed => `
   let now = 0; const q = [];
   performance.now = () => now;
   window.requestAnimationFrame = cb => { q.push(cb); return q.length; };
-  window.__step = n => { for (let i = 0; i < n; i++) { now += 1000/60; q.splice(0).forEach(cb => cb(now)); } };
+  window.__step = (n, dt = 1000/60) => { for (let i = 0; i < n; i++) { now += dt; q.splice(0).forEach(cb => cb(now)); } };   // dt: slower frames
   window.__now = () => now;
 })();`;
 
-// open the page with a fixed seed and clock; groove: feed tests/fixtures/groove.js instead of the built-in beat
-export async function openPage(browser, url, {seed = 1, groove = true, width = 320, height = 180, query = ''} = {}){
+// open the page with a fixed seed and clock; groove: feed tests/fixtures/groove.js (or the named fixture) instead of the built-in beat
+// noDraw: skip drawing (for tests that only read Journey or the grid; much faster)
+export async function openPage(browser, url, {seed = 1, groove = true, width = 320, height = 180, query = '', noDraw = false} = {}){
   const page = await browser.newPage({viewport: {width, height}});
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.addInitScript(DETERMINISM(seed));
-  if (groove) await page.addInitScript({path: path.join(ROOT, 'tests/fixtures/groove.js')});
+  if (noDraw) await page.addInitScript('window.__noDraw = 1');
+  if (groove) await page.addInitScript({path: path.join(ROOT, 'tests/fixtures', (groove === true ? 'groove' : groove) + '.js')});
   await page.goto(url + ENTRY + query);
   page.errors = async () => errors.concat(await page.evaluate(() => { const e = document.querySelector('#err'); return e && e.textContent ? [e.textContent] : []; }));
   return page;

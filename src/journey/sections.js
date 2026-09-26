@@ -22,7 +22,15 @@ export function newType(F){
     cut: Math.random(), hitSeed: hitSeeds(),
     outN: [3, 4, 4, 6][Math.floor(Math.random()*4)],
     starN: [4, 5, 5, 6, 8][Math.floor(Math.random()*5)], starOut: Math.random() < .5 ? 'snap' : 'flicker', starScatter: Math.random() < .5};
+  t.pal = pickPalette();                               // its colours: one palette every visual takes its hues from
   J.types.push(t); return t;
+}
+// a palette for a new section, by the weights in TUNE
+function pickPalette(){
+  const W = TUNE.paletteWeights, tot = Object.values(W).reduce((a, b) => a + b, 0);
+  let r = Math.random()*tot;
+  for (const k in W) if ((r -= W[k]) <= 0) return k;
+  return 'triad';
 }
 // how much a section likes each hit (and having none), drawn once when the section is first heard
 function hitSeeds(){
@@ -74,7 +82,7 @@ export function features(dt){
     busy: Math.min(1, J.hr/2.5),
     bright: cs > 0 ? Math.min(1, Math.log(1 + cw/cs)/Math.log(300)) : 0,
     low: lowB/tot, mid: (lmid + mid)/tot,
-    lvl: Math.min(1, Math.max(0, (J.eM - J.lo)/Math.max(.06, J.hi - J.lo))),
+    lvl: energyLevel(),
   };
   for (const f of FEATS) {
     J.fF[f] += (raw[f] - J.fF[f])*Math.min(1, dt/1.2);
@@ -83,4 +91,11 @@ export function features(dt){
   }
 }
 // each feature relative to this song's own range, centred on zero
+// how loud it is now, 0..1: against the loudest it's been lately, over a range that can't shrink below minSpan (so a steady
+// track at full tilt reads as loud, not as quiet, and tiny wobbles don't swing it end to end), blended with an absolute scale
+export function energySpan(){ return Math.max(TUNE.energy.minSpan, J.hi - J.lo); }
+export function energyLevel(){
+  const E = TUNE.energy, span = energySpan(), rel = (J.eM - (J.hi - span))/span, abs = (J.eM - E.quiet)/(E.loud - E.quiet);
+  return Math.min(1, Math.max(0, rel*(1 - E.absMix) + Math.min(1, Math.max(0, abs))*E.absMix));
+}
 export function relFeat(f){ return (J.fS[f] - J.fMin[f])/Math.max(.05, J.fMax[f] - J.fMin[f]) - .5; }

@@ -7,6 +7,7 @@ export const freq = new Uint8Array(1024), wave = new Uint8Array(2048);
 // variables that several modules reassign live here as properties
 export const S = {
   active: null,                  // the preset in use (jState during Journey); set once presets load
+  glGen: 0,                      // bumps when a lost WebGL context is restored, so visuals rebuild their own GL objects
   pIndex: 0,                     // which preset the arrows are on
   beatsInPreset: 0, presetSince: performance.now(),
   beatPeriod: .5,                // seconds per beat, from the beat grid once it locks
@@ -15,5 +16,6 @@ export const S = {
   hueKick: 0,                    // colour nudges from pulses, drops and section changes
   shockN: 0,                     // next shockwave slot to reuse
   pausedAt: 0,                   // playback position while paused
+  scene: null,                   // the manual preset's scene (scene/graph.js); none means the default
   syncMs: 0,                     // the Sync slider: + draws the beat later, - earlier (for this device's speakers and screen)
 };

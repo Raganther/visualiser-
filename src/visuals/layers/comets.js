@@ -1,4 +1,4 @@
-// Comets: three glowing heads that roam and turn on the pulse, leaving trails.
+// Comets: three glowing heads that roam and turn on the pulse, leaving trails; one in each of the palette's hues.
 export default {
   key: 'comets', kind: 'layer', label: 'Comets',
   suits: {busy:.4, T:-.2},   // what music it suits (features centred on 0)
@@ -12,7 +12,7 @@ export default {
   for(int i=0;i<3;i++){
     vec3 cm=uComets[i];
     float dd=length(sp-cm.xy);
-    col+=hsv(uHue+float(i)*0.33,0.75,1.0)*uL_comets*cm.z*(smoothstep(0.018,0.0,dd)+0.35*smoothstep(0.06,0.0,dd));
+    col+=hsv(uHue+(i==0?uPal.x:i==1?uPal.y:uPal.z),0.75,1.0)*uL_comets*cm.z*(smoothstep(0.018,0.0,dd)+0.35*smoothstep(0.06,0.0,dd));
   }`,
   },
   fbUniforms(gl, u, P){
@@ -23,7 +23,7 @@ export default {
   trails2d(c, P, x){
     const {u, bw, bh, sx, sy, hsl, glowStroke} = x;
     if (P.l.comets > .01) P.comets.forEach((cm, j) => {
-      const x = sx(cm.x), y = sy(cm.y), rad = u*.06, h = hsl(P.hue + j*.33), a = Math.min(1, P.l.comets*cm.z);
+      const x = sx(cm.x), y = sy(cm.y), rad = u*.06, h = hsl(P.hue + P.pal[j]), a = Math.min(1, P.l.comets*cm.z);
       const g = c.createRadialGradient(x, y, 0, x, y, rad);
       g.addColorStop(0, `hsla(${h},80%,75%,${a})`); g.addColorStop(.3, `hsla(${h},90%,55%,${a*.4})`); g.addColorStop(1, `hsla(${h},90%,50%,0)`);
       c.fillStyle = g; c.fillRect(x - rad, y - rad, rad*2, rad*2);

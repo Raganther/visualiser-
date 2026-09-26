@@ -3,6 +3,8 @@ import { S } from '../state.js';
 import { sMid } from '../audio/analysis.js';
 import { shocks } from './effects.js';
 import { J } from '../journey/core.js';
+import { CTX } from '../scene/context.js';
+import { TUNE } from '../tuning.js';
 
 /* ---------- flow field particles ---------- */
 export const NP = 600, parts = new Float32Array(NP*3);
@@ -14,7 +16,7 @@ export function stepParts(dt, react, now){
   for (let i = 0; i < NP; i++) {
     let x = parts[i*3], y = parts[i*3+1];
     const a = Math.sin(x*2.3 + t*.21 + drift)*1.8 + Math.cos(y*2.9 - t*.17)*1.8 + Math.sin((x + y)*1.3 + t*.1)*.9;
-    let vx = Math.cos(a)*speed, vy = Math.sin(a)*speed;
+    let vx = Math.cos(a)*speed + CTX.wind.x*TUNE.ctx.windFlow, vy = Math.sin(a)*speed + CTX.wind.y*TUNE.ctx.windFlow;   // blown by the wind
     for (const h of shocks) {            // shockwaves shove the particles as they pass
       if (h.s < .05) continue;
       const dx = x - h.x, dy = y - h.y, l = Math.hypot(dx, dy) + 1e-4, q = (l - h.r)/.06, push = h.s*Math.exp(-q*q)*.8;
