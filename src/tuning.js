@@ -121,13 +121,15 @@ export const TUNE = {
     light: .6,                 // how strongly a world's light falls on the objects
     flyWind: .8,               // how much a moving world's camera (the cosmos) blows the wind: the glow slides with the view
     flyZoom: .5,               // and how much flying in zooms the trails (streaming out from the middle as it closes in)
+    focus: .85,                // how far the trails' centre moves to a world's subject on screen (the planet the cosmos films)
+    focusEase: 3,              // how quickly it follows (per second), so a change of subject glides rather than jumps
   },
   // palettes: three hues (offsets from the running hue) that every layer, hit and object takes its colours from.
   // Each section picks one (weights below); manual mode uses the triad
   palettes: {triad: [0, .33, .67], analogous: [0, .08, .16], split: [0, .42, .58], contrast: [0, .5, .1]},
   paletteWeights: {triad: 1, analogous: 1.2, split: .8, contrast: .8},
   // Journey composing scenes (scene/templates.js): each template's base weight, and how much tiredness counts against it
-  sceneTemplates: {plain: .3, between: .25, split: .4, among: .6, reflect: .55, inside: .5, window: .5, glass: .45},
+  sceneTemplates: {plain: .3, between: .25, split: .4, among: .6, held: .45, reflect: .55, inside: .5, window: .5, glass: .45},
   sceneFatigueWeight: .8,
   scene: {
     centreChance: .3,          // Journey: the share of sections with a 3D centrepiece (a per-object TUNE[key].chance above 0 overrides)

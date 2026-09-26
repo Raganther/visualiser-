@@ -6,7 +6,8 @@
 import { TUNE } from '../tuning.js';
 
 const FOLDED = ['plasma', 'ring', 'burst', 'scope'];   // layers drawn inside the kaleidoscope fold, which fill glass well
-const FRONT = {city: 'near buildings', land: 'nearest ridge', aurora: 'treeline', space: 'planet'};
+const FRONT = {city: 'near buildings', land: 'nearest ridge', aurora: 'treeline', space: 'planet', cosmos: 'planets'};
+const DISC = new Set(['space', 'cosmos']);   // worlds whose front is a planet's disc, which can hold the glow
 // c: {world, lead, accent, centre, label(key)}; rf: the music's features (centred on 0), T: intensity (centred on 0)
 export const TEMPLATES = [
   {key: 'plain', needs: {}, suits: () => 0,
@@ -20,6 +21,9 @@ export const TEMPLATES = [
   {key: 'among', needs: {world: true, centre: true}, suits: (rf, T) => rf.low*.3,
     build: c => [{world: 'all'}, {trails: 'main'}, {object: c.centre}, {world: 'front'}, {hits: true}, {objects: true}],
     words: c => `It stands among the ${FRONT[c.world] || 'world'}.`},
+  {key: 'held', needs: {world: true, disc: true}, suits: (rf, T) => rf.mid*.2 - T*.1,
+    build: () => [{world: 'all'}, {trails: 'main', mask: {world: 'front', keep: 'inside'}}, {hits: true}, {objects: true}],
+    words: c => `The glow is held inside the ${FRONT[c.world]}, like light in glass.`},
   {key: 'reflect', needs: {world: true, centre: true}, suits: (rf, T) => rf.mid*.3 - T*.2,
     build: c => [{world: 'all'}, {trails: 'main'}, {object: c.centre, fill: {world: true}}, {hits: true}, {objects: true}],
     words: () => 'The world shows in its glass.'},
@@ -39,7 +43,7 @@ export const byTemplate = Object.fromEntries(TEMPLATES.map(t => [t.key, t]));
 export function fits(t, c){
   const n = t.needs;
   return (!n.world || (c.world && c.world !== 'none')) && (!n.noWorld || !c.world || c.world === 'none')
-    && (!n.centre || !!c.centre) && (!n.accent || (!!c.accent && c.accent !== c.lead));
+    && (!n.centre || !!c.centre) && (!n.accent || (!!c.accent && c.accent !== c.lead)) && (!n.disc || DISC.has(c.world));
 }
 // the best template for this cast and music: its weight, how it suits the music, how tired it is, a little chance
 export function pickTemplate(c, rf, T, fat, fresh, avoid){
