@@ -6,6 +6,7 @@ import { J } from '../journey/core.js';
 import { eff } from '../presets.js';
 import { toast } from './toast.js';
 import { $ } from '../util.js';
+import { byKey } from '../visuals/registry.js';
 
 const LOCAL = 'afterglow.moments', KEEP = 300;
 let db = null, want = 0, count = 0;
@@ -25,6 +26,8 @@ export function tasteFrame(){
     journey: J.on, preset: J.on ? null : S.active.name, recipe: d.recipe || null, lead: d.lead || null, accent: d.accent || null, hit: d.hit || null,
     world: d.world || null, scene: d.scene || null, centre: d.centre || null, lens: d.lensOn && d.lens ? d.lens.n : 0,
     section: d.sec || null, pace: d.pace ? d.pace.name : null, tension: r3(d.T), bpm: d.grid && d.grid.bpm ? r3(d.grid.bpm) : null,
+    caption: $('#caption').classList.contains('show') ? $('#caption').textContent : null,
+    place: eff.cosmos > .05 && byKey.cosmos ? (({system, star, subject, shot, belt}) => ({system, star, subject, shot, belt}))(byKey.cosmos.info()) : null,
     settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb};
   save(m);
   count++;

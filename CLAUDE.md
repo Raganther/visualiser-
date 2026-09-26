@@ -129,7 +129,7 @@ The user found this confusing, so the panel says it plainly:
 - **A preset** is a saved set of every slider (the name in the bottom bar). With Journey off, the sliders are what's drawn.
 - **Journey** doesn't play presets whole: it reads them as recipes (see below) and composes each section from roles, writing the sliders itself (they're greyed while it does).
 - **On screen** (`showNow` in `ui/panel.js`, twice a second from `main.js`): the top of the panel names what's drawn (worlds, layers, hits, objects, a kaleidoscope) and what set it (Journey's recipe, or the preset). A dot marks those sliders' rows.
-- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
+- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, the caption and, in the cosmos, the place (system, star, subject, shot), every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
 - **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
 
 ## Journey (the automatic director)
@@ -290,13 +290,13 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **WebGL** (`look.js`): each pixel's ray is tested against the star and the six bodies that look biggest.
     - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star and gain detail up close. Solid worlds have relief: ground rising towards the star is lit, ground falling away shaded (`czSpin` follows the light across the turning surface).
     - **Atmospheres** (`czAtmo`, added after the user found the surfaces "kind of flat"): a shell round each planet (not moons), its thickness, hue and density per kind in `TUNE.cosmos.atmo`. Seven samples along the view through it gather the star's light, carried a little past the terminator and reddening there like a sunset, brightest looking towards the star; it hazes the ground, sky or star behind it. It's thickest at the limb, where the view grazes the most air, and skimming low the camera is inside it, under a sky.
-    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds drifting over the ground, each casting its shadow on the side away from the star.
+    - **What lives there:** cities on night sides (sprawls of lights, finer up close, glowing as a whole from afar), auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds drifting over the ground, each casting its shadow on the side away from the star.
     - **Rings** have bands, a gap and the planet's shadow.
     - **The star's glow** shows round anything in front of it.
     - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
     - **A black hole** bends the light from behind it: the sky is looked up along a bent ray. It has a shadow, a bright ring at its edge, and a disk with Doppler brightening, whose far side's image is bent up over the top.
     - **Twin stars** are drawn, and both glow.
-    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a band of glinting dust in that haze.
+    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a soft band of dust streaked along the ring, lit towards the star, with rocks catching the light at fixed places; they fade out with distance before they'd shrink below a pixel (the old speckle shimmered like static).
     - **The built ring:** a cylinder band round the star, its inner face lit, with seams, windows, and a pulse running round on the beat.
     - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
     - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
@@ -304,7 +304,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
     - Bodies are shaded discs, far to near, with rings split behind and in front. Planets have an atmosphere (haze thickening to the limb, and a glow round it, brightest facing the star), and clouds with their shadows.
     - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
     - The built ring is its edges and a pulse line.
-    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and bands of gas along its ring from afar.
+    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and from afar bands of gas along its ring with glints at fixed places round it.
     - Oceans, storms, city lights and auroras are drawn.
     - The galaxy is 1,400 points on its arms.
 
@@ -314,6 +314,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen in Journey, with Journey's layers over it (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
   - 1–7 pick shots (7 is the belt), and S skims;
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
+  - B goes to the next system with an asteroid belt (unless this one has one) and flies through it;
   - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes

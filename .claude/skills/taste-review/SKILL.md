@@ -12,6 +12,7 @@ Each moment holds:
 - `onScreen`: the panel's own words for what was drawn and what set it;
 - the cast: `journey` (true or false), `preset`, `recipe`, `lead`, `accent`, `hit`, `world`, `scene`, `centre`, `lens`;
 - the music: `section`, `pace`, `tension`, `bpm`;
+- `caption` (what a world's camera was doing) and, in the cosmos, `place`: `system` (its index: `jump(system)` goes back there), `star`, `subject`, `shot`, `belt`;
 - `settings`: every non-zero slider after movers;
 - `thumb`: a 160×90 JPEG data URL.
 

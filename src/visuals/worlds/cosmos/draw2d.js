@@ -12,6 +12,8 @@ const STARS = (() => { const r = rng(99), a = []; for (let i = 0; i < 500; i++) 
 // the belt's rocks near the camera, and puffs of its gas: pools, each put back ahead of the camera (in the belt) once
 // it's passed. Each rock has its own jagged outline (radii round it) and tumbles
 const ROCKS = [], GAS = [], rr = rng(77);
+// the belt from afar: glints at fixed places round its ring (unit radius; scaled to each belt)
+const BELT_GLINTS = (() => { const r = rng(31), a = []; for (let i = 0; i < 260; i++) { const t = r()*Math.PI*2, o = 1 + (r() - .5)*.12; a.push([Math.cos(t)*o, r() - .5, Math.sin(t)*o, .15 + r()*.35]); } return a; })();
 function respawn(k, c, near, far, thick){
   const b = c.sys.belt, eye = c.eye, f = near + rr()*(far - near);
   const p = add(eye, add(mul(c.Z, f), add(mul(c.X, (rr() - .5)*f*1.4), mul(c.Y, (rr() - .5)*f*.8))));
@@ -69,9 +71,13 @@ export function draw2d(o, P){
   }
   if (c.belt[0]) {   // the belt from afar: bands of gas along its ring, wide and faint, then narrower
     const [R, Wb] = c.belt, pts = Array.from({length: 121}, (_, j) => { const a = j/120*Math.PI*2; return sub([Math.cos(a)*R, 0, Math.sin(a)*R], c.eye); });
-    const dn = Math.max(6, Math.abs(Math.hypot(c.eye[0], c.eye[2]) - R) + Math.abs(c.eye[1])), w = Math.min(u*.35, u*k2*Wb*2/dn);
+    const dn = Math.max(6, Math.abs(Math.hypot(c.eye[0], c.eye[2]) - R) + Math.abs(c.eye[1])), w = Math.min(u*.12, u*k2*Wb*2/dn);
     o.globalCompositeOperation = 'lighter'; o.lineCap = 'round';
     for (const [k, hue, a] of [[2.2, .08, .05], [1, .55, .08]]) { o.lineWidth = Math.max(1, w*k); o.strokeStyle = hc(P.hue + hue, 40, 55, a); path(pts); o.stroke(); }
+    o.fillStyle = `rgba(255,242,220,${.45 + P.beat*.2})`;   // rocks catching the light, fixed along the ring, faded out far off
+    for (const [x, y, z, s] of BELT_GLINTS) { const p = sub([x*R, y*Wb*.4, z*R], c.eye), q = scr(p);
+      if (q.z > 1 && q.z < R*2.5) { const sz = Math.min(4, Math.max(1, s*q.k)); o.globalAlpha = Math.min(1, (R*2.5 - q.z)/R); o.fillRect(q.x - sz/2, q.y - sz/2, sz, sz); } }
+    o.globalAlpha = 1;
     o.globalCompositeOperation = 'source-over';
   }
   const sunCol = c.sunC.map(v => Math.round(Math.min(1, v)*255)).join(',');
