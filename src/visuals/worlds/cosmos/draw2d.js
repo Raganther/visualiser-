@@ -1,8 +1,9 @@
-// The cosmos in simple mode: the same camera and bodies as shaded discs, far to near, with rings split behind and in
+// The cosmos in simple mode: the same camera and bodies as shaded discs (with glowing atmospheres and shadowed clouds), far to near, with rings split behind and in
 // front; the stars as fixed directions turned with the camera. Plainer set pieces: a black hole's shadow, bright edge and
 // disk; a pulsar's beams; twin stars; the built ring as a band; the belt's jagged, tumbling rocks and puffs of its gas,
 // from pools that follow the camera; oceans, storms, city lights and auroras on the planets.
 import { hc } from '../../../util.js';
+import { TUNE } from '../../../tuning.js';
 import { V, around } from '../../../scene/camera.js';
 import { GAL_ARM, rng } from './system.js';
 
@@ -153,6 +154,11 @@ export function draw2d(o, P){
     }
     if (b.kind === 'lava') { o.strokeStyle = hc(hue + .03, 90, 55, .7 + Math.min(1, P.hit)*.3); o.lineWidth = Math.max(1, R/25); o.beginPath();   // glowing cracks, flaring on stabs
       for (let j = 0; j < 7; j++) { o.moveTo(it.x + (r() - .5)*R*2, it.y + (r() - .5)*R*2); o.lineTo(it.x + (r() - .5)*R*2, it.y + (r() - .5)*R*2); } o.stroke(); }
+    if (b.cloud && R > 4) {   // clouds, each with its shadow cast away from the star (shaded with the ground below)
+      const cr = rng(Math.floor(b.seed*1e6) + 7), drift = (P.t2d || 0)*.02, cl = [];
+      for (let j = 0; j < 9; j++) { const a = cr()*6.28 + drift, d = Math.sqrt(cr())*R*.85; cl.push([it.x + Math.cos(a)*d, it.y + Math.sin(a)*d*.8, R*(.12 + cr()*.2)]); }
+      for (const pass of [0, 1]) { o.fillStyle = pass ? `rgba(235,240,245,${.5*b.cloud + .2})` : `rgba(0,0,0,${.35*b.cloud})`;
+        for (const [x, y, w] of cl) { o.beginPath(); o.ellipse(x - (pass ? 0 : lx*R*.05), y + (pass ? 0 : ly*R*.05), w, w*.45, turn, 0, 7); o.fill(); } } }
     const sx = it.x + lx*R*.55, sy = it.y - ly*R*.55, sh = o.createRadialGradient(sx, sy, R*.1, sx, sy, R*2.1);   // lit towards the star
     sh.addColorStop(0, `rgba(0,0,0,${1 - lit})`); sh.addColorStop(.45, `rgba(0,0,0,${Math.min(.95, 1.1 - lit*.6)})`); sh.addColorStop(1, 'rgba(0,0,0,.97)');
     o.fillStyle = sh; o.fillRect(it.x - R, it.y - R, R*2, R*2);
@@ -162,7 +168,17 @@ export function draw2d(o, P){
     o.restore();
     if (b.aurora && R > 4) { o.save(); o.translate(it.x, it.y); o.rotate(turn); o.strokeStyle = hc(hue + .33, 80, 60, .2 + P.beat*.6); o.lineWidth = Math.max(1, R*.06);   // auroras round the poles, on the kick
       for (const sg of [1, -1]) { o.beginPath(); o.ellipse(0, sg*R*.82, R*.5, R*.12, 0, 0, 7); o.stroke(); } o.restore(); }
-    if (b.kind === 'gas' || b.kind === 'ice' || b.kind === 'ocean') { o.strokeStyle = hc(hue + .55, 50, 70, .35); o.lineWidth = Math.max(1, R*.08); o.beginPath(); o.arc(it.x, it.y, R*1.03, 0, 7); o.stroke(); }
+    const at = !b.moon && TUNE.cosmos.atmo[b.kind];
+    if (at && R > 2) {   // its atmosphere: haze thickening to the limb, and a glow round it, brightest on the side facing the star
+      const ah = hue + at[1], dn = at[2], ox = lx*R*.18, oy = -ly*R*.18, Ro = R*(1 + at[0]*2.6);
+      o.save(); o.globalCompositeOperation = 'lighter';
+      const gi = o.createRadialGradient(it.x + ox, it.y + oy, R*.55, it.x, it.y, R);
+      gi.addColorStop(0, hc(ah, 55, 60, 0)); gi.addColorStop(1, hc(ah, 55, 60, .32*dn*lit)); o.fillStyle = gi;
+      o.beginPath(); o.arc(it.x, it.y, R, 0, 7); o.fill();
+      const go = o.createRadialGradient(it.x + ox, it.y + oy, R*.96, it.x + ox*.4, it.y + oy*.4, Ro);
+      go.addColorStop(0, hc(ah, 60, 65, .45*dn*(.3 + .7*lit))); go.addColorStop(.35, hc(ah + .9, 70, 55, .12*dn)); go.addColorStop(1, hc(ah, 60, 60, 0));
+      o.fillStyle = go; o.beginPath(); o.arc(it.x, it.y, Ro + Math.abs(ox) + Math.abs(oy), 0, 7); o.arc(it.x, it.y, R*.98, 0, 7, true); o.fill('evenodd');
+      o.restore(); }
     ring(false);
   }
   if (c.warp > .02) { o.fillStyle = `rgba(130,150,255,${c.warp*c.warp*.2})`; o.fillRect(0, 0, W, H); }

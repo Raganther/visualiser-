@@ -23,8 +23,8 @@ A single like is a hint, not a rule. Two or three that agree make a pattern.
 2. **Crafted, not generic.** Shapes need depth, silhouette and variation. Flat or uniform reads as cheap.
    - *Evidence:* the first city was "naff" (flat rectangles, noisy windows, no depth), and was liked once it had rows fading into haze, setbacks, antennas, windows in each building's style, neon and traffic. The asteroids "just look like loads of small spheres"; they should be "all different shapes and sizes".
    - *In practice:* before calling something done, ask whether a real one would look like that up close. Vary size, shape and detail, and give things layers of depth.
-3. **Atmosphere, not just objects.** Space wants gas, vapour and nebula around the things in it, not bodies on black.
-   - *Evidence:* "it's missing gas and vapor" about the asteroid belt.
+3. **Atmosphere, not just objects.** Space wants gas, vapour and nebula around the things in it, not bodies on black; worlds want air, relief and weather, not flat discs.
+   - *Evidence:* "it's missing gas and vapor" about the asteroid belt; the planets' surfaces "look kind of flat", so they wanted atmospheres.
 4. **Places to explore.** The strongest reaction so far was to space as a **3D place a camera moves through**, with the track's shape leading (builds pulling in, drops letting go), set pieces to discover, and the galaxy to the surface.
    - *Evidence:* the cosmos, from the user's own idea: "really, really awesome" for the rebuilt piece overall, and "looks cool", "pretty cool" for the cosmos.
 5. **In time with the music.** The pulse lands on the kick, not after it. Timing errors are felt at once.
@@ -48,3 +48,4 @@ These are things to learn from 👍 / 👎, not to assume:
 The newest entries go at the bottom: the date, what was learned, from what, and what changed.
 
 - 2026-09-26: seeded from the feedback so far (principles 1–7).
+- 2026-09-26: the cosmos's world surfaces looked "kind of flat"; they want atmosphere. Added air round each planet (limb glow, sunset at the terminator, haze), relief lit from the star, and clouds casting shadows. Principle 3 (atmosphere) holds for planets as well as the belt.

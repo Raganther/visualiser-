@@ -102,6 +102,8 @@ export const TUNE = {
     galaxyChance: .45,         // how often the biggest drops (after a full build) go out to the galaxy and back (else a black hole)
     handSecs: 30,              // seconds a shot picked by hand (the lab's keys) holds the camera before the music takes over again
     galFade: 1.8, galHoldSecs: 9,   // seconds to fade out to the galaxy (and back), and to look across it before diving
+    // each kind of world's atmosphere: thickness (share of its radius), hue (turned from the world's), density; moons have none
+    atmo: {rock: [.05, .55, .5, 0], gas: [.09, .04, .8, 0], ice: [.06, .5, .55, 0], lava: [.08, .02, .75, 0], ocean: [.09, .56, 1, 0]},
   },
   // the shared context (scene/context.js): one palette, one wind, one light for every visual
   ctx: {

@@ -1,6 +1,7 @@
 // The cosmos in WebGL: each pixel's ray tested against the star (or twin stars, a pulsar with its beams, a black hole
 // bending the light behind it round a glowing disk) and the nearest bodies: rock, banded gas with storms, cracked ice,
-// ocean worlds catching the star's glint, lava glowing through its cracks; cities on night sides, auroras at the poles.
+// ocean worlds catching the star's glint, lava glowing through its cracks; relief lit from the star, clouds casting shadows,
+// and atmospheres that glow at the limb, redden at the terminator and haze what's behind; cities on night sides, auroras.
 // An asteroid belt's rocks (each its own lumpy, cratered, tumbling shape) rush past up close, lying in gas and dust that
 // streams away from the star; a vast ring can be built round the star. Far off, gas clouds and stars, which stretch in a
 // build and streak in a jump.
@@ -10,6 +11,7 @@ uniform vec4 uCosSun; uniform vec3 uCosSunC,uCosAxis; uniform vec4 uCosStar;   /
 uniform vec4 uCosTwin; uniform vec3 uCosTwinC;        // a twin star (size 0: none)
 uniform vec4 uCosBelt, uCosHalo;                      // the belt (radius, half width, half height, near); the built ring (radius, half height, on, hue)
 uniform vec4 uCosB[6], uCosK[6], uCosA[6], uCosE[6];  // the nearest bodies: where, size; kind, hue, seed, spin; axis, ring; cities, aurora, storm, cloud
+uniform vec4 uCosT[6];                                // their atmospheres: thickness (share of the radius), hue (from the body's), density
 uniform vec2 uCosFx;                                  // the treble (lightning) and the stabs (lava flares)
 uniform float uGal,uGalTan; uniform vec3 uGalX,uGalY,uGalZ,uGalEye,uGalA,uGalB;   // the galaxy view: how far in, its camera, the systems it's between`,
   functions: `
@@ -34,15 +36,19 @@ vec3 czSky(vec3 d){
   }
   return c+vec3(0.85,0.9,1.0)*s*(1.0+uBeat*0.3)+vec3(0.5,0.6,1.0)*uCosWarp*uCosWarp*0.25;
 }
+// a direction turned with a body's spin (so the light can be followed across its turning surface)
+vec3 czSpin(vec3 v,vec3 ax,float sp){ return v*cos(sp)+cross(ax,v)*sin(sp)+ax*dot(ax,v)*(1.0-cos(sp)); }
 // a body's surface where the view hits it, with what lives on it (E: cities, aurora, storm, cloud)
 vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
   vec3 p=d*t, n=normalize(p-c), L=normalize(uCosSun.xyz-p), ax=A.xyz;
-  float nl=dot(n,L), diff=max(nl,0.0), sp=uTime*K.w, lat=dot(n,ax), hue=uHue+K.y, atm=0.0, land=1.0;
-  vec3 q=n*cos(sp)+cross(ax,n)*sin(sp)+ax*dot(ax,n)*(1.0-cos(sp)), qs=q*2.0+K.z, base, emit=vec3(0.0);
+  float nl=dot(n,L), diff=max(nl,0.0), sp=uTime*K.w, lat=dot(n,ax), hue=uHue+K.y, land=1.0;
+  vec3 q=czSpin(n,ax,sp), Lq=czSpin(L,ax,sp), qs=q*2.0+K.z, base, emit=vec3(0.0);
   float close=smoothstep(r*4.0,r*1.15,t);   // up close the surface gains finer detail
   if(K.x<0.5){ base=hsv(hue+0.05,0.35,0.3+0.6*czF(qs*1.6)+close*0.15*(czN(qs*14.0)-0.5))*(0.75+0.25*smoothstep(0.3,0.5,czN(qs*5.0))); }
+  // relief on solid worlds: ground rising towards the star is lit, ground falling away is shaded
+  if(K.x<0.5||(K.x>1.5&&K.x<3.5)){ float h0=czF(qs*2.2), h1=czF((q+Lq*0.035)*4.4+K.z*2.2); diff*=clamp(1.0+(h1-h0)*(6.0+close*6.0),0.45,1.6); }
   else if(K.x<1.5){   // gas: bands, and a great storm turning in them, lightning on the hi-hats
-    float b=sin(lat*14.0+czF(q*0.9+K.z)*6.0); base=mix(hsv(hue,0.55,0.7),hsv(hue+0.08,0.35,0.95),0.5+0.5*b); atm=0.7;
+    float b=sin(lat*14.0+czF(q*0.9+K.z)*6.0); base=mix(hsv(hue,0.55,0.7),hsv(hue+0.08,0.35,0.95),0.5+0.5*b);
     if(E.z>0.5){
       vec3 sd=normalize(ax*(0.3*sin(K.z))+normalize(cross(ax,vec3(0.3,0.1,0.95)))); float ds=length(q-sd);
       float sw=sin(atan(dot(q-sd,cross(ax,sd)),dot(q-sd,ax))*3.0+ds*40.0-uTime*1.5);
@@ -50,20 +56,37 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
       emit+=vec3(0.7,0.8,1.0)*step(0.94,czH(floor(q*18.0)+floor(uTime*9.0)))*smoothstep(0.5,0.25,ds)*smoothstep(0.1,-0.2,nl)*uCosFx.x*2.0;
     }
   }
-  else if(K.x<2.5){ base=hsv(hue+0.5,0.18,0.72+0.25*czF(qs*1.3))*(0.8+0.2*smoothstep(0.0,0.05,abs(czN(qs*4.0)-0.5))); atm=0.45; }
+  else if(K.x<2.5){ base=hsv(hue+0.5,0.18,0.72+0.25*czF(qs*1.3))*(0.8+0.2*smoothstep(0.0,0.05,abs(czN(qs*4.0)-0.5))); }
   else if(K.x<3.5){ base=hsv(hue+0.02,0.5,0.1+0.1*czF(qs*1.8)); emit=hsv(hue+0.03,0.9,1.0)*smoothstep(0.06,0.0,abs(czN(qs*3.5)-0.5))*(0.7+0.5*uBass*uReact)*(1.0+uCosFx.y*2.5); }
   else {   // ocean: deep water and land, the star's glint on the sea
     land=smoothstep(0.5,0.54,czF(qs*1.4)+close*0.05*czN(qs*16.0));
-    base=mix(hsv(hue+0.56,0.7,0.35),hsv(hue+0.12,0.4,0.45),land); atm=0.6;
+    base=mix(hsv(hue+0.56,0.7,0.35),hsv(hue+0.12,0.4,0.45),land);
     emit+=uCosSunC*pow(max(dot(reflect(-L,n),-d),0.0),60.0)*(1.0-land)*0.8*step(0.0,nl);
   }
-  if(E.w>0.0){ float cl=smoothstep(0.52,0.62,czF(q*3.0+vec3(uTime*0.02,0.0,0.0))); base=mix(base,vec3(0.9),cl*E.w); land*=1.0-cl; }
+  if(E.w>0.0){   // clouds drifting over the ground, each casting its shadow on the side away from the star
+    vec3 cd=vec3(uTime*0.02,0.0,0.0); float cl=smoothstep(0.52,0.62,czF(q*3.0+cd)), cs=smoothstep(0.52,0.62,czF((q+Lq*0.03)*3.0+cd));
+    base*=1.0-0.55*cs*E.w*(1.0-cl); base=mix(base,vec3(0.92),cl*E.w); land*=1.0-cl; }
   vec3 col=base*(0.03+0.97*diff)+emit;
   if(E.x>0.5) col+=vec3(1.0,0.75,0.4)*step(0.7,czN(qs*22.0))*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat);   // cities on the night side
   if(E.y>0.5){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
     col+=hsv(hue+0.33,0.8,1.0)*smoothstep(0.7,0.85,abs(lat))*smoothstep(1.0,0.9,abs(lat))*(0.5+0.5*sin(lon*18.0+uTime*2.0))*(0.25+uBeat*0.9)*(0.4+0.6*smoothstep(0.2,-0.2,nl)); }
-  col+=hsv(hue+0.55,0.5,1.0)*pow(1.0-max(dot(n,-d),0.0),3.0)*atm*(0.25+0.75*diff)*(0.85+uBeat*0.3);   // its atmosphere at the edge
   return col;
+}
+// a body's atmosphere along the view, up to tmax: the star's light scattered in it (carried a little past the terminator,
+// reddening there like a sunset, brightest looking towards the star through it), and how much it hazes what's behind.
+// Thickest at the limb, where the view grazes the most air. (added colour, what's left of the light from behind)
+vec4 czAtmo(vec3 d,vec3 c,float r,vec4 T,float hue,float tmax){
+  float Ra=r*(1.0+T.x), b=dot(c,d), h=b*b-dot(c,c)+Ra*Ra; if(T.x<=0.0||h<=0.0) return vec4(0.0,0.0,0.0,1.0);
+  h=sqrt(h); float t0=max(b-h,0.0), t1=min(b+h,tmax); if(t1<=t0) return vec4(0.0,0.0,0.0,1.0);
+  vec3 L=normalize(uCosSun.xyz-c), sky=hsv(hue,0.55,1.0), dusk=vec3(1.0,0.42,0.18), acc=vec3(0.0);
+  float H=r*T.x*0.32, ds=(t1-t0)/7.0, k=T.z*0.09, tr=1.0, mu=dot(d,L);
+  for(int i=0;i<7;i++){
+    vec3 p=d*(t0+ds*(float(i)+0.5))-c; float lp=length(p), up=dot(p/lp,L);
+    float a=1.0-exp(-exp(-max(lp-r,0.0)/H)*ds/H*k);
+    acc+=mix(dusk,sky,smoothstep(-0.05,0.4,up))*smoothstep(-0.35,0.2,up)*a*tr; tr*=1.0-a;
+  }
+  float ph=0.7+0.3*mu*mu+1.6*pow(max(mu,0.0),10.0);   // a little brighter back towards the star, and a glow round a planet in front of it
+  return vec4(acc*uCosSunC*0.55*ph*(0.92+uBeat*0.12),tr);
 }
 // a body's ring where the view crosses it in front of what's already hit (premultiplied colour, cover)
 vec4 czRing(vec3 d,vec3 c,float r,vec4 A,float hue,float tmax){
@@ -202,6 +225,8 @@ vec3 czSystem(vec2 sp){
   int hit=-1;
   for(int i=0;i<6;i++){ vec4 B=uCosB[i]; if(B.w<=0.0) continue; float t=czHit(d,B.xyz,B.w); if(t>0.0&&t<tMin){ tMin=t; hit=i; } }
   for(int i=0;i<6;i++) if(i==hit) col=czBody(d,tMin,uCosB[i].xyz,uCosB[i].w,uCosK[i],uCosA[i],uCosE[i]);
+  for(int i=0;i<6;i++){ if(uCosB[i].w<=0.0||uCosT[i].x<=0.0) continue;   // the air round each body, over the ground, sky or star behind it
+    vec4 at=czAtmo(d,uCosB[i].xyz,uCosB[i].w,uCosT[i],uHue+uCosK[i].y+uCosT[i].y,tMin); col=col*at.a+at.rgb; }
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
   if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
   if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a band of glinting dust across the system's plane
