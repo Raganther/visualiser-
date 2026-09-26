@@ -9,7 +9,7 @@ The published copy is https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. It's bu
 
 1. **Tests first.** Run `npm test` if it hasn't passed since the last code change. It takes about 10 minutes; run it in the background.
 2. **Build and test the bundle.** Run `npm run test:dist`. It builds `dist/afterglow.html` with esbuild (`npm install` first if `node_modules` is missing), then runs the whole suite against the bundle. Every file must pass. A failure here that `npm test` didn't show usually means a test imports `/src/...` modules, which the bundle doesn't serve. Make that test read the DOM instead.
-3. **Republish.** Call the Artifact tool with `file_path: dist/afterglow.html` and `url` set to the address above. Don't pass `icon` on a republish.
+3. **Republish.** Call the Artifact tool with `file_path: dist/afterglow.html` and `url` set to the address above. Don't pass `icon` on a republish. Omit `capabilities` so the stored ones carry over (the page declares `db` for its 👍 / 👎 moments). Pass `{db: {}}` only if the result shows it was lost.
    - If the publish is refused because this session hasn't read the live version, read it with `action: "read"` on that URL, then publish again. Never pass `force`.
 4. **Report.** Give the user the link and the new version number from the result. Name the things they should look at, and how to reach them (a preset, a Solo button, a lab switch or key).
 

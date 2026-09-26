@@ -8,7 +8,9 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
 - **Skills** (`.claude/skills/`):
   - `publish`: build, test the bundle, republish;
   - `check-visual`: one visual alone in both renderers, with stills (`tools/look.mjs`);
-  - `track-run`: a real track through the page offline, and what the grid and Journey did (`tools/track-run.mjs`).
+  - `track-run`: a real track through the page offline, and what the grid and Journey did (`tools/track-run.mjs`);
+  - `taste-review`: the user's 👍 / 👎 moments from the published page, turned into `docs/taste.md` and tuning.
+- **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
 ## Layout
@@ -29,14 +31,15 @@ src/audio/                 player, analysis (levels, onsets), synth (built-in be
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
-src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing)
+src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (keys, pad, buttons), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, cosmos, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 tools/look.mjs             one visual alone in both renderers, saved as stills (the check-visual skill)
 tools/track-run.mjs        a real track through the page offline, with a summary (the track-run skill)
-.claude/skills/            publish, check-visual, track-run
+.claude/skills/            publish, check-visual, track-run, taste-review
+docs/taste.md              the user's taste: principles with their evidence, open questions, a log
 ```
 
 ## How it draws
@@ -126,6 +129,7 @@ The user found this confusing, so the panel says it plainly:
 - **A preset** is a saved set of every slider (the name in the bottom bar). With Journey off, the sliders are what's drawn.
 - **Journey** doesn't play presets whole: it reads them as recipes (see below) and composes each section from roles, writing the sliders itself (they're greyed while it does).
 - **On screen** (`showNow` in `ui/panel.js`, twice a second from `main.js`): the top of the panel names what's drawn (worlds, layers, hits, objects, a kaleidoscope) and what set it (Journey's recipe, or the preset). A dot marks those sliders' rows.
+- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
 - **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
 
 ## Journey (the automatic director)

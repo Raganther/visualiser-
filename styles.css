@@ -39,6 +39,7 @@ body.dragging #welcome h1{color:var(--accent)}
 .ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
 #track{flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px}
 #track small{color:var(--dim);margin-left:8px}
+.rate{font-size:15px;padding:4px 8px}
 .preset{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px}
 .preset span{min-width:96px;text-align:center;font-weight:500}
 .preset button{padding:6px 8px}
