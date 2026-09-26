@@ -288,8 +288,9 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **A place can hold the centrepiece** (`P.anchor`, set by a world's `params`: where on screen, how big, or hidden behind the camera). The mesh objects use it instead of their usual place, so in the cosmos the skull (or any object) is a monument the camera can circle.
 - **Drawing.**
   - **WebGL** (`look.js`): each pixel's ray is tested against the star and the six bodies that look biggest.
-    - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star, gain detail up close, and have atmospheres at the edge.
-    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds.
+    - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star and gain detail up close. Solid worlds have relief: ground rising towards the star is lit, ground falling away shaded (`czSpin` follows the light across the turning surface).
+    - **Atmospheres** (`czAtmo`, added after the user found the surfaces "kind of flat"): a shell round each planet (not moons), its thickness, hue and density per kind in `TUNE.cosmos.atmo`. Seven samples along the view through it gather the star's light, carried a little past the terminator and reddening there like a sunset, brightest looking towards the star; it hazes the ground, sky or star behind it. It's thickest at the limb, where the view grazes the most air, and skimming low the camera is inside it, under a sky.
+    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds drifting over the ground, each casting its shadow on the side away from the star.
     - **Rings** have bands, a gap and the planet's shadow.
     - **The star's glow** shows round anything in front of it.
     - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
@@ -300,7 +301,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
     - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
     - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
   - **Simple mode** (`draw2d.js`): the same, plainer.
-    - Bodies are shaded discs, far to near, with rings split behind and in front.
+    - Bodies are shaded discs, far to near, with rings split behind and in front. Planets have an atmosphere (haze thickening to the limb, and a glow round it, brightest facing the star), and clouds with their shadows.
     - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
     - The built ring is its edges and a pulse line.
     - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and bands of gas along its ring from afar.

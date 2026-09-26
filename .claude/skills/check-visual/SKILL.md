@@ -15,7 +15,7 @@ node tools/look.mjs <key> [--mode both|gl|2d] [--frames 300] [--size 960x540] [-
 - Write stills to the scratchpad (`--out <scratchpad>/look`), never into the repo. Open the PNGs with the Read tool and actually look at them.
 - `--eval` runs page code after the solo and before stepping. Use it to set up a moment, for example the cosmos's camera:
   `--eval "const {byKey} = await import('/src/visuals/registry.js'); byKey.cosmos.visit('hole'); byKey.cosmos.hold(60)"`
-  (the cosmos also has `shot('belt'|'skim'|'orbit'|…)`, `jump()`, `galaxy()`).
+  (the cosmos also has `shot('belt'|'skim'|'orbit'|…)`, `jump()`, `galaxy()`). A world only has its state once it has drawn, so step a little first (`__step(30); byKey.cosmos.shot('approach')`), or the call does nothing.
 - Software WebGL is slow, about 6 fps at 960×540. 300 frames takes a minute or two, so run long ones in the background.
 - The output prints the panel's "On screen" line (what was drawn) and any page errors. Both must be clean.
 
