@@ -509,6 +509,7 @@ Useful facts:
 
 ## Known limits
 
+- **The ground is the heaviest thing drawn.** Landed, each pixel marches up to 80 steps of the height (three layers of detail near, two far), plus a normal and a soft shadow. A laptop GPU should manage it at the auto resolution's lower steps, but it's untested on the user's devices. In software WebGL it's a few frames a second at 160×90, so the cosmos test lands in 50 ms frames. Baking each world's height into a texture is in `docs/ideas.md`.
 - **Simple mode with objects is heavy.** In headless software rendering at 960×540, the knot (1,680 panes) adds about 23 ms a frame (from 30 before the simple-mode rework). On a slow device without WebGL, sections with the big shapes can drop frames.
 - **Scenes are tuned by eye, not yet by listening.** The template weights (`TUNE.sceneTemplates`), `centreChance` and the wind and light (`TUNE.ctx`) are first guesses.
 - **Engine → UI imports.** Journey and audio modules call into `ui/panel.js` (`updateSectionUI`, `syncSliders`), so there are import cycles. They're all function-level (nothing runs at import time across them), so they're safe; untangling them (a hooks module) was judged not worth the churn in the 2026-09 audit (`docs/audit.md`).
