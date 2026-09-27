@@ -64,7 +64,7 @@ docs/taste.md              the user's taste: principles with their evidence, ope
 | Kind | What it is | Modules | How it arrives |
 |---|---|---|---|
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos) (plus none/black) | Fade, or cut on the bar |
-| **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon` | Fade, or cut on the bar |
+| **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject) | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
 | **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
@@ -120,7 +120,7 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 26 of them: 14 Journey reads as **recipes**, and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
+- **Presets** (`BASE`, 27 of them: 15 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets), and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
 
 ## The panel: what's on screen, presets, Solo and Journey
 
@@ -286,6 +286,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **A shot picked by hand** holds the camera for `handSecs`, so the music doesn't take it straight back.
   - The kick nudges the view in, harder in a build, and the pace sets how quickly the camera moves.
 - **The layers join the space.** The camera's movement (`motion`: how the far view slides, and how fast the camera closes in) goes into the shared context (`CTX.fly`). It becomes wind (`TUNE.ctx.flyWind`), so the comets, flow and trails slide with the view, and trail zoom (`flyZoom`), so the glow streams outwards as the camera flies in. The star is the world's `light`, so objects are lit from where it is on screen. A world's `motion` and `light` are set in its `params` while it's on screen.
+- **Orbits** (`layers/orbit.js`, a Journey layer, best over a world): ten flares on tilted orbits round the world's subject (`P.focus`: the planet being filmed, space's planet, or else the trails' centre), leaving rings and spirals in the trails. They pass behind the planet, tighten and quicken as the tension builds, and a drop flings them wide before they settle back.
 - **Its front plane is the planets' discs** (`czFront`; in simple mode, their circles), not the star. So `between` sends the glow behind the planets, `split` puts the accent behind them, and `held` shows the glow only inside them. Its subject is the world's `focus`, so the glow centres on the planet being filmed.
 - **A place can hold the centrepiece** (`P.anchor`, set by a world's `params`: where on screen, how big, or hidden behind the camera). The mesh objects use it instead of their usual place, so in the cosmos the skull (or any object) is a monument the camera can circle.
 - **Drawing.**

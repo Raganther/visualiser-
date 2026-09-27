@@ -123,6 +123,7 @@ function render(now){
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
     frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   P.cx += (CTX.focus.x - P.cx)*CTX.focus.k; P.cy += (CTX.focus.y - P.cy)*CTX.focus.k;   // the glow centres on the planet a world films
+  P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   P.fit = [CTX.focus.x, CTX.focus.y, Math.min(TUNE.scene.fitMax, Math.max(1, TUNE.scene.fitSpan/Math.max(CTX.focus.r, .01)))];   // and can be shrunk into it
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
