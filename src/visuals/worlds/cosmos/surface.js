@@ -32,17 +32,21 @@ export const GLSL = {
 uniform vec4 uSfK, uSfE;   // the world: kind, seed, hue, water level; cities, aurora, cloud cover, night (0 day .. 1 night)`,
   functions: `
 float sfPath(float z){ return 18.0*sin(z*0.021+uSfK.y)+9.0*sin(z*0.057+uSfK.y*2.0); }
+// a hash with no sine in it (cheap, and steady at large coordinates), and value noise from it
+float sfh(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031+uSfK.y*0.0131); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 float sfN(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
-  float a=czH(vec3(i,uSfK.y)), b=czH(vec3(i+vec2(1.0,0.0),uSfK.y)), c=czH(vec3(i+vec2(0.0,1.0),uSfK.y)), d=czH(vec3(i+vec2(1.0,1.0),uSfK.y));
+  float a=sfh(i), b=sfh(i+vec2(1.0,0.0)), c=sfh(i+vec2(0.0,1.0)), d=sfh(i+vec2(1.0,1.0));
   return a+(b-a)*f.x+(c-a)*f.y+(a-b-c+d)*f.x*f.y; }
-// the ground's height: ridged crests, strata stepping rocky worlds into ledges and cliffs, the valley along the river's line
-float sfH(vec2 p){
+// the ground's height: ridged crests, strata stepping rocky worlds into ledges and cliffs, the valley along the river's line.
+// oct: how many layers of detail (fewer for the march and the shadows, all four for the light's normal)
+float sfHo(vec2 p,int oct){
   float v=abs(p.x-sfPath(p.y)), m=0.0, a=1.0, f=0.012; vec2 q=p;
-  for(int i=0;i<4;i++){ m+=a*(1.0-abs(sfN(q*f)*2.0-1.0)); a*=0.5; f*=2.1; q+=vec2(13.1,7.7); }
+  for(int i=0;i<4;i++){ if(i>=oct) break; m+=a*(1.0-abs(sfN(q*f)*2.0-1.0)); a*=0.5; f*=2.1; q+=vec2(13.1,7.7); }
   m=m*m*(uSfK.x>1.5&&uSfK.x<2.5?26.0:uSfK.x>2.5&&uSfK.x<3.5?22.0:38.0);
   if(uSfK.x<0.5||uSfK.x>3.5){ float st=6.0; m=floor(m/st)*st+st*smoothstep(0.15,0.55,fract(m/st)); }
   return m*smoothstep(6.0,45.0,v)-(v<6.0?1.5:0.0);
 }
+float sfH(vec2 p){ return sfHo(p,4); }
 // the sky from below: its colour by the sun's height (blue by day, red at dusk, dark at night), the sun and its glow,
 // clouds, and at night the stars and, over ice worlds, auroras
 vec3 sfSky(vec3 rd,vec3 ro){
@@ -72,7 +76,7 @@ vec3 sfGround(vec3 ro,vec3 rd,float t){
   else c=mix(mix(hsv(hue+0.28,0.45,0.35),hsv(hue+0.1,0.3,0.4),smoothstep(0.2,0.45,slope)),vec3(0.9),smoothstep(70.0,95.0,p.y)*(1.0-slope));   // green land, rock, snow on the peaks
   if(k<0.5||k>3.5) c=mix(c,vec3(0.92),smoothstep(95.0,120.0,p.y)*smoothstep(0.5,0.2,slope));   // snow high up
   float dif=max(dot(n,uSfSun),0.0), sh=1.0, ts=1.0;
-  for(int i=0;i<12;i++){ vec3 q=p+uSfSun*ts; float hh=q.y-sfH(q.xz); sh=min(sh,6.0*hh/ts); ts+=clamp(hh,2.0,25.0); if(sh<0.0||q.y>150.0) break; }
+  if(uSfSun.y>-0.05&&dif>0.0) for(int i=0;i<12;i++){ vec3 q=p+uSfSun*ts; float hh=q.y-sfHo(q.xz,2); sh=min(sh,6.0*hh/ts); ts+=clamp(hh,2.0,25.0); if(sh<0.0||q.y>150.0) break; }
   sh=clamp(sh,0.0,1.0);
   vec3 sky=hsv(hue+0.56,0.4,0.5)*smoothstep(-0.2,0.3,uSfSun.y), col=c*(uCosSunC*0.8*dif*sh+sky*(0.35+0.25*n.y)+0.02);
   if(k>2.5&&k<3.5) col+=hsv(hue+0.03,0.9,1.0)*(smoothstep(8.0,0.0,v)+0.6*smoothstep(0.05,0.0,abs(czN(vec3(p.xz*0.08,2.0))-0.5)))*(0.7+0.5*uBass*uReact);   // lava in the valley and its cracks
@@ -83,7 +87,7 @@ vec3 sfGround(vec3 ro,vec3 rd,float t){
 vec3 czSurface(vec2 sp){
   vec3 ro=uSfEye, rd=normalize(uSfZ+(uSfX*sp.x+uSfY*sp.y)*2.0*uSfTan);
   float t=0.5, hit=0.0, W=uSfK.w;
-  for(int i=0;i<96;i++){ vec3 p=ro+rd*t; float h=p.y+t*t*0.00008-sfH(p.xz);   // the ground curves away with distance
+  for(int i=0;i<80;i++){ vec3 p=ro+rd*t; float h=p.y+t*t*0.00008-sfHo(p.xz,t<250.0?3:2);   // the ground curves away with distance (less detail far off)
     if(h<0.004*t){ hit=1.0; break; } t+=max(h*0.42,0.02+t*0.001); if(t>1400.0) break; }
   vec3 sky=sfSky(rd,ro), col=sky;
   float tw=W>-50.0&&rd.y<0.0?(W-ro.y)/rd.y:1e9;   // the sea (ocean worlds): a plane over the valleys
