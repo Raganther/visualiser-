@@ -22,10 +22,11 @@ export function composeSegment(seg, plan){
     const j = m && !m.world ? plan.masks.indexOf(m.object) : -1;   // an object's mask applies only while it's on screen (uMaskOn)
     const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
       : `    { float m=texture2D(uMask${j},vUv).r; t*=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j}); }\n`;
+    const at = it.fit ? 'fuv' : 'uv';   // fit: shrunk round the world's subject, the glow's centre landing on it
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
-    vec3 t=texture2D(${tex},uv).rgb;
-    vec3 b=(texture2D(${tex},uv+vec2(px.x,0.0)).rgb+texture2D(${tex},uv-vec2(px.x,0.0)).rgb
-           +texture2D(${tex},uv+vec2(0.0,px.y)).rgb+texture2D(${tex},uv-vec2(0.0,px.y)).rgb)*0.25;
+${it.fit ? '    vec2 fuv=(uFitSrc+(sp-uFit.xy)*uFit.z)/vec2(ASP,1.0)+0.5;\n' : ''}    vec3 t=texture2D(${tex},${at}).rgb;
+    vec3 b=(texture2D(${tex},${at}+vec2(px.x,0.0)).rgb+texture2D(${tex},${at}-vec2(px.x,0.0)).rgb
+           +texture2D(${tex},${at}+vec2(0.0,px.y)).rgb+texture2D(${tex},${at}-vec2(0.0,px.y)).rgb)*0.25;
     t+=b*0.35;
     t*=1.0+uBeat*0.6;   // the kick flashes here, after the trails, so the brightest moment lands on the kick
 ${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
@@ -34,6 +35,7 @@ ${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t
   return PREC + `
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1;
+uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)

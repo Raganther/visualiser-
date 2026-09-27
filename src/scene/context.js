@@ -1,15 +1,17 @@
 // The shared context every visual reads, so they feel like one piece rather than separate effects:
 //   a palette (three hues, as offsets from the running hue) that every layer, hit and object takes its colours from;
 //   one wind that pushes the comets, the flow, the ribbons, the objects and the trails' drift the same way;
-//   one light, from whichever world is on screen, falling on the objects.
+//   one light, from whichever world is on screen, falling on the objects;
+//   one focus: where a world's subject is on screen (a planet the camera films), which the trails centre on.
 // A leaf module: main.js updates it once a frame (updateContext); visuals read CTX, or the fields it puts in P.
 import { TUNE } from '../tuning.js';
 
 export const CTX = {pal: [0, .33, .67], palName: 'triad', wind: {x: 0, y: 0, s: 0, a: 0}, light: {hue: 0, sat: 0, amt: 0, x: -.4, y: .6}, gust: 0,
-  fly: {x: 0, y: 0, z: 0}};   // fly: a moving world's camera (how the view slides, screens a second; how fast it closes in)
+  fly: {x: 0, y: 0, z: 0}, focus: {x: 0, y: 0, r: .3, k: 0}};   // fly: a moving world's camera (how the view slides, screens a second; how fast it closes in)
 const cur = [0, .33, .67];
 // x: pal (the target offsets), clock (Journey's clock), dt, bass (0..1 band), section (the section-change swell),
-// drop (the drop glow), worlds [{w, light, motion}] (each world's weight, its light and its camera's movement, or null)
+// drop (the drop glow), worlds [{w, light, motion, focus}] (each world's weight, its light, its camera's movement and its
+// subject on screen ({x, y, r}: where, and its radius, in the display's units), or null)
 export function updateContext(x){
   const T = TUNE.ctx, k = Math.min(1, x.dt/T.palSecs);
   for (let i = 0; i < 3; i++) { let d = x.pal[i] - cur[i]; d -= Math.round(d); cur[i] += d*k; CTX.pal[i] = cur[i]; }   // the short way round
@@ -32,4 +34,8 @@ export function updateContext(x){
   const amt = Math.min(1, tw)*T.light;
   L.amt += (amt - L.amt)*Math.min(1, x.dt*1.5);
   if (tw > .01) { h = Math.atan2(hy, hx)/(Math.PI*2); L.hue = h; L.sat = sat/tw; L.x = lx/tw; L.y = ly/tw; }
+  // the focus: the trails centre on a world's subject, easing across as the camera moves or the subject changes
+  const Fo = CTX.focus, fw = x.worlds.find(o => o.focus && o.w > .3), e = Math.min(1, x.dt*T.focusEase);
+  Fo.k += ((fw ? Math.min(1, fw.w)*T.focus : 0) - Fo.k)*e;
+  if (fw) { Fo.x += (fw.focus.x - Fo.x)*e; Fo.y += (fw.focus.y - Fo.y)*e; Fo.r += ((fw.focus.r || .3) - Fo.r)*e; }
 }

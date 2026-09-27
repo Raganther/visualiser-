@@ -105,7 +105,7 @@ function render(now){
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
-    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion}))});
+    section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
   applyMods(now, react);
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
@@ -119,12 +119,14 @@ function render(now){
   const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
     decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
-    cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,
+    cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,   // (and towards a world's subject: below)
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
     frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
+  P.cx += (CTX.focus.x - P.cx)*CTX.focus.k; P.cy += (CTX.focus.y - P.cy)*CTX.focus.k;   // the glow centres on the planet a world films
+  P.fit = [CTX.focus.x, CTX.focus.y, Math.min(TUNE.scene.fitMax, Math.max(1, TUNE.scene.fitSpan/Math.max(CTX.focus.r, .01)))];   // and can be shrunk into it
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
-  const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP};
+  const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP, asp};
   for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
   for (const v of WORLD_VISUALS) {                              // world weights; the horizon's grid floor lines up with a world's ground
     P.w[v.key] = eff[v.key];

@@ -129,7 +129,7 @@ The user found this confusing, so the panel says it plainly:
 - **A preset** is a saved set of every slider (the name in the bottom bar). With Journey off, the sliders are what's drawn.
 - **Journey** doesn't play presets whole: it reads them as recipes (see below) and composes each section from roles, writing the sliders itself (they're greyed while it does).
 - **On screen** (`showNow` in `ui/panel.js`, twice a second from `main.js`): the top of the panel names what's drawn (worlds, layers, hits, objects, a kaleidoscope) and what set it (Journey's recipe, or the preset). A dot marks those sliders' rows.
-- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
+- **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, the caption and, in the cosmos, the place (system, star, subject, shot), every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
 - **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
 
 ## Journey (the automatic director)
@@ -285,18 +285,19 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **A shot picked by hand** holds the camera for `handSecs`, so the music doesn't take it straight back.
   - The kick nudges the view in, harder in a build, and the pace sets how quickly the camera moves.
 - **The layers join the space.** The camera's movement (`motion`: how the far view slides, and how fast the camera closes in) goes into the shared context (`CTX.fly`). It becomes wind (`TUNE.ctx.flyWind`), so the comets, flow and trails slide with the view, and trail zoom (`flyZoom`), so the glow streams outwards as the camera flies in. The star is the world's `light`, so objects are lit from where it is on screen. A world's `motion` and `light` are set in its `params` while it's on screen.
+- **Its front plane is the planets' discs** (`czFront`; in simple mode, their circles), not the star. So `between` sends the glow behind the planets, `split` puts the accent behind them, and `held` shows the glow only inside them. Its subject is the world's `focus`, so the glow centres on the planet being filmed.
 - **A place can hold the centrepiece** (`P.anchor`, set by a world's `params`: where on screen, how big, or hidden behind the camera). The mesh objects use it instead of their usual place, so in the cosmos the skull (or any object) is a monument the camera can circle.
 - **Drawing.**
   - **WebGL** (`look.js`): each pixel's ray is tested against the star and the six bodies that look biggest.
     - **Surfaces:** rock, banded gas, cracked ice, ocean worlds catching the star's glint, or lava glowing through its cracks (flaring on stabs). They're lit from the star and gain detail up close. Solid worlds have relief: ground rising towards the star is lit, ground falling away shaded (`czSpin` follows the light across the turning surface).
     - **Atmospheres** (`czAtmo`, added after the user found the surfaces "kind of flat"): a shell round each planet (not moons), its thickness, hue and density per kind in `TUNE.cosmos.atmo`. Seven samples along the view through it gather the star's light, carried a little past the terminator and reddening there like a sunset, brightest looking towards the star; it hazes the ground, sky or star behind it. It's thickest at the limb, where the view grazes the most air, and skimming low the camera is inside it, under a sky.
-    - **What lives there:** cities on night sides, auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds drifting over the ground, each casting its shadow on the side away from the star.
+    - **What lives there:** cities on night sides (sprawls of lights, finer up close, glowing as a whole from afar), auroras round the poles (on the kick), a great storm in a gas giant with lightning on the hi-hats, clouds drifting over the ground, each casting its shadow on the side away from the star.
     - **Rings** have bands, a gap and the planet's shadow.
     - **The star's glow** shows round anything in front of it.
     - **A pulsar's beams** sweep round once a beat, flashing when they face the camera.
     - **A black hole** bends the light from behind it: the sky is looked up along a bent ray. It has a shadow, a bright ring at its edge, and a disk with Doppler brightening, whose far side's image is bent up over the top.
     - **Twin stars** are drawn, and both glow.
-    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a band of glinting dust in that haze.
+    - **The belt:** up close, the ray steps through a grid of cells (up to 28), each of which may hold an asteroid. Each rock has its own size (mostly small, a few big boulders), stretch and tumble, and a lumpy, cratered surface (`czRockD`). It's marched only where the ray meets its bounds, so any number costs the same. The belt lies in gas and dust (`czGas`): ten samples along the view where it passes through the belt's thick ring, lit by the star (brighter looking toward it), with wisps streaming away from the star like outgassing tails. From afar it's a soft band of dust streaked along the ring, lit towards the star, with rocks catching the light at fixed places; they fade out with distance before they'd shrink below a pixel (the old speckle shimmered like static).
     - **The built ring:** a cylinder band round the star, its inner face lit, with seams, windows, and a pulse running round on the beat.
     - **Far off:** gas clouds and stars, which streak in a jump and start to in a build.
     - **The galaxy** (`czGalaxy`) is mixed in by `uGal`.
@@ -304,7 +305,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
     - Bodies are shaded discs, far to near, with rings split behind and in front. Planets have an atmosphere (haze thickening to the limb, and a glow round it, brightest facing the star), and clouds with their shadows.
     - A hole is a shadow, a ring and a split disk; a pulsar has beam lines; there are twin discs.
     - The built ring is its edges and a pulse line.
-    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and bands of gas along its ring from afar.
+    - The belt is a pool of jagged, tumbling rocks and puffs of gas that follow the camera, and from afar bands of gas along its ring with glints at fixed places round it.
     - Oceans, storms, city lights and auroras are drawn.
     - The galaxy is 1,400 points on its arms.
 
@@ -314,6 +315,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen in Journey, with Journey's layers over it (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
   - 1–7 pick shots (7 is the belt), and S skims;
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
+  - B goes to the next system with an asteroid belt (unless this one has one) and flies through it;
   - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes
@@ -387,8 +389,9 @@ The first-principles model (the rebuild is logged in `docs/composition-plan.md`)
 - **Adding a signal:** add it to `SIG`, feed it in `updateSignals`, and give it a line in `SIGNALS`.
 
 **Scenes** (`src/scene/graph.js`) are plain data, a stack bottom to top. `resolveScene()` compiles one into a draw plan (`P.sc`), cached per scene object, so a scene is never edited in place: a change is a new array.
-- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's two nearest rows of buildings, the land's nearest ridge, the aurora's treeline, space's planet) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
+- `{world: 'all'}`: every world on screen, whole. `{world: 'front'}`: the worlds' **front planes** (the city's two nearest rows of buildings, the land's nearest ridge, the aurora's treeline, space's planet, the cosmos's planets) repainted over what's below, so what's below sits *between* the world's planes. A world's `front` has `glsl` (a coverage function `fn(sp)`) and `path2d` (its outline for simple mode).
 - `{trails: 'main'}`: the trail group holding every layer no other group claims. `{trails: 'back', layers: ['comets']}`: another group (at most `TUNE.scene.maxGroups`, each a full-size feedback pass). So comets can fly behind the buildings while the ring pulses in front.
+- `fit: true` on a trails entry: the group's picture shrunk round the world's focus, its centre landing on the subject (`P.fit`: where, and by how much, from the subject's radius and `TUNE.scene.fitSpan`). With a mask to the world's front, the glow is held inside the planet.
 - `mask: {object: 'skull', keep: 'inside' | 'outside'}` or `{world: 'front', keep}` on a trails entry: shown only inside (outside) that shape. It applies only while the object is on screen.
 - `{hits: true}`, `{objects: true}` (every object on screen that no entry places), `{object: 'skull', fill?}` (one object, here in the stack: among a world's planes, under the hits, anywhere).
 - **Fills**: an object's glass shows another image: `{layers: [...], fold, zoom?}` (those layers alone, any layer, the media tunnel too), `{trails: 'inner', layers: [...]}` (a group seen only through the glass, shrunk in), `{world: true}` (the worlds shrunk in, brightened), and `part: 7` limits it to one part (the eyes). Tuning: `TUNE.scene` (`fillAmt`, `fillGain`, `fillZoom`, `worldFillZoom`, `worldFillGain`, `partFillAmt`).
@@ -399,9 +402,10 @@ The first-principles model (the rebuild is logged in `docs/composition-plan.md`)
 - **one palette:** three hues (offsets from the running hue). Each section picks one (`TUNE.palettes`, `paletteWeights`: triad, analogous, split, contrast); manual mode uses the triad. Comets, ribbons, shockwaves, the star, sparkles, the outline and the objects' parts take their hues from it (`P.pal`, `uPal`), rather than each inventing its own. The panel narrates it.
 - **one wind:** it turns slowly, blows harder on bass swells, and gusts on section changes and drops. It carries the comets and the flow, speeds the ribbons, sways the objects and streams the trails downwind (`P.drift`, `uDrift`). Tuning: `TUNE.ctx`.
 - **one light:** each world has a `light` (hue offset, saturation, direction): the city's windows from below, the low sun, the aurora's green from above, pale starlight. The objects' glass and edges catch it on the side facing it.
+- **one focus:** a world can say where its subject is on screen (`focus`, set in its `params`; the cosmos: the planet or star it's filming). The trails' centre (`P.cx`, `P.cy`: where they zoom, spin and fold, and where the ring, burst and shockwaves sit) moves there (`TUNE.ctx.focus`), easing across (`focusEase`) as the camera moves or the subject changes. So the glow belongs to the place: rings round a planet, shockwaves from an eclipse.
 
 **Journey composes scenes** (`src/scene/templates.js`, chosen in `recast` in `journey/cast.js`). Each section gets a template built from its cast (world, lead, accent, centrepiece):
-- `plain`, `between` (the glow behind the world's front), `split` (the accent behind it, the lead in front), `among` (the centrepiece between the world's planes), `reflect` (the world in its glass), `inside` (a kaleidoscope in it, the glow kept out), `window` (the glow seen only through it), `glass` (the accent only in its glass).
+- `plain`, `between` (the glow behind the world's front), `split` (the accent behind it, the lead in front), `among` (the centrepiece between the world's planes), `held` (the glow shrunk into a world's planet and shown only inside it, like a crystal ball: space's, or the cosmos's), `reflect` (the world in its glass), `inside` (a kaleidoscope in it, the glow kept out), `window` (the glow seen only through it), `glass` (the accent only in its glass).
 - Each says what it `needs` and what music `suits` it. Journey adds a base weight (`TUNE.sceneTemplates`), fatigue (`J.sFat`) and a little chance, remembers the choice with the section's cast, and may vary it on a third visit (`varySmall`).
 - The scene changes on a bar line (`J.sceneLive`). With media loaded it stays plain.
 - A template never adds things, only relations between what's already there: "few things at once" holds.

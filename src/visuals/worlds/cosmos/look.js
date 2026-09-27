@@ -69,7 +69,7 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
   vec3 col=base*(0.03+0.97*diff)+emit;
   if(E.x>0.5){   // cities on the night side: sprawls of lights, finer the closer the camera
     float sprawl=smoothstep(0.58,0.72,czN(qs*5.0)), f=40.0+close*260.0, dots=step(0.86,czH(floor(qs*f)))*(0.4+0.6*czH(floor(qs*f)+7.0));
-    col+=vec3(1.0,0.75,0.4)*sprawl*(dots+0.12*sprawl)*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat); }
+    col+=vec3(1.0,0.75,0.4)*sprawl*(dots+(0.12+0.4*(1.0-close))*sprawl)*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat); }   // (from afar the sprawls glow as a whole)
   if(E.y>0.5){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
     col+=hsv(hue+0.33,0.8,1.0)*smoothstep(0.7,0.85,abs(lat))*smoothstep(1.0,0.9,abs(lat))*(0.5+0.5*sin(lon*18.0+uTime*2.0))*(0.25+uBeat*0.9)*(0.4+0.6*smoothstep(0.2,-0.2,nl)); }
   return col;
@@ -233,10 +233,14 @@ vec3 czSystem(vec2 sp){
     vec4 at=czAtmo(d,uCosB[i].xyz,uCosB[i].w,uCosT[i],uHue+uCosK[i].y+uCosT[i].y,tMin); col=col*at.a+at.rgb; }
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
   if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
-  if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a band of glinting dust across the system's plane
+  if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a soft band of dust streaked along its ring, lit towards the star,
+    // with a few rocks catching the light; they fade with distance before they'd shrink below a pixel and shimmer
     float tp=-uCosEye.y/d.y; vec3 pp=uCosEye+d*tp;
-    if(tp>0.0&&tp<tMin){ float band=smoothstep(uCosBelt.y,uCosBelt.y*0.4,abs(length(pp.xz)-uCosBelt.x));
-      col+=hsv(uHue+0.08,0.2,0.6)*band*(0.05+0.25*step(0.82,czN(pp*1.3)))*(1.0-uCosBelt.w*0.7); }
+    if(tp>0.0&&tp<tMin){ float rr=length(pp.xz), off=rr-uCosBelt.x, band=smoothstep(uCosBelt.y,uCosBelt.y*0.3,abs(off));
+      float ang=atan(pp.z,pp.x)*uCosBelt.x, dust=smoothstep(0.3,0.75,czF(vec3(ang*0.05,off*0.35,uCosSeed)));
+      vec2 gc=vec2(ang*0.5,off*0.8); float gl=step(0.9,czH(vec3(floor(gc),1.0)))*smoothstep(0.14,0.04,length(fract(gc)-0.5))*smoothstep(uCosBelt.x*2.5,uCosBelt.x*0.8,tp);
+      float lit=0.6+0.4*dot(d,normalize(uCosSun.xyz));   // brighter looking towards the star
+      col+=(hsv(uHue+0.08,0.25,0.55)*(0.06+0.16*dust)*lit+vec3(1.0,0.95,0.85)*gl*0.35*(0.7+0.3*uBeat))*band*(1.0-uCosBelt.w*0.7); }
   }
   // the stars' glow, where nothing nearer covers it (so they rim a planet in front of them)
   if(hole<0.5&&sb>0.0&&(hit<0||tMin>sb)) col+=uCosSunC*R*R/(sh*sh+R*R*0.3)*0.22*(1.0+uBass*uReact*0.5);

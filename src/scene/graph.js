@@ -5,6 +5,7 @@
 //                                            over what's below, so what's below sits between the world's planes
 //   {trails: 'main', mask?}                 a trail group: a feedback buffer of layers. 'main' holds every layer no other
 //   {trails: 'back', layers: ['comets']}    group claims; another group names its layers (at most TUNE.scene.maxGroups)
+//     fit: true: the group's picture shrunk into a world's subject (the planet it films), for holding the glow inside it
 //     mask: {object: 'skull', keep: 'inside' | 'outside'} or {world: 'front', keep}: shown only inside (outside) that shape
 //   {hits: true}                            the one-shot hits (star, outline, sparkles)
 //   {objects: true}                         every 3D object on screen that isn't placed by its own entry
@@ -51,7 +52,7 @@ export function resolveScene(scene){
       let m = e.mask && {object: e.mask.object, world: e.mask.world, inside: e.mask.keep !== 'outside'};
       if (m && m.object && !r.masks.includes(m.object)) { if (r.masks.length < 2) r.masks.push(m.object); else m = null; }   // two object masks at most
       if (m && m.world) r.front = true;
-      item({t: 'trails', g, mask: m}, e);
+      item({t: 'trails', g, mask: m, fit: !!e.fit}, e);
     }
     else if (e.hits) item({t: 'hits'}, e);
     else if (e.objects || e.object) {
@@ -63,7 +64,7 @@ export function resolveScene(scene){
   r.groupOf = key => { for (const g in r.groups) if (r.groups[g] && r.groups[g].includes(key)) return g; return 'main'; };
   const segs = r.steps.filter(s => s.seg);
   segs.forEach((s, i) => { s.first = r.steps[0] === s; s.last = i === segs.length - 1;
-    s.key = (s.first ? '' : 'u:') + s.seg.map(it => it.t + (it.g ? ':' + it.g : '') + (!it.mask ? '' : ':m' + (it.mask.world ? 'w' : r.masks.indexOf(it.mask.object)) + (it.mask.inside ? 'i' : 'o')) + (it.drive ? ':k' + it.i : '')).join('|') + (s.last ? ':end' : ''); });
+    s.key = (s.first ? '' : 'u:') + s.seg.map(it => it.t + (it.g ? ':' + it.g : '') + (it.fit ? ':f' : '') + (!it.mask ? '' : ':m' + (it.mask.world ? 'w' : r.masks.indexOf(it.mask.object)) + (it.mask.inside ? 'i' : 'o')) + (it.drive ? ':k' + it.i : '')).join('|') + (s.last ? ':end' : ''); });
   r.extra = Object.keys(r.groups).filter(g => g !== 'main');   // groups beside main, in order (each gets its own texture unit)
   r.anyFill = Object.keys(r.fills).length > 0;
   cache.set(scene, r);

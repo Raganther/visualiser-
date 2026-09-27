@@ -42,7 +42,7 @@ export default {
   onBeat(pos){ flyBeat(pos); },
   params(P, x){
     C.on = P.w.cosmos > .003; C.lastT = x.J.tension;
-    if (!C.on || !C.sys) { P.cz = null; this.light = this.motion = null; return; }
+    if (!C.on || !C.sys) { P.cz = null; this.light = this.motion = this.focus = null; return; }
     const cam = C.cam, sys = C.sys, sun = sys.sun, k2 = 1/(2*Math.tan(cam.fov*Math.PI/360));
     // the nearest few bodies, by how big they look
     const vis = sys.bodies.map(b => { const rel = sub(b.p, cam.pos); return {b, rel, a: b.r/Math.max(len(rel), 1e-3), z: dot(rel, cam.Z)}; })
@@ -70,6 +70,10 @@ export default {
       seed: (sys.idx*1.37) % 10, vis, sRel, sunR: sun.r, type: sun.type, sys, k2,
       gal: G.on, galCam: G.cam, galTan: Math.tan(G.cam.fov*Math.PI/360), galA: G.from, galB: G.to};
     lightFrom(P); this.light = C.light; this.motion = C.motion;
+    // its subject on screen (the planet or star it's filming), for the trails to centre on; none while it's behind or off screen
+    const sj = C.subj || sun, srel = sub(sj.p, cam.pos), sz = dot(srel, cam.Z), asp = x.asp || 16/9;
+    const fx = sz > sj.r ? dot(srel, cam.X)*k2/sz : 0, fy = sz > sj.r ? dot(srel, cam.Y)*k2/sz : 0;
+    this.focus = sz > sj.r && Math.abs(fx) < asp*.45 && Math.abs(fy) < .45 && !G.on ? {x: fx, y: fy, r: sj.r*k2/sz} : null;
     // a centrepiece stands in the space as a vast monument (the mesh objects read P.anchor): where and how big it looks
     monument(P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));
     if (C.monOn) {
@@ -78,6 +82,23 @@ export default {
     }
   },
   glsl: {...GLSL, fn: 'cosmos'},
+  // its front plane, for scenes: the planets' discs (not the star), so the glow can pass behind them or be held inside them
+  front: {
+    fn: 'czFront',
+    glsl: `
+float czFront(vec2 sp){
+  if(uGal>0.5) return 0.0;
+  vec3 d=normalize(uCosZ+(uCosX*sp.x+uCosY*sp.y)*2.0*uCosTan); float fc=0.0;
+  for(int i=0;i<6;i++){ vec4 B=uCosB[i]; float b=dot(B.xyz,d); if(B.w<=0.0||b<=0.0) continue;
+    fc=max(fc,smoothstep(B.w*1.01,B.w*0.97,length(B.xyz-d*b))); }
+  return fc; }`,
+    path2d(o, P){
+      const c = P.cz; if (!c || c.gal > .5) return;
+      const W = o.canvas.width, H = o.canvas.height;
+      for (const {rel, b} of c.vis) { const z = dot(rel, c.Z); if (z <= b.r) continue;
+        const k = c.k2/z*H; o.moveTo(W/2 + dot(rel, c.X)*k + b.r*k, H/2 - dot(rel, c.Y)*k); o.arc(W/2 + dot(rel, c.X)*k, H/2 - dot(rel, c.Y)*k, b.r*k, 0, 7); }
+    },
+  },
   uniforms(gl, u, P){
     const c = P.cz; if (!c || !u.uCosX) return;
     gl.uniform3fv(u.uCosX, c.X); gl.uniform3fv(u.uCosY, c.Y); gl.uniform3fv(u.uCosZ, c.Z); gl.uniform3fv(u.uCosEye, c.eye);
