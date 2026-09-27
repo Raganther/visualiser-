@@ -46,8 +46,29 @@ function galaxy2d(o, P, c){
     o.fillStyle = col; o.beginPath(); o.arc(s.x, s.y, Math.max(2, u/120), 0, 7); o.fill(); });
   o.globalAlpha = 1;
 }
+// the view folded into a kaleidoscope: the cosmos drawn aside, then laid back as mirrored wedges round the subject (only
+// inside a circle round it, when local), over the unfolded view by how far it's open
+const foldCan = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 export function draw2d(o, P){
   const c = P.cz; if (!c) return;
+  const [fx, fy, n, amt] = c.fold || [0, 0, 6, 0];
+  if (amt < .02 || !foldCan) return drawSpace(o, P);
+  const W = o.canvas.width, H = o.canvas.height, f = foldCan.getContext('2d');
+  if (foldCan.width !== W || foldCan.height !== H) { foldCan.width = W; foldCan.height = H; }
+  f.setTransform(1, 0, 0, 1, 0, 0); f.globalAlpha = 1; f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, W, H);
+  drawSpace(f, P); o.drawImage(foldCan, 0, 0);
+  const x0 = W/2 + fx*H, y0 = H/2 - fy*H, h = Math.PI/n, A = -c.fold2[0] - h, R = c.fold2[1] ? c.fold2[1]*H : Math.hypot(W, H);
+  o.save(); o.globalAlpha = Math.min(1, amt);
+  for (let j = 0; j < 2*n; j++) {   // half-wedge j: the source half-wedge turned (even) or mirrored (odd) into place
+    o.save(); o.beginPath(); o.moveTo(x0, y0); o.arc(x0, y0, R, A + j*h, A + (j + 1)*h + .002); o.closePath(); o.clip();
+    o.translate(x0, y0);
+    if (j & 1) { const L = A + (j + 1)*h/2; o.rotate(L); o.scale(1, -1); o.rotate(-L); } else o.rotate(j*h);
+    o.drawImage(foldCan, -x0, -y0); o.restore();
+  }
+  o.restore();
+}
+function drawSpace(o, P){
+  const c = P.cz;
   if (c.gal > .999) return galaxy2d(o, P, c);
   const W = o.canvas.width, H = o.canvas.height, u = H, cx = W/2, cy = H/2, asp = W/H, k2 = 1/(2*c.tan);
   o.globalAlpha = Math.min(1, P.w.cosmos);

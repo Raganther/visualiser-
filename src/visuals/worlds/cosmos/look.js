@@ -12,6 +12,7 @@ uniform vec4 uCosTwin; uniform vec3 uCosTwinC;        // a twin star (size 0: no
 uniform vec4 uCosBelt, uCosHalo;                      // the belt (radius, half width, half height, near); the built ring (radius, half height, on, hue)
 uniform vec4 uCosB[6], uCosK[6], uCosA[6], uCosE[6];  // the nearest bodies: where, size; kind, hue, seed, spin; axis, ring; cities, aurora, storm, cloud
 uniform vec4 uCosT[6];                                // their atmospheres: thickness (share of the radius), hue (from the body's), density
+uniform vec4 uCzFold; uniform vec2 uCzFold2;         // the kaleidoscope: centre, ways, how far; the mirrors' angle, and a circle it keeps to (0: the whole view)
 uniform vec2 uCosFx;                                  // the treble (lightning) and the stabs (lava flares)
 uniform float uGal,uGalTan; uniform vec3 uGalX,uGalY,uGalZ,uGalEye,uGalA,uGalB;   // the galaxy view: how far in, its camera, the systems it's between`,
   functions: `
@@ -208,7 +209,17 @@ vec3 czGalaxy(vec2 sp){
   return col;
 }
 vec3 czSystem(vec2 sp);
+// the view folded into a kaleidoscope before the rays are traced, so it mirrors the space itself: mirrored wedges round
+// the subject, their edges on its axis; round the subject only inside a circle; part-way, a warp between the two
+vec2 czFoldSp(vec2 sp){
+  if(uCzFold.w<0.002) return sp;
+  vec2 p=sp-uCzFold.xy; float r=length(p), seg=6.28318/uCzFold.z, a=mod(atan(p.y,p.x)-uCzFold2.x,seg);
+  a=min(a,seg-a)+uCzFold2.x;
+  float k=uCzFold.w; if(uCzFold2.y>0.0) k*=smoothstep(uCzFold2.y*1.04,uCzFold2.y*0.96,r);
+  return mix(sp,uCzFold.xy+r*vec2(cos(a),sin(a)),k);
+}
 vec3 cosmos(vec2 sp){
+  sp=czFoldSp(sp);
   if(uGal>0.999) return czGalaxy(sp);
   vec3 col=czSystem(sp);
   return uGal>0.001?mix(col,czGalaxy(sp),uGal):col;

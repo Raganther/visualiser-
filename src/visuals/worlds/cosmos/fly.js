@@ -15,7 +15,13 @@ export const C = {on: false, sys: null, cam: makeCamera(), T: 0, kind: null, sub
   warp: 0, warpDir: 0, jumpTo: 0, lastJump: -1e9, lastType: null, lastDrop: undefined, pendingType: null, caption: '',
   light: {hue: .1, sat: .3, x: -.6, y: .4}, motion: {x: 0, y: 0, z: 0}, prevZ: [0, 0, 1], r: rng(4242),
   track: null, galaxy: 0, armNext: [0, 1, 0], since: 0,
-  tf: 0, ts: 0, build: 0, building: false, prog: 0, fizzle: 0, stretch: 0, fovKick: 0, calm: false, beatPh: 0, monOn: false, holdUntil: -1};
+  tf: 0, ts: 0, build: 0, building: false, prog: 0, fizzle: 0, stretch: 0, fovKick: 0, calm: false, beatPh: 0, monOn: false, holdUntil: -1,
+  fold: {amt: 0, n: 6, local: false, bars: 0, hand: 0}};   // the view folded into a kaleidoscope: how far, how many ways, round the subject only; by hand
+// a drop can fold the view for a few bars: more ways the more intense the music, sometimes only round the subject
+export function openFold(){
+  const f = C.fold, CZ = TUNE.cosmos.fold, ns = CZ.n;
+  f.n = ns[Math.min(ns.length - 1, Math.floor((C.lastT ?? .5)*ns.length*.999 + C.r()*.8))]; f.local = C.r() < CZ.localChance; f.bars = CZ.bars;
+}
 // a shot picked by hand holds the camera for a while: the music doesn't take it straight back
 export const hold = secs => { C.holdUntil = C.T + secs; };
 const held = () => C.T < C.holdUntil;
@@ -93,8 +99,9 @@ function onSection(ty, T){
 // the drop: out of the build with a jump, or a sudden pull back to the whole system
 function release(T){
   if (held()) return;
-  const CZ = TUNE.cosmos; C.building = false; C.prog = 0; C.calm = false;
-  const full = C.prog > .85;   // the biggest drops (after a full build) go out to the galaxy, or to a black hole
+  const CZ = TUNE.cosmos, full = C.prog > .85;   // the biggest drops (after a full build) go out to the galaxy, or to a black hole
+  C.building = false; C.prog = 0; C.calm = false;
+  if (C.r() < CZ.fold.dropChance) openFold();   // and some fold the view into a kaleidoscope for a couple of bars
   if (full && C.T - C.lastJump > CZ.jumpGapSecs && C.r() < CZ.galaxyChance) return galaxyTrip(sysIndex(C.galaxy, 2, C.armNext[2]++));
   if (C.T - C.lastJump > CZ.jumpGapSecs && (full || C.r() < CZ.dropJump)) {
     let k = C.armNext[2];
@@ -195,6 +202,7 @@ export function fly(dt, x){
   }
   if (C.warpDir === -1 && (C.warp -= dt/CZ.warpDown) <= 0) { C.warp = 0; C.warpDir = 0; }
   C.fovKick *= Math.exp(-dt*1.2);
+  const f = C.fold, fo = f.hand ? 1 : f.bars > 0 && !G.phase ? 1 : 0; f.amt += (fo - f.amt)*Math.min(1, dt*TUNE.cosmos.fold.ease);
   const g = SHOTS[C.kind].goal(ctx(), C.shot, C.st), k = CZ.k[C.kind]*(.6 + .8*x.ts)*(C.calm ? CZ.quietSlow : 1);
   g.fov = (g.fov/55)*CZ.fov*(1 - CZ.pushNarrow*C.stretch) + 40*C.warp + C.fovKick - CZ.kick*(1 + C.build)*S.beat*x.react;   // the kick nudges the view in, harder in a build
   follow(cam, g, mdt, k, k*CZ.lookK);
@@ -202,6 +210,7 @@ export function fly(dt, x){
 }
 export function flyBeat(pos){
   C.beatPh = 0;
+  if (pos === 0 && C.fold.bars > 0) C.fold.bars--;   // a fold from a drop closes after its bars
   if (!C.on || !C.sys || pos !== 0 || C.building || C.calm || held()) return;
   if (++C.bars >= TUNE.cosmos.shotBars && !C.warpDir) nextShot(C.lastT ?? .5);
 }

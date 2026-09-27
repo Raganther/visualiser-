@@ -277,6 +277,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, `push` (a build), `belt` (through an asteroid belt, the rocks rushing past) and `skim` (low over a solid world's surface, its horizon curving ahead). The camera is pushed out of any body it gets too near (for a skim, only just above the surface). The track's shape leads (`TUNE.cosmos`):
   - **A build:** the tension's quick average (`buildFast`) pulls ahead of its slow one (`buildSlow`). The camera is drawn toward the biggest world near by; how close it gets follows how far the build has got, not the clock. The view narrows and the stars start to stretch. A build that fades for `fizzleSecs` lets the camera go.
   - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`). The biggest drops, after a full build, go out to the **galaxy** (`galaxyChance`) or to a black hole. On the galaxy trip, the system falls away to a point on its arm; the camera takes in the whole spiral (three arms in the moods' colours, a bright core, where it's been and where it's going) for `galHoldSecs`, then dives to the next system's point and arrives there.
+  - **The kaleidoscope** (`C.fold`, `TUNE.cosmos.fold`): some drops (`dropChance`) fold the view for `bars` bars, more ways the more intense the music (`n`), sometimes only in a circle round the subject (`localChance`, `localR` of its radii). The fold is applied to the view before the rays are traced (`czFoldSp`, in the world and its front plane alike), so it mirrors the space itself: wedges round the subject, with the star in the middle of the mirrored wedge so it repeats round the planet as a crown, turning slowly (`turn`). Part-way open it's a warp between the two. Simple mode draws the cosmos aside and lays it back as turned and mirrored wedges. The caption adds "folded six ways".
   - **The quiet:** no kick for `quietSecs` drifts or circles, slower. The kick coming back moves on at the next bar.
   - **A new section** goes to a system on the arm that suits it: another system, or sometimes another body when it's already on the right arm (`newSystem`). The first section owns where the camera already is. A returning section goes back to its system and body (remembered on the section type).
   - **Arriving at a set piece** (twin stars, a pulsar, a black hole), it circles it first.
@@ -316,6 +317,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - 1–7 pick shots (7 is the belt), and S skims;
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
   - B goes to the next system with an asteroid belt (unless this one has one) and flies through it;
+  - K folds the view: the whole view, then only round the subject, then back to the music's;
   - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes
@@ -461,6 +463,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
     - it skims a surface (just above it);
     - it goes out to the galaxy and dives into another system;
     - a centrepiece stands as the monument the camera circles;
+    - the kaleidoscope folds the view, round the subject too, and closes;
     - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.

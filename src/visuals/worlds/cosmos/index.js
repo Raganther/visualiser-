@@ -9,6 +9,7 @@ import { TUNE } from '../../../tuning.js';
 import { KIND, STAR, makeSystem, nameOf, sysIndex } from './system.js';
 import { GLSL } from './look.js';
 import { draw2d } from './draw2d.js';
+const WAYS = {3: 'three ways', 4: 'four ways', 6: 'six ways', 8: 'eight ways'};
 
 const {add, sub, mul, dot, len} = V;
 const N = 6;   // bodies drawn at once (the shader's arrays)
@@ -32,10 +33,12 @@ export default {
       const i = sysIndex(C.galaxy, a, 150 + k); if (i !== C.sys.idx && has(makeSystem(i))) return jump(i);
     }
   },
-  caption: () => C.caption,
+  caption: () => C.caption + (C.fold.amt > .5 ? `, folded ${WAYS[C.fold.n] || C.fold.n + ' ways'}` : ''),
+  // the lab's K: the kaleidoscope by hand, off (the music's), whole view, round the subject
+  fold(mode){ const f = C.fold; f.hand = mode; if (mode) { f.local = mode === 2; if (!f.n) f.n = 6; } },
   info: () => ({shot: C.kind, system: C.sys && C.sys.idx, arm: C.sys && C.sys.arm, star: C.sys && C.sys.sun.type, belt: !!(C.sys && C.sys.belt),
     halo: !!(C.sys && C.sys.halo), subject: nameOf(C.subj, C.sys), caption: C.caption, warp: C.warp, building: C.building, prog: C.prog,
-    calm: C.calm, mon: C.monOn, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
+    calm: C.calm, mon: C.monOn, fold: C.fold.amt, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
     near: C.subj ? len(sub(C.cam.pos, C.subj.p))/C.subj.r : 99, eyeR: Math.hypot(C.cam.pos[0], C.cam.pos[2]), eyeY: C.cam.pos[1], beltR: C.sys && C.sys.belt ? C.sys.belt.R : 0,
     clear: C.sys ? Math.min(...[C.sys.sun, ...C.sys.bodies].map(b => len(sub(C.cam.pos, b.p))/b.r)) : 99}),   // how near a body the camera is (in its radii)
   step(dt, x){ if (C.on) fly(dt, x); },
@@ -74,6 +77,13 @@ export default {
     const sj = C.subj || sun, srel = sub(sj.p, cam.pos), sz = dot(srel, cam.Z), asp = x.asp || 16/9;
     const fx = sz > sj.r ? dot(srel, cam.X)*k2/sz : 0, fy = sz > sj.r ? dot(srel, cam.Y)*k2/sz : 0;
     this.focus = sz > sj.r && Math.abs(fx) < asp*.45 && Math.abs(fy) < .45 && !G.on ? {x: fx, y: fy, r: sj.r*k2/sz} : null;
+    // the kaleidoscope: centred on the subject (or the middle), the star in the middle of the mirrored wedge, so it repeats
+    // round the subject as a crown (or, filming the star, the wedge on its axis), turning slowly
+    const f = C.fold, fc = this.focus || {x: 0, y: 0, r: .1}, sz2 = dot(sRel, cam.Z), h = Math.PI/f.n;
+    const toStar = sj !== sun && sz2 > sun.r ? Math.atan2(dot(sRel, cam.Y)*k2/sz2 - fc.y, dot(sRel, cam.X)*k2/sz2 - fc.x)
+      : Math.atan2(dot(sun.axis || [0, 1, 0], cam.Y), dot(sun.axis || [0, 1, 0], cam.X));
+    P.cz.fold = [fc.x, fc.y, f.n, f.amt];
+    P.cz.fold2 = [toStar - h/2 + x.t*TUNE.cosmos.fold.turn, f.local ? Math.max(.08, fc.r*TUNE.cosmos.fold.localR) : 0];
     // a centrepiece stands in the space as a vast monument (the mesh objects read P.anchor): where and how big it looks
     monument(P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));
     if (C.monOn) {
@@ -88,6 +98,7 @@ export default {
     glsl: `
 float czFront(vec2 sp){
   if(uGal>0.5) return 0.0;
+  sp=czFoldSp(sp);
   vec3 d=normalize(uCosZ+(uCosX*sp.x+uCosY*sp.y)*2.0*uCosTan); float fc=0.0;
   for(int i=0;i<6;i++){ vec4 B=uCosB[i]; float b=dot(B.xyz,d); if(B.w<=0.0||b<=0.0) continue;
     fc=max(fc,smoothstep(B.w*1.01,B.w*0.97,length(B.xyz-d*b))); }
@@ -106,6 +117,7 @@ float czFront(vec2 sp){
     gl.uniform4fv(u.uCosSun, c.sun); gl.uniform3fv(u.uCosSunC, c.sunC); gl.uniform3fv(u.uCosAxis, c.axis); gl.uniform4fv(u.uCosStar, c.star);
     gl.uniform4fv(u.uCosTwin, c.twin); gl.uniform3fv(u.uCosTwinC, c.twinC); gl.uniform4fv(u.uCosBelt, c.belt); gl.uniform4fv(u.uCosHalo, c.halo);
     gl.uniform4fv(u['uCosB[0]'], c.B); gl.uniform4fv(u['uCosK[0]'], c.K); gl.uniform4fv(u['uCosA[0]'], c.A); gl.uniform4fv(u['uCosE[0]'], c.E); gl.uniform4fv(u['uCosT[0]'], c.T);
+    gl.uniform4fv(u.uCzFold, c.fold); gl.uniform2fv(u.uCzFold2, c.fold2);
     gl.uniform2fv(u.uCosFx, c.fx);
     gl.uniform1f(u.uGal, c.gal);
     if (c.gal > 0) { const g = c.galCam; gl.uniform3fv(u.uGalX, g.X); gl.uniform3fv(u.uGalY, g.Y); gl.uniform3fv(u.uGalZ, g.Z); gl.uniform3fv(u.uGalEye, g.pos);
