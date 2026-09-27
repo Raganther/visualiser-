@@ -76,7 +76,8 @@ vec3 sfGround(vec3 ro,vec3 rd,float t){
   sh=clamp(sh,0.0,1.0);
   vec3 sky=hsv(hue+0.56,0.4,0.5)*smoothstep(-0.2,0.3,uSfSun.y), col=c*(uCosSunC*0.8*dif*sh+sky*(0.35+0.25*n.y)+0.02);
   if(k>2.5&&k<3.5) col+=hsv(hue+0.03,0.9,1.0)*(smoothstep(8.0,0.0,v)+0.6*smoothstep(0.05,0.0,abs(czN(vec3(p.xz*0.08,2.0))-0.5)))*(0.7+0.5*uBass*uReact);   // lava in the valley and its cracks
-  if(uSfE.x>0.5) col+=vec3(1.0,0.75,0.4)*step(0.8,czH(floor(vec3(p.xz*0.5,3.0))))*smoothstep(20.0,4.0,v)*uSfE.w*(0.6+0.4*uBeat);   // a city's lights along the valley, at night
+  if(uSfE.x>0.5){ float blk=smoothstep(0.55,0.75,czN(vec3(p.xz*0.02,4.0)))*smoothstep(28.0,4.0,p.y)*smoothstep(0.5,0.2,slope);   // a city: districts of lights over the valley floor and lower slopes, at night
+    col+=vec3(1.0,0.75,0.4)*(step(0.72,czH(floor(vec3(p.xz*0.6,3.0))))+0.25)*max(blk,smoothstep(14.0,4.0,v))*uSfE.w*(0.6+0.4*uBeat); }
   return col;
 }
 vec3 czSurface(vec2 sp){
@@ -91,7 +92,9 @@ vec3 czSurface(vec2 sp){
     col=mix(hsv((uHue+uSfK.z)+0.56,0.6,0.12),sfSky(normalize(rr),wp),0.55)+uCosSunC*pow(max(dot(normalize(rr),uSfSun),0.0),200.0)*2.0; t=tw; hit=1.0; }
   else if(hit>0.5) col=sfGround(ro,rd,t);
   if(hit>0.5){ float fog=1.0-exp(-t*0.0021);
-    col=mix(col,sfSky(normalize(vec3(rd.x,max(rd.y,0.01),rd.z)),ro),fog); }
+    col=mix(col,sfSky(normalize(vec3(rd.x,max(rd.y,0.01),rd.z)),ro),fog);
+    float low=exp(-max(ro.y+rd.y*t+1.5,0.0)/7.0), dawn=exp(-abs(uSfSun.y-0.05)*6.0)*0.8+0.15;   // mist lying in the valleys, thickest at dawn and dusk
+    col=mix(col,mix(vec3(0.75,0.78,0.85),vec3(1.0,0.7,0.5),exp(-abs(uSfSun.y)*8.0)*0.6)*(0.25+0.75*smoothstep(-0.15,0.2,uSfSun.y)),low*dawn*smoothstep(15.0,120.0,t)*0.7); }
   return mix(col,vec3(0.85,0.87,0.9)*(0.35+0.65*smoothstep(-0.1,0.3,uSfSun.y)),uSfHaze);   // the cloud layer passed through on the way down or up
 }`,
 };

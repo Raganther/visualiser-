@@ -80,9 +80,10 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
     cz.fold(2); __step(30*f); out.fold.local = cz.info().fold; cz.fold(0); __step(90*f); out.fold.closed = cz.info().fold;
     cz.dress(2); __step(90*f); out.dress = {cage: cz.info().cage, motes: cz.info().motes, lit: lit()};   // the subject's layers
     J.lastDrop = (J.lastDrop || 0) + 1; __step(6); out.dress.burst = cz.info().burst; cz.dress(0);
-    cz.land(); cz.hold(9999); let k = 0; while (cz.info().surf < 1 && k++ < 80) __step(30);   // landing: down into a world's valleys, and back out
-    __step(120); const ld = cz.info(); out.land = {surf: ld.surf, phase: ld.sfPhase, alt: ld.sfAlt, cap: ld.caption, lit: lit()};
-    cz.takeoff(); k = 0; while (cz.info().sfPhase && k++ < 80) __step(30); out.land.back = {surf: cz.info().surf, phase: cz.info().sfPhase, cap: cz.info().caption};
+    // landing: down into a world's valleys, and back out (in 50 ms frames, the most a frame steps: the ground is slow to draw in software)
+    cz.land(); cz.hold(9999); let k = 0; while (cz.info().surf < 1 && k++ < 120) __step(10, 50);
+    __step(40, 50); const ld = cz.info(); out.land = {surf: ld.surf, phase: ld.sfPhase, alt: ld.sfAlt, cap: ld.caption, lit: lit()};
+    cz.takeoff(); k = 0; while (cz.info().sfPhase && k++ < 120) __step(10, 50); out.land.back = {surf: cz.info().surf, phase: cz.info().sfPhase, cap: cz.info().caption};
     return out;
   }, {gl, thumb: THUMB});
   const errors = await page.errors();
