@@ -10,6 +10,7 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `check-visual`: one visual alone in both renderers, with stills (`tools/look.mjs`);
   - `track-run`: a real track through the page offline, and what the grid and Journey did (`tools/track-run.mjs`);
   - `taste-review`: the user's 👍 / 👎 moments from the published page, turned into `docs/taste.md` and tuning.
+  - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder).
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
@@ -38,8 +39,10 @@ tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 tools/look.mjs             one visual alone in both renderers, saved as stills (the check-visual skill)
 tools/track-run.mjs        a real track through the page offline, with a summary (the track-run skill)
-.claude/skills/            publish, check-visual, track-run, taste-review
+.claude/skills/            publish, check-visual, track-run, taste-review, next-idea
 docs/taste.md              the user's taste: principles with their evidence, open questions, a log
+docs/ideas.md              the backlog of ideas to build, in the user's order (the next-idea skill takes the top one)
+tools/strip.mjs            a motion strip and measures of feel (brightness, lit, detail, motion, flashes, things on screen)
 ```
 
 ## How it draws

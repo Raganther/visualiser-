@@ -20,7 +20,7 @@ export function composeSegment(seg, plan){
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
     const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
     const j = m && !m.world ? plan.masks.indexOf(m.object) : -1;   // an object's mask applies only while it's on screen (uMaskOn)
-    const mask = !m ? '' : m.world ? `    { float m=frontCov(sp); t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`
+    const mask = !m ? '' : m.world ? `    { float m=${m.inside ? 'mix(1.0,frontCov(sp),uFrontOn)' : 'frontCov(sp)'}; t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`   // (inside a front that isn't on screen: all of it)
       : `    { float m=texture2D(uMask${j},vUv).r; t*=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j}); }\n`;
     const at = it.fit ? 'fuv' : 'uv';   // fit: shrunk round the world's subject, the glow's centre landing on it
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
@@ -34,7 +34,7 @@ ${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t
   }).join('\n');
   return PREC + `
 varying vec2 vUv;
-uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1;
+uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}

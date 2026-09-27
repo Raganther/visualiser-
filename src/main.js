@@ -31,6 +31,7 @@ import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
 import { showNow } from './ui/panel.js';
 import { tasteFrame } from './ui/taste.js';
+import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
 import { S } from './state.js';
 import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
@@ -124,7 +125,9 @@ function render(now){
     frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   P.cx += (CTX.focus.x - P.cx)*CTX.focus.k; P.cy += (CTX.focus.y - P.cy)*CTX.focus.k;   // the glow centres on the planet a world films
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
-  P.fit = [CTX.focus.x, CTX.focus.y, Math.min(TUNE.scene.fitMax, Math.max(1, TUNE.scene.fitSpan/Math.max(CTX.focus.r, .01)))];   // and can be shrunk into it
+  // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
+  P.frontOn = ['land', 'space', 'aurora', 'city'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
+  P.fit = [CTX.focus.x, CTX.focus.y, P.frontOn ? Math.min(TUNE.scene.fitMax, Math.max(1, TUNE.scene.fitSpan/Math.max(CTX.focus.r, .01))) : 1];   // and can be shrunk into it
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP, asp};

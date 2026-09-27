@@ -2,7 +2,7 @@
 // front; the stars as fixed directions turned with the camera. Plainer set pieces: a black hole's shadow, bright edge and
 // disk; a pulsar's beams; twin stars; the built ring as a band; the belt's jagged, tumbling rocks and puffs of its gas,
 // from pools that follow the camera; oceans, storms, city lights and auroras on the planets.
-import { hc } from '../../../util.js';
+import { hc, hsv2rgb } from '../../../util.js';
 import { TUNE } from '../../../tuning.js';
 import { V, around } from '../../../scene/camera.js';
 import { GAL_ARM, rng } from './system.js';
@@ -254,11 +254,12 @@ function drawSpace(o, P){
       const ah = hue + at[1], dn = at[2], ox = lx*R*.18, oy = -ly*R*.18, Ro = R*(1 + at[0]*2.6);
       o.save(); o.globalCompositeOperation = 'lighter';
       const gi = o.createRadialGradient(it.x + ox, it.y + oy, R*.55, it.x, it.y, R);
-      gi.addColorStop(0, hc(ah, 55, 60, 0)); gi.addColorStop(1, hc(ah, 55, 60, .4*dn*Math.max(lit, .25))); o.fillStyle = gi;
+      const air = hsv2rgb(ah, .55, 1).map((v, i) => Math.round(Math.min(1, v*c.sunC[i]*.62)*255)).join(','), ac = al => `rgba(${air},${al})`;   // the air's colour, lit by the star (as in WebGL)
+      gi.addColorStop(0, ac(0)); gi.addColorStop(1, ac(.4*dn*Math.max(lit, .25))); o.fillStyle = gi;
       o.beginPath(); o.arc(it.x, it.y, R, 0, 7); o.fill();
       const go = o.createRadialGradient(it.x + ox, it.y + oy, R*.96, it.x + ox*.4, it.y + oy*.4, Ro);
       const back = Math.max(0, dot(L, c.Z));   // the star behind it: a ring of light all round
-      go.addColorStop(0, hc(ah, 60, 68, Math.min(.9, dn*(.2 + .45*lit + .6*back)))); go.addColorStop(.35, hc(ah + .9, 70, 55, .15*dn*(1 + back))); go.addColorStop(1, hc(ah, 60, 60, 0));
+      go.addColorStop(0, ac(Math.min(.9, dn*(.2 + .45*lit + .6*back)))); go.addColorStop(.35, `rgba(255,120,60,${.12*dn*(1 + back)})`); go.addColorStop(1, ac(0));   // (reddening towards its edge, like a sunset)
       o.fillStyle = go; o.beginPath(); o.arc(it.x, it.y, Ro + Math.abs(ox) + Math.abs(oy), 0, 7); o.arc(it.x, it.y, R*.98, 0, 7, true); o.fill('evenodd');
       o.restore(); }
     ring(false);
