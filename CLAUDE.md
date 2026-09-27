@@ -20,7 +20,7 @@ index.html, styles.css     markup and styles; index.html also handles ?seed= and
 src/main.js                boot and the render loop: builds P each frame and hands it to a renderer
 src/state.js               shared buffers, and S: the few variables several modules reassign (S.beat, S.active, S.MT …)
 src/tuning.js              TUNE: every feel number, one commented line each
-src/lab.js, src/lab/       ?tune= and ?lab= experiment hooks (src/lab/example.js shows a lab)
+src/lab.js, src/lab/       ?tune= and ?lab= experiment hooks (src/lab/example.js shows a lab; cosmos, terrain, skull, objects)
 src/presets.js             SPEC (settings and sliders, partly from the registry), movers, BASE presets/recipes
 src/util.js                $, maths, colour (hc, hsv2rgb), noise
 src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
@@ -274,18 +274,26 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **The monument** (`sys.mon`): where a centrepiece stands, in orbit round the first planet.
 
   `galPos(idx)` places each system on its arm's spiral, for the galaxy view.
-- **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, `push` (a build), `belt` (through an asteroid belt, the rocks rushing past) and `skim` (low over a solid world's surface, its horizon curving ahead). The camera is pushed out of any body it gets too near (for a skim, only just above the surface). The track's shape leads (`TUNE.cosmos`):
+- **`fly.js`: the camera and the music.** The camera (`scene/camera.js`, a leaf module meant for other worlds later) follows each shot's goal on critically damped springs, so any change of shot eases in and out. The shots are `orbit`, `approach`, `flyby`, `reveal` (the whole system), `eclipse` (the subject in front of the star), `drift`, `push` (a build), `belt` (through an asteroid belt, the rocks rushing past), `skim` (low over a solid world's surface, its horizon curving ahead) and `sunrise` (just above a planet's night side near the terminator, looking along its edge as the star rises over it). A shot can say which way is up (`up`): skim and sunrise use the planet's, so the horizon lies level. The camera is pushed out of any body it gets too near (for a skim or a sunrise, only just above the surface). The track's shape leads (`TUNE.cosmos`):
   - **A build:** the tension's quick average (`buildFast`) pulls ahead of its slow one (`buildSlow`). The camera is drawn toward the biggest world near by; how close it gets follows how far the build has got, not the clock. The view narrows and the stars start to stretch. A build that fades for `fizzleSecs` lets the camera go.
   - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`). The biggest drops, after a full build, go out to the **galaxy** (`galaxyChance`) or to a black hole. On the galaxy trip, the system falls away to a point on its arm; the camera takes in the whole spiral (three arms in the moods' colours, a bright core, where it's been and where it's going) for `galHoldSecs`, then dives to the next system's point and arrives there.
   - **The kaleidoscope** (`C.fold`, `TUNE.cosmos.fold`): some drops (`dropChance`) fold the view for `bars` bars, more ways the more intense the music (`n`), sometimes only in a circle round the subject (`localChance`, `localR` of its radii). The fold is applied to the view before the rays are traced (`czFoldSp`, in the world and its front plane alike), so it mirrors the space itself: wedges round the subject, with the star in the middle of the mirrored wedge so it repeats round the planet as a crown, turning slowly (`turn`). Part-way open it's a warp between the two. Simple mode draws the cosmos aside and lays it back as turned and mirrored wedges. The caption adds "folded six ways".
   - **The subject's layers** (`C.dress`, `TUNE.cosmos.dress`): some sections dress the planet being filmed (kept with the section, so it comes back the same): a wire cage of meridians and parallels just outside it (`czCage`, its far side faint like an x-ray), turning a notch each beat, with a band of light running down it each bar; and a ring of motes round it, flaring on stabs. A drop bursts the cage outwards before it re-forms. Simple mode draws the cage as ellipses and the motes as dots.
   - **The quiet:** no kick for `quietSecs` drifts or circles, slower. The kick coming back moves on at the next bar.
   - **A new section** goes to a system on the arm that suits it: another system, or sometimes another body when it's already on the right arm (`newSystem`). The first section owns where the camera already is. A returning section goes back to its system and body (remembered on the section type).
+  - **Set pieces on the moments that matter:** a new section opens on an eclipse or a sunrise about `showpiece` of the time (kept with the section), and a drop goes straight to one about `dropShowpiece` of the time.
   - **Arriving at a set piece** (twin stars, a pulsar, a black hole), it circles it first.
   - **A centrepiece coming in** stands in the space as a vast monument, and the camera goes to circle it.
   - **Otherwise** a new shot every `shotBars` bars: calm music floats and circles, intense music swoops close (through the belt and skimming surfaces more when it's intense).
   - **A shot picked by hand** holds the camera for `handSecs`, so the music doesn't take it straight back.
   - The kick nudges the view in, harder in a build, and the pace sets how quickly the camera moves.
+- **Landing** (`surface.js`, `TUNE.cosmos.land`): some sections (`chance`, kept with the section) land on one of the system's solid worlds; the lab's L lands on the world being filmed, T takes off, and `?lab=terrain` lands straight away.
+  - **The way down:** the camera skims in low, and inside `enterR` radii the view goes through the clouds (a whiteout, `uSfHaze`, hides the switch from space to ground over `fadeSecs`) and comes out high over the ground, descending. Taking off, it climbs back into the cloud (`exitAlt`) and comes out just above the world, pulling back.
+  - **The ground** (`czSurface`, ray-marched, the same height `sfH` in simple mode): ridged mountains stepped into strata (ledges and cliffs) on rocky and green worlds, smooth snow on ice worlds, basalt with lava glowing in the valleys and cracks on lava worlds, green land with the sea over the valleys on ocean worlds; snow high up; soft shadows from the sun; fading into the sky with distance, the ground curving away.
+  - **The river valley** winds along `sfPath`, and its floor is flat by construction, so the camera flies it safely whatever the noise does; soaring (`soar`) is above every peak.
+  - **The sky from below** (`sfSky`): its colour by the sun's height (blue by day, red at dusk, dark at night), the sun and its glow, clouds lit from below, stars at night, auroras over ice worlds at night, and cities' lights along the valley at night on worlds with cities. The sun's height follows the music (`sunLow` calm to `sunHigh` intense, over `sunSecs`), standing a little off the way ahead (`sunAz`).
+  - **The music:** it flies the valley (`valley`), a build climbs to soar over the peaks, a drop dives back into the valley and races along it (held for `diveSecs`), the kick nudges the view. While landed, the space camera's shots, builds and jumps wait; a section that goes to another system takes off first, then jumps. The trails centre on the sun while it's in view. Its caption: "Low along a valley of …", "Soaring over the peaks of …".
+  - **Simple mode:** the sky by the sun's height, the sun, stars, and six ridges of the same ground as silhouettes far to near, darker near and fading into the sky far off; the sea, lava's glow and cities' lights.
 - **The layers join the space.** The camera's movement (`motion`: how the far view slides, and how fast the camera closes in) goes into the shared context (`CTX.fly`). It becomes wind (`TUNE.ctx.flyWind`), so the comets, flow and trails slide with the view, and trail zoom (`flyZoom`), so the glow streams outwards as the camera flies in. The star is the world's `light`, so objects are lit from where it is on screen. A world's `motion` and `light` are set in its `params` while it's on screen.
 - **Orbits** (`layers/orbit.js`, a Journey layer, best over a world): ten flares on tilted orbits round the world's subject (`P.focus`: the planet being filmed, space's planet, or else the trails' centre), leaving rings and spirals in the trails. They pass behind the planet, tighten and quicken as the tension builds, and a drop flings them wide before they settle back.
 - **Its front plane is the planets' discs** (`czFront`; in simple mode, their circles), not the star. So `between` sends the glow behind the planets, `split` puts the accent behind them, and `held` shows the glow only inside them. Its subject is the world's `focus`, so the glow centres on the planet being filmed.
@@ -316,11 +324,12 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **Narration.** A world with a `caption()` (the cosmos: "Approaching a ringed gas giant", "Drawn towards a lava world", "Arriving at a hot star: …") shows it at the bottom left (`ui/caption.js`) while the world is on screen. The panel says how the camera follows the track.
 - **To look at it alone:** the "Cosmos" preset, or Solo on its slider. The camera still flies with the music without Journey.
 - **The lab** (`lab/cosmos.js`, `?lab=cosmos`, or the panel's switch) holds the cosmos on screen in Journey, with Journey's layers over it (`J.worldHold`, which Journey's director reads; media still wins), and adds keys (each holds the camera a while):
-  - 1–7 pick shots (7 is the belt), and S skims;
+  - 1–7 pick shots (7 is the belt), S skims, U watches a sunrise;
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
   - B goes to the next system with an asteroid belt (unless this one has one) and flies through it;
   - K folds the view: the whole view, then only round the subject, then back to the music's;
   - W dresses the subject: a wire cage, the cage and motes, the motes, then back to the music's;
+  - L lands on the world being filmed (or the biggest solid one), T takes off;
   - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes
@@ -463,11 +472,12 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - with the camera held, in both renderers:
     - it visits a black hole, a pulsar, twin stars and a belt;
     - it flies through the belt (inside it);
-    - it skims a surface (just above it);
+    - it skims a surface (just above it), and watches a sunrise just above a planet's edge;
     - it goes out to the galaxy and dives into another system;
     - a centrepiece stands as the monument the camera circles;
     - the kaleidoscope folds the view, round the subject too, and closes;
     - the subject wears a wire cage and a ring of motes, and a drop bursts the cage;
+    - it lands on a world, flies over its ground, and climbs back out to space;
     - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.

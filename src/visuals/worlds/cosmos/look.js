@@ -231,6 +231,7 @@ vec3 czGalaxy(vec2 sp){
   return col;
 }
 vec3 czSystem(vec2 sp);
+vec3 czSurface(vec2 sp);
 // the view folded into a kaleidoscope before the rays are traced, so it mirrors the space itself: mirrored wedges round
 // the subject, their edges on its axis; round the subject only inside a circle; part-way, a warp between the two
 vec2 czFoldSp(vec2 sp){
@@ -242,6 +243,8 @@ vec2 czFoldSp(vec2 sp){
 }
 vec3 cosmos(vec2 sp){
   sp=czFoldSp(sp);
+  if(uSurf>0.999) return czSurface(sp);   // landed: the world's own ground and sky
+  if(uSurf>0.001) return mix(czSystem(sp),czSurface(sp),uSurf);
   if(uGal>0.999) return czGalaxy(sp);
   vec3 col=czSystem(sp);
   return uGal>0.001?mix(col,czGalaxy(sp),uGal):col;

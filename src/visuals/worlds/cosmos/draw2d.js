@@ -6,6 +6,7 @@ import { hc } from '../../../util.js';
 import { TUNE } from '../../../tuning.js';
 import { V, around } from '../../../scene/camera.js';
 import { GAL_ARM, rng } from './system.js';
+import { sfH } from './surface.js';
 
 const {add, sub, mul, dot, len, norm} = V;
 const STARS = (() => { const r = rng(99), a = []; for (let i = 0; i < 500; i++) a.push(norm([r()*2 - 1, r()*2 - 1, r()*2 - 1]), r()); return a; })();
@@ -51,8 +52,9 @@ function galaxy2d(o, P, c){
 const foldCan = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 export function draw2d(o, P){
   const c = P.cz; if (!c) return;
-  const [fx, fy, n, amt] = c.fold || [0, 0, 6, 0];
-  if (amt < .02 || !foldCan) return drawSpace(o, P);
+  const [fx, fy, n, amt] = c.fold || [0, 0, 6, 0], sf = c.sf;
+  if (sf && sf.amt > .999) return surface2d(o, P, c, 1);   // landed: the world's ground and sky
+  if (amt < .02 || !foldCan) { drawSpace(o, P); if (sf) surface2d(o, P, c, sf.amt); return; }
   const W = o.canvas.width, H = o.canvas.height, f = foldCan.getContext('2d');
   if (foldCan.width !== W || foldCan.height !== H) { foldCan.width = W; foldCan.height = H; }
   f.setTransform(1, 0, 0, 1, 0, 0); f.globalAlpha = 1; f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, W, H);
@@ -67,6 +69,43 @@ export function draw2d(o, P){
   }
   o.restore();
 }
+// on the ground, in simple mode: the sky by the sun's height, the sun, stars at night, and ridges of the same ground as
+// silhouettes far to near, each fading into the sky with distance; the sea in the valleys, lava's glow, cities at night
+const SKYDOTS = (() => { const r = rng(21), a = []; for (let i = 0; i < 160; i++) a.push(r(), r()*.55, r()); return a; })();
+const GROUND = {0: [.07, 30, 32], 2: [.55, 20, 82], 3: [.02, 25, 9], 4: [.28, 40, 28]};
+function surface2d(o, P, c, a){
+  const s = c.sf, W = o.canvas.width, H = o.canvas.height, u = H, k2 = 1/(2*s.tan), [kind, sd, h0, wl] = s.K, hue = P.hue + h0;
+  const e = Math.asin(Math.max(-1, Math.min(1, s.sun[1]))), day = sst(-.12, .25, e), dusk = Math.exp(-Math.abs(e - .02)*9), night = s.E[3];
+  const {X, Y, Z, eye} = s, prj = rel => { const z = dot(rel, Z); return z > .01 ? {x: W/2 + dot(rel, X)*k2/z*u, y: H/2 - dot(rel, Y)*k2/z*u, z} : null; };
+  const fz = norm([Z[0], 0, Z[2]]), hzn = prj([fz[0]*1e4, 0, fz[2]*1e4]), hy = hzn ? hzn.y : H*.4;
+  o.save(); o.globalAlpha = a;
+  const hor = `hsl(${(((hue + .56)%1 + 1)%1*360).toFixed(0)},${(35 - dusk*10).toFixed(0)}%,${(8 + 60*day).toFixed(0)}%)`;
+  const g = o.createLinearGradient(0, 0, 0, Math.max(1, hy));
+  g.addColorStop(0, hc(hue + .58, 65, 3 + 30*day, 1)); g.addColorStop(1, hor); o.fillStyle = g; o.fillRect(0, 0, W, H);
+  if (dusk > .05) { const gd = o.createLinearGradient(0, hy - H*.25, 0, hy); gd.addColorStop(0, 'rgba(255,110,50,0)'); gd.addColorStop(1, `rgba(255,110,50,${dusk*.55})`); o.fillStyle = gd; o.fillRect(0, hy - H*.25, W, H*.25); }
+  if (night > .05) { o.fillStyle = `rgba(230,235,255,${night*.8})`; for (let i = 0; i < SKYDOTS.length; i += 3) o.fillRect(SKYDOTS[i]*W, SKYDOTS[i + 1]*hy, 1.5, 1.5); }
+  const sp = prj(s.sun.map(v => v*1e4));
+  if (sp) { const sc = c.sunC.map(v => Math.round(Math.min(1, v)*255)).join(','), gr = o.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, u*.35);
+    gr.addColorStop(0, `rgba(${sc},.9)`); gr.addColorStop(.06, `rgba(${sc},.5)`); gr.addColorStop(1, `rgba(${sc},0)`); o.fillStyle = gr; o.fillRect(sp.x - u*.35, sp.y - u*.35, u*.7, u*.7); }
+  const gc = GROUND[kind] || GROUND[0];
+  if (wl > -50) { const wy = prj([fz[0]*2e3, wl - eye[1], fz[2]*2e3]); o.fillStyle = hc(hue + .56, 55, 8 + 14*day, 1); o.fillRect(0, wy ? wy.y : hy, W, H); }
+  for (const Dd of [700, 380, 200, 100, 48, 22]) {
+    const fog = 1 - Math.exp(-Dd*.0021), lit = .25 + .75*day, pts = [];
+    for (let j = 0; j <= 96; j++) {
+      const sx = (j/96 - .5)*W/H*1.3, d = norm([Z[0] + X[0]*sx*2*s.tan, 0, Z[2] + X[2]*sx*2*s.tan]), px = eye[0] + d[0]*Dd, pz = eye[2] + d[2]*Dd;
+      const q = prj([px - eye[0], Math.max(sfH(px, pz, kind, sd), wl > -50 ? wl : -99) - eye[1], pz - eye[2]]); if (q) pts.push(q);
+    }
+    if (pts.length < 2) continue;
+    o.beginPath(); o.moveTo(pts[0].x, H); for (const q of pts) o.lineTo(q.x, q.y); o.lineTo(pts[pts.length - 1].x, H); o.closePath();
+    o.fillStyle = `hsl(${(((gc[0] + hue)%1 + 1)%1*360).toFixed(0)},${(gc[1]*(1 - fog*.7)).toFixed(0)}%,${(gc[2]*lit*(1 - fog)*(.45 + .55*fog/.8) + (8 + 55*day)*fog*.85).toFixed(0)}%)`; o.fill();   // nearer: darker; farther: into the sky's colour
+    if (kind === 3 && Dd < 150) { o.strokeStyle = hc(hue + .03, 90, 55, .5*(1 - fog)); o.lineWidth = Math.max(1, u/300); o.stroke(); }
+    if (s.E[0] > .5 && night > .2 && Dd < 250) { o.fillStyle = `rgba(255,190,110,${night*(1 - fog)*.8})`; const r = rng(Dd);
+      for (const q of pts) if (r() < .35) o.fillRect(q.x, q.y + r()*u*.03, 2, 2); }
+  }
+  if (s.haze > .01) { o.fillStyle = `rgba(215,220,230,${s.haze})`; o.fillRect(0, 0, W, H); }
+  o.restore();
+}
+const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 function drawSpace(o, P){
   const c = P.cz;
   if (c.gal > .999) return galaxy2d(o, P, c);

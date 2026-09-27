@@ -4,12 +4,14 @@
 // the light the objects catch, and a centrepiece stands in the space as a monument (P.anchor, read by the mesh objects).
 import { hsv2rgb } from '../../../util.js';
 import { SHOTS, V, around } from '../../../scene/camera.js';
-import { C, G, flyBeat, fly, galaxyTrip, hold, jump, lightFrom, monument, startShot } from './fly.js';
+import { C, G, flyBeat, fly, galaxyTrip, hold, jump, land, lightFrom, monument, startShot, takeoff } from './fly.js';
 import { TUNE } from '../../../tuning.js';
 import { KIND, STAR, makeSystem, nameOf, sysIndex } from './system.js';
 import { GLSL } from './look.js';
+import { GLSL as SURF, SF } from './surface.js';
 import { draw2d } from './draw2d.js';
 const WAYS = {3: 'three ways', 4: 'four ways', 6: 'six ways', 8: 'eight ways'};
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 
 const {add, sub, mul, dot, len} = V;
 const N = 6;   // bodies drawn at once (the shader's arrays)
@@ -37,10 +39,12 @@ export default {
   // the lab's K: the kaleidoscope by hand, off (the music's), whole view, round the subject
   fold(mode){ const f = C.fold; f.hand = mode; if (mode) { f.local = mode === 2; if (!f.n) f.n = 6; } },
   // the lab's W: the subject's layers by hand: the music's, the cage, the cage and motes, the motes
+  // landing on a world (the subject, if solid, or the biggest solid one) and taking off again (the lab's L and T)
+  land(){ land(C.subj); }, takeoff(){ takeoff(); },
   dress(mode){ C.dress.hand = [null, {cage: 1, motes: 0}, {cage: 1, motes: 1}, {cage: 0, motes: 1}][mode] || null; },
   info: () => ({shot: C.kind, system: C.sys && C.sys.idx, arm: C.sys && C.sys.arm, star: C.sys && C.sys.sun.type, belt: !!(C.sys && C.sys.belt),
     halo: !!(C.sys && C.sys.halo), subject: nameOf(C.subj, C.sys), caption: C.caption, warp: C.warp, building: C.building, prog: C.prog,
-    calm: C.calm, mon: C.monOn, fold: C.fold.amt, cage: C.dress.cage, motes: C.dress.motes, burst: C.dress.burst, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
+    calm: C.calm, mon: C.monOn, fold: C.fold.amt, surf: SF.amt, sfPhase: SF.phase, sfAlt: SF.alt, sfMode: SF.mode, cage: C.dress.cage, motes: C.dress.motes, burst: C.dress.burst, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
     near: C.subj ? len(sub(C.cam.pos, C.subj.p))/C.subj.r : 99, eyeR: Math.hypot(C.cam.pos[0], C.cam.pos[2]), eyeY: C.cam.pos[1], beltR: C.sys && C.sys.belt ? C.sys.belt.R : 0,
     clear: C.sys ? Math.min(...[C.sys.sun, ...C.sys.bodies].map(b => len(sub(C.cam.pos, b.p))/b.r)) : 99}),   // how near a body the camera is (in its radii)
   step(dt, x){ if (C.on) fly(dt, x); },
@@ -86,6 +90,13 @@ export default {
       : Math.atan2(dot(sun.axis || [0, 1, 0], cam.Y), dot(sun.axis || [0, 1, 0], cam.X));
     P.cz.fold = [fc.x, fc.y, f.n, f.amt];
     // the subject's layers (a body among the drawn ones, not the star)
+    // on the ground: its camera, the sun, the world's kind and weather; the trails centre on the sun while it's in view
+    if (SF.amt > 0) {
+      const b = SF.body || {}, d = SF.sunDir, sz3 = dot(d, SF.Z), hue = P.pal[b.slot || 0] + (b.off || 0);
+      P.cz.sf = {amt: SF.amt, haze: SF.haze, eye: SF.pos, X: SF.X, Y: SF.Y, Z: SF.Z, tan: Math.tan(SF.fov*Math.PI/360), sun: d,
+        K: [SF.kind, SF.seed, hue, SF.kind === 4 ? 3 : -100], E: [b.city || 0, b.aurora || 0, .3 + (b.cloud || 0)*.5, 1 - sstep(-.12, .08, SF.sun)]};
+      if (SF.amt > .5) this.focus = sz3 > .3 ? {x: dot(d, SF.X)*k2/sz3, y: dot(d, SF.Y)*k2/sz3, r: .04} : null;
+    }
     const dr = C.dress, di = vis.findIndex(o => o.b === C.subj);
     P.cz.cage = [di >= 0 && (dr.cage > .01 || dr.motes > .01) ? di : -1, dr.cage, dr.motes, dr.burst];
     P.cz.cage2 = [dr.spin, ((dr.bar + Math.min(1, C.beatPh))/4) % 1];
@@ -97,13 +108,13 @@ export default {
       P.anchor = z < sys.mon.r*.6 ? {hide: true} : {pos: [dot(rel, cam.X)*k2/z, dot(rel, cam.Y)*k2/z], size: Math.min(1.6, sys.mon.r*k2/z/.81)};
     }
   },
-  glsl: {...GLSL, fn: 'cosmos'},
+  glsl: {uniforms: GLSL.uniforms + '\n' + SURF.uniforms, functions: GLSL.functions + '\n' + SURF.functions, fn: 'cosmos'},
   // its front plane, for scenes: the planets' discs (not the star), so the glow can pass behind them or be held inside them
   front: {
     fn: 'czFront',
     glsl: `
 float czFront(vec2 sp){
-  if(uGal>0.5) return 0.0;
+  if(uGal>0.5||uSurf>0.5) return 0.0;
   sp=czFoldSp(sp);
   vec3 d=normalize(uCosZ+(uCosX*sp.x+uCosY*sp.y)*2.0*uCosTan); float fc=0.0;
   for(int i=0;i<6;i++){ vec4 B=uCosB[i]; float b=dot(B.xyz,d); if(B.w<=0.0||b<=0.0) continue;
@@ -125,6 +136,9 @@ float czFront(vec2 sp){
     gl.uniform4fv(u['uCosB[0]'], c.B); gl.uniform4fv(u['uCosK[0]'], c.K); gl.uniform4fv(u['uCosA[0]'], c.A); gl.uniform4fv(u['uCosE[0]'], c.E); gl.uniform4fv(u['uCosT[0]'], c.T);
     gl.uniform4fv(u.uCzFold, c.fold); gl.uniform2fv(u.uCzFold2, c.fold2);
     gl.uniform4fv(u.uCzCage, c.cage); gl.uniform2fv(u.uCzCage2, c.cage2);
+    const sf = c.sf; gl.uniform1f(u.uSurf, sf ? sf.amt : 0);
+    if (sf) { gl.uniform1f(u.uSfHaze, sf.haze); gl.uniform3fv(u.uSfEye, sf.eye); gl.uniform3fv(u.uSfX, sf.X); gl.uniform3fv(u.uSfY, sf.Y); gl.uniform3fv(u.uSfZ, sf.Z);
+      gl.uniform1f(u.uSfTan, sf.tan); gl.uniform3fv(u.uSfSun, sf.sun); gl.uniform4fv(u.uSfK, sf.K); gl.uniform4fv(u.uSfE, sf.E); }
     gl.uniform2fv(u.uCosFx, c.fx);
     gl.uniform1f(u.uGal, c.gal);
     if (c.gal > 0) { const g = c.galCam; gl.uniform3fv(u.uGalX, g.X); gl.uniform3fv(u.uGalY, g.Y); gl.uniform3fv(u.uGalZ, g.Z); gl.uniform3fv(u.uGalEye, g.pos);
