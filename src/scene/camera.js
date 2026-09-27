@@ -15,10 +15,13 @@ const {add, sub, mul, dot, cross, norm} = V;
 const ease = x => { x = Math.min(1, Math.max(0, x)); return x*x*(3 - 2*x); };
 
 export const makeCamera = () => ({pos: [0, 0, -30], vel: [0, 0, 0], look: [0, 0, 0], lvel: [0, 0, 0], fov: 55, X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1]});
-// critically damped springs toward the goal ({pos, look, fov}); k: how quickly (per second), the look a little quicker
+// critically damped springs toward the goal ({pos, look, fov, up?}); k: how quickly (per second), the look a little quicker.
+// up: which way is up for the shot (a planet's own up, low over it, so its horizon lies level), easing back to the system's
 export function follow(cam, goal, dt, k, kLook){
   spring(cam.pos, cam.vel, goal.pos, k, dt); spring(cam.look, cam.lvel, goal.look, kLook, dt);
   cam.fov += (goal.fov - cam.fov)*Math.min(1, dt*1.5);
+  const up = goal.up || [0, 1, 0], u0 = cam.up || [0, 1, 0];
+  cam.up = up === u0 ? u0 : norm(add(u0, mul(sub(up, u0), Math.min(1, dt*1.2))));
   frame(cam);
 }
 function spring(x, v, g, k, dt){
@@ -27,7 +30,7 @@ function spring(x, v, g, k, dt){
 }
 // the camera's own axes: Z where it looks, X to its right, Y up
 export function frame(cam){
-  const Z = norm(sub(cam.look, cam.pos)); let X = cross([0, 1, 0], Z);
+  const Z = norm(sub(cam.look, cam.pos)); let X = cross(cam.up || [0, 1, 0], Z);
   if (V.len(X) < 1e-3) X = cross([0, 0, 1], Z);
   cam.Z = Z; cam.X = norm(X); cam.Y = cross(Z, cam.X);
 }
@@ -92,7 +95,7 @@ export const SHOTS = {
       return {u, v: norm(v), a0: 0, w: (.16 + s[0]*.1)*(s[1] < .5 ? -1 : 1)}; },
     goal: (c, st, t) => {
       const {p, r} = c.subj, at = a => add(mul(st.u, Math.cos(a)), mul(st.v, Math.sin(a))), a = st.a0 + st.w*t;
-      return {pos: add(p, mul(at(a), r*1.06)), look: add(p, mul(at(a + Math.sign(st.w)*.45), r*1.04)), fov: 70};
+      return {pos: add(p, mul(at(a), r*1.06)), look: add(p, mul(at(a + Math.sign(st.w)*.45), r*1.04)), fov: 70, up: at(a)};
     },
   },
   // pull back to take in the whole system
@@ -110,6 +113,18 @@ export const SHOTS = {
       const {p, r} = c.subj, away = norm(sub(p, c.sun)), side = norm(cross(away, [0, 1, 0])), w = st.a + t*.01;
       const dir = norm(add(mul(away, Math.cos(w)), mul(side, Math.sin(w))));
       return {pos: add(p, add(mul(dir, r*st.dist), [0, r*st.lift, 0])), look: p, fov: 50};
+    },
+  },
+  // sunrise: just above the subject's night side near the terminator, looking along its curved edge towards the star,
+  // which rises over the edge through the air as the camera climbs over the terminator into the light
+  sunrise: {
+    start: (c, s) => ({dur: 16 + s[0]*8, lean: s[1] < .5 ? -1 : 1, h: 1.05 + s[2]*.05}),
+    goal: (c, st, t) => {
+      const {p, r} = c.subj, away = norm(sub(p, c.sun)), side = norm(cross(away, [0, st.lean, 0])), dip = Math.acos(1/st.h);
+      const b = dip + .12 - (dip + .3)*ease(Math.min(1, t/st.dur));   // from just past the terminator (the star under the edge) into the light
+      const n = norm(add(mul(side, Math.cos(b)), mul(away, Math.sin(b)))), pos = add(p, mul(n, r*st.h));
+      const f = norm(sub(mul(away, -1), mul(n, -dot(away, n))));   // along the ground towards the star
+      return {pos, look: add(pos, mul(add(f, mul(n, -Math.tan(dip*.7))), r)), fov: 62, up: n};
     },
   },
   // float through the system along its plane, looking ahead

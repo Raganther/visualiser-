@@ -95,6 +95,7 @@ export function make2D(view){
     const mc = maskCans[k] || (maskCans[k] = document.createElement('canvas')), mctx = mc.getContext('2d');
     if (mc.width !== W || mc.height !== H) { mc.width = W; mc.height = H; }
     mctx.globalCompositeOperation = 'source-over'; mctx.globalAlpha = 1; mctx.clearRect(0, 0, W, H); mctx.drawImage(src, 0, 0, W, H);
+    if (m.world && m.inside && !P.frontOn) return mc;   // held inside a front that isn't on screen: all of it
     mctx.globalCompositeOperation = m.inside ? 'destination-in' : 'destination-out';
     mctx.beginPath();
     if (m.world) { for (const v of WORLD_VISUALS) if (v.front && P.w[v.key] > .01) v.front.path2d(mctx, P, P.t2d); }

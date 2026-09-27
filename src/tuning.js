@@ -98,10 +98,21 @@ export const TUNE = {
     fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
     kick: 1.2,                 // degrees the kick nudges the view in
     lookK: 1.5,                // how much quicker the view turns than the camera moves
-    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9},   // how quickly the camera follows each shot (per second)
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9, sunrise: .75},   // how quickly the camera follows each shot (per second)
     galaxyChance: .45,         // how often the biggest drops (after a full build) go out to the galaxy and back (else a black hole)
     handSecs: 30,              // seconds a shot picked by hand (the lab's keys) holds the camera before the music takes over again
     galFade: 1.8, galHoldSecs: 9,   // seconds to fade out to the galaxy (and back), and to look across it before diving
+    // the view folded into a kaleidoscope: how often a drop does it, for how many bars, how many ways (by intensity), how often
+    // only in a circle round the subject (this many of its radii), how fast it opens and closes, how fast its mirrors turn
+    fold: {dropChance: .45, bars: 2, n: [3, 4, 6, 8], localChance: .4, localR: 2.4, ease: 4, turn: .04},
+    // landing on a world: how often a section does, how near (in radii) the air begins, the whiteout's seconds, the climb
+    // out's height; flying: low along the valley, high over the peaks, speed (units a second), the view; the sun's height
+    // from calm (dusk, night) to intense (day), how slowly it follows, how far off the way ahead it stands
+    land: {chance: .2, enterR: 1.9, fadeSecs: 2.4, exitAlt: 440, valley: 5, soar: 175, diveSecs: 14, speed: 26, fov: 62, sunLow: -.14, sunHigh: .6, sunSecs: 20, sunAz: .45},
+    showpiece: .35,            // how often a new section opens on a set piece: an eclipse, or a sunrise over a planet's edge
+    dropShowpiece: .3,         // how often a drop goes straight to one (instead of pulling back)
+    // a section's subject dressed in layers: how many sections are, how many of those get the cage, the motes (more when intense)
+    dress: {chance: .4, cage: .7, motes: .45},
     // each kind of world's atmosphere: thickness (share of its radius), hue (turned from the world's), density; moons have none
     atmo: {rock: [.05, .55, .5, 0], gas: [.09, .04, .8, 0], ice: [.06, .5, .55, 0], lava: [.08, .02, .75, 0], ocean: [.09, .56, 1, 0]},
   },

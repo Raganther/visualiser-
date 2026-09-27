@@ -25,3 +25,21 @@ Checking a change:
 3. Show the user the stills that matter (`SendUserFile`), and say what changed in plain words.
 
 For a whole scene rather than one visual, use a preset: `--eval "const {presets} = await import('/src/presets.js'); const {setPreset} = await import('/src/ui/presets.js'); setPreset(presets.find(p => p.name === 'Skull in the city'))"`.
+
+## Motion and feel: `tools/strip.mjs`
+
+A still can't show movement. For how something moves, or how a stretch *feels*, make a strip:
+
+```
+node tools/strip.mjs [--preset NAME | --solo KEY] [--query "?lab=cosmos"] [--eval "js"] [--mode 2d|gl] [--secs 8] [--frames 8] [--out dir] [--name x]
+```
+
+- It writes one picture of `--frames` frames across `--secs` seconds (read left to right, top to bottom), plus a JSON of measures, and prints them:
+  - **brightness:** the average, 0 black to 1 white;
+  - **lit:** how much of the screen is lit;
+  - **detail:** how busy the picture is (edges);
+  - **motion:** how much the picture changes a second;
+  - **flashes:** jumps in brightness a second (the kick's flash, hits);
+  - **on screen:** the panel's own words, and how many things that is.
+- With no `--preset` or `--solo`, Journey runs on the built-in beat. `--warm` (default 4 s) lets it settle first.
+- Use the numbers for the user's words: "busy" (detail, lit, things on screen), "fast" (motion), "flashy" (flashes), "dark" or "washed out" (brightness). Compare before and after a change, with the same arguments and seed.

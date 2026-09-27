@@ -49,3 +49,19 @@ explores, shots picked by the music. This plan grows it in three parts, each lan
   out to it. Skimming lets the camera within 3% of the surface. Two things found on the way: the music kept taking the
   camera back from shots picked by hand (now a shot by hand holds it for `handSecs`), and the first draft's tests were
   too weak to notice (they now check where the camera actually is).
+- **After the user's first looks** (2026-09-26/27):
+  - **Worlds that aren't flat.** Atmospheres (`czAtmo`) were sampled where the view passes lowest, so the thin dense air at the limb isn't stepped over. They add relief lit from the star, and clouds with shadows.
+  - **The belt, findable and calm.** Lab key B. From afar it's a soft band with glints fixed in place, replacing the speckle that shimmered like static. City lights read from afar.
+  - **The cosmos joins the composition.** Its planets are its front plane, and the trails centre on its subject (`focus`). "held" shrinks the glow into the planet.
+  - **A kaleidoscope of the space itself.** The view is folded before the rays are traced, with the star in the mirrored wedge so it crowns the planet. It opens on drops (lab key K).
+  - **Orbits:** a layer of flares circling the subject.
+  - **The subject's layers:** a wire cage turning a notch a beat, a ring of motes flaring on stabs, and a burst on the drop (lab key W).
+  - **Sunrises:** a shot just above the terminator, with an up the camera can follow so the horizon lies level. Sections open on, and drops go to, eclipses and sunrises.
+  - **Landing** (`surface.js`). Through a cloud whiteout onto a ray-marched ground: ridged mountains in strata, per kind of world, a flat-floored river valley the camera can always fly safely, and a sky from below that follows the sun's height with the music, with auroras, cities and mist. A build soars, a drop dives. Simple mode draws ridge silhouettes of the same ground. Lab keys L and T, and `?lab=terrain`.
+  - **Bugs found on the way:**
+    - A drop tested for a full build after resetting it, so the galaxy and black-hole trips never happened from the music.
+    - The camera could "land" on the monument.
+    - A dive into the valley was undone by the build straight away.
+    - "held" showed nothing with no planet on screen.
+    - Simple mode's atmospheres ignored the star's colour.
+  - **Speed.** The ground cost about 1,800 sine calls a pixel. It now has a sine-free hash and fewer layers of detail far off and in the shadows.

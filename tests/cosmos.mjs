@@ -22,7 +22,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   const errors = await page.errors();
   check(!errors.length && r.lit > 20, `${mode}: draws the cosmos (${r.lit}/576 tiles lit)${errors.length ? ' ' + errors : ''}`);
   check(r.shots.length >= (gl ? 2 : 3) && r.systems.length >= 2, `${mode}: the shots change with the music and a jump reaches another system (shots ${r.shots.join(', ')}; systems ${r.systems.join(', ')})`);
-  check(r.clear >= 1.2, `${mode}: the camera never goes inside a body (nearest ${r.clear.toFixed(2)} radii)`);
+  check(r.clear >= 1.0, `${mode}: the camera never goes inside a body (nearest ${r.clear.toFixed(2)} radii; a skim or a sunrise flies just above the surface)`);
   await browser.close();
 }
 // the track's shape, driving the camera directly (no page frames): a build draws it in, a drop lets it go, the quiet
@@ -56,9 +56,9 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   await browser.close();
 }
 // the set pieces and the rest of the space, in both renderers: black hole, pulsar, twin stars, the belt, skimming a
-// surface, the galaxy trip, and a centrepiece standing as a monument; each draws with no errors
+// surface, the galaxy trip, a centrepiece standing as a monument, the kaleidoscope and the subject's layers; each draws with no errors
 for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boolean)) {
-  const gl = mode === 'gl', browser = await launch(mode), page = await openPage(browser, url, {width: gl ? 160 : 320, height: gl ? 90 : 180, query: '?lab=cosmos'});
+  const gl = mode === 'gl', browser = await launch(mode), page = await openPage(browser, url, {width: gl ? 160 : 320, height: gl ? 90 : 180, query: '?lab=cosmos&tune=scene.centreChance=0'});   // (no centrepiece of Journey's own: it would take the camera to its monument)
   await page.waitForFunction(async () => (await import('/src/journey/core.js')).J.worldHold === 'cosmos', null, {timeout: 20000, polling: 100});
   const r = await page.evaluate(async ({gl, thumb}) => {
     const {byKey} = await import('/src/visuals/registry.js'), {J} = await import('/src/journey/core.js'), cz = byKey.cosmos, out = {};
@@ -69,12 +69,22 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
       const i = cz.info(); out[what] = {got: what === 'belt' ? i.belt : i.star === what, lit: lit(), cap: i.caption};
     }
     cz.shot('belt'); cz.hold(600); __step(60*8*f); const bi = cz.info(); out.beltShot = {shot: bi.shot, cap: bi.caption, lit: lit(), off: Math.abs(bi.eyeR - bi.beltR), y: bi.eyeY};
-    cz.shot('skim'); cz.hold(600); __step(60*10*f); const sk = cz.info(); out.skim = {shot: sk.shot, cap: sk.caption, clear: sk.clear, near: sk.near, lit: lit()};
+    cz.shot('skim'); cz.hold(600); __step(400, 50);   // (20 s in 50 ms frames: settling low over the surface)
+    const sk = cz.info(); out.skim = {shot: sk.shot, cap: sk.caption, clear: sk.clear, near: sk.near, lit: lit()};
+    cz.shot('sunrise'); cz.hold(600); __step(480, 50); const su = cz.info(); out.sunrise = {cap: su.caption, near: su.near, lit: lit()};
     cz.galaxy(); __step(60*4); out.galCap = cz.info().caption; out.galOut = cz.info().galaxy; const from = cz.info().system; out.galLit = lit();
     let n = 0; while (cz.info().galPhase && n++ < 60) __step(60);
     out.galBack = {phase: cz.info().galPhase, moved: cz.info().system !== from, cap: cz.info().caption};
     cz.shot('orbit'); for (let i = 0; i < 60; i++) { J.centre = 'skull'; __step(6); }
     out.mon = cz.info().mon; out.monCap = cz.info().caption; out.monSubj = cz.info().subject;
+    cz.fold(1); __step(60*f); out.fold = {whole: cz.info().fold, cap: cz.caption(), lit: lit()};   // the kaleidoscope: whole view, round the subject, closed
+    cz.fold(2); __step(30*f); out.fold.local = cz.info().fold; cz.fold(0); __step(90*f); out.fold.closed = cz.info().fold;
+    cz.dress(2); __step(90*f); out.dress = {cage: cz.info().cage, motes: cz.info().motes, lit: lit()};   // the subject's layers
+    J.lastDrop = (J.lastDrop || 0) + 1; __step(6); out.dress.burst = cz.info().burst; cz.dress(0);
+    // landing: down into a world's valleys, and back out (in 50 ms frames, the most a frame steps: the ground is slow to draw in software)
+    cz.land(); cz.hold(9999); let k = 0; while (cz.info().surf < 1 && k++ < 120) __step(10, 50);
+    __step(40, 50); const ld = cz.info(); out.land = {surf: ld.surf, phase: ld.sfPhase, alt: ld.sfAlt, cap: ld.caption, lit: lit()};
+    cz.takeoff(); k = 0; while (cz.info().sfPhase && k++ < 120) __step(10, 50); out.land.back = {surf: cz.info().surf, phase: cz.info().sfPhase, cap: cz.info().caption};
     return out;
   }, {gl, thumb: THUMB});
   const errors = await page.errors();
@@ -82,8 +92,13 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   for (const what of ['hole', 'pulsar', 'binary', 'belt']) check(r[what].got && r[what].lit > 10 && r[what].cap.includes(words[what]), `${mode}: visits a system with ${what === 'belt' ? 'an asteroid belt' : what === 'hole' ? 'a black hole' : what === 'pulsar' ? 'a pulsar' : 'twin stars'} and draws it (${r[what].lit}/576 lit; "${r[what].cap}")`);
   check(r.beltShot.shot === 'belt' && r.beltShot.cap === 'Through the asteroid belt' && r.beltShot.off < 8 && Math.abs(r.beltShot.y) < 3 && r.beltShot.lit > 10, `${mode}: flies through the belt, inside it (${r.beltShot.off.toFixed(1)} from its middle)`);
   check(r.skim.shot === 'skim' && r.skim.near < 1.3 && r.skim.near >= 1.0 && r.skim.lit > 10, `${mode}: skims low over a surface without going under it ("${r.skim.cap}", ${r.skim.near.toFixed(2)} radii from its centre)`);
+  check(r.sunrise.cap.startsWith('Sunrise over') && r.sunrise.near < 1.6 && r.sunrise.near >= 1.0 && r.sunrise.lit > 10, `${mode}: watches a sunrise just above a planet's edge ("${r.sunrise.cap}", ${r.sunrise.near.toFixed(2)} radii from its centre)`);
   check(r.galOut > .9 && r.galLit > 10 && r.galCap === 'Out to the galaxy' && !r.galBack.phase && r.galBack.moved, `${mode}: goes out to the galaxy (${r.galLit}/576 lit) and dives into another system ("${r.galBack.cap}")`);
   check(r.mon && r.monSubj === 'the monument', `${mode}: a centrepiece stands as a monument, and the camera circles it ("${r.monCap}")`);
+  check(r.fold.whole > .9 && r.fold.local > .9 && r.fold.closed < .1 && r.fold.cap.includes('folded') && r.fold.lit > 10, `${mode}: the kaleidoscope folds the view, round the subject too, and closes ("${r.fold.cap}")`);
+  check(r.dress.cage > .85 && r.dress.motes > .85 && r.dress.burst > .5 && r.dress.lit > 10, `${mode}: the subject wears a wire cage and a ring of motes, and a drop bursts the cage (${r.dress.burst.toFixed(2)})`);
+  check(r.land.surf === 1 && r.land.phase === 'land' && r.land.alt < 200 && r.land.lit > 10 && /valley|peaks/.test(r.land.cap) && !/monument/.test(r.land.cap) && r.land.back.surf === 0 && !r.land.back.phase,
+    `${mode}: lands on a world, flies over its ground ("${r.land.cap}", ${Math.round(r.land.alt)} up), and climbs back out to space ("${r.land.back.cap}")`);
   check(!errors.length, `${mode}: no page errors${errors.length ? ': ' + errors : ''}`);
   await browser.close();
 }
