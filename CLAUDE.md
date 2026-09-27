@@ -278,6 +278,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - **A build:** the tension's quick average (`buildFast`) pulls ahead of its slow one (`buildSlow`). The camera is drawn toward the biggest world near by; how close it gets follows how far the build has got, not the clock. The view narrows and the stars start to stretch. A build that fades for `fizzleSecs` lets the camera go.
   - **The drop** (`J.lastDrop`) releases it: a hyperspace jump to the hot arm (`dropJump`, at most every `jumpGapSecs`), or a sudden pull back to the whole system with the view flung wide (`dropWiden`). The biggest drops, after a full build, go out to the **galaxy** (`galaxyChance`) or to a black hole. On the galaxy trip, the system falls away to a point on its arm; the camera takes in the whole spiral (three arms in the moods' colours, a bright core, where it's been and where it's going) for `galHoldSecs`, then dives to the next system's point and arrives there.
   - **The kaleidoscope** (`C.fold`, `TUNE.cosmos.fold`): some drops (`dropChance`) fold the view for `bars` bars, more ways the more intense the music (`n`), sometimes only in a circle round the subject (`localChance`, `localR` of its radii). The fold is applied to the view before the rays are traced (`czFoldSp`, in the world and its front plane alike), so it mirrors the space itself: wedges round the subject, with the star in the middle of the mirrored wedge so it repeats round the planet as a crown, turning slowly (`turn`). Part-way open it's a warp between the two. Simple mode draws the cosmos aside and lays it back as turned and mirrored wedges. The caption adds "folded six ways".
+  - **The subject's layers** (`C.dress`, `TUNE.cosmos.dress`): some sections dress the planet being filmed (kept with the section, so it comes back the same): a wire cage of meridians and parallels just outside it (`czCage`, its far side faint like an x-ray), turning a notch each beat, with a band of light running down it each bar; and a ring of motes round it, flaring on stabs. A drop bursts the cage outwards before it re-forms. Simple mode draws the cage as ellipses and the motes as dots.
   - **The quiet:** no kick for `quietSecs` drifts or circles, slower. The kick coming back moves on at the next bar.
   - **A new section** goes to a system on the arm that suits it: another system, or sometimes another body when it's already on the right arm (`newSystem`). The first section owns where the camera already is. A returning section goes back to its system and body (remembered on the section type).
   - **Arriving at a set piece** (twin stars, a pulsar, a black hole), it circles it first.
@@ -319,6 +320,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - J jumps, 8 goes to a black hole, 9 to a pulsar, 0 to twin stars (`visit(kind)` finds the next such system on the track's galaxy);
   - B goes to the next system with an asteroid belt (unless this one has one) and flies through it;
   - K folds the view: the whole view, then only round the subject, then back to the music's;
+  - W dresses the subject: a wire cage, the cage and motes, the motes, then back to the music's;
   - G goes out to the galaxy.
 
 ## Meshes: the wire skull, the unicorn and the maths shapes
@@ -465,6 +467,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
     - it goes out to the galaxy and dives into another system;
     - a centrepiece stands as the monument the camera circles;
     - the kaleidoscope folds the view, round the subject too, and closes;
+    - the subject wears a wire cage and a ring of motes, and a drop bursts the cage;
     - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.

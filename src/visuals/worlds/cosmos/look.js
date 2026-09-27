@@ -12,6 +12,7 @@ uniform vec4 uCosTwin; uniform vec3 uCosTwinC;        // a twin star (size 0: no
 uniform vec4 uCosBelt, uCosHalo;                      // the belt (radius, half width, half height, near); the built ring (radius, half height, on, hue)
 uniform vec4 uCosB[6], uCosK[6], uCosA[6], uCosE[6];  // the nearest bodies: where, size; kind, hue, seed, spin; axis, ring; cities, aurora, storm, cloud
 uniform vec4 uCosT[6];                                // their atmospheres: thickness (share of the radius), hue (from the body's), density
+uniform vec4 uCzCage; uniform vec2 uCzCage2;         // the subject's layers: which body (-1 none), cage, motes, burst; the cage's turn, its band's place
 uniform vec4 uCzFold; uniform vec2 uCzFold2;         // the kaleidoscope: centre, ways, how far; the mirrors' angle, and a circle it keeps to (0: the whole view)
 uniform vec2 uCosFx;                                  // the treble (lightning) and the stabs (lava flares)
 uniform float uGal,uGalTan; uniform vec3 uGalX,uGalY,uGalZ,uGalEye,uGalA,uGalB;   // the galaxy view: how far in, its camera, the systems it's between`,
@@ -74,6 +75,27 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
   if(E.y>0.5){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
     col+=hsv(hue+0.33,0.8,1.0)*smoothstep(0.7,0.85,abs(lat))*smoothstep(1.0,0.9,abs(lat))*(0.5+0.5*sin(lon*18.0+uTime*2.0))*(0.25+uBeat*0.9)*(0.4+0.6*smoothstep(0.2,-0.2,nl)); }
   return col;
+}
+// a subject's layers, in front of tmax: a wire cage of meridians and parallels (its far side faint, like an x-ray) turning a
+// notch each beat, a band of light running down it each bar, bursting outwards on a drop; and a ring of motes round it,
+// flaring on stabs
+vec3 czCage(vec3 d,vec3 c,float r,vec3 ax,float tmax,float hue){
+  vec3 acc=vec3(0.0), e1=normalize(cross(ax,vec3(0.31,0.9,0.22))), e2=cross(ax,e1);
+  float bu=uCzCage.w, R=r*(1.14+bu*1.8), b=dot(c,d), h=b*b-dot(c,c)+R*R;
+  if(uCzCage.y>0.002&&h>0.0){ h=sqrt(h);
+    for(int k=0;k<2;k++){ float t=b+(k==0?-h:h); if(t<=0.0||t>tmax) continue;
+      vec3 q=czSpin((d*t-c)/R,ax,uCzCage2.x); float la=asin(clamp(dot(q,ax),-1.0,1.0)), lo=atan(dot(q,e2),dot(q,e1));
+      float w=0.03+0.02*bu, lm=abs(fract(lo/6.28318*10.0+0.5)-0.5)*6.28318/10.0*cos(la), lp=abs(fract(la/3.14159*7.0+0.5)-0.5)*3.14159/7.0;
+      float line=max(smoothstep(w,0.0,lm),smoothstep(w,0.0,lp)), band=exp(-abs(la/1.5708-(1.0-2.0*uCzCage2.y))*9.0);
+      acc+=hsv(hue+0.5,0.55,1.0)*line*(k==0?1.0:0.3)*(0.55+band*1.6+uBeat*0.5)*uCzCage.y*(1.0-bu*0.7);
+    } }
+  float den=dot(d,ax);
+  if(uCzCage.z>0.002&&abs(den)>1e-4){ float t=dot(c,ax)/den;
+    if(t>0.0&&t<tmax){ vec3 p=d*t-c; float rr=length(p)/r;
+      if(rr>1.4&&rr<2.1){ float an=atan(dot(p,e2),dot(p,e1))-uCzCage2.x*0.6, ce=floor(an*9.549), ln=floor(rr*8.0);
+        float hh=czH(vec3(ce,ln,5.0)), m=step(0.55,hh)*smoothstep(0.32,0.0,length(vec2(fract(an*9.549)-0.5,(fract(rr*8.0)-0.5)*1.2)));
+        acc+=hsv(hue+0.08+hh*0.2,0.5,1.0)*m*(0.35+uCosFx.y*2.0+uBeat*0.4)*uCzCage.z; } } }
+  return acc;
 }
 // a body's atmosphere along the view, up to tmax: the star's light scattered in it (carried a little past the terminator,
 // reddening there like a sunset, brightest looking towards the star through it), and how much it hazes what's behind.
@@ -242,6 +264,7 @@ vec3 czSystem(vec2 sp){
   for(int i=0;i<6;i++) if(i==hit) col=czBody(d,tMin,uCosB[i].xyz,uCosB[i].w,uCosK[i],uCosA[i],uCosE[i]);
   for(int i=0;i<6;i++){ if(uCosB[i].w<=0.0||uCosT[i].x<=0.0) continue;   // the air round each body, over the ground, sky or star behind it
     vec4 at=czAtmo(d,uCosB[i].xyz,uCosB[i].w,uCosT[i],uHue+uCosK[i].y+uCosT[i].y,tMin); col=col*at.a+at.rgb; }
+  if(uCzCage.x>-0.5) for(int i=0;i<6;i++) if(float(i)==uCzCage.x) col+=czCage(d,uCosB[i].xyz,uCosB[i].w,uCosA[i].xyz,tMin,uHue+uCosK[i].y);
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
   if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
   if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a soft band of dust streaked along its ring, lit towards the star,

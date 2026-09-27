@@ -105,6 +105,8 @@ export const TUNE = {
     // the view folded into a kaleidoscope: how often a drop does it, for how many bars, how many ways (by intensity), how often
     // only in a circle round the subject (this many of its radii), how fast it opens and closes, how fast its mirrors turn
     fold: {dropChance: .45, bars: 2, n: [3, 4, 6, 8], localChance: .4, localR: 2.4, ease: 4, turn: .04},
+    // a section's subject dressed in layers: how many sections are, how many of those get the cage, the motes (more when intense)
+    dress: {chance: .4, cage: .7, motes: .45},
     // each kind of world's atmosphere: thickness (share of its radius), hue (turned from the world's), density; moons have none
     atmo: {rock: [.05, .55, .5, 0], gas: [.09, .04, .8, 0], ice: [.06, .5, .55, 0], lava: [.08, .02, .75, 0], ocean: [.09, .56, 1, 0]},
   },

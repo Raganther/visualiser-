@@ -195,6 +195,21 @@ function drawSpace(o, P){
     o.restore();
     if (b.aurora && R > 4) { o.save(); o.translate(it.x, it.y); o.rotate(turn); o.strokeStyle = hc(hue + .33, 80, 60, .2 + P.beat*.6); o.lineWidth = Math.max(1, R*.06);   // auroras round the poles, on the kick
       for (const sg of [1, -1]) { o.beginPath(); o.ellipse(0, sg*R*.82, R*.5, R*.12, 0, 0, 7); o.stroke(); } o.restore(); }
+    const cg = c.cage, isSub = cg && cg[0] >= 0 && c.vis[cg[0]] && c.vis[cg[0]].b === b;
+    if (isSub && R > 6) {   // the subject's layers: a wire cage turning a notch a beat (a band running down it each bar), and motes
+      const [, cage, motes, bu] = cg, Rc = R*(1.14 + bu*1.8), sp = c.cage2[0], band = 1 - 2*c.cage2[1];
+      o.save(); o.translate(it.x, it.y); o.rotate(turn); o.globalCompositeOperation = 'lighter'; o.lineWidth = Math.max(1, R/70);
+      if (cage > .01) {
+        for (let j = 1; j < 7; j++) { const la = -Math.PI/2 + j*Math.PI/7, y = -Math.sin(la)*Rc, hl = Math.exp(-Math.abs(la/1.5708 - band)*9);
+          o.strokeStyle = hc(hue + .5, 55, 70, (.35 + hl)*cage*(1 - bu*.7)); o.beginPath(); o.ellipse(0, y, Rc*Math.cos(la), Rc*Math.cos(la)*.18, 0, 0, 7); o.stroke(); }
+        for (let j = 0; j < 5; j++) { const lo = sp + j*Math.PI/5, s = Math.sin(lo);
+          o.strokeStyle = hc(hue + .5, 55, 70, (Math.cos(lo) > 0 ? .45 : .15)*cage*(1 - bu*.7)); o.beginPath(); o.ellipse(0, 0, Math.abs(s)*Rc, Rc, 0, 0, 7); o.stroke(); }
+      }
+      if (motes > .01) { const mr = rng(Math.floor(b.seed*1e6) + 11);
+        for (let j = 0; j < 40; j++) { const a = mr()*6.28 - sp*.6, rr = R*(1.45 + mr()*.6), fl = .35 + (P.hit || 0)*2 + P.beat*.4;
+          o.fillStyle = hc(hue + .08 + mr()*.2, 50, 75, Math.min(1, fl*motes*.8)); o.fillRect(Math.cos(a)*rr - 1, Math.sin(a)*rr*.3 - 1, Math.max(2, R/40), Math.max(2, R/40)); } }
+      o.restore();
+    }
     const at = !b.moon && TUNE.cosmos.atmo[b.kind];
     if (at && R > 2) {   // its atmosphere: haze thickening to the limb, and a glow round it, brightest on the side facing the star
       const ah = hue + at[1], dn = at[2], ox = lx*R*.18, oy = -ly*R*.18, Ro = R*(1 + at[0]*2.6);

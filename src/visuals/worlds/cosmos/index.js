@@ -36,9 +36,11 @@ export default {
   caption: () => C.caption + (C.fold.amt > .5 ? `, folded ${WAYS[C.fold.n] || C.fold.n + ' ways'}` : ''),
   // the lab's K: the kaleidoscope by hand, off (the music's), whole view, round the subject
   fold(mode){ const f = C.fold; f.hand = mode; if (mode) { f.local = mode === 2; if (!f.n) f.n = 6; } },
+  // the lab's W: the subject's layers by hand: the music's, the cage, the cage and motes, the motes
+  dress(mode){ C.dress.hand = [null, {cage: 1, motes: 0}, {cage: 1, motes: 1}, {cage: 0, motes: 1}][mode] || null; },
   info: () => ({shot: C.kind, system: C.sys && C.sys.idx, arm: C.sys && C.sys.arm, star: C.sys && C.sys.sun.type, belt: !!(C.sys && C.sys.belt),
     halo: !!(C.sys && C.sys.halo), subject: nameOf(C.subj, C.sys), caption: C.caption, warp: C.warp, building: C.building, prog: C.prog,
-    calm: C.calm, mon: C.monOn, fold: C.fold.amt, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
+    calm: C.calm, mon: C.monOn, fold: C.fold.amt, cage: C.dress.cage, motes: C.dress.motes, burst: C.dress.burst, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
     near: C.subj ? len(sub(C.cam.pos, C.subj.p))/C.subj.r : 99, eyeR: Math.hypot(C.cam.pos[0], C.cam.pos[2]), eyeY: C.cam.pos[1], beltR: C.sys && C.sys.belt ? C.sys.belt.R : 0,
     clear: C.sys ? Math.min(...[C.sys.sun, ...C.sys.bodies].map(b => len(sub(C.cam.pos, b.p))/b.r)) : 99}),   // how near a body the camera is (in its radii)
   step(dt, x){ if (C.on) fly(dt, x); },
@@ -83,6 +85,10 @@ export default {
     const toStar = sj !== sun && sz2 > sun.r ? Math.atan2(dot(sRel, cam.Y)*k2/sz2 - fc.y, dot(sRel, cam.X)*k2/sz2 - fc.x)
       : Math.atan2(dot(sun.axis || [0, 1, 0], cam.Y), dot(sun.axis || [0, 1, 0], cam.X));
     P.cz.fold = [fc.x, fc.y, f.n, f.amt];
+    // the subject's layers (a body among the drawn ones, not the star)
+    const dr = C.dress, di = vis.findIndex(o => o.b === C.subj);
+    P.cz.cage = [di >= 0 && (dr.cage > .01 || dr.motes > .01) ? di : -1, dr.cage, dr.motes, dr.burst];
+    P.cz.cage2 = [dr.spin, ((dr.bar + Math.min(1, C.beatPh))/4) % 1];
     P.cz.fold2 = [toStar - h/2 + x.t*TUNE.cosmos.fold.turn, f.local ? Math.max(.08, fc.r*TUNE.cosmos.fold.localR) : 0];
     // a centrepiece stands in the space as a vast monument (the mesh objects read P.anchor): where and how big it looks
     monument(P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));
@@ -118,6 +124,7 @@ float czFront(vec2 sp){
     gl.uniform4fv(u.uCosTwin, c.twin); gl.uniform3fv(u.uCosTwinC, c.twinC); gl.uniform4fv(u.uCosBelt, c.belt); gl.uniform4fv(u.uCosHalo, c.halo);
     gl.uniform4fv(u['uCosB[0]'], c.B); gl.uniform4fv(u['uCosK[0]'], c.K); gl.uniform4fv(u['uCosA[0]'], c.A); gl.uniform4fv(u['uCosE[0]'], c.E); gl.uniform4fv(u['uCosT[0]'], c.T);
     gl.uniform4fv(u.uCzFold, c.fold); gl.uniform2fv(u.uCzFold2, c.fold2);
+    gl.uniform4fv(u.uCzCage, c.cage); gl.uniform2fv(u.uCzCage2, c.cage2);
     gl.uniform2fv(u.uCosFx, c.fx);
     gl.uniform1f(u.uGal, c.gal);
     if (c.gal > 0) { const g = c.galCam; gl.uniform3fv(u.uGalX, g.X); gl.uniform3fv(u.uGalY, g.Y); gl.uniform3fv(u.uGalZ, g.Z); gl.uniform3fv(u.uGalEye, g.pos);

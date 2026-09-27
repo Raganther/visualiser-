@@ -16,7 +16,17 @@ export const C = {on: false, sys: null, cam: makeCamera(), T: 0, kind: null, sub
   light: {hue: .1, sat: .3, x: -.6, y: .4}, motion: {x: 0, y: 0, z: 0}, prevZ: [0, 0, 1], r: rng(4242),
   track: null, galaxy: 0, armNext: [0, 1, 0], since: 0,
   tf: 0, ts: 0, build: 0, building: false, prog: 0, fizzle: 0, stretch: 0, fovKick: 0, calm: false, beatPh: 0, monOn: false, holdUntil: -1,
-  fold: {amt: 0, n: 6, local: false, bars: 0, hand: 0}};   // the view folded into a kaleidoscope: how far, how many ways, round the subject only; by hand
+  fold: {amt: 0, n: 6, local: false, bars: 0, hand: 0},
+  // the subject dressed in layers: a wire cage turning a notch each beat with a band of light running down it each bar,
+  // and a ring of motes flaring on stabs; a drop bursts the cage outwards before it re-forms. Per section, or by hand
+  dress: {cage: 0, motes: 0, want: {cage: 0, motes: 0}, hand: null, spin: 0, spinTo: 0, burst: 0, bar: 0}};
+// a section's dress, kept with it so it comes back the same: sometimes a cage, the motes more when it's intense
+function dressFor(ty, T){
+  if (!ty.cosmos) ty.cosmos = {idx: C.sys.idx};
+  if (!ty.cosmos.dress) { const D = TUNE.cosmos.dress, on = C.r() < D.chance;
+    ty.cosmos.dress = {cage: on && C.r() < D.cage ? 1 : 0, motes: on && C.r() < D.motes + T*.3 ? 1 : 0}; }
+  C.dress.want = ty.cosmos.dress;
+}   // the view folded into a kaleidoscope: how far, how many ways, round the subject only; by hand
 // a drop can fold the view for a few bars: more ways the more intense the music, sometimes only round the subject
 export function openFold(){
   const f = C.fold, CZ = TUNE.cosmos.fold, ns = CZ.n;
@@ -98,6 +108,7 @@ function onSection(ty, T){
 }
 // the drop: out of the build with a jump, or a sudden pull back to the whole system
 function release(T){
+  C.dress.burst = 1;   // a dressed subject's cage bursts outwards (even while the camera's held)
   if (held()) return;
   const CZ = TUNE.cosmos, full = C.prog > .85;   // the biggest drops (after a full build) go out to the galaxy, or to a black hole
   C.building = false; C.prog = 0; C.calm = false;
@@ -175,7 +186,11 @@ export function fly(dt, x){
   if (J.on && J.type && J.type !== C.lastType) {   // the first section owns where the camera already is
     const was = C.lastType; C.lastType = J.type;
     if (was) onSection(J.type, T); else if (!J.type.cosmos) J.type.cosmos = {idx: C.sys.idx};
+    dressFor(J.type, T);
   }
+  const dr = C.dress, dw = dr.hand || dr.want, de = Math.min(1, dt*1.5);
+  dr.cage += (dw.cage - dr.cage)*de; dr.motes += (dw.motes - dr.motes)*de;
+  dr.spin += (dr.spinTo - dr.spin)*Math.min(1, dt*10); dr.burst *= Math.exp(-dt/.5);
   if (C.lastDrop === undefined) C.lastDrop = J.lastDrop;
   if (J.lastDrop !== C.lastDrop) { C.lastDrop = J.lastDrop; release(T); }
   if (!C.building && !C.warpDir && !held() && C.build > CZ.buildStart && C.since > CZ.buildGrace) {   // (not while a track settles in)   // a build begins: drawn towards the biggest world near by
@@ -211,6 +226,7 @@ export function fly(dt, x){
 export function flyBeat(pos){
   C.beatPh = 0;
   if (pos === 0 && C.fold.bars > 0) C.fold.bars--;   // a fold from a drop closes after its bars
+  C.dress.spinTo += Math.PI/16; C.dress.bar = pos;   // the cage turns a notch each beat; its band runs down it once a bar
   if (!C.on || !C.sys || pos !== 0 || C.building || C.calm || held()) return;
   if (++C.bars >= TUNE.cosmos.shotBars && !C.warpDir) nextShot(C.lastT ?? .5);
 }

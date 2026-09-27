@@ -56,7 +56,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   await browser.close();
 }
 // the set pieces and the rest of the space, in both renderers: black hole, pulsar, twin stars, the belt, skimming a
-// surface, the galaxy trip, a centrepiece standing as a monument, and the kaleidoscope; each draws with no errors
+// surface, the galaxy trip, a centrepiece standing as a monument, the kaleidoscope and the subject's layers; each draws with no errors
 for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boolean)) {
   const gl = mode === 'gl', browser = await launch(mode), page = await openPage(browser, url, {width: gl ? 160 : 320, height: gl ? 90 : 180, query: '?lab=cosmos'});
   await page.waitForFunction(async () => (await import('/src/journey/core.js')).J.worldHold === 'cosmos', null, {timeout: 20000, polling: 100});
@@ -77,6 +77,8 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
     out.mon = cz.info().mon; out.monCap = cz.info().caption; out.monSubj = cz.info().subject;
     cz.fold(1); __step(60*f); out.fold = {whole: cz.info().fold, cap: cz.caption(), lit: lit()};   // the kaleidoscope: whole view, round the subject, closed
     cz.fold(2); __step(30*f); out.fold.local = cz.info().fold; cz.fold(0); __step(90*f); out.fold.closed = cz.info().fold;
+    cz.dress(2); __step(90*f); out.dress = {cage: cz.info().cage, motes: cz.info().motes, lit: lit()};   // the subject's layers
+    J.lastDrop = (J.lastDrop || 0) + 1; __step(6); out.dress.burst = cz.info().burst; cz.dress(0);
     return out;
   }, {gl, thumb: THUMB});
   const errors = await page.errors();
@@ -87,6 +89,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   check(r.galOut > .9 && r.galLit > 10 && r.galCap === 'Out to the galaxy' && !r.galBack.phase && r.galBack.moved, `${mode}: goes out to the galaxy (${r.galLit}/576 lit) and dives into another system ("${r.galBack.cap}")`);
   check(r.mon && r.monSubj === 'the monument', `${mode}: a centrepiece stands as a monument, and the camera circles it ("${r.monCap}")`);
   check(r.fold.whole > .9 && r.fold.local > .9 && r.fold.closed < .1 && r.fold.cap.includes('folded') && r.fold.lit > 10, `${mode}: the kaleidoscope folds the view, round the subject too, and closes ("${r.fold.cap}")`);
+  check(r.dress.cage > .85 && r.dress.motes > .85 && r.dress.burst > .5 && r.dress.lit > 10, `${mode}: the subject wears a wire cage and a ring of motes, and a drop bursts the cage (${r.dress.burst.toFixed(2)})`);
   check(!errors.length, `${mode}: no page errors${errors.length ? ': ' + errors : ''}`);
   await browser.close();
 }
