@@ -73,7 +73,7 @@ export default {
     // its subject on screen (the planet or star it's filming), for the trails to centre on; none while it's behind or off screen
     const sj = C.subj || sun, srel = sub(sj.p, cam.pos), sz = dot(srel, cam.Z), asp = x.asp || 16/9;
     const fx = sz > sj.r ? dot(srel, cam.X)*k2/sz : 0, fy = sz > sj.r ? dot(srel, cam.Y)*k2/sz : 0;
-    this.focus = sz > sj.r && Math.abs(fx) < asp*.45 && Math.abs(fy) < .45 && !G.on ? {x: fx, y: fy} : null;
+    this.focus = sz > sj.r && Math.abs(fx) < asp*.45 && Math.abs(fy) < .45 && !G.on ? {x: fx, y: fy, r: sj.r*k2/sz} : null;
     // a centrepiece stands in the space as a vast monument (the mesh objects read P.anchor): where and how big it looks
     monument(P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));
     if (C.monOn) {

@@ -102,6 +102,15 @@ export function make2D(view){
     mctx.fillStyle = '#fff'; mctx.fill();
     return mc;
   }
+  // a trail group shrunk into a world's subject (fit): its centre onto the subject, smaller by P.fit[2]
+  const fitCan = document.createElement('canvas');
+  function fitted(P, src){
+    if (fitCan.width !== W || fitCan.height !== H) { fitCan.width = W; fitCan.height = H; }
+    const f = fitCan.getContext('2d'), [fx, fy, k] = P.fit, sx = W/2 + P.cx*H, sy = H/2 - P.cy*H;
+    f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, W, H);
+    f.setTransform(1/k, 0, 0, 1/k, W/2 + fx*H - sx/k, H/2 - fy*H - sy/k); f.drawImage(src, 0, 0, W, H); f.setTransform(1, 0, 0, 1, 0, 0);
+    return fitCan;
+  }
   // everything else in the trails, in the same paint order as WebGL
   const trails2d = VISUALS.filter(v => v.trails2d).sort((a, b) => a.paint - b.paint);
   WORLD_VISUALS.forEach(v => v.init2d && v.init2d());    // worlds that keep their own simple-mode state (in registry order)
@@ -177,7 +186,8 @@ export function make2D(view){
         else {
           if (!glows[it.g]) continue;
           const m = it.mask, on = m && (m.world || byKey[m.object] && P.o[m.object] > .01);
-          const glow = on ? maskedGlow(P, glows[it.g], m, sc.masks.indexOf(m.object) + 1) : glows[it.g];
+          const src = it.fit ? fitted(P, glows[it.g]) : glows[it.g];
+          const glow = on ? maskedGlow(P, src, m, sc.masks.indexOf(m.object) + 1) : src;
           out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, kw);
           out.drawImage(glow, 0, 0, W, H);
           // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it

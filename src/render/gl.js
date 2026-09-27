@@ -305,6 +305,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   gl.useProgram(pr.p);
   gl.uniform2f(v.uRes, W, H);
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
+  if (v.uFit) { gl.uniform3fv(v.uFit, P.fit); gl.uniform2f(v.uFitSrc, P.cx, P.cy); }
   for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
   for (const g in out) { const unit = g === 'main' ? UNIT.main : UNIT.group[sc.extra.indexOf(g)];
     if (unit === undefined) continue;

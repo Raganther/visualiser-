@@ -132,6 +132,7 @@ export const TUNE = {
   sceneTemplates: {plain: .3, between: .25, split: .4, among: .6, held: .45, reflect: .55, inside: .5, window: .5, glass: .45},
   sceneFatigueWeight: .8,
   scene: {
+    fitSpan: .45, fitMax: 8,   // a group fitted into a world's subject: the glow's reach (screen heights) that's shrunk to its radius, and the most it's shrunk
     centreChance: .3,          // Journey: the share of sections with a 3D centrepiece (a per-object TUNE[key].chance above 0 overrides)
     fillAmt: .9,               // how brightly a fill shows through an object's glass
     fillZoom: 2.4,             // how many times smaller a fill's pattern is than the full-screen layer (so it tiles inside an object)
