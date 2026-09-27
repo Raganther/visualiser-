@@ -69,8 +69,9 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
       const i = cz.info(); out[what] = {got: what === 'belt' ? i.belt : i.star === what, lit: lit(), cap: i.caption};
     }
     cz.shot('belt'); cz.hold(600); __step(60*8*f); const bi = cz.info(); out.beltShot = {shot: bi.shot, cap: bi.caption, lit: lit(), off: Math.abs(bi.eyeR - bi.beltR), y: bi.eyeY};
-    cz.shot('skim'); cz.hold(600); __step(60*10*f); const sk = cz.info(); out.skim = {shot: sk.shot, cap: sk.caption, clear: sk.clear, near: sk.near, lit: lit()};
-    cz.shot('sunrise'); cz.hold(600); __step(60*12*f); const su = cz.info(); out.sunrise = {cap: su.caption, near: su.near, lit: lit()};
+    cz.shot('skim'); cz.hold(600); __step(400, 50);   // (20 s in 50 ms frames: settling low over the surface)
+    const sk = cz.info(); out.skim = {shot: sk.shot, cap: sk.caption, clear: sk.clear, near: sk.near, lit: lit()};
+    cz.shot('sunrise'); cz.hold(600); __step(480, 50); const su = cz.info(); out.sunrise = {cap: su.caption, near: su.near, lit: lit()};
     cz.galaxy(); __step(60*4); out.galCap = cz.info().caption; out.galOut = cz.info().galaxy; const from = cz.info().system; out.galLit = lit();
     let n = 0; while (cz.info().galPhase && n++ < 60) __step(60);
     out.galBack = {phase: cz.info().galPhase, moved: cz.info().system !== from, cap: cz.info().caption};

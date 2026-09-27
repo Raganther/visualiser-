@@ -128,11 +128,20 @@ function setupGL(){
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL setup error');
 }
-// a display segment's program, compiled the first time a scene needs that run of items and kept
-const segProgs = new Map();
-function segProg(seg, plan){
-  let p = segProgs.get(seg.key);
-  if (!p) segProgs.set(seg.key, p = program(composeSegment(seg, plan)));
+// a display segment's program, compiled the first time a scene needs that run of items with those worlds drawing, and kept.
+// It holds only the worlds drawing now (or lately: fbLinger), and none when it draws no world, front or world mask: the
+// cosmos's code (space, the ground) is bigger than all the rest, and every segment compiled with it was slow
+const segProgs = new Map(), wSeen = {};
+let lastP = null;   // the last frame's parameters (which worlds are drawing), for warming shaders at idle
+function segWorlds(seg, P){
+  if (!seg.seg.some(it => it.t === 'world' || it.t === 'front' || (it.mask && it.mask.world))) return [];
+  const t = performance.now(); for (const v of WORLD_VISUALS) if (P && P.w[v.key] > .003) wSeen[v.key] = t;
+  return WORLD_VISUALS.filter(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
+}
+function segProg(seg, plan, P){
+  const wk = segWorlds(seg, P), key = seg.key + '|' + wk.join(',');
+  let p = segProgs.get(key);
+  if (!p) segProgs.set(key, p = program(composeSegment(seg, plan, wk)));
   return p;
 }
 // compile the segment shaders these scenes will need, one at a time while the page is idle, so a scene's first bar line
@@ -142,7 +151,7 @@ export function warmScenes(scenes){
   const todo = [];
   for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) todo.push([st, plan]); }
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50));
-  const next = () => { if (!todo.length || lost) return; const [st, plan] = todo.shift(); try { segProg(st, plan); } catch (e) {} idle(next); };
+  const next = () => { if (!todo.length || lost) return; const [st, plan] = todo.shift(); try { segProg(st, plan, lastP); } catch (e) {} idle(next); };   // (with the worlds drawing then)
   idle(next);
 }
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
@@ -222,6 +231,7 @@ function trailPass(now, P, g){
 // the objects a mesh step draws: one placed object, or every object on screen that no entry places
 const meshesOf = (P, step) => OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003 && (step.mesh === '*' ? !P.sc.placed.has(o.key) : o.key === step.mesh));
 export function drawGL(now, P){
+  lastP = P;
   if (lost) return;
   const sc = P.sc, out = {};
   for (const g in groups) if (!(g in sc.groups)) { groups[g].fbos.forEach(drop); delete groups[g]; }   // a group this scene doesn't use: gone (no stale frames later)
@@ -301,7 +311,7 @@ const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, k
 const trailFills = {}, trailFill = g => trailFills[g] || (trailFills[g] = {seg: [{t: 'trails', g}], first: true, last: false, fill: true, key: 'trail-fill:' + g});
 // one display segment over the picture so far (under), into whatever is bound
 function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
-  const sc = P.sc, pr = segProg(st, sc), v = pr.u;
+  const sc = P.sc, pr = segProg(st, sc, P), v = pr.u;
   gl.useProgram(pr.p);
   gl.uniform2f(v.uRes, W, H);
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);

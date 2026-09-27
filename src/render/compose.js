@@ -7,9 +7,11 @@ import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4]};   // 3 (media) is free in a segment
 // one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
 // c holds the picture so far; each item lays itself over it
-export function composeSegment(seg, plan){
-  const worlds = WORLD_VISUALS.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
-  const fronts = WORLD_VISUALS.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
+// wk: the worlds whose code it holds (those drawing now; the cosmos alone is bigger than the rest together), or all of them
+export function composeSegment(seg, plan, wk){
+  const WV = WORLD_VISUALS.filter(v => !wk || wk.includes(v.key));
+  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
+  const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
   const needW = seg.seg.some(it => it.t === 'world' || it.t === 'front');
@@ -41,13 +43,13 @@ ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n'
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
-${VISUALS.filter(v => v.glsl && v.glsl.uniforms).map(v => v.glsl.uniforms).join('\n')}
+${VISUALS.filter(v => v.glsl && v.glsl.uniforms && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.uniforms).join('\n')}
 float ASP;
 float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-${VISUALS.filter(v => v.glsl && v.glsl.functions).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
-${WORLD_VISUALS.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
+${VISUALS.filter(v => v.glsl && v.glsl.functions && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
+${WV.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
 float frontCov(vec2 sp){ float fc=0.0;
 ${fronts}
   return fc; }
