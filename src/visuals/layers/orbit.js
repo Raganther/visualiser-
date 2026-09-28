@@ -4,6 +4,7 @@
 const N = 10, O = [];
 for (let i = 0; i < N; i++) O.push({rf: 1.25 + (i % 5)*.24 + (i*.37 % 1)*.15, ph: i*2.399, tilt: .35 + (i*.61 % 1)*.5, rot: (i*.83 % 1 - .5)*.7, slot: i % 3});
 let plane = 0, sling = 0, lastDrop, T = 0;
+const OUT = new Float32Array(N*4);   // the flares for the shader
 export default {
   key: 'orbit', kind: 'layer', label: 'Orbits',
   suits: {perc:.3, mid:.2, T:.1},   // what music it suits (features centred on 0)
@@ -11,7 +12,7 @@ export default {
   paint: 3,   // paint order in the trails: with the comets
   accent: 'bar',   // how it fires when it's the accent
   params(P, x){
-    const out = P.orbs = new Float32Array(N*4), w = P.l.orbit || 0;
+    const out = P.orbs = OUT.fill(0), w = P.l.orbit || 0;   // (reused each frame)
     if (w < .003) return;
     const f = P.focus || {x: 0, y: 0, r: 0, k: 0}, on = f.k > .3;   // round a world's subject, or round the trails' centre
     const cx = on ? f.x : P.cx, cy = on ? f.y : P.cy, base = on ? Math.max(.035, f.r) : .09;
@@ -33,7 +34,7 @@ export default {
     main: `
   for(int i=0;i<10;i++){
     vec4 ob=uOrbs[i]; if(ob.z<=0.0) continue;
-    float dd=length(sp-ob.xy);
+    float dd=length(sp-ob.xy); if(dd>=0.035) continue;   // (both edges are 0 this far out)
     col+=hsv(uHue+(ob.w<0.5?uPal.x:ob.w<1.5?uPal.y:uPal.z),0.6,1.0)*uL_orbit*ob.z*(smoothstep(0.009,0.0,dd)+0.3*smoothstep(0.035,0.0,dd));
   }`,
   },

@@ -72,7 +72,7 @@ export const TUNE = {
     knee: .78,                 // brightness above which colours roll off softly instead of clipping to white
     fbLinger: 8000,            // ms a visual stays in the trails' shader after it last drew (so accents don't swap shaders each time)
     // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
-    auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
+    auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, worldMin: .5, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
       probeMs: 6000, ceilMs: 120000, stallMs: 1000},   // probe: a drop this soon after a step up keeps it under that step for ceilMs; stall: a gap this long (a hidden tab) restarts the count
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
@@ -109,6 +109,10 @@ export const TUNE = {
     // out's height; flying: low along the valley, high over the peaks, speed (units a second), the view; the sun's height
     // from calm (dusk, night) to intense (day), how slowly it follows, how far off the way ahead it stands
     land: {chance: .2, enterR: 1.9, fadeSecs: 2.4, exitAlt: 440, valley: 5, soar: 175, diveSecs: 14, speed: 26, fov: 62, sunLow: -.14, sunHigh: .6, sunSecs: 20, sunAz: .45},
+    // how big to draw the cosmos against the screen, in space and landed (1: full size, traced in the segment itself).
+    // It's the heaviest thing drawn, and a slow device draws it smaller first (render.auto.worldMin), before the whole
+    // picture, so the glow, hits and objects over it stay sharp
+    scale: 1, landScale: 1,
     showpiece: .35,            // how often a new section opens on a set piece: an eclipse, or a sunrise over a planet's edge
     dropShowpiece: .3,         // how often a drop goes straight to one (instead of pulling back)
     // a section's subject dressed in layers: how many sections are, how many of those get the cage, the motes (more when intense)

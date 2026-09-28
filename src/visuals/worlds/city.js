@@ -2,7 +2,7 @@
 // blink on the beat); their windows are lit floor by floor in each building's own style, some changing on the downbeat;
 // a few near ones carry neon signs in the palette's colours. Traffic streams along a wet street that mirrors it all.
 import { dataArr } from '../../state.js';
-import { hc } from '../../util.js';
+import { hc, rowsAbove } from '../../util.js';
 
 const st = {seed:0};
 const ROWS = 4, GROUND = -.3;
@@ -50,16 +50,18 @@ vec3 citySky(vec2 sp){
   float cl=sin(sp.x*3.1+uTime*0.02+sin(sp.x*7.3)*0.4)*0.5+0.5, band=exp(-pow((sp.y-0.12-0.05*sin(sp.x*1.7))*9.0,2.0));
   c+=hsv(uHue+0.97,0.4,0.16)*band*smoothstep(0.35,0.9,cl)*(0.7+0.3*sin(sp.x*23.0));
   vec2 mp=vec2(-ASP*0.28,0.3); float md=length(sp-mp);
-  float moon=smoothstep(0.047,0.044,md);
-  float crater=0.12*smoothstep(0.012,0.0,length(sp-mp-vec2(0.012,0.01)))+0.08*smoothstep(0.009,0.0,length(sp-mp-vec2(-0.015,-0.012)));
-  c=mix(c,hsv(uHue+0.1,0.12,0.95)*(1.0-crater),moon);
+  if(md<0.047){ float moon=smoothstep(0.047,0.044,md);   // (only on the moon's disc)
+    float crater=0.12*smoothstep(0.012,0.0,length(sp-mp-vec2(0.012,0.01)))+0.08*smoothstep(0.009,0.0,length(sp-mp-vec2(-0.015,-0.012)));
+    c=mix(c,hsv(uHue+0.1,0.12,0.95)*(1.0-crater),moon); }
   c+=hsv(uHue+0.1,0.25,1.0)*(0.1*exp(-md*9.0)+0.04*exp(-md*3.0));             // its halo in the haze
   return c;
 }
 vec3 cityAbove(vec2 sp){
-  vec3 c=citySky(sp), haze=hsv(uHue+0.94,0.5,0.3);
-  for(int i=0;i<4;i++){
-    float L=float(i), w=${GW}, id, lx;
+  // the nearest row covering the pixel hides the rest (and the sky), so the rows are tried near to far and the first one
+  // found is the one shaded; the sky only where no building stands
+  vec3 c=vec3(0.0), haze=hsv(uHue+0.94,0.5,0.3); bool built=false;
+  for(int j=0;j<4;j++){
+    int i=3-j; float L=float(i), w=${GW}, id, lx;
     float h=cityRow(sp.x,L,w,id,lx);
     if(cityShape(lx,sp.y,h,id,L,w)<0.5) continue;
     float fl=L/3.0, style=hash(vec2(id,L+3.0));
@@ -86,7 +88,9 @@ vec3 cityAbove(vec2 sp){
     float ah=hash(vec2(id,L+11.0))>0.8 ? 0.02+0.05*fract(hash(vec2(id,L+11.0))*13.0) : -1.0;
     if(ah>0.0) b+=vec3(1.0,0.15,0.1)*smoothstep(0.004,0.0,length(vec2((lx-0.5)*w,sp.y-h-ah)))*(0.3+uBeat*1.2);
     c=mix(b,haze,${byRow(HAZE)});                                               // far rows fade into the haze
+    built=true; break;
   }
+  if(!built) c=citySky(sp);
   c+=hsv(uHue+0.95,0.6,1.0)*exp(-(sp.y+0.3)*16.0)*0.14;                            // fog glowing over the street
   return c;
 }
@@ -193,10 +197,11 @@ function drawStreet(o, P, t){                          // the street: the skylin
   const g = geo(o, P), {W, H} = g, gy = g.Y(GROUND), a = Math.min(1, P.w.city);
   o.globalAlpha = a;
   o.fillStyle = hc(P.hue + .66, 60, 3, 1); o.fillRect(0, gy, W, H - gy);
+  const sky = rowsAbove(o.canvas, gy);
   for (let yo = 0; yo < H - gy; yo += 3) {
     const src = gy - yo*1.4 - 3; if (src < 0) break;
     o.globalAlpha = a*.3*(1 - Math.min(.7, yo/H*2.5));
-    o.drawImage(o.canvas, 0, src, W, 3, Math.sin(yo*.3)*2, gy + yo, W, 3);
+    o.drawImage(sky, 0, src, W, 3, Math.sin(yo*.3)*2, gy + yo, W, 3);
   }
   o.globalAlpha = a; o.globalCompositeOperation = 'lighter';
   for (let k = 0; k < 2; k++) {

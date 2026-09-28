@@ -16,10 +16,11 @@ for (const mode of ['2d', 'gl']) {
 // the panel: "On screen" names what's drawn and what set it; Solo leaves one visual alone at once; the Cosmos preset is the cosmos alone
 {
   const browser = await launch('2d'), page = await openPage(browser, url);
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(async () => {
     const now = () => document.querySelector('#onNow').textContent;
     __step(300); const journey = now(), dots = document.querySelectorAll('#sliders .row.on').length;
     document.querySelector('#likeBtn').click(); __step(2);   // a like records the moment, with a thumbnail, in this browser (no Artifact database here)
+    await new Promise(res => setTimeout(res, 100));   // (it's saved just after the frame, not in it)
     const m = JSON.parse(localStorage.getItem('afterglow.moments') || '[]').pop() || {};
     const liked = m.v === 1 && m.journey === true && !!m.lead && m.onScreen === journey && /^data:image\/jpeg/.test(m.thumb) && m.thumb.length > 1000;
     document.querySelector('.solo[aria-label="Show Comets alone"]').click(); __step(40); const solo = now();

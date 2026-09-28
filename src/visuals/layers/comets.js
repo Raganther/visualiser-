@@ -1,4 +1,5 @@
 // Comets: three glowing heads that roam and turn on the pulse, leaving trails; one in each of the palette's hues.
+const CA = new Float32Array(9);   // the heads for the shader, reused each frame
 export default {
   key: 'comets', kind: 'layer', label: 'Comets',
   suits: {busy:.4, T:-.2},   // what music it suits (features centred on 0)
@@ -11,12 +12,12 @@ export default {
     main: `
   for(int i=0;i<3;i++){
     vec3 cm=uComets[i];
-    float dd=length(sp-cm.xy);
+    float dd=length(sp-cm.xy); if(dd>=0.06) continue;   // (both edges are 0 this far out)
     col+=hsv(uHue+(i==0?uPal.x:i==1?uPal.y:uPal.z),0.75,1.0)*uL_comets*cm.z*(smoothstep(0.018,0.0,dd)+0.35*smoothstep(0.06,0.0,dd));
   }`,
   },
   fbUniforms(gl, u, P){
-    const ca = new Float32Array(9);
+    const ca = CA;
     P.comets.forEach((c, i) => { ca[i*3] = c.x; ca[i*3+1] = c.y; ca[i*3+2] = c.z; });
     if (u['uComets[0]']) gl.uniform3fv(u['uComets[0]'], ca);
   },

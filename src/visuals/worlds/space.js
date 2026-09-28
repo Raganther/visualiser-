@@ -37,18 +37,22 @@ vec3 space(vec2 sp){
   for(int i=0;i<3;i++){                  // stars rushing past
     float fi=float(i), depth=fract(fi/3.0+uStarPh), sc=mix(14.0,1.5,depth);
     vec2 g=sp*sc+fi*17.3, cell=floor(g), f=fract(g)-0.5;
+    float hs=hash(cell+fi); if(hs<0.75) continue;   // three cells in four hold no star
     vec2 o=vec2(hash(cell+3.1),hash(cell+7.7))-0.5;
-    float b=step(0.75,hash(cell+fi))*smoothstep(0.08,0.0,length(f-o*0.7))*smoothstep(0.0,0.3,depth)*smoothstep(1.0,0.8,depth);
+    float b=step(0.75,hs)*smoothstep(0.08,0.0,length(f-o*0.7))*smoothstep(0.0,0.3,depth)*smoothstep(1.0,0.8,depth);
     c+=vec3(0.85,0.9,1.0)*b*(0.6+depth);
   }
   vec2 d=sp-uPlanet.xy; float R=uPlanet.z, r=length(d)/R;
   float rr=length(vec2(d.x,d.y/0.28))/R;
-  float band=0.5+0.5*sin(rr*38.0)*sin(rr*11.0+1.3), gap=smoothstep(0.03,0.0,abs(rr-1.78));   // bands, and a dark division
-  float ring=smoothstep(1.35,1.4,rr)*smoothstep(2.15,2.1,rr)*(0.35+0.65*band)*(1.0-0.85*gap)*(0.6+uMid*uReact*0.8);
-  vec3 rc=mix(hsv(uHue+0.08,0.35,0.95),hsv(uHue+0.55,0.45,0.8),smoothstep(1.4,2.1,rr));
-  vec2 ld=normalize(vec2(cos(uLightAng),0.35)); float along=dot(d,-ld);           // the planet's shadow falls across the rings
-  rc*=1.0-0.8*step(0.0,along)*smoothstep(R*1.02,R*0.9,length(d+ld*along));
-  if(d.y>0.0) c=mix(c,rc,ring*0.8);      // far side of the rings, behind the planet
+  float ring=0.0; vec3 rc=vec3(0.0); bool onRing=rr>1.35&&rr<2.15;   // (only across the rings' ellipse)
+  if(onRing){
+    float band=0.5+0.5*sin(rr*38.0)*sin(rr*11.0+1.3), gap=smoothstep(0.03,0.0,abs(rr-1.78));   // bands, and a dark division
+    ring=smoothstep(1.35,1.4,rr)*smoothstep(2.15,2.1,rr)*(0.35+0.65*band)*(1.0-0.85*gap)*(0.6+uMid*uReact*0.8);
+    rc=mix(hsv(uHue+0.08,0.35,0.95),hsv(uHue+0.55,0.45,0.8),smoothstep(1.4,2.1,rr));
+    vec2 ld=normalize(vec2(cos(uLightAng),0.35)); float along=dot(d,-ld);           // the planet's shadow falls across the rings
+    rc*=1.0-0.8*step(0.0,along)*smoothstep(R*1.02,R*0.9,length(d+ld*along));
+  }
+  if(onRing&&d.y>0.0) c=mix(c,rc,ring*0.8);      // far side of the rings, behind the planet
   if(r<1.0){
     vec3 n=vec3(d/R,sqrt(1.0-r*r));
     vec3 L=normalize(vec3(cos(uLightAng),0.35,sin(uLightAng)*0.6+0.6));
@@ -59,7 +63,7 @@ vec3 space(vec2 sp){
     pc+=hsv(uHue+0.55,0.6,1.0)*pow(1.0-n.z,3.0)*0.6;
     c=mix(c,pc,smoothstep(1.0,0.985,r));
   } else c+=hsv(uHue+0.55,0.6,1.0)*0.25*smoothstep(1.35,1.0,r);
-  if(d.y<=0.0) c=mix(c,rc,ring*0.9);     // near side of the rings, in front
+  if(onRing&&d.y<=0.0) c=mix(c,rc,ring*0.9);     // near side of the rings, in front
   for(int i=0;i<2;i++){
     vec4 m=uMoons[i]; vec2 dm=sp-m.xy; float rm=length(dm)/m.z;
     if(rm<1.0 && (m.w>0.5 || r>1.0)){

@@ -22,13 +22,15 @@ float czN(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(mix(czH(i),czH(i+vec3(1.0,0.0,0.0)),f.x),mix(czH(i+vec3(0.0,1.0,0.0)),czH(i+vec3(1.0,1.0,0.0)),f.x),f.y),
              mix(mix(czH(i+vec3(0.0,0.0,1.0)),czH(i+vec3(1.0,0.0,1.0)),f.x),mix(czH(i+vec3(0.0,1.0,1.0)),czH(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z); }
 float czF(vec3 p){ return czN(p)*0.5+czN(p*2.03)*0.25+czN(p*4.01)*0.125; }
+// the same, for a smoothstep from lo: it stops as soon as the octaves left can't lift it past lo (all it would give is 0)
+float czFt(vec3 p,float lo){ float a=czN(p)*0.5; if(a+0.375<=lo) return a; a+=czN(p*2.03)*0.25; if(a+0.125<=lo) return a; return a+czN(p*4.01)*0.125; }
 // how far along d a sphere (centre c from the eye, radius r) is hit, or -1
 float czHit(vec3 d,vec3 c,float r){ float b=dot(c,d), h=b*b-dot(c,c)+r*r; if(h<0.0) return -1.0; float t=b-sqrt(h); return t>0.0?t:-1.0; }
 // far away: two clouds of gas and the stars, which streak towards the middle of the view in a jump
 vec3 czSky(vec3 d){
   vec3 c=hsv(uHue+0.68,0.6,0.03);
-  float n=czF(d*2.2+uCosSeed); c+=hsv(uHue+0.72+n*0.2,0.6,0.16)*smoothstep(0.35,0.75,n);
-  float n2=czF(d*3.7-uCosSeed); c+=hsv(uHue+0.95,0.55,0.08)*smoothstep(0.45,0.8,n2);
+  float n=czFt(d*2.2+uCosSeed,0.35); c+=hsv(uHue+0.72+n*0.2,0.6,0.16)*smoothstep(0.35,0.75,n);
+  float n2=czFt(d*3.7-uCosSeed,0.45); c+=hsv(uHue+0.95,0.55,0.08)*smoothstep(0.45,0.8,n2);
   float s=0.0;
   for(int k=0;k<6;k++){
     vec3 dk=normalize(d-uCosZ*float(k)*uCosWarp*0.05);
@@ -46,9 +48,9 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
   float nl=dot(n,L), diff=max(nl,0.0), sp=uTime*K.w, lat=dot(n,ax), hue=uHue+K.y, land=1.0;
   vec3 q=czSpin(n,ax,sp), Lq=czSpin(L,ax,sp), qs=q*2.0+K.z, base, emit=vec3(0.0);
   float close=smoothstep(r*4.0,r*1.15,t);   // up close the surface gains finer detail
-  if(K.x<0.5){ base=hsv(hue+0.05,0.35,0.3+0.6*czF(qs*1.6)+close*0.15*(czN(qs*14.0)-0.5))*(0.75+0.25*smoothstep(0.3,0.5,czN(qs*5.0))); }
-  // relief on solid worlds: ground rising towards the star is lit, ground falling away is shaded
-  if(K.x<0.5||(K.x>1.5&&K.x<3.5)){ float h0=czF(qs*2.2), h1=czF((q+Lq*0.035)*4.4+K.z*2.2); diff*=clamp(1.0+(h1-h0)*(6.0+close*6.0),0.45,1.6); }
+  if(K.x<0.5){ base=hsv(hue+0.05,0.35,0.3+0.6*czF(qs*1.6)+(close>0.0?close*0.15*(czN(qs*14.0)-0.5):0.0))*(0.75+0.25*smoothstep(0.3,0.5,czN(qs*5.0))); }
+  // relief on solid worlds: ground rising towards the star is lit, ground falling away is shaded (on the night side, nothing to shade)
+  if(K.x<0.5||(K.x>1.5&&K.x<3.5)){ if(diff>0.0){ float h0=czF(qs*2.2), h1=czF((q+Lq*0.035)*4.4+K.z*2.2); diff*=clamp(1.0+(h1-h0)*(6.0+close*6.0),0.45,1.6); } }
   else if(K.x<1.5){   // gas: bands, and a great storm turning in them, lightning on the hi-hats
     float b=sin(lat*14.0+czF(q*0.9+K.z)*6.0); base=mix(hsv(hue,0.55,0.7),hsv(hue+0.08,0.35,0.95),0.5+0.5*b);
     if(E.z>0.5){
@@ -61,18 +63,18 @@ vec3 czBody(vec3 d,float t,vec3 c,float r,vec4 K,vec4 A,vec4 E){
   else if(K.x<2.5){ base=hsv(hue+0.5,0.18,0.72+0.25*czF(qs*1.3))*(0.8+0.2*smoothstep(0.0,0.05,abs(czN(qs*4.0)-0.5))); }
   else if(K.x<3.5){ base=hsv(hue+0.02,0.5,0.1+0.1*czF(qs*1.8)); emit=hsv(hue+0.03,0.9,1.0)*smoothstep(0.06,0.0,abs(czN(qs*3.5)-0.5))*(0.7+0.5*uBass*uReact)*(1.0+uCosFx.y*2.5); }
   else {   // ocean: deep water and land, the star's glint on the sea
-    land=smoothstep(0.5,0.54,czF(qs*1.4)+close*0.05*czN(qs*16.0));
+    land=smoothstep(0.5,0.54,czF(qs*1.4)+(close>0.0?close*0.05*czN(qs*16.0):0.0));
     base=mix(hsv(hue+0.56,0.7,0.35),hsv(hue+0.12,0.4,0.45),land);
     emit+=uCosSunC*pow(max(dot(reflect(-L,n),-d),0.0),60.0)*(1.0-land)*0.8*step(0.0,nl);
   }
   if(E.w>0.0){   // clouds drifting over the ground, each casting its shadow on the side away from the star
-    vec3 cd=vec3(uTime*0.02,0.0,0.0); float cl=smoothstep(0.52,0.62,czF(q*3.0+cd)), cs=smoothstep(0.52,0.62,czF((q+Lq*0.03)*3.0+cd));
+    vec3 cd=vec3(uTime*0.02,0.0,0.0); float cl=smoothstep(0.52,0.62,czFt(q*3.0+cd,0.52)), cs=smoothstep(0.52,0.62,czFt((q+Lq*0.03)*3.0+cd,0.52));
     base*=1.0-0.55*cs*E.w*(1.0-cl); base=mix(base,vec3(0.92),cl*E.w); land*=1.0-cl; }
   vec3 col=base*(0.03+0.97*diff)+emit;
-  if(E.x>0.5){   // cities on the night side: sprawls of lights, finer the closer the camera
+  if(E.x>0.5&&nl<0.08){   // cities on the night side: sprawls of lights, finer the closer the camera
     float sprawl=smoothstep(0.58,0.72,czN(qs*5.0)), f=40.0+close*260.0, dots=step(0.86,czH(floor(qs*f)))*(0.4+0.6*czH(floor(qs*f)+7.0));
     col+=vec3(1.0,0.75,0.4)*sprawl*(dots+(0.12+0.4*(1.0-close))*sprawl)*land*smoothstep(0.08,-0.1,nl)*(0.55+0.35*uBeat); }   // (from afar the sprawls glow as a whole)
-  if(E.y>0.5){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
+  if(E.y>0.5&&abs(lat)>0.7&&abs(lat)<1.0){ float lon=atan(dot(n,cross(ax,vec3(0.0,0.0,1.0))),dot(n,vec3(0.0,0.0,1.0)));   // auroras round the poles, on the kick
     col+=hsv(hue+0.33,0.8,1.0)*smoothstep(0.7,0.85,abs(lat))*smoothstep(1.0,0.9,abs(lat))*(0.5+0.5*sin(lon*18.0+uTime*2.0))*(0.25+uBeat*0.9)*(0.4+0.6*smoothstep(0.2,-0.2,nl)); }
   return col;
 }
@@ -138,11 +140,11 @@ vec3 czTurn(vec3 q,vec3 ax,float a){ float c=cos(a), s=sin(a); return q*c+cross(
 vec4 czRocks(vec3 d,float tmax){
   const float S=2.2;
   vec3 o=uCosEye/S, cell=floor(o), st=sign(d)+step(0.0,-abs(sign(d))), inv=1.0/max(abs(d),vec3(1e-4)), tm=(st*(cell-o)+st*0.5+0.5)*inv;
-  float clump=0.0;
   for(int i=0;i<28;i++){
     vec3 cc=(cell+0.5)*S; float rr=length(cc.xz), h=czH(cell);
-    clump=czN(cc*0.08+uCosSeed);   // denser in some stretches than others
-    if(abs(rr-uCosBelt.x)<uCosBelt.y&&abs(cc.y)<uCosBelt.z&&h>0.78-0.4*clump){
+    // in the belt, and holding a rock: denser in some stretches than others (the clumping noise is looked up only where the
+    // cell's own number leaves it in doubt: under .38 never, over .78 always)
+    if(abs(rr-uCosBelt.x)<uCosBelt.y&&abs(cc.y)<uCosBelt.z&&h>0.38&&(h>0.78||h>0.78-0.4*czN(cc*0.08+uCosSeed))){
       float big=czH(cell+1.3), rad=S*(0.05+0.24*big*big+0.1*step(0.93,big));   // mostly small, a few big boulders
       vec3 sc=vec3(1.0,0.5+0.45*czH(cell+2.1),0.4+0.5*czH(cell+4.4));          // stretched: lumps, shards, potatoes
       float bound=rad*1.35, room=max(0.0,0.5*S-bound);
@@ -180,15 +182,22 @@ vec4 czGas(vec3 d,float tmax){
   if(abs(d.y)>1e-4){ float ta=(-Hg-o.y)/d.y, tb=(Hg-o.y)/d.y; t0=max(t0,min(ta,tb)); t1=min(t1,max(ta,tb)); }
   else if(abs(o.y)>Hg) return vec4(0.0,0.0,0.0,1.0);
   if(t1<=t0) return vec4(0.0,0.0,0.0,1.0);
+  // a view that never comes within two widths of the ring's middle gets none of it (each sample would be under .02): the
+  // distance from the star's axis along the view is least at the vertex (or an end) and most at an end
+  vec2 oz=o.xz, dz=d.xz; float aa=dot(dz,dz), tv=aa>1e-8?clamp(-dot(oz,dz)/aa,t0,t1):t0;
+  float rmin=length(oz+dz*tv), rmax=max(length(oz+dz*t0),length(oz+dz*t1));
+  if(rmin>R+2.0*Wg||rmax<R-2.0*Wg) return vec4(0.0,0.0,0.0,1.0);
   vec3 acc=vec3(0.0); float tr=1.0, dt=(t1-t0)/10.0;
   for(int i=0;i<10;i++){
     float t=t0+dt*(float(i)+0.5+0.8*(czH(d*37.0+float(i))-0.5)); vec3 p=o+d*t;
-    float rr=length(p.xz), ring=exp(-pow((rr-R)/Wg,2.0)-2.0*pow(p.y/Hg,2.0));
+    float rr=length(p.xz), xr=(rr-R)/Wg, yr=p.y/Hg, ring=exp(-xr*xr-2.0*yr*yr);
     if(ring<0.02) continue;
     vec3 away=normalize(p-sw), q=p*0.07; q-=away*dot(q,away)*0.7;   // stretched along the star's outward line: wisps
-    float n=czF(q+vec3(uTime*0.015,0.0,uTime*0.01)+uCosSeed), n2=czN(p*0.02-uCosSeed);
+    float n=czFt(q+vec3(uTime*0.015,0.0,uTime*0.01)+uCosSeed,0.3);
+    if(n<=0.3) continue;   // no gas here: nothing added, nothing hidden
+    float n2=czN(p*0.02-uCosSeed);
     float dens=ring*smoothstep(0.3,0.72,n)*(1.0+uBass*uReact*0.3)*0.065*dt;
-    float g=max(dot(d,normalize(sw-p)),0.0), sr=length(p-sw)/(R*1.3);
+    float g=max(dot(d,-away),0.0), sr=length(p-sw)/(R*1.3);
     vec3 c=mix(hsv(uHue+0.08,0.4,1.0),hsv(uHue+0.55,0.45,0.9),n2)*0.6+uCosSunC*0.25;
     acc+=tr*dens*c*(0.35+1.4*pow(g,6.0))/(1.0+sr*sr);
     tr*=1.0-min(dens*0.7,0.9);
@@ -255,26 +264,31 @@ vec3 czSystem(vec2 sp){
   // a black hole bends the light from behind it towards itself
   vec3 dl=d;
   if(hole>0.5&&sb>0.0) dl=normalize(d+normalize(S-d*sb)*min(2.0*R/max(sh,R*0.5),1.2));
-  vec3 col=czSky(dl);
+  vec3 col=vec3(0.0);   // (the far sky is drawn below, only where nothing covers it)
   float tMin=1e9;
   if(hole<0.5){ float ts=czHit(d,S,R);
     if(ts>0.0){ tMin=ts; vec3 n=normalize(d*ts-S); col=uCosSunC*(1.2+0.8*max(dot(n,-d),0.0))*(0.85+0.3*czF(n*9.0+uTime*0.1)); } }
   else if(sb>0.0&&sh<R*1.5){ tMin=sb; col=vec3(0.0); }   // its shadow
   if(uCosTwin.w>0.0){ float tt=czHit(d,uCosTwin.xyz,uCosTwin.w); if(tt>0.0&&tt<tMin){ tMin=tt; col=uCosTwinC*1.6; } }
   if(uCosHalo.z>0.5){ vec4 hl=czHalo(d,tMin); if(hl.w>0.0){ tMin=hl.w; col=hl.rgb; } }
-  int hit=-1;
-  for(int i=0;i<6;i++){ vec4 B=uCosB[i]; if(B.w<=0.0) continue; float t=czHit(d,B.xyz,B.w); if(t>0.0&&t<tMin){ tMin=t; hit=i; } }
-  for(int i=0;i<6;i++) if(i==hit) col=czBody(d,tMin,uCosB[i].xyz,uCosB[i].w,uCosK[i],uCosA[i],uCosE[i]);
+  // the nearest body the view hits, its details copied out so its surface is worked out by one call (a call per slot would
+  // put six copies of the biggest function in the shader)
+  int hit=-1; vec4 hB=vec4(0.0), hK=vec4(0.0), hA=vec4(0.0), hE=vec4(0.0);
+  for(int i=0;i<6;i++){ vec4 B=uCosB[i]; if(B.w<=0.0) continue; float t=czHit(d,B.xyz,B.w); if(t>0.0&&t<tMin){ tMin=t; hit=i; hB=B; hK=uCosK[i]; hA=uCosA[i]; hE=uCosE[i]; } }
+  if(hit>=0) col=czBody(d,tMin,hB.xyz,hB.w,hK,hA,hE);
+  else if(tMin>=1e9) col=czSky(dl);
   for(int i=0;i<6;i++){ if(uCosB[i].w<=0.0||uCosT[i].x<=0.0) continue;   // the air round each body, over the ground, sky or star behind it
     vec4 at=czAtmo(d,uCosB[i].xyz,uCosB[i].w,uCosT[i],uHue+uCosK[i].y+uCosT[i].y,tMin); col=col*at.a+at.rgb; }
-  if(uCzCage.x>-0.5) for(int i=0;i<6;i++) if(float(i)==uCzCage.x) col+=czCage(d,uCosB[i].xyz,uCosB[i].w,uCosA[i].xyz,tMin,uHue+uCosK[i].y);
+  if(uCzCage.x>-0.5){ vec4 cB=vec4(0.0), cA=vec4(0.0); float cy=0.0; bool on=false;   // (one call, as for the surface)
+    for(int i=0;i<6;i++) if(float(i)==uCzCage.x){ cB=uCosB[i]; cA=uCosA[i]; cy=uCosK[i].y; on=true; }
+    if(on) col+=czCage(d,cB.xyz,cB.w,cA.xyz,tMin,uHue+cy); }
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
   if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
   if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a soft band of dust streaked along its ring, lit towards the star,
     // with a few rocks catching the light; they fade with distance before they'd shrink below a pixel and shimmer
     float tp=-uCosEye.y/d.y; vec3 pp=uCosEye+d*tp;
-    if(tp>0.0&&tp<tMin){ float rr=length(pp.xz), off=rr-uCosBelt.x, band=smoothstep(uCosBelt.y,uCosBelt.y*0.3,abs(off));
-      float ang=atan(pp.z,pp.x)*uCosBelt.x, dust=smoothstep(0.3,0.75,czF(vec3(ang*0.05,off*0.35,uCosSeed)));
+    if(tp>0.0&&tp<tMin&&abs(length(pp.xz)-uCosBelt.x)<uCosBelt.y){ float rr=length(pp.xz), off=rr-uCosBelt.x, band=smoothstep(uCosBelt.y,uCosBelt.y*0.3,abs(off));
+      float ang=atan(pp.z,pp.x)*uCosBelt.x, dust=smoothstep(0.3,0.75,czFt(vec3(ang*0.05,off*0.35,uCosSeed),0.3));
       vec2 gc=vec2(ang*0.5,off*0.8); float gl=step(0.9,czH(vec3(floor(gc),1.0)))*smoothstep(0.14,0.04,length(fract(gc)-0.5))*smoothstep(uCosBelt.x*2.5,uCosBelt.x*0.8,tp);
       float lit=0.6+0.4*dot(d,normalize(uCosSun.xyz));   // brighter looking towards the star
       col+=(hsv(uHue+0.08,0.25,0.55)*(0.06+0.16*dust)*lit+vec3(1.0,0.95,0.85)*gl*0.35*(0.7+0.3*uBeat))*band*(1.0-uCosBelt.w*0.7); }

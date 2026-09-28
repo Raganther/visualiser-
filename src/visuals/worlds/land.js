@@ -1,6 +1,6 @@
 // Landscape: a sunset over mountain ranges shaped by the song's loudness history, reflected in water.
 import { HIST } from '../../state.js';
-import { hc } from '../../util.js';
+import { hc, rowsAbove } from '../../util.js';
 
 const st = {histT:0, landY:-.05};
 export default {
@@ -28,19 +28,11 @@ float histAt(float x,float span){
 }
 vec3 sky(vec2 sp){ float t=clamp((sp.y-uLandY)/0.6,0.0,1.0); return mix(hsv(uHue+0.02,0.75,0.55),hsv(uHue+0.62,0.65,0.08),pow(t,0.7)); }
 vec3 landAbove(vec2 sp){
-  vec3 c=sky(sp);
-  vec2 sc=vec2(uSunX,uLandY+0.16); float R=0.19+uBass*uReact*0.02;
-  float d=length(sp-sc);
-  c+=hsv(uHue+0.05,0.8,1.0)*0.35*smoothstep(R*2.2,R,d);
-  if(d<R){
-    float k=(sp.y-sc.y)/R;
-    vec3 sun=mix(hsv(uHue-0.04,0.85,1.0),hsv(uHue+0.12,0.7,1.0),k*0.5+0.5);
-    float cut=1.0;
-    if(k<0.2){ float band=fract(-k*6.0+uTime*0.4); cut=step((0.2-k)*0.35*(0.6+uBass*uReact*0.8),band); }
-    c=mix(c,sun,smoothstep(R,R-0.004,d)*cut);
-  }
-  for(int i=0;i<3;i++){                 // far, middle, near ranges
-    float fi=float(i), span=30.0-fi*10.0;
+  // the nearest range covering the pixel hides the rest, and the sun behind: so the ranges are tried near to far, the first
+  // found is the one shaded, and the sun is drawn only where no range stands
+  vec3 s=sky(sp), c=s; bool ridge=false;
+  for(int j=0;j<3;j++){                 // near, middle, far ranges
+    int i=2-j; float fi=float(i), span=30.0-fi*10.0;
     float h=0.03+histAt(sp.x,span)*(0.22-fi*0.05)+sin(sp.x*(9.0+fi*7.0)+fi*3.0)*0.012+sin(sp.x*(31.0+fi*11.0))*0.005;
     float top=uLandY+h;
     if(sp.y<top){
@@ -49,8 +41,21 @@ vec3 landAbove(vec2 sp){
       float rock=0.82+0.18*sin(sp.x*(70.0+fi*40.0)+sin(sp.y*90.0+sp.x*9.0)*1.5);   // striations in the rock
       vec3 m=hsv(hm,0.55+fi*0.1,0.42-0.12*fi)*(1.0-0.55*depth)*rock;              // nearer ranges are darker
       m+=hsv(uHue+0.04,0.8,1.0)*exp(-abs(sp.x-uSunX)*2.5)*(1.0-depth)*0.12*(1.0-fi*0.3);   // slopes facing the low sun catch it
-      c=mix(m,sky(sp),0.62-fi*0.26);                                              // far ranges fade into the sky
+      c=mix(m,s,0.62-fi*0.26);                                                    // far ranges fade into the sky
       c+=hsv(uHue+0.08,0.6,1.0)*smoothstep(0.005,0.0,top-sp.y)*(0.35+uBeat*0.9)*(0.3+0.3*fi);   // light along the crest
+      ridge=true; break;
+    }
+  }
+  if(!ridge){   // the low sun, its glow, and bands cut through its lower half
+    vec2 sc=vec2(uSunX,uLandY+0.16); float R=0.19+uBass*uReact*0.02;
+    float d=length(sp-sc);
+    c+=hsv(uHue+0.05,0.8,1.0)*0.35*smoothstep(R*2.2,R,d);
+    if(d<R){
+      float k=(sp.y-sc.y)/R;
+      vec3 sun=mix(hsv(uHue-0.04,0.85,1.0),hsv(uHue+0.12,0.7,1.0),k*0.5+0.5);
+      float cut=1.0;
+      if(k<0.2){ float band=fract(-k*6.0+uTime*0.4); cut=step((0.2-k)*0.35*(0.6+uBass*uReact*0.8),band); }
+      c=mix(c,sun,smoothstep(R,R-0.004,d)*cut);
     }
   }
   c+=hsv(uHue+0.04,0.35,0.55)*exp(-(sp.y-uLandY)*28.0)*0.22;                   // mist lying on the water
@@ -127,11 +132,12 @@ float landFront(vec2 sp){
     const mist = o.createLinearGradient(0, Y(P.landY + .08), 0, hy);   // mist lying on the water
     mist.addColorStop(0, hc(P.hue + .04, 35, 55, 0)); mist.addColorStop(1, hc(P.hue + .04, 35, 55, .22));
     o.fillStyle = mist; o.fillRect(0, Y(P.landY + .08), W, hy - Y(P.landY + .08));
+    const above = rowsAbove(o.canvas, hy);
     for (let yo = 0; yo < H - hy; yo += 3) {           // water: the landscape reflected in strips that ripple
       const dy = yo/u, dx = Math.sin(dy*90 - t*3)*.003*(1 + P.beat*4)*(1 + dy*6)*u;
       const src = hy - yo - 3; if (src < 0) break;
       o.globalAlpha = Math.min(1, P.w.land)*.5*(1 - Math.min(1, dy*2)*.5);
-      o.drawImage(o.canvas, 0, src, W, 3, dx, hy + yo, W, 3);
+      o.drawImage(above, 0, src, W, 3, dx, hy + yo, W, 3);
     }
     o.globalAlpha = Math.min(1, P.w.land); o.fillStyle = hc(P.hue + .08, 60, 85, .8);   // glints on the water under the sun
     for (let k = 0; k < 24; k++) {
