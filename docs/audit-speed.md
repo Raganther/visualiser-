@@ -11,7 +11,29 @@ picture didn't move, and the golden test (thumbnails of a whole seeded run) chec
 
 ## Results
 
-RESULTS
+Software WebGL (SwiftShader) at 320×180, milliseconds a frame, `main` before the audit against after; the picture column
+is the largest change in any tile of each scene's thumbnail (of 255):
+
+| Scene | Before | After | Speed | Picture |
+|---|---|---|---|---|
+| Journey's first sections | 417 | 252 | 1.65× | 0 |
+| Kaleidoscope | 28.7 | 30.8 | about the same | 0 |
+| City comets | 41.7 | 41 | about the same | 0 |
+| Skull in the city | 68 | 61.8 | 1.1× | 0 |
+| Northern lights | 32.5 | 33.3 | about the same | 0 |
+| The cosmos from afar | 440 | 219 | 2.0× | 0 |
+| A planet up close | 722 | 556 | 1.3× | 0 |
+| The asteroid belt | 750 | 591 | 1.27× | 0 |
+| Landed | 212–235 | 229–256 | about the same | 0 |
+
+Timings in software rendering wander by about 10%, so the rows marked "about the same" are within that. Two cautions:
+- **Software rendering runs four pixels at a time on the processor**, so a skip only pays when all four agree; a graphics
+  chip runs 32 or 64 together, over areas that mostly agree (a building, the sky, a planet), so the skips should pay at
+  least as well there. The city's and the landscape's gains (a pixel shades one building row or ridge, not up to four)
+  don't show here for that reason.
+- **The landed ground's cost is its march** (up to 80 steps of the height a pixel), which no exact change could shorten
+  much; its savings are for rays that reach the sky, the valley floor and worlds without strata. What it gets instead is
+  the adaptive size: on a slow device it steps down first, alone.
 
 ## Done
 
