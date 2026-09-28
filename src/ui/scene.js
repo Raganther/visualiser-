@@ -13,6 +13,7 @@ import { $ } from '../util.js';
 
 const WORDS = {plain: 'Plain: everything in its usual place', between: 'Between: the glow behind the world\'s front',
   split: 'Split: one layer behind the world\'s front, one in front', among: 'Among: an object between the world\'s planes',
+  held: 'Held: the glow shrunk into a planet, shown only inside it',
   reflect: 'Reflect: the world in an object\'s glass', inside: 'Inside: a kaleidoscope in an object, the glow kept out',
   window: 'Window: the glow seen only through an object', glass: 'Glass: one layer seen only in an object\'s glass'};
 const DRIVES = SIGNALS.filter(([k]) => k !== 'drift' && k !== 'jump');   // drift and jump belong to the movers
