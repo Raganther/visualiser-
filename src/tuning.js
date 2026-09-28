@@ -206,5 +206,33 @@ export const TUNE = {
     downMargin: .12,           // how much clearer a new downbeat must be to move the 1
     downHoldBeats: 8,          // ...for this many beats in a row
     clapWeight: .7,            // weight of claps on 2 and 4 against crashes and changes on the 1
+    acPull: .8,                // how far the low end's own pulse (its autocorrelation) steers the tempo, when it's clear
+    acWidth: .03,              // ...towards tempos within about this share of it
+    acClear: .35,              // an autocorrelation this strong (of the most it can be) counts as a clear pulse
+    acSure: .6, acNear: .04,   // a pulse this clear rules: the tempo is looked for only within this share of it
+    acLock: .3,                // the grid locks only when the low end's pulse is at least this clear (once 4 s have been heard)
+  },
+
+  // listening for texture (audio/listen.js): what tells compressed techno's parts apart when its loudness barely moves
+  listen: {
+    forget: .01,               // how fast the loudest hats heard fade (a share a second), so a quieter part is heard on its own terms
+    hatFloor: .002,            // hats this faint or fainter count as none (the top end's rise in loudness per frame)
+    hatFull: .6,               // hats at this share of the most heard lately count as fully in
+    hatIn: .3, hatOut: .12,    // the hats count as come in above this, and gone under this (the margin keeps a flicker from counting)
+    eventGap: 6,               // seconds the hats must have been steady before a change counts as an event
+    eventNov: .08, eventSecs: 3,   // an event adds this to the novelty for this long: enough to start a section on its own
+    flatFull: .8,              // flatness in the mids that counts as fully noisy (a chord's peaks are near 0; real mixes sit .5-.8)
+    bassDb: 20, bassForget: .5,   // the bass this many dB under its loudest lately counts as gone; that loudest fades this many dB a second
+    brkBelow: .35, brkSecs: 3, // the bass under this share of its loudest for this long is a breakdown
+    dropAbove: .7, dropHold: .5,   // ...and its return past this share, for this long (not a flicker), is the drop
+    noGridBarMs: 3000,         // with no beat grid, a "bar" every this long
+    wBand: 4, wNotes: 1, wHat: 3, wNoise: 1.5,   // how much each part of a bar's summary counts when comparing bars
+    novOver: 2.2, novFloor: .05,   // a bar pair counts as new when this many times more unlike the bars before than bars usually are
+    loopSame: .6,              // a bar this close to the one four or eight before is the same loop
+    // what Journey does with it (journey/director.js)
+    fullWeight: .4,            // how much the texture's fullness counts in the tension, beside loudness
+    novWeight: .6,             // how much a new bar counts towards a new section, beside the slower fingerprint
+    loopBars: 24,              // after this many bars of the same loop, the progression moves on sooner
+    unclearCalm: .5,           // with no clear pulse at all, the pace is this much calmer
   },
 };

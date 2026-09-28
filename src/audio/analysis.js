@@ -1,19 +1,20 @@
 // Audio analysis: levels, and onsets for kicks and stabs.
 import { S } from '../state.js';
 import { G, gridFrame, gridKick, onBeatFX } from './beatgrid.js';
-import { actx, analyser, buffer } from './player.js';
+import { actx, analyser, buffer, stereo } from './player.js';
+import { listenFrame, listenReset } from './listen.js';
 import { synth } from './synth.js';
 import { onHitFX } from '../fx/effects.js';
 import { PACE } from '../journey/pace.js';
-import { dataArr, freq, wave, waveS } from '../state.js';
+import { dataArr, freq, freqDb, wave, waveS } from '../state.js';
 import { reduceMotion } from '../util.js';
 import { MEDIA } from '../media/source.js';
 import { TUNE } from '../tuning.js';
 
-const intervals = [];
+const intervals = [], stL = new Float32Array(512), stR = new Float32Array(512);
 /* ---------- analysis ---------- */
 export let sBass = 0, sMid = 0, sTreb = 0, lastBeat = 0, hit = 0, lastHit = 0;
-const prevSpec = new Uint8Array(1024), loFlux = [], hiFlux = [], kickFlux = [];
+const LF = new Float32Array(1024), prevLF = new Float32Array(1024), prevDb = new Float32Array(32), loFlux = [], hiFlux = [], kickFlux = [];
 const kickFl = [], hitFl = [];
 let pend = null;                                        // a low-end hit waiting to show it's a kick (see below)
 // analyser bytes are decibels; onsets are judged on actual loudness so faint noise can't pass for a kick
@@ -29,15 +30,22 @@ function followBand(k, v){
 }
 function upper(a, q){ if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1)*q)]; }
 // a new track: nothing learnt from the last one carries over
-export function resetOnsets(){ kickFl.length = hitFl.length = intervals.length = kickFlux.length = loFlux.length = hiFlux.length = 0; pend = null; }
+export function resetOnsets(){ listenReset(); kickFl.length = hitFl.length = intervals.length = kickFlux.length = loFlux.length = hiFlux.length = 0; pend = null; }
 export function analyse(now){
   // a track, or a video's own sound; otherwise the built-in beat
   const real = (buffer || MEDIA.audio) && analyser;
-  if (real) { analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(wave); }
-  else synth(now);
+  if (real) { analyser.getByteFrequencyData(freq); analyser.getFloatFrequencyData(freqDb); analyser.getByteTimeDomainData(wave); }
+  else if (!synth(now, freqDb)) for (let i = 0; i < 1024; i++) freqDb[i] = freq[i]/255*70 - 100;   // (a test that fed bytes only)
+  // actual loudness per bin (1 at -30 dB, the bytes' ceiling, and above it on loud masters), for the onsets below
+  for (let i = 1; i < 520; i++) LF[i] = Math.pow(10, (Math.max(-100, freqDb[i]) + 30)/20);
   // kicks are detected about half an analysis window late, and the frame reaches the screen later still, while the sound
   // reaches the speakers later than the analyser hears it; the grid ticks early or late by the difference
   G.lead = real ? analyser.fftSize/2/actx.sampleRate + TUNE.sync.displayMs/1000 - (actx.outputLatency || actx.baseLatency || 0) - S.syncMs/1000 : 0;
+  // stereo width: the side (L-R) against the whole, from the channel pair (a test can give its own)
+  let width = window.__width ?? null;
+  if (real && stereo) { stereo[0].getFloatTimeDomainData(stL); stereo[1].getFloatTimeDomainData(stR);
+    let m = 0, s = 0; for (let i = 0; i < 512; i++) { const a = stL[i], b = stR[i]; m += (a + b)**2; s += (a - b)**2; } width = s/(m + s + 1e-9); }
+  listenFrame(now, Math.min(.1, Math.max(0, (now - (analyse.last || now))/1000)), width); analyse.last = now;
   for (let i = 0; i < 256; i++) {
     dataArr[i] = wave[i*8];
     dataArr[256+i] = freq[Math.min(1023, 1 + Math.floor(Math.pow(i/255, 2) * 700))];
@@ -49,15 +57,19 @@ export function analyse(now){
   followBand('bass', bass); followBand('mid', mid); followBand('treb', treb);
   // onsets: how much the spectrum jumped since the last frame (spectral flux)
   let fl = 0, fh = 0;
-  for (let i = 1; i < 7; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fl += d; }
+  for (let i = 1; i < 7; i++) { const d = LF[i] - prevLF[i]; if (d > 0) fl += d; }
   // the kick's own flux, leaning on the sub-bass; sub1 is the lowest bin's part of it
   let fk = 0; const KW = TUNE.kick.weights;
-  for (let i = 1; i < 7; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fk += d*KW[i - 1]; }
-  const sub1 = Math.max(0, LIN[freq[1]] - LIN[prevSpec[1]])*KW[0];
+  for (let i = 1; i < 7; i++) { const d = LF[i] - prevLF[i]; if (d > 0) fk += d*KW[i - 1]; }
+  const sub1 = Math.max(0, LF[1] - prevLF[1])*KW[0];
   fk /= 6;
-  for (let i = 12; i < 120; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) fh += d; }
-  let ft = 0; for (let i = 200; i < 500; i++) { const d = LIN[freq[i]] - LIN[prevSpec[i]]; if (d > 0) ft += d; }
-  prevSpec.set(freq); fl /= 6; fh /= 108; ft /= 300;
+  for (let i = 12; i < 120; i++) { const d = LF[i] - prevLF[i]; if (d > 0) fh += d; }
+  let ft = 0; for (let i = 200; i < 500; i++) { const d = LF[i] - prevLF[i]; if (d > 0) ft += d; }
+  // the rises from 20 to 650 Hz in decibels (all rises alike, as the ear hears them), for the grid's pulse. In actual
+  // loudness, or in the sub-bass alone, a rolling bassline's notes outweigh the kick and the pulse came out at the
+  // bassline's pattern; the kick is the one that rises across the whole low end at once (its body and click)
+  let fd = 0; for (let i = 1; i < 31; i++) { const v = Math.max(-100, freqDb[i]), d = v - prevDb[i]; if (d > 0) fd += d; prevDb[i] = v; }
+  prevLF.set(LF); fl /= 6; fh /= 108; ft /= 300;
   const lq = upper(loFlux, .6), hq = upper(hiFlux, .75);
   // compare against the typical strength of recent kicks/hits, so quieter bleed doesn't count
   // the floors learnt from recent kicks and stabs are forgotten after a quiet spell, so a quieter track (or a breakdown's
@@ -90,6 +102,6 @@ export function analyse(now){
       pend = null;
     }
   }
-  gridFrame(now/1000, fl, fh, ft);
+  gridFrame(now/1000, fl, fh, ft, fd);
   S.beat *= .93 - .09*PACE.v; hit *= .82;               // calm pulses swell and fade; frantic ones snap
 }

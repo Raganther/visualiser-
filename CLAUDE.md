@@ -28,12 +28,12 @@ src/visuals/registry.js    lists every world, hit, layer and object; everything 
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
 src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes), quality.js (resolution that follows the frame rate)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
-src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
+src/audio/                 player, analysis (levels, onsets), listen (texture: hats, noise, bass, filter, notes, width, bar memory), synth (built-in beat), beatgrid (tempo, the low end's pulse, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
-tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, cosmos, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, journey, quality, cosmos, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
@@ -215,9 +215,11 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
   - **Why a share.** A share rather than a strength doesn't depend on where in the frame the hit fell, which made strength unreliable. Measured over the window: the track's kicks put .15–.32 there, its bass notes mostly under .1, and an 808-style sweep kick (the sync test's) .22–.28.
   - **Result.** The same track now locks for 207 of 272 s, at a median of 129.9 BPM. A few bass notes still get through in busy stretches, but the grid holds.
   - **Test.** `tests/fixtures/offbeat.js` is a synthetic groove built this way, and `tests/grid.mjs` checks it.
+  - **Loud masters.** The analyser's bytes stop at -30 dB, and the user's techno goes up to 11 dB past that in the sub-bass (clipped in 27–46% of frames), which flattened every kick. The onsets (and the listening) read the spectrum unclipped in decibels (`freqDb` in `state.js`, from `getFloatFrequencyData`); the bytes (`freq`) stay as they were for the visuals. `LF` is each bin's actual loudness, 1 at -30 dB and above it on loud masters.
 - **Beat grid** (`audio/beatgrid.js`: `G`, `gridKick` / `gridTick` / `gridFrame`; tolerances in `TUNE.grid`):
   - **Tempo.** `estimatePeriod` finds the beat length that best explains the gaps between recent kicks as whole numbers of beats.
-  - **Clock.** It locks after three kicks on the grid, and each on-grid kick nudges it back into phase. It keeps ticking through missed kicks and breakdowns (about `holdSecs`).
+  - **The low end's own pulse** (`pulse()`, `G.acP`, `G.acConf`). A rolling bassline ("Mutant Pulse": a note every three sixteenths) puts onsets between the kicks as strong as the kicks, which pass for kicks: the grid locked for 39 s of 203, at 160–170 BPM. So the grid also autocorrelates the rises from 20 to 650 Hz, in decibels, over the last 8 s, every half second: a beat repeats at its own length, twice it and four times it, a bassline's pattern doesn't keep in step with the bar, and the kick is what rises across the whole low end at once. When that pulse is clear (`TUNE.grid.acSure`) the tempo is looked for only within `acNear` of it. Now: 180 of 203 s at 128.1 BPM.
+  - **Clock.** It locks after three kicks on the grid (a kick between them is let be, rather than starting the count again), and only when the low end's pulse is clear enough (`acLock`, once 4 s are heard: a slow song's drums otherwise locked a false dance tempo). Each on-grid kick nudges it back into phase; kicks off the grid are let be, and only two bars of kicks with none on it lose the lock. It keeps ticking through missed kicks and breakdowns (about `holdSecs`).
   - **Downbeat.** It's learned from where claps fall (2 and 4) and where crashes and changes land (the 1). It only moves after consistent evidence.
   - **Resets.** Seek, pause or play re-lock the phase but keep the tempo. A new track resets everything.
 - **What follows the grid.** `gridBeat(pos)` is the single per-beat hook, with pos 0 = the downbeat. It drives:
@@ -236,6 +238,22 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
   With the built-in beat there's nothing to hear, so `G.lead` is 0.
 - **The pulse lands on the kick.** The kick's flash is in the display pass (`c*=1+uBeat*…`, and the matching second draw in simple mode), not in the trails. Brightness added in the trails builds up over the next frames and peaked about 8 frames late. So beat-driven brightness doesn't go in the feedback pass. `tests/sync.mjs` checks both.
 - **Phrases.** 4-bar lines are counted from the first bar of the current section (`J.phraseAnchor`).
+
+## Listening: texture, not just loudness
+
+`audio/listen.js` (a leaf module; what it hears is in `L`), added after running the user's tracks through the page offline: on compressed techno the loudness is a flat line from the intro to the outro, and the parts are told apart by their texture. Fed every frame from the unclipped spectrum (`listenFrame`) and once a bar from the grid (`listenBar`; with no grid, every `noGridBarMs`). Tuning in `TUNE.listen`.
+- **What it hears:** `hat` (the top octaves' ticking, in actual loudness, against the most heard lately), `noise` (flatness in the mids: chords make peaks, washes and noise are smooth), `bass` (the 20–150 Hz level in dB against its loudest lately, over half a second so the kick's pumping evens out), `cut` (where 85% of the energy lies below: the filter), `width` (stereo: the side against the whole, from a pair of small analysers on the two channels, `stereo` in `player.js`), `full` (hats, noise and bass together), the `chroma` of each bar and how far it moved from the bars before (`harm`), `nov` (the last two bars against the eight before, over how much bars usually differ: something new) and `loop` (bars in a row like the bar four or eight before).
+- **Events:** `brk` (the bass well under its loudest for `brkSecs`: a breakdown; a flicker of bass mid-breakdown doesn't end it), `drops` (the bass back past `dropAbove` for `dropHold`: the drop), and `events` (the hats in or out, past a margin, after `eventGap` steady seconds, or a breakdown starting).
+- **What Journey does with it:**
+  - the fingerprint (`FEATS`) gains `hat` (weighted most: the clearest sign of a new part in this music) and `noise`;
+  - the novelty that starts a section adds a new bar (`nov`, `novWeight`) and, for `eventSecs`, an event (`eventNov`: enough to start one on its own);
+  - a drop fires when the bass comes back after a breakdown (`L.drops`), as well as on a jump in loudness;
+  - the tension adds how full the texture is (`fullWeight`), beside loudness;
+  - a loop that's run `loopBars` unchanged brings the progression's next step sooner;
+  - with no clear dance pulse (`G.acConf`, eased into `J.beatClear`), the pace is calmer (`unclearCalm`).
+- **Signals on the bus:** Hi-hats, Noisy against tonal, Fullness, Stereo width, The notes change, Something new (so movers, scene drives and each layer's "follows" can use them).
+- **Narration:** the panel's "Hearing:" line (`#jHear`): the hats in or out, the bass (or a breakdown), noisy or tonal, the filter, wide, the loop's length, something new, the notes moving.
+- **On the user's tracks** (offline, `tools/track-run.mjs`, which now feeds the unclipped spectrum and the width, and records `L` each second): Mutant Pulse's new sections fall where the hats go in and out and at the breakdown, and it drops as the bass comes back; Us and Them (a real recording, not techno) gets its choruses as one section that returns each time, calm pace (264 s floating, none frantic; it was 102 s frantic), and the band coming in after the organ intro as its drop.
 
 ## Conventions
 
@@ -491,7 +509,8 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - time beats within 15 ms;
   - find the real downbeat at a steady tempo.
 
-  On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo.
+  On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo. On `fixtures/rolling.js` (a loud master, past the bytes' ceiling, with a bass note every three sixteenths, louder low down than the kick) it must lock to the right tempo and time the beats.
+- `tests/listen.mjs`: on `fixtures/texture.js` (parts that differ in texture, not loudness), the listening hears the hats come in, the breakdown, one drop as the bass returns (and Journey drops then), the noisy wash, the chord moving, the stereo widening and the loop running on; and Journey starts a new section when the hats come in though the loudness hardly changes.
 - `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/cosmos.mjs`:
   - with `?lab=cosmos`, in both renderers: it draws, the shots change with the music, a jump reaches another system, and the camera never goes inside a body;

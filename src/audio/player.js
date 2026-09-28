@@ -12,13 +12,16 @@ import { TUNE } from '../tuning.js';
 import { syncSliders, updateSectionUI } from '../ui/panel.js';
 
 /* ---------- audio ---------- */
-export let actx = null, analyser = null, source = null, buffer = null;
+export let actx = null, analyser = null, source = null, buffer = null, stereo = null;
 export let playing = false, startedAt = 0, tracks = [], tIndex = -1, loadToken = 0;
 function ensureAudio(){
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .2;
     analyser.connect(actx.destination);
+    // a small analyser on each channel, for how wide the sound is (audio/listen.js)
+    const split = actx.createChannelSplitter(2); analyser.connect(split);
+    stereo = [0, 1].map(ch => { const a = actx.createAnalyser(); a.fftSize = 512; split.connect(a, ch); return a; });
     // an interruption (a call, a route change on iOS) suspends the context: resume on the next touch or return to the page
     const wake = () => { if (actx.state !== 'running' && playing) actx.resume().catch(() => {}); };
     addEventListener('pointerdown', wake); document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });

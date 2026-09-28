@@ -52,7 +52,17 @@ checks.push(
   ['off-beat bass: mean timing error', Math.round(ol.reduce((a, b) => a + Math.abs(b.err), 0)/Math.max(1, ol.length)*1000), v => v < 15, ' ms'],
   ['off-beat bass: no page errors', o.errors.length, v => v === 0, '']);
 
-// 3. a much quieter stretch after a loud one (about 22 dB down after 25 s): the floor learnt from the loud kicks must not
+// 3. a loud master with a rolling bassline (tests/fixtures/rolling.js, like the user's "Mutant Pulse"): bass notes every
+// three sixteenths, louder in the low end than the kick, and the sub-bass past the analyser's -30 dB ceiling. Before the
+// grid read the unclipped spectrum and followed the low end's pulse it locked for 39 s of 203, at 160-170 BPM
+const r = await run('rolling', 60), rb = r.beats.filter(b => b.t > 20), rl = rb.filter(b => b.locked);
+checks.push(
+  ['rolling bassline: locked for most beats', pct(rl.length, rb.length), v => v >= 90, '%'],
+  ['rolling bassline: tempo within 0.5 BPM', pct(rl.filter(b => Math.abs(b.bpm - b.trueBpm) < .5).length, rl.length), v => v >= 95, '%'],
+  ['rolling bassline: mean timing error', Math.round(rl.reduce((a, b) => a + Math.abs(b.err), 0)/Math.max(1, rl.length)*1000), v => v < 20, ' ms'],
+  ['rolling bassline: no page errors', r.errors.length, v => v === 0, '']);
+
+// 4. a much quieter stretch after a loud one (about 22 dB down after 25 s): the floor learnt from the loud kicks must not
 // lock the quieter ones out. It did: nothing learnt was ever forgotten (.03 kicks a beat, so the grid never came back).
 // The detector's fixed floors still miss some of them (about .35 a beat): a known limit
 const q = await run('offbeat', 60, {dropAt: 25, drop: 80, from: 32});

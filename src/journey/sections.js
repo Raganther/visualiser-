@@ -10,6 +10,7 @@ import { freq } from '../state.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
+import { L } from '../audio/listen.js';
 
 export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/FEATS.length; }
 export function newType(F){
@@ -83,6 +84,7 @@ export function features(dt){
     bright: cs > 0 ? Math.min(1, Math.log(1 + cw/cs)/Math.log(300)) : 0,
     low: lowB/tot, mid: (lmid + mid)/tot,
     lvl: energyLevel(),
+    hat: L.hat, noise: L.noise,
   };
   for (const f of FEATS) {
     J.fF[f] += (raw[f] - J.fF[f])*Math.min(1, dt/1.2);

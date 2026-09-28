@@ -56,6 +56,7 @@ import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
+import { L } from './audio/listen.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 import * as registry from './visuals/registry.js';
@@ -110,7 +111,7 @@ function render(now){
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
   updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
-    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt});
+    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
@@ -165,6 +166,10 @@ function render(now){
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
       ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
       : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
+    const hr = $('#jHear');   // what the listening hears (audio/listen.js)
+    if (hr && $('#panel').classList.contains('open')) hr.textContent = `Hearing: hi-hats ${L.hat > .45 ? 'in' : 'out'}, bass ${L.brk ? 'out (a breakdown)' : L.bass > .5 ? 'in' : 'low'}, `
+      + `${L.noise > .5 ? 'noisy' : 'tonal'}, filter ${Math.round(L.cut*100)}%${L.width > .15 ? ', wide' : ''}`
+      + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`;
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const sl = sliders[k], {out, s, input} = sl, v = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
