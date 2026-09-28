@@ -135,6 +135,15 @@ export function stepJourney(now, dt){
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;
+  // handing over: Journey was turned back on from a look made by hand, which it holds (its settings, movers and scene)
+  // until the music gives it a reason to move on: a new section, a drop, a progression step, or a phrase line once
+  // handoffSecs have passed. Then it fades to its own, rather than jumping there the moment it's switched on
+  const H = J.handoff;
+  if (H) {
+    const over = J.type !== H.type || J.lastDrop !== H.drop || J.progStep !== H.step || (now - H.t > TUNE.handoffSecs*1000 && (J.phraseNow || now - H.t > TUNE.handoffSecs*2000));
+    if (!over) { J.cutNow = false; J.phraseNow = false; return; }
+    J.handoff = null; J.goal = {}; J.held = {}; J.cutSince = 0; if (J.lastDrop === H.drop) J.style = 'fade';
+  }
   const rate = Math.min(1, dt*.4*sp);
   if (wOn) { tgt.zoom = 1 + (tgt.zoom - 1)*.4; tgt.decay -= .04; }   // keep the glow gentle over a world
   const swap = Math.min(1, dt*1.6);          // element changes happen over about a bar, not a long slide

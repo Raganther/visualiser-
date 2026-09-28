@@ -66,7 +66,17 @@ export function setJourney(on, snapshot){
   $('#autoBtn').setAttribute('aria-pressed', on);
   $('#randBtn').textContent = on ? 'Nudge' : 'Randomize';
   $('#sliders').classList.toggle('locked', on); $('#jNote').hidden = !on;
-  if (on) { SPEC.forEach(s => jState[s.k] = curP[s.k]); J.goal = {}; J.held = {}; J.cutSince = 0; if (snapshot === 'fresh') freshJourney(); S.active = jState; $('#pName').textContent = 'Journey'; toast('Journey'); syncSliders(); }
+  if (on) {
+    const hand = S.active !== jState && snapshot !== 'fresh' ? S.active : null;   // the look made by hand that Journey takes over from
+    // from a look made by hand, what was set (changes still fading in included); otherwise what's drawn
+    SPEC.forEach(s => jState[s.k] = hand && typeof hand[s.k] === 'number' ? hand[s.k] : curP[s.k]); J.goal = {}; J.held = {}; J.cutSince = 0;
+    if (snapshot === 'fresh') { freshJourney(); J.handoff = null; }
+    else if (hand) {   // it carries on from what's on screen: the same settings, movers and scene, until the music moves it on
+      jState.mods = clone(hand.mods || {}); J.sceneLive = hand.scene || null;
+      J.handoff = {t: performance.now(), type: J.type, drop: J.lastDrop, step: J.progStep};
+    }
+    S.active = jState; $('#pName').textContent = 'Journey'; toast(J.handoff ? 'Journey: carrying on from here' : 'Journey'); syncSliders();
+  }
   // Journey off: keep what's on screen now as a preset to adjust by hand. The sliders' values are taken as they're drawn
   // (curP), not Journey's targets, which it was still easing towards: those carried on changing the picture after it stopped
   // (and Journey's scene with it: how the pieces were stacked, or the snapshot fell back to the plain stack)
@@ -74,7 +84,12 @@ export function setJourney(on, snapshot){
 }
 function toggleAuto(){ setJourney(!J.on, true); }
 $('#autoBtn').onclick = toggleAuto;
-$('#adjBtn').onclick = () => { const o = $('#panel').classList.toggle('open'); $('#adjBtn').setAttribute('aria-pressed', o); };
+// Adjust opens the panel; during Journey it also freezes the picture (Journey off, what's on screen kept as a snapshot) to
+// refine by hand. Journey, pressed again, carries on from there
+$('#adjBtn').onclick = () => {
+  const o = $('#panel').classList.toggle('open'); $('#adjBtn').setAttribute('aria-pressed', o);
+  if (o && J.on) { setJourney(false, true); toast('Frozen here: adjust it, then press Journey to carry on'); }
+};
 function fullscreen(){
   const d = document;
   if (d.fullscreenElement) d.exitFullscreen();

@@ -1,7 +1,7 @@
 // Journey: reading presets as recipes, the lens, and the recipe's movers.
 import { OVER_WORLD } from '../visuals/registry.js';
 import { ELEMS, HITS, J, OPENING, SUITS, WORLDS, jState, worldOn } from './core.js';
-import { presets } from '../presets.js';
+import { LIKED, presets } from '../presets.js';
 import { syncSliders } from '../ui/panel.js';
 import { TUNE } from '../tuning.js';
 
@@ -10,7 +10,7 @@ import { TUNE } from '../tuning.js';
 export const MOTION = ['decay','zoom','rot','warp','wander','colorSpeed','hueDrift'], LENS = ['sym','mirror'];
 function recipeOf(p){
   const ls = ELEMS.filter(k => p[k] > .05).sort((a, b) => p[b] - p[a]);
-  return {name: p.name, p, lead: ls[0] || null, accent: ls[1] || null,
+  return {name: p.name, p, liked: !!p.liked, sceneKey: p.sceneKey || null, centre: p.centre || null, lead: ls[0] || null, accent: ls[1] || null,
     hit: HITS.filter(k => p[k] > .05).sort((a, b) => p[b] - p[a])[0] || null,
     lens: p.sym >= 2 ? {n: Math.round(p.sym), mirror: p.mirror} : null,
     world: WORLDS.find(k => p[k] > .5) || 'none',
@@ -18,9 +18,9 @@ function recipeOf(p){
 }
 export function pickRecipe(ty, rf, fresh){
   const wOn = worldOn();
-  const rs = presets.filter(p => p.journey !== false).map(p => {
+  const rs = [...presets.filter(p => p.journey !== false), ...LIKED].map(p => {
     const r = recipeOf(p);
-    let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0);
+    let v = ((ty.recipeSeed || {})[r.name] || 0) + (fresh ? (Math.random() - .5)*.4 : 0) + (p.liked ? TUNE.liked.recipe : 0);   // the user's likes, favoured
     if (r.lead) for (const f in SUITS[r.lead]) v += SUITS[r.lead][f]*rf[f]*.6;
     v -= Math.abs(r.T - J.tension)*1.2;                      // intense recipes for intense music
     if (r.lead) v -= J.fat[r.lead]*TUNE.fatigueRecipeWeight;                         // and not the element that has been on all night

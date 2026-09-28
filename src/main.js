@@ -26,7 +26,7 @@ import './ui/presets.js';
 import './audio/player.js';
 import './audio/synth.js';
 import './ui/controls.js';
-import './ui/fly.js';   // the cosmos's keys
+import './ui/keys.js';   // the keyboard: groups, numbers, the strip
 import './ui/transport.js';
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';

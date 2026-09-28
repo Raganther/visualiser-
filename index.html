@@ -18,13 +18,33 @@
   <p>Add a video or an image, or press Camera, to send it through the mirror tunnel.</p>
   <p>Plug in an Xbox controller to play the visuals like an instrument.</p>
   <label class="pick btn" for="fileIn" id="pickBtn" tabindex="0">Choose MP3 files</label>
+  <button class="pick" id="tutBtn">New here? A tutorial (T)</button>
 </div>
+<div id="tutorial" hidden role="dialog" aria-label="Tutorial" aria-live="polite"></div>
 
 <div id="toast"></div>
 <pre id="fps" hidden aria-live="off"></pre>
 <div id="caption" aria-live="polite"></div>
 <div id="err" role="alert"></div>
 
+<div id="keyHud" aria-live="polite"></div>
+<div id="keyHelp" hidden role="dialog" aria-label="Every key">
+  <h2>Keys</h2>
+  <p><b>A</b> Journey on or off. Off freezes what's on screen; on carries on from it, moving on when the music does. Any change below while Journey runs freezes it first.</p>
+  <p>Pick a group with its letter, then use its numbers. The strip at the bottom shows the group, with a dot on what's on.</p>
+  <table>
+    <tr><td><b>L</b></td><td>Layers</td><td>1–9 toggle ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbits</td></tr>
+    <tr><td><b>W</b></td><td>Worlds</td><td>1–5 landscape, space, aurora, city, cosmos (one at a time; again to turn it off)</td></tr>
+    <tr><td><b>E</b></td><td>Hits</td><td>1–4 toggle star flash, outline zoom, sparkles, shockwaves</td></tr>
+    <tr><td><b>O</b></td><td>Objects</td><td>1–7 skull, unicorn, sphere, torus, knot, dodecahedron, star (one at a time)</td></tr>
+    <tr><td><b>K</b></td><td>Kaleidoscope</td><td>2–9 folds of the glow, M mirror trails</td></tr>
+    <tr><td><b>S</b></td><td>Scene</td><td>1 plain, 2 between, 3 split, 4 among, 5 held, 6 reflect, 7 inside, 8 window, 9 glass</td></tr>
+    <tr><td><b>C</b></td><td>Cosmos camera</td><td>1–7 shots, 8 black hole, 9 pulsar, 0 twin stars, S skim, U sunrise, J jump, G galaxy, B belt, K fold, W cage, L land, T take off (C or Esc leaves)</td></tr>
+  </table>
+  <p>In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> the last one more or less · <b>Esc</b> leaves (a few seconds untouched does too).</p>
+  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike (likes are in Adjust, under Liked)</p>
+  <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time</p>
+</div>
 <aside id="panel" aria-label="Adjust visuals">
   <section>
     <h2>On screen</h2>
@@ -41,6 +61,11 @@
     <p class="note" id="jGrid">Finding the beat</p>
     <p class="note" id="jNote">Journey is steering the settings below; a dot marks what's on screen. Solo shows one thing alone; a preset, or A, turns Journey off to adjust them by hand.</p>
   </section>
+  <section id="liked">
+    <h2>Liked</h2>
+    <p class="note" id="likedNote"></p>
+    <ul id="likedList" class="liked" aria-label="Liked looks, newest first"></ul>
+  </section>
   <section id="scene">
     <h2>Scene</h2>
     <div class="row"><label for="scTpl">Compose</label>
@@ -56,7 +81,7 @@
   <div class="row"><label for="sync">Sync (visuals earlier or later)</label><output id="syncOut">0 ms</output>
     <input type="range" id="sync" min="-200" max="200" step="5" value="0"></div>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
-  <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey. Whenever the cosmos is on screen, keys fly it: 1–7 pick shots, S skims, J jumps, G the galaxy, 8 a black hole, 9 a pulsar, 0 twin stars, U a sunrise, B an asteroid belt, K the kaleidoscope, W the planet's layers, L land, T take off</label>
+  <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey. Whenever the cosmos is on screen, C then a key flies it (? lists them)</label>
   <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
   <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
     <button id="copyBtn" style="border-color:var(--line)">Copy settings</button>
@@ -64,8 +89,12 @@
   </div>
   <textarea id="copyOut" readonly aria-label="Preset settings"></textarea>
   <div class="keys">
-    <b>Space</b> play or pause<br><b>← →</b> change preset<br><b>R</b> randomize, or nudge during Journey<br><b>A</b> Journey on or off<br>
-    <b>Hold X</b> freeze trails<br>Under each slider, choose how that setting moves by itself.<br><b>N</b> next track<br><b>H</b> hide controls<br><b>F</b> fullscreen<br><b>P</b> frame rate<br><b>+ −</b> like or dislike what's on screen now, so Claude learns your taste<br>
+    <b>A</b> Journey on or off (off freezes what's on screen; on carries on from it)<br>
+    <b>L</b> layers · <b>W</b> worlds · <b>E</b> hits · <b>O</b> objects · <b>K</b> kaleidoscope · <b>S</b> scene · <b>C</b> cosmos camera: pick a group, then its numbers (a strip shows them)<br>
+    In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> more or less · <b>Esc</b> leaves. A change while Journey runs freezes it first.<br>
+    <b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey · <b>+ −</b> like or dislike · <b>?</b> every key · <b>T</b> tutorial<br>
+    <b>Space</b> play or pause · <b>← →</b> change preset · <b>N</b> next track · <b>Hold X</b> freeze trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate<br>
+    Under each slider, choose how that setting moves by itself.<br>
     Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.
   </div>
 </aside>
