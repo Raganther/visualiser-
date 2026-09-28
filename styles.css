@@ -134,3 +134,14 @@ body.idle,body.clean{cursor:none}
 #keyHelp td{padding:3px 8px 3px 0;vertical-align:top;border-top:1px solid var(--line)}
 #keyHelp td:first-child{width:24px}
 #keyHelp td:nth-child(2){white-space:nowrap;color:var(--dim)}
+#welcome #tutBtn{pointer-events:auto;margin-top:10px;font-size:14px;padding:6px 14px;border-color:var(--line);color:var(--dim)}
+#tutorial{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(92vw,560px);z-index:9;padding:12px 16px;border-radius:12px;background:rgba(0,0,0,.82);border:1px solid var(--accent);font-size:15px;backdrop-filter:blur(6px)}
+#tutorial p{margin:6px 0}
+#tutorial kbd{font:inherit;font-size:13px;border:1px solid var(--ink);border-radius:4px;padding:0 5px;margin:0 1px}
+#tutorial .tstep{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+#tutorial .tok{color:var(--accent)}
+#tutorial .tbtns{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+#tutorial .tbtns button{border:1px solid var(--line);font-size:13px;padding:4px 12px}
+#tutorial .tbtns button:disabled{opacity:.4}
+#welcome{z-index:6}   /* its buttons above the bar on a short window */
+#welcome.gone,#welcome.gone *{pointer-events:none}   /* (and nothing of it catches a click once it's gone) */

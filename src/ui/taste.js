@@ -42,7 +42,7 @@ export function tasteFrame(){
       scene: clone((J.on ? J.sceneLive : S.scene) || null), sceneKey: J.on && J.sceneLive ? J.sceneKey : null, centre},
     name: nameOf(d)};
   setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
-  count++;
+  count++; if (v > 0) dispatchEvent(new Event('afterglow-like'));   // (the tutorial waits for one)
   toast(v > 0 ? `Liked (${count}): it's in Adjust, under Liked` : `Not for me (${count})`);
 }
 // a short name for a like: what's on screen (the world and the lead), or the preset's

@@ -15,6 +15,7 @@ import { syncSliders } from './panel.js';
 import { compose } from './scene.js';
 import { FLY, flyKey } from './fly.js';
 import { toast } from './toast.js';
+import { tutorial } from './tutorial.js';
 import { $ } from '../util.js';
 
 const layers = LAYER_VISUALS.filter(v => !v.optIn), worlds = WORLD_VISUALS.filter(v => !v.optIn);
@@ -66,6 +67,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
+  else if (k === 't' && mode !== 'c') { mode = null; tutorial(); }   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (GROUPS[k] && !(mode === 'k' && k === 'm')) mode = mode === k ? null : k;
