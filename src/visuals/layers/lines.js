@@ -10,7 +10,7 @@ const lineH = (x, id, s, bass) => { const ax = Math.abs(x), k = Math.max(0, Math
   return e*e*(sp*.07 + n*.035)*(.6 + bass*1.2); };
 export default {
   key: 'lines', kind: 'layer', label: 'Waveform lines',
-  suits: {mid:.3, T:-.2, low:.4},   // what music it suits (features centred on 0)
+  suits: {mid:.3, T:-.2, low:.4, hat:-.5},   // what music it suits (features centred on 0): the sparser parts, hats out
   overWorld: -.4,   // how well it sits over a world
   paint: 1.5,   // paint order in the trails: ribbons, lines, horizon, lasers, comets, shockwaves, flow
   accent: 'peak',   // how it fires when it's the accent
