@@ -4,13 +4,14 @@ import { PREC } from './shaders.js';
 import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
-export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4]};   // 3 (media) is free in a segment
+export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8};   // 3 (media) is free in a segment; low only where there are more than 8
 // one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
 // c holds the picture so far; each item lays itself over it
 // wk: the worlds whose code it holds (those drawing now; the cosmos alone is bigger than the rest together), or all of them
 export function composeSegment(seg, plan, wk){
   const WV = WORLD_VISUALS.filter(v => !wk || wk.includes(v.key));
-  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.glsl.fn}(sp)*uW_${v.key};`).join('\n');
+  // a world that draws at its own lower resolution (lowRes: the cosmos's ground) is read from that picture instead (uLow)
+  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,vUv).rgb:${v.glsl.fn}(sp))` : `${v.glsl.fn}(sp)`}*uW_${v.key};`).join('\n');
   const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
@@ -37,6 +38,7 @@ ${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t
   return PREC + `
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
+uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}

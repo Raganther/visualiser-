@@ -109,6 +109,9 @@ export const TUNE = {
     // out's height; flying: low along the valley, high over the peaks, speed (units a second), the view; the sun's height
     // from calm (dusk, night) to intense (day), how slowly it follows, how far off the way ahead it stands
     land: {chance: .2, enterR: 1.9, fadeSecs: 2.4, exitAlt: 440, valley: 5, soar: 175, diveSecs: 14, speed: 26, fov: 62, sunLow: -.14, sunHigh: .6, sunSecs: 20, sunAz: .45},
+    // how big to draw the cosmos against the screen (the glow, hits and objects over it stay full size): in space, and
+    // landed, where the ground is ray-marched and soft and hazy anyway (1: at full size, traced in the segment itself)
+    scale: 1, landScale: .5,
     showpiece: .35,            // how often a new section opens on a set piece: an eclipse, or a sunrise over a planet's edge
     dropShowpiece: .3,         // how often a drop goes straight to one (instead of pulling back)
     // a section's subject dressed in layers: how many sections are, how many of those get the cage, the motes (more when intense)

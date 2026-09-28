@@ -108,6 +108,7 @@ function setupGL(){
   FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile');
   fbProg = FB.all = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
   post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
+  low = null; lowOk = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) > UNIT.low;
   pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, 600*3*4, gl.DYNAMIC_DRAW);
   const quad = quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -134,6 +135,7 @@ function setupGL(){
 const segProgs = new Map(), wSeen = {};
 let lastP = null;   // the last frame's parameters (which worlds are drawing), for warming shaders at idle
 function segWorlds(seg, P){
+  if (seg.only) return [seg.only];   // one world alone (drawn at its own resolution)
   if (!seg.seg.some(it => it.t === 'world' || it.t === 'front' || (it.mask && it.mask.world))) return [];
   const t = performance.now(); for (const v of WORLD_VISUALS) if (P && P.w[v.key] > .003) wSeen[v.key] = t;
   return WORLD_VISUALS.filter(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
@@ -150,6 +152,7 @@ export function warmScenes(scenes){
   if (!gl) return;
   const todo = [];
   for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) todo.push([st, plan]); }
+  if (todo.length) for (const v of WORLD_VISUALS) if (v.lowRes) todo.push([lowSeg(v.key), todo[0][1]]);   // a world drawn at its own size has its own
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50));
   const next = () => { if (!todo.length || lost) return; const [st, plan] = todo.shift(); try { segProg(st, plan, lastP); } catch (e) {} idle(next); };   // (with the worlds drawing then)
   idle(next);
@@ -157,6 +160,7 @@ export function warmScenes(scenes){
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
 let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
+let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
@@ -170,8 +174,8 @@ const halfTarget = () => target(Math.max(1, W >> 1), Math.max(1, H >> 1));
 const drop = t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); if (t.rb) gl.deleteRenderbuffer(t.rb); } };
 function glResize(){
   const old = fbos[cur];   // the main trails, carried over so a change of resolution doesn't wipe them
-  [...Object.values(fills), ...masks, ...surfs, ...blooms, ...Object.values(groups).flatMap(g => g.fbos), ...fbos.filter(t => t !== old)].forEach(drop);
-  fills = {}; masks = []; groups = {}; surfs = [];
+  [...Object.values(fills), ...masks, ...surfs, ...blooms, low, ...Object.values(groups).flatMap(g => g.fbos), ...fbos.filter(t => t !== old)].forEach(drop);
+  fills = {}; masks = []; groups = {}; surfs = []; low = null;
   TW = Math.max(2, Math.round(W*TUNE.render.trailScale)); TH = Math.max(2, Math.round(H*TUNE.render.trailScale));
   fbos = [0, 1].map(() => target(TW, TH, false, hdr));
   if (old) {   // copied with the blur's program, blurring nothing
@@ -238,6 +242,7 @@ export function drawGL(now, P){
   fbPick(P);
   fbShared(now, P);
   for (const g in sc.groups) out[g] = trailPass(now, P, g);
+  lowPass(now, P);
   const u = fbProg.u;
   // the scene's fills: another image seen through an object's glass. A trail group is already a picture; layers are drawn
   // alone by the trails' own shader in fill mode; worlds by a display segment, shrunk
@@ -288,7 +293,7 @@ export function drawGL(now, P){
     si = under && under === surfs[0] ? 1 : 0;
     const dst = surfs[si] || (surfs[si] = target(W, H, true, hdr));
     gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.fb : null); gl.viewport(0, 0, W, H);
-    drawSeg(now, P, st, under, 1, out, maskOn);
+    drawSeg(now, P, st, under, 1, out, maskOn, 1, lowOn);
     surf = dst;
   });
   finish(surf);
@@ -308,11 +313,26 @@ function finish(surf){
 }
 // the worlds alone, for a world filling an object
 const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, key: 'world-fill'};
+// A world that costs much more per pixel than the rest (the cosmos's ground, ray-marched) says how much smaller to draw
+// it (lowRes(P) < 1). It's drawn once, alone, at that size, and every segment reads it back, stretched; the glow, hits and
+// objects over it stay at full size. It also saves the world being traced twice when an object sits between its planes
+const lowSegs = {}, lowSeg = k => lowSegs[k] || (lowSegs[k] = {seg: [{t: 'world'}], first: true, last: false, key: 'world-low:' + k, only: k});
+function lowPass(now, P){
+  const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003), s = w ? Math.min(1, w.lowRes(P)) : 1;
+  lowOn = s < .999;
+  if (!lowOn) return;
+  const lw = Math.max(2, Math.round(W*s)), lh = Math.max(2, Math.round(H*s));
+  if (!low || low.w !== lw || low.h !== lh) { drop(low); low = target(lw, lh, false, hdr); }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, low.fb); gl.viewport(0, 0, lw, lh);
+  drawSeg(now, P, lowSeg(w.key), null, 1);
+}
 const trailFills = {}, trailFill = g => trailFills[g] || (trailFills[g] = {seg: [{t: 'trails', g}], first: true, last: false, fill: true, key: 'trail-fill:' + g});
 // one display segment over the picture so far (under), into whatever is bound
-function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
+function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLow = false){
   const sc = P.sc, pr = segProg(st, sc, P), v = pr.u;
   gl.useProgram(pr.p);
+  if (v.uLow) { gl.uniform1f(v.uLow, useLow ? 1 : 0);   // read the world drawn smaller (lowPass), or trace it here
+    if (useLow) { gl.activeTexture(gl.TEXTURE0 + UNIT.low); gl.bindTexture(gl.TEXTURE_2D, low.tex); gl.uniform1i(v.uLowT, UNIT.low); } }
   gl.uniform2f(v.uRes, W, H);
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
   if (v.uFit) { gl.uniform3fv(v.uFit, P.fit); gl.uniform2f(v.uFitSrc, P.cx, P.cy); }
@@ -331,7 +351,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1){
   gl.uniform1f(v.uTime, now/1000); gl.uniform1f(v.uHue, P.hue); gl.uniform1f(v.uBass, P.bass); gl.uniform1f(v.uMid, P.mid);
   gl.uniform1f(v.uBeat, P.beat); gl.uniform1f(v.uReact, P.react);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, dataTex); gl.uniform1i(v.uData, 2);
-  for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], P.w[w.key]);
+  for (const w of WORLD_VISUALS) gl.uniform1f(v['uW_' + w.key], st.only ? +(w.key === st.only) : P.w[w.key]);   // (drawn alone: at full weight, faded where it's read)
   for (const vis of VISUALS) if (vis.uniforms) vis.uniforms(gl, v, P);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

@@ -49,11 +49,16 @@ float sfHo(vec2 p,int oct){
 float sfH(vec2 p){ return sfHo(p,4); }
 // the sky from below: its colour by the sun's height (blue by day, red at dusk, dark at night), the sun and its glow,
 // clouds, and at night the stars and, over ice worlds, auroras
-vec3 sfSky(vec3 rd,vec3 ro){
+// the air alone: its colour by the sun's height, and the sun and its glow (the haze over far ground is this, at the horizon)
+vec3 sfAir(vec3 rd){
   float e=uSfSun.y, mu=dot(rd,uSfSun), day=smoothstep(-0.12,0.25,e), dusk=exp(-abs(e-0.02)*9.0);
   vec3 zen=hsv((uHue+uSfK.z)+0.58,0.65,0.55)*day, hor=mix(hsv((uHue+uSfK.z)+0.56,0.35,0.95)*day,vec3(1.0,0.42,0.18),dusk*0.8)+vec3(0.02,0.03,0.06);
   vec3 col=mix(hor,zen,smoothstep(-0.02,0.45,rd.y));
-  col+=uCosSunC*(pow(max(mu,0.0),900.0)*8.0+pow(max(mu,0.0),24.0)*0.35*(0.4+dusk)+pow(max(mu,0.0),4.0)*0.12*dusk);
+  return col+uCosSunC*(pow(max(mu,0.0),900.0)*8.0+pow(max(mu,0.0),24.0)*0.35*(0.4+dusk)+pow(max(mu,0.0),4.0)*0.12*dusk);
+}
+vec3 sfSky(vec3 rd,vec3 ro){
+  float e=uSfSun.y, day=smoothstep(-0.12,0.25,e), dusk=exp(-abs(e-0.02)*9.0);
+  vec3 col=sfAir(rd);
   float night=uSfE.w;
   if(rd.y>0.0){ vec3 g=rd*160.0; float s=step(0.975,czH(floor(g)))*smoothstep(0.35,0.0,length(fract(g)-0.5)); col+=vec3(0.9,0.92,1.0)*s*night*rd.y;
     if(uSfE.y>0.5){ float x=atan(rd.x,rd.z)*3.0, cu=sin(x*2.0+uTime*0.3+sin(x*5.0-uTime*0.5)*0.6);   // an aurora's curtains over an ice world
@@ -66,8 +71,8 @@ vec3 sfSky(vec3 rd,vec3 ro){
 // the ground where the view hits it: colour by kind, slope and height, lit by the sun with soft shadows, the sea in the
 // valleys (ocean worlds), lava glowing in them (lava worlds), cities' lights at night; fading into the sky with distance
 vec3 sfGround(vec3 ro,vec3 rd,float t){
-  vec3 p=ro+rd*t; vec2 e=vec2(0.35,0.0);
-  vec3 n=normalize(vec3(sfH(p.xz-e.xy)-sfH(p.xz+e.xy),2.0*e.x,sfH(p.xz-e.yx)-sfH(p.xz+e.yx)));
+  vec3 p=ro+rd*t; vec2 e=vec2(0.35,0.0); int o=t<300.0?4:3;   // (the finest detail only near: far off the haze covers it)
+  vec3 n=normalize(vec3(sfHo(p.xz-e.xy,o)-sfHo(p.xz+e.xy,o),2.0*e.x,sfHo(p.xz-e.yx,o)-sfHo(p.xz+e.yx,o)));
   float k=uSfK.x, slope=1.0-n.y, v=abs(p.x-sfPath(p.z)), st=0.5+0.5*sin(p.y*1.3+czN(vec3(p.xz*0.05,1.0))*3.0), hue=uHue+uSfK.z;
   vec3 c;
   if(k<0.5) c=mix(hsv(hue+0.07,0.35,0.45+0.2*st),hsv(hue+0.03,0.25,0.25+0.15*st),smoothstep(0.35,0.7,slope));   // rock: strata, cliffs darker
@@ -96,7 +101,7 @@ vec3 czSurface(vec2 sp){
     col=mix(hsv((uHue+uSfK.z)+0.56,0.6,0.12),sfSky(normalize(rr),wp),0.55)+uCosSunC*pow(max(dot(normalize(rr),uSfSun),0.0),200.0)*2.0; t=tw; hit=1.0; }
   else if(hit>0.5) col=sfGround(ro,rd,t);
   if(hit>0.5){ float fog=1.0-exp(-t*0.0021);
-    col=mix(col,sfSky(normalize(vec3(rd.x,max(rd.y,0.01),rd.z)),ro),fog);
+    col=mix(col,sfAir(normalize(vec3(rd.x,max(rd.y,0.01),rd.z))),fog);   // (at the horizon the clouds, stars and auroras are all but gone: the air alone)
     float low=exp(-max(ro.y+rd.y*t+1.5,0.0)/7.0), dawn=exp(-abs(uSfSun.y-0.05)*6.0)*0.8+0.15;   // mist lying in the valleys, thickest at dawn and dusk
     col=mix(col,mix(vec3(0.75,0.78,0.85),vec3(1.0,0.7,0.5),exp(-abs(uSfSun.y)*8.0)*0.6)*(0.25+0.75*smoothstep(-0.15,0.2,uSfSun.y)),low*dawn*smoothstep(15.0,120.0,t)*0.7); }
   return mix(col,vec3(0.85,0.87,0.9)*(0.35+0.65*smoothstep(-0.1,0.3,uSfSun.y)),uSfHaze);   // the cloud layer passed through on the way down or up

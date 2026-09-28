@@ -19,6 +19,7 @@ const N = 6;   // bodies drawn at once (the shader's arrays)
 export default {
   key: 'cosmos', kind: 'world', label: 'Cosmos',
   light: null, motion: null,   // set once it's on screen (below): the star's light, the camera's movement
+  lowRes: () => SF.amt > .001 ? TUNE.cosmos.landScale : TUNE.cosmos.scale,   // drawn smaller than the screen while landed (the ground is the costliest thing drawn)
   // spacious, driving, building music: bright, intense, not too busy
   suits: (rf, T) => rf.bright*.3 + T*.35 + rf.perc*.15 - rf.busy*.15,
   // flying it by hand (the lab's keys), and what it's doing, for the caption and the tests
