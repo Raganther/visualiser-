@@ -12,6 +12,7 @@ export const TUNE = {
 
   // progression through steady music
   progressBeats: 64,           // beats without a musical change before Journey takes a step (divided by Evolution speed)
+  handoffSecs: 12,             // turned back on from a look made by hand, Journey holds it at least this long (then moves on at a phrase line), unless the music changes first
   progressNoKickSecs: 30,      // the same, in seconds, when there's no kick to count
   noKickMs: 4000,              // this long without a kick counts as "no kick"
   stillFrom: 20, stillTo: 120, // seconds of sameness over which section detection grows more sensitive
