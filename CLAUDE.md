@@ -73,7 +73,7 @@ docs/audit-speed.md        the 2026-09 speed audit: what was found, done, and le
 
 | Kind | What it is | Modules | How it arrives |
 |---|---|---|---|
-| **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos) (plus none/black) | Fade, or cut on the bar |
+| **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos), `sea` (the night sea), `deep` (underwater), `dunes` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther) | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
 | **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
@@ -297,6 +297,9 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 - **Landscape:** three ranges shaped by the song's loudness history (Journey's energy), nearer ones darker and far ones fading into the sky, with rock striations, slopes facing the sun lit, mist on the water and glints under the sun.
 - **Space:** stars rushing past, two clouds of gas, and a ringed planet: the rings are banded with a dark division, and the planet's shadow falls across them; two moons step round every other beat.
 - **Aurora:** curtains with rays near their foot, swelling with the melody, over a treeline and a still lake that mirrors them.
+- **The night sea** (`sea`): a dark ocean under the moon, which wears a ring of light (a halo, brighter on the downbeat); the moon's path glittering on the swell, the sky mirrored in the water (strongest towards the horizon), the swell rising with the bass, and a lighthouse on a far headland sweeping its beam round at motion time, its lamp flashing as it faces you. Its colours stay night blue, only tinted by the palette. Front plane: the nearest swell.
+- **Underwater** (`deep`): light from a rippling silver surface overhead, slanted god rays swaying and brighter with the mids, motes drifting, bubbles rising in columns (livelier and brighter with the hi-hats, `L.hat`), and a sandy floor with caustics dancing on it (brighter on the kick). Front plane: the near rocks.
+- **Dunes** (`dunes`): four ridges of sand under the stars with sharp crests (a long slope on one side, steeper on the other), each crest's two sides lit and shadowed by the moon, far ridges fading into the night; a sky with the Milky Way's band across it; sand streaming off the crests on the hi-hats. Front plane: the nearest ridge.
 
 ## The cosmos: space as a place the camera explores
 

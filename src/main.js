@@ -141,7 +141,7 @@ function render(now){
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))]};
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
-  P.frontOn = ['land', 'space', 'aurora', 'city'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
+  P.frontOn = ['land', 'space', 'aurora', 'city', 'sea', 'deep', 'dunes'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
   P.fit = [CTX.focus.x, CTX.focus.y, P.frontOn ? Math.min(TUNE.scene.fitMax, Math.max(1, TUNE.scene.fitSpan/Math.max(CTX.focus.r, .01))) : 1];   // and can be shrunk into it
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with

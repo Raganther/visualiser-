@@ -6,6 +6,9 @@ import space from './worlds/space.js';
 import aurora from './worlds/aurora.js';
 import city from './worlds/city.js';
 import cosmos from './worlds/cosmos/index.js';
+import sea from './worlds/sea.js';
+import deep from './worlds/deep.js';
+import dunes from './worlds/dunes.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
 import shock from './hits/shock.js';
@@ -26,7 +29,7 @@ import skull from './objects/skull.js';
 import unicorn from './objects/unicorn.js';
 import maths from './objects/maths.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes];
 export const HIT_VISUALS = [star, outline, shock, sparkle];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths];   // 3D centrepieces, drawn crisp over the picture
