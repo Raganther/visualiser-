@@ -120,3 +120,17 @@ body.idle,body.clean{cursor:none}
 .liked .acts{display:flex;gap:2px}
 .liked .acts button{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:11px;min-width:26px;min-height:26px;padding:0 4px;cursor:pointer}
 .liked .acts button:hover{color:var(--ink)}
+#keyHud{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);max-width:min(94vw,980px);display:none;flex-wrap:wrap;gap:4px 10px;align-items:center;justify-content:center;padding:8px 12px;border-radius:10px;background:var(--glass);border:1px solid var(--line);font-size:13px;z-index:6;backdrop-filter:blur(6px)}
+#keyHud.on{display:flex}
+#keyHud b{color:var(--accent);margin-right:4px}
+#keyHud span{color:var(--dim);white-space:nowrap}
+#keyHud span.on{color:var(--ink)}
+#keyHud span.on::after{content:' ●';color:var(--accent)}
+#keyHud kbd,#keyHelp kbd{font:inherit;font-size:11px;border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-right:2px}
+#keyHud i{flex-basis:100%;text-align:center;font-style:normal;font-size:11px;color:var(--dim)}
+#keyHelp{position:fixed;top:5vh;left:50%;transform:translateX(-50%);width:min(94vw,760px);max-height:86vh;overflow:auto;padding:16px 20px;border-radius:12px;background:rgba(0,0,0,.85);border:1px solid var(--line);font-size:13px;z-index:8}
+#keyHelp h2{margin:0 0 6px}
+#keyHelp table{border-collapse:collapse;width:100%;margin:8px 0}
+#keyHelp td{padding:3px 8px 3px 0;vertical-align:top;border-top:1px solid var(--line)}
+#keyHelp td:first-child{width:24px}
+#keyHelp td:nth-child(2){white-space:nowrap;color:var(--dim)}

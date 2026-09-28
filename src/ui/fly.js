@@ -1,5 +1,5 @@
-// Flying the cosmos by hand: keys that work whenever it's on screen (by its slider, a preset, Journey or the lab). Each one
-// holds the camera a while, so the music doesn't take it straight back.
+// Flying the cosmos by hand: the C group's keys (ui/keys.js), whenever it's on screen (by its slider, a preset, Journey or
+// the lab). Each one holds the camera a while, so the music doesn't take it straight back.
 //   1 orbit  2 approach  3 fly by  4 pull back  5 eclipse  6 drift  7 through the belt  J jump to another star system
 //   8 to a black hole  9 to a pulsar  0 to twin stars  B to an asteroid belt and through it  S skim a surface  U a sunrise
 //   G out to the galaxy and into another system  K the kaleidoscope: whole view, round the subject, back to the music's
@@ -11,10 +11,12 @@ import { byKey } from '../visuals/registry.js';
 
 const SHOT = {1: 'orbit', 2: 'approach', 3: 'flyby', 4: 'reveal', 5: 'eclipse', 6: 'drift', 7: 'belt', s: 'skim', u: 'sunrise'}, VISIT = {8: 'hole', 9: 'pulsar', 0: 'binary'};
 let fold = 0, dress = 0;
-addEventListener('keydown', e => {
+export const FLY = [['1', 'orbit'], ['2', 'approach'], ['3', 'fly by'], ['4', 'pull back'], ['5', 'eclipse'], ['6', 'drift'], ['7', 'belt'],
+  ['8', 'black hole'], ['9', 'pulsar'], ['0', 'twin stars'], ['S', 'skim'], ['U', 'sunrise'], ['J', 'jump'], ['G', 'galaxy'], ['B', 'to a belt'],
+  ['K', 'fold'], ['W', 'cage'], ['L', 'land'], ['T', 'take off']];
+export function flyKey(k){   // true when the key did something
   const cz = byKey.cosmos;
-  if (!cz || !(eff.cosmos > .05) || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.ctrlKey || e.metaKey || e.altKey) return;
-  const k = e.key.toLowerCase();
+  if (!cz || !(eff.cosmos > .05)) return false;
   if (SHOT[k]) cz.shot(SHOT[k]);   // (a shot by hand holds the camera a while)
   else if (k === 'k') { fold = (fold + 1) % 3; cz.fold(fold); }
   else if (k === 'w') { dress = (dress + 1) % 4; cz.dress(dress); }
@@ -27,4 +29,6 @@ addEventListener('keydown', e => {
       else if (Date.now() - t0 > 20000) clearInterval(wait); }, 250);
   }
   else if (VISIT[k] || k === 'j' || k === 'g') { if (VISIT[k]) cz.visit(VISIT[k]); else if (k === 'j') cz.jump(); else cz.galaxy(); cz.hold(TUNE.cosmos.handSecs); }
-});
+  else return false;
+  return true;
+}

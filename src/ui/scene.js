@@ -74,21 +74,26 @@ export function render(){
   el.querySelectorAll('select').forEach(s => s.disabled = live);
   if (fr) { const t = el.querySelector(`li[data-i="${fr.i}"] ${fr.sel}`); if (t) t.focus(); }
 }
+// compose a template by hand (the Compose menu, the S keys), using what's on screen; a template that needs a world, an
+// object or a second layer brings one in (held needs space or the cosmos: the cosmos)
+export function compose(key){
+  const t = TEMPLATES.find(x => x.key === key); if (!t) return false;
+  let c = castNow();
+  if (t.needs.world && c.world === 'none') { const w = t.needs.disc ? 'cosmos' : 'city'; S.active[w] = 1; c = {...c, world: w}; }
+  if (t.needs.disc && c.world !== 'space' && c.world !== 'cosmos') { WORLD_VISUALS.forEach(v => S.active[v.key] = 0); S.active.cosmos = 1; c = {...c, world: 'cosmos'}; }
+  if (t.needs.centre && !c.centre) { S.active.skull = 1; c = {...c, centre: 'skull'}; }
+  if (t.needs.accent && !c.accent) { const a = c.lead === 'comets' ? 'ring' : 'comets'; S.active[a] = .8; c = {...c, accent: a}; }
+  if (!fits(t, c)) { toast('That needs no world: the world is set to none'); WORLD_VISUALS.forEach(v => S.active[v.key] = 0); c = {...c, world: 'none'}; }
+  set(t.build(c) || DEFAULT_SCENE.map(x => ({...x})));
+  return true;
+}
 function init(){
   if (!$('#scStack')) return;
   $('#scTpl').innerHTML = opt('', 'Compose from a template…') + TEMPLATES.map(t => opt(t.key, WORDS[t.key] || t.key)).join('');
   $('#scAdd').innerHTML = opt('', 'Add to the top…') + opt('world', 'The world') + opt('front', 'The world\'s front') + opt('trails', 'Trails')
     + opt('group', 'A second trail group') + opt('hits', 'Hits') + OBJECT_VISUALS.map(v => opt('o:' + v.key, v.label)).join('');
   // compose from a template, using what's on screen; a template that needs a world or an object brings one in
-  $('#scTpl').addEventListener('change', e => {
-    const t = TEMPLATES.find(x => x.key === e.target.value); e.target.value = ''; if (!t) return;   // back to the prompt, so it can be picked again
-    let c = castNow();
-    if (t.needs.world && c.world === 'none') { S.active.city = 1; c = {...c, world: 'city'}; }
-    if (t.needs.centre && !c.centre) { S.active.skull = 1; c = {...c, centre: 'skull'}; }
-    if (t.needs.accent && !c.accent) { const a = c.lead === 'comets' ? 'ring' : 'comets'; S.active[a] = .8; c = {...c, accent: a}; }
-    if (!fits(t, c)) { toast('That needs no world: the world is set to none'); WORLD_VISUALS.forEach(v => S.active[v.key] = 0); c = {...c, world: 'none'}; }
-    set(t.build(c) || DEFAULT_SCENE.map(x => ({...x})));
-  });
+  $('#scTpl').addEventListener('change', e => { const k = e.target.value; e.target.value = ''; compose(k); });   // back to the prompt, so it can be picked again
   $('#scAdd').addEventListener('change', e => {
     const v = e.target.value; e.target.value = ''; if (!v) return;
     const add = v === 'world' ? {world: 'all'} : v === 'front' ? {world: 'front'} : v === 'trails' ? {trails: 'main'} : v === 'group' ? {trails: groupName(), layers: ['comets']}
