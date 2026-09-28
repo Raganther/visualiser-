@@ -54,18 +54,22 @@ function nameOf(d){
 async function save(m){
   if (db) { try { await db.collection('moments').add(m); return; } catch (e) {} }   // a refused write falls back to this browser
   m.id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); m.local = true;
-  const a = local(); a.push(m); keepLocal(a); if (!db) show(a.filter(x => x.v > 0 && x.look).reverse());
+  const a = local(); a.push(m); keepLocal(a); if (!db) show(a.filter(x => x.v > 0).reverse());
 }
 // the liked moments, live from the database (or this browser's): the gallery, and Journey's liked recipes
 function watch(){
   try {
     db.collection('moments').where('v', '==', 1).orderBy('at', 'desc').limit(SHOWN).onSnapshot(snap => {
-      show(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(m => m.look));
-    }, () => show(local().filter(x => x.v > 0 && x.look).reverse()));
-  } catch (e) { show(local().filter(x => x.v > 0 && x.look).reverse()); }
+      show(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    }, () => show(local().filter(x => x.v > 0).reverse()));
+  } catch (e) { show(local().filter(x => x.v > 0).reverse()); }
 }
+// a like from before looks were kept has its settings (as drawn, those not at 0) and its template's name, but not the
+// whole stack or the movers: it comes back as those settings over the plain stack
+const withLook = m => m.look ? m : m.settings ? {...m, name: m.name || [m.world && m.world !== 'none' ? (byKey[m.world] || {}).label : null, m.lead ? (byKey[m.lead] || {}).label : null].filter(Boolean).join(', ') || m.preset || 'Liked',
+  look: {settings: m.settings, mods: {}, scene: null, sceneKey: m.scene && m.scene !== 'plain' ? m.scene : null, centre: m.centre || null}} : m;
 function show(list){
-  liked = list.slice(0, SHOWN);
+  liked = list.map(withLook).filter(m => m.look).slice(0, SHOWN);
   LIKED.length = 0;
   for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre || null});
   render();
@@ -118,8 +122,8 @@ function render(){
     li.append(b, nm, acts); return li;
   }));
 }
-if (!(window.claude && window.claude.use)) show(local().filter(x => x.v > 0 && x.look).reverse());
-else setTimeout(() => { if (!db) show(local().filter(x => x.v > 0 && x.look).reverse()); }, 11000);   // (no database answered: this browser's)
+if (!(window.claude && window.claude.use)) show(local().filter(x => x.v > 0).reverse());
+else setTimeout(() => { if (!db) show(local().filter(x => x.v > 0).reverse()); }, 11000);   // (no database answered: this browser's)
 render();
 $('#likeBtn').onclick = () => rate(1);
 $('#dislikeBtn').onclick = () => rate(-1);
