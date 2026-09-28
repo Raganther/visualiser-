@@ -110,3 +110,13 @@ body.idle,body.clean{cursor:none}
   #panel{left:12px;right:12px;width:auto;max-height:45%}
   .preset span{min-width:70px}
 }
+.liked{list-style:none;margin:6px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:340px;overflow:auto}
+.liked li{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;font-size:12px;min-width:0}
+.liked .lthumb{flex-basis:100%;padding:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;aspect-ratio:16/9;background:#111;display:block}
+.liked .lthumb:hover,.liked .lthumb:focus-visible{border-color:var(--accent)}
+.liked .lthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.liked .lname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.liked input{flex:1;min-width:0;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;padding:1px 4px}
+.liked .acts{display:flex;gap:2px}
+.liked .acts button{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:11px;min-width:26px;min-height:26px;padding:0 4px;cursor:pointer}
+.liked .acts button:hover{color:var(--ink)}

@@ -3,7 +3,7 @@ import { ELEMS, FEATS, J, OPENING, SUITS, worldOn } from './core.js';
 import { pickRecipe, recipeMods, setLens } from './recipes.js';
 import { relFeat } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
-import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD } from '../visuals/registry.js';
+import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
@@ -52,6 +52,8 @@ function chooseHit(ty, rf, fresh, avoid){
 // (a lab's, say) takes over the draw
 function chooseCentre(){
   J.centre = null;
+  const R = J.recipe;   // a liked look brings its centrepiece along, most of the time
+  if (R && R.liked && R.centre && byKey[R.centre] && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0);
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
   if (Math.random() >= TUNE.scene.centreChance) return;
@@ -60,7 +62,10 @@ function chooseCentre(){
 }
 // how the section is composed: a scene template that fits its cast and suits the music
 const castOf = () => ({world: J.world, lead: J.lead, accent: J.accent, centre: MEDIA.on ? null : J.centre, label: k => NAMES[k] || k});
-function chooseScene(rf, fresh, avoid){ J.sceneKey = pickTemplate(castOf(), rf, J.tension - .5, J.sFat, fresh, avoid).key; }
+function chooseScene(rf, fresh, avoid){   // (a liked look's own template, favoured when it fits)
+  const R = J.recipe;
+  J.sceneKey = pickTemplate(castOf(), rf, J.tension - .5, J.sFat, fresh, avoid, R && R.liked ? R.sceneKey : null).key;
+}
 const built = new Map();
 // the scene the section wants right now (the same object each time for the same cast, so its draw plan is kept)
 export function sceneNow(){

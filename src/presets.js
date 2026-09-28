@@ -92,6 +92,9 @@ export const BASE = [
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
 export const presets = BASE.map(clone);
+// the looks the user liked (👍, ui/taste.js), each as a preset: every setting, its movers, its scene. Journey reads them as
+// recipes too, favoured (TUNE.liked), so what the user likes comes back when the music suits it
+export const LIKED = [];
 S.active = presets[0];
 export const curP = {};
 SPEC.forEach(s => curP[s.k] = S.active[s.k]);

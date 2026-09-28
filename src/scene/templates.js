@@ -46,12 +46,13 @@ export function fits(t, c){
     && (!n.centre || !!c.centre) && (!n.accent || (!!c.accent && c.accent !== c.lead)) && (!n.disc || DISC.has(c.world));
 }
 // the best template for this cast and music: its weight, how it suits the music, how tired it is, a little chance
-export function pickTemplate(c, rf, T, fat, fresh, avoid){
+export function pickTemplate(c, rf, T, fat, fresh, avoid, prefer){
   let best = null, bv = -1e9;
   for (const t of TEMPLATES) {
     if (!fits(t, c)) continue;
     let v = (TUNE.sceneTemplates[t.key] || 0) + t.suits(rf, T) - (fat[t.key] || 0)*TUNE.sceneFatigueWeight + (fresh ? (Math.random() - .5)*.6 : 0);
     if (t.key === avoid) v -= 1;
+    if (t.key === prefer) v += TUNE.liked.scene;   // a liked look's own scene
     if (v > bv) { bv = v; best = t; }
   }
   return best || TEMPLATES[0];

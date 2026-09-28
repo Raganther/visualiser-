@@ -12,6 +12,7 @@ export const TUNE = {
 
   // progression through steady music
   progressBeats: 64,           // beats without a musical change before Journey takes a step (divided by Evolution speed)
+  liked: {recipe: .15, scene: .4, centre: .7},   // the user's likes as Journey's recipes: how much one is favoured, its scene template favoured, how often it brings its centrepiece
   handoffSecs: 12,             // turned back on from a look made by hand, Journey holds it at least this long (then moves on at a phrase line), unless the music changes first
   progressNoKickSecs: 30,      // the same, in seconds, when there's no kick to count
   noKickMs: 4000,              // this long without a kick counts as "no kick"
