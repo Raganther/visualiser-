@@ -12,7 +12,7 @@ export function meshObject({key, label, words, mesh}){
   let drawGL = null, glGen = -1, panes2d = null;
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
-    key, kind: 'object', label, words, optIn: true,
+    key, kind: 'object', label, words, optIn: true, mesh,   // (the mesh, so its vertex data can be worked out while the page is idle)
     onBeat(pos){
       if (pos !== 0) return;
       st.glow = 1; st.sw = 0;                           // the edges flare and a band of light starts down it

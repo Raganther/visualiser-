@@ -1,5 +1,5 @@
 // Aurora: curtains of light over a dark treeline under the stars, swelling with the melody.
-import { hc } from '../../util.js';
+import { hc, rowsAbove } from '../../util.js';
 
 export default {
   key: 'aurora', kind: 'world', label: 'Aurora',
@@ -19,8 +19,9 @@ vec3 auroraSky(vec2 sp){
     float fi=float(i), x=sp.x*(1.2+fi*0.3)+fi*1.7;
     float base=-0.08+fi*0.09+0.08*sin(x*1.3+t*0.15+fi)+0.04*sin(x*3.1-t*0.23)-uMid*uReact*0.05;
     float d=sp.y-base;
+    if(d<=-0.015) continue;   // below the curtain's foot it gives nothing
     float fold=0.5+0.5*sin(x*14.0+sin(x*3.0+t*0.4)*2.0+t*(0.6+fi*0.2));
-    float rays=0.75+0.25*sin(x*60.0+sin(x*7.0+t*0.3)*3.0+fi*5.0);               // fine vertical rays in the curtain, near its foot
+    float rays=d>0.0&&d<0.35?0.75+0.25*sin(x*60.0+sin(x*7.0+t*0.3)*3.0+fi*5.0):1.0;   // fine vertical rays in the curtain, near its foot
     float body=smoothstep(-0.015,0.02,d)*exp(-max(d,0.0)*(3.5+fi*1.5))*mix(1.0,rays,smoothstep(0.0,0.08,d)*smoothstep(0.35,0.1,d));
     vec3 col=mix(hsv(uHue+0.33,0.8,1.0),hsv(uHue+0.8,0.7,1.0),clamp(d*2.5,0.0,1.0));
     c+=col*body*(0.3+0.7*fold)*(0.45+0.5*uMid*uReact+0.2*uBeat)*(1.0-fi*0.25);
@@ -80,11 +81,11 @@ float auroraFront(vec2 sp){
       const top = -.3 + .02*Math.sin(xs*7) + .012*Math.sin(xs*23) + (j % 2 ? 0 : .03 + .05*((Math.sin(id*12.9898)*43758.5453) % 1 + 1) % 1);
       o.lineTo(X(xs), Y(top)); }
     o.lineTo(W, H); o.closePath(); o.fill();
-    const ly = Y(-.36), sy = Y(-.24);                     // a still lake below the treeline, mirroring the sky
+    const ly = Y(-.36), sy = Y(-.24), above = rowsAbove(o.canvas, sy);   // a still lake below the treeline, mirroring the sky
     for (let yo = 0; ly + yo < H; yo += 3) {
       if (sy - yo*1.2 - 3 < 0) break;
       o.globalAlpha = Math.min(1, P.w.aurora)*.6*(1 - Math.min(.6, yo/u*2));
-      o.drawImage(o.canvas, 0, sy - yo*1.2 - 3, W, 3, Math.sin(yo*.4 + t*1.5)*1.5, ly + yo, W, 3);
+      o.drawImage(above, 0, sy - yo*1.2 - 3, W, 3, Math.sin(yo*.4 + t*1.5)*1.5, ly + yo, W, 3);
     }
     o.globalAlpha = 1;
   },

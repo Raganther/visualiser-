@@ -66,12 +66,16 @@ seedParticles();
 J.clock = Math.random()*100;
 /* ---------- render loop ---------- */
 let frameN = 0, hueAcc = 0;
+const UI = {acc: '', meter: ''};   // what the page last showed, so it's written only when it changes
 const VIS = {bass:0, mid:0, treb:0};
 function frame(now){
   requestAnimationFrame(frame);
-  // 60 frames a second at most: trails, fades and flashes are counted per frame, so a 120 Hz screen would halve them
-  if (now - (frame.last || -1e9) < 1000/60 - 2) return;
-  frame.last = now;
+  // 60 frames a second at most: trails, fades and flashes are counted per frame, so a 120 Hz screen would halve them. Paced
+  // by a running deadline, not the time since the last frame, so screens whose ticks don't divide 60 (75, 90, 144 Hz) still
+  // draw 60 a second instead of every other or third tick (37-48 fps, which the resolution then took for a slow device)
+  if (frame.due === undefined) frame.due = now;
+  if (now < frame.due - 3) return;   // (a tick up to 3 ms early counts: the timestamps jitter)
+  frame.due = now - frame.due > 1000/60 ? now + 1000/60 : frame.due + 1000/60;   // after a stall, no burst to catch up
   const t0 = performance.now();
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
   fpsTick(now, performance.now() - t0, fpsInfo);
@@ -84,7 +88,7 @@ function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '')
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, ground at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 function render(now){
@@ -141,17 +145,22 @@ function render(now){
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {
-    document.documentElement.style.setProperty('--accent', `hsl(${((hue % 1)+1)%1*360} 90% 65%)`);
+    // (the page's styles are written only when they change: each write restyles the whole document)
+    const acc = `hsl(${Math.round(((hue % 1)+1)%1*360)} 90% 65%)`;
+    if (acc !== UI.acc) { UI.acc = acc; document.documentElement.style.setProperty('--accent', acc); }
     updateTimeUI();
     const cw = WORLD_VISUALS.find(v => v.caption && eff[v.key] > .3); if (cw) showCaption(cw.caption());   // what a world's camera is doing
-    $('#jMeter').style.width = (J.tension*100).toFixed(0) + '%';
+    const mw = (J.tension*100).toFixed(0) + '%'; if (mw !== UI.meter) { UI.meter = mw; $('#jMeter').style.width = mw; }
     const gEl = $('#jGrid');
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
       ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
       : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
-      const {out, s, input} = sliders[k]; if (J.on) input.value = S.active[k]; out.textContent = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
+      const sl = sliders[k], {out, s, input} = sl, v = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
+      if (!J.on) sl.lastIn = undefined;   // (by hand the slider is the user's: written again once Journey takes over)
+      else if (sl.lastIn !== S.active[k]) { sl.lastIn = S.active[k]; input.value = S.active[k]; }
+      if (v !== sl.lastOut) { sl.lastOut = v; out.textContent = v; }
     }
   }
 }

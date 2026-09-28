@@ -12,10 +12,12 @@ export function make2D(view){
   const groups = {};   // extra trail groups' buffer pairs, made on first use
   function resize(w, h){
     W = w; H = h;
-    const sc = Math.min(1, 900 / Math.max(w, h));
-    bw = Math.max(2, Math.round(w*sc)); bh = Math.max(2, Math.round(h*sc));
-    bufs.forEach((b, k) => { b.width = bw; b.height = bh; ctxs[k].fillStyle = '#000'; ctxs[k].fillRect(0,0,bw,bh); });
-    for (const g in groups) delete groups[g];
+    const sc = Math.min(1, 900 / Math.max(w, h)), nw = Math.max(2, Math.round(w*sc)), nh = Math.max(2, Math.round(h*sc));
+    if (nw !== bw || nh !== bh) {   // (the trails are at most 900 wide: a smaller screen step often leaves them as they are, and them kept)
+      bw = nw; bh = nh;
+      bufs.forEach((b, k) => { b.width = bw; b.height = bh; ctxs[k].fillStyle = '#000'; ctxs[k].fillRect(0,0,bw,bh); });
+      for (const g in groups) delete groups[g];
+    }
     vignette = out.createRadialGradient(w/2, h/2, Math.min(w,h)*.3, w/2, h/2, Math.hypot(w,h)*.6);
     vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.75)');
   }

@@ -3,6 +3,7 @@ import { NP, parts } from '../fx/particles.js';
 import { make2D } from './canvas2d.js';
 import { FB_VISUALS, UNIT, composeFeedback, composeSegment } from './compose.js';
 import { resolveScene } from '../scene/graph.js';
+import { meshData, meshWarm } from './mesh.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -129,32 +130,57 @@ function setupGL(){
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL setup error');
 }
-// a display segment's program, compiled the first time a scene needs that run of items with those worlds drawing, and kept.
-// It holds only the worlds drawing now (or lately: fbLinger), and none when it draws no world, front or world mask: the
-// cosmos's code (space, the ground) is bigger than all the rest, and every segment compiled with it was slow
+// A display segment's program, one for each run of items. It holds no world when it draws no world, front or world mask;
+// otherwise every world, except one whose code is far bigger than the rest (lowRes marks it: the cosmos, with space and
+// the ground), which is in only while it's drawing (or lately: fbLinger): every segment compiled with it was slow. So a
+// run has two programs, with it and without it, both compiled while the page is idle (warmScenes)
 const segProgs = new Map(), wSeen = {};
-let lastP = null;   // the last frame's parameters (which worlds are drawing), for warming shaders at idle
+const segHasW = seg => seg.seg.some(it => it.t === 'world' || it.t === 'front' || (it.mask && it.mask.world));
 function segWorlds(seg, P){
   if (seg.only) return [seg.only];   // one world alone (drawn at its own resolution)
-  if (!seg.seg.some(it => it.t === 'world' || it.t === 'front' || (it.mask && it.mask.world))) return [];
+  if (!segHasW(seg)) return [];
   const t = performance.now(); for (const v of WORLD_VISUALS) if (P && P.w[v.key] > .003) wSeen[v.key] = t;
-  return WORLD_VISUALS.filter(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
+  return WORLD_VISUALS.filter(v => !v.lowRes || t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
 }
+const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length ? '*' : wk.join(','));
+// Each is started compiling and left to the driver (in the background, where it can: KHR_parallel_shader_compile), and
+// linked once it's done. Until then the run with every world in it ('*', drawing exactly the same picture: a world without
+// weight draws nothing) stands in if it's ready, so a world leaving doesn't stall a frame
+const segJob = (key, seg, plan, wk) => { const e = {job: startProgram(composeSegment(seg, plan, wk)), at: performance.now(), p: null}; segProgs.set(key, e); return e; };
+const segDone = e => !!e.job && (FB.par ? gl.getProgramParameter(e.job.p, FB.par.COMPLETION_STATUS_KHR) : performance.now() - e.at > TUNE.render.fbWait);
+function segLink(e){ const j = e.job; e.job = null; try { e.p = linked(j); } catch (err) { e.failed = err; } if (e.failed) throw e.failed; return e.p; }
 function segProg(seg, plan, P){
-  const wk = segWorlds(seg, P), key = seg.key + '|' + wk.join(',');
-  let p = segProgs.get(key);
-  if (!p) segProgs.set(key, p = program(composeSegment(seg, plan, wk)));
-  return p;
+  const wk = segWorlds(seg, P), key = segKey(seg, wk);
+  const e = segProgs.get(key) || segJob(key, seg, plan, wk);
+  if (e.p) return e.p;
+  if (e.failed) throw e.failed;
+  if (segDone(e)) return segLink(e);
+  const all = segProgs.get(seg.key + '|*');
+  if (all && all.p) return all.p;
+  if (all && segDone(all)) try { return segLink(all); } catch (err) {}
+  return segLink(e);   // nothing to stand in: wait for it
 }
-// compile the segment shaders these scenes will need, one at a time while the page is idle, so a scene's first bar line
-// doesn't stall on a shader compile
+export const segInfo = () => [...segProgs].map(([k, e]) => k + (e.p ? '' : e.failed ? ' (failed)' : ' (compiling)'));   // for tests and tools
+// compile the segment shaders these scenes will need while the page is idle, so a scene's first bar line doesn't stall on a
+// shader compile: each run without the big world and with it, and the worlds drawn at their own size
 export function warmScenes(scenes){
   if (!gl) return;
-  const todo = [];
-  for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) todo.push([st, plan]); }
-  if (todo.length) for (const v of WORLD_VISUALS) if (v.lowRes) todo.push([lowSeg(v.key), todo[0][1]]);   // a world drawn at its own size has its own
-  const idle = window.requestIdleCallback || (f => setTimeout(f, 50));
-  const next = () => { if (!todo.length || lost) return; const [st, plan] = todo.shift(); try { segProg(st, plan, lastP); } catch (e) {} idle(next); };   // (with the worlds drawing then)
+  const todo = [], seen = new Set(), add = (st, plan, wk) => { const k = segKey(st, wk); if (!seen.has(k)) { seen.add(k); todo.push([k, st, plan, wk]); } };
+  const small = WORLD_VISUALS.filter(v => !v.lowRes).map(v => v.key), all = WORLD_VISUALS.map(v => v.key);
+  const both = (st, plan) => { if (segHasW(st)) { add(st, plan, small); add(st, plan, all); } else add(st, plan, []); };
+  for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) both(st, plan); }
+  if (todo.length) { const plan = todo[0][2]; for (const v of WORLD_VISUALS) if (v.lowRes) add(lowSeg(v.key), plan, [v.key]);   // a world drawn at its own size has its own
+    both(WORLD_FILL, plan); }
+  const idle = window.requestIdleCallback || (f => setTimeout(f, 50)), started = [];
+  try { meshWarm(gl); } catch (e) {}   // the objects' program, and each one's vertex data, one a turn
+  for (const o of OBJECT_VISUALS) if (o.mesh) todo.push(['mesh', o.mesh]);
+  const next = () => {
+    if (lost) return;
+    if (todo.length && todo[0][0] === 'mesh') { try { meshData(todo.shift()[1]); } catch (e) {} idle(next); return; }
+    for (const e of started) if (!e.p && !e.failed && segDone(e)) try { segLink(e); } catch (err) {}   // link what's finished
+    if (todo.length) { const [k, st, plan, wk] = todo.shift(); if (!segProgs.has(k)) try { started.push(segJob(k, st, plan, wk)); } catch (err) {} }
+    if (todo.length || started.some(e => !e.p && !e.failed)) idle(next);
+  };
   idle(next);
 }
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
@@ -235,7 +261,6 @@ function trailPass(now, P, g){
 // the objects a mesh step draws: one placed object, or every object on screen that no entry places
 const meshesOf = (P, step) => OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003 && (step.mesh === '*' ? !P.sc.placed.has(o.key) : o.key === step.mesh));
 export function drawGL(now, P){
-  lastP = P;
   if (lost) return;
   const sc = P.sc, out = {};
   for (const g in groups) if (!(g in sc.groups)) { groups[g].fbos.forEach(drop); delete groups[g]; }   // a group this scene doesn't use: gone (no stale frames later)
@@ -318,7 +343,9 @@ const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, k
 // objects over it stay at full size. It also saves the world being traced twice when an object sits between its planes
 const lowSegs = {}, lowSeg = k => lowSegs[k] || (lowSegs[k] = {seg: [{t: 'world'}], first: true, last: false, key: 'world-low:' + k, only: k});
 function lowPass(now, P){
-  const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003), s = w ? Math.min(1, w.lowRes(P)) : 1;
+  const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003);
+  Q.heavy = !!(w && w.heavy && w.heavy(P));   // a slow device draws a heavy world smaller before the whole picture (render/quality.js)
+  const s = w ? Math.min(1, w.lowRes(P), Q.heavy ? Q.world : 1) : 1;
   lowOn = s < .999;
   if (!lowOn) return;
   const lw = Math.max(2, Math.round(W*s)), lh = Math.max(2, Math.round(H*s));

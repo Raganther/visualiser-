@@ -24,9 +24,11 @@ uniform float uMediaOn,uMediaAsp,uTunRot,uTunZoom,uTunOrb,uTunDrift;`,
 vec2 foldTri(vec2 p){
   const vec2 n0=vec2(0.0,-1.0), n1=vec2(0.8660254,0.5), n2=vec2(-0.8660254,0.5);
   for(int i=0;i<24;i++){
-    float d=dot(p,n0)-0.5; if(d>0.0) p-=2.0*d*n0;
-    d=dot(p,n1)-0.5; if(d>0.0) p-=2.0*d*n1;
-    d=dot(p,n2)-0.5; if(d>0.0) p-=2.0*d*n2;
+    bool m=false;   // a round with no reflection means it's inside: the rest would change nothing
+    float d=dot(p,n0)-0.5; if(d>0.0){ p-=2.0*d*n0; m=true; }
+    d=dot(p,n1)-0.5; if(d>0.0){ p-=2.0*d*n1; m=true; }
+    d=dot(p,n2)-0.5; if(d>0.0){ p-=2.0*d*n2; m=true; }
+    if(!m) break;
   }
   return p;
 }

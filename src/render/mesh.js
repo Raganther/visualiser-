@@ -76,24 +76,44 @@ void main(){
   gl_FragColor=vec4(c,vCol.a*f);
 }`;
 
-export function meshGL(gl, mesh){
-  const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, 'precision highp float;' + VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS));
-  const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo'];
+// One program serves every mesh, started early (meshWarm, at idle) and linked on first use: compiling it, or building a
+// mesh's vertex data, the moment a centrepiece first appears would stall that frame
+const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo'], PROGS = new WeakMap(), DATA = new WeakMap();
+function meshStart(gl){
+  let s = PROGS.get(gl);
+  if (s && gl.isProgram(s.p)) return s;   // (a lost context's programs are gone: start again)
+  const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => {
+    const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
   ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
-  gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-  const u = {}; for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); }
-  // one interleaved buffer each for the panes and the edges: pos, other end, centre, normal (3 each), info (4)
-  const panes = panesOf(mesh), fill = [], edge = [];
-  const put = (arr, pos, oth, q, side) => arr.push(...pos, ...oth, ...q.c, ...q.n, q.part, q.hinged, q.seed, side);
-  for (const q of panes) {
-    for (const v of q.v) put(fill, v, v, q, 0);
-    for (let k = 0; k < 3; k++) { const a = q.v[k], b = q.v[(k + 1) % 3];   // each edge as two triangles across its width
-      put(edge, a, b, q, 1); put(edge, a, b, q, -1); put(edge, b, a, q, -1); put(edge, a, b, q, 1); put(edge, b, a, q, -1); put(edge, b, a, q, 1); }
+  gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); return s;
+}
+function meshProg(gl){
+  const s = meshStart(gl);
+  if (!s.u) {
+    if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
+    const u = {}; for (let i = 0, n = gl.getProgramParameter(s.p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(s.p, i); u[a.name] = gl.getUniformLocation(s.p, a.name); }
+    s.u = u;
   }
-  const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); return {b, n: data.length/16}; };
-  const B = {fill: buf(fill), edge: buf(edge)};
+  return s;
+}
+// one interleaved array each for the panes and the edges: pos, other end, centre, normal (3 each), info (4); worked out once a mesh
+export function meshData(mesh){
+  let d = DATA.get(mesh); if (d) return d;
+  const panes = panesOf(mesh), fill = new Float32Array(panes.length*3*16), edge = new Float32Array(panes.length*18*16);
+  const put = (arr, o, pos, oth, q, side) => { arr.set(pos, o); arr.set(oth, o + 3); arr.set(q.c, o + 6); arr.set(q.n, o + 9); arr[o + 12] = q.part; arr[o + 13] = q.hinged; arr[o + 14] = q.seed; arr[o + 15] = side; return o + 16; };
+  let fo = 0, eo = 0;
+  for (const q of panes) {
+    for (const v of q.v) fo = put(fill, fo, v, v, q, 0);
+    for (let k = 0; k < 3; k++) { const a = q.v[k], b = q.v[(k + 1) % 3];   // each edge as two triangles across its width
+      eo = put(edge, eo, a, b, q, 1); eo = put(edge, eo, a, b, q, -1); eo = put(edge, eo, b, a, q, -1); eo = put(edge, eo, a, b, q, 1); eo = put(edge, eo, b, a, q, -1); eo = put(edge, eo, b, a, q, 1); }
+  }
+  DATA.set(mesh, d = {fill, edge}); return d;
+}
+export const meshWarm = gl => { meshStart(gl); };
+export function meshGL(gl, mesh){
+  const {p, u} = meshProg(gl), D = meshData(mesh);
+  const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); return {b, n: data.length/16}; };
+  const B = {fill: buf(D.fill), edge: buf(D.edge)};
   let blank = null;
   // on screen: the far side's edges show faintly through, then the glass panes (darkening what's behind them and
   // hiding the far side, and holding a fill if it has one: U.fillTex, U.fillAmt), then the near edges in full.
@@ -114,7 +134,7 @@ export function meshGL(gl, mesh){
     const pass = (k, bright) => {
       const b = B[k]; gl.uniform1f(u.uEdge, k === 'edge' ? 1 : 0); gl.uniform1f(u.uBright, bright*U.w);
       gl.bindBuffer(gl.ARRAY_BUFFER, b.b);
-      [3, 3, 3, 3, 4].reduce((off, n, i) => { gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, 64, off*4); return off + n; }, 0);
+      for (let i = 0; i < 5; i++) gl.vertexAttribPointer(i + 1, i < 4 ? 3 : 4, gl.FLOAT, false, 64, i*12);   // pos, other end, centre, normal, info
       gl.drawArrays(gl.TRIANGLES, 0, b.n);
     };
     if (stage === 'cover') pass('fill', 1);

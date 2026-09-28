@@ -8,6 +8,16 @@ export function hsv2rgb(h, s, v){
   return [f(5), f(3), f(1)];
 }
 export const hc = (h, s, l, a) => `hsla(${((((h)%1)+1)%1*360).toFixed(1)},${s}%,${l}%,${a})`;
+// a copy of a canvas's rows down to y, for simple mode's reflections: they read the picture above the water strip by strip
+// while drawing below it, and a canvas drawn onto itself is copied whole on every call (the rows read are never drawn over)
+let rowsCan = null;
+export function rowsAbove(src, y){
+  const W = src.width, h = Math.min(src.height, Math.max(1, Math.ceil(y) + 2));
+  if (!rowsCan) rowsCan = document.createElement('canvas');
+  if (rowsCan.width !== W || rowsCan.height !== src.height) { rowsCan.width = W; rowsCan.height = src.height; }
+  const x = rowsCan.getContext('2d'); x.globalCompositeOperation = 'copy'; x.drawImage(src, 0, 0, W, h, 0, 0, W, h);
+  return rowsCan;
+}
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 // Journey's own slow noise: each seed gets its own gentle rhythm
 export function jn(t, seed){

@@ -15,25 +15,31 @@ export function composeSegment(seg, plan, wk){
   const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
-  const needW = seg.seg.some(it => it.t === 'world' || it.t === 'front');
+  const needW = seg.seg.some(it => it.t === 'world');
   const body = seg.seg.map(it => {
     const k = it.drive ? `*uK${it.i}` : '';   // a weight that follows a signal
     if (it.t === 'world') return `  c+=w${k};   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails`;
-    if (it.t === 'front') return `  c=mix(c,w,frontCov(sp)${k});   // the worlds' front planes repaint their own colour over what's below`;
+    // the worlds' front planes repaint their own colour over what's below. With no whole world in this segment (an object
+    // stands between the planes), the worlds are worked out only where a front covers the pixel: elsewhere mix(c,w,0) is c
+    if (it.t === 'front') return needW ? `  c=mix(c,w,frontCov(sp)${k});`
+      : `  { float fcv=frontCov(sp)${k}; if(fcv!=0.0){ vec3 w=vec3(0.0);\n${worlds}\n    c=mix(c,w,fcv); } }`;
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
     const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
     const j = m && !m.world ? plan.masks.indexOf(m.object) : -1;   // an object's mask applies only while it's on screen (uMaskOn)
-    const mask = !m ? '' : m.world ? `    { float m=${m.inside ? 'mix(1.0,frontCov(sp),uFrontOn)' : 'frontCov(sp)'}; t*=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}); }\n`   // (inside a front that isn't on screen: all of it)
-      : `    { float m=texture2D(uMask${j},vUv).r; t*=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j}); }\n`;
+    // the mask's share, worked out first: where it (or a driven weight) is 0 the group adds nothing and dims nothing, so
+    // its texture isn't read there
+    const mf = !m ? '' : m.world ? `    float m=${m.inside ? '(uFrontOn>0.0?mix(1.0,frontCov(sp),uFrontOn):1.0)' : 'frontCov(sp)'}, mf=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'});\n`   // (inside a front that isn't on screen: all of it)
+      : `    float m=texture2D(uMask${j},vUv).r, mf=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j});\n`;
+    const skip = [m && 'mf!=0.0', k && `uK${it.i}!=0.0`].filter(Boolean).join('&&');
     const at = it.fit ? 'fuv' : 'uv';   // fit: shrunk round the world's subject, the glow's centre landing on it
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
-${it.fit ? '    vec2 fuv=(uFitSrc+(sp-uFit.xy)*uFit.z)/vec2(ASP,1.0)+0.5;\n' : ''}    vec3 t=texture2D(${tex},${at}).rgb;
+${mf}${skip ? `    if(${skip}){\n` : ''}${it.fit ? '    vec2 fuv=(uFitSrc+(sp-uFit.xy)*uFit.z)/vec2(ASP,1.0)+0.5;\n' : ''}    vec3 t=texture2D(${tex},${at}).rgb;
     vec3 b=(texture2D(${tex},${at}+vec2(px.x,0.0)).rgb+texture2D(${tex},${at}-vec2(px.x,0.0)).rgb
            +texture2D(${tex},${at}+vec2(0.0,px.y)).rgb+texture2D(${tex},${at}-vec2(0.0,px.y)).rgb)*0.25;
     t+=b*0.35;
     t*=1.0+uBeat*0.6;   // the kick flashes here, after the trails, so the brightest moment lands on the kick
-${mask}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
-  }`;
+${m ? '    t*=mf;\n' : ''}${k ? `    t${k.replace('*', '*=')};\n` : ''}    c=c*(1.0-0.4*clamp(max(t.r,max(t.g,t.b)),0.0,1.0))+t;
+${skip ? '    }\n' : ''}  }`;
   }).join('\n');
   return PREC + `
 varying vec2 vUv;
@@ -105,7 +111,7 @@ vec2 fold(vec2 p,float n){
 }
 ${part('functions')}
 vec3 sampleFb(vec2 p,float n){
-  vec2 q=mix(p,fold(p,n),uMirror);
+  vec2 q=uMirror>0.0?mix(p,fold(p,n),uMirror):p;   // (mirror off: the fold count doesn't touch the trails)
   float z=uZoom+uBass*uReact*0.012+uBeat*0.045*uReact;
   float c=cos(uRot), s=sin(uRot);
   q=mat2(c,-s,s,c)*q;
@@ -140,7 +146,7 @@ ${displace}
   vec3 col=vec3(0.0);
   if(!fill){
     col=sampleFb(pf,n1);
-    if(fr>0.002) col=mix(col,sampleFb(pf,n1+1.0),fr);
+    if(fr>0.002&&uMirror>0.0) col=mix(col,sampleFb(pf,n1+1.0),fr);   // (with mirror off both fold counts read the same)
     col=hueRot(col,uHueShift);
     col=max(col*uDecay-uFloor,0.0);
     col-=0.16*col*col;

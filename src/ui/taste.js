@@ -19,8 +19,8 @@ export function rate(v){ want = v; }   // taken at the end of the next drawn fra
 export function tasteFrame(){
   if (!want) return;
   const v = want; want = 0;
-  let thumb = '';
-  try { const c = document.createElement('canvas'); c.width = 160; c.height = 90; c.getContext('2d').drawImage($('#gl'), 0, 0, 160, 90); thumb = c.toDataURL('image/jpeg', .6); } catch (e) {}
+  let c = null;   // the picture is copied now, while the canvas holds it; encoding and saving wait until after the frame
+  try { c = document.createElement('canvas'); c.width = 160; c.height = 90; c.getContext('2d').drawImage($('#gl'), 0, 0, 160, 90); } catch (e) { c = null; }
   const d = window.__jdbg ? window.__jdbg() : {}, r3 = x => typeof x === 'number' ? +x.toFixed(3) : x;
   const m = {v, at: new Date().toISOString(), track: $('#track').textContent, pos: $('#tNow').textContent, onScreen: $('#onNow').textContent,
     journey: J.on, preset: J.on ? null : S.active.name, recipe: d.recipe || null, lead: d.lead || null, accent: d.accent || null, hit: d.hit || null,
@@ -28,8 +28,8 @@ export function tasteFrame(){
     section: d.sec || null, pace: d.pace ? d.pace.name : null, tension: r3(d.T), bpm: d.grid && d.grid.bpm ? r3(d.grid.bpm) : null,
     caption: $('#caption').classList.contains('show') ? $('#caption').textContent : null,
     place: eff.cosmos > .05 && byKey.cosmos ? (({system, star, subject, shot, belt}) => ({system, star, subject, shot, belt}))(byKey.cosmos.info()) : null,
-    settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb};
-  save(m);
+    settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb: ''};
+  setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
   count++;
   toast(v > 0 ? `Liked (${count})` : `Not for me (${count})`);
 }
