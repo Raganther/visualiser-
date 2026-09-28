@@ -31,7 +31,7 @@ src/journey/               core (J, jState), sections, worlds, cast, recipes, tr
 src/audio/                 player, analysis (levels, onsets), synth (built-in beat), beatgrid (tempo, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
-src/scene/                 signals.js (the signal bus), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
+src/scene/                 signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, journey, quality, cosmos, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
@@ -74,11 +74,12 @@ docs/audit-speed.md        the 2026-09 speed audit: what was found, done, and le
 | Kind | What it is | Modules | How it arrives |
 |---|---|---|---|
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos) (plus none/black) | Fade, or cut on the bar |
-| **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject) | Fade, or cut on the bar |
+| **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther) | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
 | **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
-| **Lens** | Transforms everything, draws nothing itself | `sym` (kaleidoscope folds), `mirror` in `SPEC` | Eases in, or flips on the bar |
+| **Lens** | Transforms everything, draws nothing itself | `sym` (the glow's own folds, in the trails), `mirror` in `SPEC` | Eases in, or flips on the bar |
+| **Kaleidoscope** | A mirror fold of the picture itself (see The kaleidoscope) | `kal`, `kalWhere`, `kalTurn` in `SPEC` (by hand; Journey doesn't use it yet) | Eases in |
 | **Motion / colour** | How the feedback moves | `decay`, `zoom`, `rot`, `warp`, `wander`, `colorSpeed`, `hueDrift` in `SPEC` | Continuous |
 
 Each visual is **one module** exporting an object. From it the engine builds the slider, the shaders, both renderers' drawing and Journey's choices. The fields:
@@ -130,7 +131,8 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 27 of them: 15 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets), and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
+- **Presets** (`BASE`, 29 of them: 17 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets, "Lasers" and "Pleasures"), and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
+- **Each layer's own speed, size and sound** (`scene/tweaks.js`, `S.active.tw[key] = {speed, size, src}`): a row under a layer's slider while it's on, or the keys (← → speed, Shift+← → size, B what it follows). Kept on the preset, carried into Journey (which never writes them), snapshots and likes. Speed is the layer's own clock (`TW[key].off`, motion seconds ahead: its `params` get `x.t` shifted, the ribbons', horizon's, comets' and flow's steps are scaled, and in WebGL its code's `uTime` reads `uTw_<key>.x`); size scales its coordinates round the centre (`uSz_<key>`; simple mode scales the canvas); the sound replaces its bass, mids and treble with one signal (`uTw_<key>.yzw`, and a copy of `P` in simple mode). `compose.js` rewrites each layer's code for this; untweaked it reads exactly the shared values. The ring, scope and burst have no clock (`tweaks: ['size', 'src']`).
 
 ## The panel: what's on screen, presets, Solo and Journey
 
@@ -147,6 +149,14 @@ The user found this confusing, so the panel says it plainly:
 - **Journey back on carries on from there** (`J.handoff`, `TUNE.handoffSecs`): it holds the hand-made look (its settings, movers and scene) until the music moves it on (a new section, a drop, a progression step, or a phrase line after `handoffSecs`), then fades to its own, instead of jumping there at once.
 - **Journey off** (A, or the Journey button) keeps what's on screen as a "Snapshot" preset: the sliders as they're drawn at that moment (not Journey's targets, which it was still easing to), its movers and its scene. What still moves is what moves by hand too: the movers, the cosmos's camera flying with the music, and motion at full pace.
 - **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
+
+## The kaleidoscope
+
+A true mirror of the picture (`kal`: mirrors, under 2 off; `kalWhere`: what it folds; `kalTurn`: turning), round the trails' centre (the world's subject), like the cosmos's own fold. `main.js` builds `P.kal` ({on, where, c, v: [mirrors, share of one more, how far folded, turn]}).
+- **Everything** (0) and **inside the objects** (3) fold in the finish (`FINISH`, `kalUv` in `shaders.js`): the finished picture and its glow are read at the folded place, mirrored back into the picture where it runs off. Inside the objects it's mixed by their silhouettes (`kalPrep` in `gl.js`, a half-size cover pass).
+- **The world** (1) and **the glow** (2) fold in the segments (`uKal`, `uKalW`, `uKalT` in `compose.js`): the worlds and their fronts, or the trail groups, read at the folded place; hits and objects stay whole.
+- **Simple mode** (`foldOnto` in `canvas2d.js`): the picture (or the worlds, or the glow) copied and laid back as mirrored wedges; it doesn't mirror what runs off the picture, so the far corners can be dark.
+- **Keys:** K then 2–9 mirrors; E everything, B the world, G the glow, I inside the object; ↑ ↓ more or fewer, ← → turning. Shift+K is the glow's own folds (`sym`, ghostly, in the trails) and M mirrored trails.
 
 ## Journey (the automatic director)
 

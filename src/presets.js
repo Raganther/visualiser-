@@ -59,6 +59,9 @@ export const BASE = [
     mods:{zoom:{src:'pulse', amt:.1}}},
   {name:'Orbits', decay:.97, zoom:1.0, rot:0, warp:.05, sym:1, cosmos:1, orbit:1, ring:.35, sparkle:.6, colorSpeed:.03, hueDrift:.006,
     mods:{orbit:{src:'mid', amt:.25}}},
+  {name:'Lasers', decay:.9, zoom:1.008, rot:0, warp:0, sym:1, lasers:1, shock:.3, colorSpeed:.06, hueDrift:.01,
+    mods:{zoom:{src:'kick', amt:.15}}},
+  {name:'Pleasures', decay:.85, zoom:1.0, rot:0, warp:0, sym:1, lines:1, colorSpeed:.01, hueDrift:.002, mods:{}},
   // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
   {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,
     mods:{rot:{src:'drift', amt:.2}}},

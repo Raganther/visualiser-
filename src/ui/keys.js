@@ -23,7 +23,7 @@ const layers = LAYER_VISUALS.filter(v => !v.optIn), worlds = WORLD_VISUALS.filte
 const SCENE_WORDS = {plain: 'plain', between: 'between', split: 'split', among: 'among', held: 'held', reflect: 'reflect', inside: 'inside', window: 'window', glass: 'glass'};
 // the groups: their key, name, and what number n does (items: [label, isOn] for the strip)
 const GROUPS = {
-  l: {name: 'Layers', list: () => layers.map(v => [v.label, on(v.key)]), pick: n => toggle(layers[n - 1], TUNE.keys.layer), all: layers},
+  l: {name: 'Layers', list: () => layers.map((v, i) => [v.label, on(v.key), i < 9 ? i + 1 : MORE[i - 9]]), pick: n => toggle(layers[n - 1], TUNE.keys.layer), all: layers},
   w: {name: 'Worlds', list: () => worlds.map(v => [v.label, on(v.key, .3)]), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
   e: {name: 'Hits', list: () => HIT_VISUALS.map(v => [v.label, on(v.key)]), pick: n => toggle(HIT_VISUALS[n - 1], (HIT_VISUALS[n - 1] || {}).level), all: HIT_VISUALS},
   o: {name: 'Objects', list: () => OBJECT_VISUALS.map(v => [v.label, on(v.key, .3)]), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
@@ -39,6 +39,7 @@ const GROUPS = {
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
+const MORE = ['Z', 'U'];   // layers past the ninth: letters (Z the lasers, U the waveform lines)
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;
@@ -102,6 +103,9 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
       setTweak(last, f, Math.abs(v - 1) < .06 ? 1 : v); toast(`${byKey[last].label}: ${f} ${(twOf(last) || {})[f] ?? 1}×`);
     }
   }
+  else if (mode === 'l' && MORE.includes(e.key.toUpperCase()) && layers[9 + MORE.indexOf(e.key.toUpperCase())]) {
+    const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
+    if (e.shiftKey) { solo(v.key); last = v.key; } else toggle(v, TUNE.keys.layer); }
   else if (k === 'b' && mode === 'l' && last && isLayer(last)) {   // what the last layer follows: its own sound, bass, mids…
     const t = twOf(last) || {}, i = TW_SRC.findIndex(s => s[0] === (t.src || 'auto'));
     setTweak(last, 'src', TW_SRC[(i + 1) % TW_SRC.length][0]); toast(`${byKey[last].label} follows ${TW_SRC[(i + 1) % TW_SRC.length][1]}`);
