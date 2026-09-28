@@ -40,12 +40,13 @@ for (const mode of ['2d', 'gl']) {
       const {J} = await import('/src/journey/core.js'), {TUNE} = await import('/src/tuning.js');
       for (let i = 0; i < 50 && !TUNE.skull.chance; i++) await new Promise(r => setTimeout(r, 50));   // the lab loads before the first frame
       let seen = 0, lensOver = 0, frames = 0;
-      for (let s = 0; s < 240; s++) { __step(60); const d = __jdbg(); if (J.centre === 'skull' && d.skull > .5) { frames++; seen = 1; if (d.sym > 1.05) lensOver++; } }
+      // (each new cast draws it at .5, so it can miss a few in a row: up to 420 s, and a minute more once it's been seen)
+      for (let s = 0, until = 420; s < until; s++) { __step(60); const d = __jdbg(); if (J.centre === 'skull' && d.skull > .5) { frames++; if (!seen) until = Math.min(until, s + 60); seen = 1; if (d.sym > 1.05) lensOver++; } }
       return {seen, frames, lensOver, sec: document.querySelector('#jSection').textContent};
     });
     errors = await page.errors(); await page.close();
     const ok = j.seen && !j.lensOver && !errors.length;
-    console.log(`journey: ${ok ? 'ok' : 'FAILED'}  skull as centrepiece for ${j.frames} of 240 s, under a lens ${j.lensOver} s`, errors.length ? errors : '');
+    console.log(`journey: ${ok ? 'ok' : 'FAILED'}  skull as centrepiece for ${j.frames} s, under a lens ${j.lensOver} s`, errors.length ? errors : '');
     if (!ok) failed = true;
   }
   await browser.close();

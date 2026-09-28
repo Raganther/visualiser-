@@ -14,7 +14,7 @@ import { TUNE } from '../tuning.js';
 const intervals = [], stL = new Float32Array(512), stR = new Float32Array(512);
 /* ---------- analysis ---------- */
 export let sBass = 0, sMid = 0, sTreb = 0, lastBeat = 0, hit = 0, lastHit = 0;
-const LF = new Float32Array(1024), prevLF = new Float32Array(1024), prevDb = new Float32Array(32), loFlux = [], hiFlux = [], kickFlux = [];
+const fkHist = [], LF = new Float32Array(1024), prevLF = new Float32Array(1024), prevDb = new Float32Array(32), loFlux = [], hiFlux = [], kickFlux = [];
 const kickFl = [], hitFl = [];
 let pend = null;                                        // a low-end hit waiting to show it's a kick (see below)
 // analyser bytes are decibels; onsets are judged on actual loudness so faint noise can't pass for a kick
@@ -88,7 +88,13 @@ export function analyse(now){
   // kick's strength. What sets a kick apart is its sub-bass, which often arrives a frame or two after the hit starts, so a
   // low-end hit waits a moment (K.windowMs) and counts as a kick only if enough of its rise came in the sub. It's timed
   // from its start, so the beat grid gets no extra lag.
-  if (!pend && fk > Math.max(.03, kq*2.5, kT) && bass > .25 && now - lastBeat > 200) pend = {t: now, fk, sub: 0, all: 0};
+  // (timed from where its rise began: in the unclipped spectrum a loud kick keeps rising for a few frames, so it passes the
+  // threshold a frame or three after it starts; the frames just before that it was already rising count as its start)
+  fkHist.push([now, fk]); if (fkHist.length > 4) fkHist.shift();
+  if (!pend && fk > Math.max(.03, kq*2.5, kT) && bass > .25 && now - lastBeat > 200) {
+    let t0 = now; for (let i = fkHist.length - 2; i >= 0 && fkHist[i][1] > fk*TUNE.kick.startShare && now - fkHist[i][0] < 60; i--) t0 = fkHist[i][0];
+    pend = {t: t0, fk, sub: 0, all: 0};
+  }
   if (pend) {
     pend.sub += sub1; pend.all += fk*6;
     if (now - pend.t >= K.windowMs) {

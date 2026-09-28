@@ -12,7 +12,9 @@ import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
 import { L } from '../audio/listen.js';
 
-export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/FEATS.length; }
+// (over six: the fingerprint's first six features set the scale; the listening's hats and noise add to it rather than
+// thinning the others out, which made every section change harder)
+export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/6; }
 export function newType(F){
   const used = J.types.map(t => t.hue);
   let hue = Math.random();

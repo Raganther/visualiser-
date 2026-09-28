@@ -194,6 +194,7 @@ export const TUNE = {
     subShare: .18,             // over its first moment, a kick puts at least this much of its (weighted) rise in the lowest bin;
                                // on a real track kicks put .15-.32, bass notes between them mostly under .1; an 808-style kick .22-.28
     windowMs: 30,              // that first moment: the hit's first three frames or so (the sub often lands a frame or two late)
+    startShare: .2,            // the frames just before a kick passed the bar, rising at least this share as hard, count as its start
     forgetMs: 1500,            // after this long with no kick, the floor learnt from past kicks is dropped (a quieter part can be heard)
   },
 
