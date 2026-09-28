@@ -1,6 +1,6 @@
 // Builds the shaders from the registry. A display segment: shared helpers, every visual's uniforms and functions, then
 // main(), which runs the segment's items in stack order over what's below (black, or the picture so far).
-import { PREC } from './shaders.js';
+import { KAL, PREC } from './shaders.js';
 import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
@@ -11,7 +11,7 @@ export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8};   
 export function composeSegment(seg, plan, wk){
   const WV = WORLD_VISUALS.filter(v => !wk || wk.includes(v.key));
   // a world that draws at its own lower resolution (lowRes: the cosmos's ground) is read from that picture instead (uLow)
-  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,vUv).rgb:${v.glsl.fn}(sp))` : `${v.glsl.fn}(sp)`}*uW_${v.key};`).join('\n');
+  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`).join('\n');
   const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
@@ -21,19 +21,19 @@ export function composeSegment(seg, plan, wk){
     if (it.t === 'world') return `  c+=w${k};   // worlds sit behind what comes after, drawn crisp every frame instead of smeared by the trails`;
     // the worlds' front planes repaint their own colour over what's below. With no whole world in this segment (an object
     // stands between the planes), the worlds are worked out only where a front covers the pixel: elsewhere mix(c,w,0) is c
-    if (it.t === 'front') return needW ? `  c=mix(c,w,frontCov(sp)${k});`
-      : `  { float fcv=frontCov(sp)${k}; if(fcv!=0.0){ vec3 w=vec3(0.0);\n${worlds}\n    c=mix(c,w,fcv); } }`;
+    if (it.t === 'front') return needW ? `  c=mix(c,w,frontCov(wsp)${k});`
+      : `  { float fcv=frontCov(wsp)${k}; if(fcv!=0.0){ vec3 w=vec3(0.0);\n${worlds}\n    c=mix(c,w,fcv); } }`;
     if (it.t === 'hits') return '  // hits: crisp, with a small halo of glow\n' + hits;
     const tex = `uT_${it.g}`, m = it.mask;   // sampled at uv: the whole screen, or shrunk into a fill
     const j = m && !m.world ? plan.masks.indexOf(m.object) : -1;   // an object's mask applies only while it's on screen (uMaskOn)
     // the mask's share, worked out first: where it (or a driven weight) is 0 the group adds nothing and dims nothing, so
     // its texture isn't read there
-    const mf = !m ? '' : m.world ? `    float m=${m.inside ? '(uFrontOn>0.0?mix(1.0,frontCov(sp),uFrontOn):1.0)' : 'frontCov(sp)'}, mf=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'});\n`   // (inside a front that isn't on screen: all of it)
+    const mf = !m ? '' : m.world ? `    float m=${m.inside ? '(uFrontOn>0.0?mix(1.0,frontCov(wsp),uFrontOn):1.0)' : 'frontCov(wsp)'}, mf=mix(1.0-m,m,${m.inside ? '1.0' : '0.0'});\n`   // (inside a front that isn't on screen: all of it)
       : `    float m=texture2D(uMask${j},vUv).r, mf=mix(1.0,mix(1.0-m,m,${m.inside ? '1.0' : '0.0'}),uMaskOn${j});\n`;
     const skip = [m && 'mf!=0.0', k && `uK${it.i}!=0.0`].filter(Boolean).join('&&');
-    const at = it.fit ? 'fuv' : 'uv';   // fit: shrunk round the world's subject, the glow's centre landing on it
+    const at = it.fit ? 'fuv' : 'tuv';   // fit: shrunk round the world's subject, the glow's centre landing on it
     return `  {                                     // trails (${it.g}): softened a little, lit by the kick, dimming what's below where bright
-${mf}${skip ? `    if(${skip}){\n` : ''}${it.fit ? '    vec2 fuv=(uFitSrc+(sp-uFit.xy)*uFit.z)/vec2(ASP,1.0)+0.5;\n' : ''}    vec3 t=texture2D(${tex},${at}).rgb;
+${mf}${skip ? `    if(${skip}){\n` : ''}${it.fit ? '    vec2 fuv=(uFitSrc+(tsp-uFit.xy)*uFit.z)/vec2(ASP,1.0)+0.5;\n' : ''}    vec3 t=texture2D(${tex},${at}).rgb;
     vec3 b=(texture2D(${tex},${at}+vec2(px.x,0.0)).rgb+texture2D(${tex},${at}-vec2(px.x,0.0)).rgb
            +texture2D(${tex},${at}+vec2(0.0,px.y)).rgb+texture2D(${tex},${at}-vec2(0.0,px.y)).rgb)*0.25;
     t+=b*0.35;
@@ -45,6 +45,7 @@ ${skip ? '    }\n' : ''}  }`;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
+uniform vec4 uKal; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
@@ -53,6 +54,7 @@ uniform sampler2D uData;   // waveform and spectrum
 ${WORLD_VISUALS.map(v => `uniform float uW_${v.key};`).join('\n')}
 ${VISUALS.filter(v => v.glsl && v.glsl.uniforms && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.uniforms).join('\n')}
 float ASP;
+${KAL}
 float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -65,6 +67,9 @@ void main(){
   ASP=uRes.x/uRes.y;
   vec2 sp=(vUv-0.5)*vec2(ASP,1.0)*max(uSpZ,1.0), uv=${seg.fill ? '(vUv-0.5)*uSpZ+0.5' : 'vUv'};
   vec2 px=3.0/uRes;
+  // the kaleidoscope: the worlds (and their fronts) or the trails read from the folded place
+  vec2 kuv=uKalW+uKalT>0.0?kalUv(vUv,vec2(ASP,1.0)):vUv, ksp=(kuv-0.5)*vec2(ASP,1.0);
+  vec2 wuv=uKalW>0.0?kuv:vUv, wsp=uKalW>0.0?ksp:sp, tuv=uKalT>0.0?kuv:uv, tsp=uKalT>0.0?ksp:sp;
   vec3 c=${seg.first ? 'vec3(0.0)' : 'texture2D(uUnder,vUv).rgb'};
 ${needW ? '  vec3 w=vec3(0.0);\n' + worlds : ''}
 ${body}

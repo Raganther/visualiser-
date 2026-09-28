@@ -1,5 +1,5 @@
 // The keyboard: a letter picks a group, number keys work inside it, and a strip at the bottom shows the group's list with
-// what's on. L layers, W worlds, E hits, O objects, K kaleidoscope, S scene, C the cosmos's camera. Shift + a number solos
+// what's on. L layers, W worlds, E hits, O objects, K kaleidoscope (Shift+K the glow's own folds), S scene, C the cosmos's camera. Shift + a number solos
 // that one thing, ↑ ↓ raise or lower the last one touched, 0 turns the group off, Esc leaves it (so does a few seconds
 // idle). A change while Journey runs freezes it first (A hands it back). [ ] calmer or more intense, , . evolve slower or
 // faster, ? every key at once. The rest (Space, ← →, R, A, N, X, H, F, P, + −) is in ui/controls.js and ui/taste.js.
@@ -26,12 +26,18 @@ const GROUPS = {
   w: {name: 'Worlds', list: () => worlds.map(v => [v.label, on(v.key, .3)]), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
   e: {name: 'Hits', list: () => HIT_VISUALS.map(v => [v.label, on(v.key)]), pick: n => toggle(HIT_VISUALS[n - 1], (HIT_VISUALS[n - 1] || {}).level), all: HIT_VISUALS},
   o: {name: 'Objects', list: () => OBJECT_VISUALS.map(v => [v.label, on(v.key, .3)]), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
-  k: {name: 'Kaleidoscope (glow only): folds', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.sym || 1) === n, n]).concat([['mirror trails', (S.active.mirror || 0) > .5, 'M']]),
+  // the kaleidoscope: a mirror fold of the picture (everything, the world, the glow, or inside the object), and its letters
+  k: {name: 'Kaleidoscope: mirrors', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.kal || 0) === n, n])
+      .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()])),
+    pick: n => { if (n === 1) return false; edit(); S.active.kal = n; last = 'kal'; return true; }, off: () => { S.active.kal = 0; }},
+  // Shift+K: the glow's own folds, inside the trails (ghostly, lined), and mirrored trails
+  kg: {name: 'Glow folds (the trails)', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.sym || 1) === n, n]).concat([['mirror trails', (S.active.mirror || 0) > .5, 'M']]),
     pick: n => { if (n === 1) return false; edit(); S.active.sym = n; last = 'sym'; return true; }, off: () => { S.active.sym = 1; }},
   s: {name: 'Scene', list: () => TEMPLATES.map(t => [SCENE_WORDS[t.key] || t.key, J.on ? J.sceneKey === t.key && !!J.sceneLive : sceneIs(t.key)]),
     pick: n => { const t = TEMPLATES[n - 1]; if (!t) return false; edit(); compose(t.key); return true; }, off: () => { S.scene = null; if (S.active) delete S.active.scene; }},
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
+const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;
 const sceneIs = k => !!S.scene && sceneKeyByHand === k;
@@ -70,8 +76,11 @@ addEventListener('keydown', e => {
   else if (k === 't' && mode !== 'c') { mode = null; tutorial(); }   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
-  else if (GROUPS[k] && !(mode === 'k' && k === 'm')) mode = mode === k ? null : k;
-  else if (mode === 'k' && k === 'm') { edit(); S.active.mirror = (S.active.mirror || 0) > .5 ? 0 : 1; }
+  else if (mode === 'k' && KAL_WHERE.some(w => w[0] === k)) {   // what the kaleidoscope folds (on at 6 if it was off)
+    edit(); S.active.kalWhere = KAL_WHERE.findIndex(w => w[0] === k); if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
+  else if (mode === 'kg' && k === 'm') { edit(); S.active.mirror = (S.active.mirror || 0) > .5 ? 0 : 1; }
+  else if (k === 'k' && e.shiftKey) mode = mode === 'kg' ? null : 'kg';
+  else if (GROUPS[k] && k !== 'kg') mode = mode === k ? null : k;
   else if (digit !== null && mode && mode !== 'c') {
     const g = GROUPS[mode];
     if (e.shiftKey && g.all && digit > 0) { const v = g.all[digit - 1]; if (v) { solo(v.key); last = v.key; } }
@@ -82,7 +91,8 @@ addEventListener('keydown', e => {
   else if ((k === 'arrowup' || k === 'arrowdown') && mode && last) {
     e.preventDefault(); edit();
     const d = k === 'arrowup' ? 1 : -1;
-    if (last === 'sym') S.active.sym = Math.max(1, Math.min(12, Math.round(S.active.sym || 1) + d));
+    if (last === 'kal') S.active.kal = Math.max(2, Math.min(12, Math.round(S.active.kal || 0) + d));
+    else if (last === 'sym') S.active.sym = Math.max(1, Math.min(12, Math.round(S.active.sym || 1) + d));
     else S.active[last] = Math.max(0, Math.min(1, +((S.active[last] || 0) + d*.1).toFixed(2)));
   }
   else if (k === '[' || k === ']') { J.bias = Math.max(0, Math.min(1, J.bias + (k === ']' ? .1 : -.1))); const s = $('#jBias'); s.value = J.bias; s.dispatchEvent(new Event('input')); toast(J.bias < .35 ? 'Calmer' : J.bias > .65 ? 'More intense' : 'Balanced'); }

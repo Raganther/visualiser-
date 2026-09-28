@@ -11,7 +11,7 @@ export const SPEC = [
   {g:'Motion', k:'rot', label:'Spin', min:-.05, max:.05, step:.001},
   {g:'Motion', k:'warp', label:'Warp', min:0, max:2, step:.01},
   {g:'Motion', k:'wander', label:'Centre wander', min:0, max:.5, step:.01},
-  {g:'Lens', k:'sym', label:'Kaleidoscope folds', min:1, max:12, step:1},
+  {g:'Lens', k:'sym', label:'Glow folds (the trails, ghostly)', min:1, max:12, step:1},
   {g:'Lens', k:'mirror', label:'Mirror trails', min:0, max:1, step:.01},
   ...LAYER_VISUALS.filter(v => !v.optIn).map(v => ({g:'Layers', k:v.key, label:v.label, min:0, max:1, step:.01})),
   ...HIT_VISUALS.map(v => ({g:'Hits', k:v.key, label:v.label, min:0, max:1, step:.01})),
@@ -20,6 +20,11 @@ export const SPEC = [
   {g:'Colour', k:'hueDrift', label:'Trail hue drift', min:0, max:.06, step:.001},
   // opt-in visuals last, so the settings above keep their places (movers seed their drift by position)
   ...[...VISUALS.filter(v => v.optIn && v.kind !== 'world'), ...WORLD_VISUALS.filter(v => v.optIn)].map(v => ({g:'Media and objects', k:v.key, label:v.label, min:0, max:1, step:.01})),
+  // the kaleidoscope: a mirror fold of the picture itself (the whole of it, the world only, the glow only, or inside an
+  // object), round the trails' centre (the world's subject); after the others, so their places (movers' seeds) stay
+  {g:'Kaleidoscope', k:'kal', label:'Mirrors (under 2: off)', min:0, max:12, step:1},
+  {g:'Kaleidoscope', k:'kalWhere', label:'Folds: 0 everything, 1 the world, 2 the glow, 3 inside the object', min:0, max:3, step:1},
+  {g:'Kaleidoscope', k:'kalTurn', label:'Turning', min:-.5, max:.5, step:.01},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus

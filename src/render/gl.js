@@ -186,6 +186,7 @@ export function warmScenes(scenes){
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
 let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
+let kal = {on: false}, kalM = null, kalMT = null;   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
 let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
@@ -200,8 +201,8 @@ const halfTarget = () => target(Math.max(1, W >> 1), Math.max(1, H >> 1));
 const drop = t => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); if (t.rb) gl.deleteRenderbuffer(t.rb); } };
 function glResize(){
   const old = fbos[cur];   // the main trails, carried over so a change of resolution doesn't wipe them
-  [...Object.values(fills), ...masks, ...surfs, ...blooms, low, ...Object.values(groups).flatMap(g => g.fbos), ...fbos.filter(t => t !== old)].forEach(drop);
-  fills = {}; masks = []; groups = {}; surfs = []; low = null;
+  [...Object.values(fills), ...masks, ...surfs, ...blooms, low, kalMT, ...Object.values(groups).flatMap(g => g.fbos), ...fbos.filter(t => t !== old)].forEach(drop);
+  fills = {}; masks = []; groups = {}; surfs = []; low = null; kalMT = null;
   TW = Math.max(2, Math.round(W*TUNE.render.trailScale)); TH = Math.max(2, Math.round(H*TUNE.render.trailScale));
   fbos = [0, 1].map(() => target(TW, TH, false, hdr));
   if (old) {   // copied with the blur's program, blurring nothing
@@ -301,6 +302,7 @@ export function drawGL(now, P){
     }
     return on;
   });
+  kalPrep(P);
   // the stack, bottom to top: each segment is one full-screen pass over the picture so far; objects draw between them.
   // Everything goes straight to the screen unless something has to be drawn over later, then it's built on a surface
   let surf = null, si = 0;
@@ -334,7 +336,22 @@ function finish(surf){
     run(post.blur, b.fb, bw, bh, u => { tex(0, a.tex, u.uTex); gl.uniform2f(u.uDir, R.bloomRadius/bw, 0); });
     run(post.blur, a.fb, bw, bh, u => { tex(0, b.tex, u.uTex); gl.uniform2f(u.uDir, 0, R.bloomRadius/bh); });
   }
-  run(post.finish, null, W, H, u => { tex(0, surf.tex, u.uTex); tex(1, a.tex, u.uBloom); gl.uniform1f(u.uAmt, R.bloom); gl.uniform1f(u.uKnee, R.knee); });
+  run(post.finish, null, W, H, u => { tex(0, surf.tex, u.uTex); tex(1, a.tex, u.uBloom); gl.uniform1f(u.uAmt, R.bloom); gl.uniform1f(u.uKnee, R.knee);
+    const k = kal.on && (kal.where === 0 || kal.where === 3 && kalM) ? (kal.where === 3 ? 2 : 1) : 0;
+    gl.uniform1f(u.uKalOn, k); gl.uniform4fv(u.uKal, kal.v); gl.uniform2f(u.uKalC, kal.c[0], kal.c[1]); gl.uniform2f(u.uAsp, W/H, 1);
+    tex(2, k === 2 ? kalM.tex : blankTex(true), u.uKalM); });
+}
+// the kaleidoscope this frame (P.kal: see main.js): on, where it folds (0 everything, 1 the world, 2 the glow, 3 inside the
+// objects), [mirrors, share of one more, how far folded, turn], and its centre. Inside the objects: their silhouettes, at half size
+function kalPrep(P){
+  kal = P.kal || {on: false}; kalM = null;
+  if (!kal.on || kal.where !== 3) return;
+  const obs = OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003);
+  if (!obs.length) return;
+  kalM = kalMT || (kalMT = halfTarget());
+  gl.bindFramebuffer(gl.FRAMEBUFFER, kalM.fb); gl.viewport(0, 0, kalM.w, kalM.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  for (const o of obs) o.drawGL(gl, P, W, H, 'cover');
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 }
 // the worlds alone, for a world filling an object
 const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, key: 'world-fill'};
@@ -364,6 +381,9 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLo
   gl.uniform1f(v.uSpZ, zoom); gl.uniform1f(v.uGain, gain); gl.uniform3fv(v.uPal, P.pal);
   if (v.uFit) { gl.uniform3fv(v.uFit, P.fit); gl.uniform2f(v.uFitSrc, P.cx, P.cy); }
   if (v.uFrontOn) gl.uniform1f(v.uFrontOn, P.frontOn);
+  if (v.uKal) { const f = kal.on && zoom === 1 && !st.only;   // the world or the glow folded (not in a fill, nor the world drawn alone)
+    gl.uniform4fv(v.uKal, kal.v || [2, 0, 0, 0]); gl.uniform2f(v.uKalC, (kal.c || [0, 0])[0], (kal.c || [0, 0])[1]);
+    gl.uniform1f(v.uKalW, f && kal.where === 1 ? 1 : 0); gl.uniform1f(v.uKalT, f && kal.where === 2 ? 1 : 0); }
   for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
   for (const g in out) { const unit = g === 'main' ? UNIT.main : UNIT.group[sc.extra.indexOf(g)];
     if (unit === undefined) continue;
@@ -406,7 +426,7 @@ export function initRenderer(){
     // a lost context (a phone backgrounding the tab, a GPU reset): stop drawing, and rebuild everything when it comes back
     canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
     canvas.addEventListener('webglcontextrestored', () => {
-      try { setupGL(); for (const k in blanks) delete blanks[k]; fills = {}; masks = []; groups = {}; surfs = []; fbos = []; blooms = [];
+      try { setupGL(); for (const k in blanks) delete blanks[k]; fills = {}; masks = []; groups = {}; surfs = []; fbos = []; blooms = []; kalMT = null;
         S.glGen++; glResize(); lost = false; }
       catch (e) { console.warn(e); toast('The picture was lost: reload the page'); }
     });

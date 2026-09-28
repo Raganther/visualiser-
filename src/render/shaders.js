@@ -24,9 +24,20 @@ void main(){   // 9 taps from 5 fetches, using the texture's own filtering
   c+=(texture2D(uTex,vUv+uDir*3.2308).rgb+texture2D(uTex,vUv-uDir*3.2308).rgb)*0.0703;
   gl_FragColor=vec4(c,1.0);
 }`;
-export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom; uniform float uAmt, uKnee;
+// the kaleidoscope's fold (a point round the centre into one mirrored wedge, n of them), shared with the segments
+export const KAL = `vec2 kalF(vec2 p,float n,float ang){ float r=length(p), s=6.2831853/n, a=mod(atan(p.y,p.x)-ang,s); a=min(a,s-a)+ang; return r*vec2(cos(a),sin(a)); }
+vec2 kalUv(vec2 uv,vec2 asp){   // uKal: mirrors, the share of one more (easing between counts), how far folded, turn
+  vec2 p=(uv-0.5)*asp-uKalC, f=kalF(p,uKal.x,uKal.w);
+  if(uKal.y>0.0) f=mix(f,kalF(p,uKal.x+1.0,uKal.w),uKal.y);
+  vec2 q=(uKalC+mix(p,f,uKal.z))/asp+0.5;
+  return 1.0-abs(1.0-mod(q,2.0));   // off the picture: mirrored back into it
+}`;
+export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal; uniform vec2 uKalC, uAsp;
+${KAL}
 void main(){
-  vec3 c=texture2D(uTex,vUv).rgb+texture2D(uBloom,vUv).rgb*uAmt;
+  vec2 uv=vUv;
+  if(uKalOn>0.0){ float m=uKalOn>1.5?texture2D(uKalM,vUv).r:1.0; if(m>0.0) uv=mix(vUv,kalUv(vUv,uAsp),m); }   // the whole picture, or inside the objects (2)
+  vec3 c=texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt;
   float m=max(c.r,max(c.g,c.b));
   if(m>uKnee){ float k=1.0-uKnee; c*=(uKnee+k*(1.0-exp(-(m-uKnee)/k)))/m; }   // roll off, keeping the colour
   c+=(fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-0.5)/255.0;   // dither

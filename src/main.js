@@ -92,6 +92,7 @@ function fpsInfo(){
   return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
+let kalA = 0;   // the kaleidoscope's turn
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -129,6 +130,12 @@ function render(now){
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
     frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   P.cx += (CTX.focus.x - P.cx)*CTX.focus.k; P.cy += (CTX.focus.y - P.cy)*CTX.focus.k;   // the glow centres on the planet a world films
+  // the kaleidoscope: a mirror fold of the picture round the trails' centre. Under 2 mirrors it's off; between two counts it
+  // eases (the share of the next), and it turns at motion time
+  kalA += mdt*(eff.kalTurn || 0);
+  const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
+  P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
+    v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))]};
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
   P.frontOn = ['land', 'space', 'aurora', 'city'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
