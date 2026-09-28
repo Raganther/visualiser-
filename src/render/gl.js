@@ -187,7 +187,7 @@ export function warmScenes(scenes){
 // render targets, made when a scene first needs them: half-size fills and masks, extra trail groups' buffer pairs,
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
 let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
-let kal = {on: false}, kalM = null, kalMT = null;   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
+let kal = {on: false}, kalM = null, kalMT = null, fin = {gl: [0, 0], grain: 0, t: 0};   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
 let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
@@ -345,11 +345,13 @@ function finish(surf){
   run(post.finish, null, W, H, u => { tex(0, surf.tex, u.uTex); tex(1, a.tex, u.uBloom); gl.uniform1f(u.uAmt, R.bloom); gl.uniform1f(u.uKnee, R.knee);
     const k = kal.on && (kal.where === 0 || kal.where === 3 && kalM) ? (kal.where === 3 ? 2 : 1) : 0;
     gl.uniform1f(u.uKalOn, k); gl.uniform4fv(u.uKal, kal.v); gl.uniform2f(u.uKalC, kal.c[0], kal.c[1]); gl.uniform2f(u.uAsp, W/H, 1);
-    tex(2, k === 2 ? kalM.tex : blankTex(true), u.uKalM); });
+    tex(2, k === 2 ? kalM.tex : blankTex(true), u.uKalM);
+    gl.uniform2f(u.uGl, fin.gl[0], fin.gl[1]); gl.uniform1f(u.uGrain, fin.grain); gl.uniform1f(u.uT, fin.t); });
 }
 // the kaleidoscope this frame (P.kal: see main.js): on, where it folds (0 everything, 1 the world, 2 the glow, 3 inside the
 // objects), [mirrors, share of one more, how far folded, turn], and its centre. Inside the objects: their silhouettes, at half size
 function kalPrep(P){
+  fin = {gl: P.glitch || [0, 0], grain: P.grain || 0, t: P.t2 || 0};   // the glitch and the film grain, for the finish
   kal = P.kal || {on: false}; kalM = null;
   if (!kal.on || kal.where !== 3) return;
   const obs = OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003);

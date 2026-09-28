@@ -75,7 +75,7 @@ docs/audit-speed.md        the 2026-09 speed audit: what was found, done, and le
 |---|---|---|---|
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos), `sea` (the night sea), `deep` (underwater), `dunes` (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther), `fireflies` (soft out-of-focus lights drifting on the wind, blinking livelier with the hi-hats), `stargate` (hexagon rings rushing out of the centre, one a beat, faster as the tension builds), `vectorscope` (the left channel against the right, from `scopeLR` in `state.js`: mono stands upright, wide sound opens out), `mandala` (the flower of life drawing itself arc by arc over each four-bar phrase, turning a notch each bar) | Fade, or cut on the bar |
-| **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails) | Snap in, then snap or flicker out |
+| **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails), `lightning` (a forked bolt on stabs, lighting everything an instant), `glitch` (the finished picture slices sideways and its colours split, always on a drop, and on some downbeats; it draws nothing itself, the finish moves the picture) | Snap in, then snap or flicker out |
 | **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (the glow's own folds, in the trails), `mirror` in `SPEC` | Eases in, or flips on the bar |
@@ -157,6 +157,8 @@ A true mirror of the picture (`kal`: mirrors, under 2 off; `kalWhere`: what it f
 - **The world** (1) and **the glow** (2) fold in the segments (`uKal`, `uKalW`, `uKalT` in `compose.js`): the worlds and their fronts, or the trail groups, read at the folded place; hits and objects stay whole.
 - **Simple mode** (`foldOnto` in `canvas2d.js`): the picture (or the worlds, or the glow) copied and laid back as mirrored wedges; it doesn't mirror what runs off the picture, so the far corners can be dark.
 - **Keys:** K then 2–9 mirrors; E everything, B the world, G the glow, I inside the object; ↑ ↓ more or fewer, ← → turning. Shift+K is the glow's own folds (`sym`, ghostly, in the trails) and M mirrored trails.
+
+**The finish's other effects** (in `FINISH` too, and `finish2d` in simple mode): the glitch hit (`P.glitch`: bands jump sideways, the colours split) and the **film grain** slider (`grain`, a "Finish" group at the end of the settings: grain, scan lines and a little colour fringing). At 0 both leave the picture exactly as it was.
 
 ## Journey (the automatic director)
 

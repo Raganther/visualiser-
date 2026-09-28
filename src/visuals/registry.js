@@ -13,6 +13,8 @@ import star from './hits/star.js';
 import outline from './hits/outline.js';
 import shock from './hits/shock.js';
 import sparkle from './hits/sparkle.js';
+import lightning from './hits/lightning.js';
+import glitch from './hits/glitch.js';
 import ring from './layers/ring.js';
 import scope from './layers/scope.js';
 import plasma from './layers/plasma.js';
@@ -34,7 +36,7 @@ import unicorn from './objects/unicorn.js';
 import maths from './objects/maths.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes];
-export const HIT_VISUALS = [star, outline, shock, sparkle];   // Journey scores hits in this order
+export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];

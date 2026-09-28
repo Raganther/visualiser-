@@ -217,6 +217,7 @@ export function make2D(view){
       const obs = OBJECT_VISUALS.filter(v => P.o[v.key] > .01 && v.path2d);
       if (obs.length) { const c = snap(out.canvas); out.save(); out.beginPath(); for (const v of obs) v.path2d(out, P); out.clip(); foldOnto(out, c, P); out.restore(); }
     }
+    finish2d(P);
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
   }
@@ -254,6 +255,29 @@ export function make2D(view){
     if (foldCan2.width !== W || foldCan2.height !== H) { foldCan2.width = W; foldCan2.height = H; }
     const x = foldCan2.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - P.kal.v[2]; x.drawImage(g, 0, 0, W, H);
     foldOnto(x, g, P); return foldCan2;
+  }
+  // the glitch (bands of the picture jumping sideways, the colours split) and the film grain (noise and scan lines)
+  let grainCan = null;
+  function finish2d(P){
+    const gl = P.glitch ? P.glitch[0] : 0, gr = P.grain || 0;
+    if (gl > .01) {
+      const c = snap(out.canvas), n = 22, h = i => { const v = Math.sin(i*12.9898 + P.glitch[1]*78.233)*43758.5453; return v - Math.floor(v); };
+      out.save(); out.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < n; i++) { const hv = h(i), y0 = Math.floor(H - (i + 1)*H/n), hh = Math.ceil(H/n) + 1;
+        if (hv > .5) { const dx = (hv - .75)*.25*gl*W; out.drawImage(c, 0, y0, W, hh, dx, y0, W, hh); out.drawImage(c, 0, y0, W, hh, dx - Math.sign(dx)*W, y0, W, hh); } }
+      out.globalCompositeOperation = 'lighter'; out.globalAlpha = .25*gl;   // the colours split: a faint offset copy
+      out.drawImage(c, .007*gl*W, 0); out.restore();
+    }
+    if (gr > .01) {
+      if (!grainCan) { grainCan = document.createElement('canvas'); grainCan.width = grainCan.height = 128; const x = grainCan.getContext('2d'), id = x.createImageData(128, 128);
+        for (let i = 0; i < id.data.length; i += 4) { const v = Math.random()*255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } x.putImageData(id, 0, 0); }
+      out.save(); out.globalCompositeOperation = 'overlay'; out.globalAlpha = .07*gr;
+      const ox = Math.floor(Math.random()*128), oy = Math.floor(Math.random()*128);
+      out.fillStyle = out.createPattern(grainCan, 'repeat'); out.translate(-ox, -oy); out.fillRect(0, 0, W + 128, H + 128); out.restore();
+      out.save(); out.globalCompositeOperation = 'multiply'; out.fillStyle = `rgba(0,0,0,${(.08*gr).toFixed(3)})`;
+      for (let y = 0; y < H; y += 3) out.fillRect(0, y, W, 1);
+      out.restore();
+    }
   }
   // the worlds alone, for front planes when nothing below drew them
   function keepBlankWorlds(P, now){

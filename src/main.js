@@ -139,6 +139,7 @@ function render(now){
   const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))]};
+  P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
   P.frontOn = ['land', 'space', 'aurora', 'city', 'sea', 'deep', 'dunes'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;

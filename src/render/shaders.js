@@ -33,14 +33,25 @@ vec2 kalUv(vec2 uv,vec2 asp){   // uKal: mirrors, the share of one more (easing 
   return 1.0-abs(1.0-mod(q,2.0));   // off the picture: mirrored back into it
 }`;
 export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal; uniform vec2 uKalC, uAsp;
+uniform vec2 uGl; uniform float uGrain, uT;   // the glitch (how much, which slicing), film grain, time
+vec3 pic(vec2 uv){ return texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt; }
 ${KAL}
 void main(){
   vec2 uv=vUv;
   if(uKalOn>0.0){ float m=uKalOn>1.5?texture2D(uKalM,vUv).r:1.0; if(m>0.0) uv=mix(vUv,kalUv(vUv,uAsp),m); }   // the whole picture, or inside the objects (2)
-  vec3 c=texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt;
+  // the glitch: bands of the picture jump sideways; with the grain, the colours split a little (a worn tape)
+  if(uGl.x>0.0){ float row=floor(uv.y*22.0), h=fract(sin(row*12.9898+uGl.y*78.233)*43758.5453);
+    if(h>0.5) uv.x=fract(uv.x+(h-0.75)*0.25*uGl.x); }
+  float so=0.007*uGl.x+0.0022*uGrain;
+  vec3 c=so>0.0?vec3(pic(uv+vec2(so,0.0)).r,pic(uv).g,pic(uv-vec2(so,0.0)).b):pic(uv);
   float m=max(c.r,max(c.g,c.b));
   if(m>uKnee){ float k=1.0-uKnee; c*=(uKnee+k*(1.0-exp(-(m-uKnee)/k)))/m; }   // roll off, keeping the colour
   c+=(fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-0.5)/255.0;   // dither
+  if(uGrain>0.0){   // film grain and scan lines
+    float n=fract(sin(dot(gl_FragCoord.xy+fract(uT*7.3)*vec2(113.0,71.0),vec2(12.9898,78.233)))*43758.5453);
+    c+=(n-0.5)*0.14*uGrain*(0.4+max(c.r,max(c.g,c.b)));
+    c*=1.0-0.12*uGrain*(0.5+0.5*sin(gl_FragCoord.y*2.0));
+  }
   gl_FragColor=vec4(max(c,0.0),1.0);
 }`;
 export const PVERT = `attribute vec3 a; uniform vec2 uScale; uniform float uSize; varying float vB;

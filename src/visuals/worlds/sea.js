@@ -60,7 +60,7 @@ vec3 sea(vec2 sp){
   // the moon's path: a column under the moon that widens nearer, glittering where the waves face it
   float px=abs(sp.x-uSea.z)/(0.03+dy*0.9);
   float path=exp(-px*px*2.2)*smoothstep(0.0,0.02,dy);
-  vec2 gc=floor(vec2(w.x*18.0,w.y*9.0)+vec2(0.0,t*0.6)); float gl=hash(gc+floor(t*6.0));
+  vec2 gc=floor(vec2(sp.x*160.0,sp.y*420.0)); float gl=hash(gc+floor(t*6.0))*(0.7+0.3*sin(w.y*6.0-t*2.0));   // fine glints, flickering
   c+=vec3(0.85,0.88,0.95)*path*(0.18+smoothstep(0.8,1.0,gl)*(1.4+uBeat)*(0.4+0.6*smoothstep(0.0,0.6,s+0.4)));
   c+=hsv(uHue+0.12,0.3,1.0)*exp(-pow((sp.x+0.55*ASP)/(0.01+dy*0.3),2.0))*exp(-dy*9.0)*0.2;   // the lamp's light on the water
   // the nearest swell, a dark crest rolling across the bottom
