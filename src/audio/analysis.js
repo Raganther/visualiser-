@@ -6,7 +6,7 @@ import { listenFrame, listenReset } from './listen.js';
 import { synth } from './synth.js';
 import { onHitFX } from '../fx/effects.js';
 import { PACE } from '../journey/pace.js';
-import { dataArr, freq, freqDb, wave, waveS } from '../state.js';
+import { dataArr, freq, freqDb, scopeLR, wave, waveS } from '../state.js';
 import { reduceMotion } from '../util.js';
 import { MEDIA } from '../media/source.js';
 import { TUNE } from '../tuning.js';
@@ -44,7 +44,9 @@ export function analyse(now){
   // stereo width: the side (L-R) against the whole, from the channel pair (a test can give its own)
   let width = window.__width ?? null;
   if (real && stereo) { stereo[0].getFloatTimeDomainData(stL); stereo[1].getFloatTimeDomainData(stR);
-    let m = 0, s = 0; for (let i = 0; i < 512; i++) { const a = stL[i], b = stR[i]; m += (a + b)**2; s += (a - b)**2; } width = s/(m + s + 1e-9); }
+    let m = 0, s = 0; for (let i = 0; i < 512; i++) { const a = stL[i], b = stR[i]; m += (a + b)**2; s += (a - b)**2; } width = s/(m + s + 1e-9);
+    for (let i = 0; i < 64; i++) { scopeLR[i*2] = stL[i*4]; scopeLR[i*2 + 1] = stR[i*4]; } }
+  else for (let i = 0; i < 64; i++) { scopeLR[i*2] = (wave[i*16] - 128)/128; scopeLR[i*2 + 1] = (wave[(i*16 + 40) % 2048] - 128)/128*(1 - (window.__width ?? .1)); }   // (no stereo: the mono wave against itself a moment later)
   listenFrame(now, Math.min(.1, Math.max(0, (now - (analyse.last || now))/1000)), width); analyse.last = now;
   for (let i = 0; i < 256; i++) {
     dataArr[i] = wave[i*8];

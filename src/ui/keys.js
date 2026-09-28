@@ -39,7 +39,7 @@ const GROUPS = {
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
-const MORE = ['Z', 'U'];   // layers past the ninth: letters (Z the lasers, U the waveform lines)
+const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala)
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;

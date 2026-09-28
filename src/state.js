@@ -6,6 +6,8 @@ export const freq = new Uint8Array(1024), wave = new Uint8Array(2048);
 // the spectrum in decibels, not clipped: loud masters go past the bytes' -30 dB ceiling in the sub-bass (a third to half of
 // the frames on the user's techno), which flattened every kick; the kick detector and the listening read this instead
 export const freqDb = new Float32Array(1024);
+// the left and right channels' waveforms, 64 samples each (interleaved), for the vectorscope
+export const scopeLR = new Float32Array(128);
 
 // variables that several modules reassign live here as properties
 export const S = {
