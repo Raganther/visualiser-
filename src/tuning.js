@@ -110,8 +110,8 @@ export const TUNE = {
     // from calm (dusk, night) to intense (day), how slowly it follows, how far off the way ahead it stands
     land: {chance: .2, enterR: 1.9, fadeSecs: 2.4, exitAlt: 440, valley: 5, soar: 175, diveSecs: 14, speed: 26, fov: 62, sunLow: -.14, sunHigh: .6, sunSecs: 20, sunAz: .45},
     // how big to draw the cosmos against the screen, in space and landed (1: full size, traced in the segment itself).
-    // Landed, the ground is the heaviest thing drawn, and a slow device draws it smaller first (render.auto.worldMin), before
-    // the whole picture, so the glow, hits and objects over it stay sharp
+    // It's the heaviest thing drawn, and a slow device draws it smaller first (render.auto.worldMin), before the whole
+    // picture, so the glow, hits and objects over it stay sharp
     scale: 1, landScale: 1,
     showpiece: .35,            // how often a new section opens on a set piece: an eclipse, or a sunrise over a planet's edge
     dropShowpiece: .3,         // how often a drop goes straight to one (instead of pulling back)

@@ -26,6 +26,7 @@ import './ui/presets.js';
 import './audio/player.js';
 import './audio/synth.js';
 import './ui/controls.js';
+import './ui/fly.js';   // the cosmos's keys
 import './ui/transport.js';
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
@@ -88,7 +89,7 @@ function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, ground at ${Math.round(Q.world*100)}%` : '')
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 function render(now){

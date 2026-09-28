@@ -67,7 +67,10 @@ export function setJourney(on, snapshot){
   $('#randBtn').textContent = on ? 'Nudge' : 'Randomize';
   $('#sliders').classList.toggle('locked', on); $('#jNote').hidden = !on;
   if (on) { SPEC.forEach(s => jState[s.k] = curP[s.k]); J.goal = {}; J.held = {}; J.cutSince = 0; if (snapshot === 'fresh') freshJourney(); S.active = jState; $('#pName').textContent = 'Journey'; toast('Journey'); syncSliders(); }
-  else if (snapshot) { const snap = clone(jState); snap.name = 'Snapshot'; setPreset(snap); }
+  // Journey off: keep what's on screen now as a preset to adjust by hand. The sliders' values are taken as they're drawn
+  // (curP), not Journey's targets, which it was still easing towards: those carried on changing the picture after it stopped
+  // (and Journey's scene with it: how the pieces were stacked, or the snapshot fell back to the plain stack)
+  else if (snapshot) { const snap = clone(jState); SPEC.forEach(s => snap[s.k] = curP[s.k]); if (J.sceneLive) snap.scene = J.sceneLive; snap.name = 'Snapshot'; setPreset(snap); }
 }
 function toggleAuto(){ setJourney(!J.on, true); }
 $('#autoBtn').onclick = toggleAuto;

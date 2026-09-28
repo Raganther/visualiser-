@@ -20,7 +20,7 @@ export default {
   key: 'cosmos', kind: 'world', label: 'Cosmos',
   light: null, motion: null,   // set once it's on screen (below): the star's light, the camera's movement
   lowRes: () => SF.amt > .001 ? TUNE.cosmos.landScale : TUNE.cosmos.scale,   // how big to draw it (render/gl.js lowPass)
-  heavy: () => SF.amt > .001,   // landed, the ground is the costliest thing drawn: a slow device draws it smaller first (render/quality.js)
+  heavy: () => true,   // the costliest thing drawn, in space and landed: a slow device draws it smaller first (render/quality.js)
   // spacious, driving, building music: bright, intense, not too busy
   suits: (rf, T) => rf.bright*.3 + T*.35 + rf.perc*.15 - rf.busy*.15,
   // flying it by hand (the lab's keys), and what it's doing, for the caption and the tests
