@@ -5,6 +5,7 @@ export default {
   key: 'burst', kind: 'layer', label: 'Spectrum burst',
   suits: {bright:.9, T:.5},   // what music it suits (features centred on 0)
   overWorld: -.4,   // how well it sits over a world
+  tweaks: ['size', 'src'],   // (no clock of its own: it moves with the sound)
   accent: 'hit', altAccent: 'bar',   // how it fires when it's the accent
   params(P, x){ const pull = Math.min(1, x.eff.comets)*.7; P.bcx = P.cx + (x.comets[0].x - P.cx)*pull; P.bcy = P.cy + (x.comets[0].y - P.cy)*pull; },
   feedback: {

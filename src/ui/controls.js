@@ -70,9 +70,9 @@ export function setJourney(on, snapshot){
     const hand = S.active !== jState && snapshot !== 'fresh' ? S.active : null;   // the look made by hand that Journey takes over from
     // from a look made by hand, what was set (changes still fading in included); otherwise what's drawn
     SPEC.forEach(s => jState[s.k] = hand && typeof hand[s.k] === 'number' ? hand[s.k] : curP[s.k]); J.goal = {}; J.held = {}; J.cutSince = 0;
-    if (snapshot === 'fresh') { freshJourney(); J.handoff = null; }
+    if (snapshot === 'fresh') { freshJourney(); J.handoff = null; jState.tw = {}; }
     else if (hand) {   // it carries on from what's on screen: the same settings, movers and scene, until the music moves it on
-      jState.mods = clone(hand.mods || {}); J.sceneLive = hand.scene || null;
+      jState.mods = clone(hand.mods || {}); J.sceneLive = hand.scene || null; jState.tw = clone(hand.tw || {});   // (each layer's own speed, size, sound: Journey leaves them be)
       J.handoff = {t: performance.now(), type: J.type, drop: J.lastDrop, step: J.progStep};
     }
     S.active = jState; $('#pName').textContent = 'Journey'; toast(J.handoff ? 'Journey: carrying on from here' : 'Journey'); syncSliders();

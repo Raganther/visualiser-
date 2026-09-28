@@ -87,10 +87,17 @@ export function composeFeedback(keys){
   // every visual's code runs only while it has weight: most are off at any moment, and this shader runs for every pixel of
   // every trail group (a layer's weight is uL_<key>; a hit drawn in the trails names its own, fbWeight)
   const fbv = FB_VISUALS.filter(v => !keys || keys.has(v.key)), wt = v => v.fbWeight || 'uL_' + v.key;
-  const guard = (v, code) => `  if(${wt(v)}>0.003){\n${code.replace(/^\n/, '')}\n  }`;
-  const part = (k, sep = '\n') => fbv.filter(v => v.feedback[k]).map(v => k === 'uniforms' || k === 'functions' ? v.feedback[k].replace(/^\n/, '') : guard(v, v.feedback[k])).join(sep);
+  // a layer's own speed, size and sound (scene/tweaks.js): its code reads its own clock and levels (uTw_<key>: time, bass,
+  // mids, treble), and sees the picture's coordinates scaled round the centre (uSz_<key>). Untweaked they're the shared ones
+  const own = (v, code) => v.kind !== 'layer' ? code : code.replace(/\buTime\b/g, `uTw_${v.key}.x`).replace(/\buBass\b/g, `uTw_${v.key}.y`)
+    .replace(/\buMid\b/g, `uTw_${v.key}.z`).replace(/\buTreb\b/g, `uTw_${v.key}.w`);
+  const sized = (v, k) => v.kind !== 'layer' ? '' : k === 'main'
+    ? `    vec2 sp=uSz_${v.key}==1.0?sp:uCenter+(sp-uCenter)/uSz_${v.key}, p=p/uSz_${v.key}, pe=pe/uSz_${v.key}, pb=pb/uSz_${v.key};\n`
+    : `    vec2 d=d/uSz_${v.key}, p=p/uSz_${v.key}, pb=pb/uSz_${v.key}; float r=r/uSz_${v.key};\n`;
+  const guard = (v, code, k) => `  if(${wt(v)}>0.003){\n${sized(v, k)}${own(v, code).replace(/^\n/, '')}\n  }`;
+  const part = (k, sep = '\n') => fbv.filter(v => v.feedback[k]).map(v => k === 'uniforms' ? v.feedback[k].replace(/^\n/, '') : k === 'functions' ? own(v, v.feedback[k]).replace(/^\n/, '') : guard(v, v.feedback[k], k)).join(sep);
   const layers = fbv.filter(v => v.kind === 'layer');
-  const main = fbv.filter(v => v.feedback.main).sort((a, b) => a.paint - b.paint).map(v => guard(v, v.feedback.main)).join('\n');
+  const main = fbv.filter(v => v.feedback.main).sort((a, b) => a.paint - b.paint).map(v => guard(v, v.feedback.main, 'main')).join('\n');
   const displace = fbv.filter(v => v.feedback.displace).map(v => `  if(${wt(v)}>0.003) disp+=${v.feedback.displace};`).join('\n');
   return PREC + `
 varying vec2 vUv;
@@ -100,7 +107,7 @@ uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uM
 uniform vec3 uPal; uniform vec2 uDrift;   // the palette's three hue offsets; the wind's push on the trails this frame
 uniform vec2 uSoft; uniform float uFloor;   // how far the last frame is softened as it's read (so fast shapes smear), and what it loses
 uniform float uFillMode,uFillGain,uFillZoom;   // 1: draw a fill instead (the chosen layers alone, through the kaleidoscope, no trails)
-${layers.map(v => `uniform float uL_${v.key};`).join('\n')}
+${layers.map(v => `uniform float uL_${v.key}; uniform vec4 uTw_${v.key}; uniform float uSz_${v.key};`).join('\n')}
 ${part('uniforms')}
 float ASP;
 

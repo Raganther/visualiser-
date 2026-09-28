@@ -16,6 +16,7 @@ import { compose } from './scene.js';
 import { FLY, flyKey } from './fly.js';
 import { toast } from './toast.js';
 import { tutorial } from './tutorial.js';
+import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { $ } from '../util.js';
 
 const layers = LAYER_VISUALS.filter(v => !v.optIn), worlds = WORLD_VISUALS.filter(v => !v.optIn);
@@ -38,6 +39,7 @@ const GROUPS = {
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
+const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;
 const sceneIs = k => !!S.scene && sceneKeyByHand === k;
@@ -63,12 +65,13 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
+    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
-addEventListener('keydown', e => {
+addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
@@ -88,6 +91,21 @@ addEventListener('keydown', e => {
     else { g.pick(digit); if (mode === 's') sceneKeyByHand = (TEMPLATES[digit - 1] || {}).key || null; }
   }
   else if (digit !== null && !mode) { toast('Pick a group first: L layers, W worlds, E hits, O objects, K kaleidoscope, S scene, C camera (? for all)'); }
+  else if ((k === 'arrowleft' || k === 'arrowright') && mode && last && (last === 'kal' || isLayer(last))) {
+    // the last layer touched: ← → its speed (Shift: its size); the kaleidoscope: which way and how fast it turns
+    e.preventDefault(); e.stopImmediatePropagation();
+    const d = k === 'arrowright' ? 1 : -1;
+    if (last === 'kal') { edit(); S.active.kalTurn = Math.max(-.5, Math.min(.5, +((S.active.kalTurn || 0) + d*.05).toFixed(2))); toast(`Kaleidoscope turning ${S.active.kalTurn}`); }
+    else {
+      const f = e.shiftKey || !knobs(byKey[last]).includes('speed') ? 'size' : 'speed', [lo, hi] = f === 'size' ? TW_SIZE : TW_SPEED, t = twOf(last) || {};
+      const v = Math.max(lo, Math.min(hi, +((t[f] ?? 1)*(d > 0 ? 1.25 : .8)).toFixed(2)));
+      setTweak(last, f, Math.abs(v - 1) < .06 ? 1 : v); toast(`${byKey[last].label}: ${f} ${(twOf(last) || {})[f] ?? 1}×`);
+    }
+  }
+  else if (k === 'b' && mode === 'l' && last && isLayer(last)) {   // what the last layer follows: its own sound, bass, mids…
+    const t = twOf(last) || {}, i = TW_SRC.findIndex(s => s[0] === (t.src || 'auto'));
+    setTweak(last, 'src', TW_SRC[(i + 1) % TW_SRC.length][0]); toast(`${byKey[last].label} follows ${TW_SRC[(i + 1) % TW_SRC.length][1]}`);
+  }
   else if ((k === 'arrowup' || k === 'arrowdown') && mode && last) {
     e.preventDefault(); edit();
     const d = k === 'arrowup' ? 1 : -1;
@@ -100,9 +118,9 @@ addEventListener('keydown', e => {
   else done = false;
   if (!done) return;
   if (mode === 's' && S.scene == null) sceneKeyByHand = null;
-  if (!J.on) syncSliders();
+  syncSliders();
   idle = performance.now(); show();
-});
+}, true);
 // the strip goes (and the group with it) after a while untouched, so a stray number later doesn't change anything
 setInterval(() => { if (mode && performance.now() - idle > TUNE.keys.idleSecs*1000) { mode = null; show(); } else if (mode) show(); }, 500);
 export const keyMode = () => mode;

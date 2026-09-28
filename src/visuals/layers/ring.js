@@ -5,6 +5,7 @@ export default {
   key: 'ring', kind: 'layer', label: 'Wave ring',
   suits: {perc:.8, low:.4},   // what music it suits (features centred on 0)
   overWorld: -.5,   // how well it sits over a world
+  tweaks: ['size', 'src'],   // (no clock of its own: it moves with the sound)
   accent: 'bar',   // how it fires when it's the accent
   params(P, x){ P.ringR = x.J.on ? x.J.ringR : .2; P.ringSq = x.J.on ? x.J.ringSq : 0; },
   feedback: {

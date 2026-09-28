@@ -1,6 +1,9 @@
 // Simple mode: the same picture drawn with the Canvas 2D API, for browsers without WebGL.
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
+import { TW } from '../scene/tweaks.js';
+// a layer following another sound: that level in place of its bass, mids and treble
+const own = (P, t) => t.band === null ? P : {...P, bass: t.band, mid: t.band, treb: t.band};
 
 /* Simple mode: the same feedback idea with the plain 2D canvas, for browsers without WebGL */
 export function make2D(view){
@@ -30,7 +33,11 @@ export function make2D(view){
   function layers(c, P, u, now, bright){
     const col = off => a => `hsla(${((((P.hue+off)%1)+1)%1*360).toFixed(1)},95%,55%,${Math.min(1,a*bright).toFixed(3)})`;
     const x = {u, now, bw, col, glowStroke};
-    for (const v of LAYER_VISUALS) if (v.folded2d) v.folded2d(c, P, x);
+    for (const v of LAYER_VISUALS) if (v.folded2d) {
+      const t = TW[v.key];
+      if (!t) { v.folded2d(c, P, x); continue; }
+      c.save(); c.scale(t.size, t.size); v.folded2d(c, own(P, t), {...x, now: now + t.off*1000}); c.restore();   // (drawn round the centre)
+    }
   }
   // the folded layers, n ways round (cx, cy), into any canvas g: the trails, or a scene's fill
   function drawSym(g, P, n, w, cx, cy, now, bright, zoom = 1){
@@ -166,7 +173,9 @@ export function make2D(view){
 
     const sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
     const tx = {u, bw, bh, sx, sy, hsl, glowStroke};
-    for (const v of trails2d) { c.save(); v.trails2d(c, Pg, tx); c.restore(); }
+    for (const v of trails2d) { const t = TW[v.key]; c.save();
+      if (t) { c.translate(cx, cy); c.scale(t.size, t.size); c.translate(-cx, -cy); }   // its own size round the centre
+      v.trails2d(c, t ? own(Pg, t) : Pg, tx); c.restore(); }
     return B[1-k];
   }
   // the stack, bottom to top, drawn straight onto the screen

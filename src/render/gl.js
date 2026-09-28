@@ -9,6 +9,7 @@ import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byK
 import { TUNE } from '../tuning.js';
 import { Q } from './quality.js';
 import { HIST, S, dataArr } from '../state.js';
+import { TW as TWEAK } from '../scene/tweaks.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
 
@@ -231,6 +232,10 @@ function fbShared(now, P){
   gl.uniform1f(u.uBass, P.bass); gl.uniform1f(u.uMid, P.mid); gl.uniform1f(u.uTreb, P.treb);
   gl.uniform1f(u.uBeat, P.beat); gl.uniform1f(u.uReact, P.react); gl.uniform1f(u.uHit, P.hit); gl.uniform1f(u.uFillMode, 0);
   gl.uniform3fv(u.uPal, P.pal); gl.uniform2f(u.uDrift, P.drift[0], P.drift[1]);
+  for (const l of LAYER_VISUALS) if (l.feedback && u['uTw_' + l.key]) {   // each layer's own clock, levels and size (scene/tweaks.js)
+    const t = TWEAK[l.key], b = t && t.band !== null ? t.band : null;
+    gl.uniform4f(u['uTw_' + l.key], now/1000 + (t ? t.off : 0), b ?? P.bass, b ?? P.mid, b ?? P.treb); gl.uniform1f(u['uSz_' + l.key], t ? t.size : 1);
+  }
   const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/TW, R.trailSoft*.5/TH); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
 }
 function trailPass(now, P, g){
