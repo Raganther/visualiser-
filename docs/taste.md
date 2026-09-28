@@ -49,3 +49,4 @@ The newest entries go at the bottom: the date, what was learned, from what, and 
 
 - 2026-09-26: seeded from the feedback so far (principles 1–7).
 - 2026-09-26: the cosmos's world surfaces looked "kind of flat"; they want atmosphere. Added air round each planet (limb glow, sunset at the terminator, haze), relief lit from the star, and clouds casting shadows. Principle 3 (atmosphere) holds for planets as well as the belt.
+- 2026-09-28: the cosmos's fold "works really well"; they want a mirrored kaleidoscope on anything (the whole picture, inside the skull), and still like the glow's own lined folds. Added the kaleidoscope (K: everything, the world, the glow, inside the object) beside the old folds (Shift+K). They asked to change each effect's speed: added each layer's own speed, size and sound. New layers from the ideas they picked: lasers and waveform lines.

@@ -8,8 +8,9 @@ import { setJourney } from './controls.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { MEDIA } from '../media/source.js';
-import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
+import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { solo } from './presets.js';
+import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 
 const PAL_WORDS = {triad: 'three far-apart hues', analogous: 'neighbouring hues', split: 'one hue against two', contrast: 'opposites'};
 export function updateSectionUI(){
@@ -31,6 +32,7 @@ export function updateSectionUI(){
 }
 // sliders
 export const sliders = {};
+const twRows = {};   // each layer's row of its own speed, size and sound
 let lastGroup = '';
 const SOLO = new Set(['Layers', 'Hits', 'Worlds', 'Media and objects']);   // the groups that are pictures, which Solo can show alone
 const optHTML = SOURCES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
@@ -55,6 +57,22 @@ for (const s of SPEC) {
   });
   depth.addEventListener('input', () => { const m = S.active.mods[s.k]; if (!m) return; m.amt = +depth.value; if (J.on) J.userMods[s.k] = {...m}; });
   sliders[s.k] = {input, out, s, sel, depth, row};
+  const lv = byKey[s.k]; if (lv && lv.kind === 'layer') twRow(row, lv);
+}
+// under a layer's slider, while it's on: its own speed, size and the sound it follows (scene/tweaks.js). Journey never
+// changes these, so they're open in Journey too
+function twRow(row, v){
+  const kn = knobs(v), tw = document.createElement('div'); tw.className = 'tw';
+  const rng = (f, [a, b], l) => kn.includes(f) ? `<label>${l}<input type="range" data-f="${f}" min="${a}" max="${b}" step="0.05" aria-label="${v.label} ${l.toLowerCase()}"></label>` : '';
+  tw.innerHTML = rng('speed', TW_SPEED, 'Speed') + rng('size', TW_SIZE, 'Size')
+    + `<label>Follows<select data-f="src" aria-label="${v.label} follows">${TW_SRC.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>`;
+  tw.addEventListener('input', e => { const f = e.target.dataset.f; if (f) setTweak(v.key, f, f === 'src' ? e.target.value : +e.target.value); });
+  row.appendChild(tw); twRows[v.key] = tw;
+}
+function syncTweaks(){
+  for (const k in twRows) { const t = twOf(k) || {};
+    for (const el of twRows[k].querySelectorAll('[data-f]')) el.value = el.dataset.f === 'src' ? t.src || 'auto' : t[el.dataset.f] ?? 1;
+    twRows[k].classList.toggle('set', !!twOf(k)); }
 }
 export function syncSliders(){
   for (const k in sliders) {
@@ -62,6 +80,7 @@ export function syncSliders(){
     input.value = S.active[k]; out.textContent = (+S.active[k]).toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);
     sel.value = m ? m.src : 'none'; depth.value = m ? m.amt : .25; row.classList.toggle('moving', !!m);
   }
+  syncTweaks();
 }
 syncSliders();
 /* what's on screen and what set it (twice a second from main.js), so anything over a world can be traced to its slider;

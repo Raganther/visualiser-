@@ -55,6 +55,7 @@ import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
+import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
 import * as registry from './visuals/registry.js';
@@ -92,6 +93,7 @@ function fpsInfo(){
   return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
+let kalA = 0;   // the kaleidoscope's turn
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -113,11 +115,12 @@ function render(now){
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
   applyMods(now, react);
+  stepTweaks(mdt, react);   // each layer's own speed, size and sound (scene/tweaks.js)
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
-  J.ribPh += mdt*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*(.4 + J.tension*1.6 + S.beat*2.5);
-  if (eff.flow > .01) stepParts(mdt, react, S.MT*1000);
+  J.ribPh += mdt*speedOf('ribbons')*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*speedOf('horizon')*(.4 + J.tension*1.6 + S.beat*2.5);
+  if (eff.flow > .01) stepParts(mdt*speedOf('flow'), react, S.MT*1000);
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
@@ -129,6 +132,12 @@ function render(now){
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
     frame: frameN, pal: CTX.pal, light: CTX.light, wind: CTX.wind, drift: [CTX.wind.x*mdt*TUNE.ctx.windTrails, CTX.wind.y*mdt*TUNE.ctx.windTrails]};
   P.cx += (CTX.focus.x - P.cx)*CTX.focus.k; P.cy += (CTX.focus.y - P.cy)*CTX.focus.k;   // the glow centres on the planet a world films
+  // the kaleidoscope: a mirror fold of the picture round the trails' centre. Under 2 mirrors it's off; between two counts it
+  // eases (the share of the next), and it turns at motion time
+  kalA += mdt*(eff.kalTurn || 0);
+  const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
+  P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
+    v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))]};
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
   P.frontOn = ['land', 'space', 'aurora', 'city'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
@@ -136,7 +145,7 @@ function render(now){
   P.kw = P.sc.driven.map(it => Math.max(0, 1 - it.drive.amt + it.drive.amt*sig(it.drive.src, react)));   // scene entries that follow a signal
   // what the visuals need from the engine this frame; each layer, world and hit adds what it draws with
   const vx = {eff, react, sBass, sTreb, dim: reduceMotion ? .5 : 1, t, dt, hit: P.hit, J, comets, shocks, parts, NP, asp};
-  for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, vx); }
+  for (const v of LAYER_VISUALS) { P.l[v.key] = eff[v.key]; if (v.params) v.params(P, TW[v.key] ? {...vx, t: t + TW[v.key].off} : vx); }   // (a layer at its own speed: its own clock)
   for (const v of WORLD_VISUALS) {                              // world weights; the horizon's grid floor lines up with a world's ground
     P.w[v.key] = eff[v.key];
     if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);

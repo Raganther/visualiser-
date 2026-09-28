@@ -1,6 +1,9 @@
 // Simple mode: the same picture drawn with the Canvas 2D API, for browsers without WebGL.
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
+import { TW } from '../scene/tweaks.js';
+// a layer following another sound: that level in place of its bass, mids and treble
+const own = (P, t) => t.band === null ? P : {...P, bass: t.band, mid: t.band, treb: t.band};
 
 /* Simple mode: the same feedback idea with the plain 2D canvas, for browsers without WebGL */
 export function make2D(view){
@@ -30,7 +33,11 @@ export function make2D(view){
   function layers(c, P, u, now, bright){
     const col = off => a => `hsla(${((((P.hue+off)%1)+1)%1*360).toFixed(1)},95%,55%,${Math.min(1,a*bright).toFixed(3)})`;
     const x = {u, now, bw, col, glowStroke};
-    for (const v of LAYER_VISUALS) if (v.folded2d) v.folded2d(c, P, x);
+    for (const v of LAYER_VISUALS) if (v.folded2d) {
+      const t = TW[v.key];
+      if (!t) { v.folded2d(c, P, x); continue; }
+      c.save(); c.scale(t.size, t.size); v.folded2d(c, own(P, t), {...x, now: now + t.off*1000}); c.restore();   // (drawn round the centre)
+    }
   }
   // the folded layers, n ways round (cx, cy), into any canvas g: the trails, or a scene's fill
   function drawSym(g, P, n, w, cx, cy, now, bright, zoom = 1){
@@ -166,7 +173,9 @@ export function make2D(view){
 
     const sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
     const tx = {u, bw, bh, sx, sy, hsl, glowStroke};
-    for (const v of trails2d) { c.save(); v.trails2d(c, Pg, tx); c.restore(); }
+    for (const v of trails2d) { const t = TW[v.key]; c.save();
+      if (t) { c.translate(cx, cy); c.scale(t.size, t.size); c.translate(-cx, -cy); }   // its own size round the centre
+      v.trails2d(c, t ? own(Pg, t) : Pg, tx); c.restore(); }
     return B[1-k];
   }
   // the stack, bottom to top, drawn straight onto the screen
@@ -183,14 +192,17 @@ export function make2D(view){
       if (st.mesh) { drawObjects(P, st); continue; }
       for (const it of st.seg) {
         const kw = it.drive ? P.kw[it.i] : 1;   // a weight that follows a signal
-        if (it.t === 'world') { drawWorlds(kw === 1 ? P : {...P, w: Object.fromEntries(Object.entries(P.w).map(([k, v]) => [k, v*kw]))}, now); if (sc.front) { keepWorlds(); kept = true; } }
+        if (it.t === 'world') { drawWorlds(kw === 1 ? P : {...P, w: Object.fromEntries(Object.entries(P.w).map(([k, v]) => [k, v*kw]))}, now);
+          if (kal(P, 1)) foldOnto(out, snap(out.canvas), P);   // the kaleidoscope on the world alone (drawn first, onto black)
+          if (sc.front) { keepWorlds(); kept = true; } }
         else if (it.t === 'front') { if (!kept) { keepBlankWorlds(P, now); kept = true; } drawFronts(P, now, Math.min(1, kw)); }
         else if (it.t === 'hits') drawHits(P);
         else {
           if (!glows[it.g]) continue;
           const m = it.mask, on = m && (m.world || byKey[m.object] && P.o[m.object] > .01);
           const src = it.fit ? fitted(P, glows[it.g]) : glows[it.g];
-          const glow = on ? maskedGlow(P, src, m, sc.masks.indexOf(m.object) + 1) : src;
+          const g0 = on ? maskedGlow(P, src, m, sc.masks.indexOf(m.object) + 1) : src;
+          const glow = kal(P, 2) ? foldGlow(g0, P) : g0;   // the kaleidoscope on the glow alone
           out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, kw);
           out.drawImage(glow, 0, 0, W, H);
           // the kick flashes here, after the trails, so the brightest moment lands on the kick instead of building up after it
@@ -200,6 +212,11 @@ export function make2D(view){
       }
     }
     glow2d();
+    if (kal(P, 0)) foldOnto(out, snap(out.canvas), P);   // the kaleidoscope on everything
+    else if (kal(P, 3)) {   // or inside the objects on screen
+      const obs = OBJECT_VISUALS.filter(v => P.o[v.key] > .01 && v.path2d);
+      if (obs.length) { const c = snap(out.canvas); out.save(); out.beginPath(); for (const v of obs) v.path2d(out, P); out.clip(); foldOnto(out, c, P); out.restore(); }
+    }
     out.globalCompositeOperation = 'source-over';
     out.fillStyle = vignette; out.fillRect(0, 0, W, H);
   }
@@ -213,6 +230,30 @@ export function make2D(view){
     bctx.globalCompositeOperation = 'copy'; bctx.filter = `contrast(${(1/(1 - R.bloomThresh)).toFixed(2)}) blur(${(R.bloomRadius*1.5).toFixed(1)}px)`;
     bctx.drawImage(out.canvas, 0, 0, w, h); bctx.filter = 'none';
     out.globalCompositeOperation = 'lighter'; out.globalAlpha = Math.min(1, R.bloom*.6); out.drawImage(bloomCan, 0, 0, W, H); out.globalAlpha = 1;
+  }
+  // the kaleidoscope (P.kal, see main.js): the picture copied, then laid back as mirrored wedges round the trails' centre,
+  // over the unfolded picture as far as it's folded
+  const kal = (P, where) => P.kal && P.kal.on && P.kal.where === where;
+  const snapCan = document.createElement('canvas'), foldCan2 = document.createElement('canvas');
+  function snap(src){
+    if (snapCan.width !== W || snapCan.height !== H) { snapCan.width = W; snapCan.height = H; }
+    const x = snapCan.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(src, 0, 0, W, H);
+    return snapCan;
+  }
+  function foldOnto(o, src, P){
+    const [n, , amt, ang] = P.kal.v, h = Math.PI/n, A = -ang - h;   // (the canvas turns the other way)
+    const x0 = W/2 + P.kal.c[0]*H, y0 = H/2 - P.kal.c[1]*H, R = Math.hypot(W, H);
+    o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
+    for (let j = 0; j < 2*n; j++) { o.save(); o.beginPath(); o.moveTo(x0, y0); o.arc(x0, y0, R, A + j*h, A + (j + 1)*h + .002); o.closePath(); o.clip();
+      o.translate(x0, y0);
+      if (j & 1) { const L = A + (j + 1)*h/2; o.rotate(L); o.scale(1, -1); o.rotate(-L); } else o.rotate(j*h);
+      o.drawImage(src, -x0, -y0, W, H); o.restore(); }
+    o.restore();
+  }
+  function foldGlow(g, P){
+    if (foldCan2.width !== W || foldCan2.height !== H) { foldCan2.width = W; foldCan2.height = H; }
+    const x = foldCan2.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - P.kal.v[2]; x.drawImage(g, 0, 0, W, H);
+    foldOnto(x, g, P); return foldCan2;
   }
   // the worlds alone, for front planes when nothing below drew them
   function keepBlankWorlds(P, now){

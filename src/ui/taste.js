@@ -13,7 +13,7 @@ import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { OBJECT_VISUALS, byKey } from '../visuals/registry.js';
 
-const LOCAL = 'afterglow.moments', KEEP = 300, SHOWN = 80, PICTURE = ['Layers', 'Hits', 'Worlds', 'Media and objects'];
+const LOCAL = 'afterglow.moments', KEEP = 300, SHOWN = 80, PICTURE = ['Layers', 'Hits', 'Worlds', 'Media and objects', 'Kaleidoscope'];
 let db = null, want = 0, count = 0, liked = [];   // liked: the liked moments that can be restored, newest first
 // the Artifact's database, when this page is one and it's granted; never waited on
 if (window.claude && window.claude.use) window.claude.use('db').then(d => { db = d; if (db) watch(); }).catch(() => {});
@@ -38,7 +38,7 @@ export function tasteFrame(){
     place: eff.cosmos > .05 && byKey.cosmos ? (({system, star, subject, shot, belt}) => ({system, star, subject, shot, belt}))(byKey.cosmos.info()) : null,
     settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb: '',
     // the look as drawn, to bring back: every setting (as drawn now, not a target still being eased to), movers, scene
-    look: {settings: Object.fromEntries(SPEC.map(s => [s.k, r3(curP[s.k])])), mods: clone(S.active.mods || {}),
+    look: {settings: Object.fromEntries(SPEC.map(s => [s.k, r3(curP[s.k])])), mods: clone(S.active.mods || {}), tw: clone(S.active.tw || {}),
       scene: clone((J.on ? J.sceneLive : S.scene) || null), sceneKey: J.on && J.sceneLive ? J.sceneKey : null, centre},
     name: nameOf(d)};
   setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
@@ -76,7 +76,7 @@ function show(list){
 }
 // a like's look as a preset: its settings (a setting added since reads as off, or as it is now for the motion and colour)
 function lookOf(m){
-  const L = m.look, p = {name: m.name || 'Liked', mods: clone(L.mods || {})};
+  const L = m.look, p = {name: m.name || 'Liked', mods: clone(L.mods || {}), tw: clone(L.tw || {})};
   for (const s of SPEC) p[s.k] = typeof L.settings[s.k] === 'number' ? L.settings[s.k] : PICTURE.includes(s.g) ? 0 : curP[s.k];
   if (L.scene) p.scene = clone(L.scene);
   return p;

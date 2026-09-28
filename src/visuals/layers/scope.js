@@ -5,6 +5,7 @@ export default {
   key: 'scope', kind: 'layer', label: 'Scope line',
   suits: {mid:.7, busy:.3},   // what music it suits (features centred on 0)
   overWorld: -.1,   // how well it sits over a world
+  tweaks: ['size', 'src'],   // (no clock of its own: it moves with the sound)
   accent: 'hit',   // how it fires when it's the accent
   feedback: {
     glow: `

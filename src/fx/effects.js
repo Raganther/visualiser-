@@ -7,6 +7,7 @@ import { eff } from '../presets.js';
 import { HIT_VISUALS } from '../visuals/registry.js';
 import { CTX } from '../scene/context.js';
 import { TUNE } from '../tuning.js';
+import { TW, speedOf } from '../scene/tweaks.js';
 
 /* comets and shockwaves */
 export const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
@@ -28,15 +29,16 @@ export function stepFX(dt, react, now){
   const tt = now/1000, rdt = dt; dt *= PACE.ts;             // now is motion time; hits still age in real time
   for (const h of HIT_VISUALS) if (h.step) h.step(rdt);
   J.wipe *= Math.pow(.02, rdt);
-  const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, bands = [sBass*1.3, sMid*2, sTreb*4];
+  const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, tc = TW.comets, bands = tc && tc.band !== null ? [tc.band*2, tc.band*2, tc.band*2] : [sBass*1.3, sMid*2, sTreb*4];
+  const cdt = dt*speedOf('comets');   // the comets at their own speed
   comets.forEach((c, i) => {
     const e = bands[i]*react;
-    const a = Math.atan2(c.dy, c.dx) + c.turn*(.5 + sMid*react*2)*dt;
+    const a = Math.atan2(c.dy, c.dx) + c.turn*(.5 + sMid*react*2)*cdt;
     c.dx = Math.cos(a); c.dy = Math.sin(a);
-    const bend = eff.plasma*Math.sin(c.x*3 + tt)*Math.cos(c.y*3 - tt*.7)*2.5*dt;
+    const bend = eff.plasma*Math.sin(c.x*3 + tt)*Math.cos(c.y*3 - tt*.7)*2.5*cdt;
     const a2 = Math.atan2(c.dy, c.dx) + bend; c.dx = Math.cos(a2); c.dy = Math.sin(a2);
     const sp = (.12 + e*.5)*(1 + c.kick*2.5)*(.7 + J.tension*.6); c.kick *= Math.pow(.02, rdt);
-    c.x += (c.dx*sp + CTX.wind.x*TUNE.ctx.windComets)*dt; c.y += (c.dy*sp + CTX.wind.y*TUNE.ctx.windComets)*dt;   // the wind carries them
+    c.x += (c.dx*sp + CTX.wind.x*TUNE.ctx.windComets)*cdt; c.y += (c.dy*sp + CTX.wind.y*TUNE.ctx.windComets)*cdt;   // the wind carries them
     if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
     if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
     c.z = .5 + Math.min(1.5, e);
