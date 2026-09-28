@@ -4,6 +4,30 @@ The backlog for Afterglow: things to build, in order. The user curates it. Move 
 
 Each item is a short brief: what it is, why (the user's words when there are some), and anything it must not do.
 
+## Overnight (2026-09-28, the user asleep; Claude builds these in order, merging each batch once tests pass)
+
+Batch 1: new places.
+1. **The night sea** (a world). A dark ocean under the moon, the moon wearing a ring of light (a halo, as on a frosty night), waves swelling with the bass, a path of moonlight glittering on the water, a lighthouse's beams sweeping on the bar. Its front plane is the nearest swell, so glow can sit between the waves.
+2. **Underwater** (a world). Light from above in shifting caustics, god rays, drifting motes and bubbles rising on the hats, the surface's silver ceiling rippling, deep blue fading to black.
+3. **Dunes under the stars** (a world). Rolling sand ridges in moonlight, a clear sky full of stars and the Milky Way's band, wind lifting sand off the crests on the hats.
+
+Batch 2: new layers.
+4. **Fireflies** (bokeh): soft out-of-focus lights drifting and blinking, brighter with the hats; atmosphere for calm parts.
+5. **Stargate**: rings of light rushing towards you, one on each kick, faster in a build.
+6. **Vectorscope**: the left channel against the right, drawn as a glowing figure (the new stereo reading), closed loops for tones and clouds for noise.
+7. **Mandala**: a sacred-geometry figure that draws itself line by line over each phrase and turns with the bar.
+
+Batch 3: hits and finish.
+8. **Lightning** (a hit): a forked bolt on stabs, lighting the scene for a moment.
+9. **Glitch** (a hit): the picture slices and shifts sideways for a few frames on a drop.
+10. **Film grain and VHS** (a finish option): grain, a little chromatic fringing and scan lines, for a warmer, older look.
+
+Later, bigger (after tonight):
+- A mood ring: the colour of the music's mood (key, noise, energy) as a ring or halo round the subject.
+- A set arc: a slider for where you are in a whole set (warm-up, peak, closing) that shapes Journey's choices.
+- Record a moment: a short clip of a liked moment to save.
+- MIDI controller input for the sliders.
+
 ## Up next
 
 1. **A nebula to fly into.** A vast lit gas cloud as its own place in the cosmos: flying in, the stars inside it lighting the gas from within, dark lanes of dust. It suits calm, spacious music. (Taste: atmosphere, places to explore.)
