@@ -61,7 +61,8 @@ export function analyse(now){
   let fl = 0, fh = 0;
   for (let i = 1; i < 7; i++) { const d = LF[i] - prevLF[i]; if (d > 0) fl += d; }
   // the kick's own flux, leaning on the sub-bass; sub1 is the lowest bin's part of it
-  let fk = 0; const KW = TUNE.kick.weights;
+  let fk = 0, fdl = 0; const KW = TUNE.kick.weights;
+  for (let i = 1; i < 7; i++) { const d = Math.max(-100, freqDb[i]) - prevDb[i]; if (d > 0) fdl += d; }   // the low end's rise in dB (a kick's first frame shows here, even while its loudness is still small)
   for (let i = 1; i < 7; i++) { const d = LF[i] - prevLF[i]; if (d > 0) fk += d*KW[i - 1]; }
   const sub1 = Math.max(0, LF[1] - prevLF[1])*KW[0];
   fk /= 6;
@@ -92,9 +93,9 @@ export function analyse(now){
   // from its start, so the beat grid gets no extra lag.
   // (timed from where its rise began: in the unclipped spectrum a loud kick keeps rising for a few frames, so it passes the
   // threshold a frame or three after it starts; the frames just before that it was already rising count as its start)
-  fkHist.push([now, fk]); if (fkHist.length > 4) fkHist.shift();
+  fkHist.push([now, fk, fdl]); if (fkHist.length > 6) fkHist.shift();
   if (!pend && fk > Math.max(.03, kq*2.5, kT) && bass > .25 && now - lastBeat > 200) {
-    let t0 = now; for (let i = fkHist.length - 2; i >= 0 && fkHist[i][1] > fk*TUNE.kick.startShare && now - fkHist[i][0] < 60; i--) t0 = fkHist[i][0];
+    let t0 = now; for (let i = fkHist.length - 2; i >= 0 && (fkHist[i][1] > fk*TUNE.kick.startShare || fkHist[i][2] > TUNE.kick.startDb) && now - fkHist[i][0] < 80; i--) t0 = fkHist[i][0];
     pend = {t: t0, fk, sub: 0, all: 0};
   }
   if (pend) {

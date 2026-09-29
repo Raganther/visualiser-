@@ -33,7 +33,7 @@ src/fx/                    particles (flow), effects (comets, shockwave motion, 
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
-tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, journey, quality, cosmos, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, visuals, journey, quality, cosmos, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
@@ -515,6 +515,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - find the real downbeat at a steady tempo.
 
   On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo. On `fixtures/rolling.js` (a loud master, past the bytes' ceiling, with a bass note every three sixteenths, louder low down than the kick) it must lock to the right tempo and time the beats.
+- `tests/visuals.mjs`: every world, layer and hit shown alone in both renderers draws something (a world or layer isn't black) with no errors: a quick guard for new visuals.
 - `tests/listen.mjs`: on `fixtures/texture.js` (parts that differ in texture, not loudness), the listening hears the hats come in, the breakdown, one drop as the bass returns (and Journey drops then), the noisy wash, the chord moving, the stereo widening and the loop running on; and Journey starts a new section when the hats come in though the loudness hardly changes.
 - `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/cosmos.mjs`:
