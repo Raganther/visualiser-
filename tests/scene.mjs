@@ -27,7 +27,7 @@ let cache = new Map();
 async function runs(browser, settings, scene, frames){
   const key = JSON.stringify([settings, scene, frames]);
   if (cache.has(key)) return cache.get(key);
-  const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0&tune=render.bloom=0'});   // the glow off: this is about what covers what
+  const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0&tune=render.bloom=0&tune=dance.amount=0'});   // the glow and the dance off: this is about what covers what
   const t = await page.evaluate(`(async () => {
     const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {setJourney} = await import('/src/ui/controls.js');
     setJourney(false);
