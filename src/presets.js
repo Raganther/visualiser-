@@ -72,6 +72,9 @@ export const BASE = [
   {name:'Goniometer', decay:.93, zoom:1.0, rot:0, warp:.1, sym:1, vectorscope:1, ring:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},
+  {name:'Night rain', decay:.9, zoom:1.001, rot:0, warp:.05, sym:1, city:1, rain:1, lightning:.6, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Star map', decay:.95, zoom:1.001, rot:.0005, warp:.05, sym:1, dunes:1, constellation:1, colorSpeed:.01, hueDrift:.003, mods:{}},
   {name:'Pleasures', decay:.85, zoom:1.0, rot:0, warp:0, sym:1, lines:1, colorSpeed:.01, hueDrift:.002, mods:{}},
   // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
   {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,
