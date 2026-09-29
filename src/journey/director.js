@@ -19,6 +19,13 @@ import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { L } from '../audio/listen.js';
 
+// the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
+export function arcBias(now){
+  if (!J.arcMins) return 0;
+  const f = Math.min(1, (now - J.arcStart)/(J.arcMins*60000)), A = TUNE.arc;
+  const v = f < A.peakAt ? A.start + (A.peak - A.start)*Math.sin(f/A.peakAt*Math.PI/2) : A.peak + (A.end - A.peak)*(1 - Math.cos((f - A.peakAt)/(1 - A.peakAt)*Math.PI))/2;
+  return v - .5;
+}
 export function stepJourney(now, dt){
   // energy at three timescales: right now, the last few seconds, the last ~20 seconds
   const e = sBass*.5 + sMid*.35 + sTreb*.3;
@@ -30,7 +37,8 @@ export function stepJourney(now, dt){
   const span = energySpan(), lvl = energyLevel(), rise = (J.eM - J.eL)/span;
   J.intro = Math.max(0, J.intro - dt/25);
   // the tension: loudness, and how full the texture is (hats, noise, bass: compressed techno's loudness barely moves)
-  const wF = TUNE.listen.fullWeight, targetT = Math.min(1, Math.max(0, (lvl*(.8 - wF*.75) + L.full*wF + rise*.5 + (J.bias - .5)*.8)*(1 - .5*J.intro)));
+  J.biasEff = Math.min(1, Math.max(0, J.bias + arcBias(now)));   // the slider, and the set arc if one's running
+  const wF = TUNE.listen.fullWeight, targetT = Math.min(1, Math.max(0, (lvl*(.8 - wF*.75) + L.full*wF + rise*.5 + (J.biasEff - .5)*.8)*(1 - .5*J.intro)));
   J.tension += (targetT - J.tension)*Math.min(1, dt/2);
   J.tmin = Math.min(J.tension, J.tmin + dt*.06);
   J.dropGlow *= Math.pow(.35, dt);
@@ -139,7 +147,7 @@ export function stepJourney(now, dt){
   if (ty.pace === undefined) ty.pace = pickPace();
   // music without a clear dance pulse (a slow song, a free intro) keeps calmer: its drums don't make it frantic
   J.beatClear += ((G.acP ? G.acConf : 1) - J.beatClear)*Math.min(1, dt/4);
-  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.bias - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))));
+  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))));
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;

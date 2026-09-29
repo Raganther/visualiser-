@@ -215,6 +215,10 @@ export const TUNE = {
     acLock: .3,                // the grid locks only when the low end's pulse is at least this clear (once 4 s have been heard)
   },
 
+  // the set arc (journey/director.js): Journey's lean over a whole set, 0 calm to 1 intense, from the start, rising to the
+  // peak at this share of the way through, and winding down to the end
+  arc: {start: .25, peak: .8, peakAt: .68, end: .3},
+
   // listening for texture (audio/listen.js): what tells compressed techno's parts apart when its loudness barely moves
   listen: {
     forget: .01,               // how fast the loudest hats heard fade (a share a second), so a quieter part is heard on its own terms

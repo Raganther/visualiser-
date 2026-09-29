@@ -95,6 +95,8 @@ export function showNow(e){
   $('#onNow').textContent = `${parts.join('; ')}. Set by ${J.on ? `Journey${J.recipe ? `, from the ${J.recipe.name} recipe` : ''}` : `the ${S.active.name} preset`}.`;
   for (const k in sliders) if (SOLO.has(sliders[k].s.g)) sliders[k].row.classList.toggle('on', e[k] > .05);
 }
+// the set arc: over a set of this many minutes, from now, Journey warms up, peaks about two-thirds in and winds down
+$('#jArc').addEventListener('change', e => { J.arcMins = +e.target.value; J.arcStart = performance.now(); $('#jArcOut').textContent = J.arcMins ? 'from now' : 'Off'; });
 $('#jBias').addEventListener('input', e => { J.bias = +e.target.value;
   $('#jBiasOut').textContent = J.bias < .35 ? 'Calm' : J.bias > .65 ? 'Intense' : 'Balanced'; });
 $('#jSpeed').addEventListener('input', e => { J.speed = +e.target.value; $('#jSpeedOut').textContent = J.speed.toFixed(2) + '×'; });

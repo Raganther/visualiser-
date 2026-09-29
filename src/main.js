@@ -167,6 +167,9 @@ function render(now){
     if (gEl && $('#panel').classList.contains('open')) gEl.textContent = G.locked
       ? `Beat grid: ${(60/G.period).toFixed(1)} BPM, ${[0, 1, 2, 3].map(i => i === J.pos ? '●' : '○').join(' ')}` + (G.ev < 16 ? ', finding the 1' : G.dsure < .3 ? ', unsure of the 1' : '')
       : G.period ? `Finding the beat (about ${(60/G.period).toFixed(0)} BPM)` : 'Finding the beat';
+    const ao = $('#jArcOut');   // how far through the set arc, and what it's doing
+    if (ao && J.arcMins && $('#panel').classList.contains('open')) { const m = (now - J.arcStart)/60000, f = m/J.arcMins;
+      ao.textContent = f >= 1 ? 'the set is over: winding down' : `${Math.floor(m)} of ${J.arcMins} min, ${f < TUNE.arc.peakAt*.8 ? 'warming up' : f < TUNE.arc.peakAt*1.1 ? 'at the peak' : 'winding down'}`; }
     const hr = $('#jHear');   // what the listening hears (audio/listen.js)
     if (hr && $('#panel').classList.contains('open')) hr.textContent = `Hearing: hi-hats ${L.hat > .45 ? 'in' : 'out'}, bass ${L.brk ? 'out (a breakdown)' : L.bass > .5 ? 'in' : 'low'}, `
       + `${L.noise > .5 ? 'noisy' : 'tonal'}, filter ${Math.round(L.cut*100)}%${L.width > .15 ? ', wide' : ''}`
