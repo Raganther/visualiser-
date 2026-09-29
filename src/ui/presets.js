@@ -13,7 +13,8 @@ export function setPreset(p, label){
   S.active = p; S.scene = p.scene || null; S.beatsInPreset = 0; S.presetSince = performance.now();
   $('#pName').textContent = label || p.name; toast(label || p.name); syncSliders();
 }
-export function nextPreset(dir){ if (J.on) setJourney(false); S.pIndex = (S.pIndex + dir + presets.length) % presets.length; setPreset(presets[S.pIndex]); }
+export function nextPreset(dir){ if (J.on) setJourney(false); S.pIndex = (S.pIndex + dir + presets.length) % presets.length; setPreset(presets[S.pIndex]);
+  toast(`Preset: ${presets[S.pIndex].name} (← → change the whole look)`); }
 export function randomize(){
   if (J.on) { nudge(); return; }
   const r = (a,b) => a + Math.random()*(b-a), pick = arr => arr[Math.floor(Math.random()*arr.length)];

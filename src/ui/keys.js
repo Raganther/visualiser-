@@ -110,6 +110,10 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     const t = twOf(last) || {}, i = TW_SRC.findIndex(s => s[0] === (t.src || 'auto'));
     setTweak(last, 'src', TW_SRC[(i + 1) % TW_SRC.length][0]); toast(`${byKey[last].label} follows ${TW_SRC[(i + 1) % TW_SRC.length][1]}`);
   }
+  else if ((k === 'arrowleft' || k === 'arrowright') && mode) {   // in a group, never the next preset (that changes the whole look)
+    e.preventDefault(); e.stopImmediatePropagation();
+    toast(mode === 'l' ? '← → change the last layer\'s speed: toggle a layer first' : 'Esc leaves the group; then ← → change the preset');
+  }
   else if ((k === 'arrowup' || k === 'arrowdown') && mode && last) {
     e.preventDefault(); edit();
     const d = k === 'arrowup' ? 1 : -1;
