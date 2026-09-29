@@ -517,7 +517,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - find the real downbeat at a steady tempo.
 
   On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo. On `fixtures/rolling.js` (a loud master, past the bytes' ceiling, with a bass note every three sixteenths, louder low down than the kick) it must lock to the right tempo and time the beats.
-- `tests/visuals.mjs`: every world, layer and hit shown alone in both renderers draws something (a world or layer isn't black) with no errors: a quick guard for new visuals.
+- `tests/visuals.mjs`: every world, layer and hit shown alone in both renderers draws something (a world or layer isn't black) with no errors, and WebGL doesn't fall back to simple mode (a shader that fails to build does that silently: rain once called a `hash` the trails' shader doesn't have): a quick guard for new visuals.
 - `tests/listen.mjs`: on `fixtures/texture.js` (parts that differ in texture, not loudness), the listening hears the hats come in, the breakdown, one drop as the bass returns (and Journey drops then), the noisy wash, the chord moving, the stereo widening and the loop running on; and Journey starts a new section when the hats come in though the loudness hardly changes.
 - `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/cosmos.mjs`:
@@ -535,7 +535,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
     - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.
-- `tests/journey.mjs`: over 400 simulated sections:
+- `tests/journey.mjs`: over 400 simulated sections (3 in 8 starting in a world's rest, as in a set, so the recipes made for the black get their turn):
   - every world, hit and scene template is chosen;
   - nearly every recipe is;
   - hits appear in 15–40% of sections, and a centrepiece in 15–45%.
