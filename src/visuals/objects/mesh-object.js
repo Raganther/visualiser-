@@ -8,7 +8,8 @@ import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { meshDraw2d, meshGL, meshPath2d, panesOf } from '../../render/mesh.js';
 
-export function meshObject({key, label, words, mesh}){
+// motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight)
+export function meshObject({key, label, words, mesh, motion}){
   let drawGL = null, glGen = -1, panes2d = null;
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
@@ -45,6 +46,7 @@ export function meshObject({key, label, words, mesh}){
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
         trail: M.trail, w: Math.min(1, w*1.2),
       };
+      if (motion) motion(P.m[key], P, x);
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },

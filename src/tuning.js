@@ -13,7 +13,7 @@ export const TUNE = {
   // progression through steady music
   progressBeats: 64,           // beats without a musical change before Journey takes a step (divided by Evolution speed)
   liked: {recipe: .15, scene: .4, centre: .7},   // the user's likes as Journey's recipes: how much one is favoured, its scene template favoured, how often it brings its centrepiece
-  keys: {layer: .8, idleSecs: 8},   // the keyboard (ui/keys.js): how strong a layer comes in; how long a group stays picked (and its strip shown) untouched
+  keys: {layer: .8, idleSecs: 20},   // the keyboard (ui/keys.js): how strong a layer comes in; how long a group stays picked (and its strip shown) untouched
   handoffSecs: 12,             // turned back on from a look made by hand, Journey holds it at least this long (then moves on at a phrase line), unless the music changes first
   progressNoKickSecs: 30,      // the same, in seconds, when there's no kick to count
   noKickMs: 4000,              // this long without a kick counts as "no kick"
@@ -182,6 +182,12 @@ export const TUNE = {
   knot: {chance: 0, size: .52, hinge: 0},
   dodeca: {chance: 0, size: .4, hinge: 0},
   spikes: {chance: 0, size: .4, hinge: 0},
+  manta: {chance: 0, size: .68, hinge: 0,         // the manta ray (a Blender model: tools/blender/manta.py), gliding:
+    flap: 1,                   // how far its wings beat (the shape key's weight, both ways), more as the tension rises
+    beatsPerFlap: 2,           // one wingbeat every this many beats, in step with the bar
+    pitch: .42,                // how far it's tipped towards us, so its back shows
+    turn: .55,                 // how far it banks from side to side as it glides (radians)
+  },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {

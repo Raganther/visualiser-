@@ -1,23 +1,31 @@
 // Mesh objects: a 3D mesh drawn as glowing wire edges over faint glass panes, where every pane can move on its own
 // (fly apart and back, light up in sweeps, sparkle, vanish). A leaf module: no engine imports, so visuals can use it.
-// A mesh is {pieces: [{pos, tri, part, hinge?}]}; each piece's panes can hinge together (a jaw).
+// A mesh is {pieces: [{pos, tri, part, hinge?, morph?}]}; each piece's panes can hinge together (a jaw), and a morph (each
+// vertex's move to another pose, a Blender shape key) is played by a weight, U.morph (-1..1: the pose both ways).
 // U, the per-frame settings: rot, pitch, size, pos [x,y], asp, jaw, ex (0 whole .. 1 scattered), gone (0..1 of panes
 // vanished), fill, dark (how much the glass darkens what's behind it), xray (how bright the far side's edges show through),
-// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall).
+// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph.
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // a small, fixed random number per pane, the same in both renderers
 const seedOf = i => { const x = Math.sin(i*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
 
-// per-pane data, shared by both renderers: corners, centre, normal, part, piece (1 = hinged), seed
+// per-pane data, shared by both renderers: corners, centre, normal, part, piece (1 = hinged), seed; with a morph, how
+// each corner, the centre and the normal move to the morph's pose (dv, dc, dn)
+const unit = (v, u, w) => { const a = u.map((x, k) => x - v[k]), b = w.map((x, k) => x - v[k]);
+  const n = [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]], l = Math.hypot(...n) || 1; return n.map(x => x/l); };
 export function panesOf(mesh){
   const panes = [];
   for (const pc of mesh.pieces) for (let t = 0; t < pc.tri.length; t += 3) {
     const v = [0, 1, 2].map(k => { const i = pc.tri[t + k]*3; return [pc.pos[i], pc.pos[i + 1], pc.pos[i + 2]]; });
-    const c = [0, 1, 2].map(k => (v[0][k] + v[1][k] + v[2][k])/3);
-    const u = v[1].map((x, k) => x - v[0][k]), w = v[2].map((x, k) => x - v[0][k]);
-    let n = [u[1]*w[2] - u[2]*w[1], u[2]*w[0] - u[0]*w[2], u[0]*w[1] - u[1]*w[0]]; const l = Math.hypot(...n) || 1; n = n.map(x => x/l);
-    panes.push({v, c, n, part: pc.part[t/3], hinged: pc.hinge ? 1 : 0, seed: seedOf(panes.length)});
+    const c = [0, 1, 2].map(k => (v[0][k] + v[1][k] + v[2][k])/3), n = unit(...v);
+    const q = {v, c, n, part: pc.part[t/3], hinged: pc.hinge ? 1 : 0, seed: seedOf(panes.length)};
+    if (pc.morph) {
+      q.dv = [0, 1, 2].map(k => { const i = pc.tri[t + k]*3; return [pc.morph[i], pc.morph[i + 1], pc.morph[i + 2]]; });
+      q.dc = [0, 1, 2].map(k => (q.dv[0][k] + q.dv[1][k] + q.dv[2][k])/3);
+      q.dn = unit(...v.map((p, i) => p.map((x, k) => x + q.dv[i][k]))).map((x, k) => x - n[k]);
+    }
+    panes.push(q);
   }
   return panes;
 }
@@ -25,15 +33,17 @@ export function panesOf(mesh){
 // ---- WebGL ----
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
-uniform float uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
+attribute vec3 aPosD, aOthD, aCenD, aNrmD;                      // the morph: how each moves to its pose
+uniform float uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
 uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
 // a point of a pane, after the jaw's hinge, the pane's own flight and spin, then the whole object's turn
+vec3 mC, mN;   // the pane's centre and normal, morphed
 vec3 place(vec3 p){
-  vec3 c=aCen, n=aNrm;
+  vec3 c=mC, n=mN;
   if(aInfo.y>0.5){ p=rx(p-uHinge,uJaw)+uHinge; c=rx(c-uHinge,uJaw)+uHinge; n=rx(n,uJaw); }
   float s=aInfo.z, e=uEx*(0.5+s);
   vec3 dir=normalize(n+normalize(c+vec3(0.0,0.0,0.001))*0.8);
@@ -42,14 +52,15 @@ vec3 place(vec3 p){
 }
 vec2 screen(vec3 p){ return uPos+p.xy*uSize*${FOCAL.toFixed(1)}/(${CAM.toFixed(1)}-p.z); }
 void main(){
-  vec3 p=place(aPos); vec2 s=screen(p);
+  mC=aCen+aCenD*uMorph; mN=normalize(aNrm+aNrmD*uMorph);
+  vec3 p=place(aPos+aPosD*uMorph); vec2 s=screen(p);
   if(aInfo.w!=0.0){                                     // an edge: widened sideways on screen into a band
-    vec2 o=screen(place(aOth)), d=normalize(vec2(o.x-s.x,o.y-s.y)+vec2(0.00001,0.0));
+    vec2 o=screen(place(aOth+aOthD*uMorph)), d=normalize(vec2(o.x-s.x,o.y-s.y)+vec2(0.00001,0.0));
     s+=vec2(-d.y,d.x)*aInfo.w*uLine/uH;
   }
   vSide=aInfo.w;
   float gone=step(aInfo.z,uGone);                         // vanished panes collapse to nothing
-  vec3 nw=rx(ry(aNrm,uRot),uPitch);
+  vec3 nw=rx(ry(mN,uRot),uPitch);
   float face=0.5+0.5*nw.z;                               // facing us (1) or away (0): the far side is dimmer
   float sweep=uSweepAmt*exp(-pow((aCen.y-(0.55-uSweep*1.1))*7.0,2.0));   // a band of light running down the object
   float spark=uSpark*step(0.88,fract(aInfo.z*91.7+uSparkSeed));          // a few panes flash on stabs
@@ -78,7 +89,7 @@ void main(){
 
 // One program serves every mesh, started early (meshWarm, at idle) and linked on first use: compiling it, or building a
 // mesh's vertex data, the moment a centrepiece first appears would stall that frame
-const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo'], PROGS = new WeakMap(), DATA = new WeakMap();
+const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo', 'aPosD', 'aOthD', 'aCenD', 'aNrmD'], NF = 28, PROGS = new WeakMap(), DATA = new WeakMap();
 function meshStart(gl){
   let s = PROGS.get(gl);
   if (s && gl.isProgram(s.p)) return s;   // (a lost context's programs are gone: start again)
@@ -96,15 +107,19 @@ function meshProg(gl){
   }
   return s;
 }
-// one interleaved array each for the panes and the edges: pos, other end, centre, normal (3 each), info (4); worked out once a mesh
+// one interleaved array each for the panes and the edges: pos, other end, centre, normal (3 each), info (4), then the
+// morph's moves of pos, other end, centre and normal (3 each, 0 without one); worked out once a mesh
 export function meshData(mesh){
   let d = DATA.get(mesh); if (d) return d;
-  const panes = panesOf(mesh), fill = new Float32Array(panes.length*3*16), edge = new Float32Array(panes.length*18*16);
-  const put = (arr, o, pos, oth, q, side) => { arr.set(pos, o); arr.set(oth, o + 3); arr.set(q.c, o + 6); arr.set(q.n, o + 9); arr[o + 12] = q.part; arr[o + 13] = q.hinged; arr[o + 14] = q.seed; arr[o + 15] = side; return o + 16; };
+  const panes = panesOf(mesh), fill = new Float32Array(panes.length*3*NF), edge = new Float32Array(panes.length*18*NF), Z = [0, 0, 0];
+  const put = (arr, o, k, j, q, side) => {   // corner k, its edge's other end j
+    arr.set(q.v[k], o); arr.set(q.v[j], o + 3); arr.set(q.c, o + 6); arr.set(q.n, o + 9); arr[o + 12] = q.part; arr[o + 13] = q.hinged; arr[o + 14] = q.seed; arr[o + 15] = side;
+    if (q.dv) { arr.set(q.dv[k], o + 16); arr.set(q.dv[j], o + 19); arr.set(q.dc, o + 22); arr.set(q.dn, o + 25); } else for (let i = 16; i < 28; i += 3) arr.set(Z, o + i);
+    return o + NF; };
   let fo = 0, eo = 0;
   for (const q of panes) {
-    for (const v of q.v) fo = put(fill, fo, v, v, q, 0);
-    for (let k = 0; k < 3; k++) { const a = q.v[k], b = q.v[(k + 1) % 3];   // each edge as two triangles across its width
+    for (let k = 0; k < 3; k++) fo = put(fill, fo, k, k, q, 0);
+    for (let k = 0; k < 3; k++) { const a = k, b = (k + 1) % 3;   // each edge as two triangles across its width
       eo = put(edge, eo, a, b, q, 1); eo = put(edge, eo, a, b, q, -1); eo = put(edge, eo, b, a, q, -1); eo = put(edge, eo, a, b, q, 1); eo = put(edge, eo, b, a, q, -1); eo = put(edge, eo, b, a, q, 1); }
   }
   DATA.set(mesh, d = {fill, edge}); return d;
@@ -112,7 +127,7 @@ export function meshData(mesh){
 export const meshWarm = gl => { meshStart(gl); };
 export function meshGL(gl, mesh){
   const {p, u} = meshProg(gl), D = meshData(mesh);
-  const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); return {b, n: data.length/16}; };
+  const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); return {b, n: data.length/NF}; };
   const B = {fill: buf(D.fill), edge: buf(D.edge)};
   let blank = null;
   // on screen: the far side's edges show faintly through, then the glass panes (darkening what's behind them and
@@ -120,7 +135,7 @@ export function meshGL(gl, mesh){
   // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
   return function draw(U, W, H, stage){
     gl.useProgram(p);
-    gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
+    gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
     gl.uniform2f(u.uPos, U.pos[0], U.pos[1]); gl.uniform3fv(u.uHinge, mesh.hinge); gl.uniform1f(u.uJaw, U.jaw);
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform3fv(u.uPal, U.pal || [0, .33, .67]);
@@ -134,7 +149,7 @@ export function meshGL(gl, mesh){
     const pass = (k, bright) => {
       const b = B[k]; gl.uniform1f(u.uEdge, k === 'edge' ? 1 : 0); gl.uniform1f(u.uBright, bright*U.w);
       gl.bindBuffer(gl.ARRAY_BUFFER, b.b);
-      for (let i = 0; i < 5; i++) gl.vertexAttribPointer(i + 1, i < 4 ? 3 : 4, gl.FLOAT, false, 64, i*12);   // pos, other end, centre, normal, info
+      for (let i = 0; i < ATT.length; i++) gl.vertexAttribPointer(i + 1, i === 4 ? 4 : 3, gl.FLOAT, false, NF*4, i < 5 ? i*12 : 64 + (i - 5)*12);   // pos, other end, centre, normal, info, then the morph's
       gl.drawArrays(gl.TRIANGLES, 0, b.n);
     };
     if (stage === 'cover') pass('fill', 1);
@@ -184,8 +199,12 @@ function project2d(o, panes, hinge, U){
     out[0] = x1; out[1] = cp*y - spi*z1; out[2] = spi*y + cp*z1;                        // rx(pitch)
   };
   const L = [];
-  for (const q of panes) {
-    if (q.seed < U.gone) continue;
+  const mw = U.morph || 0;
+  for (const q0 of panes) {
+    if (q0.seed < U.gone) continue;
+    // with a morph, the pane moved towards its pose (a copy, as this frame sees it)
+    const q = q0.dv && mw ? {...q0, v: q0.v.map((p, i) => p.map((x, k) => x + q0.dv[i][k]*mw)), c: q0.c.map((x, k) => x + q0.dc[k]*mw),
+      n: (n => { const l = Math.hypot(...n) || 1; return n.map(x => x/l); })(q0.n.map((x, k) => x + q0.dn[k]*mw))} : q0;
     let [cx, cy, cz] = q.c, [nx, ny, nz] = q.n;
     if (q.hinged) { const y0 = cy - hy, z0 = cz - hz; cy = cj*y0 - sj*z0 + hy; cz = sj*y0 + cj*z0 + hz; const ny2 = cj*ny - sj*nz; nz = sj*ny + cj*nz; ny = ny2; }
     const e = U.ex*(.5 + q.seed);
