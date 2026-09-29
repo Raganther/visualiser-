@@ -53,8 +53,11 @@ function chooseHit(ty, rf, fresh, avoid){
 }
 // a 3D centrepiece in some sections (TUNE.scene.centreChance), the least tired object; an object's own chance above 0
 // (a lab's, say) takes over the draw
+// how a centrepiece is drawn: glass wire and holograms suit calm music, solid, outlines and points intense (TUNE.objStyles)
+function chooseStyle(){ const w = TUNE.objStyles.calm.map((c, i) => c + (TUNE.objStyles.intense[i] - c)*J.tension); let r = Math.random()*w.reduce((a, b) => a + b, 0);
+  J.objStyle = w.findIndex(x => (r -= x) <= 0); if (J.objStyle < 0) J.objStyle = 0; }
 function chooseCentre(){
-  J.centre = null;
+  J.centre = null; chooseStyle();
   const pin = OBJECT_VISUALS.find(v => pinned(v.key)); if (pin) { J.centre = pin.key; return; }   // steered: always this one
   const R = J.recipe;   // a liked look brings its centrepiece along, most of the time
   if (R && R.liked && R.centre && byKey[R.centre] && !banned(R.centre) && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
@@ -82,7 +85,7 @@ export function sceneNow(){
 export const sceneWords = () => { const c = castOf(), t = byTemplate[J.sceneKey]; return t && fits(t, c) ? t.words(c) : ''; };
 const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
 function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
-  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, sceneKey: J.sceneKey}; }
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, sceneKey: J.sceneKey}; }
 // a small variation: a different accent, or a different hit
 export function varySmall(){
   const ty = J.type || OPENING, rf = relFeats();
@@ -117,7 +120,7 @@ export function recast(fresh){
     || Object.keys(STEER.pin).some(k => byKey[k] && byKey[k].kind === 'layer' && c.lead !== k && c.accent !== k));
   if (!fresh && cast && !steered(cast)) {                         // a returning part looks the same (unless steering says otherwise)...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
-    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.sceneKey = cast.sceneKey || 'plain';
+    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.sceneKey = cast.sceneKey || 'plain';
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;

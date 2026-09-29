@@ -273,6 +273,8 @@ export const TUNE = {
     morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
     sway: .03,                 // how far the kelp sways with the bass (the nearest most)
   },
+  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
+  objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
   dance: {
     amount: 1,                 // how much everything dances (0: as before, still)

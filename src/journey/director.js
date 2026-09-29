@@ -183,6 +183,7 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k)) ? swap : rate);
   }
+  jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
   if (snapped) { J.cutSince = 0; S.beat = Math.max(S.beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }

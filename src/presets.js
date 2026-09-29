@@ -27,6 +27,8 @@ export const SPEC = [
   {g:'Kaleidoscope', k:'kalTurn', label:'Turning', min:-.5, max:.5, step:.01},
   // the finish: film grain, scan lines and a little colour fringing, for an older, warmer look (last, so the rest keep their places)
   {g:'Finish', k:'grain', label:'Film grain and VHS', min:0, max:1, step:.01},
+  // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
+  {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus

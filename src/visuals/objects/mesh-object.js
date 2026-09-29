@@ -47,7 +47,7 @@ export function meshObject({key, label, words, mesh, motion, dance}){
         gone: An && An.hide ? 1 : Math.max(0, 1 - w/.6),   // leaving: panes wink out, the weight takes the rest (or behind the camera)
         fill: M.fill*(.6 + P.beat*.8), dark: M.dark, xray: M.xray, line: M.line, hue: P.hue, partHue: st.hue,
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
-        trail: M.trail, w: Math.min(1, w*1.2),
+        trail: M.trail, w: Math.min(1, w*1.2), style: Math.round((x.eff && x.eff.objStyle) || 0),
       };
       if (motion) motion(P.m[key], P, x);
       const U = P.m[key], d = DANCE.obj[key];   // its dance, on top: a turn, a nod, a lean, a step, a lunge, a squash, a part lifting
