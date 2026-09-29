@@ -271,8 +271,9 @@ export const TUNE = {
     greatSecs: 3.5,            // a drop's great wave: how long it takes to curl across the front
   },
   deep: {
-    morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
-    sway: .03,                 // how far the kelp sways with the bass (the nearest most)
+    morphSecs: 4,              // a new section's reef: the old layers sink as the new ones rise, nearest first, over this long
+    sway: .03,                 // how far the seaweed sways with the bass (the nearest most)
+    ballSecs: 6,               // a drop's bait ball: how long the school circles before it swims on
   },
   // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
   objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
