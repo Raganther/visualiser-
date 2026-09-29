@@ -10,6 +10,7 @@ import { TUNE } from '../tuning.js';
 import { Q } from './quality.js';
 import { HIST, S, dataArr } from '../state.js';
 import { TW as TWEAK } from '../scene/tweaks.js';
+import { DANCE } from '../scene/dance.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
 
@@ -235,7 +236,9 @@ function fbShared(now, P){
   for (const l of LAYER_VISUALS) if (l.feedback) {   // each layer's own clock, levels and size (scene/tweaks.js); a shader leaves out what a layer's code doesn't read
     const t = TWEAK[l.key], b = t && t.band !== null ? t.band : null;
     if (u['uTw_' + l.key]) gl.uniform4f(u['uTw_' + l.key], now/1000 + (t ? t.off : 0), b ?? P.bass, b ?? P.mid, b ?? P.treb);
-    if (u['uSz_' + l.key]) gl.uniform1f(u['uSz_' + l.key], t ? t.size : 1);
+    const dn = DANCE.layer[l.key];   // its dance (scene/dance.js): a turn, a shift, a scale
+    if (u['uSz_' + l.key]) gl.uniform1f(u['uSz_' + l.key], (t ? t.size : 1)*(dn ? dn.s : 1));
+    if (u['uDn_' + l.key]) gl.uniform3f(u['uDn_' + l.key], dn ? dn.rot : 0, dn ? dn.dx : 0, dn ? dn.dy : 0);
   }
   const R = TUNE.render; gl.uniform2f(u.uSoft, R.trailSoft*.5/TW, R.trailSoft*.5/TH); gl.uniform1f(u.uFloor, hdr ? R.trailFloor : .004);
 }

@@ -91,9 +91,10 @@ export function composeFeedback(keys){
   // mids, treble), and sees the picture's coordinates scaled round the centre (uSz_<key>). Untweaked they're the shared ones
   const own = (v, code) => v.kind !== 'layer' ? code : code.replace(/\buTime\b/g, `uTw_${v.key}.x`).replace(/\buBass\b/g, `uTw_${v.key}.y`)
     .replace(/\buMid\b/g, `uTw_${v.key}.z`).replace(/\buTreb\b/g, `uTw_${v.key}.w`);
+  // and its dance (scene/dance.js): turned, shifted and scaled round the centre (uDn_<key>: turn, x, y; uSz_<key> the scale)
   const sized = (v, k) => v.kind !== 'layer' ? '' : k === 'main'
-    ? `    vec2 sp=uSz_${v.key}==1.0?sp:uCenter+(sp-uCenter)/uSz_${v.key}, p=p/uSz_${v.key}, pe=pe/uSz_${v.key}, pb=pb/uSz_${v.key};\n`
-    : `    vec2 d=d/uSz_${v.key}, p=p/uSz_${v.key}, pb=pb/uSz_${v.key}; float r=r/uSz_${v.key};\n`;
+    ? `    vec2 sp=uSz_${v.key}==1.0&&uDn_${v.key}==vec3(0.0)?sp:uCenter+dnT(sp-uCenter,uDn_${v.key},uSz_${v.key}), p=dnT(p,uDn_${v.key},uSz_${v.key}), pe=dnT(pe,uDn_${v.key},uSz_${v.key}), pb=dnT(pb,uDn_${v.key},uSz_${v.key});\n`
+    : `    vec2 d=dnT(d,uDn_${v.key},uSz_${v.key}), p=dnT(p,uDn_${v.key},uSz_${v.key}), pb=dnT(pb,uDn_${v.key},uSz_${v.key}); float r=length(d);\n`;
   const guard = (v, code, k) => `  if(${wt(v)}>0.003){\n${sized(v, k)}${own(v, code).replace(/^\n/, '')}\n  }`;
   const part = (k, sep = '\n') => fbv.filter(v => v.feedback[k]).map(v => k === 'uniforms' ? v.feedback[k].replace(/^\n/, '') : k === 'functions' ? own(v, v.feedback[k]).replace(/^\n/, '') : guard(v, v.feedback[k], k)).join(sep);
   const layers = fbv.filter(v => v.kind === 'layer');
@@ -107,13 +108,14 @@ uniform float uTime,uZoom,uRot,uWarp,uDecay,uSym,uMirror,uHue,uHueShift,uBass,uM
 uniform vec3 uPal; uniform vec2 uDrift;   // the palette's three hue offsets; the wind's push on the trails this frame
 uniform vec2 uSoft; uniform float uFloor;   // how far the last frame is softened as it's read (so fast shapes smear), and what it loses
 uniform float uFillMode,uFillGain,uFillZoom;   // 1: draw a fill instead (the chosen layers alone, through the kaleidoscope, no trails)
-${layers.map(v => `uniform float uL_${v.key}; uniform vec4 uTw_${v.key}; uniform float uSz_${v.key};`).join('\n')}
+${layers.map(v => `uniform float uL_${v.key}; uniform vec4 uTw_${v.key}; uniform float uSz_${v.key}; uniform vec3 uDn_${v.key};`).join('\n')}
 ${part('uniforms')}
 float ASP;
 
 float wave(float t){ return texture2D(uData, vec2(0.001+clamp(t,0.0,1.0)*0.497,0.5)).r*2.0-1.0; }
 float spec(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
+vec2 dnT(vec2 q,vec3 dn,float s){ float c=cos(dn.x), si=sin(dn.x); return mat2(c,-si,si,c)*(q-dn.yz)/s; }   // a layer's dance, undone on the coordinates it reads
 vec3 hueRot(vec3 c,float a){ vec3 k=vec3(0.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.0-ca); }
 vec2 fold(vec2 p,float n){
   if(n<1.5) return p;

@@ -56,9 +56,11 @@ import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
+import { stepDance } from './scene/dance.js';
 import { L } from './audio/listen.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
+const DANCE_CHARS = Object.fromEntries(OBJECT_VISUALS.map(v => [v.key, v.dance || {}]));   // each object's character as a dancer
 import * as registry from './visuals/registry.js';
 import { LABS, applyLabs, applyTune, bindLabToggles } from './lab.js';
 import { TUNE } from './tuning.js';
@@ -117,6 +119,9 @@ function render(now){
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
   applyMods(now, react);
   stepTweaks(mdt, react);   // each layer's own speed, size and sound (scene/tweaks.js)
+  // every layer and object on screen dances (scene/dance.js): its move this bar, through springs
+  stepDance(dt, {J, dim: reduceMotion ? .5 : 1}, LAYER_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key),
+    OBJECT_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key), DANCE_CHARS);
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation

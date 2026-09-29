@@ -4,7 +4,8 @@
 // vertex's move to another pose, a Blender shape key) is played by a weight, U.morph (-1..1: the pose both ways).
 // U, the per-frame settings: rot, pitch, size, pos [x,y], asp, jaw, ex (0 whole .. 1 scattered), gone (0..1 of panes
 // vanished), fill, dark (how much the glass darkens what's behind it), xray (how bright the far side's edges show through),
-// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph.
+// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph;
+// and its dance (scene/dance.js): roll (a lean), sq (squash and stretch), lift and liftPart (one part lifting off).
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // a small, fixed random number per pane, the same in both renderers
@@ -34,12 +35,13 @@ export function panesOf(mesh){
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
 attribute vec3 aPosD, aOthD, aCenD, aNrmD;                      // the morph: how each moves to its pose
-uniform float uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
+uniform float uRoll,uSq,uLift,uLiftPart,uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
 uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
+vec3 rz(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x-s*p.y,s*p.x+c*p.y,p.z); }
 // a point of a pane, after the jaw's hinge, the pane's own flight and spin, then the whole object's turn
 vec3 mC, mN;   // the pane's centre and normal, morphed
 vec3 place(vec3 p){
@@ -48,7 +50,9 @@ vec3 place(vec3 p){
   float s=aInfo.z, e=uEx*(0.5+s);
   vec3 dir=normalize(n+normalize(c+vec3(0.0,0.0,0.001))*0.8);
   p=c+ry(rx(p-c,e*(s*9.0-4.5)),e*(s*7.0-3.5))*(1.0-0.3*e)+dir*e*0.9;   // spins about its own centre as it flies
-  return rx(ry(p,uRot),uPitch);
+  if(uLift>0.0&&abs(aInfo.x-uLiftPart)<0.5) p+=vec3(0.0,0.24,0.1)*uLift;   // one part lifts off, whole, and comes back
+  p*=vec3(1.0+uSq*0.5,1.0-uSq,1.0+uSq*0.5);                            // squash and stretch
+  return rz(rx(ry(p,uRot),uPitch),uRoll);
 }
 vec2 screen(vec3 p){ return uPos+p.xy*uSize*${FOCAL.toFixed(1)}/(${CAM.toFixed(1)}-p.z); }
 void main(){
@@ -60,7 +64,7 @@ void main(){
   }
   vSide=aInfo.w;
   float gone=step(aInfo.z,uGone);                         // vanished panes collapse to nothing
-  vec3 nw=rx(ry(mN,uRot),uPitch);
+  vec3 nw=rz(rx(ry(mN,uRot),uPitch),uRoll);
   float face=0.5+0.5*nw.z;                               // facing us (1) or away (0): the far side is dimmer
   float sweep=uSweepAmt*exp(-pow((aCen.y-(0.55-uSweep*1.1))*7.0,2.0));   // a band of light running down the object
   float spark=uSpark*step(0.88,fract(aInfo.z*91.7+uSparkSeed));          // a few panes flash on stabs
@@ -135,7 +139,7 @@ export function meshGL(gl, mesh){
   // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
   return function draw(U, W, H, stage){
     gl.useProgram(p);
-    gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
+    gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRoll, U.roll || 0); gl.uniform1f(u.uSq, U.sq || 0); gl.uniform1f(u.uLift, U.lift || 0); gl.uniform1f(u.uLiftPart, U.liftPart || 1); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
     gl.uniform2f(u.uPos, U.pos[0], U.pos[1]); gl.uniform3fv(u.uHinge, mesh.hinge); gl.uniform1f(u.uJaw, U.jaw);
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform3fv(u.uPal, U.pal || [0, .33, .67]);
@@ -184,9 +188,11 @@ function project2d(o, panes, hinge, U){
   if (U.proj && U.proj.key === key) return U.proj.L;   // once a frame: a mask and the drawing share it
   // plain arithmetic, no arrays per vertex: this runs for every pane every frame
   const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), spi = Math.sin(U.pitch), cj = Math.cos(U.jaw), sj = Math.sin(U.jaw);
+  const co = Math.cos(U.roll || 0), so = Math.sin(U.roll || 0), sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, lift = U.lift || 0, lp = U.liftPart || 1;
   const [hx, hy, hz] = hinge || [0, 0, 0], Lt = U.light || {amt: 0}, lx = Lt.x || 0, ly = Lt.y || 0, ll = Math.hypot(lx, ly, .6);
   const out = [0, 0, 0];
   // a point after the hinge, the pane's own flight and spin (e), then the whole object's turn, into out
+  let lx0 = 0, ly0 = 0, lz0 = 0;   // this pane's lift, if its part is lifting off
   const place = (x, y, z, hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz) => {
     if (hinged) { const y0 = y - hy, z0 = z - hz; y = cj*y0 - sj*z0 + hy; z = sj*y0 + cj*z0 + hz; }
     if (e > 1e-5) {
@@ -195,8 +201,10 @@ function project2d(o, panes, hinge, U){
       const px3 = cb*px + sb*pz, pz3 = -sb*px + cb*pz; px = px3; pz = pz3;            // ry
       const k = 1 - .3*e; x = cx + px*k + dx; y = cy + py*k + dy; z = cz + pz*k + dz;
     }
+    x = (x + lx0)*sqx; y = (y + ly0)*sqy; z = (z + lz0)*sqx;                              // a lifted part, squash and stretch
     const x1 = cr*x + sr*z, z1 = -sr*x + cr*z;                                          // ry(rot)
-    out[0] = x1; out[1] = cp*y - spi*z1; out[2] = spi*y + cp*z1;                        // rx(pitch)
+    const y2 = cp*y - spi*z1; out[2] = spi*y + cp*z1;                                   // rx(pitch)
+    out[0] = co*x1 - so*y2; out[1] = so*x1 + co*y2;                                     // rz(roll)
   };
   const L = [];
   const mw = U.morph || 0;
@@ -214,13 +222,14 @@ function project2d(o, panes, hinge, U){
       const cl = Math.hypot(cx, cy, cz) || 1, ex = nx + cx/cl*.8, ey = ny + cy/cl*.8, ez = nz + cz/cl*.8, dl = Math.hypot(ex, ey, ez), f = e*.9/dl;
       dx = ex*f; dy = ey*f; dz = ez*f;
     }
+    if (lift > 0 && q.part === lp) { lx0 = 0; ly0 = .24*lift; lz0 = .1*lift; } else lx0 = ly0 = lz0 = 0;
     const s = [], v = q.v; let zs = 0;
     for (let i = 0; i < 3; i++) {
       place(v[i][0], v[i][1], v[i][2], q.hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz);
       const w = sc/(CAM - out[2]); zs += out[2];
       s.push([Wc/2 + U.pos[0]*Hc + out[0]*w, Hc/2 - U.pos[1]*Hc - out[1]*w]);
     }
-    const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1;   // the pane's facing
+    const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy0 = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1, nwy = so*nx1 + co*nwy0;   // the pane's facing
     L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt});
   }
   L.sort((a, b) => a.z - b.z);

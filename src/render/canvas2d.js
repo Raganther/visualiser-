@@ -2,6 +2,7 @@
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { TW } from '../scene/tweaks.js';
+import { DANCE } from '../scene/dance.js';
 // a layer following another sound: that level in place of its bass, mids and treble
 const own = (P, t) => t.band === null ? P : {...P, bass: t.band, mid: t.band, treb: t.band};
 
@@ -24,6 +25,8 @@ export function make2D(view){
     vignette = out.createRadialGradient(w/2, h/2, Math.min(w,h)*.3, w/2, h/2, Math.hypot(w,h)*.6);
     vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.75)');
   }
+  // a layer's dance (scene/dance.js), round the point the canvas is at: shifted, turned, scaled (y up in the picture)
+  const dance2d = (c, dn, u) => { if (!dn) return; c.translate(dn.dx*u, -dn.dy*u); c.rotate(-dn.rot); c.scale(dn.s, dn.s); };
   function glowStroke(c, colour, weight, u){
     if (weight < .01) return;
     c.strokeStyle = colour(.12*weight); c.lineWidth = u*.03; c.stroke();
@@ -34,9 +37,10 @@ export function make2D(view){
     const col = off => a => `hsla(${((((P.hue+off)%1)+1)%1*360).toFixed(1)},95%,55%,${Math.min(1,a*bright).toFixed(3)})`;
     const x = {u, now, bw, col, glowStroke};
     for (const v of LAYER_VISUALS) if (v.folded2d) {
-      const t = TW[v.key];
-      if (!t) { v.folded2d(c, P, x); continue; }
-      c.save(); c.scale(t.size, t.size); v.folded2d(c, own(P, t), {...x, now: now + t.off*1000}); c.restore();   // (drawn round the centre)
+      const t = TW[v.key], dn = DANCE.layer[v.key];
+      if (!t && !dn) { v.folded2d(c, P, x); continue; }
+      c.save(); dance2d(c, dn, u); if (t) c.scale(t.size, t.size);   // (drawn round the centre)
+      v.folded2d(c, t ? own(P, t) : P, t ? {...x, now: now + t.off*1000} : x); c.restore();
     }
   }
   // the folded layers, n ways round (cx, cy), into any canvas g: the trails, or a scene's fill
@@ -173,8 +177,8 @@ export function make2D(view){
 
     const sx = x => bw/2 + x*u, sy = y => bh/2 - y*u, hsl = h => ((((h)%1)+1)%1*360).toFixed(1);
     const tx = {u, bw, bh, sx, sy, hsl, glowStroke};
-    for (const v of trails2d) { const t = TW[v.key]; c.save();
-      if (t) { c.translate(cx, cy); c.scale(t.size, t.size); c.translate(-cx, -cy); }   // its own size round the centre
+    for (const v of trails2d) { const t = TW[v.key], dn = DANCE.layer[v.key]; c.save();
+      if (t || dn) { c.translate(cx, cy); dance2d(c, dn, u); if (t) c.scale(t.size, t.size); c.translate(-cx, -cy); }   // its own size and dance round the centre
       v.trails2d(c, t ? own(Pg, t) : Pg, tx); c.restore(); }
     return B[1-k];
   }

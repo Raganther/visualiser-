@@ -9,6 +9,7 @@ import { eff } from '../presets.js';
 import { HIT_VISUALS, VISUALS } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { L, listenBar } from './listen.js';
+import { danceBeat } from '../scene/dance.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -19,6 +20,7 @@ function gridBeat(pos){
   J.beats++; J.pos = pos;
   if (pos % PACE.div === 0) firePulse();
   for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
+  danceBeat(pos, J);   // the dancers: a kick, and on the downbeat perhaps a new move (scene/dance.js)
   const down = pos === 0;
   if (down) { J.bar++; listenBar(); }   // the bar's summary, compared with the bars before (audio/listen.js)
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;

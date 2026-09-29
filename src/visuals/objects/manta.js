@@ -12,6 +12,7 @@ import MANTA from './meshes/manta.js';
 const st = {ph: 0};
 export default meshObject({key: 'manta', label: 'Manta ray', words: 'A manta ray glides, its wings beating with the music',
   mesh: {pieces: [MANTA], hinge: [0, 0, 0]},
+  dance: {moves: {sway: 2.2, float: 2, spin: 1.2, lunge: .6, groove: .5, bang: 0, look: .6, face: 0, shiver: .3, lift: .4}, liftPart: 4},   // it banks, swoops and barrel-rolls
   motion(U, P, x){
     const T = TUNE.manta, per = T.beatsPerFlap/4;
     // the wingbeat: in step with the bar while the beat grid holds it, running on at the beat's pace while it doesn't
