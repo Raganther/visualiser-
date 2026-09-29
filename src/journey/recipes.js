@@ -13,6 +13,7 @@ function recipeOf(p){
   return {name: p.name, p, liked: !!p.liked, sceneKey: p.sceneKey || null, centre: p.centre || null, lead: ls[0] || null, accent: ls[1] || null,
     hit: HITS.filter(k => p[k] > .05).sort((a, b) => p[b] - p[a])[0] || null,
     lens: p.sym >= 2 ? {n: Math.round(p.sym), mirror: p.mirror} : null,
+    kal: p.kal >= 2 ? {n: Math.round(p.kal), where: Math.round(p.kalWhere || 0), turn: p.kalTurn || 0} : null,   // (journey/extras.js)
     world: WORLDS.find(k => p[k] > .5) || 'none',
     T: Math.min(1, (p.colorSpeed*3 + Math.max(0, p.zoom - 1)*10 + (1 - p.decay)*5)/1.6)};
 }

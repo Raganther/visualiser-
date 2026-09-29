@@ -275,6 +275,14 @@ export const TUNE = {
   },
   // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
   objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  // Journey's extras, chosen per section with the cast (journey/extras.js), so it uses every setting, not only the roles
+  extras: {
+    kal: {chance: .2, intense: .25, recipe: .8, cosmos: .5,    // the kaleidoscope: a share of sections (more when intense; a recipe with one brings it most of the time; less in the cosmos, which folds itself)
+      n: [3, 8], turn: .08,                                    // mirrors calm to intense, and how fast it may turn either way
+      where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
+    grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
+    tw: {chance: .35, speed: [.55, 1.8], size: [.75, 1.4]},    // a layer's own speed and size: the share of sections the lead or accent gets its own, and the ranges
+  },
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
   dance: {
     amount: 1,                 // how much everything dances (0: as before, still)

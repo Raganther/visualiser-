@@ -1,13 +1,15 @@
 // Experiments without editing code. Both are read from the page URL:
 //   ?tune=path=value   override a number in TUNE (src/tuning.js), e.g. ?tune=hitNone=.4&tune=pace.divBar=.2
 //   ?lab=name          load src/lab/name.js and call its default export with the engine's parts (several: ?lab=a,b)
-// Labs can also be switched on in the Adjust panel (an input with data-lab="name"), remembered in localStorage, for hosts
-// whose links can't carry a query (the published Artifact).
+// Labs can also be switched on in the Adjust panel (an input with data-lab="name"), for hosts whose links can't carry a
+// query (the published Artifact). A switch lasts for this tab (sessionStorage), not for every visit after: the cosmos lab,
+// remembered for good, held Journey in the cosmos visit after visit without a word.
 // The build bundles every file in src/lab/, so labs work in dist/afterglow.html too (if the host passes the URL's query on).
 import { TUNE } from './tuning.js';
 
 const q = new URLSearchParams(location.search);
-let stored = (() => { try { return JSON.parse(localStorage.getItem('afterglow.labs') || '[]'); } catch (e) { return []; } })();
+try { localStorage.removeItem('afterglow.labs'); } catch (e) {}   // (where they used to be kept)
+let stored = (() => { try { return JSON.parse(sessionStorage.getItem('afterglow.labs') || '[]'); } catch (e) { return []; } })();
 export const LABS = [...new Set([...q.getAll('lab').flatMap(v => v.split(',')), ...stored])].filter(Boolean);
 
 export function applyTune(){
@@ -31,7 +33,7 @@ export function bindLabToggles(api){
     const name = el.dataset.lab; el.checked = LABS.includes(name);
     el.addEventListener('change', async () => {
       const on = el.checked, list = on ? [...new Set([...stored, name])] : stored.filter(n => n !== name);
-      stored = list; try { localStorage.setItem('afterglow.labs', JSON.stringify(list)); } catch (e) {}
+      stored = list; try { sessionStorage.setItem('afterglow.labs', JSON.stringify(list)); } catch (e) {}
       if (!on) { location.reload(); return; }
       if (!LABS.includes(name)) { LABS.push(name); try { (await import(`./lab/${name}.js`)).default(api); } catch (e) { console.warn('lab: could not load', name, e); } }
     });

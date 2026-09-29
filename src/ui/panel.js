@@ -2,6 +2,7 @@
 import { S } from '../state.js';
 import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS, sceneWords } from '../journey/cast.js';
 import { J } from '../journey/core.js';
+import { KAL_WORDS } from '../journey/extras.js';
 import { PACE, paceName } from '../journey/pace.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
 import { setJourney } from './controls.js';
@@ -22,9 +23,11 @@ export function updateSectionUI(){
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
-    + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' : '')
+    + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' + (J.worldHold ? ' The Cosmos lab is holding it here: switch it off below to let Journey move between worlds.' : '') : '')
     + (J.lead && sceneWords() ? ` ${sceneWords()}` : '')
-    + (L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
+    + (J.kal && !MEDIA.on ? ` A ${J.kal.n}-way kaleidoscope folds ${KAL_WORDS[J.kal.where]}${J.kal.turn ? ', turning' : ''}.` : L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
+    + (J.grain ? ' Film grain.' : '')
+    + (Object.keys(J.tw || {}).length ? ' ' + Object.entries(J.tw).map(([k, t]) => `${NAMES[k]} ${t.speed ? (t.speed > 1 ? 'faster' : 'slower') : ''}${t.speed && t.size ? ' and ' : ''}${t.size ? (t.size > 1 ? 'bigger' : 'smaller') : ''}`).join(', ') + ' than usual.' : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
     + (J.type.pal ? ` Colours: ${PAL_WORDS[J.type.pal]}.` : '')

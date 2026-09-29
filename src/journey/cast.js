@@ -9,6 +9,7 @@ import { MEDIA } from '../media/source.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
 import { STEER, banned, pinned } from './steer.js';
 import { chooseWorld } from './worlds.js';
+import { applyTw, chooseGrain, chooseKal, chooseTw, steerKal } from './extras.js';
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -85,12 +86,13 @@ export function sceneNow(){
 export const sceneWords = () => { const c = castOf(), t = byTemplate[J.sceneKey]; return t && fits(t, c) ? t.words(c) : ''; };
 const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
 function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
-  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, sceneKey: J.sceneKey}; }
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, sceneKey: J.sceneKey,
+    kal: J.kal, grain: J.grain, tw: J.tw}; }
 // a small variation: a different accent, or a different hit
 export function varySmall(){
   const ty = J.type || OPENING, rf = relFeats();
   const r = Math.random();
-  if (r < .45) chooseAccent(scoreElems(ty, rf, true), J.accent); else if (r < .75) chooseHit(ty, rf, true, J.hit); else chooseScene(rf, true, J.sceneKey);
+  if (r < .4) { chooseAccent(scoreElems(ty, rf, true), J.accent); chooseTw(); } else if (r < .65) chooseHit(ty, rf, true, J.hit); else if (r < .85) chooseScene(rf, true, J.sceneKey); else chooseKal(!J.kal);
   saveCast();
 }
 // a change of steering, applied at once (ui/keys.js): a pinned layer becomes the lead (or the accent, when the lead is
@@ -121,6 +123,7 @@ export function recast(fresh){
   if (!fresh && cast && !steered(cast)) {                         // a returning part looks the same (unless steering says otherwise)...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
     J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.sceneKey = cast.sceneKey || 'plain';
+    J.kal = cast.kal || null; steerKal(); J.grain = cast.grain || 0; J.tw = cast.tw || {}; applyTw();
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;
@@ -138,6 +141,7 @@ export function recast(fresh){
   chooseHit(ty, rf, fresh);
   chooseCentre();
   chooseScene(rf, fresh);
+  chooseKal(); chooseGrain(); chooseTw();   // the extras (journey/extras.js): the kaleidoscope, the grain, the layers' own speed and size
   saveCast();
   recipeMods(); updateSectionUI();
 }
