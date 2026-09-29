@@ -13,6 +13,7 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder);
   - `blender-object`: model an object in Blender (or take the user's .glb) and bring it in, with a shape key it plays on the beat.
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
+- **Voice:** the user would rather hear replies than read them. The page **Afterglow Voice** (https://claude.ai/artifact/HBgUQnbG3XJEeNQ22XKgGi, source `tools/voice/afterglow-voice.html`, capabilities `db` and `comments`) reads aloud whatever is in its database document `voice/latest` (`{id, text}`), and sends what the user dictates into it to the session as a comment sent to Claude. With every reply, also write a spoken version there with `ArtifactData` (`set`, collection `voice`, doc `latest`, a new `id` each time, `if_version` from the last write): plain sentences, no code, paths or tables, the substance in a few sentences. A comment arriving from that page is the user talking: answer it the same way.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
 ## Layout
