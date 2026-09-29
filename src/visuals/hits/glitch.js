@@ -5,7 +5,7 @@ export default {
   key: 'glitch', kind: 'hit', label: 'Glitch', trigger: 'downbeat', level: .8,
   words: 'The picture glitches on the drops',
   // hard, intense, digital
-  suits: (rf, wOn, seed) => rf.perc*.3 + (rf.T || 0)*.4 + (rf.noise || 0)*.2 + seed - .1,
+  suits: (rf, wOn, seed) => (rf.noise || 0)*.6 + rf.busy*.3 + (rf.T || 0)*.3 - rf.perc*.2 + seed - (wOn ? .1 : 0),
   fire(){ if (Math.random() < .3) { G.age = 0; G.seed = Math.random()*100; } },   // (now and then on a downbeat)
   step(dt){ G.age += dt; },
   params(P, x){

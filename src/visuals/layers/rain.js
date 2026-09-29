@@ -4,8 +4,8 @@ import { L } from '../../audio/listen.js';
 
 export default {
   key: 'rain', kind: 'layer', label: 'Rain',
-  suits: {hat:.5, noise:.4, T:-.1},   // what music it suits (features centred on 0): hissing, textured tops
-  overWorld: .7,   // how well it sits over a world: it's weather
+  suits: {hat:.35, noise:.3, T:-.1},   // what music it suits (features centred on 0): hissing, textured tops
+  overWorld: .3,   // how well it sits over a world: it's weather
   paint: 4.6,   // paint order in the trails: near the top
   accent: 'hit',   // how it fires when it's the accent
   params(P, x){
@@ -15,16 +15,18 @@ export default {
   },
   feedback: {
     uniforms: 'uniform vec3 uRain;',
+    functions: `
+float rainH(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }`,
     main: `
   {
     vec2 q=sp; q.x-=q.y*uRain.z;                          // slanted by the wind
-    vec2 g=vec2(q.x*70.0,q.y*6.0+uRain.x*6.0); vec2 ce=floor(g); float h=hash(ce);
-    if(h<uRain.y*0.6){                                    // a drop in this cell (more of them the heavier it is)
-      vec2 f=fract(g); float x0=0.2+0.6*hash(ce+7.0), d=abs(f.x-x0);
-      float streak=smoothstep(0.08,0.0,d)*smoothstep(0.0,0.3,f.y)*smoothstep(1.0,0.6,f.y);
-      col+=hsv(uHue+uPal.y+0.5,0.15,1.0)*uL_rain*streak*0.16;
+    vec2 g=vec2(q.x*38.0,q.y*2.5+uRain.x*3.0); vec2 ce=floor(g); float h=rainH(ce);
+    if(h<uRain.y*0.35){                                   // a drop in this cell (more of them the heavier it is)
+      vec2 f=fract(g); float x0=0.2+0.6*rainH(ce+7.0), y0=rainH(ce+3.0)*0.6, d=abs(f.x-x0)/38.0;
+      float streak=smoothstep(0.0016,0.0,d)*smoothstep(y0,y0+0.05,f.y)*smoothstep(y0+0.35,y0+0.15,f.y);
+      col+=hsv(uHue+uPal.y+0.5,0.15,1.0)*uL_rain*streak*0.3;
     }
-    float sy=sp.y+0.48; if(sy>0.0&&sy<0.03){ float sh=hash(floor(vec2(sp.x*90.0,uRain.x*4.0)));   // splashes along the bottom on the kick
+    float sy=sp.y+0.48; if(sy>0.0&&sy<0.03){ float sh=rainH(floor(vec2(sp.x*90.0,uRain.x*4.0)));   // splashes along the bottom on the kick
       col+=vec3(0.8,0.85,0.9)*uL_rain*uBeat*step(0.75,sh)*smoothstep(0.03,0.0,sy)*0.4; }
   }`,
   },

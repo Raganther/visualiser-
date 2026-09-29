@@ -7,7 +7,7 @@ const star = (s, i) => [(rnd(s*31 + i) - .5)*.9, (rnd(s*17 + i*7 + 3) - .5)*.62]
 export default {
   key: 'constellation', kind: 'layer', label: 'Constellations',
   suits: {perc:.2, mid:.2, T:-.3},   // what music it suits (features centred on 0): steady and spacious
-  overWorld: .5,   // how well it sits over a world: in the sky
+  overWorld: .3,   // how well it sits over a world: in the sky
   paint: 1.6,   // paint order in the trails
   accent: 'bar',   // how it fires when it's the accent
   onBeat(pos){
@@ -32,10 +32,10 @@ float cSeg(vec2 p,vec2 a,vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/
     main: `
   {
     float g=0.0;
-    for(int i=0;i<14;i++){ float d=length(sp-uCStars[i].xy); g+=uCStars[i].z*(smoothstep(0.005,0.0,d)+0.3*smoothstep(0.02,0.0,d)); }
+    for(int i=0;i<14;i++){ float d=length(sp-uCStars[i].xy); g+=uCStars[i].z*(smoothstep(0.007,0.0,d)*1.6+0.35*smoothstep(0.03,0.0,d)); }
     for(int i=0;i<16;i++){ if(float(i)>=uCN) break; vec4 l=uCLinks[i]; float d=cSeg(sp,l.xy,l.zw);
-      g+=smoothstep(0.0022,0.0,d)*0.55*(0.6+0.4*float(i+1)/max(uCN,1.0)); }
-    col+=hsv(uHue+uPal.x+0.55,0.25,1.0)*uL_constellation*g*0.35;
+      g+=smoothstep(0.003,0.0,d)*0.9*(0.6+0.4*float(i+1)/max(uCN,1.0)); }
+    col+=hsv(uHue+uPal.x+0.55,0.25,1.0)*uL_constellation*g*0.5;
   }`,
   },
   fbUniforms(gl, u, P){ if (u['uCStars[0]']) { gl.uniform3fv(u['uCStars[0]'], P.cstars); gl.uniform4fv(u['uCLinks[0]'], P.clinks); gl.uniform1f(u.uCN, P.cN); } },

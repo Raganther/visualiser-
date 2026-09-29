@@ -1,5 +1,5 @@
 // Every visual alone: each world, layer and hit (and the film grain finish) shown by itself in both renderers draws
-// something (the picture isn't black) and raises no errors. A quick guard for new visuals; the looks are checked by eye.
+// something (the picture isn't black) and raises no errors, and WebGL doesn't fall back to simple mode. A quick guard for new visuals; the looks are checked by eye.
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('visuals: skipped for', ENTRY); process.exit(0); }
@@ -19,14 +19,15 @@ for (const mode of ['2d', 'gl']) {
       let lit = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 30) lit++;
       out.push([v.key, v.kind, lit]);
     }
-    return out;
-  }, mode);
+    const cv = document.querySelector('canvas');
+    return {out, gl: !!(cv.getContext('webgl2') || cv.getContext('webgl'))};
+  }, mode).then(({out, gl}) => { if (gl !== (mode === 'gl')) out.renderer = gl ? 'webgl' : '2d'; return out; });
   const errors = await page.errors();
   // a hit alone over black can be small (a bolt, a glint), and the glitch draws nothing itself: they need only not error
   const dark = r.filter(([k, kind, lit]) => kind !== 'hit' && lit < 3);
-  const ok = !dark.length && !errors.length;
+  const ok = !dark.length && !errors.length && !r.renderer;   // (a shader that fails to compile falls back to simple mode)
   failed ||= !ok;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${mode}: ${r.length} visuals drawn alone${dark.length ? `; dark: ${dark.map(d => d[0]).join(', ')}` : ''}`, errors.length ? errors : '');
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${mode}: ${r.length} visuals drawn alone${dark.length ? `; dark: ${dark.map(d => d[0]).join(', ')}` : ''}${r.renderer ? `; fell back to ${r.renderer}` : ''}`, errors.length ? errors : '');
   await browser.close();
 }
 srv.close();
