@@ -6,6 +6,8 @@ Each item is a short brief: what it is, why (the user's words when there are som
 
 ## Overnight (2026-09-28, the user asleep; Claude builds these in order, merging each batch once tests pass)
 
+Batches 1–3 are built (and the mood ring and set arc from the later list); batch 4 is the forest, rain and constellations.
+
 Batch 1: new places.
 1. **The night sea** (a world). A dark ocean under the moon, the moon wearing a ring of light (a halo, as on a frosty night), waves swelling with the bass, a path of moonlight glittering on the water, a lighthouse's beams sweeping on the bar. Its front plane is the nearest swell, so glow can sit between the waves.
 2. **Underwater** (a world). Light from above in shifting caustics, god rays, drifting motes and bubbles rising on the hats, the surface's silver ceiling rippling, deep blue fading to black.
@@ -22,9 +24,13 @@ Batch 3: hits and finish.
 9. **Glitch** (a hit): the picture slices and shifts sideways for a few frames on a drop.
 10. **Film grain and VHS** (a finish option): grain, a little chromatic fringing and scan lines, for a warmer, older look.
 
+Batch 4: more places and weather (built).
+11. **The glowing forest** (a world): trunks fading into a glowing mist, moonbeams, bioluminescent caps pulsing on the beat.
+12. **Rain** (a layer): streaks thickening with the hats and noise, blown by the wind, splashing on the kick.
+13. **Constellations** (a layer): a figure joined a line a beat, a new one every few bars.
+
 Later, bigger (after tonight):
-- A mood ring: the colour of the music's mood (key, noise, energy) as a ring or halo round the subject.
-- A set arc: a slider for where you are in a whole set (warm-up, peak, closing) that shapes Journey's choices.
+- ~~A mood ring~~ (built: the `mood` layer). ~~A set arc~~ (built: the panel's "Set arc").
 - Record a moment: a short clip of a liked moment to save.
 - MIDI controller input for the sliders.
 

@@ -9,6 +9,7 @@ import cosmos from './worlds/cosmos/index.js';
 import sea from './worlds/sea.js';
 import deep from './worlds/deep.js';
 import dunes from './worlds/dunes.js';
+import forest from './worlds/forest.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
 import shock from './hits/shock.js';
@@ -31,14 +32,16 @@ import stargate from './layers/stargate.js';
 import vectorscope from './layers/vectorscope.js';
 import mandala from './layers/mandala.js';
 import mood from './layers/mood.js';
+import rain from './layers/rain.js';
+import constellation from './layers/constellation.js';
 import tunnel from './layers/tunnel.js';
 import skull from './objects/skull.js';
 import unicorn from './objects/unicorn.js';
 import maths from './objects/maths.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
-export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, tunnel];
+export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
