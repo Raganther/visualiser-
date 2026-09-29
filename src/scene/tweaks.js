@@ -5,7 +5,7 @@ import { sig } from './signals.js';
 
 // what a layer can follow instead of its own part of the music
 export const TW_SRC = [['auto', 'its own sound'], ['bass', 'bass'], ['mid', 'mids'], ['treb', 'treble'], ['kick', 'every kick'],
-  ['stab', 'stabs'], ['level', 'loudness'], ['none', 'nothing']];
+  ['stab', 'stabs'], ['level', 'loudness'], ['hat', 'the hi-hats'], ['full', 'fullness'], ['fresh', 'something new'], ['none', 'nothing']];
 export const TW_SPEED = [.25, 3], TW_SIZE = [.4, 2.5];
 // this frame, for each tweaked layer: its clock (seconds of motion time ahead of everyone's), size, and the level it follows
 // in place of bass, mids and treble (null: its own)

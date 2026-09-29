@@ -21,15 +21,20 @@ const res = await page.evaluate(async (mode) => {
   const src = oc.createBufferSource(); src.buffer = buf;
   const an = oc.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .2;
   src.connect(an); an.connect(oc.destination); src.start(0);
-  const F = new Uint8Array(N*1024), WV = new Uint8Array(N*256), tf = new Uint8Array(1024), tw = new Uint8Array(2048);
-  for (let k = 1; k < N; k++) oc.suspend(k/60).then(() => { an.getByteFrequencyData(tf); F.set(tf, k*1024); an.getByteTimeDomainData(tw);
+  const F = new Uint8Array(N*1024), FD = new Float32Array(N*700), WV = new Uint8Array(N*256), tf = new Uint8Array(1024), td = new Float32Array(1024), tw = new Uint8Array(2048);
+  for (let k = 1; k < N; k++) oc.suspend(k/60).then(() => { an.getByteFrequencyData(tf); F.set(tf, k*1024); an.getFloatFrequencyData(td); FD.set(td.subarray(0, 700), k*700); an.getByteTimeDomainData(tw);
     for (let i = 0; i < 256; i++) WV[k*256 + i] = tw[i*8]; oc.resume(); });
   await oc.startRendering();
+  // stereo width per frame (the side against the whole), as the page's channel pair would hear it
+  const WD = new Float32Array(N), cL = buf.getChannelData(0), cR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : cL;
+  for (let k = 0; k < N; k++) { const o = Math.floor(k*buf.sampleRate/60); let m = 0, sd = 0;
+    for (let i = 0; i < 512 && o + i < cL.length; i++) { const a = cL[o + i], b = cR[o + i]; m += (a + b)**2; sd += (a - b)**2; } WD[k] = sd/(m + sd + 1e-9); }
   // 2. fed to the page in place of the built-in beat
-  window.__synth = (t, freq, wave) => { const k = Math.min(N - 1, Math.round(t*60/1000));
-    freq.set(F.subarray(k*1024, k*1024 + 1024)); for (let i = 0; i < 256; i++) wave[i*8] = WV[k*256 + i]; return true; };
+  window.__synth = (t, freq, wave, db) => { const k = Math.min(N - 1, Math.round(t*60/1000));
+    freq.set(F.subarray(k*1024, k*1024 + 1024)); db.set(FD.subarray(k*700, k*700 + 700)); for (let i = 700; i < 1024; i++) db[i] = freq[i]/255*70 - 100; for (let i = 0; i < 256; i++) wave[i*8] = WV[k*256 + i]; window.__width = WD[k]; return 'db'; };
   // 3. step through, recording
-  const an2 = await import('/src/audio/analysis.js'), {J} = await import('/src/journey/core.js');
+  const an2 = await import('/src/audio/analysis.js'), {J} = await import('/src/journey/core.js'), {L} = await import('/src/audio/listen.js');
+  const r2 = x => +x.toFixed(2);
   const secs = [], shots = []; let lb = an2.lastBeat, kicks = 0, stabs = 0, lastHit = 0;
   for (let f = 0; f < N; f++) {
     __step(1);
@@ -39,7 +44,7 @@ const res = await page.evaluate(async (mode) => {
       const d = __jdbg();
       secs.push({s: (f + 1)/60, bpm: d.grid.bpm && +d.grid.bpm.toFixed(1), locked: d.grid.locked, dsure: d.grid.dsure && +d.grid.dsure.toFixed(2),
         sec: d.sec, types: d.types, recipe: d.recipe, lead: d.lead, accent: d.accent, hit: d.hit, world: d.world, scene: d.scene, centre: d.centre, pal: J.type && J.type.pal, lens: d.lensOn ? (d.lens && d.lens.n) : 0,
-        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
+        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
       kicks = 0; stabs = 0;
     }
     if (f % 1800 === 900) shots.push({s: f/60, png: document.querySelector('canvas').toDataURL('image/jpeg', .8)});

@@ -10,8 +10,11 @@ import { freq } from '../state.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
+import { L } from '../audio/listen.js';
 
-export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/FEATS.length; }
+// (over six: the fingerprint's first six features set the scale; the listening's hats and noise add to it rather than
+// thinning the others out, which made every section change harder)
+export function fdist(A, B){ let d = 0; for (const f of FEATS) d += FWEIGHT[f]*Math.abs(A[f] - B[f]); return d/6; }
 export function newType(F){
   const used = J.types.map(t => t.hue);
   let hue = Math.random();
@@ -83,6 +86,7 @@ export function features(dt){
     bright: cs > 0 ? Math.min(1, Math.log(1 + cw/cs)/Math.log(300)) : 0,
     low: lowB/tot, mid: (lmid + mid)/tot,
     lvl: energyLevel(),
+    hat: L.hat, noise: L.noise,
   };
   for (const f of FEATS) {
     J.fF[f] += (raw[f] - J.fF[f])*Math.min(1, dt/1.2);

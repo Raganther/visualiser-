@@ -25,6 +25,8 @@ export const SPEC = [
   {g:'Kaleidoscope', k:'kal', label:'Mirrors (under 2: off)', min:0, max:12, step:1},
   {g:'Kaleidoscope', k:'kalWhere', label:'Folds: 0 everything, 1 the world, 2 the glow, 3 inside the object', min:0, max:3, step:1},
   {g:'Kaleidoscope', k:'kalTurn', label:'Turning', min:-.5, max:.5, step:.01},
+  // the finish: film grain, scan lines and a little colour fringing, for an older, warmer look (last, so the rest keep their places)
+  {g:'Finish', k:'grain', label:'Film grain and VHS', min:0, max:1, step:.01},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
@@ -61,6 +63,18 @@ export const BASE = [
     mods:{orbit:{src:'mid', amt:.25}}},
   {name:'Lasers', decay:.9, zoom:1.008, rot:0, warp:0, sym:1, lasers:1, shock:.3, colorSpeed:.06, hueDrift:.01,
     mods:{zoom:{src:'kick', amt:.15}}},
+  {name:'Moonlit sea', decay:.95, zoom:1.0, rot:0, warp:.15, sym:1, sea:1, ribbons:.4, sparkle:.5, colorSpeed:.02, hueDrift:.004,
+    mods:{ribbons:{src:'bass', amt:.2}}},
+  {name:'Deep water', decay:.96, zoom:1.0, rot:0, warp:.4, sym:1, deep:1, flow:.6, plasma:.15, colorSpeed:.02, hueDrift:.005, mods:{}},
+  {name:'Desert night', decay:.93, zoom:1.002, rot:0, warp:.05, sym:1, dunes:1, lines:.5, colorSpeed:.015, hueDrift:.003, mods:{}},
+  {name:'Fireflies', decay:.94, zoom:1.0, rot:0, warp:.2, sym:1, aurora:1, fireflies:1, colorSpeed:.015, hueDrift:.004, mods:{}},
+  {name:'Stargate', decay:.9, zoom:1.01, rot:.004, warp:0, sym:1, stargate:1, glitch:.6, shock:.3, colorSpeed:.05, hueDrift:.01, mods:{}},
+  {name:'Goniometer', decay:.93, zoom:1.0, rot:0, warp:.1, sym:1, vectorscope:1, ring:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},
+  {name:'Night rain', decay:.9, zoom:1.001, rot:0, warp:.05, sym:1, rain:1, lightning:.6, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Star map', decay:.95, zoom:1.001, rot:.0005, warp:.05, sym:1, constellation:1, star:.5, colorSpeed:.01, hueDrift:.003, mods:{}},
   {name:'Pleasures', decay:.85, zoom:1.0, rot:0, warp:0, sym:1, lines:1, colorSpeed:.01, hueDrift:.002, mods:{}},
   // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
   {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,

@@ -9,12 +9,14 @@ export const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
 export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror', ...OPT_IN];
 export const SNAP = new Set([...TKEYS, ...HITS]);
-export const FEATS = ['perc','busy','bright','low','mid','lvl'];
+// the music's fingerprint: kicks, stabs, brightness, bass, mids, loudness, and (audio/listen.js) the hi-hats and noise against tone,
+// which tell compressed techno's parts apart where its loudness doesn't
+export const FEATS = ['perc','busy','bright','low','mid','lvl','hat','noise'];
 export const OPENING = {seed:{ring:0, scope:0, plasma:0, burst:0, comets:0, flow:0, ribbons:0, horizon:0}, hue:.6, zoomBias:0, spin:1, lens:null, recipeSeed:{},
   cut:0, hitSeed:{none:.3, star:0, shock:0}, starN:5, starOut:'snap', starScatter:false};
-export const FWEIGHT = {perc:1.2, busy:.6, bright:1, low:.8, mid:.8, lvl:.8};
+export const FWEIGHT = {perc:1.2, busy:.6, bright:1, low:.8, mid:.8, lvl:.8, hat:2, noise:.6};   // (the hats: the clearest sign of a new part in this music)
 export const J = {on:true, bias:.5, speed:1, clock:0, tension:.15, hi:.3, lo:.2, intro:1, bar:0, pos:0, upos:0, beats:0, phraseAnchor:0, novBar:0, progBeats:0, spinDir:1,
-  eS:0, eM:0, eL:.2, peak:.3, tmin:.3, lastDrop:-1e9, phase:0, ringR:.2, ringSq:0, zoomFlip:0, dropGlow:0,
+  eS:0, eM:0, eL:.2, peak:.3, tmin:.3, lastDrop:-1e9, drops:0, arcMins:0, arcStart:0, biasEff:.5, events:0, eventAt:-1e9, beatClear:1, phase:0, ringR:.2, ringSq:0, zoomFlip:0, dropGlow:0,
   fat:{}, wFat:{}, oFat:{}, sFat:{}, sceneKey:'plain', sceneLive:null, userMods:{}, kr:0, hr:0, fF:{}, fS:{}, fMin:{}, fMax:{}, M:null, secAge:0, identified:false, novAvg:.05, nov:0,
   pending:false, pendingSince:0, types:[], type:null, hueOff:0, ribAng:0, ribPh:0, horScroll:0, horY:.05,
   style:'fade', goal:{}, held:{}, cutSince:0, cutNow:false, phraseNow:false, wipe:0, hit:null};

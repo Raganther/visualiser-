@@ -8,6 +8,7 @@ import { newSection } from '../journey/sections.js';
 import { eff } from '../presets.js';
 import { HIT_VISUALS, VISUALS } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
+import { L, listenBar } from './listen.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -19,7 +20,7 @@ function gridBeat(pos){
   if (pos % PACE.div === 0) firePulse();
   for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
   const down = pos === 0;
-  if (down) J.bar++;
+  if (down) { J.bar++; listenBar(); }   // the bar's summary, compared with the bars before (audio/listen.js)
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
   if (down) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   if (!J.on) return;
@@ -30,7 +31,9 @@ function gridBeat(pos){
   if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
   // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
   J.progBeats++;
-  if (phrase && J.type && J.progBeats >= Math.max(16, Math.round(TUNE.progressBeats/J.speed/16)*16)) progress();
+  // (sooner when the same loop has run a long while: audio/listen.js)
+  const pb = Math.max(16, Math.round(TUNE.progressBeats/J.speed/16)*16)*(L.loop >= TUNE.listen.loopBars ? .5 : 1);
+  if (phrase && J.type && J.progBeats >= pb) progress();
   if (phrase) J.spinDir *= -1;                            // spin reverses every 4 bars
   if (down && barIn % 8 === 0 && Math.random() < .4) J.zoomFlip = -.03;   // occasional pull-back
 }
@@ -38,21 +41,27 @@ function gridBeat(pos){
    and the downbeat found from where claps and snares fall (2 and 4) and where crashes and changes land (the 1) ---------- */
 export const G = {period:0, next:0, n:0, down:0, locked:false, conf:0, miss:0, fit:0, prevKick:0, kicks:[], alt:0, altN:0,
   bb:[0,0,0,0], mid:[0,0,0,0], ev:0, win:null, cand:-1, candN:0, lastT:0,
-  lead:0};   // seconds to tick ahead of the kicks as detected, so the beat is seen as it's heard
+  lead:0,   // seconds to tick ahead of the kicks as detected, so the beat is seen as it's heard
+  acP:0, acConf:0, onAt:0, offN:0};   // the low end's own pulse (autocorrelation) and how sure; the last kick on the grid; kicks off it since
 export function gridReset(keepTempo){
   G.locked = false; G.conf = 0; G.miss = 0; G.fit = 0; G.prevKick = 0; G.kicks.length = 0; G.win = null;
-  G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; if (!keepTempo) G.period = 0;
+  G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.offN = 0; if (!keepTempo) { G.period = 0; G.acP = 0; G.acConf = 0; ENV.fill(0); }
 }
 // the beat length that best explains the gaps between recent kicks (each gap should be a whole number of beats)
 function estimatePeriod(ts){
   let best = 0, bp = 0;
+  const near = G.acP && G.acConf > TUNE.grid.acSure;   // a clear pulse: only tempos near it are considered
   for (let P = .33; P <= .8; P += .003) {
+    if (near && Math.abs(P/G.acP - 1) > TUNE.grid.acNear) continue;
     let sc = 0;
     for (let i = 1; i < ts.length; i++) for (let j = Math.max(0, i - 6); j < i; j++) {
       const r = (ts[i] - ts[j])/P, k = Math.round(r); if (k < 1 || k > 8) continue;
       const e = (r - k)*P; sc += Math.exp(-e*e/.00045)/k;
     }
     sc *= Math.exp(-Math.pow(Math.log2(P/.47), 2)*1.5);   // a gentle preference for dance tempos
+    // and towards the low end's own pulse, when it's clear: a rolling bassline puts onsets between the kicks that
+    // can pass for kicks, but the rhythm of the whole low end still repeats at the beat
+    if (G.acP) sc *= 1 - TUNE.grid.acPull*G.acConf + TUNE.grid.acPull*G.acConf*Math.exp(-Math.pow((P/G.acP - 1)/TUNE.grid.acWidth, 2));
     if (sc > best) { best = sc; bp = P; }
   }
   return bp;
@@ -72,15 +81,19 @@ export function gridKick(t){
   const P = G.period;
   if (G.locked) {                                         // nudge the clock toward the kick, if it's on the grid
     const e1 = t - (G.next - P), e2 = t - G.next, e = Math.abs(e1) < Math.abs(e2) ? e1 : e2;
-    if (Math.abs(e) < TUNE.grid.onGrid*P) { G.next += e*.3; G.period = Math.min(.85, Math.max(.3, P + e*.05)); G.conf = Math.min(1, G.conf + .15); G.miss = 0; }
-    else if (++G.miss >= 4) { G.locked = false; G.fit = 0; }   // lost it (a seek, a new rhythm): find the beat again
+    if (Math.abs(e) < TUNE.grid.onGrid*P) { G.next += e*.3; G.period = Math.min(.85, Math.max(.3, P + e*.05)); G.conf = Math.min(1, G.conf + .15); G.miss = 0; G.onAt = t; G.offN = 0; }
+    // a kick off the grid (a bass note, a fill) is let be; only two bars of kicks with none on the grid lose it (a seek, a new rhythm)
+    else if (++G.offN >= 6 && t - G.onAt > 8*P) { G.locked = false; G.fit = 0; G.offN = 0; }
     return;
   }
   // not locked: three kicks in a row on the grid and it locks, starting with this kick
-  if (G.prevKick) { const r = (t - G.prevKick)/P, k = Math.round(r); G.fit = k >= 1 && k <= 4 && Math.abs(r - k) < TUNE.grid.lockFit ? G.fit + 1 : 1; }
-  else G.fit = 1;
-  G.prevKick = t;
-  if (G.fit >= 3) {
+  // (a kick between the beats of the chain so far is let be, rather than starting it again, unless the chain is old)
+  if (G.prevKick) { const r = (t - G.prevKick)/P, k = Math.round(r), on = k >= 1 && k <= 4 && Math.abs(r - k) < TUNE.grid.lockFit;
+    if (on) { G.fit++; G.prevKick = t; } else if (r > 4.5) { G.fit = 1; G.prevKick = t; } }
+  else { G.fit = 1; G.prevKick = t; }
+  // (and only when the low end has a clear pulse, once there's enough heard to say: a slow song's drums otherwise lock a
+  // false dance tempo)
+  if (G.fit >= 3 && (envN < 240 || G.acConf > TUNE.grid.acLock)) {
     G.locked = true; G.conf = .5; G.miss = 0; G.next = t;
     G.n = J.upos; G.down = 0;                            // carry on counting from where the kicks had got to
     G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.win = null;
@@ -106,9 +119,32 @@ function gridTick(t){
   J.upos = pos;
   gridBeat(pos);
 }
+// the low end's own pulse: its rises in decibels (fd) at 60 a second over the last 8 s, autocorrelated every half second; the beat
+// length it repeats at most strongly (G.acP), and how clearly (G.acConf, 0..1)
+const ENV = new Float32Array(512);
+let envBin = -1, envN = 0;
+function pulse(t, fd){
+  const k = Math.floor(t*60);
+  if (k !== envBin) { if (envBin >= 0) for (let j = envBin + 1; j < k && j < envBin + 60; j++) ENV[j % 512] = 0; envBin = k; ENV[k % 512] = 0; envN++; }
+  ENV[k % 512] = Math.max(ENV[k % 512], fd);
+  if (envN % 30 || envN < 240) return;
+  const n = Math.min(480, envN), x = new Float32Array(n);
+  let m = 0; for (let i = 0; i < n; i++) { x[i] = ENV[(k - i + 512*4) % 512]; m += x[i]; } m /= n;
+  let v = 0; for (let i = 0; i < n; i++) { x[i] -= m; v += x[i]*x[i]; }
+  if (v < 1e-9) { G.acConf *= .8; return; }
+  const ac = []; for (let L = 17; L <= 200; L++) { let s = 0; for (let i = L; i < n; i++) s += x[i]*x[i - L]; ac[L] = s/v; }
+  // a beat repeats at its own length, at twice it (half a bar) and at four times it (a bar); a bassline's pattern (three
+  // sixteenths, say) repeats at its own length but not in step with the bar. And the grid's gentle leaning to dance tempos
+  const sc = L => (ac[L] + .5*ac[2*L] + .25*ac[4*L])*Math.exp(-Math.pow(Math.log2(L/60/.47), 2)*1.5);
+  let best = 20; for (let L = 20; L <= 49; L++) if (sc(L) > sc(best)) best = L;
+  const a = ac[best - 1], b = ac[best], c = ac[best + 1], off = (a - c)/(2*(a - 2*b + c) || 1);   // between frames: the parabola's top
+  const acP = (best + Math.max(-.5, Math.min(.5, off)))/60, conf = Math.max(0, Math.min(1, b/TUNE.grid.acClear));
+  G.acP = G.acP && Math.abs(acP/G.acP - 1) < .03 ? G.acP + (acP - G.acP)*.3 : acP; G.acConf = conf;
+}
 // run every frame: collect evidence, keep the clock ticking, let confidence fade when the kicks stop
-export function gridFrame(t, fl, fh, ft){
+export function gridFrame(t, fl, fh, ft, fd = fl){
   const gap = t - (G.lastT || t), dt = Math.min(.1, gap); G.lastT = t;
+  pulse(t, fd);
   if (!G.locked) return;
   G.conf -= (gap > 1 ? gap : dt)/TUNE.grid.holdSecs;       // a long gap (a hidden tab) counts in full
   if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }

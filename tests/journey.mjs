@@ -1,5 +1,5 @@
 // Journey choice test: over many simulated sections with random music, every world, hit, scene template and (nearly)
-// every recipe gets chosen, and hits and centrepieces appear in a sensible share of sections. Runs on index.html (reads the modules).
+// every recipe gets chosen (sections start in a world's rest as often as Journey rests), and hits and centrepieces appear in a sensible share of sections. Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('journey: skipped for', ENTRY); process.exit(0); }
@@ -7,7 +7,7 @@ const N = 400;
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await openPage(browser, url, {groove: false, noDraw: true});
 const r = await page.evaluate(async (N) => {
-  const {J} = await import('/src/journey/core.js'), {chooseWorld} = await import('/src/journey/worlds.js');
+  const {J} = await import('/src/journey/core.js'), {TUNE} = await import('/src/tuning.js'), {chooseWorld} = await import('/src/journey/worlds.js');
   const {presets} = await import('/src/presets.js'), reg = await import('/src/visuals/registry.js'), {TEMPLATES} = await import('/src/scene/templates.js');
   __step(60*12);                                       // let the first section form
   const worlds = {}, hits = {}, recipes = {}, scenes = {};
@@ -18,7 +18,9 @@ const r = await page.evaluate(async (N) => {
     Object.assign(J.type, {worldBias: null, hitSeed: null, recipeSeed: {}, casts: {}});
     for (const k in J.fat) J.fat[k] = 0;
     J.sFat = {}; J.oFat = {};
-    chooseWorld(); J.recast = 'fresh'; __step(1);
+    // a world lasts TUNE.worldSecs and then rests for worldRestSecs, so about that share of sections start in the black
+    if ((i % 8)/8 < TUNE.worldRestSecs/(TUNE.worldSecs + TUNE.worldRestSecs)) J.world = 'none'; else chooseWorld();
+    J.recast = 'fresh'; __step(1);
     worlds[J.world] = (worlds[J.world] || 0) + 1; hits[J.hit || 'none'] = (hits[J.hit || 'none'] || 0) + 1;
     recipes[J.recipe.name] = (recipes[J.recipe.name] || 0) + 1;
     scenes[J.sceneKey] = (scenes[J.sceneKey] || 0) + 1; if (J.centre) centres++;
@@ -42,5 +44,5 @@ const checks = [
 let failed = false;
 for (const [name, v, ok] of checks) { const pass = ok(v); if (!pass) failed = true;
   console.log(`${pass ? 'ok  ' : 'FAIL'} ${name}: ${Array.isArray(v) ? (v.length ? 'missing ' + v.join(', ') : 'yes') : v}`); }
-console.log('     worlds', JSON.stringify(r.worlds), '\n     hits', JSON.stringify(r.hits), '\n     scenes', JSON.stringify(r.scenes));
+console.log('     worlds', JSON.stringify(r.worlds), '\n     hits', JSON.stringify(r.hits), '\n     scenes', JSON.stringify(r.scenes), '\n     recipes', JSON.stringify(r.recipes));
 process.exit(failed ? 1 : 0);

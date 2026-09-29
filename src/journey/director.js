@@ -17,7 +17,15 @@ import { toast } from '../ui/toast.js';
 import { $, jn, reduceMotion } from '../util.js';
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
+import { L } from '../audio/listen.js';
 
+// the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
+export function arcBias(now){
+  if (!J.arcMins) return 0;
+  const f = Math.min(1, (now - J.arcStart)/(J.arcMins*60000)), A = TUNE.arc;
+  const v = f < A.peakAt ? A.start + (A.peak - A.start)*Math.sin(f/A.peakAt*Math.PI/2) : A.peak + (A.end - A.peak)*(1 - Math.cos((f - A.peakAt)/(1 - A.peakAt)*Math.PI))/2;
+  return v - .5;
+}
 export function stepJourney(now, dt){
   // energy at three timescales: right now, the last few seconds, the last ~20 seconds
   const e = sBass*.5 + sMid*.35 + sTreb*.3;
@@ -28,7 +36,9 @@ export function stepJourney(now, dt){
   J.hi = Math.max(J.eM, J.hi - dt*.004); J.lo = Math.min(J.eM, J.lo + dt*.004);
   const span = energySpan(), lvl = energyLevel(), rise = (J.eM - J.eL)/span;
   J.intro = Math.max(0, J.intro - dt/25);
-  const targetT = Math.min(1, Math.max(0, (lvl*.8 + rise*.5 + (J.bias - .5)*.8)*(1 - .5*J.intro)));
+  // the tension: loudness, and how full the texture is (hats, noise, bass: compressed techno's loudness barely moves)
+  J.biasEff = Math.min(1, Math.max(0, J.bias + arcBias(now)));   // the slider, and the set arc if one's running
+  const wF = TUNE.listen.fullWeight, targetT = Math.min(1, Math.max(0, (lvl*(.8 - wF*.75) + L.full*wF + rise*.5 + (J.biasEff - .5)*.8)*(1 - .5*J.intro)));
   J.tension += (targetT - J.tension)*Math.min(1, dt/2);
   J.tmin = Math.min(J.tension, J.tmin + dt*.06);
   J.dropGlow *= Math.pow(.35, dt);
@@ -36,13 +46,17 @@ export function stepJourney(now, dt){
   features(dt);
   if (!J.on) return;
   if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
+  // or the bass coming back after a breakdown (audio/listen.js): the drop, even when the loudness hardly changed
+  if (L.drops !== J.drops) { J.drops = L.drops; if (J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); } }
 
   // ---- sections: notice when the music's character changes, and recognise parts that return
   J.secAge += dt;
   if (!J.M) J.M = {...J.fF};
   for (const f of FEATS) J.M[f] += (J.fF[f] - J.M[f])*Math.min(1, dt/Math.min(8, Math.max(2, J.secAge)));
   if (!J.type && J.secAge > 8) { enterType(newType(J.M)); J.identified = 2; }   // let the song settle before naming its first part
-  J.nov = fdist(J.fF, J.M);
+  // the fingerprint's drift, a bar unlike those before it, and the texture's big moves (the hats in or out, a breakdown)
+  if (L.events !== J.events) { J.events = L.events; J.eventAt = now; }
+  J.nov = fdist(J.fF, J.M) + L.nov*TUNE.listen.novWeight*TUNE.novelty + (now - (J.eventAt || -1e9) < TUNE.listen.eventSecs*1000 ? TUNE.listen.eventNov : 0);
   J.novAvg += (J.nov - J.novAvg)*Math.min(1, dt/20);
   const still = stillness();
   const wasHold = J.novHold;
@@ -131,7 +145,9 @@ export function stepJourney(now, dt){
   tgt.hueDrift = .004 + T*.02;
   // pace: the section's own character, lifted by intensity and the calm-to-intense slider; glides over a few seconds
   if (ty.pace === undefined) ty.pace = pickPace();
-  const paceT = Math.min(1, Math.max(.03, ty.pace*.65 + T*.35 + (J.bias - .5)*.3 + breath*.04));
+  // music without a clear dance pulse (a slow song, a free intro) keeps calmer: its drums don't make it frantic
+  J.beatClear += ((G.acP ? G.acConf : 1) - J.beatClear)*Math.min(1, dt/4);
+  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))));
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;

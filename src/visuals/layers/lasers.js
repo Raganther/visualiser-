@@ -4,7 +4,7 @@ const LA = new Float32Array(32), N = 8;   // the beams for the shader, reused ea
 let bars = 0;
 export default {
   key: 'lasers', kind: 'layer', label: 'Lasers',
-  suits: {perc:.6, T:.6, bright:.3},   // what music it suits (features centred on 0)
+  suits: {perc:.3, T:.3, hat:.6},   // what music it suits (features centred on 0): the full, driving parts, hats in
   overWorld: .2,   // how well it sits over a world
   paint: 2.5,   // paint order in the trails: ribbons, horizon, lasers, comets, shockwaves, flow
   accent: 'bar', altAccent: 'hit',   // how it fires when it's the accent
