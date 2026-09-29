@@ -7,6 +7,8 @@ import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD, byKey
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
+import { STEER, banned, pinned } from './steer.js';
+import { chooseWorld } from './worlds.js';
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -21,6 +23,7 @@ function scoreElems(ty, rf, fresh){
     for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
     if (wOn) v += OVER_WORLD[k] || 0;
     v -= J.fat[k]*TUNE.fatigueWeight;                         // tired elements step back
+    if (pinned(k)) v += 6; if (banned(k)) v -= 99;            // steered by hand (journey/steer.js)
     return {k, v};
   }).sort((a, b) => b.v - a.v);
 }
@@ -42,7 +45,7 @@ function chooseHit(ty, rf, fresh, avoid){
   const hs = ty.hitSeed || OPENING.hitSeed, jit = () => fresh ? (Math.random() - .5)*.3 : 0;
   // star: intense downbeats. outline: steady, bassy grooves. shockwaves: busy, driving. sparkles: bright and stabby
   const hsc = {none: TUNE.hitNone + hs.none + jit()};
-  for (const v of HIT_VISUALS) hsc[v.key] = v.suits(rf, wOn, hs[v.key] || 0) + jit();   // each hit's module says what suits it
+  for (const v of HIT_VISUALS) hsc[v.key] = v.suits(rf, wOn, hs[v.key] || 0) + jit() + (pinned(v.key) ? 99 : 0) - (banned(v.key) ? 99 : 0);   // each hit's module says what suits it (and steering)
   if (R.hit) hsc[R.hit] += .5; else hsc.none += TUNE.hitNoneNoRecipe;
   if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
@@ -50,15 +53,19 @@ function chooseHit(ty, rf, fresh, avoid){
 }
 // a 3D centrepiece in some sections (TUNE.scene.centreChance), the least tired object; an object's own chance above 0
 // (a lab's, say) takes over the draw
+// how a centrepiece is drawn: glass wire and holograms suit calm music, solid, outlines and points intense (TUNE.objStyles)
+function chooseStyle(){ const w = TUNE.objStyles.calm.map((c, i) => c + (TUNE.objStyles.intense[i] - c)*J.tension); let r = Math.random()*w.reduce((a, b) => a + b, 0);
+  J.objStyle = w.findIndex(x => (r -= x) <= 0); if (J.objStyle < 0) J.objStyle = 0; }
 function chooseCentre(){
-  J.centre = null;
+  J.centre = null; chooseStyle();
+  const pin = OBJECT_VISUALS.find(v => pinned(v.key)); if (pin) { J.centre = pin.key; return; }   // steered: always this one
   const R = J.recipe;   // a liked look brings its centrepiece along, most of the time
-  if (R && R.liked && R.centre && byKey[R.centre] && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
-  const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0);
+  if (R && R.liked && R.centre && byKey[R.centre] && !banned(R.centre) && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
+  const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
   if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.map(v => ({k: v.key, v: Math.random() - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
-  J.centre = pool[0].k;
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key)).map(v => ({k: v.key, v: Math.random() - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
+  J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music
 const castOf = () => ({world: J.world, lead: J.lead, accent: J.accent, centre: MEDIA.on ? null : J.centre, label: k => NAMES[k] || k});
@@ -78,7 +85,7 @@ export function sceneNow(){
 export const sceneWords = () => { const c = castOf(), t = byTemplate[J.sceneKey]; return t && fits(t, c) ? t.words(c) : ''; };
 const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
 function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
-  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, sceneKey: J.sceneKey}; }
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, sceneKey: J.sceneKey}; }
 // a small variation: a different accent, or a different hit
 export function varySmall(){
   const ty = J.type || OPENING, rf = relFeats();
@@ -86,14 +93,34 @@ export function varySmall(){
   if (r < .45) chooseAccent(scoreElems(ty, rf, true), J.accent); else if (r < .75) chooseHit(ty, rf, true, J.hit); else chooseScene(rf, true, J.sceneKey);
   saveCast();
 }
+// a change of steering, applied at once (ui/keys.js): a pinned layer becomes the lead (or the accent, when the lead is
+// pinned too), a banned one leaves its role; a pinned world, hit, object or scene comes in, a banned one goes
+export function applySteer(k, state){
+  const v = byKey[k] || byTemplate[k], kind = byTemplate[k] ? 'scene' : v && v.kind, ty = J.type || OPENING, rf = relFeats();
+  if (kind === 'layer') {
+    if (state === 'pin' && J.lead !== k && J.accent !== k) { if (pinned(J.lead)) { J.accent = k; J.accTrig = ACCENT[k]; } else J.lead = k; }
+    if (state === 'ban' && (J.lead === k || J.accent === k)) { const sc = scoreElems(ty, rf, true); if (J.lead === k) J.lead = sc.find(r => r.k !== J.accent).k; chooseAccent(scoreElems(ty, rf, true)); }
+  } else if (kind === 'world') {
+    if (state === 'pin') { J.world = k; J.worldTime = 0; } else if (state === 'ban' && J.world === k) chooseWorld(true);
+  } else if (kind === 'hit') {
+    if (state === 'pin') J.hit = k; else if (state === 'ban' && J.hit === k) chooseHit(ty, rf, true);
+  } else if (kind === 'object') {
+    if (state === 'pin') J.centre = k; else if (state === 'ban' && J.centre === k) chooseCentre();
+  } else if (kind === 'scene') {
+    if (state === 'pin' && fits(byTemplate[k], castOf())) J.sceneKey = k; else if (state === 'ban' && J.sceneKey === k) chooseScene(rf, true);
+  }
+  saveCast(); updateSectionUI();
+}
 export function recast(fresh){
   const ty = J.type || OPENING, key = J.world;
   ty.casts = ty.casts || {};
   J.recast = false;
   const cast = ty.casts[key];
-  if (!fresh && cast) {                                           // a returning part looks the same...
+  const steered = c => c && (banned(c.lead) || banned(c.accent) || (c.hit && banned(c.hit)) || (c.centre && banned(c.centre)) || banned(c.sceneKey)
+    || Object.keys(STEER.pin).some(k => byKey[k] && byKey[k].kind === 'layer' && c.lead !== k && c.accent !== k));
+  if (!fresh && cast && !steered(cast)) {                         // a returning part looks the same (unless steering says otherwise)...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
-    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.sceneKey = cast.sceneKey || 'plain';
+    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.sceneKey = cast.sceneKey || 'plain';
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;
@@ -106,6 +133,8 @@ export function recast(fresh){
   scored.sort((a, b) => b.v - a.v);
   J.lead = scored[0].k;
   chooseAccent(scored);
+  const pins = scored.filter(r => pinned(r.k)).map(r => r.k);   // two layers pinned: the lead and the accent
+  if (pins.length > 1 && J.accent !== pins[1] && J.lead === pins[0]) { J.accent = pins[1]; J.accTrig = ACCENT[pins[1]]; }
   chooseHit(ty, rf, fresh);
   chooseCentre();
   chooseScene(rf, fresh);

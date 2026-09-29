@@ -8,6 +8,7 @@ import { HIT_VISUALS } from '../visuals/registry.js';
 import { CTX } from '../scene/context.js';
 import { TUNE } from '../tuning.js';
 import { TW, speedOf } from '../scene/tweaks.js';
+import { DANCE, cometTarget } from '../scene/dance.js';
 
 /* comets and shockwaves */
 export const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
@@ -41,6 +42,14 @@ export function stepFX(dt, react, now){
     c.x += (c.dx*sp + CTX.wind.x*TUNE.ctx.windComets)*cdt; c.y += (c.dy*sp + CTX.wind.y*TUNE.ctx.windComets)*cdt;   // the wind carries them
     if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
     if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
+    // dancing (scene/dance.js): they fly into the choreographer's shape, tracing it with their trails, and back to roaming
+    const tg = DANCE.comets.amt > .001 && cometTarget(i, comets.length, [0, 0], TUNE.dance.cometR);
+    if (tg) {
+      const k = Math.min(1, dt*10*speedOf('comets'))*DANCE.comets.amt, nx = c.x + (tg[0] - c.x)*k, ny = c.y + (tg[1] - c.y)*k;
+      const mx = nx - c.x, my = ny - c.y, ml = Math.hypot(mx, my);
+      if (ml > 1e-5) { c.dx = mx/ml; c.dy = my/ml; }   // (so they carry on the same way when they're let go)
+      c.x = nx; c.y = ny;
+    }
     c.z = .5 + Math.min(1.5, e);
   });
   shocks.forEach(h => {

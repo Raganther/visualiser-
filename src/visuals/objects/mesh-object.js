@@ -7,23 +7,25 @@
 import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { meshDraw2d, meshGL, meshPath2d, panesOf } from '../../render/mesh.js';
+import { DANCE } from '../../scene/dance.js';
 
-// motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight)
-export function meshObject({key, label, words, mesh, motion}){
+// motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight).
+// dance: its character as a dancer (scene/dance.js): {moves: {move: weight}, sym (its snap turns: a full turn over sym), liftPart}
+export function meshObject({key, label, words, mesh, motion, dance}){
   let drawGL = null, glGen = -1, panes2d = null;
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
-    key, kind: 'object', label, words, optIn: true, mesh,   // (the mesh, so its vertex data can be worked out while the page is idle)
+    key, kind: 'object', label, words, optIn: true, mesh, dance,   // (the mesh, so its vertex data can be worked out while the page is idle)
     onBeat(pos){
       if (pos !== 0) return;
       st.glow = 1; st.sw = 0;                           // the edges flare and a band of light starts down it
-      if (!st.jOn && ++st.bars % 8 === 0) st.exT = 1;   // by hand (no Journey), it shatters every 8 bars
+      if (!st.jOn && ++st.bars % 16 === 0) st.exT = 1;   // by hand (no Journey), it shatters every 16 bars
     },
     breakApart(){ st.exT = 1; },                        // for tests and labs
     params(P, x){
       const M = TUNE.mesh, T = TUNE[key], J = x.J, dt = x.dt, w = P.o[key];
-      // shatter on a drop, a new section or a progression step; the target snaps out then drifts back to whole
-      const trigger = st.seen && (J.lastDrop !== st.lastDrop || J.type !== st.lastType || J.progStep !== st.lastStep);
+      // shatter on a drop (the rest of the time it dances: scene/dance.js); the target snaps out then drifts back to whole
+      const trigger = st.seen && J.lastDrop !== st.lastDrop;
       if (trigger && J.on) st.exT = 1;
       st.seen = true; st.jOn = J.on;
       st.lastDrop = J.lastDrop; st.lastType = J.type; st.lastStep = J.progStep;
@@ -33,20 +35,23 @@ export function meshObject({key, label, words, mesh, motion}){
       if (x.hit > .8 && st.lastHit <= .8) { st.hue += .17; st.spark = 1; st.sparkSeed = Math.random(); }   // stabs: new colours, a scatter of flashes
       st.lastHit = x.hit;
       st.glow *= Math.exp(-dt*3); st.spark *= Math.exp(-dt*5);
+      st.sing = (st.sing || 0) + (Math.min(1, P.mid*x.react*1.4) - (st.sing || 0))*Math.min(1, dt*14);   // the jaw sings with the mids
       st.sw = Math.min(1, st.sw + dt/Math.max(.25, S.beatPeriod));   // the band takes one beat to run down
       P.m = P.m || {};
       const An = P.anchor;   // a world can hold it somewhere in its space (the cosmos's monument): there, at that size
       P.m[key] = {
-        rot: x.t*M.spin, pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: (An && An.size || T.size)*(1 + x.sBass*x.react*.03),
+        rot: x.t*M.spin*(1 - .6*TUNE.dance.amount), pitch: Math.sin(x.t*.23)*.15 - P.beat*.05, size: (An && An.size || T.size)*(1 + x.sBass*x.react*.03),
         pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],   // it sways in the wind
         pal: P.pal, light: P.light,
-        jaw: P.beat*T.hinge, ex: st.ex*st.ex*M.explode,   // squared: flies out fast, snaps home cleanly
+        jaw: Math.max(P.beat*.45, st.sing)*T.hinge, ex: st.ex*st.ex*M.explode,   // squared: flies out fast, snaps home cleanly
         gone: An && An.hide ? 1 : Math.max(0, 1 - w/.6),   // leaving: panes wink out, the weight takes the rest (or behind the camera)
         fill: M.fill*(.6 + P.beat*.8), dark: M.dark, xray: M.xray, line: M.line, hue: P.hue, partHue: st.hue,
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
-        trail: M.trail, w: Math.min(1, w*1.2),
+        trail: M.trail, w: Math.min(1, w*1.2), style: Math.round((x.eff && x.eff.objStyle) || 0),
       };
       if (motion) motion(P.m[key], P, x);
+      const U = P.m[key], d = DANCE.obj[key];   // its dance, on top: a turn, a nod, a lean, a step, a lunge, a squash, a part lifting
+      if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; U.lift = d.lift; U.liftPart = d.part; }
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },

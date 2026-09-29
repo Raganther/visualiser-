@@ -273,4 +273,20 @@ export const TUNE = {
     morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
     sway: .03,                 // how far the kelp sways with the bass (the nearest most)
   },
+  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
+  objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
+  dance: {
+    amount: 1,                 // how much everything dances (0: as before, still)
+    remember: .7,              // how often a returning section's dancer brings back its own move
+    barsPerMove: 2,            // a dancer may change its move every this many bars (the comets' shape every twice as many)
+    stiff: 60,                 // the springs' stiffness: higher snaps to each pose, lower floats and overshoots more
+    shapeIn: 1.5,              // seconds for the comets to fly into a new shape
+    cometR: .3,                // how big the comets' shapes are (the picture's height is 1)
+    cometTurns: .5,            // how much of their shape the comets travel each bar
+    // layers, in the picture's plane (radians, the picture's units, scale): how far each move goes at middling energy
+    layer: {sway: .22, drift: .07, bounce: .12, orbit: .1, breathe: .1, spin: .6, push: .22, shake: .03},
+    // objects: a head bang's nod, a groove's bounce and squash, a sway's roll, a glance, a lunge, a shiver (radians, units, scale)
+    obj: {bang: .35, bounce: .05, squash: .12, roll: .3, drift: .07, look: .55, lunge: .22, shiver: .25},
+  },
 };

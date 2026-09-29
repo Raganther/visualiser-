@@ -4,7 +4,9 @@
 // vertex's move to another pose, a Blender shape key) is played by a weight, U.morph (-1..1: the pose both ways).
 // U, the per-frame settings: rot, pitch, size, pos [x,y], asp, jaw, ex (0 whole .. 1 scattered), gone (0..1 of panes
 // vanished), fill, dark (how much the glass darkens what's behind it), xray (how bright the far side's edges show through),
-// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph.
+// line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph;
+// and its dance (scene/dance.js): roll (a lean), sq (squash and stretch), lift and liftPart (one part lifting off); and
+// style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points.
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // a small, fixed random number per pane, the same in both renderers
@@ -34,12 +36,13 @@ export function panesOf(mesh){
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
 attribute vec3 aPosD, aOthD, aCenD, aNrmD;                      // the morph: how each moves to its pose
-uniform float uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
+uniform float uStyle,uRoll,uSq,uLift,uLiftPart,uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
 uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
+vec3 rz(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x-s*p.y,s*p.x+c*p.y,p.z); }
 // a point of a pane, after the jaw's hinge, the pane's own flight and spin, then the whole object's turn
 vec3 mC, mN;   // the pane's centre and normal, morphed
 vec3 place(vec3 p){
@@ -48,19 +51,22 @@ vec3 place(vec3 p){
   float s=aInfo.z, e=uEx*(0.5+s);
   vec3 dir=normalize(n+normalize(c+vec3(0.0,0.0,0.001))*0.8);
   p=c+ry(rx(p-c,e*(s*9.0-4.5)),e*(s*7.0-3.5))*(1.0-0.3*e)+dir*e*0.9;   // spins about its own centre as it flies
-  return rx(ry(p,uRot),uPitch);
+  if(uLift>0.0&&abs(aInfo.x-uLiftPart)<0.5) p+=vec3(0.0,0.24,0.1)*uLift;   // one part lifts off, whole, and comes back
+  p*=vec3(1.0+uSq*0.5,1.0-uSq,1.0+uSq*0.5);                            // squash and stretch
+  return rz(rx(ry(p,uRot),uPitch),uRoll);
 }
 vec2 screen(vec3 p){ return uPos+p.xy*uSize*${FOCAL.toFixed(1)}/(${CAM.toFixed(1)}-p.z); }
 void main(){
   mC=aCen+aCenD*uMorph; mN=normalize(aNrm+aNrmD*uMorph);
-  vec3 p=place(aPos+aPosD*uMorph); vec2 s=screen(p);
+  vec3 p0=aPos+aPosD*uMorph; if(uStyle>3.5) p0=mC+(p0-mC)*0.2;   // points: each pane shrunk to a dot at its centre
+  vec3 p=place(p0); vec2 s=screen(p);
   if(aInfo.w!=0.0){                                     // an edge: widened sideways on screen into a band
     vec2 o=screen(place(aOth+aOthD*uMorph)), d=normalize(vec2(o.x-s.x,o.y-s.y)+vec2(0.00001,0.0));
     s+=vec2(-d.y,d.x)*aInfo.w*uLine/uH;
   }
   vSide=aInfo.w;
   float gone=step(aInfo.z,uGone);                         // vanished panes collapse to nothing
-  vec3 nw=rx(ry(mN,uRot),uPitch);
+  vec3 nw=rz(rx(ry(mN,uRot),uPitch),uRoll);
   float face=0.5+0.5*nw.z;                               // facing us (1) or away (0): the far side is dimmer
   float sweep=uSweepAmt*exp(-pow((aCen.y-(0.55-uSweep*1.1))*7.0,2.0));   // a band of light running down the object
   float spark=uSpark*step(0.88,fract(aInfo.z*91.7+uSparkSeed));          // a few panes flash on stabs
@@ -73,17 +79,30 @@ void main(){
   if(aInfo.x>6.5){                                        // the holes (eye sockets, nose): dark, faint edges; the sockets glow on the downbeat
     col=hsv(uHue+uPartHue+uPal.z+0.5,0.9,1.0); a=uEdge>0.5 ? a*0.2 : (aInfo.x<7.5 ? uGlow*1.4 : 0.0);
   }
-  vCol=vec4(mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a*uBright*(1.0-gone),uEdge>0.5 ? 1.0 : uDark*uBright*(1.0-gone));
+  vec3 rgb=mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a; float al=uEdge>0.5 ? 1.0 : uDark;
+  if(uStyle>0.5&&uStyle<1.5){                             // solid: lit facets, the edges faint
+    float lam=0.3+0.7*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0)+lit*0.3;
+    if(uEdge>0.5) rgb*=0.15; else if(aInfo.x<6.5){ rgb=col*lam*(0.55+0.45*uGlow+0.3)+vec3(sweep+spark)*0.4; al=1.0; }
+  } else if(uStyle>1.5&&uStyle<2.5){                      // outline: black, rimmed where it turns away from us
+    float rim=1.0-smoothstep(0.1,0.4,abs(nw.z));
+    if(uEdge>0.5) rgb=col*rim*(1.4+uGlow)+vec3(sweep+spark)*rim; else { rgb=vec3(0.0); al=1.0; }
+  } else if(uStyle>2.5&&uStyle<3.5){                      // hologram: see-through, tinted, bright edges (scan lines in the fragments)
+    rgb=hsv(uHue+uPal.y+0.5,0.8,1.0)*max(rgb.r,max(rgb.g,rgb.b))*(uEdge>0.5 ? 0.6 : 0.035); al=0.0;
+  } else if(uStyle>3.5){                                  // points: the dots glow, no edges
+    rgb=uEdge>0.5 ? vec3(0.0) : col*(1.1+uGlow+spark*2.0+sweep*1.5); al=0.0;
+  }
+  vCol=vec4(rgb*uBright*(1.0-gone),al*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
   vFillW=(uFillPart>0.5 ? step(abs(aInfo.x-uFillPart),0.5) : aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass (or one part), not in the holes
   gl_Position=vec4(s.x*2.0/uAsp,s.y*2.0,-p.z/3.0,1.0);   // nearer is smaller depth, for hiding the far side
 }`;
 const FS = `precision mediump float; varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
-uniform sampler2D uFillTex; uniform float uFillAmt, uCover;
+uniform sampler2D uFillTex; uniform float uFillAmt, uCover, uHolo, uScan;
 void main(){
   if(uCover>0.5){ gl_FragColor=vec4(vec3(step(0.001,vFillW)),1.0); return; }   // the silhouette, for masks
   float f=vSide==0.0 ? 1.0 : 1.0-vSide*vSide; vec3 c=vCol.rgb*f;
   if(vSide==0.0 && uFillAmt>0.0) c+=texture2D(uFillTex,vScr).rgb*uFillAmt*vFillW;   // a fill seen through the glass
+  if(uHolo>0.5) c*=0.6+0.4*step(0.5,fract(vScr.y*uScan));   // a hologram's scan lines
   gl_FragColor=vec4(c,vCol.a*f);
 }`;
 
@@ -135,7 +154,8 @@ export function meshGL(gl, mesh){
   // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
   return function draw(U, W, H, stage){
     gl.useProgram(p);
-    gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
+    const sty = U.style || 0; gl.uniform1f(u.uStyle, sty); gl.uniform1f(u.uHolo, sty === 3 ? 1 : 0); gl.uniform1f(u.uScan, H/5);
+    gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRoll, U.roll || 0); gl.uniform1f(u.uSq, U.sq || 0); gl.uniform1f(u.uLift, U.lift || 0); gl.uniform1f(u.uLiftPart, U.liftPart || 1); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
     gl.uniform2f(u.uPos, U.pos[0], U.pos[1]); gl.uniform3fv(u.uHinge, mesh.hinge); gl.uniform1f(u.uJaw, U.jaw);
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform3fv(u.uPal, U.pal || [0, .33, .67]);
@@ -153,10 +173,10 @@ export function meshGL(gl, mesh){
       gl.drawArrays(gl.TRIANGLES, 0, b.n);
     };
     if (stage === 'cover') pass('fill', 1);
-    else if (stage === 'trails') { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.trail); }
+    else if (stage === 'trails') { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pass(sty === 4 ? 'fill' : 'edge', U.trail*(sty === 4 ? 2 : sty === 3 ? .3 : 1)); }   // (points leave their dots; a hologram hardly any ghosts)
     else {
       gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE); pass('edge', U.xray);
+      gl.blendFunc(gl.ONE, gl.ONE); if (sty !== 2 && sty !== 4) pass('edge', U.xray);   // the far side (a hologram shows it clearly; an outline and points don't)
       gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);          // panes sit just behind their own edges
       // the fill, if it has one (otherwise the blank bound above)
@@ -165,7 +185,7 @@ export function meshGL(gl, mesh){
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); pass('fill', 1);
       gl.uniform1f(u.uFillAmt, 0);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
-      gl.blendFunc(gl.ONE, gl.ONE); pass('edge', 1);
+      gl.blendFunc(gl.ONE, gl.ONE); if (sty !== 4) pass('edge', 1);
       gl.depthMask(true); gl.disable(gl.DEPTH_TEST);
     }
     ATT.forEach((a, i) => gl.disableVertexAttribArray(i + 1)); gl.enableVertexAttribArray(0);
@@ -184,9 +204,11 @@ function project2d(o, panes, hinge, U){
   if (U.proj && U.proj.key === key) return U.proj.L;   // once a frame: a mask and the drawing share it
   // plain arithmetic, no arrays per vertex: this runs for every pane every frame
   const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), spi = Math.sin(U.pitch), cj = Math.cos(U.jaw), sj = Math.sin(U.jaw);
+  const co = Math.cos(U.roll || 0), so = Math.sin(U.roll || 0), sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, lift = U.lift || 0, lp = U.liftPart || 1;
   const [hx, hy, hz] = hinge || [0, 0, 0], Lt = U.light || {amt: 0}, lx = Lt.x || 0, ly = Lt.y || 0, ll = Math.hypot(lx, ly, .6);
   const out = [0, 0, 0];
   // a point after the hinge, the pane's own flight and spin (e), then the whole object's turn, into out
+  let lx0 = 0, ly0 = 0, lz0 = 0;   // this pane's lift, if its part is lifting off
   const place = (x, y, z, hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz) => {
     if (hinged) { const y0 = y - hy, z0 = z - hz; y = cj*y0 - sj*z0 + hy; z = sj*y0 + cj*z0 + hz; }
     if (e > 1e-5) {
@@ -195,8 +217,10 @@ function project2d(o, panes, hinge, U){
       const px3 = cb*px + sb*pz, pz3 = -sb*px + cb*pz; px = px3; pz = pz3;            // ry
       const k = 1 - .3*e; x = cx + px*k + dx; y = cy + py*k + dy; z = cz + pz*k + dz;
     }
+    x = (x + lx0)*sqx; y = (y + ly0)*sqy; z = (z + lz0)*sqx;                              // a lifted part, squash and stretch
     const x1 = cr*x + sr*z, z1 = -sr*x + cr*z;                                          // ry(rot)
-    out[0] = x1; out[1] = cp*y - spi*z1; out[2] = spi*y + cp*z1;                        // rx(pitch)
+    const y2 = cp*y - spi*z1; out[2] = spi*y + cp*z1;                                   // rx(pitch)
+    out[0] = co*x1 - so*y2; out[1] = so*x1 + co*y2;                                     // rz(roll)
   };
   const L = [];
   const mw = U.morph || 0;
@@ -214,13 +238,14 @@ function project2d(o, panes, hinge, U){
       const cl = Math.hypot(cx, cy, cz) || 1, ex = nx + cx/cl*.8, ey = ny + cy/cl*.8, ez = nz + cz/cl*.8, dl = Math.hypot(ex, ey, ez), f = e*.9/dl;
       dx = ex*f; dy = ey*f; dz = ez*f;
     }
+    if (lift > 0 && q.part === lp) { lx0 = 0; ly0 = .24*lift; lz0 = .1*lift; } else lx0 = ly0 = lz0 = 0;
     const s = [], v = q.v; let zs = 0;
     for (let i = 0; i < 3; i++) {
       place(v[i][0], v[i][1], v[i][2], q.hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz);
       const w = sc/(CAM - out[2]); zs += out[2];
       s.push([Wc/2 + U.pos[0]*Hc + out[0]*w, Hc/2 - U.pos[1]*Hc - out[1]*w]);
     }
-    const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1;   // the pane's facing
+    const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy0 = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1, nwy = so*nx1 + co*nwy0;   // the pane's facing
     L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt});
   }
   L.sort((a, b) => a.z - b.z);
@@ -238,19 +263,34 @@ export function meshDraw2d(o, panes, hinge, U){
   // glass first, back to front; then the edges, gathered by colour into a few paths (stroking panes one by one was the
   // cost). The far side's edges show faintly through the near glass, as WebGL's x-ray pass does
   o.globalCompositeOperation = 'source-over';
-  const edges = new Map(), lh = ((U.hue + (U.light ? U.light.hue : 0)) % 1 + 1) % 1*360;
+  const edges = new Map(), lh = ((U.hue + (U.light ? U.light.hue : 0)) % 1 + 1) % 1*360, sty = U.style || 0;
+  if (sty === 4) {   // points: a glowing dot at each pane's centre, no glass and no edges
+    o.globalCompositeOperation = 'lighter';
+    const r = Math.max(1.2, Hc*.0035);
+    for (const {q, s, face} of L) { const h = U.hue + U.partHue + ph(q.part), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
+      o.fillStyle = hsl(h, 60 + 25*spark, Math.min(1, (.35 + .5*face + U.glow*.4 + spark)*U.w)); o.fillRect((s[0][0] + s[1][0] + s[2][0])/3 - r/2, (s[0][1] + s[1][1] + s[2][1])/3 - r/2, r, r); }
+    o.globalCompositeOperation = 'source-over'; return;
+  }
   for (const {q, s, face, lit} of L) {
     const sweep = U.sweepAmt*Math.exp(-(((q.c[1] - (.55 - U.sweep*1.1))*7)**2)), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
     const hole = q.part >= 7, h = hole ? U.hue + U.partHue + pal[2] + .5 : U.hue + U.partHue + ph(q.part), w = U.w;   // eye sockets and nose: dark holes
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
     const back = face < .45 && !sweep && !spark;   // the far side: edges only (the near glass covers it)
-    if (!back) {   // one fill: the dark glass over what's behind, with its own glow and the world's light mixed in
+    const rim = 1 - Math.min(1, Math.max(0, (Math.abs(face - .5)*2 - .1)/.3));   // (an outline's rim: panes turned side-on)
+    if (sty === 1 && !back && !hole) {   // solid: lit facets
+      const lam = .3 + .7*Math.max(0, face*1.2 - .2) + lit*.3, c = hsvRgb(h, .6, Math.min(1, lam*(.55 + .45*U.glow + .3)*w)).map(x => Math.round(x*255));
+      o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); o.fillStyle = `rgb(${c})`; o.fill();
+    } else if (sty === 2 && !back) {   // outline: black
+      o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); o.fillStyle = '#000'; o.fill();
+    } else if (sty === 3) {}   // hologram: no glass
+    else if (!back) {   // one fill: the dark glass over what's behind, with its own glow and the world's light mixed in
       const d = Math.max(.05, U.dark*w), g = hsvRgb(h, .55, Math.min(1, fa*w*.5)), l = hole ? [0, 0, 0] : hsvRgb(lh/360, U.light ? U.light.sat : 0, lit*.3*w);
       const c = k => Math.min(255, Math.round((g[k] + l[k])/d*255));
       o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath();
       o.fillStyle = `rgba(${c(0)},${c(1)},${c(2)},${d.toFixed(3)})`; o.fill();
     }
-    const a = ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)*(back ? .6 : 1);
+    let a = ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)*(back ? .6 : 1);
+    if (sty === 1) a *= .15; else if (sty === 2) a = back ? 0 : a*rim*2.2; else if (sty === 3) a *= back ? 1.4 : 1.2;
     if (a < .01) continue;
     const hk = Math.round((((h % 1) + 1) % 1)*72), lk = Math.round((55 + 30*Math.min(1, sweep + spark))/5)*5, ak = Math.min(25, Math.round(a*25));
     const key = hk*10000 + lk*100 + ak;

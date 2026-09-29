@@ -12,6 +12,7 @@ import { progress } from './progression.js';
 import { MOTION, recipeMods, setLens } from './recipes.js';
 import { energyLevel, energySpan, enterType, fdist, features, matchType, newSection, newType, recipeSeeds, relFeat, resetProgress, stillness } from './sections.js';
 import { chooseWorld } from './worlds.js';
+import { STEER } from './steer.js';
 import { eff } from '../presets.js';
 import { toast } from '../ui/toast.js';
 import { $, jn, reduceMotion } from '../util.js';
@@ -62,7 +63,7 @@ export function stepJourney(now, dt){
   const wasHold = J.novHold;
   J.novHold = J.type && J.nov > Math.max(TUNE.novelty*(1 - .5*still), J.novAvg*(TUNE.noveltyVsAvg - .5*still)) ? (J.novHold || 0) + dt : 0;
   if (!wasHold && J.novHold) J.novBar = J.bar + (J.pos >= 2 ? 1 : 0);   // the downbeat nearest to where the change began   // the change has to last, not just be a blip
-  if (!J.pending && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }
+  if (!J.pending && !STEER.hold && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }   // (held by hand: no new sections)
   if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
   // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
   if (J.type && (J.identified < 1 && J.secAge > 6 || J.identified < 2 && J.secAge > 14)) {
@@ -81,7 +82,9 @@ export function stepJourney(now, dt){
   // worlds get a turn and then rest, so no scene lasts forever even in a one-section track
   J.worldTime = (J.worldTime || 0) + dt;
   const wLimit = J.world === 'none' ? TUNE.worldRestSecs : TUNE.worldSecs;
-  if (J.worldTime > wLimit && (J.phraseNow || J.worldTime > wLimit + TUNE.worldWaitSecs)) {   // wait for a phrase line (or give up if no beat comes)
+  const worldPinned = WORLDS.some(k => STEER.pin[k]);   // a pinned world never rests, and holding keeps the world as it is
+  if (worldPinned && J.world === 'none') chooseWorld(true);
+  if (!worldPinned && !STEER.hold && J.worldTime > wLimit && (J.phraseNow || J.worldTime > wLimit + TUNE.worldWaitSecs)) {   // wait for a phrase line (or give up if no beat comes)
     if (J.world === 'none') chooseWorld(true); else { J.world = 'none'; J.worldTime = 0; }
     J.recast = 'keep'; J.style = 'fade';
   }
@@ -99,7 +102,7 @@ export function stepJourney(now, dt){
   // fatigue: builds while an element is on screen, recovers while it rests
   ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/TUNE.fatigueRecoverSecs) + dt*Math.min(1, jState[k])/TUNE.fatigueBuildSecs);
   J.stillT = (J.stillT || 0) + dt; J.progT = (J.progT || 0) + dt;
-  if (J.type && now - lastBeat > TUNE.noKickMs && J.progT > TUNE.progressNoKickSecs/J.speed) progress();   // no kick to count: go by time
+  if (J.type && !STEER.hold && now - lastBeat > TUNE.noKickMs && J.progT > TUNE.progressNoKickSecs/J.speed) progress();   // no kick to count: go by time
   if (!J.lead || J.recast) recast(J.recast === 'fresh');
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
@@ -180,6 +183,7 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k)) ? swap : rate);
   }
+  jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
   if (snapped) { J.cutSince = 0; S.beat = Math.max(S.beat, reduceMotion ? .5 : 1); if (cleared) J.wipe = 1; }

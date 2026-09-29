@@ -13,6 +13,7 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder);
   - `blender-object`: model an object in Blender (or take the user's .glb) and bring it in, with a shape key it plays on the beat.
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
+- **Voice:** an experiment, set aside by the user: the page Afterglow Voice (https://claude.ai/artifact/HBgUQnbG3XJEeNQ22XKgGi, `tools/voice/afterglow-voice.html`) reads aloud whatever is in its database document `voice/latest`. Pages can't use the microphone, so it never became a spoken back-and-forth. Don't write to it unless asked.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
 ## Layout
@@ -28,13 +29,13 @@ src/util.js                $, maths, colour (hc, hsv2rgb), noise
 src/visuals/registry.js    lists every world, hit, layer and object; everything else is built from it
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
 src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes), quality.js (resolution that follows the frame rate)
-src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, director (stepJourney, __jdbg)
+src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, steer (pins, bans, hold), director (stepJourney, __jdbg)
 src/audio/                 player, analysis (levels, onsets), listen (texture: hats, noise, bass, filter, notes, width, bar memory), synth (built-in beat), beatgrid (tempo, the low end's pulse, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
-src/scene/                 signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
+src/scene/                 dance.js (the choreographer: every layer and object dances), signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
-tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, visuals, journey, quality, cosmos, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, visuals, journey, quality, cosmos, dance, steer, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
@@ -77,7 +78,7 @@ docs/audit-speed.md        the 2026-09 speed audit: what was found, done, and le
 | Kind | What it is | Modules | How it arrives |
 |---|---|---|---|
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos), `sea` (the night sea), `deep` (underwater), `dunes`, `forest` (the glowing wood) (plus none/black) | Fade, or cut on the bar |
-| **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther), `fireflies` (soft out-of-focus lights drifting on the wind, blinking livelier with the hi-hats), `stargate` (hexagon rings rushing out of the centre, one a beat, faster as the tension builds), `vectorscope` (the left channel against the right, from `scopeLR` in `state.js`: mono stands upright, wide sound opens out), `mandala` (the flower of life drawing itself arc by arc over each four-bar phrase, turning a notch each bar), `mood` (the mood ring: a halo round the subject in its own colour, not the palette's: the key round the circle of fifths sets the hue, tone against noise the richness, fullness the brightness, shifting over several seconds), `rain` (slanted streaks, heavier with the hi-hats and the noise, blown by the wind, splashing on the kick), `constellation` (stars joined one line a beat into a figure, a new figure every few bars) | Fade, or cut on the bar |
+| **Layers** | Continuous glowing effects in the trails (feedback pass); every one dances (see Dance) | `ring`, `scope`, `plasma`, `burst`, `comets` (they trace shapes: roses, Lissajous knots, stars, spirals), `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther), `fireflies` (soft out-of-focus lights drifting on the wind, blinking livelier with the hi-hats), `stargate` (hexagon rings rushing out of the centre, one a beat, faster as the tension builds), `vectorscope` (the left channel against the right, from `scopeLR` in `state.js`: mono stands upright, wide sound opens out), `mandala` (the flower of life drawing itself arc by arc over each four-bar phrase, turning a notch each bar), `mood` (the mood ring: a halo round the subject in its own colour, not the palette's: the key round the circle of fifths sets the hue, tone against noise the richness, fullness the brightness, shifting over several seconds), `rain` (slanted streaks, heavier with the hi-hats and the noise, blown by the wind, splashing on the kick), `constellation` (stars joined one line a beat into a figure, a new figure every few bars) | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails), `lightning` (a forked bolt on stabs, lighting everything an instant), `glitch` (the finished picture slices sideways and its colours split, always on a drop, and on some downbeats; it draws nothing itself, the finish moves the picture) | Snap in, then snap or flicker out |
 | **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes`, and `manta` (a Blender model whose wings beat with the bar) | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
@@ -137,6 +138,31 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Presets** (`BASE`, 41 of them: 28 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets, "Lasers", "Pleasures", one for each new world and layer: "Moonlit sea", "Deep water", "Desert night", "Glowing wood", "Night rain", "Star map" and more), and 13 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone, and "Manta").
 - **Each layer's own speed, size and sound** (`scene/tweaks.js`, `S.active.tw[key] = {speed, size, src}`): a row under a layer's slider while it's on, or the keys (← → speed, Shift+← → size, B what it follows). Kept on the preset, carried into Journey (which never writes them), snapshots and likes. Speed is the layer's own clock (`TW[key].off`, motion seconds ahead: its `params` get `x.t` shifted, the ribbons', horizon's, comets' and flow's steps are scaled, and in WebGL its code's `uTime` reads `uTw_<key>.x`); size scales its coordinates round the centre (`uSz_<key>`; simple mode scales the canvas); the sound replaces its bass, mids and treble with one signal (`uTw_<key>.yzw`, and a copy of `P` in simple mode). `compose.js` rewrites each layer's code for this; untweaked it reads exactly the shared values. The ring, scope and burst have no clock (`tweaks: ['size', 'src']`).
 
+## Dance: every layer and object moves to the music
+
+The user found the layers "repeating the same patterns again and again" and the skull "always doing the same thing" (turning, jaw on every pulse, shattering and coming back), and asked for them to improvise and dance. `src/scene/dance.js` (a leaf module; tuning in `TUNE.dance`) is a choreographer:
+- **Dancers:** every layer and object on screen (`stepDance`, each frame from `main.js`; `danceBeat`, each beat from the beat grid). It keeps its own random numbers, so Journey's draws are untouched.
+- **Moves.**
+  - **Layers** (`LAYER_MOVES`): still, sway, bounce, orbit, snap turns, figure-eight, breathe, spin, push (growing through a build), shake with the hats.
+  - **Objects** (`OBJ_MOVES`): still, head bang, groove (a bounce with squash and stretch), sway (a lean), face (snap turns by the object's own symmetry), look (glances on the offbeats), lunge, shiver, float, spin, lift (one part lifting off and coming back).
+- **Choosing.** Each move is scored for calm, intense and breakdown music, and a dancer may change its move every `barsPerMove` bars or at a new section:
+  - it avoids repeating itself;
+  - an object's character weights the moves;
+  - a section remembers its dancers' moves and brings them back when it returns (`remember`), so a returning part dances the same way with variations.
+  - Moves grow with the energy, a breakdown stills them, and a drop sends everyone into a spin burst.
+  - The second layer answers the first (mirrored).
+- **Weight.** Moves set targets for springs (`stiff`, in small sub-steps), so poses overshoot and settle.
+- **Layers in the renderers.** Each layer's coordinates are turned, shifted and scaled round the trails' centre: `uDn_<key>` (turn, x, y) and `uSz_<key>` (its size times the dance's scale), through `dnT()` in `compose.js`. In simple mode it's `dance2d` in `canvas2d.js`.
+- **The comets trace shapes** (`DANCE.comets`, `cometTarget()`): free roaming, a rose (k petals), a Lissajous knot, a star polygon, a spiral (on a drop, bursting outwards), a chase round a loop, a braid.
+  - They fly into a shape over `shapeIn` and travel half of it a bar (`cometTurns`), so their trails draw the figure, then move on to another every few bars.
+  - `effects.js` steers them there and lets them roam free again.
+- **Objects** (`DANCE.obj[key]` in `mesh-object.js`): the dance's yaw, nod, roll, step, size, squash and lift are added on top of each object's own motion (the manta keeps its wingbeat). The steady spin is slower (`1 - .6×amount`). Each object has a character (`dance` on `meshObject`):
+  - the **skull** head-bangs, glances and lunges, and its cranium lifts off;
+  - the **unicorn** prances and its horn lifts;
+  - the **manta** banks, floats and barrel-rolls;
+  - the **maths shapes** snap round their own symmetry (fifths for the dodecahedron and sphere, quarters for the torus, thirds for the knot, sixths for the star).
+- **Hooks for tests and labs:** `danceShape(shape)` holds the comets in a shape, `danceMove(key, move)` a dancer in a move (`'o:' + key` for an object). `TUNE.dance.amount` 0 stills everything.
+
 ## The panel: what's on screen, presets, Solo and Journey
 
 The user found this confusing, so the panel says it plainly:
@@ -145,13 +171,27 @@ The user found this confusing, so the panel says it plainly:
 - **Journey** doesn't play presets whole: it reads them as recipes (see below) and composes each section from roles, writing the sliders itself (they're greyed while it does).
 - **On screen** (`showNow` in `ui/panel.js`, twice a second from `main.js`): the top of the panel names what's drawn (worlds, layers, hits, objects, a kaleidoscope) and what set it (Journey's recipe, or the preset). A dot marks those sliders' rows.
 - **👍 / 👎** in the bottom bar (or + and −; `ui/taste.js`) save the moment: the cast, the music, the caption and, in the cosmos, the place (system, star, subject, shot), every non-zero setting, and a thumbnail taken at the end of the next drawn frame (`tasteFrame`). On the published page they go to the Artifact's database (collection `moments`, the `db` capability); anywhere else, to `localStorage` (`afterglow.moments`, the last 300).
-- **The keyboard** (`ui/keys.js`, rebuilt from first principles after keys had piled up in several places). A letter picks a group and number keys work inside it: **L** layers (1–9 toggle, Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations; ← → the last one's speed, Shift+← → its size, B what it follows), **W** worlds (one at a time), **E** hits (toggle), **O** objects (one at a time), **K** the kaleidoscope (2–9 mirrors; E everything, B the world, G the glow, I inside the object; ← → turning), **Shift+K** the glow's own folds (2–9, M mirror trails), **S** scene templates (composed from what's on screen, `compose()` in `ui/scene.js`), **C** the cosmos camera (`flyKey()` in `ui/fly.js`: its shots and its own letters). In a group: 0 all off, Shift+number solo, ↑ ↓ the last one touched, Esc leaves (so does `TUNE.keys.idleSecs` untouched, 20 s). In a group ← → never fall through to the next preset (which changes the whole look, world and all: the user found layer changes "changing the world"); outside one they do, and say which preset. A strip at the bottom (`#keyHud`) shows the group's list with its keys and a dot on what's on; **?** opens every key (`#keyHelp`). A change while Journey runs freezes it first (a snapshot), and **A** hands back to Journey, which carries on from the look as set. **[ ]** calmer or more intense (`J.bias`), **, .** evolve slower or faster (`J.speed`). The single keys (Space, ← →, R, A, N, X, H, F, P) stay in `ui/controls.js`, + − in `ui/taste.js`.
+- **The keyboard** (`ui/keys.js`, rebuilt from first principles after keys had piled up in several places). A letter picks a group and number keys work inside it: **L** layers (1–9 toggle, Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations; ← → the last one's speed, Shift+← → its size, B what it follows), **W** worlds (one at a time), **E** hits (toggle), **O** objects (one at a time; Y their style), **K** the kaleidoscope (2–9 mirrors; E everything, B the world, G the glow, I inside the object; ← → turning), **Shift+K** the glow's own folds (2–9, M mirror trails), **S** scene templates (composed from what's on screen, `compose()` in `ui/scene.js`), **C** the cosmos camera (`flyKey()` in `ui/fly.js`: its shots and its own letters). In a group: 0 all off, Shift+number solo, ↑ ↓ the last one touched, Esc leaves (so does `TUNE.keys.idleSecs` untouched, 20 s). In a group ← → never fall through to the next preset (which changes the whole look, world and all: the user found layer changes "changing the world"); outside one they do, and say which preset. A strip at the bottom (`#keyHud`) shows the group's list with its keys and a dot on what's on; **?** opens every key (`#keyHelp`). **While Journey runs, a group's numbers steer it instead** (`journey/steer.js`, see Steering Journey below): keep, never, free again; **0** clears the group; **;** holds the look. Shift+number (solo), ↑ ↓ and the Adjust panel still take over by hand, freezing Journey first (a snapshot), and **A** hands back to Journey, which carries on from the look as set. **[ ]** calmer or more intense (`J.bias`), **, .** evolve slower or faster (`J.speed`). The single keys (Space, ← →, R, A, N, X, H, F, P) stay in `ui/controls.js`, + − in `ui/taste.js`.
 - **The tutorial** (`ui/tutorial.js`, **T**, or the welcome screen's button): a card at the top with one thing to try at a time, through the keyboard (Journey off, a group and its numbers, ↑ ↓, a world, scenes, an object, the kaleidoscope, solo, a like, handing back, steering, the cosmos camera). It watches the state and moves on by itself once a step is done (a tick first; it counts its own quarter-second checks, so the tests' fake clock doesn't stall it), or Back, Skip and ✕. Likes announce themselves to it (`afterglow-like`).
 - **Liked looks come back** (`ui/taste.js`). A 👍 also keeps the whole look (`look`: every setting as drawn, its movers, its scene, its template and centrepiece) and a short name. The Adjust panel's **Liked** gallery shows them newest first (live from the database, or this browser's): tap one to bring it back exactly (Journey off, at once), ✎ renames, ✕ twice removes. And Journey reads them as recipes (`LIKED` in `presets.js`, favoured by `TUNE.liked.recipe`), bringing the liked template (`liked.scene`) and centrepiece (`liked.centre`) along when the music suits it: a like steers Journey straight away, besides the `taste-review` skill's slower reading of them all.
 - **Adjust freezes.** Opening the Adjust panel during Journey turns Journey off, as below: the user's way of working is Journey, Adjust to freeze a moment and refine it (and 👍 it), then Journey again to carry on.
 - **Journey back on carries on from there** (`J.handoff`, `TUNE.handoffSecs`): it holds the hand-made look (its settings, movers and scene) until the music moves it on (a new section, a drop, a progression step, or a phrase line after `handoffSecs`), then fades to its own, instead of jumping there at once.
 - **Journey off** (A, or the Journey button) keeps what's on screen as a "Snapshot" preset: the sliders as they're drawn at that moment (not Journey's targets, which it was still easing to), its movers and its scene. What still moves is what moves by hand too: the movers, the cosmos's camera flying with the music, and motion at full pace.
 - **Solo** on any picture's slider (`solo()` in `ui/presets.js`) shows that one thing alone: Journey off, every other visual at 0 at once (not faded), no lens, movers or scene.
+
+## Steering Journey
+
+The user asked to direct Journey without stopping it ("point it in directions, add, remove as it goes"). `src/journey/steer.js` holds `STEER`: pinned keys, banned keys, and `hold`.
+- **From the keyboard** (`ui/keys.js`, only while Journey runs): in L, W, E, O or S a number cycles its item through keep (pinned), never (banned) and free. The strip marks each: "keep" underlined, never struck through. 0 clears the group's steering. **;** holds, and **R** (`nudge`) moves on. The panel says what's steering (`#jSteer`).
+- **The casting honours it:**
+  - **Layers:** a pinned layer scores +6 in `scoreElems`, so it's the lead, or the accent when two are pinned. A banned one scores −99.
+  - **Hits and worlds:** a pinned hit or world wins its choice (`chooseHit`, `chooseWorld`), a banned one never comes in, and a pinned world never rests.
+  - **Objects:** a pinned object is every section's centrepiece (`chooseCentre`); a banned one never is.
+  - **Scenes:** a pinned template wins whenever it fits the cast (`pickTemplate`); a banned one is skipped.
+  - **Returning sections:** a remembered cast that breaks the steering is recast.
+- **Applied at once:** a change goes in straight away (`applySteer` in `cast.js`). A pinned layer takes the lead (or the accent), a banned one leaves its role, and a pinned world, hit, object or scene comes in.
+- **Hold:** no new sections, no progression steps and no world rests. The motion, the dance and the music's moment-to-moment reactions carry on.
+- **Scope:** steering lasts for the visit, and applies again when Journey is switched back on.
 
 ## The kaleidoscope
 
@@ -396,6 +436,8 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **Data.** A mesh is `{pieces: [{pos, tri, part, hinge?, morph?}], hinge}`. `panesOf()` turns it into panes, each with its corners, centre, normal, part, piece and a fixed random seed; with a `morph` (each vertex's move to another pose: a Blender shape key), also how its corners, centre and normal move there.
 - **Per-pane motion.** It's worked out in the vertex shader, and again in JavaScript for simple mode:
   - a hinged piece rotates about `hinge` (the jaw);
+  - the dance's roll (`U.roll`), squash and stretch (`U.sq`) and one part lifting off whole (`U.lift`, `U.liftPart`);
+  - its **style** (`U.style`, the `objStyle` setting: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points, detailed below);
   - a morph is played by a weight (`U.morph`, -1..1, the pose both ways: the manta's wingbeat);
   - panes fly out along their normals, spinning about their own centres (`ex`);
   - panes vanish by seed (`gone`);
@@ -406,6 +448,14 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - On screen it's three passes: the far side's edges faintly (`xray`), then the panes (depth-tested, darkening what's behind them), then the near edges.
   - Into the trails it draws edges only (`trail`). The trail buffers have no depth.
 - **Simple mode.** The glass is painted back to front, one fill per near pane (dark glass, its glow and the world's light in one colour); then the edges are gathered by colour into a few paths and stroked, the far side's dimmer, like WebGL's x-ray. The projection is plain arithmetic, done once a frame and shared by a mask and the drawing.
+- **Styles** (`objStyle`, in the settings' "Objects" group, O then Y by hand):
+  - **glass wire:** as above;
+  - **solid:** lit facets, with faint edges;
+  - **outline:** a black silhouette whose rim glows where the surface turns away;
+  - **hologram:** see-through and tinted, bright edges with the far side showing, scan lines, few ghosts;
+  - **points:** each pane shrunk to a glowing dot, which leaves dots in the trails.
+
+  Journey picks one per centrepiece (`chooseStyle` in `cast.js`, weighted calm to intense by `TUNE.objStyles`: glass and holograms for calm, solid, outlines and points for intense) and remembers it with the section's cast. Simple mode draws them all, plainer (no scan lines).
 - **Setup.** The main canvas asks for a depth buffer for this.
 
 **Generated meshes** live in `src/visuals/objects/meshes/*.js` and aren't edited by hand. `npm run mesh` runs `tools/skull-mesh.mjs` and `tools/unicorn-mesh.mjs`, which share `tools/mesh-kit.mjs`. The skull tool:
@@ -444,12 +494,12 @@ Every pane faces away from its own inside point: the centre, or for the tube sha
 
 **What every mesh object does** (the skull's behaviour, now shared):
 - **Music:**
-  - it turns at motion time (`spin`);
-  - its hinged piece (the jaw, the head) swings on the pulse;
+  - it dances (see Dance), over a slow turn at motion time (`spin`);
+  - its hinged piece (the jaw, the head) sings with the mids (and still dips a little on the pulse);
   - a band of light runs down it each downbeat;
   - a scatter of panes flashes on stabs, and the parts' colours move round the wheel.
 - **Arriving and leaving.** It arrives by assembling out of flying panes. When it leaves, its panes wink out.
-- **Shattering.** It shatters on a drop, a new section or a progression step (every 8 bars when playing by hand), then pulls back together over `explodeSecs`. `breakApart()` does it on demand.
+- **Shattering.** It shatters on a drop (every 16 bars when playing by hand), then pulls back together over `explodeSecs`; the rest of the time it dances. `breakApart()` does it on demand.
 - **Journey.** Any object can be a section's optional **centrepiece** (`J.centre`, chosen in `recast` and remembered with the cast):
   - the lead steps back to 70%;
   - there's never a lens over it;
@@ -526,7 +576,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
 
   And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
-- `tests/objects.mjs`: every mesh object draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
+- `tests/objects.mjs`: every mesh object draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, each style draws the skull differently, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;
@@ -552,6 +602,8 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
     - there are no page errors.
 
   `COSMOS_MODES=` runs just the camera's logic.
+- `tests/dance.mjs`: the choreographer changes a layer's move over the bars and moves an object; a breakdown mostly stills them; the comets follow the shape they're given; in both renderers a layer's dance moves its picture and an object's lift moves a part.
+- `tests/steer.mjs`: over 150 sections a pinned layer, world and object are always cast and banned ones never; two pinned layers take the lead and the accent; a pinned scene is used whenever it fits; hold stops sections and progression; the group keys steer without freezing Journey.
 - `tests/journey.mjs`: over 400 simulated sections (3 in 8 starting in a world's rest, as in a set, so the recipes made for the black get their turn):
   - every world, hit and scene template is chosen;
   - nearly every recipe is;

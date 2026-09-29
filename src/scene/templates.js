@@ -2,8 +2,9 @@
 // Each says what it needs, what music suits it, and how to narrate it. Journey scores them like its other choices
 // (base weight, the music, fatigue, a little chance) and keeps "few things at once": a template adds relations between
 // the things already on screen, never more things. Each ends with the objects no entry places, so an outgoing centrepiece
-// still winks out, and an incoming one assembles, while the scene waits for its bar line. A leaf module (it reads TUNE only).
+// still winks out, and an incoming one assembles, while the scene waits for its bar line. A leaf module (it reads TUNE, and the steering).
 import { TUNE } from '../tuning.js';
+import { STEER } from '../journey/steer.js';   // (pinned and banned templates)
 
 const FOLDED = ['plasma', 'ring', 'burst', 'scope'];   // layers drawn inside the kaleidoscope fold, which fill glass well
 const FRONT = {city: 'near buildings', land: 'nearest ridge', aurora: 'treeline', space: 'planet', cosmos: 'planets'};
@@ -50,9 +51,11 @@ export function pickTemplate(c, rf, T, fat, fresh, avoid, prefer){
   let best = null, bv = -1e9;
   for (const t of TEMPLATES) {
     if (!fits(t, c)) continue;
+    if (STEER.ban[t.key]) continue;   // steered by hand (journey/steer.js)
     let v = (TUNE.sceneTemplates[t.key] || 0) + t.suits(rf, T) - (fat[t.key] || 0)*TUNE.sceneFatigueWeight + (fresh ? (Math.random() - .5)*.6 : 0);
     if (t.key === avoid) v -= 1;
     if (t.key === prefer) v += TUNE.liked.scene;   // a liked look's own scene
+    if (STEER.pin[t.key]) v += 99;
     if (v > bv) { bv = v; best = t; }
   }
   return best || TEMPLATES[0];

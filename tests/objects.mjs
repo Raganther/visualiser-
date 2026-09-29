@@ -1,5 +1,5 @@
 // Objects test: every mesh object (the wire skull, the unicorn, the maths shapes, the manta) draws and shatters in both
-// renderers, and a model with a shape key (the manta) plays it with the beat;
+// renderers, a model with a shape key (the manta) plays it with the beat, and each style draws differently;
 // with ?lab=skull, Journey casts the skull as a centrepiece (never under a lens). Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
@@ -31,9 +31,17 @@ for (const mode of ['2d', 'gl']) {
       set(v.key, 0); __step(40);
       out[v.key] = {on, apart, flap};
     }
+    // the skull in each style (render/mesh.js): solid, outline, hologram and points each draw it differently from glass wire
+    set('skull', 1); const styles = [];
+    for (let n = 0; n < 5; n++) { set('objStyle', n); __step(${mode === 'gl' ? 30 : 45}); styles.push(${THUMB}); }
+    set('objStyle', 0); set('skull', 0); __step(40);
+    out.styles = styles;
     return {off, out};
   })()`);
   let errors = await page.errors(); await page.close();
+  const st = res.out.styles; delete res.out.styles;
+  const sd = st.slice(1).map(x => diff(st[0], x)), sok = sd.every(d => d > .3) && !errors.length; if (!sok) failed = true;
+  console.log(`${mode}: ${sok ? 'ok' : 'FAILED'}  each style draws the skull its own way (solid, outline, hologram, points against glass: ${sd.map(d => d.toFixed(1)).join(', ')})`);
   for (const [k, {on, apart, flap}] of Object.entries(res.out)) {
     const shown = diff(res.off, on), broke = diff(on, apart), flaps = !flap || (flap[0] < -.3 && flap[1] > .3);
     const ok = shown > .6 && broke > .5 && flaps && !errors.length;   // few-edged shapes (the dodecahedron) change the least

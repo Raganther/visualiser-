@@ -8,7 +8,7 @@ export { ELEMS, HITS, SUITS, WORLDS };
 export const worldOn = () => J.world !== 'none' && !!J.world;
 // everything that switches in and out, so it can either fade or cut in on the bar line
 export const TKEYS = [...ELEMS, ...WORLDS, 'sym', 'mirror', ...OPT_IN];
-export const SNAP = new Set([...TKEYS, ...HITS]);
+export const SNAP = new Set([...TKEYS, ...HITS, 'objStyle']);   // (and the objects' style: a switch, never a blend)
 // the music's fingerprint: kicks, stabs, brightness, bass, mids, loudness, and (audio/listen.js) the hi-hats and noise against tone,
 // which tell compressed techno's parts apart where its loudness doesn't
 export const FEATS = ['perc','busy','bright','low','mid','lvl','hat','noise'];

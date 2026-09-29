@@ -2,6 +2,7 @@
 // and moves on by itself once you've done it (a tick first), or you step with its buttons. It walks through the keyboard
 // (ui/keys.js): stopping Journey, the groups and their numbers, a scene, the objects, the kaleidoscope, a like, handing back
 // to Journey and steering it, and flying the cosmos. Nothing it asks is kept apart from what you do.
+import { STEER } from '../journey/steer.js';
 import { S } from '../state.js';
 import { J } from '../journey/core.js';
 import { curP } from '../presets.js';
@@ -38,6 +39,8 @@ const STEPS = [
   {say: `${k('A')} hands back to Journey. It carries on from your look, then moves on when the music does.`, done: () => J.on},
   {say: `Steer Journey without stopping it: ${k('[')} calmer, ${k(']')} more intense, ${k(',')} ${k('.')} evolve slower or faster, ${k('R')} somewhere new.`,
     start: () => ({b: J.bias, s: J.speed}), done: s => J.bias !== s.b || J.speed !== s.s},
+  {say: `While Journey runs, a group's numbers steer it: ${k('L')} then a number keeps that layer (Journey builds round it), again never uses it, again frees it. ${k(';')} holds the look.`,
+    done: () => STEER.hold || Object.keys(STEER.pin).length + Object.keys(STEER.ban).length > 0},
   {say: `The cosmos is a place to fly: ${k('W')} ${k('5')} puts it on, then ${k('C')} and a key: ${k('5')} an eclipse, ${k('L')} land, ${k('J')} jump to another star.`,
     done: () => curP.cosmos > .3 && keyMode() === 'c'},
   {say: `That's the lot. ${k('?')} shows every key any time, ${k('Esc')} leaves a group, and ${k('T')} starts this again. Enjoy.`, last: true},

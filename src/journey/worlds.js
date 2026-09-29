@@ -3,6 +3,7 @@ import { FEATS, J, WORLDS } from './core.js';
 import { WORLD_VISUALS } from '../visuals/registry.js';
 import { relFeat } from './sections.js';
 import { TUNE } from '../tuning.js';
+import { STEER } from './steer.js';
 
 // each section can open into a world: calm, melodic, kickless parts suit the landscape or the aurora;
 // bright, intense parts suit space; steady driving parts suit the city
@@ -16,5 +17,6 @@ export function chooseWorld(random){
   for (const v of WORLD_VISUALS) if (!v.optIn) sc[v.key] = v.suits(rf, T) + ty.worldBias[v.key] + (random ? Math.random()*.4 : 0);
   // tired worlds (and a long black) step back, so a steady track doesn't get the same world turn after turn
   for (const k in sc) sc[k] -= (J.wFat[k] || 0)*TUNE.worldFatigueWeight;
+  for (const k in sc) sc[k] += (STEER.pin[k] ? 99 : 0) - (STEER.ban[k] ? 99 : 0);   // steered by hand (journey/steer.js)
   J.world = Object.keys(sc).sort((a, b) => sc[b] - sc[a])[0]; J.worldTime = 0;
 }
