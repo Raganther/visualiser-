@@ -27,7 +27,7 @@ let cache = new Map();
 async function runs(browser, settings, scene, frames){
   const key = JSON.stringify([settings, scene, frames]);
   if (cache.has(key)) return cache.get(key);
-  const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0&tune=render.bloom=0&tune=dance.amount=0'});   // the glow and the dance off: this is about what covers what
+  const page = await openPage(browser, url, {groove: false, query: '?tune=mesh.spin=0&tune=render.bloom=0&tune=dance.barsPerMove=999'});   // the glow off: this is about what covers what
   const t = await page.evaluate(`(async () => {
     const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {setJourney} = await import('/src/ui/controls.js');
     setJourney(false);
@@ -36,6 +36,7 @@ async function runs(browser, settings, scene, frames){
     set('sym', 1); S.active.mods = {};
     for (const [k, v] of Object.entries(${JSON.stringify(settings)})) set(k, v);
     S.scene = ${JSON.stringify(scene)};
+    (await import('/src/scene/dance.js')).danceShape('lissa');   // (the comets held in a shape that crosses the near buildings' band)
     const out = []; let done = 0;
     for (const f of ${JSON.stringify(frames)}) { __step(f - done); done = f; out.push(${THUMB}); }
     return out;
@@ -48,7 +49,7 @@ async function runs(browser, settings, scene, frames){
 const run = async (browser, settings, scene, f) => (await runs(browser, settings, scene, [f]))[0];
 const sum = (a, b, idx) => a.reduce((s, t, i) => s + diff(t, b[i], idx), 0);
 
-for (const mode of ['2d', 'gl']) {
+for (const mode of (process.env.MODES || '2d,gl').split(',')) {
   const browser = await launch(mode), n = mode === 'gl' ? 90 : 200, F = mode === 'gl' ? [150, 210] : [300, 420, 540, 660];
   cache = new Map();
   // fill: the skull's glass holds a kaleidoscope of the folded layers
