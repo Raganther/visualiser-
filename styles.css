@@ -132,6 +132,9 @@ body.idle,body.clean{cursor:none}
 #keyHud span{color:var(--dim);white-space:nowrap}
 #keyHud span.on{color:var(--ink)}
 #keyHud span.on::after{content:' ●';color:var(--accent)}
+#keyHud span.pin{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+#keyHud span.pin::before{content:'keep ';color:var(--accent);font-size:11px}
+#keyHud span.ban{opacity:.45;text-decoration:line-through}
 #keyHud kbd,#keyHelp kbd{font:inherit;font-size:11px;border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-right:2px}
 #keyHud i{flex-basis:100%;text-align:center;font-style:normal;font-size:11px;color:var(--dim)}
 #keyHelp{position:fixed;top:5vh;left:50%;transform:translateX(-50%);width:min(94vw,760px);max-height:86vh;overflow:auto;padding:16px 20px;border-radius:12px;background:rgba(0,0,0,.85);border:1px solid var(--line);font-size:13px;z-index:8}

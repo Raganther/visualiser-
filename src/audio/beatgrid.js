@@ -10,6 +10,7 @@ import { HIT_VISUALS, VISUALS } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { L, listenBar } from './listen.js';
 import { danceBeat } from '../scene/dance.js';
+import { STEER } from '../journey/steer.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -35,7 +36,7 @@ function gridBeat(pos){
   J.progBeats++;
   // (sooner when the same loop has run a long while: audio/listen.js)
   const pb = Math.max(16, Math.round(TUNE.progressBeats/J.speed/16)*16)*(L.loop >= TUNE.listen.loopBars ? .5 : 1);
-  if (phrase && J.type && J.progBeats >= pb) progress();
+  if (phrase && J.type && J.progBeats >= pb && !STEER.hold) progress();   // (not while held by hand)
   if (phrase) J.spinDir *= -1;                            // spin reverses every 4 bars
   if (down && barIn % 8 === 0 && Math.random() < .4) J.zoomFlip = -.03;   // occasional pull-back
 }
