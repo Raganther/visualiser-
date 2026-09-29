@@ -5,4 +5,4 @@ import UNICORN from './meshes/unicorn.js';
 
 export default meshObject({key: 'unicorn', label: 'Wire unicorn', words: 'The wire unicorn is the centrepiece',
   mesh: {pieces: [UNICORN.body, {...UNICORN.head, hinge: true}], hinge: UNICORN.hinge},
-  dance: {moves: {groove: 2.2, sway: 1.2, bang: .6, look: 1, face: .8, float: 1, lunge: .5, lift: .6}, sym: 4, liftPart: 5}});   // a prancer; the horn lifts off
+  dance: {moves: {groove: 2.2, bang: .6, look: 1, face: .8, float: 1, pulse: .5, lift: .6, approach: .8, rise: .6}, sym: 4, liftPart: 5}});   // a prancer; the horn lifts off

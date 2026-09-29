@@ -347,7 +347,7 @@ function finish(surf){
   }
   run(post.finish, null, W, H, u => { tex(0, surf.tex, u.uTex); tex(1, a.tex, u.uBloom); gl.uniform1f(u.uAmt, R.bloom); gl.uniform1f(u.uKnee, R.knee);
     const k = kal.on && (kal.where === 0 || kal.where === 3 && kalM) ? (kal.where === 3 ? 2 : 1) : 0;
-    gl.uniform1f(u.uKalOn, k); gl.uniform4fv(u.uKal, kal.v); gl.uniform2f(u.uKalC, kal.c[0], kal.c[1]); gl.uniform2f(u.uAsp, W/H, 1);
+    gl.uniform1f(u.uKalOn, k); gl.uniform4fv(u.uKal, kal.v); gl.uniform4fv(u.uKal2, kal.v2 || [0, 0, 0, 1]); gl.uniform2f(u.uKalC, kal.c[0], kal.c[1]); gl.uniform2f(u.uAsp, W/H, 1);
     tex(2, k === 2 ? kalM.tex : blankTex(true), u.uKalM);
     gl.uniform2f(u.uGl, fin.gl[0], fin.gl[1]); gl.uniform1f(u.uGrain, fin.grain); gl.uniform1f(u.uT, fin.t); });
 }
@@ -393,7 +393,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLo
   if (v.uFit) { gl.uniform3fv(v.uFit, P.fit); gl.uniform2f(v.uFitSrc, P.cx, P.cy); }
   if (v.uFrontOn) gl.uniform1f(v.uFrontOn, P.frontOn);
   if (v.uKal) { const f = kal.on && zoom === 1 && !st.only;   // the world or the glow folded (not in a fill, nor the world drawn alone)
-    gl.uniform4fv(v.uKal, kal.v || [2, 0, 0, 0]); gl.uniform2f(v.uKalC, (kal.c || [0, 0])[0], (kal.c || [0, 0])[1]);
+    gl.uniform4fv(v.uKal, kal.v || [2, 0, 0, 0]); if (v.uKal2) gl.uniform4fv(v.uKal2, kal.v2 || [0, 0, 0, 1]); gl.uniform2f(v.uKalC, (kal.c || [0, 0])[0], (kal.c || [0, 0])[1]);
     gl.uniform1f(v.uKalW, f && kal.where === 1 ? 1 : 0); gl.uniform1f(v.uKalT, f && kal.where === 2 ? 1 : 0); }
   for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
   for (const g in out) { const unit = g === 'main' ? UNIT.main : UNIT.group[sc.extra.indexOf(g)];

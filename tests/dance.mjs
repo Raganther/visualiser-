@@ -54,7 +54,7 @@ for (const mode of ['2d', 'gl']) {
     const frames = ${mode === 'gl' ? 30 : 60};
     solo('ring'); TUNE.dance.barsPerMove = 999; __step(frames);
     d.danceMove('ring', 'still'); __step(frames); const a = ${THUMB};
-    d.danceMove('ring', 'orbit'); TUNE.dance.layer.orbit = .3; __step(frames); const b = ${THUMB};
+    d.danceMove('ring', 'bloom'); TUNE.dance.layer.bloom = .4; __step(frames); const b = ${THUMB};
     solo('skull'); __step(frames);
     d.danceMove('o:skull', 'still'); __step(frames); const s0 = ${THUMB};
     d.danceMove('o:skull', 'lift'); __step(frames); const s1 = ${THUMB};

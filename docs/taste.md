@@ -37,12 +37,16 @@ A single like is a hint, not a rule. Two or three that agree make a pattern.
    - *Evidence:* the landscape ("super cool": "dynamic… bright contrasting colours… a retro feel… stylised") against the night sea, underwater, dunes and forest ("flat, 2D-ish, not really much going on"); the city's buildings "constantly bouncing up and down" were "annoying".
    - *In practice:* value contrast first (the sky should be the brightest thing), two or three bold hues from the palette, big shapes that change with sections and builds. Realism and places to explore belong in the 3D worlds.
 
+9. **Symmetry drives the composition; motion is calm and centred.** Movement should read as geometry (turns round the centre, breaths, concentric swirls, mirrored pairs meeting in the middle), not bodies jiggling and drifting about. Asymmetry is the spice, not the base.
+   - *Evidence:* the first dance was "too much movement and yo-yoing", "janky", things "moving around a lot" off centre; they love the mandala "as it evolves and unfolds" and the kaleidoscope's symmetry (2026-09-29).
+   - *In practice:* keep things centred (the centre's wander is small), springs damped so poses ease in, comets and particles in mirrored or rotational patterns most of the time, slow moves over phrases rather than quick ones every beat.
 ## Open questions
 
 These are things to learn from 👍 / 👎, not to assume:
 - Which worlds and scenes hold up over a whole set, and which tire?
 - How often should the cosmos change system? How close should the camera fly, and how fast?
-- Is the kaleidoscope liked at all now, and in which sections?
+- Is the kaleidoscope liked at all now, and in which sections? (Yes: "so cool", 2026-09-29.) Which kind: wedges, the mirror box, the dive?
+- How much symmetry is too much? They asked for a balance with asymmetry.
 - Centrepieces (skull, unicorn, maths shapes): welcome in about 30% of sections, or less?
 - Calm sections: still and spacious, or do they feel empty?
 
@@ -61,3 +65,4 @@ The newest entries go at the bottom: the date, what was learned, from what, and 
 - 2026-09-29: they asked to direct Journey as it goes, adding and removing things, rather than only stopping and starting it. Built steering: while Journey runs a group's numbers keep, ban or free any layer, world, hit, object or scene, ; holds the look, R moves on; Shift+number still takes over by hand.
 - 2026-09-29: from the earlier idea of switching object styles ("could we switch between different styles for the objects"): five styles, glass wire, solid, outline, hologram and points, chosen by Journey per centrepiece to suit the music, or by hand (O then Y). To learn: which ones they like.
 - 2026-09-29: Journey "always seems to stay within the cosmos" and never used the kaleidoscope on its own; they want Journey to reach every setting in any combination. Offline, on three of their techno tracks, Journey moved through 6–9 worlds (the cosmos 5–15% of the time), so the likely cause was the Cosmos lab switch, remembered for good: it now lasts only for the tab, and the panel says when it holds the cosmos. Journey now chooses extras per section: the kaleidoscope (about a fifth of sections, folding whatever suits the cast), film grain, and the lead's or accent's own speed and size; K steers the kaleidoscope while Journey runs.
+- 2026-09-29: the dance had "too much movement and yo-yoing", things moving round off centre; they asked for symmetry to drive the composition: the manta coming towards the screen and showing its belly, the skull centred, comets drawing symmetric, concentric, geometric lines (a swirl, a funnel), particles meeting in the middle from both sides, a balance of symmetry and asymmetry. They love the mandala unfolding and want one that constantly moves outwards; the kaleidoscope is "so cool", and they want to zoom into it revealing more folds, a hall-of-mirrors box kind, and fractals. Built: centred, symmetric moves with near-critical springs; the centre's wander capped; the manta's approach and rise; mirrored and concentric comet shapes and particle modes; the unfolding mandala; the kaleidoscope's mirror box and dive; a fractal layer (the Kali set).

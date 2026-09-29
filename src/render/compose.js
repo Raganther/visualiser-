@@ -45,7 +45,7 @@ ${skip ? '    }\n' : ''}  }`;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
-uniform vec4 uKal; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
+uniform vec4 uKal, uKal2; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}

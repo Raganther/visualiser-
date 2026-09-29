@@ -18,14 +18,14 @@ export function chooseKal(force){
   if (!force && R && R.kal) { if (Math.random() < K.recipe) J.kal = {...R.kal}; return; }
   const chance = (K.chance + K.intense*(T - .5))*(J.world === 'cosmos' ? K.cosmos : 1);
   if (!force && Math.random() >= chance) return;
-  J.kal = {n: Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3))), where: whereFor(), turn: +((Math.random()*2 - 1)*K.turn).toFixed(3)};
+  J.kal = {n: Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3))), where: whereFor(), turn: +((Math.random()*2 - 1)*K.turn).toFixed(3), mode: pickW(K.mode)};
 }
 const whereFor = () => { const W = TUNE.extras.kal.where; return pickW(J.centre ? W.centre : J.world && J.world !== 'none' ? W.world : W.plain); };
 // steered from the keyboard (ui/keys.js, K while Journey runs): kept at n mirrors (STEER.pin.kal = n, folding STEER.kalWhere
 // if one was picked), or never (STEER.ban.kal)
 export function steerKal(){
   if (STEER.ban.kal) J.kal = null;
-  else if (STEER.pin.kal) J.kal = {where: whereFor(), turn: .03, ...(J.kal || {}), n: STEER.pin.kal, ...(STEER.kalWhere != null ? {where: STEER.kalWhere} : {})};
+  else if (STEER.pin.kal) J.kal = {where: whereFor(), turn: .03, ...(J.kal || {}), n: STEER.pin.kal, ...(STEER.kalWhere != null ? {where: STEER.kalWhere} : {}), ...(STEER.kalMode != null ? {mode: STEER.kalMode} : {})};
 }
 // the film grain, now and then
 export function chooseGrain(){ const G = TUNE.extras.grain; J.grain = Math.random() < G.chance ? +rnd(G.amt).toFixed(2) : 0; }
@@ -56,4 +56,4 @@ export function shiftKal(){
   else J.kal = {...J.kal, n: Math.max(2, Math.min(12, J.kal.n + [-2, -1, 1, 2][Math.floor(Math.random()*4)]))};
   steerKal();
 }
-export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'];
+export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'], KAL_KINDS = ['kaleidoscope', 'mirror box', 'diving kaleidoscope'];

@@ -141,13 +141,13 @@ export function stepJourney(now, dt){
   if (J.centre) { tgt.sym = 1; tgt.mirror = 0; }   // never a lens over a centrepiece: the copies would crowd it
   // the section's extras (journey/extras.js): a kaleidoscope (never with the glow's own folds as well), the film grain
   const K = MEDIA.on ? null : J.kal;
-  tgt.kal = K ? K.n : 0; if (K) { tgt.kalTurn = K.turn; tgt.sym = 1; tgt.mirror = 0; } else tgt.kalTurn = 0;
+  tgt.kal = K ? K.n : 0; if (K) { tgt.kalTurn = K.turn; jState.kalMode = K.mode || 0; tgt.sym = 1; tgt.mirror = 0; } else tgt.kalTurn = 0;
   tgt.grain = J.grain || 0;
   tgt.decay = .955 - T*.05 + jn(c*.4, 320)*.012;
   tgt.zoom = 1.0 + T*.018 + ty.zoomBias + jn(c*.3, 360)*.01 + breath*.008 + J.zoomFlip;
   tgt.rot = (.35 + .65*Math.abs(jn(c*.35, 330)))*.03*(.4 + T)*J.spinDir*ty.spin;
   tgt.warp = .1 + (1.3 - T)*1.1*n01(340, .5);
-  tgt.wander = .08 + (1 - T*.6)*.3*n01(350, .3);
+  tgt.wander = TUNE.wander[0] + (TUNE.wander[1] - TUNE.wander[0])*(1 - T*.6)*n01(350, .3);   // the centre stays near the middle (TUNE.wander)
   tgt.colorSpeed = .015 + T*.05;
   tgt.hueDrift = .004 + T*.02;
   // pace: the section's own character, lifted by intensity and the calm-to-intense slider; glides over a few seconds
@@ -158,6 +158,7 @@ export function stepJourney(now, dt){
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;
+  tgt.wander = Math.min(tgt.wander, TUNE.wander[1]);   // (a recipe can't send it wandering: symmetry reads best round a still centre)
   // handing over: Journey was turned back on from a look made by hand, which it holds (its settings, movers and scene)
   // until the music gives it a reason to move on: a new section, a drop, a progression step, or a phrase line once
   // handoffSecs have passed. Then it fades to its own, rather than jumping there the moment it's switched on

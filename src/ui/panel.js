@@ -2,7 +2,7 @@
 import { S } from '../state.js';
 import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS, sceneWords } from '../journey/cast.js';
 import { J } from '../journey/core.js';
-import { KAL_WORDS } from '../journey/extras.js';
+import { KAL_KINDS, KAL_WORDS } from '../journey/extras.js';
 import { PACE, paceName } from '../journey/pace.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
 import { setJourney } from './controls.js';
@@ -25,7 +25,7 @@ export function updateSectionUI(){
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
     + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' + (J.worldHold ? ' The Cosmos lab is holding it here: switch it off below to let Journey move between worlds.' : '') : '')
     + (J.lead && sceneWords() ? ` ${sceneWords()}` : '')
-    + (J.kal && !MEDIA.on ? ` A ${J.kal.n}-way kaleidoscope folds ${KAL_WORDS[J.kal.where]}${J.kal.turn ? ', turning' : ''}.` : L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
+    + (J.kal && !MEDIA.on ? ` A ${J.kal.mode === 1 ? '' : J.kal.n + '-way '}${KAL_KINDS[J.kal.mode || 0]} folds ${KAL_WORDS[J.kal.where]}${J.kal.turn ? ', turning' : ''}.` : L && !J.centre ? ` ${L.n === 2 ? 'A mirror lens' : `A ${L.n}-way kaleidoscope lens`} when it builds.` : '')
     + (J.grain ? ' Film grain.' : '')
     + (Object.keys(J.tw || {}).length ? ' ' + Object.entries(J.tw).map(([k, t]) => `${NAMES[k]} ${t.speed ? (t.speed > 1 ? 'faster' : 'slower') : ''}${t.speed && t.size ? ' and ' : ''}${t.size ? (t.size > 1 ? 'bigger' : 'smaller') : ''}`).join(', ') + ' than usual.' : '')
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')

@@ -20,7 +20,7 @@ import { tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
-import { steerKal } from '../journey/extras.js';
+import { KAL_KINDS, steerKal } from '../journey/extras.js';
 import { updateSectionUI } from './panel.js';
 import { $ } from '../util.js';
 
@@ -45,7 +45,7 @@ const GROUPS = {
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points'];   // the objects' styles (render/mesh.js), Y in the objects group
-const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations)
+const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal)
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;
@@ -74,13 +74,14 @@ function steerItem(k, g){
 }
 // the kaleidoscope while Journey runs: a number keeps it at that many mirrors (the same again: free), 0 never (again: free),
 // E B G I what it folds (journey/extras.js)
-function steerKalKey(n, where){
-  if (where != null) { STEER.kalWhere = where; if (!STEER.pin.kal) STEER.pin.kal = (J.kal && J.kal.n) || 6; delete STEER.ban.kal; }
+function steerKalKey(n, where, quiet){
+  if (quiet && where == null) { if (!STEER.pin.kal) STEER.pin.kal = (J.kal && J.kal.n) || 6; delete STEER.ban.kal; }
+  else if (where != null) { STEER.kalWhere = where; if (!STEER.pin.kal) STEER.pin.kal = (J.kal && J.kal.n) || 6; delete STEER.ban.kal; }
   else if (n === 0) { if (STEER.ban.kal) delete STEER.ban.kal; else { STEER.ban.kal = true; delete STEER.pin.kal; } }
-  else if (STEER.pin.kal === n) { delete STEER.pin.kal; STEER.kalWhere = null; }
+  else if (STEER.pin.kal === n) { delete STEER.pin.kal; STEER.kalWhere = null; STEER.kalMode = null; }
   else { STEER.pin.kal = n; delete STEER.ban.kal; }
   steerKal(); updateSectionUI(); steerLine();
-  toast(STEER.ban.kal ? 'Kaleidoscope: never (Journey leaves it out)' : STEER.pin.kal ? `Kaleidoscope: kept at ${STEER.pin.kal} mirrors, folding ${KAL_WHERE[J.kal ? J.kal.where : 0][1]}` : 'Kaleidoscope: Journey chooses freely again');
+  if (!quiet) toast(STEER.ban.kal ? 'Kaleidoscope: never (Journey leaves it out)' : STEER.pin.kal ? `Kaleidoscope: kept at ${STEER.pin.kal} mirrors, folding ${KAL_WHERE[J.kal ? J.kal.where : 0][1]}` : 'Kaleidoscope: Journey chooses freely again');
 }
 // what's steering Journey, said in the panel
 export function steerLine(){
@@ -102,10 +103,10 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (wedges, mirror box, dive) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
     : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points) · Esc leaves'
-    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
+    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (wedges, mirror box, dive) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
@@ -118,6 +119,11 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (k === 't' && mode !== 'c') { mode = null; tutorial(); }   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
+  else if (mode === 'k' && k === 'm') {   // the kind: wedges, a mirror box, a dive (while Journey runs, it keeps that kind)
+    const m = ((J.on ? (J.kal && J.kal.mode) || 0 : Math.round(S.active.kalMode || 0)) + 1) % 3;
+    if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
+    else { edit(); S.active.kalMode = m; if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
+    toast('Kaleidoscope: ' + KAL_KINDS[m]); }
   else if (mode === 'k' && J.on && KAL_WHERE.some(w => w[0] === k)) steerKalKey(null, KAL_WHERE.findIndex(w => w[0] === k));
   else if (mode === 'k' && KAL_WHERE.some(w => w[0] === k)) {   // what the kaleidoscope folds (on at 6 if it was off)
     edit(); S.active.kalWhere = KAL_WHERE.findIndex(w => w[0] === k); if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
@@ -146,6 +152,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   }
   else if (mode === 'l' && MORE.includes(e.key.toUpperCase()) && layers[9 + MORE.indexOf(e.key.toUpperCase())]) {
     const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
+    e.stopPropagation();   // (X is also a single key outside the groups)
     if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l'); else toggle(v, TUNE.keys.layer); }
   else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points (Journey keeps it going)
     const n = ((J.on ? J.objStyle || 0 : Math.round(S.active.objStyle || 0)) + 1) % STYLES.length;

@@ -24,15 +24,29 @@ void main(){   // 9 taps from 5 fetches, using the texture's own filtering
   c+=(texture2D(uTex,vUv+uDir*3.2308).rgb+texture2D(uTex,vUv-uDir*3.2308).rgb)*0.0703;
   gl_FragColor=vec4(c,1.0);
 }`;
-// the kaleidoscope's fold (a point round the centre into one mirrored wedge, n of them), shared with the segments
+// the kaleidoscope's fold, shared with the segments. uKal: mirrors, the share of one more (easing between counts), how far
+// folded, turn. uKal2: the kind (0 wedges meeting at a point; 1 a mirror box: the square round the centre reflected across
+// its walls, the copies shrinking into the distance like a hall of mirrors by uKal2.y; 2 a dive: the wedges' rings repeat
+// inward, mirrored, and zoom in by uKal2.z, each band uKal2.w wide in log radius, so it reveals more as it goes)
 export const KAL = `vec2 kalF(vec2 p,float n,float ang){ float r=length(p), s=6.2831853/n, a=mod(atan(p.y,p.x)-ang,s); a=min(a,s-a)+ang; return r*vec2(cos(a),sin(a)); }
-vec2 kalUv(vec2 uv,vec2 asp){   // uKal: mirrors, the share of one more (easing between counts), how far folded, turn
-  vec2 p=(uv-0.5)*asp-uKalC, f=kalF(p,uKal.x,uKal.w);
-  if(uKal.y>0.0) f=mix(f,kalF(p,uKal.x+1.0,uKal.w),uKal.y);
+vec2 kalBox(vec2 p,float b){ vec2 t=mod(p+b,4.0*b); return b-abs(t-2.0*b); }
+vec2 kalUv(vec2 uv,vec2 asp){
+  vec2 p=(uv-0.5)*asp-uKalC, f;
+  if(uKal2.x>0.5&&uKal2.x<1.5){
+    float ca=cos(uKal.w), sa=sin(uKal.w), b=0.9/(uKal.x+uKal.y);   // more mirrors: a smaller box, more copies
+    vec2 pr=vec2(ca*p.x+sa*p.y,-sa*p.x+ca*p.y);
+    pr/=max(0.1,1.0-max(abs(pr.x),abs(pr.y))*uKal2.y);   // the hall: copies further out, further away
+    f=kalBox(pr,b); f=vec2(ca*f.x-sa*f.y,sa*f.x+ca*f.y);
+  } else {
+    f=kalF(p,uKal.x,uKal.w);
+    if(uKal.y>0.0) f=mix(f,kalF(p,uKal.x+1.0,uKal.w),uKal.y);
+    if(uKal2.x>1.5){ float r=length(f)+1e-5, u=log(r/0.5)/uKal2.w-uKal2.z, v=abs(fract(u*0.5)*2.0-1.0);
+      f*=0.5*exp((v-1.0)*uKal2.w)/r; }
+  }
   vec2 q=(uKalC+mix(p,f,uKal.z))/asp+0.5;
   return 1.0-abs(1.0-mod(q,2.0));   // off the picture: mirrored back into it
 }`;
-export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal; uniform vec2 uKalC, uAsp;
+export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal, uKal2; uniform vec2 uKalC, uAsp;
 uniform vec2 uGl; uniform float uGrain, uT;   // the glitch (how much, which slicing), film grain, time
 vec3 pic(vec2 uv){ return texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt; }
 ${KAL}
