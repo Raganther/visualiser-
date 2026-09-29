@@ -266,9 +266,9 @@ export const TUNE = {
     sway: .006,                // how far the layers sway with the bass (the nearest most)
   },
   sea: {
-    morphSecs: 4,              // a new section's sea: the moon moves and the waves re-form over this long
-    bigWave: 1.6,              // how much the nearest wave grows as the tension rises (1 + this at full)
-    beamEase: 2.5,             // how quickly the lighthouse's beam swings to its new angle each bar
+    morphSecs: 5,              // a new section's sea: its colours and wave shapes morph into the new ones over this long
+    bigWave: 1.2,              // how much the near waves grow as the tension rises (1 + this at full)
+    greatSecs: 3.5,            // a drop's great wave: how long it takes to curl across the front
   },
   deep: {
     morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
