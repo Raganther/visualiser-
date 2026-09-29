@@ -27,3 +27,16 @@ export function jn(t, seed){
 export function noise(t, seed){ return Math.sin(t*(.11 + seed*.037) + seed*1.7)*.6 + Math.sin(t*(.27 + seed*.051) + seed*4.1)*.4; }
 /* ---------- UI ---------- */
 export const fmt = s => { s = Math.max(0, s|0); return `${(s/60)|0}:${String(s%60).padStart(2,'0')}`; };
+// a painted world's own layout per section (the city's district, the dunes' ridges): a new section brings a new one, a
+// returning section its old one (kept on the section type under key). m = {D0, D1, tr, ty, n}: the layout going and the one
+// coming, and how far the change has got (0..1); off screen it changes at once. secs: how long a change takes
+export function sectionLayout(m, key, J, on, dt, secs){
+  const ty = J && J.type;
+  if (ty && ty !== m.ty) {
+    m.ty = ty; if (ty[key] === undefined) ty[key] = ++m.n;
+    if (ty[key] !== m.D1) { m.D0 = m.tr < .5 ? m.D0 : m.D1; m.D1 = ty[key]; m.tr = 0; }
+  }
+  if (!on) { m.D0 = m.D1; m.tr = 1; }
+  m.tr = Math.min(1, m.tr + dt/secs);
+  return m;
+}

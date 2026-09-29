@@ -241,4 +241,30 @@ export const TUNE = {
     loopBars: 24,              // after this many bars of the same loop, the progression moves on sooner
     unclearCalm: .5,           // with no clear pulse at all, the pace is this much calmer
   },
+  // the painted worlds (docs/taste.md: stylised posters): the city's skyline and lights
+  city: {
+    breathe: .012,             // how far each building rises with its own part of the spectrum (it used to be .05: "bouncing")
+    jump: .05,                 // how far the skyline leaps on a drop, falling back over a second or so
+    riseSecs: 2.6,             // a new section's skyline: the old buildings sink and the new ones rise, in a wave, over this long
+    lightEase: .5,             // how quickly the lit windows and neon follow the tension (per second)
+    sweepBars: 1,              // the searchlights swing to a new angle every this many bars
+  },
+  dunes: {
+    morphSecs: 4,              // a new section's dunes: the ridges re-form into its own shapes over this long (nearest first)
+    sunHigh: .09, sink: .14,   // the sun's height when calm, and how far a build sinks it towards the dunes
+    flareSecs: 1.5,            // the sun flaring on a drop, dying away over this long
+  },
+  forest: {
+    morphSecs: 3,              // a new section's wood: the trunks move to their new places over this long
+    sway: .006,                // how far the layers sway with the bass (the nearest most)
+  },
+  sea: {
+    morphSecs: 4,              // a new section's sea: the moon moves and the waves re-form over this long
+    bigWave: 1.6,              // how much the nearest wave grows as the tension rises (1 + this at full)
+    beamEase: 2.5,             // how quickly the lighthouse's beam swings to its new angle each bar
+  },
+  deep: {
+    morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
+    sway: .03,                 // how far the kelp sways with the bass (the nearest most)
+  },
 };

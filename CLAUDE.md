@@ -285,25 +285,28 @@ The mirror tunnel (`src/visuals/layers/tunnel.js`) is a three-mirror tube kaleid
 
 ## The city
 
-`visuals/worlds/city.js`, rebuilt after the user found the old skyline "naff" (flat rectangles, noisy windows, no depth):
-- **Four rows**, far to near (`row()`, and the same numbers in the shader): the far rows are the tall towers downtown, faded into the haze; the near rows are darker and shorter. They scroll at different speeds.
+`visuals/worlds/city.js`, rebuilt after the user found the old skyline "naff" (flat rectangles, noisy windows, no depth), and again as a stylised poster (`docs/taste.md`, principle 8) after they found its bouncing "annoying":
+- **Four rows**, far to near (`row()`, and the same numbers in the shader): the far rows are the tall towers downtown, pale in the haze; the near rows darker and shorter. They scroll at different speeds.
 - **Silhouettes:** gaps between buildings, a narrower crown on some (setbacks), antennas on others, whose red lights blink on the beat.
-- **Windows** in each building's own style (warm or cool, office widths, some buildings dark), lit floor by floor; a share change on the downbeat (`uCitySeed`).
-- **Neon signs** down the side of some near buildings, in the palette's colour, lit harder on the beat.
-- **Sky:** the city's glow low down, a few clouds lit from below, the moon with a halo in the haze.
+- **Light and shadow:** each block's side facing the moon is lit, its edge catching the light, and each row casts its shadow onto the row behind, away from the moon.
+- **A district per section** (`sectionLayout` in `util.js`, `TUNE.city.riseSecs`): a new section's buildings rise as the old ones sink, in a wave; a returning section brings its skyline back. Every building's random numbers are keyed by its district.
+- **Movement:** each building breathes only a little with its part of the spectrum (`TUNE.city.breathe`; it was five times as much), and the skyline leaps on a drop (`jump`).
+- **Lights follow the build** (`J.tension`, eased by `lightEase`): windows light floor by floor from the street up, in each building's own style, with a share changing on the downbeat (`uCitySeed`); neon signs on many buildings in the nearer rows switch on one by one, in the palette's colours, and flicker on stabs.
+- **Sky:** a glowing dusk (hot at the horizon, deep night above), long clouds lit from below, a big moon with a halo, and two searchlights swinging to a new angle each bar (`sweepBars`).
 - **Street:** the skyline reflected and rippling, and traffic: headlights one way, tail lights the other, with streaks on the wet road.
 - **Front plane:** the two nearest rows, so things "between" sit behind the near buildings and in front of the towers.
-- Simple mode draws the same rows, windows, neon, antenna lights and traffic, plainer.
+- Simple mode draws the same rows, lit sides, shadows, windows, neon, searchlights, antenna lights and traffic, plainer.
 
 ## The other worlds
 
 - **Landscape:** three ranges shaped by the song's loudness history (Journey's energy), nearer ones darker and far ones fading into the sky, with rock striations, slopes facing the sun lit, mist on the water and glints under the sun.
 - **Space:** stars rushing past, two clouds of gas, and a ringed planet: the rings are banded with a dark division, and the planet's shadow falls across them; two moons step round every other beat.
 - **Aurora:** curtains with rays near their foot, swelling with the melody, over a treeline and a still lake that mirrors them.
-- **The night sea** (`sea`): a dark ocean under the moon, which wears a ring of light (a halo, brighter on the downbeat); the moon's path glittering on the swell, the sky mirrored in the water (strongest towards the horizon), the swell rising with the bass, and a lighthouse on a far headland sweeping its beam round at motion time, its lamp flashing as it faces you. Its colours stay night blue, only tinted by the palette. Front plane: the nearest swell.
-- **Underwater** (`deep`): light from a rippling silver surface overhead, slanted god rays swaying and brighter with the mids, motes drifting, bubbles rising in columns (livelier and brighter with the hi-hats, `L.hat`), and a sandy floor with caustics dancing on it (brighter on the kick). Front plane: the near rocks.
-- **Dunes** (`dunes`): four ridges of sand under the stars with sharp crests (a long slope on one side, steeper on the other), each crest's two sides lit and shadowed by the moon, far ridges fading into the night; a sky with the Milky Way's band across it; sand streaming off the crests on the hi-hats. Front plane: the nearest ridge.
-- **The glowing forest** (`forest`): three rows of dark trunks, the far ones fading into a glowing mist, moonbeams slanting through, moss glowing up their feet with the mids, and a floor of bioluminescent caps pulsing on the beat, with light pooling at the near trunks' feet; spores drifting up. Front plane: the near trunks and the floor.
+- **The painted worlds** below were redone as stylised posters (`docs/taste.md`, principle 8): a bright sky behind crisp silhouettes stepping from pale far off to black near, one big light, and the music moving the whole scene. Each re-forms per section (`sectionLayout` in `util.js`; a returning section brings its own back), and flares on a drop (`J.drops`). Tuning in `TUNE.dunes`, `forest`, `sea`, `deep`.
+- **The night sea** (`sea`): a woodblock print. Five bands of wave stepping from pale far off to deep blue near, each crest edged with foam and flecks and carved with lines; the moon's path broken into glints across them. A huge moon wearing a ring of light (brighter on the downbeat), flat cut-paper clouds, and a lighthouse on a dark headland swinging its beam to a new angle each bar. The swell follows the bass, the nearest wave rises with the tension (`bigWave`) and throws spray on the drop; each section moves the moon and re-forms the waves (nearest first). Its colours stay night blue, only tinted by the palette. Front plane: the nearest wave.
+- **Underwater** (`deep`): bright turquoise under a rippling silver surface, fading to deep blue; slanted shafts of light (brighter with the mids, flaring on a drop); four layers of kelp (beaded with leaves) and rock stepping from pale to black, swaying with the bass (`sway`); bubbles rising in columns (livelier with the hi-hats, `L.hat`); caustics on the far floor on the kick. Each section re-arranges the reef: the layers sink and grow again, nearest first. Front plane: the nearest kelp and rock.
+- **Dunes** (`dunes`): a synthwave desert. A huge sun banded gold to pink, cut by bands sliding down its lower half, its rays turning slowly on a violet-to-gold sky; four ridges of sand (sharp crests, a long slope on one side) stepping from pale far off to black near, the slopes facing the sun warmed, crests rimmed with hot light (brighter on the beat), ripples carved in the sand. The sun sinks towards the dunes through a build (`sunHigh`, `sink`) and flares on the drop; each section re-forms the ridges (nearest first); sand streams off the crests on the hi-hats. Front plane: the nearest ridge.
+- **The glowing forest** (`forest`): a paper-cut wood. Six layers of trunks (flaring at the root) and ferns stepping from pale mist to black, in front of a big moon whose shafts of light fall between the trunks; the edges facing the moon lit; glowing caps on the nearest floors pulsing on the beat; spores drifting up. The layers sway with the bass, the moon brightens with the tension and its shafts flare on a drop; each section re-arranges the wood (the layers sink and rise like stage flats). Front plane: the nearest layer.
 
 ## The cosmos: space as a place the camera explores
 
