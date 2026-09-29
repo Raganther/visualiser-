@@ -182,6 +182,12 @@ export const TUNE = {
   knot: {chance: 0, size: .52, hinge: 0},
   dodeca: {chance: 0, size: .4, hinge: 0},
   spikes: {chance: 0, size: .4, hinge: 0},
+  manta: {chance: 0, size: .68, hinge: 0,         // the manta ray (a Blender model: tools/blender/manta.py), gliding:
+    flap: 1,                   // how far its wings beat (the shape key's weight, both ways), more as the tension rises
+    beatsPerFlap: 2,           // one wingbeat every this many beats, in step with the bar
+    pitch: .42,                // how far it's tipped towards us, so its back shows
+    turn: .55,                 // how far it banks from side to side as it glides (radians)
+  },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {

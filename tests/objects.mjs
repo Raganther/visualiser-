@@ -1,4 +1,5 @@
-// Objects test: every mesh object (the wire skull, the unicorn, the maths shapes) draws and shatters in both renderers;
+// Objects test: every mesh object (the wire skull, the unicorn, the maths shapes, the manta) draws and shatters in both
+// renderers, and a model with a shape key (the manta) plays it with the beat;
 // with ?lab=skull, Journey casts the skull as a centrepiece (never under a lens). Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
@@ -20,17 +21,24 @@ for (const mode of ['2d', 'gl']) {
     for (const v of OBJECT_VISUALS) {
       set(v.key, 1); __step(${mode === 'gl' ? 50 : 90});
       const on = ${THUMB};
+      // a model with a shape key (the manta's wingbeat) plays it both ways over two beats: its weight each frame
+      let flap = null;
+      if (v.mesh.pieces.some(p => p.morph)) { const pr = v.params, ws = [];
+        v.params = (P, x) => { pr.call(v, P, x); ws.push(P.m[v.key].morph); }; __step(70); v.params = pr;
+        flap = [Math.min(...ws), Math.max(...ws)]; }
       v.breakApart(); __step(14);
       const apart = ${THUMB};
       set(v.key, 0); __step(40);
-      out[v.key] = {on, apart};
+      out[v.key] = {on, apart, flap};
     }
     return {off, out};
   })()`);
   let errors = await page.errors(); await page.close();
-  for (const [k, {on, apart}] of Object.entries(res.out)) {
-    const shown = diff(res.off, on), broke = diff(on, apart), ok = shown > .6 && broke > .5 && !errors.length;   // few-edged shapes (the dodecahedron) change the least
-    console.log(`${mode}: ${ok ? 'ok' : 'FAILED'}  ${k} drawn (change ${shown.toFixed(1)}), shatters (change ${broke.toFixed(1)})`, errors.length ? errors : '');
+  for (const [k, {on, apart, flap}] of Object.entries(res.out)) {
+    const shown = diff(res.off, on), broke = diff(on, apart), flaps = !flap || (flap[0] < -.3 && flap[1] > .3);
+    const ok = shown > .6 && broke > .5 && flaps && !errors.length;   // few-edged shapes (the dodecahedron) change the least
+    console.log(`${mode}: ${ok ? 'ok' : 'FAILED'}  ${k} drawn (change ${shown.toFixed(1)}), shatters (change ${broke.toFixed(1)})` +
+      (flap ? `, beats its wings (${flap[0].toFixed(2)} to ${flap[1].toFixed(2)})` : ''), errors.length ? errors : '');
     if (!ok) failed = true;
   }
   // Journey with the skull lab: it becomes a centrepiece, with no lens over it (simple mode only; WebGL is too slow to run sections)

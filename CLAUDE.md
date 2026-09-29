@@ -10,7 +10,8 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `check-visual`: one visual alone in both renderers, with stills (`tools/look.mjs`);
   - `track-run`: a real track through the page offline, and what the grid and Journey did (`tools/track-run.mjs`);
   - `taste-review`: the user's 👍 / 👎 moments from the published page, turned into `docs/taste.md` and tuning.
-  - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder).
+  - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder);
+  - `blender-object`: model an object in Blender (or take the user's .glb) and bring it in, with a shape key it plays on the beat.
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
@@ -37,9 +38,11 @@ tests/                     npm test: smoke, media, objects, scene, sync, grid, l
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
+tools/blender/*.py         objects modelled in Blender (the manta), exported as .glb
+tools/import-glb.mjs       a .glb from Blender into a mesh file (parts from materials, a shape key as the morph)
 tools/look.mjs             one visual alone in both renderers, saved as stills (the check-visual skill)
 tools/track-run.mjs        a real track through the page offline, with a summary (the track-run skill)
-.claude/skills/            publish, check-visual, track-run, taste-review, next-idea
+.claude/skills/            publish, check-visual, track-run, taste-review, next-idea, blender-object
 docs/taste.md              the user's taste: principles with their evidence, open questions, a log
 docs/ideas.md              the backlog of ideas to build, in the user's order (the next-idea skill takes the top one)
 tools/strip.mjs            a motion strip and measures of feel (brightness, lit, detail, motion, flashes, things on screen)
@@ -76,7 +79,7 @@ docs/audit-speed.md        the 2026-09 speed audit: what was found, done, and le
 | **Worlds** | Backgrounds, crisp (display pass) | `land`, `space`, `aurora`, `city`, `cosmos` (a 3D place; see The cosmos), `sea` (the night sea), `deep` (underwater), `dunes`, `forest` (the glowing wood) (plus none/black) | Fade, or cut on the bar |
 | **Layers** | Continuous glowing effects in the trails (feedback pass) | `ring`, `scope`, `plasma`, `burst`, `comets`, `flow`, `ribbons`, `horizon`, `orbit` (flares circling a world's subject), `lasers` (club beams: a fan, crossing, a star, a scan, changing every two bars), `lines` (waveform lines, the Unknown Pleasures stack, the nearer hiding the farther), `fireflies` (soft out-of-focus lights drifting on the wind, blinking livelier with the hi-hats), `stargate` (hexagon rings rushing out of the centre, one a beat, faster as the tension builds), `vectorscope` (the left channel against the right, from `scopeLR` in `state.js`: mono stands upright, wide sound opens out), `mandala` (the flower of life drawing itself arc by arc over each four-bar phrase, turning a notch each bar), `mood` (the mood ring: a halo round the subject in its own colour, not the palette's: the key round the circle of fifths sets the hue, tone against noise the richness, fullness the brightness, shifting over several seconds), `rain` (slanted streaks, heavier with the hi-hats and the noise, blown by the wind, splashing on the kick), `constellation` (stars joined one line a beat into a figure, a new figure every few bars) | Fade, or cut on the bar |
 | **Hits** | One-shot shapes fired by the music | `star` and `outline` (downbeat), `sparkle` (stabs), `shock` (pulse; drawn in the trails), `lightning` (a forked bolt on stabs, lighting everything an instant), `glitch` (the finished picture slices sideways and its colours split, always on a drop, and on some downbeats; it draws nothing itself, the finish moves the picture) | Snap in, then snap or flicker out |
-| **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, and the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes` | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
+| **Objects** | 3D centrepieces, crisp: meshes, placed anywhere in the scene (on top by default) | `skull`, `unicorn`, the maths shapes `geosphere`, `torus`, `knot`, `dodeca`, `spikes`, and `manta` (a Blender model whose wings beat with the bar) | Assembles out of flying panes; shatters and reassembles; panes wink out as it leaves |
 | **Opt-in** | Drawn and given a slider, but outside Journey's layer pool (`optIn: true`) | `tunnel` (the mirror tunnel), every object | The tunnel comes in as the lead while media is loaded; objects come in as centrepieces (`TUNE.scene.centreChance`) |
 | **Lens** | Transforms everything, draws nothing itself | `sym` (the glow's own folds, in the trails), `mirror` in `SPEC` | Eases in, or flips on the bar |
 | **Kaleidoscope** | A mirror fold of the picture itself (see The kaleidoscope) | `kal`, `kalWhere`, `kalTurn` in `SPEC` (by hand; Journey doesn't use it yet) | Eases in |
@@ -131,7 +134,7 @@ Presets with `journey: false` are manual-mode looks only; Journey's recipe pool 
 - **Movers** (`mods` on a preset): per-setting automation. Any setting can follow any signal on the bus (`scene/signals.js`): drift, bass, mids, treble, the pace's pulse, jumps, every kick, stabs, loudness, the beat and bar ramps, energy, or a section change.
   - "Follows" uses `bands` from `audio/analysis.js`: each band's level against its own recent quiet and loud (0..1). So bass pumps with the kick, mids with claps and stabs, and treble with hats and crashes. The raw levels mostly sit high and barely move, so they're no good for this.
   - A mover set by hand during Journey goes in `J.userMods`, and `recipeMods()` keeps it from section to section.
-- **Presets** (`BASE`, 40 of them: 28 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets, "Lasers", "Pleasures", one for each new world and layer: "Moonlit sea", "Deep water", "Desert night", "Glowing wood", "Night rain", "Star map" and more), and 12 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone).
+- **Presets** (`BASE`, 41 of them: 28 Journey reads as **recipes** (among them "Orbits": flares round the cosmos's planets, "Lasers", "Pleasures", one for each new world and layer: "Moonlit sea", "Deep water", "Desert night", "Glowing wood", "Night rain", "Star map" and more), and 13 manual-only looks and demos with `journey: false`, among them "Cosmos", the cosmos alone, and "Manta").
 - **Each layer's own speed, size and sound** (`scene/tweaks.js`, `S.active.tw[key] = {speed, size, src}`): a row under a layer's slider while it's on, or the keys (← → speed, Shift+← → size, B what it follows). Kept on the preset, carried into Journey (which never writes them), snapshots and likes. Speed is the layer's own clock (`TW[key].off`, motion seconds ahead: its `params` get `x.t` shifted, the ribbons', horizon's, comets' and flow's steps are scaled, and in WebGL its code's `uTime` reads `uTw_<key>.x`); size scales its coordinates round the centre (`uSz_<key>`; simple mode scales the canvas); the sound replaces its bass, mids and treble with one signal (`uTw_<key>.yzw`, and a copy of `P` in simple mode). `compose.js` rewrites each layer's code for this; untweaked it reads exactly the shared values. The ring, scope and burst have no clock (`tweaks: ['size', 'src']`).
 
 ## The panel: what's on screen, presets, Solo and Journey
@@ -387,12 +390,13 @@ A world that is a 3D place rather than a painted backdrop: generated star system
   - L lands on the world being filmed (or the biggest solid one), T takes off;
   - G goes out to the galaxy.
 
-## Meshes: the wire skull, the unicorn and the maths shapes
+## Meshes: the wire skull, the unicorn, the maths shapes and Blender models
 
 **The mesh engine** (`src/render/mesh.js`, a leaf module) draws any triangle mesh as glowing wire edges over dark glass panes.
-- **Data.** A mesh is `{pieces: [{pos, tri, part, hinge?}], hinge}`. `panesOf()` turns it into panes, each with its corners, centre, normal, part, piece and a fixed random seed.
+- **Data.** A mesh is `{pieces: [{pos, tri, part, hinge?, morph?}], hinge}`. `panesOf()` turns it into panes, each with its corners, centre, normal, part, piece and a fixed random seed; with a `morph` (each vertex's move to another pose: a Blender shape key), also how its corners, centre and normal move there.
 - **Per-pane motion.** It's worked out in the vertex shader, and again in JavaScript for simple mode:
   - a hinged piece rotates about `hinge` (the jaw);
+  - a morph is played by a weight (`U.morph`, -1..1, the pose both ways: the manta's wingbeat);
   - panes fly out along their normals, spinning about their own centres (`ex`);
   - panes vanish by seed (`gone`);
   - a band of light runs down the object (`sweep`);
@@ -417,6 +421,16 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **Pieces:** the body (760 panes), and the head with its neck (480). The head nods on the pulse about the neck's base.
 - **Parts:** 1 body, 2 head and neck, 3 legs, 4 mane and tail, 5 horn, 6 hooves, 7 eyes (dark, glowing on the downbeat).
 
+**Blender models** (the `blender-object` skill). Blender runs in the container as the `bpy` package from PyPI, in a venv in the scratchpad.
+- **Modelling:** a script in `tools/blender/` models the object and exports a `.glb`. It builds the object in Blender's own orientation (Z up, facing the front view), so a model the user makes by hand comes through the same way.
+- **Parts and poses:** each material is a part, numbered by the digits its name starts with (`3_belly`). One shape key becomes the morph.
+- **Importing:** `tools/import-glb.mjs model.glb name [--panes N] [--size .6] [--morph Key]` reads any glTF binary into `meshes/<name>.js`. It applies the nodes' transforms, reads sparse shape keys, welds the corners the exporter split, centres and scales the model, and with `--panes` simplifies each part.
+- **The manta ray** (`tools/blender/manta.py`, `objects/manta.js`), the first:
+  - a flattened wing section swept across the span, curled cephalic fins, a long tail and eyes, 954 panes;
+  - parts: 1 back, 2 wings, 3 belly, 4 cephalic fins, 5 tail, 6 gill slits, 7 eyes (dark, glowing on the downbeat);
+  - one shape key, "Flap" (the wings raised).
+- **The manta's motion:** it glides rather than spins, through `meshObject`'s `motion` hook. It's tipped towards us (`TUNE.manta.pitch`) and banks side to side (`turn`). Its wings beat in step with the bar (`SIG.barPhase`, one beat every `beatsPerFlap` beats), further as the tension rises (`flap`), and its body lifts a little on each downstroke.
+
 **The maths shapes** (`meshes/maths.js`) are worked out when the page loads, not generated:
 - a geodesic sphere (320 panes);
 - a torus (768);
@@ -426,7 +440,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 
 Every pane faces away from its own inside point: the centre, or for the tube shapes the tube's centre. Parts band the panes into six colours.
 
-**Every mesh object** is made by `meshObject({key, label, words, mesh})` in `objects/mesh-object.js`. `skull.js` and `unicorn.js` are one call each, and `objects/maths.js` makes all five maths shapes (the registry spreads its array). To add a shape, make a mesh and add a `meshObject` call. Then give it a line in `TUNE` (`chance`, `size`, `hinge`) and a registry entry.
+**Every mesh object** is made by `meshObject({key, label, words, mesh, motion?})` in `objects/mesh-object.js` (`motion(U, P, x)` changes the frame's settings: its own way of moving). `skull.js`, `unicorn.js` and `manta.js` are one call each, and `objects/maths.js` makes all five maths shapes (the registry spreads its array). To add a shape, make a mesh and add a `meshObject` call. Then give it a line in `TUNE` (`chance`, `size`, `hinge`) and a registry entry.
 
 **What every mesh object does** (the skull's behaviour, now shared):
 - **Music:**
@@ -442,7 +456,7 @@ Every pane faces away from its own inside point: the centre, or for the tube sha
   - the mirror tunnel wins while media is loaded.
 
   A centrepiece comes in about `TUNE.scene.centreChance` of sections, and the section's scene template decides how it relates to the rest (among the world's planes, holding a fill, masking the trails). `?lab=skull` gives the skull .5 of sections instead; `?lab=objects` gives every object an equal share of about half.
-- **Manual:** the "Skull", "Unicorn" and "Torus knot" presets (`journey:false`). Every object also has a slider under "Media and objects".
+- **Manual:** the "Skull", "Unicorn", "Manta" (underwater) and "Torus knot" presets (`journey:false`). Every object also has a slider under "Media and objects".
 
 ## Scenes: composing the pictures
 
@@ -512,7 +526,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
 
   And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
-- `tests/objects.mjs`: every mesh object draws and shatters in both renderers, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
+- `tests/objects.mjs`: every mesh object draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;

@@ -38,11 +38,12 @@ import tunnel from './layers/tunnel.js';
 import skull from './objects/skull.js';
 import unicorn from './objects/unicorn.js';
 import maths from './objects/maths.js';
+import manta from './objects/manta.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, tunnel];
-export const OBJECT_VISUALS = [skull, unicorn, ...maths];   // 3D centrepieces, drawn crisp over the picture
+export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);
