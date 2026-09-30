@@ -138,6 +138,8 @@ export const BASE = [
   // the lit goblin alone under its moving lights (a Blender sculpt baked for real time)
   {name:'Goblin, lit', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, goblinLit:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Tentacle', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, tentacle:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Hand', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, hand:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Heart', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, heart:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0); p.mods = p.mods || {}; });   // (a setting can carry its own default)

@@ -15,7 +15,7 @@ import { $ } from '../util.js';
 const GROUPS = [['Objects', OBJECT_VISUALS], ['Worlds', WORLD_VISUALS], ['Layers', LAYER_VISUALS], ['Hits', HIT_VISUALS]];
 // where each object came from (the rest are one module each, under src/visuals/)
 const SOURCES = {skull: 'tools/skull-mesh.mjs (distance functions, meshed)', unicorn: 'tools/unicorn-mesh.mjs', manta: 'tools/blender/manta.py (Blender)',
-  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', goblin: 'tools/blender/goblin.py (Blender, sculpted from metaballs)', goblinLit: 'tools/blender/goblin_hd.py (Blender: sculpted, baked into textures)', tentacle: 'tools/blender/tentacle.py (Blender: sculpted, baked into textures)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
+  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', goblin: 'tools/blender/goblin.py (Blender, sculpted from metaballs)', goblinLit: 'tools/blender/goblin_hd.py (Blender: sculpted, baked into textures)', tentacle: 'tools/blender/tentacle.py (Blender: sculpted, baked into textures)', hand: 'tools/blender/hand.py (Blender: sculpted round a skeleton, baked)', heart: 'tools/blender/heart.py (Blender: sculpted, baked into textures)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
   dodeca: 'meshes/maths.js', spikes: 'meshes/maths.js', crystal: 'meshes/maths.js'};
 const STYLES = ['Glass wire', 'Solid', 'Outline', 'Hologram', 'Points', 'Shaded'], LOOKS = ['Real', 'Toon', 'Neon', 'Chrome', 'Marble'];   // (the wire objects' styles; the lit objects' looks)
 let el = null, cur = null, thumbs = {}, fps = {n: 0, t: 0, v: 0}, keepDance = null;

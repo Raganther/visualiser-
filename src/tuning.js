@@ -226,13 +226,13 @@ export const TUNE = {
     kick: .06,                 // each kick flexing it
     curl: .5,                  // a drop curling it (radians, most at the tip), easing back
   },
-  hand: {chance: 0, size: .95, hinge: 0,          // the hand (tools/blender/hand.py): its shape key clenches it into a claw (1) or spreads it (-1)
+  hand: {chance: 0, size: .75, hinge: 0,           // the hand (tools/blender/hand.py): its shape key clenches it into a claw (1) or spreads it (-1)
     turn: .1, turnSwing: .55, pitch: .05,
     rest: -.3,                 // relaxed, fingers a little spread
     grip: .9,                  // each kick clenching it, more when intense
     spread: 1,                 // a drop flinging it open
   },
-  heart: {chance: 0, size: 1, hinge: 0,           // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
+  heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
     snap: 6,                   // how fast the squeeze lets go (a second)
