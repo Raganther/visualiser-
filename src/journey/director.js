@@ -143,6 +143,7 @@ export function stepJourney(now, dt){
   const K = MEDIA.on ? null : J.kal;
   tgt.kal = K ? K.n : 0; if (K) { tgt.kalTurn = K.turn; jState.kalMode = K.mode || 0; tgt.sym = 1; tgt.mirror = 0; } else tgt.kalTurn = 0;
   tgt.grain = J.grain || 0;
+  tgt.mandDetail = J.mand ?? .5;   // how intricate the mandalas are (extras.js)
   tgt.decay = .955 - T*.05 + jn(c*.4, 320)*.012;
   tgt.zoom = 1.0 + T*.018 + ty.zoomBias + jn(c*.3, 360)*.01 + breath*.008 + J.zoomFlip;
   tgt.rot = (.35 + .65*Math.abs(jn(c*.35, 330)))*.03*(.4 + T)*J.spinDir*ty.spin;

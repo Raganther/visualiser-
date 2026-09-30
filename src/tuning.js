@@ -283,6 +283,7 @@ export const TUNE = {
   },
   // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
   objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  unfold: {barsPerRing: 2},    // the unfolding mandala: a new ring every this many bars (faster, and the trails smear the rings outwards)
   // the kaleidoscope's other kinds (kalMode): the mirror box's hall (how fast its copies recede toward the edges), and the
   // dive (how fast it zooms in, faster as the tension rises; each band's width in log radius: each band e^band smaller)
   kal: {hall: 1, dive: .25, band: .8},
@@ -293,6 +294,7 @@ export const TUNE = {
       mode: [1, .6, .8],                                       // wedges, a mirror box, a dive
       where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
     grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
+    mand: {base: .5, tension: .5, spread: .7},                 // the mandalas' detail: its middle, how much the tension raises it, how far chance spreads it
     tw: {chance: .35, speed: [.55, 1.8], size: [.75, 1.4]},    // a layer's own speed and size: the share of sections the lead or accent gets its own, and the ranges
   },
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music

@@ -30,6 +30,8 @@ export const SPEC = [
   // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
   // the kaleidoscope's kind (last, so the rest keep their places): wedges meeting at a point, a mirror box (a hall of mirrors), a dive (zooming in through its folds)
   {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive', min:0, max:2, step:1},
+  // how intricate the mandalas are: few folds and plain rings, to many folds, doubled petals and ornament (last, so the rest keep their places)
+  {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
   {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
@@ -119,7 +121,8 @@ export const BASE = [
   // a world alone, to look at it: the cosmos with nothing over it (Solo on any slider does the same for anything)
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
-BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
+BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0);   // (a setting can carry its own default)
+ p.mods = p.mods || {}; });
 export const presets = BASE.map(clone);
 // the looks the user liked (👍, ui/taste.js), each as a preset: every setting, its movers, its scene. Journey reads them as
 // recipes too, favoured (TUNE.liked), so what the user likes comes back when the music suits it
