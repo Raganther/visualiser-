@@ -133,6 +133,8 @@ export const BASE = [
   // a world alone, to look at it: the cosmos with nothing over it (Solo on any slider does the same for anything)
   // the fractal's endless dive twisted into its vortex
   {name:'Vortex', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, fractal:1, fracVortex:1, colorSpeed:.03, hueDrift:.006, mods:{}},
+  // the lit goblin alone under its moving lights (a Blender sculpt baked for real time)
+  {name:'Goblin, lit', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, goblinLit:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0); p.mods = p.mods || {}; });   // (a setting can carry its own default)

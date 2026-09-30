@@ -3,6 +3,7 @@
 #   python tools/blender/goblin_hd.py still out.png [--res 1080] [--samples 256]
 #   python tools/blender/goblin_hd.py anim out.mp4 [--res 540] [--samples 24] [--frames 120]
 #   python tools/blender/goblin_hd.py blend out.blend      (the scene, to open in Blender)
+#   python tools/blender/goblin_hd.py bake outdir [--tex 2048] [--tris 40000]   (the real-time version: tools/lit-asset.mjs makes it a module)
 # The sculpt is signed distance fields (shapes blended and carved with smooth unions, like clay), meshed by marching cubes;
 # then the fine detail a sculptor adds by hand (forehead furrows, crow's feet, the nose's snarl lines, warts, a lumpy
 # asymmetry) is pushed into the surface along its normals. The look is all Blender: skin with subsurface scattering (the
@@ -160,7 +161,7 @@ def mesh_sdf(f, lo, hi, step, chunk=24):
         X = xs[i:i + chunk][:, None, None]
         vol[i:i + chunk] = f(np.broadcast_to(X, (len(X),) + Y.shape), Y[None], Z[None])
     v, fc, n, _ = marching_cubes(vol, 0, spacing=(step,)*3)
-    return v + np.array(lo, f32), fc[:, ::-1].copy()
+    return v + np.array(lo, f32), fc   # (skimage's winding already faces out of a distance field: normals outward)
 
 def vnormals(v, fc):
     fn = np.cross(v[fc[:, 1]] - v[fc[:, 0]], v[fc[:, 2]] - v[fc[:, 0]]); n = np.zeros_like(v)
@@ -424,6 +425,7 @@ ring = bpy.context.object; ring.data.materials.append(brass_mat()); bpy.ops.obje
 ax = mathutils.Vector(E(*u)); ring.rotation_mode = 'QUATERNION'; ring.rotation_quaternion = mathutils.Vector((0, 0, 1)).rotation_difference(ax)
 # the body the head turns with: everything parented to one empty at the neck
 root = bpy.data.objects.new('root', None); sc.collection.objects.link(root); root.location = E(0, -.3, -.05)
+bpy.context.view_layer.update()   # (so root's matrix is current: otherwise the parenting below shifts everything by its location)
 for ob in (skin, tth, ring, *eyes):
     mw = ob.matrix_world.copy(); ob.parent = root; ob.matrix_parent_inverse = root.matrix_world.inverted(); ob.matrix_world = mw
 
@@ -464,6 +466,133 @@ r.threads_mode = 'FIXED'; r.threads = os.cpu_count()
 snarlkeys = [skin.data.shape_keys.key_blocks['Snarl'], tth.data.shape_keys.key_blocks['Snarl']]
 for k in snarlkeys: k.slider_min = -.5; k.value = opt('--snarl', 0.)
 
+
+# ---------------------------------------------------------------- bake: a real-time version for the visualiser ----
+# The sculpt is ~650k triangles and Cycles takes minutes a frame. A game-style version: a low mesh (~40k triangles), its
+# detail baked into textures from the sculpt (colour with the creases' shade multiplied in, and an object-space normal
+# map carrying the wrinkles, warts and pores), how thin it is at each corner (so the ears can glow when lit from behind),
+# and the snarl as each corner's move. Plus a much lower mesh with baked vertex colours for simple mode.
+def world_vis(ob):   # an object's corners in the visualiser's axes (Blender's world, turned back)
+    ob.data.update(); M = ob.matrix_world; out = np.empty((len(ob.data.vertices), 3))
+    for i, vv in enumerate(ob.data.vertices): w_ = M @ vv.co; out[i] = (w_.x, w_.z, -w_.y)
+    return out
+def low_copy(ob, name, ratio):
+    me = ob.data.copy(); lo = bpy.data.objects.new(name, me); sc.collection.objects.link(lo); lo.matrix_world = ob.matrix_world.copy()
+    if me.shape_keys: lo.shape_key_clear()
+    lo.modifiers.clear()
+    if ratio < 1:
+        m = lo.modifiers.new('dec', 'DECIMATE'); m.ratio = ratio
+        bpy.context.view_layer.objects.active = lo; bpy.ops.object.select_all(action='DESELECT'); lo.select_set(True)
+        bpy.ops.object.modifier_apply(modifier='dec')
+    return lo
+def thickness(v, n):   # how far in along the inward normal before leaving the head again (the ears are thin)
+    t = np.full(len(v), .12)
+    was_in, done = np.zeros(len(v), bool), np.zeros(len(v), bool)   # (smoothing leaves some corners a hair outside: only an exit after being inside counts)
+    for s_ in np.linspace(.002, .12, 60):
+        p_ = v - n*s_; d_ = head(p_[:, 0], p_[:, 1], p_[:, 2])
+        out_ = (d_ > 0) & was_in & ~done; t[out_] = s_; done |= out_; was_in |= d_ < 0
+    return t
+def bake(outdir):
+    os.makedirs(outdir, exist_ok=True); TEX = opt('--tex', 2048)
+    for k in snarlkeys: k.value = 0
+    # the low pieces: part 1 skin, 2 teeth, 3 eyes, 4 brass
+    pieces = [(skin, opt('--tris', 40000)/len(skin.data.polygons), 1), (tth, 3000/len(tth.data.polygons), 2)] + [(e, 1, 3) for e in eyes] + [(ring, 1, 4)]
+    lows, info = [], []
+    for ob, ratio, part in pieces:
+        lo = low_copy(ob, ob.name + '_low', min(1, ratio))
+        if ob in eyes or ob is ring:   # fewer segments than the render's
+            lo.modifiers.new('dec', 'DECIMATE').ratio = .35 if ob in eyes else .5
+            bpy.context.view_layer.objects.active = lo; bpy.ops.object.select_all(action='DESELECT'); lo.select_set(True); bpy.ops.object.modifier_apply(modifier='dec')
+        lows.append(lo); info.append(part)
+    # each low piece's corners (visualiser axes), the snarl's moves, and thickness, before they're joined
+    per = []
+    for lo, part in zip(lows, info):
+        v = world_vis(lo); nb = np.array([tuple(x.normal) for x in lo.data.vertices]); M3 = lo.matrix_world.to_3x3()
+        nv = np.array([(lambda w_: (w_.x, w_.z, -w_.y))(M3 @ mathutils.Vector(x)) for x in nb]); nv /= np.linalg.norm(nv, axis=1, keepdims=True) + 1e-9
+        if part == 1: mv = snarl(v) - v
+        elif part == 2:
+            sn = snarl(v); j = v[:, 1] < -.245; sn[j] = snarl(v[j], jaw_all=True); mv = sn - v
+        else: mv = np.zeros_like(v)
+        th = thickness(v, nv) if part == 1 else np.full(len(v), .12)
+        a = lo.data.attributes.new('lmorph', 'FLOAT_VECTOR', 'POINT'); a.data.foreach_set('vector', mv.astype(f32).ravel())
+        a = lo.data.attributes.new('lthick', 'FLOAT', 'POINT'); a.data.foreach_set('value', th.astype(f32))
+        a = lo.data.attributes.new('lpart', 'FLOAT', 'POINT'); a.data.foreach_set('value', np.full(len(v), part, f32))
+    # joined into one mesh, one texture atlas
+    bpy.ops.object.select_all(action='DESELECT')
+    for lo in lows: lo.select_set(True)
+    bpy.context.view_layer.objects.active = lows[0]
+    for lo in lows: mw = lo.matrix_world.copy(); lo.matrix_world = mw
+    bpy.ops.object.join(); low = bpy.context.view_layer.objects.active; low.name = 'low'
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    low.data.materials.clear()
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=.003, area_weight=0, correct_aspect=True, scale_to_bounds=False)
+    bpy.ops.uv.pack_islands(margin=.002)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    print(f'low: {len(low.data.polygons)} tris, {len(low.data.vertices)} corners', flush=True)
+    # the bake: from the sculpt (and its eyes, teeth and ring) onto the low mesh
+    bm2 = bpy.data.materials.new('bake'); nt = nodes(bm2); img_node = N(nt, 'ShaderNodeTexImage', (0, 0)); nt.nodes.active = img_node
+    N(nt, 'ShaderNodeOutputMaterial', (300, 0)); low.data.materials.append(bm2)
+    sc.cycles.bake_type = 'COMBINED'; sc.render.bake.use_selected_to_active = True; sc.render.bake.cage_extrusion = .02; sc.render.bake.max_ray_distance = .06
+    sc.render.bake.margin = 8; sc.world.light_settings.distance = .12
+    for k in snarlkeys: k.value = 0
+    def run(kind, name, samples, colorspace, **kw):
+        img = bpy.data.images.new(name, TEX, TEX, float_buffer=False); img.colorspace_settings.name = colorspace; img_node.image = img
+        sc.cycles.samples = samples
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in (skin, tth, ring, *eyes): ob.select_set(True)
+        low.select_set(True); bpy.context.view_layer.objects.active = low
+        t0 = time.time(); bpy.ops.object.bake(type=kind, **kw); print(f'bake {name}: {time.time() - t0:.0f}s', flush=True)
+        img.filepath_raw = os.path.join(outdir, name + '.png'); img.file_format = 'PNG'; img.save(); return img
+    run('DIFFUSE', 'color', 16, 'sRGB', pass_filter={'COLOR'})
+    run('NORMAL', 'normal', 8, 'Non-Color', normal_space='OBJECT', normal_r='POS_X', normal_g='POS_Y', normal_b='POS_Z')
+    run('AO', 'ao', 48, 'Non-Color')
+    run('EMIT', 'emit', 4, 'sRGB')
+    # the data: corners (visualiser axes), uv, snarl, thickness, part; triangles
+    me = low.data; me.calc_loop_triangles()
+    uvl = me.uv_layers.active.data; nl = len(me.loops)
+    luv = np.empty(nl*2, f32); uvl.foreach_get('uv', luv); luv = luv.reshape(-1, 2)
+    lv = np.empty(nl, np.int32); me.loops.foreach_get('vertex_index', lv)
+    co = np.empty(len(me.vertices)*3, f32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    get = lambda n, w_: (lambda a: (me.attributes[n].data.foreach_get('vector' if w_ == 3 else 'value', a), a)[1])(np.empty(len(me.vertices)*w_, f32))
+    mo, th, pa = get('lmorph', 3).reshape(-1, 3), get('lthick', 1), get('lpart', 1)
+    # one output corner per (vertex, uv) pair: seams split
+    key = {}; outv = []; tris = []
+    for t in me.loop_triangles:
+        tri_ = []
+        for l in t.loops:
+            k_ = (lv[l], round(float(luv[l, 0]), 5), round(float(luv[l, 1]), 5))
+            if k_ not in key: key[k_] = len(outv); outv.append((lv[l], luv[l, 0], luv[l, 1]))
+            tri_.append(key[k_])
+        tris.append(tri_)
+    vi = np.array([o_[0] for o_ in outv]); uv = np.array([(o_[1], o_[2]) for o_ in outv], f32)
+    pos = np.stack([co[vi, 0], co[vi, 2], -co[vi, 1]], 1)
+    np.savez(os.path.join(outdir, 'lit.npz'), pos=pos, uv=uv, morph=mo[vi], thick=th[vi], part=pa[vi], tri=np.array(tris, np.int32))
+    print(f'lit: {len(outv)} corners, {len(tris)} tris', flush=True)
+    # simple mode's mesh: far fewer panes, each corner's colour baked from the sculpt
+    lod = low_copy(skin, 'lod2d', 2400/len(skin.data.polygons)); tl = low_copy(tth, 'lodt', 240/len(tth.data.polygons))
+    el = [low_copy(e, 'lode', 1) for e in eyes]
+    for e in el:
+        e.modifiers.new('dec', 'DECIMATE').ratio = .06
+        bpy.context.view_layer.objects.active = e; bpy.ops.object.select_all(action='DESELECT'); e.select_set(True); bpy.ops.object.modifier_apply(modifier='dec')
+    L2 = []
+    for ob_, part in [(lod, 1), (tl, 2)] + [(e, 3) for e in el]:
+        v = world_vis(ob_)
+        if part == 1: mv = snarl(v) - v
+        elif part == 2: sn = snarl(v); j = v[:, 1] < -.245; sn[j] = snarl(v[j], jaw_all=True); mv = sn - v
+        else: mv = np.zeros_like(v)
+        ob_.data.color_attributes.new('bk', 'BYTE_COLOR', 'POINT'); ob_.data.color_attributes.active_color = ob_.data.color_attributes['bk']
+        sc.cycles.samples = 8
+        bpy.ops.object.select_all(action='DESELECT')
+        for o2 in (skin, tth, *eyes): o2.select_set(True)
+        ob_.select_set(True); bpy.context.view_layer.objects.active = ob_
+        sc.render.bake.target = 'VERTEX_COLORS'; bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}); sc.render.bake.target = 'IMAGE_TEXTURES'
+        col = np.empty(len(ob_.data.vertices)*4, f32); ob_.data.color_attributes['bk'].data.foreach_get('color', col)
+        ob_.data.calc_loop_triangles(); tr = np.array([tuple(t.vertices) for t in ob_.data.loop_triangles], np.int32)
+        L2.append((v, tr, np.full(len(tr), part), mv, col.reshape(-1, 4)[:, :3]))
+    np.savez(os.path.join(outdir, 'lod2d.npz'), *[a for piece in L2 for a in piece])
+    print('lod2d:', sum(len(x[1]) for x in L2), 'tris', flush=True)
+
 if MODE == 'anim':
     F = opt('--frames', 120); sc.frame_start, sc.frame_end = 1, F; r.fps = 24
     root.rotation_mode = 'XYZ'
@@ -488,6 +617,8 @@ if MODE == 'anim':
         for p in fc.keyframe_points: p.interpolation = 'BEZIER'; p.easing = 'EASE_IN_OUT'
     r.image_settings.file_format = 'FFMPEG'; r.ffmpeg.format = 'MPEG4'; r.ffmpeg.codec = 'H264'; r.ffmpeg.constant_rate_factor = 'HIGH'
     r.filepath = OUT; t0 = time.time(); bpy.ops.render.render(animation=True); print(f'anim: {F} frames in {time.time() - t0:.0f}s')
+elif MODE == 'bake':
+    bake(OUT)
 elif MODE == 'blend':
     bpy.ops.wm.save_as_mainfile(filepath=OUT)
 else:

@@ -65,7 +65,7 @@ function chooseCentre(){
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
   if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.filter(v => !banned(v.key)).map(v => ({k: v.key, v: Math.random() - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && !v.noJourney).map(v => ({k: v.key, v: Math.random() - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
   J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music

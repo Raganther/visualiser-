@@ -203,6 +203,18 @@ export const TUNE = {
     snapDecay: 3.5,            // how fast a downbeat's snarl eases off (a second)
     pitch: -.05,               // tipped a little up, so it looks down at us
   },
+  goblinLit: {chance: 0, size: .95, hinge: 0,     // the goblin, lit (baked from the Blender sculpt, render/lit.js): a solid head under moving lights
+    key: 2.6, rim: 4, kick: 1.8, amb: .14,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
+    lightDist: 2.2,            // how far out the lights circle (the head fits a sphere of about .6)
+    keySpeed: .35, keySwing: 1.25,  // the key light's swing round the head (radians a second, times .4 + the tension) and how far each way
+    dropSpin: 3, dropSecs: 2.5,     // a drop spins the lights round it this fast, fading over about this long
+    trans: 1,                  // light glowing through the ears from behind
+    trail: .03,                // how much of it the trails keep (its ghosts: more and they bloom into a halo)
+    zoom: .2, zoomRate: .08,   // the camera breathing in and out (of its size), and how slowly (radians a motion-second)
+    buildZoom: .25, dropZoom: .35,  // pushing in through a build towards a known drop, and the lunge on the drop
+    turn: .11, turnSwing: .6,  // its slow turn between three-quarter views, and how far each way
+    pitch: .06,                // tipped a little down, glowering
+  },
   jelly: {chance: 0, size: .9, hinge: 0,          // the jellyfish (a Blender model: tools/blender/jelly.py), swimming to the beat:
     beatsPerStroke: 1,         // one stroke of the bell every this many beats
     snap: 7,                   // how fast the bell contracts on the beat (it relaxes over the rest of the stroke)

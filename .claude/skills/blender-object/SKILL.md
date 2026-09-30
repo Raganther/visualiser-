@@ -52,6 +52,15 @@ Then:
 
 It gets its slider, its key in the O group, Journey's centrepiece pool and the objects test automatically. Adding one changes Journey's draws, so re-record the golden (`npm run golden:update`).
 
+## A lifelike (lit) object instead
+
+For a detailed, textured model lit by moving lights (not the wire look), follow `tools/blender/goblin_hd.py`:
+- **Sculpt** at high detail (distance fields and marching cubes via scikit-image in the venv, or any Blender mesh), and render it in Cycles to judge it (`still`, `anim`). The venv also needs `numpy scikit-image pillow`.
+- **Bake** (`bake <dir>`): a decimated low mesh with one UV atlas, colour, object-space normals, AO and emission baked from the high one (selected to active), plus per-corner thickness, the shape key's move and a small vertex-coloured mesh for simple mode.
+- **Pack** with `tools/blender/lit_export.py <dir> src/visuals/objects/meshes/<name>-lit.js`, and copy `objects/goblin-lit.js` for the object (its light rig, `TUNE.<key>`).
+- Blender's object-space normals are z up: `render/lit.js` turns them. Keep the corners under 65,536 (16-bit indices), and the module to a few MB (the published page's limit is 16 MB).
+- Memory: don't subdivide a 650k-triangle sculpt again at render time (it took 14 GB and was killed).
+
 ## 4. Check it
 
 - `node tools/look.mjs <name> --out <scratchpad>/look`, both renderers (the `check-visual` skill). Take stills a quarter of a movement apart to see the shape key working.
