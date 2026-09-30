@@ -250,6 +250,9 @@ export const TUNE = {
   cathedral: {speed: 2.2, calm: .45, surge: 1.8, surgeSecs: 3, morphSecs: 5,   // the Cathedral (worlds/cathedral.js): its flight down the nave, a drop's surge, a new section's hall growing in
     low: .1, high: 2.2,        // the camera's height: low in the nave when calm, up in the vaults at the height of a build
     lookAside: .35,            // calm music: glancing along the side aisles (radians)
+    altarBars: 8,              // an altar in a side aisle every this many bars (and at each new section), where a centrepiece stands
+    altarAhead: 18, altarHeight: 1.1, altarSize: .9,   // how far ahead it's set, how high above the floor it stands, how big it is (world units)
+    altarLook: .55,            // how far the camera turns to it as it passes
   },
   hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
     chamberBars: 8,            // a chamber every this many bars (and at each new section)

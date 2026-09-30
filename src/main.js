@@ -41,6 +41,7 @@ import { tIndex, tracks } from './audio/player.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
 import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
+const INSIDE = [{world: 'all'}, {trails: 'main'}, {objects: true}, {world: 'front'}, {hits: true}];   // an object inside a 3D world
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
@@ -165,6 +166,9 @@ function render(now){
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
   for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
+  // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
+  // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
+  if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {

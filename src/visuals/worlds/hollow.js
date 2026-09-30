@@ -84,11 +84,12 @@ export default {
     if (ch && P.w.hollow > .5) {
       const cam = camFrame(st.z, st.look, st.roll, ch.C), s = onScreen(cam, ch.C), near = sst(T.chamberAhead + 4, T.chamberAhead - 6, dz);
       if (s.z < ch.R*.35 || near <= 0) { if (s.z < ch.R*.35) P.anchor = {hide: true}; }
-      else P.anchor = {pos: [s.x*near, s.y*near], size: (ch.R*T.heartSize/s.z/1.25/.49)*near + (1 - near)*.9};
+      else { P.anchor = {pos: [s.x*near, s.y*near], size: (ch.R*T.heartSize/s.z/1.25/.49)*near + (1 - near)*.9, dist: Math.hypot(...sub3(ch.C, cam.ro))}; }
     }
+    P.hwF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.2;   // its front plane: the walls nearer than the centrepiece (they pass in front of it), or the near walls
   },
   glsl: {
-    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
+    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK; uniform float uHwF;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
 // the camera's bank and turn to the chamber, the chamber's light, the section's blend; the labyrinths and stuffs blended; the chamber (its heart, its size); the route's stretches`,
     functions: `
 vec2 hwOff(float k,float z){
@@ -174,12 +175,12 @@ vec3 hollow(vec2 sp){
 }`,
     fn: 'hollow',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); gl.uniform1f(u.uHwF, P.hwF || 2.2); },
   // its front plane: the near walls
   front: {
     fn: 'hollowFront',
     glsl: `
-float hollowFront(vec2 sp){ vec3 ro, rd=hwCam(sp,ro); float t=hwMarch(ro,rd,24,2.2); return t>0.0 ? 1.0 : 0.0; }`,
+float hollowFront(vec2 sp){ vec3 ro, rd=hwCam(sp,ro); float t=hwMarch(ro,rd,uHwF>2.3 ? 56 : 24,uHwF); return t>0.0 ? 1.0 : 0.0; }   // (the walls nearer than uHwF)`,
     path2d(o, P){   // the near walls: the edge of the frame, outside the tunnel's nearest ring
       const W = o.canvas.width, H = o.canvas.height, R = rings(P, W, H)[0];
       if (!R) return;
