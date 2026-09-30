@@ -103,9 +103,9 @@ void main(){
   if(uLook<0.5||uLook>3.5){   // real, or marble
     float mb=0.0;
     if(uLook>3.5){   // marble: white stone with winding grey veins, glossy, a little light passing into it
-      float v=sin(vO.x*7.0+sin(vO.y*5.0+vO.z*3.0)*2.2+sin(vO.z*9.0+vO.x*2.0)*1.2), v2=sin(vO.y*13.0+sin(vO.x*11.0)*1.5);
-      float v3=sin(vO.x*23.0+vO.y*17.0+sin(vO.z*19.0)*2.0);
-      mb=max(1.0-smoothstep(0.0,0.1,abs(v)),(1.0-smoothstep(0.0,0.06,abs(v3)))*0.5); alb=mix(vec3(0.5,0.49,0.47),vec3(0.1,0.1,0.11),mb*0.85)*(0.92+0.08*v2);
+      float v=sin(vO.x*14.0+sin(vO.y*9.0+vO.z*6.0)*2.4+sin(vO.z*17.0+vO.x*5.0)*1.3), v2=sin(vO.y*13.0+sin(vO.x*11.0)*1.5);
+      float v3=sin(vO.x*31.0+vO.y*23.0+sin(vO.z*27.0+vO.y*9.0)*2.2);
+      mb=max(1.0-smoothstep(0.0,0.12,abs(v)),(1.0-smoothstep(0.0,0.07,abs(v3)))*0.55); alb=mix(vec3(0.36,0.35,0.335),vec3(0.06,0.06,0.07),mb*0.9)*(0.9+0.1*v2);
       wrap=0.5; gloss=90.0; ks=0.45; thin*=0.3; metal=false;
     }
     c=alb*uAmb*(0.55+0.45*n.y)*(metal ? 0.3 : 1.0);
@@ -303,7 +303,7 @@ export function lit2d(o, M, U){
     const vx = -F.w[0], vy = -F.w[1], vz = CAM - F.w[2], vl = Math.hypot(vx, vy, vz), ed = (nx*vx + ny*vy + nz*vz)/vl;
     if (ed < -.05) continue;   // facing away
     let al = [M.col[F.f*3], M.col[F.f*3 + 1], M.col[F.f*3 + 2]];
-    if (look === 4) { const v = Math.sin(F.o[0]*7 + Math.sin(F.o[1]*5 + F.o[2]*3)*2.2), mb = 1 - sst(0, .14, Math.abs(v)); al = [.78, .76, .72].map((x, k) => x + ([.3, .3, .32][k] - x)*mb*.75); }
+    if (look === 4) { const v = Math.sin(F.o[0]*14 + Math.sin(F.o[1]*9 + F.o[2]*6)*2.4), mb = 1 - sst(0, .16, Math.abs(v)); al = [.36, .35, .335].map((x, k) => x + ([.06, .06, .07][k] - x)*mb*.9); }
     let c;
     if (look === 2) {   // neon
       const f = ((F.o[1]*26 + F.o[0]*2) % 1 + 1) % 1, line = 1 - sst(.03, .12, Math.min(f, 1 - f)), fr = Math.pow(1 - Math.max(0, ed), 3);
