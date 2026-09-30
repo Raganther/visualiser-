@@ -10,6 +10,7 @@ import { freq } from '../state.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
+import { G } from '../audio/beatgrid.js';
 import { L } from '../audio/listen.js';
 
 // (over six: the fingerprint's first six features set the scale; the listening's hats and noise add to it rather than
@@ -59,6 +60,7 @@ export function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.p
 export function newSection(strength){
   J.pending = false; J.secAge = 0; J.identified = 0; J.novHold = 0; J.M = {...J.fF};
   J.phraseAnchor = J.novBar <= J.bar && J.bar - J.novBar < 8 ? J.novBar : J.bar;   // phrases count from the new section's first bar
+  if (J.mapPhrase != null && G.map) J.phraseAnchor = J.bar - (((J.bar - J.mapPhrase) % 4) + 4) % 4;   // (read ahead: the track's own phrase lines)
   enterType(matchType(J.fF));
   pickStyle(strength);
   // a flourish on the bar line to mark the change

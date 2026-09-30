@@ -47,7 +47,14 @@ export function togglePlay(){
 export function position(){ return buffer ? (playing ? actx.currentTime - startedAt : S.pausedAt) : 0; }
 // where in the track the picture on screen should be: what's heard (the speakers' delay behind), as the frame will reach
 // the screen, by the Sync slider; for the look-ahead (audio/foresee.js), as the beat grid does for the kicks
-F.at = () => buffer && playing ? position() + (TUNE.sync.displayMs - S.syncMs)/1000 - (actx.outputLatency || actx.baseLatency || 0) : null;
+F.at = () => buffer && playing ? heard() + (TUNE.sync.displayMs - S.syncMs)/1000 : null;
+// the track's time at the speakers now: from the audio clock's own timestamp of what the output is playing (smooth between
+// the audio clock's steps, and counting the output's delay), or else the clock less the output's reported delay
+function heard(){
+  const est = position() - (actx.outputLatency || actx.baseLatency || 0), ts = actx.getOutputTimestamp && actx.getOutputTimestamp();
+  if (ts && ts.contextTime > 0 && ts.performanceTime > 0) { const h = ts.contextTime + (performance.now() - ts.performanceTime)/1000 - startedAt; if (Math.abs(h - est) < .3) return h; }
+  return est;
+}
 async function loadTrack(i){
   if (i < 0 || i >= tracks.length) return;
   ensureAudio(); const token = ++loadToken; tIndex = i;
@@ -57,9 +64,16 @@ async function loadTrack(i){
     const ab = await tracks[i].file.arrayBuffer();
     const buf = await actx.decodeAudioData(ab);
     if (token !== loadToken) return;
+    // read the whole track ahead (its beats, bars, phrases and drops: audio/foresee.js) before it plays, so the beat is
+    // locked from the first kick; a second or so, in pieces between frames (a slow device starts anyway after a few)
+    $('#track').innerHTML = 'Reading ahead…';
+    const ahead = foresee(buf);
+    await Promise.race([ahead, new Promise(r => setTimeout(r, TUNE.foresee.waitMs))]);
+    if (token !== loadToken) return;
     buffer = buf; S.pausedAt = 0; gridReset(false); resetOnsets(); if (J.on) freshJourney(); playFrom(0);
-    // read the whole track for its drops while it starts playing (a few seconds' work, in pieces between frames)
-    foresee(buf).then(r => { if (token === loadToken && r.ready) { updateSectionUI(); if (r.drops.length) toast(`Read ahead: ${r.drops.length === 1 ? 'a drop' : r.drops.length + ' drops'} at ${r.drops.map(d => `${Math.floor(d.t/60)}:${String(Math.floor(d.t % 60)).padStart(2, '0')}`).join(', ')}`); } });
+    ahead.then(r => { if (token !== loadToken || !r.ready) return; updateSectionUI(); updateTrackUI();
+      const mm = t => `${Math.floor(t/60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+      toast(`Read ahead: ${r.map ? `${r.map.bpm.toFixed(1)} BPM, ` : 'no steady beat, '}${r.drops.length ? (r.drops.length === 1 ? 'a drop' : r.drops.length + ' drops') + ' at ' + r.drops.map(d => mm(d.t)).join(', ') : 'no drops'}`); });
   } catch(e) {
     if (token !== loadToken) return;
     toast('Could not read that file'); tracks.splice(i,1);

@@ -56,7 +56,7 @@ const res = await page.evaluate(async (mode) => {
   // an independent tempo estimate: autocorrelation of the low band's rises
   const env = new Float32Array(N); for (let k = 1; k < N; k++) { let s = 0; for (let i = 1; i < 7; i++) s += Math.max(0, F[k*1024 + i] - F[(k - 1)*1024 + i]); env[k] = s; }
   let best = 0, bl = 0; for (let lag = 20; lag <= 45; lag++) { let s = 0; for (let k = lag; k < N; k++) s += env[k]*env[k - lag]; if (s > best) { best = s; bl = lag; } }
-  return {dur: buf.duration, N, secs, shots, acBpm: 3600/bl, readAhead: FS.drops, drops};
+  return {dur: buf.duration, N, secs, shots, acBpm: 3600/bl, readAhead: FS.drops, drops, map: FS.map && {bpm: FS.map.bpm, conf: FS.map.conf, down: FS.map.down, phrase: FS.map.phrase, changes: FS.map.changes.map(c => c.t)}};
 }, mode);
 const name = path.basename(track).replace(/\.[^.]+$/, '');
 fs.writeFileSync(path.join(OUT, `${name}-${mode}-${seed}.json`), JSON.stringify({...res, shots: undefined}));
@@ -67,6 +67,7 @@ const count = k => Object.entries(S.reduce((o, s) => (o[s[k] || 'none'] = (o[s[k
 console.log(`${res.dur.toFixed(0)} s; grid locked ${locked.length} s, median ${bpms[bpms.length >> 1] || '?'} BPM (autocorrelation says ${res.acBpm.toFixed(1)})`);
 const mmss = t => `${Math.floor(t/60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
 console.log(`read ahead: ${res.readAhead.length ? res.readAhead.map(d => mmss(d.t) + (d.jump ? ' (arrives)' : '')).join(', ') : 'no drops'}; Journey dropped at ${res.drops.map(d => mmss(d.s) + (d.foreseen ? ' (seen coming)' : ' (heard live)')).join(', ') || 'none'}`);
+console.log(res.map ? `beat map: ${res.map.bpm} BPM (fit ${res.map.conf}), changes at ${res.map.changes.map(mmss).join(', ')}` : 'beat map: none (no steady beat): the live grid listened');
 console.log(`sections: ${new Set(S.map(s => s.sec)).size}; section changes: ${S.filter((s, i) => i && s.sec !== S[i - 1].sec).length}`);
 for (const k of ['world', 'recipe', 'lead', 'scene', 'hit', 'centre', 'pace']) console.log(`${k}: ${count(k)}`);
 console.log(`written to ${OUT}/; errors ${JSON.stringify(await page.errors())}`);

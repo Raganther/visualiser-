@@ -11,6 +11,7 @@ import { TUNE } from '../tuning.js';
 import { L, listenBar } from './listen.js';
 import { danceBeat } from '../scene/dance.js';
 import { STEER } from '../journey/steer.js';
+import { F } from './foresee.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -19,7 +20,7 @@ export function onBeatFX(){
 // one beat of the bar (pos 0 is the downbeat), from the beat grid, or from the kicks until the grid locks
 function gridBeat(pos){
   J.beats++; J.pos = pos;
-  if (pos % PACE.div === 0) firePulse();
+  if (pos % PACE.div === 0) firePulse(G.map ? TUNE.foresee.map.softPulse + (1 - TUNE.foresee.map.softPulse)*G.kick : 1);   // (read ahead: as hard as the kick there is)
   for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
   danceBeat(pos, J);   // the dancers: a kick, and on the downbeat perhaps a new move (scene/dance.js)
   const down = pos === 0;
@@ -45,7 +46,8 @@ function gridBeat(pos){
 export const G = {period:0, next:0, n:0, down:0, locked:false, conf:0, miss:0, fit:0, prevKick:0, kicks:[], alt:0, altN:0,
   bb:[0,0,0,0], mid:[0,0,0,0], ev:0, win:null, cand:-1, candN:0, lastT:0,
   lead:0,   // seconds to tick ahead of the kicks as detected, so the beat is seen as it's heard
-  acP:0, acConf:0, onAt:0, offN:0};   // the low end's own pulse (autocorrelation) and how sure; the last kick on the grid; kicks off it since
+  acP:0, acConf:0, onAt:0, offN:0,
+  map:false, mi:0, mapX:0, mapT:0, kick:1};   // keeping time from the beat map (audio/foresee.js): the next beat's index, where the track and the clock were, the kick on this beat   // the low end's own pulse (autocorrelation) and how sure; the last kick on the grid; kicks off it since
 export function gridReset(keepTempo){
   G.locked = false; G.conf = 0; G.miss = 0; G.fit = 0; G.prevKick = 0; G.kicks.length = 0; G.win = null;
   G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.offN = 0; if (!keepTempo) { G.period = 0; G.acP = 0; G.acConf = 0; ENV.fill(0); }
@@ -70,6 +72,7 @@ function estimatePeriod(ts){
   return bp;
 }
 export function gridKick(t){
+  if (G.map) return;   // the beat map keeps time (below): the kicks as heard aren't needed
   G.kicks.push(t); if (G.kicks.length > 24) G.kicks.shift();
   if (G.kicks.length >= 6) {
     const est = estimatePeriod(G.kicks);
@@ -101,6 +104,31 @@ export function gridKick(t){
     G.n = J.upos; G.down = 0;                            // carry on counting from where the kicks had got to
     G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.win = null;
   }
+}
+// the beat map (audio/foresee.js), when the track was read ahead: every beat known before it plays, so the grid is locked
+// from the first beat, keeps exact time through breakdowns, and knows the 1 and the phrases. Where the track is comes from
+// the player (F.at: as heard, as the frame will reach the screen, by the Sync slider). Returns whether it's keeping time
+function mapFrame(t){
+  const M = F.map, x = M && F.at ? F.at() : null;
+  if (x == null) { if (G.map) { G.map = false; G.locked = false; G.fit = 0; } return false; }
+  const B = M.beats, fresh = !G.map || Math.abs((x - G.mapX) - (t - G.mapT)) > .25;   // starting, or a seek: no burst of beats
+  if (fresh) {
+    let lo = 0, hi = B.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (B[mid] <= x + .008) lo = mid + 1; else hi = mid; }
+    G.mi = lo; G.map = true; G.locked = true;
+    const bar = Math.floor((lo - M.down)/4);   // the bars counted as the map counts them, and phrases on its phrase lines
+    J.bar = bar; J.mapPhrase = M.phrase; J.phraseAnchor = bar - (((bar - M.phrase) % 4) + 4) % 4;
+  }
+  G.mapX = x; G.mapT = t;
+  while (G.mi < B.length && B[G.mi] <= x + .008) {   // half a frame early, so ticks land on the beat not after it
+    const i = G.mi++, pos = (((i - M.down) % 4) + 4) % 4;
+    G.n = i; G.kick = M.kick[i]; J.upos = pos;
+    if (pos === 0) J.bar = Math.floor((i - M.down)/4) - 1;   // (gridBeat counts it on)
+    gridBeat(pos);
+  }
+  const i = Math.min(B.length - 1, G.mi);
+  G.period = i > 0 ? B[i] - B[i - 1] : M.period; G.next = t + (B[i] - x); G.conf = 1; G.down = 0; G.dsure = M.dsure; G.ev = 99;
+  S.beatPeriod = G.period;
+  return true;
 }
 function gridTick(t){
   if (G.win) {                                            // what happened just after the last beat
@@ -148,6 +176,7 @@ function pulse(t, fd){
 export function gridFrame(t, fl, fh, ft, fd = fl){
   const gap = t - (G.lastT || t), dt = Math.min(.1, gap); G.lastT = t;
   pulse(t, fd);
+  if (mapFrame(t)) return;
   if (!G.locked) return;
   G.conf -= (gap > 1 ? gap : dt)/TUNE.grid.holdSecs;       // a long gap (a hidden tab) counts in full
   if (G.conf <= 0) { G.locked = false; G.fit = 0; return; }

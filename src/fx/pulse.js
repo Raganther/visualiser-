@@ -7,8 +7,8 @@ import { eff, jumpVal } from '../presets.js';
 import { reduceMotion } from '../util.js';
 
 // the visual pulse: on the section's division of the beat, as hard as its pace allows
-export function firePulse(){
-  const asp = innerWidth/innerHeight, k = PACE.punch;
+export function firePulse(amt = 1){   // (amt: how hard the kick there is, when the track was read ahead)
+  const asp = innerWidth/innerHeight, k = PACE.punch*amt;
   S.beat = Math.max(S.beat, (reduceMotion ? .5 : 1)*k); S.hueKick += .07*k;
   comets.forEach(c => {
     const a = Math.atan2(c.dy, c.dx) + (Math.random() < .5 ? -1 : 1)*(.6 + Math.random()*1.5)*(.4 + .6*k);

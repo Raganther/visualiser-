@@ -31,7 +31,7 @@ export function arcBias(now){
 // looking ahead (audio/foresee.js): where the next drop we know of is, how far into its run-up we are (J.anticip, 0..1),
 // and the breath held in its last beat (J.hush). Drops too close to the one before (TUNE.foresee.gap) are left alone, as the
 // live detector leaves them. Returns the drop crossed this frame, if any (a seek over one doesn't count)
-function foreStep(dt){
+function foreStep(dt, now){
   const Fo = TUNE.foresee, t = F.ready && F.at ? F.at() : null;
   J.anticip = 0; J.hush = 0; J.fore = null;
   if (t == null) { J.foreT = null; return null; }
@@ -49,6 +49,14 @@ function foreStep(dt){
     J.hush = Math.max(0, Math.min(1, 1 - left/(Fo.hushBeats*beat)));
     break;
   }
+  // the beat map's own section lines (audio/foresee.js): a change one beat off starts a section on its downbeat
+  const M = F.map; J.mapNear = false;
+  if (M) { const P = M.period, near = TUNE.foresee.map.coverBars*4*P;
+    for (const c of M.changes) {
+      if (Math.abs(c.t - t) < near) J.mapNear = true;
+      if (!(c.t - P > last && c.t - P <= t)) continue;
+      if (J.on && J.type && !J.pending && J.secAge > TUNE.sectionMinAge && !STEER.hold) { J.pending = true; J.pendingSince = now; J.pendStrength = Math.max(1, c.nov/2); J.novBar = J.bar + 1; }
+    } }
   return crossed;
 }
 export function stepJourney(now, dt){
@@ -64,7 +72,7 @@ export function stepJourney(now, dt){
   // the tension: loudness, and how full the texture is (hats, noise, bass: compressed techno's loudness barely moves)
   J.biasEff = Math.min(1, Math.max(0, J.bias + arcBias(now)));   // the slider, and the set arc if one's running
   const wF = TUNE.listen.fullWeight, targetT = Math.min(1, Math.max(0, (lvl*(.8 - wF*.75) + L.full*wF + rise*.5 + (J.biasEff - .5)*.8)*(1 - .5*J.intro)));
-  const drop = foreStep(dt);
+  const drop = foreStep(dt, now);
   J.tension += (Math.max(targetT, J.anticip*TUNE.foresee.tension) - J.tension)*Math.min(1, dt/(J.anticip > 0 ? 1 : 2));   // (a known drop coming lifts it)
   J.tmin = Math.min(J.tension, J.tmin + dt*.06);
   J.dropGlow *= Math.pow(.35, dt);
@@ -90,7 +98,8 @@ export function stepJourney(now, dt){
   const wasHold = J.novHold;
   J.novHold = J.type && J.nov > Math.max(TUNE.novelty*(1 - .5*still), J.novAvg*(TUNE.noveltyVsAvg - .5*still)) ? (J.novHold || 0) + dt : 0;
   if (!wasHold && J.novHold) J.novBar = J.bar + (J.pos >= 2 ? 1 : 0);   // the downbeat nearest to where the change began   // the change has to last, not just be a blip
-  if (!J.pending && !STEER.hold && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }   // (held by hand: no new sections)
+  if (!J.pending && !STEER.hold && !J.mapNear && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) {   // (read ahead: near a known change, that one brings it)
+    J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }   // (held by hand: no new sections)
   J.foreHold = !!J.fore && J.fore.bars < TUNE.foresee.holdBars;   // a known drop is near: save the change for it
   if (J.foreHold && J.pending) J.pendingSince = now;
   if (J.pending && !J.foreHold && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
