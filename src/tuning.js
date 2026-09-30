@@ -197,6 +197,12 @@ export const TUNE = {
     pitch: .75,                // how far it's tipped towards us, so we look into the flower
     turn: .06,                 // its slow turn (radians a motion-second)
   },
+  goblin: {chance: 0, size: .9, hinge: 0,         // the goblin (a Blender sculpt: tools/blender/goblin.py), snarling with the music:
+    glower: .55,               // how far from a snarl it rests (the shape key's weight below 0: tight-lipped)
+    mids: 1.1, snarl: 1.6,     // how much the mids work its jaw, and a downbeat's snarl when it's intense
+    snapDecay: 3.5,            // how fast a downbeat's snarl eases off (a second)
+    pitch: -.05,               // tipped a little up, so it looks down at us
+  },
   jelly: {chance: 0, size: .9, hinge: 0,          // the jellyfish (a Blender model: tools/blender/jelly.py), swimming to the beat:
     beatsPerStroke: 1,         // one stroke of the bell every this many beats
     snap: 7,                   // how fast the bell contracts on the beat (it relaxes over the rest of the stroke)
@@ -314,8 +320,8 @@ export const TUNE = {
     ballSecs: 6,               // a drop's bait ball: how long the school circles before it swims on
     track: .015,               // how fast we drift along the reef (the near layers slide past fastest)
   },
-  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
-  objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points, shaded: calm to intense
+  objStyles: {calm: [1, .3, .3, 1, .6, .8], intense: [.6, 1, 1, .5, .9, .7]},
   unfold: {barsPerRing: 2},    // the unfolding mandala: a new ring every this many bars (faster, and the trails smear the rings outwards)
   // the fractal's endless dive (visuals/layers/fractal.js): octaves a motion-second at full tension (calm: this share of it), each
   // octave this much bigger than the next; a drop's surge (times the speed) and how fast it fades; the kick's flash (log radius a

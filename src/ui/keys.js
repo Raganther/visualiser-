@@ -44,7 +44,7 @@ const GROUPS = {
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
-const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points'];   // the objects' styles (render/mesh.js), Y in the objects group
+const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
 const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal); the letters run out there, so later layers are on their sliders
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
@@ -105,7 +105,7 @@ function show(){
   const tip = document.createElement('i');
   tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (wedges, mirror box, dive) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
-    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points) · Esc leaves'
+    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · Esc leaves'
     : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (wedges, mirror box, dive) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
@@ -154,7 +154,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();   // (X is also a single key outside the groups)
     if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l'); else toggle(v, TUNE.keys.layer); }
-  else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points (Journey keeps it going)
+  else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points, shaded (Journey keeps it going)
     const n = ((J.on ? J.objStyle || 0 : Math.round(S.active.objStyle || 0)) + 1) % STYLES.length;
     if (J.on) { J.objStyle = n; } else { S.active.objStyle = n; } curP.objStyle = n;
     toast('Objects: ' + STYLES[n]);

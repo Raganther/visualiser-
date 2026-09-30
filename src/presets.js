@@ -30,7 +30,7 @@ export const SPEC = [
   // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
   // the kaleidoscope's kind (last, so the rest keep their places): wedges meeting at a point, a mirror box (a hall of mirrors), a dive (zooming in through its folds)
   {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive', min:0, max:2, step:1},
-  {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points', min:0, max:4, step:1},
+  {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points, 5 shaded', min:0, max:5, step:1},
   // how intricate the mandalas are: few folds and plain rings, to many folds, doubled petals and ornament (last, so the rest keep their places)
   {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
   // the fractal's dive twisting into a logarithmic whirlpool, spinning as it falls (last, so the rest keep their places)

@@ -15,9 +15,9 @@ import { $ } from '../util.js';
 const GROUPS = [['Objects', OBJECT_VISUALS], ['Worlds', WORLD_VISUALS], ['Layers', LAYER_VISUALS], ['Hits', HIT_VISUALS]];
 // where each object came from (the rest are one module each, under src/visuals/)
 const SOURCES = {skull: 'tools/skull-mesh.mjs (distance functions, meshed)', unicorn: 'tools/unicorn-mesh.mjs', manta: 'tools/blender/manta.py (Blender)',
-  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
+  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', goblin: 'tools/blender/goblin.py (Blender, sculpted from metaballs)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
   dodeca: 'meshes/maths.js', spikes: 'meshes/maths.js', crystal: 'meshes/maths.js'};
-const STYLES = ['Glass wire', 'Solid', 'Outline', 'Hologram', 'Points'];
+const STYLES = ['Glass wire', 'Solid', 'Outline', 'Hologram', 'Points', 'Shaded'];
 let el = null, cur = null, thumbs = {}, fps = {n: 0, t: 0, v: 0}, keepDance = null;
 try { thumbs = JSON.parse(localStorage.getItem('afterglow.thumbs') || '{}'); } catch (e) {}
 
