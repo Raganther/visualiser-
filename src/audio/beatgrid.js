@@ -29,14 +29,14 @@ function gridBeat(pos){
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
   if (phrase) J.phraseNow = true;
-  if (J.pending && down) newSection(J.pendStrength);
+  if (J.pending && down && !J.foreHold) newSection(J.pendStrength);   // (a known drop is near: it brings the change)
   if (down && J.accTrig === 'bar') J.accEnv = 1;
   if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
   // progression: about every 16 bars (scaled by Evolution speed) without a change in the music, on a 4-bar line
   J.progBeats++;
   // (sooner when the same loop has run a long while: audio/listen.js)
   const pb = Math.max(16, Math.round(TUNE.progressBeats/J.speed/16)*16)*(L.loop >= TUNE.listen.loopBars ? .5 : 1);
-  if (phrase && J.type && J.progBeats >= pb && !STEER.hold) progress();   // (not while held by hand)
+  if (phrase && J.type && J.progBeats >= pb && !STEER.hold && !J.foreHold) progress();   // (not while held by hand)
   if (phrase) J.spinDir *= -1;                            // spin reverses every 4 bars
   if (down && barIn % 8 === 0 && Math.random() < .4) J.zoomFlip = -.03;   // occasional pull-back
 }

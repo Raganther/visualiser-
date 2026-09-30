@@ -227,6 +227,12 @@ export const TUNE = {
   arc: {start: .25, peak: .8, peakAt: .68, end: .3},
 
   // listening for texture (audio/listen.js): what tells compressed techno's parts apart when its loudness barely moves
+  // looking ahead (audio/foresee.js): a dropped-in track is read for its drops before it plays, and Journey builds towards
+  // each one (journey/director.js). The run-up lasts leadBars bars (at most the breakdown's length, at least minSecs); over it
+  // the tension is lifted towards tension, the trails zoom and turn faster (zoom, spin), and in the last hushBeats beats the
+  // picture holds its breath (dims by hush) so the drop lands harder. New sections wait for the drop in the last holdBars.
+  foresee: {on: true, leadBars: 8, minSecs: 3, tension: .95, zoom: .03, spin: 1.5, hushBeats: 1, hush: .45, holdBars: 8,
+    jumpDb: 12, jumpGap: 12, gap: 15},   // the low end arriving this many dB above the 8 s before is a drop too (none within jumpGap s of another); drops closer than gap s to the last are left to land by themselves
   listen: {
     forget: .01,               // how fast the loudest hats heard fade (a share a second), so a quieter part is heard on its own terms
     hatFloor: .002,            // hats this faint or fainter count as none (the top end's rise in loudness per frame)

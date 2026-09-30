@@ -242,7 +242,7 @@ export function fly(dt, x){
   // the track's shape: tension climbing faster than its slow average is a build
   const T = J.tension || 0;
   C.tf += (T - C.tf)*Math.min(1, dt/CZ.buildFast); C.ts += (T - C.ts)*Math.min(1, dt/CZ.buildSlow);
-  const b = C.tf > CZ.buildFloor ? Math.max(0, Math.min(1, (C.tf - C.ts)/CZ.buildSpan)) : 0;
+  const b = Math.max(C.tf > CZ.buildFloor ? Math.max(0, Math.min(1, (C.tf - C.ts)/CZ.buildSpan)) : 0, J.anticip || 0);   // (or a drop read ahead: audio/foresee.js)
   C.build += (b - C.build)*Math.min(1, dt*.8);
   if (J.on && J.type && J.type !== C.lastType) {   // the first section owns where the camera already is
     const was = C.lastType; C.lastType = J.type;

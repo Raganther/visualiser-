@@ -30,12 +30,12 @@ src/visuals/registry.js    lists every world, hit, layer and object; everything 
 src/visuals/worlds|hits|layers|objects/*.js   one module per visual (see below)
 src/render/                gl.js (WebGL passes), canvas2d.js (simple mode), compose.js (builds both shaders from the registry), shaders.js (fixed programs), mesh.js (3D meshes as wire and glass panes), quality.js (resolution that follows the frame rate)
 src/journey/               core (J, jState), sections, worlds, cast, recipes, transitions, progression, pace, steer (pins, bans, hold), director (stepJourney, __jdbg)
-src/audio/                 player, analysis (levels, onsets), listen (texture: hats, noise, bass, filter, notes, width, bar memory), synth (built-in beat), beatgrid (tempo, the low end's pulse, clock, downbeat, gridBeat)
+src/audio/                 player, analysis (levels, onsets), listen (texture: hats, noise, bass, filter, notes, width, bar memory), foresee (the track read ahead for its drops), synth (built-in beat), beatgrid (tempo, the low end's pulse, clock, downbeat, gridBeat)
 src/fx/                    particles (flow), effects (comets, shockwave motion, stabs), pulse, movers
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 dance.js (the choreographer: every layer and object dances), signals.js (the signal bus), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments)
-tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, visuals, journey, quality, cosmos, dance, steer, golden (see Testing)
+tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, foresee, visuals, journey, quality, cosmos, dance, steer, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
@@ -314,6 +314,21 @@ Journey lives in `src/journey/`. The main principle, which came from user feedba
 - **Signals on the bus:** Hi-hats, Noisy against tonal, Fullness, Stereo width, The notes change, Something new (so movers, scene drives and each layer's "follows" can use them).
 - **Narration:** the panel's "Hearing:" line (`#jHear`): the hats in or out, the bass (or a breakdown), noisy or tonal, the filter, wide, the loop's length, something new, the notes moving.
 - **On the user's tracks** (offline, `tools/track-run.mjs`, which now feeds the unclipped spectrum and the width, and records `L` each second): Mutant Pulse's new sections fall where the hats go in and out and at the breakdown, and it drops as the bass comes back; Us and Them (a real recording, not techno) gets its choruses as one section that returns each time, calm pace (264 s floating, none frantic; it was 102 s frantic), and the band coming in after the organ intro as its drop.
+
+## Looking ahead: drops seen coming
+
+The user asked for Journey to read the MP3 before it plays and decide ahead. `audio/foresee.js` (a leaf module; what it finds is in `F`) reads a dropped-in track the moment it's decoded (`foresee(buffer)`, from `loadTrack` in `player.js`, in pieces between frames, a second or two for a long track), and the player toasts what it found ("Read ahead: 2 drops at 1:32, 3:10").
+- **What it finds:** the low end's loudness (20-150 Hz, two low-pass stages, in dB) every 10 ms, run through the live listening's own rules (`TUNE.listen`: the bass well under its loudest for `brkSecs` is a breakdown, its return the drop), each drop timed from the sharpest rise (the first kick back), not from when the rule is sure; and the low end *arriving* (`jumpDb` above the 8 s before: the kick coming in after a beatless intro, a band after an organ). `findDrops(env, dt)` is the pure part.
+- **Where the track is:** `F.at()` (set by the player): the track's time as heard, as the frame will reach the screen, by the Sync slider (like the beat grid's `G.lead`). Tests and the track tool set their own.
+- **What Journey does** (`foreStep` in `director.js`, `TUNE.foresee`): before each known drop (drops within `gap` s of the one before are left to the live rules) a run-up of `leadBars` bars (never longer than the breakdown, at least `minSecs`), `J.anticip` 0..1:
+  - the tension is lifted towards `tension` (so the city's lights climb, the fractal falls faster, the orbits tighten, the stargate quickens), and the cosmos camera builds towards a planet (`C.build`);
+  - the trails zoom and turn faster (`zoom`, `spin`);
+  - in the last `hushBeats` beat the picture holds its breath (`J.hush`, `P.hush`: darker, most at the edges, in the finish in both renderers), so the drop lands harder;
+  - no new section and no progression step in the last `holdBars` (`J.foreHold`): a change that comes then waits and starts with the drop;
+  - the drop fires on the moment it's heard (`dropFX`, a cut), and the live detection stands down (its 15 s gap).
+- **On the user's tracks** (`tools/track-run.mjs` reads ahead too and reports it): Mutant Pulse's drop at 2:29.0 lands on the moment, where the live listening heard it at 2:32; Evolving Groove's kick returning (0:30, 2:57), Hypnotic Groove's bass cuts, and Us and Them's band coming in (0:35) are found.
+- **Narration:** the "Hearing:" line adds "Read ahead: the drop in 4 bars, building to it". The bus has "The drop is coming" (`SIG.coming`) for movers.
+- **Only for tracks:** a video's sound, the camera and the built-in beat have nothing to read ahead; Journey reacts live as before.
 
 ## Conventions
 
@@ -601,6 +616,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   On `fixtures/offbeat.js` (bass notes between the kicks) it must also find about one kick per beat, lock, and hold the right tempo. On `fixtures/rolling.js` (a loud master, past the bytes' ceiling, with a bass note every three sixteenths, louder low down than the kick) it must lock to the right tempo and time the beats.
 - `tests/visuals.mjs`: every world, layer and hit shown alone in both renderers draws something (a world or layer isn't black) with no errors, and WebGL doesn't fall back to simple mode (a shader that fails to build does that silently: rain once called a `hash` the trails' shader doesn't have): a quick guard for new visuals.
 - `tests/listen.mjs`: on `fixtures/texture.js` (parts that differ in texture, not loudness), the listening hears the hats come in, the breakdown, one drop as the bass returns (and Journey drops then), the noisy wash, the chord moving, the stereo widening and the loop running on; and Journey starts a new section when the hats come in though the loudness hardly changes.
+- `tests/foresee.mjs`: a synthetic track's drop is found where the kick comes back (within 30 ms) and its breakdown where it starts; on the texture groove with its drop known, Journey's run-up rises to it, the tension lifts, the breath is held only in the last beat, the drop fires on the moment (before the live listening hears it) and once, and no new section starts in the bars before.
 - `tests/quality.mjs`: in both renderers, slow frames lower the resolution, steady ones bring it back, and a step up that's too much is taken back and held off; in WebGL, the trails' shader built from what's drawing matches the full one (within 1/255) over Journey's changes. `__step(n, dt)` steps slower frames.
 - `tests/cosmos.mjs`:
   - with `?lab=cosmos`, in both renderers: it draws, the shots change with the music, a jump reaches another system, and the camera never goes inside a body;

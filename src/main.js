@@ -64,6 +64,7 @@ const DANCE_CHARS = Object.fromEntries(OBJECT_VISUALS.map(v => [v.key, v.dance |
 import * as registry from './visuals/registry.js';
 import { LABS, applyLabs, applyTune, bindLabToggles } from './lab.js';
 import { TUNE } from './tuning.js';
+import { F } from './audio/foresee.js';
 
 applyTune();                                          // ?tune= overrides, before anything reads TUNE
 initRenderer();
@@ -113,7 +114,7 @@ function render(now){
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
   updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
-    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L});
+    tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L, coming: J.anticip});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
@@ -148,6 +149,7 @@ function render(now){
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
     mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band]};
   P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
+  P.hush = J.on ? J.hush*TUNE.foresee.hush*(reduceMotion ? .5 : 1) : 0;   // the breath held before a drop we saw coming (journey/director.js)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view
   P.frontOn = ['land', 'space', 'aurora', 'city', 'sea', 'deep', 'dunes', 'forest'].some(k => eff[k] > .1) || (eff.cosmos > .1 && CTX.focus.k > .3 && SF.amt < .5) ? 1 : 0;
@@ -181,7 +183,9 @@ function render(now){
     const hr = $('#jHear');   // what the listening hears (audio/listen.js)
     if (hr && $('#panel').classList.contains('open')) hr.textContent = `Hearing: hi-hats ${L.hat > .45 ? 'in' : 'out'}, bass ${L.brk ? 'out (a breakdown)' : L.bass > .5 ? 'in' : 'low'}, `
       + `${L.noise > .5 ? 'noisy' : 'tonal'}, filter ${Math.round(L.cut*100)}%${L.width > .15 ? ', wide' : ''}`
-      + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`;
+      + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`
+      + (J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
+        : F.ready ? ` Read ahead: ${F.drops.length ? F.drops.length + (F.drops.length === 1 ? ' drop' : ' drops') + ' in this track' : 'no drops in this track'}.` : '');
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const sl = sliders[k], {out, s, input} = sl, v = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);

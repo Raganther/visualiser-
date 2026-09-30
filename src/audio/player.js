@@ -10,6 +10,7 @@ import { $ } from '../util.js';
 import { MEDIA, isMediaFile, setMediaFile } from '../media/source.js';
 import { TUNE } from '../tuning.js';
 import { syncSliders, updateSectionUI } from '../ui/panel.js';
+import { F, foresee } from './foresee.js';
 
 /* ---------- audio ---------- */
 export let actx = null, analyser = null, source = null, buffer = null, stereo = null;
@@ -44,6 +45,9 @@ export function togglePlay(){
   playing ? pause() : playFrom(S.pausedAt);
 }
 export function position(){ return buffer ? (playing ? actx.currentTime - startedAt : S.pausedAt) : 0; }
+// where in the track the picture on screen should be: what's heard (the speakers' delay behind), as the frame will reach
+// the screen, by the Sync slider; for the look-ahead (audio/foresee.js), as the beat grid does for the kicks
+F.at = () => buffer && playing ? position() + (TUNE.sync.displayMs - S.syncMs)/1000 - (actx.outputLatency || actx.baseLatency || 0) : null;
 async function loadTrack(i){
   if (i < 0 || i >= tracks.length) return;
   ensureAudio(); const token = ++loadToken; tIndex = i;
@@ -54,6 +58,8 @@ async function loadTrack(i){
     const buf = await actx.decodeAudioData(ab);
     if (token !== loadToken) return;
     buffer = buf; S.pausedAt = 0; gridReset(false); resetOnsets(); if (J.on) freshJourney(); playFrom(0);
+    // read the whole track for its drops while it starts playing (a few seconds' work, in pieces between frames)
+    foresee(buf).then(r => { if (token === loadToken && r.ready) { updateSectionUI(); if (r.drops.length) toast(`Read ahead: ${r.drops.length === 1 ? 'a drop' : r.drops.length + ' drops'} at ${r.drops.map(d => `${Math.floor(d.t/60)}:${String(Math.floor(d.t % 60)).padStart(2, '0')}`).join(', ')}`); } });
   } catch(e) {
     if (token !== loadToken) return;
     toast('Could not read that file'); tracks.splice(i,1);
