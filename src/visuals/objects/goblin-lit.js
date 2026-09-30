@@ -17,7 +17,7 @@ import { L } from '../../audio/listen.js';
 import { litData, litGL, lit2d, litPath2d, litLod } from '../../render/lit.js';
 import A from './meshes/goblin-lit.js';
 
-const key = 'goblinLit', st = {sn: -.5, hit: 0, ka: 0, kaT: 0, el: .6, elT: .6, drop: 0, flash: 0, glow: 0, startle: 0, lastDrop: null, lastHit: 0, spin: 0};
+const key = 'goblinLit', st = {bar: 0, sn: -.5, hit: 0, ka: 0, kaT: 0, el: .6, elT: .6, drop: 0, flash: 0, glow: 0, startle: 0, lastDrop: null, lastHit: 0, spin: 0};
 const ELEV = [.2, .6, 1.1, .9, .35];   // the key light's heights, a new one each bar
 let gl1 = null, glGen = -1, lod = null, lodMesh = null;
 litData(A);   // its textures start decoding now, so they're ready long before it first appears
@@ -28,7 +28,7 @@ export default {
   stats: `${A.t.toLocaleString()} triangles · textures from Blender · 3 lights`,
   get mesh(){ const M = lodOf(); return lodMesh || (lodMesh = {pieces: [{pos: M.pos, tri: M.tri, part: M.part, morph: M.morph}], hinge: [0, 0, 0]}); },   // (simple mode's, for the tests and the Asset Viewer)
   dance: {moves: {bang: 1.2, look: 1.6, face: .6, pulse: .8, approach: 1.6, still: 1.2, groove: .3, float: .3, spin: .1, rise: .2, lift: 0}, sym: 4, liftPart: 0},
-  onBeat(pos){ if (pos === 0) { st.hit = 1; st.glow = 1; st.elT = ELEV[(Math.random()*ELEV.length)|0]; } },
+  onBeat(pos){ if (pos === 0) { st.hit = 1; st.glow = 1; st.elT = ELEV[st.bar = (st.bar + 1) % ELEV.length]; } },   // (no Math.random: it runs off screen too, and would shift Journey's draws)
   breakApart(){ st.startle = 1; st.flash = 1; },   // (it can't shatter: it startles, whipping round in a flash)
   params(P, x){
     const T = TUNE.goblinLit, G = TUNE.goblin, J = x.J, dt = x.dt, w = P.o[key], ten = (J && J.tension) || 0;
