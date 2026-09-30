@@ -262,8 +262,10 @@ export const TUNE = {
     flareSecs: 1.5,            // the sun flaring on a drop, dying away over this long
   },
   forest: {
-    morphSecs: 3,              // a new section's wood: the trunks move to their new places over this long
-    sway: .006,                // how far the layers sway with the bass (the nearest most)
+    morphSecs: 4,              // a new section's wood: it rises as the old one sinks, nearest first, over this long
+    sway: .02,                 // how far the trees bend with the bass (the nearest most)
+    gust: .12,                 // how far a drop's gust bends them
+    gustSecs: 3,               // how long the gust takes to blow over
   },
   sea: {
     morphSecs: 5,              // a new section's sea: its colours and wave shapes morph into the new ones over this long
