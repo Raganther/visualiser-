@@ -16,11 +16,11 @@ D = math.radians
 # each digit: base joint, fan (about z: + leans left, towards the thumb), roll about its own length, the three segments'
 # lengths, radii at each joint and the tip, rest flexion at each joint (degrees, towards the palm), and the clench's extra
 DIGITS = {
-  'index':  dict(base=(-.14, .19, .025), fan=8,  roll=0,   L=(.2, .12, .095),   r=(.046, .041, .037, .033), flex=(14, 22, 12),  grip=(38, 62, 42), close=-6),
-  'middle': dict(base=(-.045, .205, .025), fan=2, roll=0,  L=(.22, .135, .1),   r=(.048, .043, .038, .034), flex=(12, 20, 11),  grip=(40, 64, 44), close=-1),
-  'ring':   dict(base=(.05, .19, .025), fan=-5,  roll=0,   L=(.205, .13, .097), r=(.045, .04, .036, .032), flex=(15, 24, 13), grip=(42, 66, 44), close=4),
-  'little': dict(base=(.138, .16, .02), fan=-13, roll=0,   L=(.16, .1, .085),   r=(.039, .035, .031, .028), flex=(19, 28, 15), grip=(45, 68, 46), close=9),
-  'thumb':  dict(base=(-.1, -.14, -.01), fan=40, roll=-50, L=(.17, .135, .108), r=(.058, .047, .041, .034), flex=(6, 12, 18),  grip=(0, 30, 38), close=0),   # (its first bone, in the palm, stays still: moving it tears the palm)
+  'index':  dict(base=(-.14, .19, .025), fan=8,  roll=0,   L=(.18, .105, .085),   r=(.046, .041, .037, .033), flex=(14, 22, 12),  grip=(38, 62, 42), close=-6),
+  'middle': dict(base=(-.045, .205, .025), fan=2, roll=0,  L=(.2, .12, .09),   r=(.048, .043, .038, .034), flex=(12, 20, 11),  grip=(40, 64, 44), close=-1),
+  'ring':   dict(base=(.05, .19, .025), fan=-5,  roll=0,   L=(.185, .115, .087), r=(.045, .04, .036, .032), flex=(15, 24, 13), grip=(42, 66, 44), close=4),
+  'little': dict(base=(.138, .16, .02), fan=-13, roll=0,   L=(.145, .088, .076),   r=(.039, .035, .031, .028), flex=(19, 28, 15), grip=(45, 68, 46), close=9),
+  'thumb':  dict(base=(-.1, -.14, -.01), fan=40, roll=-50, L=(.16, .12, .098), r=(.058, .047, .041, .034), flex=(6, 12, 18),  grip=(0, 30, 38), close=0),   # (its first bone, in the palm, stays still: moving it tears the palm)
 }
 def bones(pose=0.):   # each digit's joints, and each segment's frame (rotation: local y along it, z its back)
     out = {}
@@ -45,7 +45,7 @@ def skin_sdf(x, y, z):
     # the wrist and forearm, a little flattened, cut clean
     d = smin(d, cap(x*.86, y, z, (0, -.16, -.005), (0, -.8, -.03), .115, .125), .06)
     d = smin(d, sph(x, y, z, (.115, -.27, .035), .03), .03)                      # the wrist's bone
-    d = np.maximum(d, -(y + .56))
+    d = np.maximum(d, -(y + .46))
     for k, (J, F) in REST.items():
         g = DIGITS[k]; rs = g['r']
         f = chain(x, y, z, J, list(rs), k=.012)
@@ -63,8 +63,8 @@ def nail_frames():   # each nail: centre, across, along, back (its normal), half
     out = []
     for k, (J, F) in REST.items():
         g = DIGITS[k]; R = F[2]; along, back, across = R@np.array([0, 1., 0]), R@np.array([0, 0, 1.]), R@np.array([1., 0, 0])
-        c = J[2] + along*g['L'][2]*.5 + back*(g['r'][2]*.93)
-        out.append((k, c, across, along, back, g['r'][3]*.95, g['L'][2]*.33))
+        c = J[2] + along*g['L'][2]*.64 + back*(g['r'][2]*.45 + g['r'][3]*.47)   # (out to the fingertip, as a real nail: none of the finger past it)
+        out.append((k, c, across, along, back, g['r'][3]*.97, g['L'][2]*.4))
     return out
 NAILS = nail_frames()
 def nail_sdf(x, y, z, c, ac, al, bk, w, l):
@@ -73,7 +73,7 @@ def nail_sdf(x, y, z, c, ac, al, bk, w, l):
     return ell(u, v, n + 2.4*u*u/w*.5, (0, 0, 0), (w, l, .0055))   # a thin plate, curved across
 
 def sculpt():
-    G = Grid(skin_sdf, (-.55, -.58, -.26), (.42, .86, .22), opt('--step', .0035))
+    G = Grid(skin_sdf, (-.55, -.48, -.26), (.42, .8, .22), opt('--step', .0035))
     for k, c, ac, al, bk, w, l in NAILS:   # the cuticle's groove round each nail
         G.local(c, l*2.2, lambda vol, x, y, z, c=c, ac=ac, al=al, bk=bk, w=w, l=l: smax(vol, -(nail_sdf(x, y, z, c, ac, al, bk, w*1.05, l*1.05) - .0015), .004))
     v, f = G.mesh(); v = relax(v, f); n = vnormals(v, f); x, y, z = v[:, 0], v[:, 1], v[:, 2]
