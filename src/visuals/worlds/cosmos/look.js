@@ -3,13 +3,14 @@
 // ocean worlds catching the star's glint, lava glowing through its cracks; relief lit from the star, clouds casting shadows,
 // and atmospheres that glow at the limb, redden at the terminator and haze what's behind; cities on night sides, auroras.
 // An asteroid belt's rocks (each its own lumpy, cratered, tumbling shape) rush past up close, lying in gas and dust that
-// streams away from the star; a vast ring can be built round the star. Far off, gas clouds and stars, which stretch in a
+// streams away from the star; a vast ring can be built round the star; a nebula glows off to one side, to fly into. Far off, gas clouds and stars, which stretch in a
 // build and streak in a jump.
 export const GLSL = {
   uniforms: `uniform vec3 uCosX,uCosY,uCosZ,uCosEye; uniform float uCosTan,uCosWarp,uCosSeed;   // the camera: axes, where it is, field of view; the jump
 uniform vec4 uCosSun; uniform vec3 uCosSunC,uCosAxis; uniform vec4 uCosStar;   // the star: where (from the camera), size, colour; beam or disk axis; kind
 uniform vec4 uCosTwin; uniform vec3 uCosTwinC;        // a twin star (size 0: none)
 uniform vec4 uCosBelt, uCosHalo;                      // the belt (radius, half width, half height, near); the built ring (radius, half height, on, hue)
+uniform vec4 uCosNeb, uCosNeb2, uCosNebS[3];          // a nebula: its centre (from the camera) and radius; two hues, seed, glow; its young stars (from the camera, brightness)
 uniform vec4 uCosB[6], uCosK[6], uCosA[6], uCosE[6];  // the nearest bodies: where, size; kind, hue, seed, spin; axis, ring; cities, aurora, storm, cloud
 uniform vec4 uCosT[6];                                // their atmospheres: thickness (share of the radius), hue (from the body's), density
 uniform vec4 uCzCage; uniform vec2 uCzCage2;         // the subject's layers: which body (-1 none), cage, motes, burst; the cage's turn, its band's place
@@ -204,6 +205,33 @@ vec4 czGas(vec3 d,float tmax){
   }
   return vec4(acc,tr);
 }
+// a nebula: the view traced through its sphere in twelve steps, gathering glowing gas in two hues (the hydrogen's red and
+// the oxygen's teal, turned by the palette) where the noise is thick, lit by its young stars (brightest near them) and a
+// little by the star, dimmed by dark lanes of dust that glow nothing; its young stars shine where the view passes them
+vec4 czNeb(vec3 d,float tmax){
+  vec3 c=uCosNeb.xyz; float R=uCosNeb.w, b=dot(c,d), h=b*b-dot(c,c)+R*R;
+  if(h<=0.0) return vec4(0.0,0.0,0.0,1.0);
+  float sq=sqrt(h), t0=max(b-sq,0.0), t1=min(b+sq,tmax);
+  if(t1<=t0) return vec4(0.0,0.0,0.0,1.0);
+  vec3 acc=vec3(0.0); float tr=1.0, dt=(t1-t0)/12.0, sd=uCosNeb2.z;
+  vec3 hA=hsv(uHue+uCosNeb2.x,0.88,1.0), hB=hsv(uHue+uCosNeb2.y,0.8,1.0);
+  for(int i=0;i<12;i++){
+    float t=t0+dt*(float(i)+0.5+0.7*(czH(d*41.0+float(i))-0.5)); vec3 p=d*t, q=(p-c)/R;
+    float rr=dot(q,q); if(rr>=1.0) continue;
+    float shape=1.0-rr, n=czFt(q*2.4+sd,0.3);
+    float gas=smoothstep(0.34,0.66,n*(0.7+0.5*shape));
+    float lane=smoothstep(0.55,0.72,czN(q*5.5-sd))*shape;   // the dust: dark lanes that hide what's behind
+    if(gas<=0.0&&lane<=0.0) continue;
+    float L=0.18+0.25*max(dot(normalize(p-uCosSun.xyz),-d),0.0);   // the system's star lights it a little (more looking towards it)
+    for(int k=0;k<3;k++){ vec4 s=uCosNebS[k]; vec3 dv=p-s.xyz; L+=s.w/(1.0+dot(dv,dv)/(R*R*0.04)); }
+    float dens=gas*shape*dt/R*uCosNeb2.w;
+    acc+=tr*mix(hA,hB,smoothstep(0.3,0.7,czN(q*3.0+sd*1.7)))*dens*L*(1.0-0.7*lane);
+    tr*=exp(-dens*0.5-lane*dt/R*4.4);
+  }
+  for(int k=0;k<3;k++){ vec4 s=uCosNebS[k]; float ts=dot(s.xyz,d);   // its young stars, where the view passes them
+    if(ts>t0&&ts<t1){ float dd=length(s.xyz-d*ts)/(R*0.02); acc+=vec3(1.0,0.95,0.9)*s.w*tr*(0.6/(1.0+dd*dd)+0.08/(1.0+dd*dd*0.05)); } }
+  return vec4(acc,tr);
+}
 // the vast built ring round the star: its inner face lit, seams and lights on it, a pulse running round on the beat
 vec4 czHalo(vec3 d,float tmax){
   vec3 o=uCosEye; float a=dot(d.xz,d.xz), b=dot(o.xz,d.xz), c=dot(o.xz,o.xz)-uCosHalo.x*uCosHalo.x, h=b*b-a*c;
@@ -284,6 +312,7 @@ vec3 czSystem(vec2 sp){
     if(on) col+=czCage(d,cB.xyz,cB.w,cA.xyz,tMin,uHue+cy); }
   if(uCosBelt.w>0.5){ vec4 rk=czRocks(d,tMin); if(rk.w>0.0){ tMin=rk.w; col=rk.rgb; } }
   if(uCosBelt.x>0.0){ vec4 gs=czGas(d,tMin); col=col*gs.a+gs.rgb; }   // the belt's gas, in front of whatever it lies over
+  if(uCosNeb.w>0.0){ vec4 nb=czNeb(d,tMin); col=col*nb.a+nb.rgb; }   // a nebula, over whatever lies behind it
   if(uCosBelt.x>0.0&&abs(d.y)>1e-4){   // the belt from afar: a soft band of dust streaked along its ring, lit towards the star,
     // with a few rocks catching the light; they fade with distance before they'd shrink below a pixel and shimmer
     float tp=-uCosEye.y/d.y; vec3 pp=uCosEye+d*tp;

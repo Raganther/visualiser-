@@ -71,7 +71,11 @@ export function makeSystem(idx){
   const halo = r() < .22*(1.2 - heat) ? {R: orbits[Math.min(1, orbits.length - 1)]*(.8 + r()*.15), H: 1.2 + r()*1.6, slot: Math.floor(r()*3)} : null;
   // where a centrepiece stands, as a vast monument: in orbit round the first planet
   const mon = {r: 1.3, host: bodies[0], dist: bodies[0].r*4 + 3, ph: r()*6.28, w: .06, p: [0, 0, 0]};
-  return {idx, arm, heat, sun, bodies, belt, halo, mon, R: orbit};
+  // a nebula lying off to one side (more often where it's cold or warm): a vast cloud of glowing gas, lit from inside by
+  // young stars, with dark lanes of dust; from the system it fills part of the sky, and the camera can fly into it
+  const na = r()*6.28, ny = (r() - .5)*.5, nD = orbit*1.5, neb = r() < .5 - .3*heat
+    ? {c: [Math.cos(na)*nD, ny*nD, Math.sin(na)*nD], R: orbit*.85, hues: [r(), r()], seed: r()*10, stars: [0, 1, 2].map(() => [(r() - .5)*.9, (r() - .5)*.6, (r() - .5)*.9, .4 + r()*.8])} : null;
+  return {idx, arm, heat, sun, bodies, belt, halo, mon, neb, R: orbit};
 }
 // where everything is at motion time T: planets round the star, moons round their planets
 export function place(sys, T){

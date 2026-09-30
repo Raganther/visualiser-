@@ -9,6 +9,7 @@ import cosmos from './worlds/cosmos/index.js';
 import sea from './worlds/sea.js';
 import deep from './worlds/deep.js';
 import dunes from './worlds/dunes.js';
+import hollow from './worlds/hollow.js';
 import forest from './worlds/forest.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
@@ -47,7 +48,7 @@ import manta from './objects/manta.js';
 import lotus from './objects/lotus.js';
 import jelly from './objects/jelly.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj];   // 3D centrepieces, drawn crisp over the picture
