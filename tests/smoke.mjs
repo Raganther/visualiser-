@@ -25,7 +25,7 @@ for (const mode of ['2d', 'gl']) {
     const liked = m.v === 1 && m.journey === true && !!m.lead && m.onScreen === journey && /^data:image\/jpeg/.test(m.thumb) && m.thumb.length > 1000;
     document.querySelector('.solo[aria-label="Show Comets alone"]').click(); __step(40); const solo = now();
     const auto = document.querySelector('#autoBtn').getAttribute('aria-pressed');
-    for (let i = 0; i < 40 && document.querySelector('#pName').textContent !== 'Cosmos'; i++) document.querySelector('#nextP').click();
+    for (let i = 0; i < 80 && document.querySelector('#pName').textContent !== 'Cosmos'; i++) document.querySelector('#nextP').click();
     __step(400); return {journey, dots, liked, solo, auto, cosmos: now()};
   });
   const ok = /Set by Journey, from the .+ recipe\.$/.test(r.journey) && r.dots > 0 && r.liked && r.solo === 'no world; layers Comets. Set by the Comets alone preset.'
