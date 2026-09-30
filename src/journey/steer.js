@@ -1,7 +1,7 @@
 // Steering Journey while it runs: pin (keep it) or ban (never use it) any layer, world, hit, object or scene template, and
-// hold the look as it is. Journey honours these as it composes each section; everything else keeps evolving. Set from the
+// hold the look as it is, and keep or ban the kaleidoscope. Journey honours these as it composes each section; everything else keeps evolving. Set from the
 // keyboard's groups while Journey is on (ui/keys.js); read by the casting (cast.js, worlds.js, scene/templates.js).
-export const STEER = {pin: {}, ban: {}, hold: false};
+export const STEER = {pin: {}, ban: {}, hold: false, kalWhere: null, kalMode: null};   // (the kaleidoscope: pin.kal is its mirrors, kalWhere what it folds; journey/extras.js)
 export const pinned = k => !!STEER.pin[k];
 export const banned = k => !!STEER.ban[k];
 // the next state for k: free → pinned → banned → free. one: the others in its group (a world, an object, a scene: only

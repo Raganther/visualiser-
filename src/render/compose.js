@@ -45,7 +45,7 @@ ${skip ? '    }\n' : ''}  }`;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
-uniform vec4 uKal; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
+uniform vec4 uKal, uKal2; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
@@ -58,6 +58,10 @@ ${KAL}
 float specD(float t){ return texture2D(uData, vec2(0.502+clamp(t,0.0,1.0)*0.497,0.5)).r; }
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+// the painted worlds' paper (sea, deep, forest): value noise, and the fibres of the paper each cut layer is made of
+float vnz(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
+float paper(vec2 sp){ return 0.93+0.05*vnz(sp*vec2(90.0,260.0))+0.03*vnz(sp*420.0); }
 ${VISUALS.filter(v => v.glsl && v.glsl.functions && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
 ${WV.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
 float frontCov(vec2 sp){ float fc=0.0;

@@ -245,9 +245,28 @@ export function make2D(view){
     const x = snapCan.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(src, 0, 0, W, H);
     return snapCan;
   }
+  const diveCan = document.createElement('canvas');
   function foldOnto(o, src, P){
     const [n, , amt, ang] = P.kal.v, h = Math.PI/n, A = -ang - h;   // (the canvas turns the other way)
-    const x0 = W/2 + P.kal.c[0]*H, y0 = H/2 - P.kal.c[1]*H, R = Math.hypot(W, H);
+    const x0 = W/2 + P.kal.c[0]*H, y0 = H/2 - P.kal.c[1]*H, R = Math.hypot(W, H), mode = P.kal.mode || 0;
+    if (mode === 1) {   // the mirror box: the square round the centre, reflected across its walls in every direction (flat walls here)
+      const b = .9/(n + P.kal.v[1])*H, s2 = 2*b, nx = Math.ceil(W/s2/2) + 1, ny = Math.ceil(H/s2/2) + 1;
+      o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
+      for (let i = -nx; i <= nx; i++) for (let j = -ny; j <= ny; j++) {
+        o.save(); o.translate(x0 + i*s2, y0 + j*s2); o.scale(i & 1 ? -1 : 1, j & 1 ? -1 : 1);
+        o.drawImage(src, x0 - b, y0 - b, s2, s2, -b, -b, s2, s2); o.restore(); }
+      o.restore(); return;
+    }
+    if (mode === 2) {   // the dive: the wedges drawn aside, then laid back as copies nested inwards, growing as it dives
+      if (diveCan.width !== W || diveCan.height !== H) { diveCan.width = W; diveCan.height = H; }
+      const d = diveCan.getContext('2d'); d.globalCompositeOperation = 'copy'; d.globalAlpha = 1; d.drawImage(src, 0, 0, W, H);
+      foldOnto(d, src, {kal: {...P.kal, mode: 0, v: [n, P.kal.v[1], 1, ang]}});
+      const L = P.kal.v2[3], f = P.kal.v2[2] % 1, R0 = .5*H;
+      o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
+      for (let k = -1; k < 7; k++) { const sc = Math.exp(L*(f - k)), r = R0*sc; if (r < 2) break;
+        o.save(); o.beginPath(); o.arc(x0, y0, k < 0 ? R : r, 0, Math.PI*2); o.clip(); o.translate(x0, y0); o.scale(sc, sc); o.drawImage(diveCan, -x0, -y0, W, H); o.restore(); }
+      o.restore(); return;
+    }
     o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
     for (let j = 0; j < 2*n; j++) { o.save(); o.beginPath(); o.moveTo(x0, y0); o.arc(x0, y0, R, A + j*h, A + (j + 1)*h + .002); o.closePath(); o.clip();
       o.translate(x0, y0);

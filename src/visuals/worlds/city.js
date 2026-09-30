@@ -1,5 +1,5 @@
 // City: a skyline in four rows against a glowing dusk, far to near, as a stylised poster: dark blocks lit on the side facing
-// the moon and shadowing the rows behind, far towers pale in the haze. Each section brings its own district (the old
+// the light and shadowing the rows behind, far towers pale in the haze. Each section brings its own district (the old
 // buildings sink and the new ones rise in a wave; a returning section brings its skyline back). The lights follow the
 // build: windows light floor by floor from the street up and neon signs switch on one by one as the tension rises,
 // flickering on stabs; antenna lights blink on the beat; searchlights swing on the bar. The skyline breathes a little
@@ -11,7 +11,7 @@ import { TUNE } from '../../tuning.js';
 // the district on screen and the one rising (D0, D1, how far the change has got), the lights' level, the drop's leap,
 // the searchlights' angles now and where they're swinging to
 const st = {seed:0, D0:0, D1:0, tr:1, ty:null, n:0, lvl:.3, jump:0, drops:0, bars:0, sw:[.35, -.3], swT:[.35, -.3]};
-const ROWS = 4, GROUND = -.3, MX = -.28, MY = .3;   // the moon: across (times the aspect) and up
+const ROWS = 4, GROUND = -.3, MX = -.28, MY = .3;   // where the light comes from: across (times the aspect) and up (a glow; the moon is gone)
 // a row's building layout, the same numbers in both renderers (each draws its own buildings): width, scroll speed, how
 // tall, how hazy (far rows fade most)
 const TALL = [1.35, 1.1, .95, .85], HAZE = [.72, .5, .26, .04];   // far rows are the tall towers downtown, pale in the haze
@@ -24,7 +24,7 @@ const hs = (a, b) => ((Math.sin(a*12.9898 + b*78.233)*43758.5453) % 1 + 1) % 1;
 let rnd2d = null;                                      // simple mode's building randoms, per row
 export default {
   key: 'city', kind: 'world', label: 'City',
-  light: {hue: .6, sat: .3, x: -.5, y: .6},              // the moon, up to the left (for objects: scene/context.js)
+  light: {hue: .6, sat: .3, x: -.5, y: .6},              // the glow, up to the left (for objects: scene/context.js)
   horizonY: GROUND,                                    // the horizon layer's grid floor lines up with the street
   // steady kicks and bass at a middling intensity
   suits: (rf, T) => rf.perc*.6 + rf.low*.3 - Math.abs(T)*.5 + .05,
@@ -83,26 +83,23 @@ vec3 citySky(vec2 sp){
     c+=hsv(uHue+0.6,0.12,1.0)*step(0.0,al)*exp(-ac/(0.003+max(al,0.0)*0.045))*exp(-al*0.9)*(0.16+uBeat*0.22);
   }
   vec2 mp=vec2(ASP*${f(MX)},${f(MY)}); float md=length(sp-mp);
-  if(md<0.062){ float moon=smoothstep(0.062,0.058,md);   // (only on the moon's disc)
-    float crater=0.1*smoothstep(0.016,0.0,length(sp-mp-vec2(0.016,0.013)))+0.07*smoothstep(0.012,0.0,length(sp-mp-vec2(-0.02,-0.016)));
-    c=mix(c,hsv(uHue+0.12,0.15,1.0)*(1.0-crater),moon); }
-  c+=hsv(uHue+0.1,0.3,1.0)*(0.16*exp(-md*8.0)+0.06*exp(-md*2.5));               // its halo in the haze
+  c+=hsv(uHue+0.1,0.3,1.0)*(0.12*exp(-md*6.0)+0.06*exp(-md*2.5));               // a glow in the haze where the light comes from (no moon: the user found it naff)
   return c;
 }
 vec3 cityAbove(vec2 sp){
   // the nearest row covering the pixel hides the rest (and the sky), so the rows are tried near to far and the first one
   // found is the one shaded; the sky only where no building stands
   vec3 c=vec3(0.0), haze=hsv(uHue+0.93,0.55,0.5); bool built=false;
-  float away=sp.x>ASP*${f(MX)} ? 1.0 : -1.0;                                      // which way the moon's light falls
+  float away=sp.x>ASP*${f(MX)} ? 1.0 : -1.0;                                      // which way the light falls
   for(int j=0;j<4;j++){
     int i=3-j; float L=float(i), w=${GW('L')}, id, lx;
     float h=cityRow(sp.x,L,w,id,lx);
     if(cityShape(lx,sp.y,h,id,L,w)<0.5) continue;
     float fl=L/3.0, style=hash(vec2(id,L+3.0)), e=0.05+0.07*hash(vec2(id,L+7.0));
-    float u=clamp((lx-e)/(1.0-2.0*e),0.0,1.0); if(away<0.0) u=1.0-u;              // across the body, 0 on the side facing the moon
-    float face=step(u,0.2);                                                        // that side, turned toward the moon
+    float u=clamp((lx-e)/(1.0-2.0*e),0.0,1.0); if(away<0.0) u=1.0-u;              // across the body, 0 on the side facing the light
+    float face=step(u,0.2);                                                        // that side, turned toward the light
     vec3 b=hsv(uHue+0.68,0.45,0.025+0.03*fl);                                      // the front, in shadow
-    b+=face*hsv(uHue+0.6,0.35,0.13+0.07*fl);                                       // the side, moonlit
+    b+=face*hsv(uHue+0.6,0.35,0.13+0.07*fl);                                       // the side, lit
     b+=hsv(uHue+0.6,0.25,0.6)*smoothstep(0.025,0.0,u)*0.35;                        // its edge catching the light
     b+=hsv(uHue+0.93,0.6,1.0)*0.07*smoothstep(0.15,0.0,sp.y-(h-0.06))*(1.0-fl*0.6); // the top catches the sky's glow
     // windows on the front: a grid per building (offices wider), lit floor by floor from the street up as the build rises,
@@ -130,7 +127,7 @@ vec3 cityAbove(vec2 sp){
     // an antenna's light, blinking on the beat
     float ah=hash(vec2(id,L+11.0))>0.8 ? 0.02+0.05*fract(hash(vec2(id,L+11.0))*13.0) : -1.0;
     if(ah>0.0) b+=vec3(1.0,0.15,0.1)*smoothstep(0.004,0.0,length(vec2((lx-0.5)*w,sp.y-h-ah)))*(0.3+uBeat*1.2);
-    // the shadow of the row in front, cast away from the moon
+    // the shadow of the row in front, cast away from the light
     if(i<3){ float L2=L+1.0, w2=${GW('L2')}, id2, lx2; vec2 q=sp+vec2(-0.03*away,0.035);
       float h2=cityRow(q.x,L2,w2,id2,lx2); b*=1.0-0.6*cityShape(lx2,q.y,h2,id2,L2,w2)*(0.6+0.4*face); }
     c=mix(b,haze,${byRow(HAZE)});                                               // far rows fade into the haze
@@ -213,7 +210,6 @@ function drawCity(o, P, t){
   const mx = g.X(mxw), my = g.Y(MY), halo = o.createRadialGradient(mx, my, 0, mx, my, .3*g.u);
   halo.addColorStop(0, hc(P.hue + .1, 30, 75, .35)); halo.addColorStop(1, hc(P.hue + .1, 30, 75, 0));
   o.fillStyle = halo; o.fillRect(mx - .3*g.u, my - .3*g.u, .6*g.u, .6*g.u);
-  o.fillStyle = hc(P.hue + .12, 15, 94, 1); o.beginPath(); o.arc(mx, my, .06*g.u, 0, Math.PI*2); o.fill();
   const rects = L => { const out = []; buildings2d(g, L, t, P, (x0, y0, x1, y1) => out.push([x0, y0, x1 - x0, y1 - y0])); return out; };
   for (let L = 0; L < ROWS; L++) {
     const R = row(L), fl = L/3, mix = (c1, c2) => c1 + (c2 - c1)*R.haze;
@@ -222,7 +218,7 @@ function drawCity(o, P, t){
     o.fillStyle = hc(P.hue + mix(.68, .93), mix(45, 55), mix(3 + 3*fl, 50), 1);
     o.beginPath(); rects(L).forEach(r => o.rect(...r)); o.fill();
     buildings2d(g, L, t, P, () => {}, b => {
-      const toward = (b.x0 + b.x1)/2 > g.asp*MX ? 0 : 1, fw = (b.x1 - b.x0)*.2;   // the side facing the moon
+      const toward = (b.x0 + b.x1)/2 > g.asp*MX ? 0 : 1, fw = (b.x1 - b.x0)*.2;   // the side facing the light
       const sx0 = toward ? b.x1 - fw : b.x0;
       o.fillStyle = hc(P.hue + mix(.6, .93), mix(35, 55), mix(13 + 7*fl, 55), 1);
       o.fillRect(g.X(sx0), g.Y(b.cut), fw*g.u, g.Y(GROUND) - g.Y(b.cut));
@@ -252,7 +248,7 @@ function drawCity(o, P, t){
       if (b.ah) { o.fillStyle = `rgba(255,40,30,${Math.min(1, (.3 + P.beat*1.2)*a).toFixed(3)})`;   // the antenna's light, on the beat
         o.beginPath(); o.arc(g.X(b.left + R.w/2), g.Y(b.h + b.ah), Math.max(1.5, g.u*.004), 0, Math.PI*2); o.fill(); }
     });
-    if (L < ROWS - 1) {                                   // the shadow of the row in front, cast away from the moon
+    if (L < ROWS - 1) {                                   // the shadow of the row in front, cast away from the light
       o.save(); o.beginPath(); rects(L).forEach(r => o.rect(...r)); o.clip();
       o.fillStyle = `rgba(0,0,0,${(.55*a).toFixed(3)})`; o.beginPath();
       rects(L + 1).forEach(([x, y, w, h]) => { const away = x + w/2 > g.X(g.asp*MX) ? 1 : -1; o.rect(x + away*.03*g.u, y + .035*g.u, w, h); });

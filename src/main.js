@@ -96,7 +96,7 @@ function fpsInfo(){
   return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
-let kalA = 0;   // the kaleidoscope's turn
+let kalA = 0, kalZ = 0;   // the kaleidoscope's turn, and how far it has dived
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -141,9 +141,12 @@ function render(now){
   // the kaleidoscope: a mirror fold of the picture round the trails' centre. Under 2 mirrors it's off; between two counts it
   // eases (the share of the next), and it turns at motion time
   kalA += mdt*(eff.kalTurn || 0);
+  const km = Math.max(0, Math.min(2, Math.round(eff.kalMode || 0)));   // the kind: wedges, a mirror box, a dive
+  kalZ += km === 2 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
   const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
-    v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))]};
+    v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
+    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band]};
   P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
   // is any world's front (a planet, the buildings) on screen? The cosmos's planets only while it has a subject in view

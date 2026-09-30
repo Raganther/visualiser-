@@ -39,6 +39,7 @@ export const TUNE = {
 
   // lens (kaleidoscope, mirror): comes in above lensOn intensity, leaves below lensOff
   lensOn: .35, lensOff: .2,
+  wander: [.01, .05],          // how far Journey lets the trails' centre wander (it was up to .38: things drifted round off centre)
 
   // fatigue: layers tire while on screen and recover while off
   fatigueBuildSecs: 60, fatigueRecoverSecs: 90,
@@ -135,7 +136,7 @@ export const TUNE = {
     windFlow: 1.2,             // the flow's particles
     windTrails: .5,            // the trails (they stream downwind)
     windRibbons: 8,            // how much faster the ribbons wave in a strong wind
-    windObject: .6,            // how far an object sways
+    windObject: .08,           // how far an object sways in the wind (small: objects stay centred)
     light: .6,                 // how strongly a world's light falls on the objects
     flyWind: .8,               // how much a moving world's camera (the cosmos) blows the wind: the glow slides with the view
     flyZoom: .5,               // and how much flying in zooms the trails (streaming out from the middle as it closes in)
@@ -186,7 +187,7 @@ export const TUNE = {
     flap: 1,                   // how far its wings beat (the shape key's weight, both ways), more as the tension rises
     beatsPerFlap: 2,           // one wingbeat every this many beats, in step with the bar
     pitch: .42,                // how far it's tipped towards us, so its back shows
-    turn: .55,                 // how far it banks from side to side as it glides (radians)
+    turn: .12,                 // how far it turns from side to side as it glides, slowly (radians)
   },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
@@ -261,32 +262,54 @@ export const TUNE = {
     flareSecs: 1.5,            // the sun flaring on a drop, dying away over this long
   },
   forest: {
-    morphSecs: 3,              // a new section's wood: the trunks move to their new places over this long
-    sway: .006,                // how far the layers sway with the bass (the nearest most)
+    morphSecs: 4,              // a new section's wood: it rises as the old one sinks, nearest first, over this long
+    sway: .02,                 // how far the trees bend with the bass (the nearest most)
+    gust: .12,                 // how far a drop's gust bends them
+    gustSecs: 3,               // how long the gust takes to blow over
+    track: .022,               // how fast the camera tracks through the wood (the near layers slide past fastest), faster as the tension builds
   },
   sea: {
-    morphSecs: 4,              // a new section's sea: the moon moves and the waves re-form over this long
-    bigWave: 1.6,              // how much the nearest wave grows as the tension rises (1 + this at full)
-    beamEase: 2.5,             // how quickly the lighthouse's beam swings to its new angle each bar
+    morphSecs: 5,              // a new section's sea: its colours and wave shapes morph into the new ones over this long
+    bigWave: 1.2,              // how much the near waves grow as the tension rises (1 + this at full)
+    greatSecs: 3.5,            // a drop's great wave: how long it takes to curl across the front
+    sunSink: .1,               // how far the sun sinks towards the horizon as the tension builds
+    shapeDrift: .35,           // how far the wave family drifts, slowly, within a section (so the shapes keep changing)
   },
   deep: {
-    morphSecs: 3,              // a new section's reef: the kelp sinks and grows again in its new places over this long
-    sway: .03,                 // how far the kelp sways with the bass (the nearest most)
+    morphSecs: 4,              // a new section's reef: the old layers sink as the new ones rise, nearest first, over this long
+    sway: .03,                 // how far the seaweed sways with the bass (the nearest most)
+    ballSecs: 6,               // a drop's bait ball: how long the school circles before it swims on
+    track: .015,               // how fast we drift along the reef (the near layers slide past fastest)
   },
   // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
   objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  // the kaleidoscope's other kinds (kalMode): the mirror box's hall (how fast its copies recede toward the edges), and the
+  // dive (how fast it zooms in, faster as the tension rises; each band's width in log radius: each band e^band smaller)
+  kal: {hall: 1, dive: .25, band: .8},
+  // Journey's extras, chosen per section with the cast (journey/extras.js), so it uses every setting, not only the roles
+  extras: {
+    kal: {chance: .2, intense: .25, recipe: .8, cosmos: .5,    // the kaleidoscope: a share of sections (more when intense; a recipe with one brings it most of the time; less in the cosmos, which folds itself)
+      n: [3, 8], turn: .08,                                    // mirrors calm to intense, and how fast it may turn either way
+      mode: [1, .6, .8],                                       // wedges, a mirror box, a dive
+      where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
+    grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
+    tw: {chance: .35, speed: [.55, 1.8], size: [.75, 1.4]},    // a layer's own speed and size: the share of sections the lead or accent gets its own, and the ranges
+  },
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
   dance: {
     amount: 1,                 // how much everything dances (0: as before, still)
     remember: .7,              // how often a returning section's dancer brings back its own move
-    barsPerMove: 2,            // a dancer may change its move every this many bars (the comets' shape every twice as many)
-    stiff: 60,                 // the springs' stiffness: higher snaps to each pose, lower floats and overshoots more
+    barsPerMove: 4,            // a dancer may change its move every this many bars (the comets' shape every twice as many)
+    stiff: 30,                 // the springs' stiffness: higher snaps to each pose, lower floats
+    objStiff: .8,              // objects' springs against the layers'
+    damp: .92,                 // the springs' damping (1: eases in with no overshoot; lower yo-yos past each pose)
     shapeIn: 1.5,              // seconds for the comets to fly into a new shape
+    flowIn: 3,                 // seconds for the flow's particles to take up a new way of moving
     cometR: .3,                // how big the comets' shapes are (the picture's height is 1)
     cometTurns: .5,            // how much of their shape the comets travel each bar
-    // layers, in the picture's plane (radians, the picture's units, scale): how far each move goes at middling energy
-    layer: {sway: .22, drift: .07, bounce: .12, orbit: .1, breathe: .1, spin: .6, push: .22, shake: .03},
-    // objects: a head bang's nod, a groove's bounce and squash, a sway's roll, a glance, a lunge, a shiver (radians, units, scale)
-    obj: {bang: .35, bounce: .05, squash: .12, roll: .3, drift: .07, look: .55, lunge: .22, shiver: .25},
+    // layers, round the picture's centre (radians, scale): how far each move goes at middling energy
+    layer: {rock: .25, breathe: .08, spin: .25, push: .18, pulse: .06, bloom: .12},
+    // objects: a head bang's nod, a groove's bounce and squash, a glance, a pulse, a float, coming towards us (scale), tipping back (radians)
+    obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5},
   },
 };

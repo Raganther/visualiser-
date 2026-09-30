@@ -55,12 +55,18 @@ const browser = await launch('2d');
     key('1'); const ban = !!st.STEER.ban.ring && J.lead !== 'ring' && J.accent !== 'ring';
     key('1'); const free = !st.STEER.pin.ring && !st.STEER.ban.ring;
     key('w'); key('6'); const world = J.world === 'sea'; key('0'); const cleared = !st.STEER.pin.sea;
-    return {held, heldSteps, heldType, pin, lead, stillOn, ban, free, world, cleared, line: document.querySelector('#jSteer').textContent};
+    // the kaleidoscope: K 5 keeps a five-way one (through new sections), G folds the glow, 0 bans it, 0 again frees it
+    key('escape'); key('k'); key('5'); J.recast = 'fresh'; __step(60*3);
+    const kal = J.on && J.kal && J.kal.n === 5 && Math.round(window.__jdbg().kal) === 5; key('g'); const kalG = J.kal && J.kal.where === 2;
+    key('0'); J.recast = 'fresh'; __step(2); const kalBan = !J.kal && !!st.STEER.ban.kal; key('0'); const kalFree = !st.STEER.ban.kal && !st.STEER.pin.kal;
+    return {held, heldSteps, heldType, pin, lead, stillOn, ban, free, world, cleared, kal, kalG, kalBan, kalFree, line: document.querySelector('#jSteer').textContent};
   });
   check('; holds: no progression and no new section for a minute', r.held && r.heldSteps === 0 && r.heldType, `${r.heldSteps} steps`);
   check('L 1 while Journey runs keeps the ring (it leads), without freezing Journey', r.pin && r.lead && r.stillOn);
   check('again: never (it leaves its role), and again: free', r.ban && r.free);
   check('W 6 pins the night sea (it comes in), and 0 clears the group', r.world && r.cleared);
+  check('K 5 keeps a five-way kaleidoscope through a new section (Journey still on), G folds the glow', r.kal && r.kalG);
+  check('K 0 bans the kaleidoscope, and 0 again frees it', r.kalBan && r.kalFree);
   const errors = await page.errors(); check('no page errors (keys)', !errors.length, errors.join(' '));
 }
 await browser.close(); srv.close();

@@ -28,6 +28,8 @@ export const SPEC = [
   // the finish: film grain, scan lines and a little colour fringing, for an older, warmer look (last, so the rest keep their places)
   {g:'Finish', k:'grain', label:'Film grain and VHS', min:0, max:1, step:.01},
   // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
+  // the kaleidoscope's kind (last, so the rest keep their places): wedges meeting at a point, a mirror box (a hall of mirrors), a dive (zooming in through its folds)
+  {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive', min:0, max:2, step:1},
   {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
@@ -72,6 +74,8 @@ export const BASE = [
   {name:'Fireflies', decay:.94, zoom:1.0, rot:0, warp:.2, sym:1, aurora:1, fireflies:1, colorSpeed:.015, hueDrift:.004, mods:{}},
   {name:'Stargate', decay:.9, zoom:1.01, rot:.004, warp:0, sym:1, stargate:1, glitch:.6, shock:.3, colorSpeed:.05, hueDrift:.01, mods:{}},
   {name:'Goniometer', decay:.93, zoom:1.0, rot:0, warp:.1, sym:1, vectorscope:1, ring:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  {name:'Unfolding', decay:.94, zoom:1.0, rot:0, warp:0, sym:1, unfold:1, mandala:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Fractal', decay:.93, zoom:1.0, rot:.002, warp:0, sym:1, fractal:1, fireflies:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},

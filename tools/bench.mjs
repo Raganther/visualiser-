@@ -24,6 +24,10 @@ const SCENES = {
   space: {q: LAB, go: `cz.shot('reveal'); __step(240)`},
   planet: {q: LAB, go: `cz.shot('orbit'); __step(480)`},
   belt: {q: LAB, go: `cz.visit('belt'); __step(240); cz.shot('belt'); __step(480)`},
+  sea: {q: HAND, go: `solo('sea'); __step(240)`},                        // the paper worlds, each alone
+  reef: {q: HAND, go: `solo('deep'); __step(240)`},
+  forest: {q: HAND, go: `solo('forest'); __step(240)`},
+  dunes: {q: HAND, go: `solo('dunes'); __step(240)`},
   land: {q: LAB, go: `cz.land(); let k = 0; while (cz.info().surf < 1 && k++ < 200) __step(10, 50); __step(40, 50)`},
 };
 const pick = opt('scenes', Object.keys(SCENES).join(',')).split(',');
@@ -37,6 +41,7 @@ for (const name of pick) {
     const {setPreset} = await import('/src/ui/presets.js'), {setJourney} = await import('/src/ui/controls.js');
     window.cz = byKey.cosmos; if (location.search.includes('lab=cosmos')) { __step(120); cz.hold(9999); }
     window.preset = n => { setJourney(false); setPreset(presets.find(p => p.name === n)); };
+    window.solo = (await import('/src/ui/presets.js')).solo;
     // wait for the frame to be drawn: reading a pixel back waits for the graphics work queued before it
     const cv = document.querySelector('canvas'), g = cv.getContext('webgl2') || cv.getContext('webgl'), px = new Uint8Array(4);
     window.__sync = g ? () => g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px) : () => cv.getContext('2d').getImageData(0, 0, 1, 1);

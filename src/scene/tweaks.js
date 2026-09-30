@@ -1,5 +1,5 @@
 // Each layer's own speed, size and sound: set by hand (the panel's row under a layer's slider, or the keys) and kept on the
-// preset (S.active.tw[key] = {speed, size, src}). Journey never writes them, so they carry through it. A leaf module.
+// preset (S.active.tw[key] = {speed, size, src}). Journey sets its own (marked j, journey/extras.js) and never touches one set by hand. A leaf module.
 import { S } from '../state.js';
 import { sig } from './signals.js';
 
@@ -18,7 +18,7 @@ export const knobs = v => v.tweaks || ['speed', 'size', 'src'];
 export function setTweak(k, field, val){
   const a = S.active; if (!a) return;
   const t = (a.tw || (a.tw = {}))[k] || (a.tw[k] = {});
-  t[field] = val;
+  t[field] = val; delete t.j;   // (set by hand: no longer Journey's own, journey/extras.js)
   if ((t.speed ?? 1) === 1 && (t.size ?? 1) === 1 && (t.src || 'auto') === 'auto') delete a.tw[k];   // back to how it was made
 }
 export function stepTweaks(mdt, react){

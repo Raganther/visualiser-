@@ -1,157 +1,298 @@
-// The night sea as a woodblock print: flat bands of wave stepping from pale far off to deep blue near, each crest edged
-// with foam and carved with lines, under a huge moon wearing a ring of light, its path broken into glints on the water; a
-// lighthouse on a dark headland swings its beam to a new angle each bar. The swell follows the bass, the nearest wave
-// rises as the tension builds and throws spray on the drop, and each section moves the moon and re-forms the waves.
-import { hc, sectionLayout } from '../../util.js';
+// The paper sea: seven cut-paper layers of wave, each casting a soft shadow on the one behind, its edge catching the light,
+// its face shaded from crest to trough, under a dusk sky of scalloped paper clouds. Each section brings its own sea: a
+// palette (Hokusai's prussian blue and cream, a violet dusk, a tropical lagoon, a storm, liquid gold, blush, midnight)
+// and a family of wave shapes (long swells, Hokusai's curling crests, chop, scallops like a seigaiha print, stepped
+// terraces), its edges cut clean or torn, and the new sea morphs out of the old. The swell follows the bass, the crests
+// flare on the kick, the waves grow with the tension, and a drop sends a great wave curling across the front. The user
+// found the woodblock night sea flat and its moon naff, and asked for waves that change shape and colour.
+import { sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { L } from '../../audio/listen.js';
 
-const HOR = -.04, NW = 5, MY = .24, MR = .075;   // the horizon's height; the waves' rows; the moon's height and size
-const st = {D0:0, D1:0, tr:1, ty:null, n:0, lvl:.3, flare:0, drops:0, sw:0, bars:0, beam:.4, beamT:.4};
-const fr = v => v - Math.floor(v), star = i => fr(Math.sin(i*91.7)*43758.5453);
-const moonX = (D, asp) => asp*(-.15 + .5*fr(D*.37));
-// row k's crest at x (0 far .. 4 near) in layout D; A = the layouts and the change (nearest first), B = swell, big wave
-const crest1 = (x, k, t, D, sw, big) => { const n = k/(NW - 1), f = 14 - k*2.6, a = (.006 + .03*Math.pow(n, 1.5))*(1 + sw*.8)*(k === NW - 1 ? big : 1);
-  const q = x*f + D*(1.7 + k) + t*(.25 + .12*k)*(k % 2 ? -1 : 1);
-  return HOR - .02 - .42*Math.pow(n, 1.5) + a*Math.pow(1 - Math.abs(Math.sin(q)), 2) + a*.3*Math.sin(x*f*.37 + k + D); };
-const crest = (x, k, t, A, big) => { let m = Math.min(1, Math.max(0, A[2]*1.4 - (NW - 1 - k)*.1)); m = m*m*(3 - 2*m);
-  return m <= 0 ? crest1(x, k, t, A[0], A[3], big) : m >= 1 ? crest1(x, k, t, A[1], A[3], big) : crest1(x, k, t, A[0], A[3], big)*(1 - m) + crest1(x, k, t, A[1], A[3], big)*m; };
-const H3 = HOR.toFixed(3);
+const HOR = -.02, NW = 6, BOAT_K = 2, HS = `(${HOR.toFixed(3)})`;
+// the palettes: sky top, sky at the horizon, far sea, near sea, foam, the sun (and whether there is one)
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)/255);
+const PALS = [   // (the sea always stands against its sky: deep blues and teals under warm skies)
+  {name: 'hokusai', c: ['#b9a67c', '#f3ead2', '#6f8fa6', '#0f2a52', '#fbf6e9', '#d8452b'], sun: 1},
+  {name: 'dusk',    c: ['#1d1140', '#ff8a5c', '#9c5f9a', '#1b1f5e', '#ffe1d0', '#ffd166'], sun: 1},
+  {name: 'tropic',  c: ['#0b6fa3', '#bff5ec', '#4fd6c8', '#004e6e', '#ffffff', '#fff6c0'], sun: 0},
+  {name: 'storm',   c: ['#15191f', '#7d8b96', '#4b5a66', '#0b141c', '#e8eef2', '#c9d3da'], sun: 0, rain: 1},
+  {name: 'gold',    c: ['#40132a', '#ffb04a', '#c8745a', '#1e2a5a', '#fff1c9', '#fff0a0'], sun: 1},
+  {name: 'blush',   c: ['#58508d', '#ffc6d0', '#b98bb0', '#2c3a70', '#fffaf4', '#ffe38a'], sun: 1},
+  {name: 'midnight',c: ['#03040b', '#1e2c5c', '#26407a', '#050a1f', '#7fffe0', '#dfe6ff'], sun: 0, glow: 1},   // (its foam glows like plankton)
+  {name: 'mint',    c: ['#123c3a', '#f2e8b6', '#83c5a6', '#0d3b4a', '#fffbe6', '#ff7b5c'], sun: 1},
+].map(p => ({...p, c: p.c.map(hex)}));
+const fr = v => v - Math.floor(v), rnd = (D, s) => fr(Math.sin(D*127.1 + s*311.7)*43758.5453);
+// a section's sea (by its layout number): palette, wave family weights (swell, curl, chop, scallop), steps, torn edges,
+// inner cut lines, cloudiness
+function style(D){
+  const f = Math.floor(rnd(D, 1)*5), w = [0, 0, 0, 0], st = 0;
+  if (f < 4) w[f] = 1; else { w[0] = .6; w[2] = .5; } w[Math.floor(rnd(D, 2)*4)] += .35; w[0] += .15;
+  return {pal: PALS[Math.floor(rnd(D, 3)*PALS.length)], w, st, tear: rnd(D, 4) < .4 ? .003 + rnd(D, 5)*.005 : 0, inner: rnd(D, 6) < .5 ? 1 : 0, cloud: .3 + rnd(D, 7)*.7,
+    gulls: rnd(D, 8) < .55 ? 1 : 0, boat: rnd(D, 9) < .4 ? 1 : 0};
+}
+const vn = x => { const i = Math.floor(x), f = x - i, h = j => fr(Math.sin(j*127.1)*43758.5453), s = f*f*(3 - 2*f); return h(i) + (h(i + 1) - h(i))*s; };
+const lerp = (a, b, m) => a + (b - a)*m, lerp3 = (a, b, m) => a.map((v, i) => lerp(v, b[i], m));
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, lvl: .3, sw: 0, drops: 0, great: 1, flare: 0, kick: 0, hat: 0, flap: 0, flash: 0, boltX: 0, hit: 0};
+let cur = null, force = null;
+// for looking at one sea (tools/look.mjs --eval): hold layout D, and optionally the great wave part way
+export function seaForce(D, great, flash){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (great != null && great >= 0) { st.great = great; st.flare = 1; st.hold = great; } if (flash) { st.flashHold = 1; st.boltX = .2; } }   // this frame's blended sea (for simple mode and the front plane)
+function blend(){
+  const m0 = Math.min(1, st.tr), m = m0*m0*(3 - 2*m0), a = style(st.D0), b = style(st.D1);
+  return {w: a.w.map((v, i) => lerp(v, b.w[i], m)), st: lerp(a.st, b.st, m), tear: lerp(a.tear, b.tear, m), inner: lerp(a.inner, b.inner, m),
+    m, gulls: lerp(a.gulls, b.gulls, m), boat: lerp(a.boat, b.boat, m), cloud: lerp(a.cloud, b.cloud, m), sun: lerp(a.pal.sun, b.pal.sun, m), rain: lerp(a.pal.rain || 0, b.pal.rain || 0, m), glow: lerp(a.pal.glow || 0, b.pal.glow || 0, m), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m)), D: lerp(st.D0, st.D1, m)};
+}
+// the shape of one wave, u along it (0..1), from the family weights: 0..1 high
+function prof(u, w, stp){
+  const s0 = .5 + .5*Math.cos(u*Math.PI*2), a = .72, v = u < a ? u/a : (1 - u)/(1 - a), s1 = Math.pow(v, 2.2);
+  const s2 = Math.pow(1 - Math.abs(Math.sin(Math.PI*u)), 1.3)*.7 + s0*.3, q = 2*fr(u + .5) - 1, s3 = Math.sqrt(Math.max(0, 1 - q*q)), s4 = s0*.3 + .7*Math.floor(s0*3 + .5)/3;
+  return (s0*w[0] + s1*w[1] + s2*w[2] + s3*w[3] + s4*stp)/(w[0] + w[1] + w[2] + w[3] + stp + 1e-4);
+}
+// layer k's crest at x (0 far .. NW-1 near)
+function crest(x, k, t, S, A, B){
+  const n = k/(NW - 1), f = 9 - 7.4*Math.pow(n, .7), amp = (.012 + .15*Math.pow(n, 1.8))*(1 + A[3]*.9)*(1 + (B[0] - 1)*n);
+  const q = x*f + k*1.93 + S.D*.71 + t*(.05 + .09*n)*(k % 2 ? -1 : 1), u = fr(q);
+  let y = HOR - .015 - .4*Math.pow(n, 1.4) + amp*(prof(u, S.w, S.st) - .5) + amp*.25*Math.sin(x*f*.41 + k);
+  y += A[3]*.012*n*Math.sin(t*.7 + k) + (.004 + .012*n)*Math.sin(t*.9 + k*2.1);   // the swell lifts the near waves; each flat rocks, out of step with its neighbours (a paper theatre's wave machine)
+  if (S.tear > 0) y += S.tear*(vn(x*50 + k*7) - .5);
+  if (k >= NW - 2 && B[2] < 1) { const g = B[2], xg = -1.2 + g*2.6, d = x - xg, e = Math.sin(Math.PI*Math.min(1, g*1.2));   // the great wave
+    y += .14*e*(k === NW - 1 ? 1 : .45)*Math.exp(-Math.pow(d/(d > 0 ? .1 : .4), 2)); }
+  return y;
+}
+const f3 = v => v.map(x => x.toFixed(4)).join(',');
 export default {
-  key: 'sea', kind: 'world', label: 'Night sea',
-  light: {hue: .6, sat: .25, x: .2, y: .8},              // pale moonlight, from above
+  key: 'sea', kind: 'world', label: 'Paper sea',
+  light: {hue: .08, sat: .35, x: .4, y: .6},              // low sun or dusk light, from the side
   horizonY: HOR,
   // calm, spacious, melodic music; a warm low end suits the swell
   suits: (rf, T) => -rf.perc*.4 + rf.low*.3 + rf.mid*.2 - T*.3 - (rf.hat || 0)*.3,
-  onBeat(pos){ if (pos === 0) { st.bars++; st.beamT = .15 + .6*fr(st.bars*.618); } },   // the beam swings each bar
+  onBeat(){ st.kick = 1; },
   params(P, x){
     const C = TUNE.sea, J = x.J, on = P.w.sea > .05;
-    sectionLayout(st, 'seaD', J, on, x.dt, C.morphSecs);
+    if (force === null) sectionLayout(st, 'seaD', J, on, x.dt, C.morphSecs);
     st.lvl += ((J ? J.tension : .4) - st.lvl)*Math.min(1, x.dt*.4);
-    if (J && J.drops !== st.drops) { st.drops = J.drops; if (on) st.flare = 1; }
-    st.flare = Math.max(0, st.flare - x.dt/1.5);
+    if (J && J.drops !== st.drops) { st.drops = J.drops; if (on) { st.great = 0; st.flare = 1; } }
+    st.great = st.hold != null ? st.hold : Math.min(1, st.great + x.dt/C.greatSecs); if (st.hold != null) st.flare = 1; st.flare = Math.max(0, st.flare - x.dt/1.5);
+    st.kick *= Math.exp(-x.dt*5);
+    if (x.hit > .8 && st.hit <= .8 && cur && cur.rain > .5) { st.flash = 1; st.boltX = (Math.random() - .5)*.8; }   // lightning on the stabs, in a storm
+    st.hit = x.hit || 0; st.flash *= Math.exp(-x.dt*6); if (st.flashHold) st.flash = 1; st.hat += (L.hat - st.hat)*Math.min(1, x.dt*3);
+    st.flap += x.dt*(3 + 5*st.lvl);   // the gulls' wings
     st.sw += ((x.sBass || 0)*x.react - st.sw)*Math.min(1, x.dt*1.5);   // the swell, eased
-    st.beam += (st.beamT - st.beam)*Math.min(1, x.dt*C.beamEase);
-    const m = Math.min(1, st.tr*1.2), mm = m*m*(3 - 2*m);
-    P.seaA = [st.D0, st.D1, st.tr, st.sw];
-    P.seaB = [1 + C.bigWave*st.lvl, st.flare, st.beam, moonX(st.D0, x.asp)*(1 - mm) + moonX(st.D1, x.asp)*mm];
+    cur = blend();
+    cur.w = cur.w.map((v, i) => Math.max(0, v + C.shapeDrift*Math.sin(x.t*.04 + i*1.7 + st.D1)));   // (the waves keep changing shape within a section too)
+    P.seaA = [cur.D, cur.tear, cur.inner, st.sw];
+    P.seaB = [1 + C.bigWave*st.lvl, st.flare, st.great, st.kick];
+    P.seaW = cur.w; P.seaS = [cur.st, cur.sun, cur.cloud, HOR + .12 - C.sunSink*st.lvl];
+    P.seaK = cur.c.flat(); P.seaD = [st.D0, st.D1, cur.m, st.hat]; P.seaE = [cur.gulls, cur.boat, st.flap, BOAT_K]; P.seaF = [cur.rain, cur.glow, st.flash, st.boltX];
   },
   glsl: {
-    uniforms: 'uniform vec4 uSeaA,uSeaB;',
+    uniforms: 'uniform vec4 uSeaA,uSeaB,uSeaW,uSeaS,uSeaD,uSeaE,uSeaF; uniform vec3 uSeaK[6];',
     functions: `
-float seaHue(){ return 0.6+0.06*sin(uHue*6.2831853); }   // night blue, only tinted by the palette
-float seaC1(float x,float k,float D){ float n=k/${(NW - 1).toFixed(1)}, f=14.0-k*2.6, a=(0.006+0.03*pow(n,1.5))*(1.0+uSeaA.w*0.8)*(k>3.5 ? uSeaB.x : 1.0);
-  float q=x*f+D*(1.7+k)+uTime*(0.25+0.12*k)*(mod(k,2.0)>0.5 ? -1.0 : 1.0);
-  return ${H3}-0.02-0.42*pow(n,1.5)+a*pow(1.0-abs(sin(q)),2.0)+a*0.3*sin(x*f*0.37+k+D); }
-float seaCrest(float x,float k){ float m=clamp(uSeaA.z*1.4-(4.0-k)*0.1,0.0,1.0); m=m*m*(3.0-2.0*m);
-  if(m<=0.0) return seaC1(x,k,uSeaA.x); if(m>=1.0) return seaC1(x,k,uSeaA.y);
-  return mix(seaC1(x,k,uSeaA.x),seaC1(x,k,uSeaA.y),m); }
-vec3 seaSky(vec2 sp){
-  float sh=seaHue(), t=clamp((sp.y-(${H3}))/0.5,0.0,1.0);
-  vec2 mp=vec2(uSeaB.w,${MY.toFixed(3)}); float dm=length(sp-mp);
-  vec3 c=mix(hsv(sh-0.04,0.3,0.62),hsv(sh+0.02,0.6,0.3),smoothstep(0.0,0.4,t));        // a pale, moonlit haze low down,
-  c=mix(c,hsv(sh+0.06,0.8,0.05),smoothstep(0.35,1.0,t));                                 // deep indigo above
-  c+=hsv(sh-0.02,0.2,0.5)*exp(-dm*5.0)*0.5;
-  // long flat clouds, pale on top and shaded under, like cut paper
-  for(int i=0;i<3;i++){ float fi=float(i), y=0.14+fi*0.1+0.012*sin(sp.x*2.3+fi*1.9), on=step(0.3,sin(sp.x*(1.1+fi*0.45)+fi*2.1+uTime*0.01));
-    float d=sp.y-y; c=mix(c,hsv(sh-0.03,0.2,0.7-fi*0.12),on*smoothstep(0.024,0.02,abs(d-0.008)));
-    c=mix(c,hsv(sh+0.02,0.4,0.28),on*smoothstep(0.009,0.006,abs(d+0.02))); }
-  vec2 g=sp*70.0, cell=floor(g); float h=hash(cell);
-  c+=vec3(0.8)*step(0.988,h)*smoothstep(0.35,0.0,length(fract(g)-0.5))*smoothstep(0.3,0.8,t)*(0.6+0.4*sin(uTime*1.7+h*50.0));
-  // the ring: a halo well out from the moon, faintly coloured, brightening on the downbeat; the moon itself
-  float ring=exp(-pow((dm-0.17)/0.014,2.0));
-  c+=mix(hsv(uHue+0.02,0.35,1.0),hsv(uHue+0.55,0.35,1.0),smoothstep(0.16,0.18,dm))*ring*(0.22+0.15*uBeat);
-  c=mix(c,vec3(1.0,0.97,0.86),smoothstep(${MR.toFixed(3)},${(MR - .004).toFixed(3)},dm));
-  c-=vec3(0.1)*smoothstep(0.03,0.018,length(sp-mp-vec2(0.02,0.015)))*step(dm,${MR.toFixed(3)});
-  // the lighthouse's beam: a solid cone from the lamp, swinging to a new angle each bar
-  vec2 lh=vec2(-0.4*ASP,${H3}+0.1), d=sp-lh; float r=length(d), ang=atan(d.y,d.x);
-  c+=hsv(uHue+0.12,0.2,1.0)*smoothstep(0.06,0.035,abs(ang-uSeaB.z))*exp(-r*1.1)*0.4*step(0.01,r);
-  c+=hsv(uHue+0.12,0.2,1.0)*exp(-r*r*5000.0)*(0.8+0.6*uBeat);                          // the lamp
-  return c;
+float seaProf(float u){
+  vec4 w=uSeaW; float stp=uSeaS.x;
+  float s0=0.5+0.5*cos(u*6.2831853), v=u<0.72 ? u/0.72 : (1.0-u)/0.28, s1=pow(v,2.2);
+  float s2=pow(1.0-abs(sin(3.14159265*u)),1.3)*0.7+s0*0.3, q=2.0*fract(u+0.5)-1.0, s3=sqrt(max(0.0,1.0-q*q)), s4=s0*0.3+0.7*floor(s0*3.0+0.5)/3.0;
+  return (s0*w.x+s1*w.y+s2*w.z+s3*w.w+s4*stp)/(w.x+w.y+w.z+w.w+stp+1e-4);
 }
-vec3 sea(vec2 sp){
-  float sh=seaHue(), t=uTime;
-  // the waves, nearest first: the first whose crest stands above the pixel is drawn; its face lit under the crest, carved
-  // lines along it, foam and flecks on the crest, the moon's path glinting across it
-  for(int i=4;i>=0;i--){
+float seaCrest(float x,float k){
+  float n=k/${(NW - 1).toFixed(1)}, f=9.0-7.4*pow(n,0.7), amp=(0.012+0.15*pow(n,1.8))*(1.0+uSeaA.w*0.9)*(1.0+(uSeaB.x-1.0)*n);
+  float q=x*f+k*1.93+uSeaA.x*0.71+uTime*(0.05+0.09*n)*(mod(k,2.0)>0.5 ? -1.0 : 1.0);
+  float y=${HS}-0.015-0.4*pow(n,1.4)+amp*(seaProf(fract(q))-0.5)+amp*0.25*sin(x*f*0.41+k);
+  y+=uSeaA.w*0.012*n*sin(uTime*0.7+k)+(0.004+0.012*n)*sin(uTime*0.9+k*2.1);
+  if(uSeaA.y>0.0){ float xi=x*50.0+k*7.0, i0=floor(xi), fx=fract(xi); fx=fx*fx*(3.0-2.0*fx);
+    y+=uSeaA.y*(mix(fract(sin(i0*127.1)*43758.5453),fract(sin((i0+1.0)*127.1)*43758.5453),fx)-0.5); }
+  if(k>${(NW - 2.5).toFixed(1)}&&uSeaB.z<1.0){ float g=uSeaB.z, d=x-(-1.2+g*2.6), e=sin(3.14159265*min(1.0,g*1.2));
+    y+=0.14*e*(k>${(NW - 1.5).toFixed(1)} ? 1.0 : 0.45)*exp(-pow(d/(d>0.0 ? 0.1 : 0.4),2.0)); }
+  return y;
+}
+float seaCloud1(vec2 sp,float i,float D){   // a band of paper clouds (each section its own): scalloped tops on a flat base; above 0 inside
+  float h1=hash(vec2(D,i)), h2=hash(vec2(i,D+3.0)), w=0.06+0.07*h1, x=sp.x+uTime*(0.006+0.004*i)+i*3.1+D, c=floor(x/w), u=fract(x/w)*2.0-1.0;
+  float r=0.35+0.65*hash(vec2(c,i*7.0+D)), on=step(0.5-uSeaS.z*0.4,fract(sin(floor(x/(w*(3.0+h2*4.0)))*91.3+i+D)*437.5));
+  float base=0.06+i*(0.08+0.06*h2)+0.04*h1, top=base+w*0.55*r*sqrt(max(0.0,1.0-u*u));
+  return on*min(sp.y-base+0.02, top-sp.y);
+}
+float seaCloud(vec2 sp,float i){ float a=seaCloud1(sp,i,uSeaD.x); return uSeaD.z<0.01 ? a : mix(a,seaCloud1(sp,i,uSeaD.y),uSeaD.z); }
+vec3 seaSky(vec2 sp){
+  float t=clamp((sp.y-${HS})/0.55,0.0,1.0);
+  vec3 c=mix(uSeaK[1],uSeaK[0],pow(t,0.7));
+  float dark=smoothstep(0.2,0.04,dot(uSeaK[0],vec3(0.3,0.5,0.2)));   // stars, when the sky is dark enough
+  if(dark>0.0){ vec2 g=sp*80.0, cell=floor(g); float h=hash(cell);
+    c+=vec3(0.85,0.9,1.0)*dark*step(0.985,h)*smoothstep(0.3,0.0,length(fract(g)-0.5))*smoothstep(0.1,0.5,t)*(0.6+0.4*sin(uTime*1.7+h*50.0)); }
+  // the sun, a paper disc cut with bands, sitting on the horizon (not every sea has one)
+  vec2 sc=vec2(0.18*ASP,uSeaS.w); float ds=length(sp-sc);
+  if(uSeaS.y>0.01){
+    c+=uSeaK[5]*exp(-ds*4.0)*0.35*uSeaS.y;
+    float disc=smoothstep(0.155,0.15,ds)*step(0.05,sp.y-${HS}+0.05);
+    float band=step(0.35,fract((sc.y-sp.y)*26.0))+step(sp.y,sc.y);
+    disc*=mix(1.0,band,smoothstep(sc.y+0.02,sc.y-0.04,sp.y));
+    c=mix(c,mix(uSeaK[5],uSeaK[4],0.25+0.3*smoothstep(-0.15,0.15,sp.y-sc.y)),disc*uSeaS.y);
+  }
+  // three bands of paper clouds, far to near, each lighter on top and casting a shadow below
+  for(int j=0;j<3;j++){ float i=float(j), d=seaCloud(sp,i), ds2=seaCloud(sp+vec2(-0.006,0.012),i);
+    c*=1.0-0.25*smoothstep(0.0,0.01,ds2)*step(d,0.0);
+    vec3 cc=mix(mix(uSeaK[1],mix(uSeaK[4],uSeaK[5],uSeaF.y),0.55-i*0.12),uSeaK[0],0.18*i);   // (a glowing sea's clouds stay pale)
+    c=mix(c,cc*(0.92+0.1*smoothstep(0.0,0.03,d)),smoothstep(0.0,0.002,d)); }
+  // paper gulls gliding across, their wings beating
+  if(uSeaE.x>0.01) for(int j=0;j<4;j++){ float i=float(j), gx=(fract(uTime*0.012*(1.0+i*0.3)+i*0.29)-0.5)*ASP*1.3, gy=0.2+0.12*hash(vec2(i,9.0))+0.02*sin(uTime*0.3+i);
+    vec2 q=(sp-vec2(gx,gy))/(0.018+0.01*hash(vec2(i,3.0))); float fl=sin(uSeaE.z+i*1.7);
+    float wing=q.y-(abs(q.x)*(0.35+0.5*fl)-0.25*abs(q.x)*abs(q.x)*(1.0+fl));
+    c=mix(c,uSeaK[3]*0.6,uSeaE.x*smoothstep(0.22,0.1,abs(wing))*step(abs(q.x),1.0)); }
+  return c*paper(sp);
+}
+vec4 seaBoat(vec2 sp){   // a small paper boat riding a wave, tilting with it: a hull and a sail
+  float bx=0.3*ASP*sin(uTime*0.02)-0.1, y0=seaCrest(bx,${BOAT_K}.0), sl=(seaCrest(bx+0.02,${BOAT_K}.0)-seaCrest(bx-0.02,${BOAT_K}.0))/0.04, a=atan(sl)*0.7;
+  vec2 q=sp-vec2(bx,y0-0.004); q=vec2(cos(a)*q.x+sin(a)*q.y,-sin(a)*q.x+cos(a)*q.y); q/=0.085;
+  float hull=step(-0.12,q.y)*step(q.y,0.12)*step(abs(q.x),0.55+q.y*1.5);
+  float sail=step(0.12,q.y)*step(q.y,1.0)*step(0.0,q.x+0.05)*step(q.x,0.5*(1.0-q.y));
+  if(hull>0.5) return vec4(mix(uSeaK[4],uSeaK[3],0.2)*(0.85+0.15*step(0.0,q.y)),1.0);
+  if(sail>0.5) return vec4(mix(uSeaK[5],uSeaK[4],0.3)*(0.8+0.2*step(0.2,q.x)),1.0);
+  return vec4(0.0);
+}
+vec4 seaGreat(vec2 sp){   // the drop's great wave: a crescent of water whose lip curls over, its rim breaking into claws of foam
+  if(uSeaB.z>=1.0) return vec4(0.0);
+  float g=uSeaB.z, e=sin(3.14159265*min(1.0,g*1.2)), gx=-1.2+g*2.6, R=0.26*e;
+  if(R<0.01) return vec4(0.0);
+  float yb=seaCrest(gx,${(NW - 1).toFixed(1)});
+  vec2 co=vec2(gx-R*0.1,yb+R*0.5), ci=vec2(gx+R*0.3,yb+R*0.38); float dO=length(sp-co), dI=length(sp-ci), rI=R*0.64;
+  if(dO>R||sp.y<yb-0.02||(dI<rI&&sp.y>yb+R*0.02)) return vec4(0.0);
+  float a=atan(sp.y-co.y,sp.x-co.x), rim=R-dO, inner=dI-rI;
+  vec3 col=mix(mix(uSeaK[3],uSeaK[2],0.35),uSeaK[3]*0.7,smoothstep(0.0,R*0.5,rim));
+  col=mix(col,col*0.8,step(0.8,fract(rim*70.0)));   // lines following the curl
+  col*=1.0-0.35*exp(-max(inner,0.0)*50.0);           // shade inside the hollow's edge
+  float up=smoothstep(-0.6,0.4,a)*smoothstep(3.0,2.2,a);
+  float claw=step(0.4,fract(a*7.0+rim*45.0));        // the lip's foam, in claws
+  col=mix(col,uSeaK[4],smoothstep(0.012+0.03*claw*up,0.004,rim)*up);
+  return vec4(col*paper(sp),1.0);
+}
+vec3 seaBase(vec2 sp){
+  vec4 gw=seaGreat(sp); if(gw.w>0.0) return gw.rgb;
+  float yf=-9.0;   // the crest of the layer in front, for its shadow
+  for(int i=${NW - 1};i>=0;i--){
     float k=float(i), cy=seaCrest(sp.x,k);
+    if(i==${BOAT_K}&&uSeaE.y>0.5){ vec4 b=seaBoat(sp); if(b.w>0.0) return b.rgb*paper(sp); }
     if(sp.y<cy){
-      float n=k/4.0, depth=cy-sp.y;
-      vec3 far=hsv(sh-0.02,0.35,0.55), deep=hsv(sh+0.03,0.85,0.1);
-      vec3 col=mix(mix(far,deep,pow(n,0.6)),mix(far,deep,min(1.0,pow(n,0.6)+0.35)),smoothstep(0.0,0.03+n*0.05,depth));
-      col*=1.0-0.35*step(0.9,sin(depth*(220.0-n*120.0)+sin(sp.x*9.0+k)*1.5))*smoothstep(0.004,0.02,depth);
-      float foam=exp(-depth*(500.0-n*250.0))+step(0.82,hash(floor(vec2(sp.x*120.0,depth*300.0))))*step(depth,0.01+n*0.012)*0.7;
-      col=mix(col,vec3(0.93,0.95,1.0),min(1.0,foam*(0.75+0.25*uBeat+(k>3.5 ? uSeaB.y : 0.0))));
-      float px=abs(sp.x-uSeaB.w)/(0.02+(${H3}-sp.y)*0.35);
-      col+=vec3(1.0,0.93,0.72)*exp(-px*px*2.0)*step(0.6,hash(floor(vec2(sp.x*30.0,sp.y*260.0))+floor(t*4.0)))*(0.5+0.5*uBeat)*0.8;
-      return col;
+      float n=k/${(NW - 1).toFixed(1)}, depth=cy-sp.y;
+      vec3 base=mix(uSeaK[2],uSeaK[3],pow(n,0.8));
+      vec3 col=mix(mix(base,uSeaK[4],0.25-0.1*n),base*0.72,smoothstep(0.0,0.03+0.1*n,depth));   // lit near the crest, deep below
+      if(uSeaA.z>0.5){ float l=fract(depth*(60.0-30.0*n)); col=mix(col,col*0.86,step(0.85,l)*smoothstep(0.01,0.03,depth)); }   // inner cut lines
+      float fw=0.004+0.006*n+0.004*uSeaB.w;   // the foam rim
+      float fm=smoothstep(fw,fw*0.4,depth)*(0.85+0.15*vnz(vec2(sp.x*80.0,k)));
+      col=mix(col,uSeaK[4]*(1.0+uSeaF.y*(0.5+0.5*sin(uTime*2.0+sp.x*9.0+k))),fm);   // (on a glowing sea, the foam shimmers along the crest)
+      col=mix(col,uSeaK[4],0.6*step(0.975-0.04*uSeaD.w,hash(floor(vec2(sp.x*160.0,depth*260.0))+floor(uTime*6.0*uSeaD.w)))*smoothstep(0.025,0.006,depth));   // flecks of foam, sparkling with the hats
+      if(uSeaS.y>0.01){ float px=(sp.x-0.18*ASP)/(0.05+(${HS}-sp.y)*0.3);   // the sun's light on the faces, strongest just under each crest
+        col=mix(col,mix(uSeaK[5],uSeaK[4],0.3),0.45*exp(-px*px*3.0)*smoothstep(0.08,0.01,depth)*uSeaS.y); }
+      if(yf>-8.0){ float up=sp.y-seaCrest(sp.x-0.008,k+1.0); col*=1.0-0.4*exp(-max(up,0.0)*55.0); }   // the shadow of the wave in front
+      return col*paper(sp+k);
     }
+    yf=cy;
   }
   vec3 c=seaSky(sp);
-  // the headland and its lighthouse, black against the sky
-  float hx=sp.x+0.4*ASP, hill=${H3}+0.07*exp(-hx*hx*14.0)+0.015*exp(-hx*hx*2.0);
-  if(sp.y<hill||(abs(hx)<0.008-(sp.y-hill)*0.03&&sp.y<${H3}+0.1)) return hsv(sh+0.04,0.6,0.025);
-  // spray thrown up off the nearest wave on the drop
-  if(uSeaB.y>0.02){ float above=sp.y-seaCrest(sp.x,4.0);
-    if(above>0.0&&above<0.12*uSeaB.y) c+=vec3(0.9)*step(0.9,hash(floor(sp*vec2(110.0,110.0))+floor(t*8.0)))*uSeaB.y; }
+  float up=sp.y-seaCrest(sp.x-0.008,0.0); c*=1.0-0.25*exp(-max(up,0.0)*80.0);   // the far sea's shadow on the sky
+  if(uSeaB.y>0.02){ float above=sp.y-seaCrest(sp.x,${(NW - 1).toFixed(1)});   // spray off the great wave
+    if(above>0.0&&above<0.16*uSeaB.y) c=mix(c,uSeaK[4],step(0.88,hash(floor(sp*110.0)+floor(uTime*9.0)))*uSeaB.y); }
+  return c;
+}
+vec3 sea(vec2 sp){   // the sea, and a storm over it: slanting rain, and a paper lightning bolt on the stabs that lights the sky
+  vec3 c=seaBase(sp);
+  if(uSeaF.z>0.02){ c*=1.0+uSeaF.z*0.6*smoothstep(-0.1,0.4,sp.y);
+    float yb=clamp(sp.y,${HS},0.42), seg=floor(yb*14.0), bx=uSeaF.w*ASP+0.04*(hash(vec2(seg,uSeaF.w))-0.5)+0.04*(hash(vec2(seg+1.0,uSeaF.w))-hash(vec2(seg,uSeaF.w)))*fract(yb*14.0);
+    if(sp.y>${HS}&&sp.y<0.42&&abs(sp.x-bx)<0.004+0.004*uSeaF.z) c=mix(c,vec3(1.0,1.0,0.95),uSeaF.z); }
+  if(uSeaF.x>0.01){ vec2 q=vec2(sp.x+sp.y*0.3,sp.y)*vec2(70.0,5.0)+vec2(0.0,uTime*9.0); vec2 id=floor(q);
+    c=mix(c,uSeaK[4],0.35*uSeaF.x*step(0.82,hash(id))*step(fract(q.x),0.12)*smoothstep(0.0,0.2,fract(q.y))); }
   return c;
 }`,
     fn: 'sea',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uSeaA, P.seaA); gl.uniform4fv(u.uSeaB, P.seaB); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uSeaA, P.seaA); gl.uniform4fv(u.uSeaB, P.seaB); gl.uniform4fv(u.uSeaW, P.seaW); gl.uniform4fv(u.uSeaS, P.seaS); gl.uniform4fv(u.uSeaD, P.seaD); gl.uniform4fv(u.uSeaE, P.seaE); gl.uniform4fv(u.uSeaF, P.seaF);
+    if (u['uSeaK[0]']) gl.uniform3fv(u['uSeaK[0]'], P.seaK); },
   // its front plane: the nearest wave
   front: {
     fn: 'seaFront',
     glsl: `
-float seaFront(vec2 sp){ return sp.y<seaCrest(sp.x,4.0) ? 1.0 : 0.0; }`,
+float seaFront(vec2 sp){ return sp.y<seaCrest(sp.x,${(NW - 1).toFixed(1)}) ? 1.0 : 0.0; }`,
     path2d(o, P, t){
+      if (!cur) return;
       const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H;
-      o.moveTo(0, H); for (let j = 0; j <= 120; j++) { const xs = (j/120 - .5)*asp; o.lineTo(X(xs), Y(crest(xs, NW - 1, t, P.seaA, P.seaB[0]))); }
+      o.moveTo(0, H); for (let j = 0; j <= 120; j++) { const xs = (j/120 - .5)*asp; o.lineTo(X(xs), Y(crest(xs, NW - 1, t, cur, P.seaA, P.seaB))); }
       o.lineTo(W, H); o.closePath();
     },
   },
   draw2d(o, P, t){
+    if (!cur) return;
     const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, a = Math.min(1, P.w.sea);
-    const [big, flare, beam, mx] = P.seaB, bh = .6 + .06*Math.sin(P.hue*Math.PI*2);
-    o.globalAlpha = a;
-    const sky = o.createLinearGradient(0, Y(.46), 0, Y(HOR));
-    sky.addColorStop(0, hc(bh + .06, 80, 3, 1)); sky.addColorStop(.6, hc(bh + .02, 55, 17, 1)); sky.addColorStop(1, hc(bh - .04, 30, 58, 1));
-    o.fillStyle = sky; o.fillRect(0, 0, W, Y(HOR) + 1);
-    for (let i = 0; i < 120; i++) { const sx = star(i)*W, sy = star(i + 500)*Y(.2); o.fillStyle = `rgba(220,225,240,${((.3 + .5*star(i + 900))*(.6 + .4*Math.sin(t*1.7 + i))).toFixed(3)})`; o.fillRect(sx, sy, 1.5, 1.5); }
-    for (let i = 0; i < 3; i++) {   // long flat clouds, pale on top and shaded under
-      const y = .14 + i*.1; o.fillStyle = hc(bh - .03, 20, 68 - i*11, 1);
-      for (let j = 0; j < 90; j++) { const xs = (j/90 - .5)*asp; if (Math.sin(xs*(1.1 + i*.45) + i*2.1 + t*.01) < .3) continue;
-        const yy = y + .012*Math.sin(xs*2.3 + i*1.9); o.fillRect(X(xs), Y(yy + .032), asp/90*u + 1, .044*u);
-        o.fillStyle = hc(bh + .02, 40, 26, 1); o.fillRect(X(xs), Y(yy - .012), asp/90*u + 1, .012*u); o.fillStyle = hc(bh - .03, 20, 68 - i*11, 1); }
+    const K = cur.c, rgb = (c, m = 1) => `rgb(${c.map(v => Math.round(Math.min(1, v*m)*255)).join(',')})`, mix = (p, q, m) => p.map((v, i) => v + (q[i] - v)*m);
+    o.save(); o.globalAlpha = a;
+    const sky = o.createLinearGradient(0, Y(.55), 0, Y(HOR)); sky.addColorStop(0, rgb(K[0], .9)); sky.addColorStop(1, rgb(K[1], .82));   // (a little darker: simple mode's glow would wash it out)
+    o.fillStyle = sky; o.fillRect(0, 0, W, Y(HOR) + 2);
+    if (cur.sun > .01) {   // the banded paper sun
+      const sx = X(.18*asp), sy = Y(P.seaS[3]), R = .15*u, g = o.createRadialGradient(sx, sy, 0, sx, sy, R*3);
+      g.addColorStop(0, `rgba(${K[5].map(v => Math.round(v*255)).join(',')},${(.35*cur.sun).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      o.fillStyle = g; o.fillRect(0, 0, W, Y(HOR));
+      o.save(); o.beginPath(); o.rect(0, 0, W, Y(HOR)); o.clip(); o.globalAlpha = a*cur.sun; o.fillStyle = rgb(mix(K[5], K[4], .35));
+      o.beginPath(); o.arc(sx, sy, R, Math.PI, 0); o.fill();
+      for (let b = 0; b < 6; b++) { const y0 = sy + b*R*.16 + R*.04, h = R*.1*(1 - b*.1); o.fillRect(sx - R, y0, 2*R, h); }
+      o.restore();
     }
-    const glow = o.createRadialGradient(X(mx), Y(MY), 0, X(mx), Y(MY), .35*u);
-    glow.addColorStop(0, hc(bh - .02, 20, 60, .4)); glow.addColorStop(1, hc(bh - .02, 20, 60, 0));
-    o.fillStyle = glow; o.fillRect(0, 0, W, Y(HOR));
-    o.strokeStyle = `rgba(235,228,215,${((.22 + .15*P.beat)*a).toFixed(3)})`; o.lineWidth = Math.max(1, .01*u);   // the ring
-    o.beginPath(); o.arc(X(mx), Y(MY), .17*u, 0, Math.PI*2); o.stroke();
-    o.fillStyle = '#fff8dc'; o.beginPath(); o.arc(X(mx), Y(MY), MR*u, 0, Math.PI*2); o.fill();
-    const lx = X(-.4*asp), ly = Y(HOR + .1);   // the lighthouse's beam, swinging each bar
-    const bg = o.createLinearGradient(lx, ly, lx + Math.cos(beam)*u, ly - Math.sin(beam)*u);
-    bg.addColorStop(0, hc(P.hue + .12, 25, 88, .5)); bg.addColorStop(1, hc(P.hue + .12, 25, 88, 0));
-    o.fillStyle = bg; o.beginPath(); o.moveTo(lx, ly); o.lineTo(lx + Math.cos(beam - .05)*u*1.3, ly - Math.sin(beam - .05)*u*1.3); o.lineTo(lx + Math.cos(beam + .05)*u*1.3, ly - Math.sin(beam + .05)*u*1.3); o.closePath(); o.fill();
-    o.fillStyle = hc(bh + .04, 60, 2.5, 1); o.beginPath(); o.moveTo(0, Y(HOR));   // the headland and its tower
-    for (let j = 0; j <= 40; j++) { const hx = (j/40)*.5 - .25; o.lineTo(X(-.4*asp + hx), Y(HOR + .07*Math.exp(-hx*hx*14) + .015*Math.exp(-hx*hx*2))); }
-    o.lineTo(X(-.4*asp + .25), Y(HOR)); o.fill();
-    o.fillRect(lx - .008*u, ly, .016*u, Y(HOR + .07) - ly + 1);
-    o.fillStyle = `rgba(255,245,215,${Math.min(1, .8 + .6*P.beat).toFixed(3)})`; o.beginPath(); o.arc(lx, ly, .006*u, 0, Math.PI*2); o.fill();
-    for (let k = 0; k < NW; k++) {   // the waves, far to near: pale to deep blue, foam on the crests
-      const n = k/(NW - 1), pts = []; for (let j = 0; j <= 160; j++) { const xs = (j/160 - .5)*asp; pts.push([X(xs), Y(crest(xs, k, t, P.seaA, big))]); }
-      const top = Math.min(...pts.map(p => p[1])), p6 = Math.pow(n, .6), g = o.createLinearGradient(0, top, 0, top + (.05 + n*.08)*u);
-      g.addColorStop(0, hc(bh - .02 + .05*p6, 35 + 50*p6, 55 - 45*p6, 1)); g.addColorStop(1, hc(bh - .02 + .05*Math.min(1, p6 + .35), 35 + 50*Math.min(1, p6 + .35), 55 - 45*Math.min(1, p6 + .35), 1));
+    const D = cur.m < .5 ? st.D0 : st.D1, h2d = (a, b) => fr(Math.sin(a*127.1 + b*311.7)*43758.5453);
+    for (let i = 0; i < 3; i++) {   // paper clouds (each section its own): scalloped tops, a shadow under each
+      const h1 = h2d(D, i), h2 = h2d(i, D + 3), w = .06 + .07*h1, base = .06 + i*(.08 + .06*h2) + .04*h1, cc = mix(mix(K[1], mix(K[4], K[5], cur.glow), .55 - i*.12), K[0], .18*i);
+      o.fillStyle = rgb(cc); o.shadowColor = 'rgba(0,0,0,.22)'; o.shadowOffsetY = .012*u; o.shadowOffsetX = .006*u; o.shadowBlur = .01*u;
+      const off = t*(.006 + .004*i) + i*3.1 + D, gw = w*(3 + h2*4);
+      for (let c = Math.floor((-asp/2 + off)/w) - 1; c <= Math.ceil((asp/2 + off)/w) + 1; c++) {
+        if (fr(Math.sin(Math.floor((c + .5)*w/gw)*91.3 + i + D)*437.5) < .5 - cur.cloud*.4) continue;
+        const r = .35 + .65*h2d(c, i*7 + D), cx = X((c + .5)*w - off);
+        o.beginPath(); o.ellipse(cx, Y(base), w*u*.5, w*.55*r*u, 0, Math.PI, 0); o.fill();
+      }
+      o.shadowColor = 'transparent';
+    }
+    if (cur.gulls > .01) { o.strokeStyle = rgb(K[3], .6); o.lineWidth = Math.max(1, .004*u); o.globalAlpha = a*cur.gulls;   // paper gulls
+      for (let i = 0; i < 4; i++) { const h = (a2, b2) => fr(Math.sin(a2*127.1 + b2*311.7)*43758.5453), gx = (fr(t*.012*(1 + i*.3) + i*.29) - .5)*asp*1.3, gy = .2 + .12*h(i, 9) + .02*Math.sin(t*.3 + i);
+        const sz = (.018 + .01*h(i, 3))*u, fl = Math.sin(P.seaE[2] + i*1.7), d = (.35 + .5*fl)*sz;
+        o.beginPath(); o.moveTo(X(gx) - sz, Y(gy) - d); o.quadraticCurveTo(X(gx) - sz*.4, Y(gy) - d*.2, X(gx), Y(gy)); o.quadraticCurveTo(X(gx) + sz*.4, Y(gy) - d*.2, X(gx) + sz, Y(gy) - d); o.stroke(); }
+      o.globalAlpha = a; }
+    for (let k = 0; k < NW; k++) {   // the waves, far to near, each with its shadow on the one behind
+      const n = k/(NW - 1), pts = []; for (let j = 0; j <= 150; j++) { const xs = (j/150 - .5)*asp; pts.push([X(xs), Y(crest(xs, k, t, cur, P.seaA, P.seaB))]); }
+      const top = Math.min(...pts.map(p => p[1])), base = mix(K[2], K[3], Math.pow(n, .8)), g = o.createLinearGradient(0, top, 0, top + (.04 + n*.12)*u);
+      g.addColorStop(0, rgb(mix(base, K[4], .25 - .1*n))); g.addColorStop(1, rgb(base, .72));
+      o.shadowColor = 'rgba(0,0,0,.4)'; o.shadowBlur = .02*u; o.shadowOffsetY = -.006*u; o.shadowOffsetX = .008*u;
       o.fillStyle = g; o.beginPath(); o.moveTo(0, H); for (const [x, y] of pts) o.lineTo(x, y); o.lineTo(W, H); o.fill();
-      o.strokeStyle = `rgba(238,242,255,${Math.min(1, .75 + .25*P.beat + (k === NW - 1 ? flare : 0)).toFixed(3)})`; o.lineWidth = Math.max(1, (1 + n*2)*u*.0015);
-      o.beginPath(); pts.forEach(([x, y], j) => j ? o.lineTo(x, y) : o.moveTo(x, y)); o.stroke();
-      o.fillStyle = 'rgba(255,240,200,.6)';   // the moon's path, broken into glints
-      const wy = (H/2 - top)/u, wd = (.02 + (HOR - wy)*.35)*u;
-      for (let q = 0; q < 14; q++) { if (star(q*13 + k*7 + Math.floor(t*4)) < .5) continue;
-        o.fillRect(X(mx) + (star(q + k*31) - .5)*2*Math.abs(wd), top + (2 + star(q*3 + k)*.04*u), 3 + n*6, 1.5); }
-      if (k === NW - 1 && flare > .02) { o.fillStyle = `rgba(235,240,255,${flare.toFixed(3)})`;   // spray on the drop
-        for (let q = 0; q < 60; q++) { const j = Math.floor(star(q + Math.floor(t*8))*160); o.fillRect(pts[j][0], pts[j][1] - star(q*5)*.12*flare*u, 2, 2); } }
+      o.shadowColor = 'transparent';
+      o.strokeStyle = rgb(K[4], .85); o.lineWidth = Math.max(1, (.003 + .004*n + .003*P.seaB[3])*u);
+      o.beginPath(); pts.forEach(([x, y], j) => j ? o.lineTo(x, y + o.lineWidth/2) : o.moveTo(x, y + o.lineWidth/2)); o.stroke();
+      if (cur.sun > .01) { o.fillStyle = rgb(K[5]); o.globalAlpha = a*.6*cur.sun;   // the sun's glints: short strips on the faces
+        for (let q = 0; q < 10; q++) { const gx = X(.18*asp + (h2d(q, k + Math.floor(t*2)) - .5)*(.08 + n*.25)), gy = top + (.01 + h2d(k, q)*(.03 + n*.08))*u;
+          o.fillRect(gx, gy, (.01 + .03*n)*u, Math.max(1, .004*u)); }
+        o.globalAlpha = a; }
+      if (k === BOAT_K && cur.boat > .5) {   // the paper boat, riding this wave
+        const bx = .3*asp*Math.sin(t*.02) - .1, y0 = crest(bx, k, t, cur, P.seaA, P.seaB), sl = (crest(bx + .02, k, t, cur, P.seaA, P.seaB) - crest(bx - .02, k, t, cur, P.seaA, P.seaB))/.04, s3 = .085*u;
+        o.save(); o.translate(X(bx), Y(y0 - .004)); o.rotate(-Math.atan(sl)*.7);
+        o.fillStyle = rgb(mix(K[4], K[3], .2)); o.beginPath(); o.moveTo(-.73*s3, -.12*s3); o.lineTo(.73*s3, -.12*s3); o.lineTo(.37*s3, .12*s3); o.lineTo(-.37*s3, .12*s3); o.fill();
+        o.fillStyle = rgb(mix(K[5], K[4], .3)); o.beginPath(); o.moveTo(-.05*s3, -.12*s3); o.lineTo(-.05*s3, -s3); o.lineTo(.45*s3, -.12*s3); o.fill(); o.restore(); }
+      if (k === NW - 1 && P.seaB[2] < 1) {   // the great wave's crest breaking into claws of foam
+        const g = P.seaB[2], xg = -1.2 + g*2.6, e = Math.sin(Math.PI*Math.min(1, g*1.2)); o.fillStyle = rgb(K[4]);
+        for (let q = 0; q < 26; q++) { const xs = xg - .02 + (q/26 - .8)*.3, y = crest(xs, k, t, cur, P.seaA, P.seaB), s2 = e*Math.exp(-Math.pow(xs - xg, 2)*12);
+          if (s2 < .05) continue; o.beginPath(); o.arc(X(xs), Y(y) + .01*u, .012*u*s2, 0, Math.PI*2); o.fill(); } }
     }
-    o.globalAlpha = 1;
+    if (P.seaB[2] < 1) {   // the great wave: a crescent whose lip curls over, foam on its rim
+      const g = P.seaB[2], e = Math.sin(Math.PI*Math.min(1, g*1.2)), gx = -1.2 + g*2.6, R = .26*e;
+      if (R > .01) { const yb = crest(gx, NW - 1, t, cur, P.seaA, P.seaB), co = [gx - R*.1, yb + R*.5], ci = [gx + R*.3, yb + R*.38];
+        o.save(); o.beginPath(); o.rect(0, 0, W, Y(yb - .02)); o.clip();
+        o.beginPath(); o.arc(X(co[0]), Y(co[1]), R*u, 0, Math.PI*2); o.moveTo(X(ci[0]) + R*.64*u, Y(ci[1])); o.arc(X(ci[0]), Y(ci[1]), R*.64*u, 0, Math.PI*2, true);
+        const gg = o.createRadialGradient(X(co[0]), Y(co[1]), R*.3*u, X(co[0]), Y(co[1]), R*u); gg.addColorStop(0, rgb(K[3], .7)); gg.addColorStop(1, rgb(mix(K[3], K[2], .35)));
+        o.fillStyle = gg; o.fill('evenodd');
+        o.fillStyle = rgb(K[4]); for (let q = 0; q < 18; q++) { const an = -.5 + q/17*2.9, rr = R*(.97 - (q % 2)*.04);
+          o.beginPath(); o.arc(X(co[0] + Math.cos(an)*rr), Y(co[1] + Math.sin(an)*rr), (.008 + (q % 3)*.006)*u*e, 0, Math.PI*2); o.fill(); }
+        o.restore(); }
+    }
+    if (P.seaF[2] > .02) { o.fillStyle = `rgba(255,255,245,${(.35*P.seaF[2]).toFixed(3)})`; o.fillRect(0, 0, W, Y(HOR));   // lightning: the sky lights up, a jagged bolt
+      o.strokeStyle = `rgba(255,255,240,${P.seaF[2].toFixed(3)})`; o.lineWidth = Math.max(1, .006*u); o.beginPath();
+      for (let j = 0; j <= 8; j++) { const y = .42 - j/8*(.42 - HOR); o[j ? 'lineTo' : 'moveTo'](X(P.seaF[3]*asp + .04*(fr(Math.sin(j*91.7 + P.seaF[3]*50)*437.5) - .5)), Y(y)); } o.stroke(); }
+    if (P.seaF[0] > .01) { o.strokeStyle = rgb(K[4]); o.globalAlpha = a*.3*P.seaF[0]; o.lineWidth = 1; o.beginPath();   // the rain, slanting
+      for (let q = 0; q < 160; q++) { const rx = fr(Math.sin(q*12.9)*437.5)*W, ry = fr(Math.sin(q*78.2)*437.5 + t*1.8)*H; o.moveTo(rx, ry); o.lineTo(rx - .012*u, ry + .05*u); }
+      o.stroke(); o.globalAlpha = a; }
+    if (P.seaB[1] > .02) { o.fillStyle = rgb(K[4]); o.globalAlpha = a*P.seaB[1];   // spray off the great wave
+      for (let q = 0; q < 80; q++) { const xs = (fr(Math.sin(q*12.9 + Math.floor(t*9))*437.5) - .5)*asp, y = crest(xs, NW - 1, t, cur, P.seaA, P.seaB);
+        o.fillRect(X(xs), Y(y + fr(Math.sin(q*78.2)*437.5)*.16*P.seaB[1]), 2, 2); } }
+    o.restore();
   },
 };
