@@ -40,7 +40,7 @@ export function seaForce(D, great){ force = D; st.D0 = st.D1 = D; st.tr = 1; if 
 function blend(){
   const m0 = Math.min(1, st.tr), m = m0*m0*(3 - 2*m0), a = style(st.D0), b = style(st.D1);
   return {w: a.w.map((v, i) => lerp(v, b.w[i], m)), st: lerp(a.st, b.st, m), tear: lerp(a.tear, b.tear, m), inner: lerp(a.inner, b.inner, m),
-    m, gulls: lerp(a.gulls, b.gulls, m), boat: lerp(a.boat, b.boat, m), cloud: lerp(a.cloud, b.cloud, m), sun: lerp(a.pal.sun, b.pal.sun, m), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m)), D: m < .5 ? st.D0 : st.D1};
+    m, gulls: lerp(a.gulls, b.gulls, m), boat: lerp(a.boat, b.boat, m), cloud: lerp(a.cloud, b.cloud, m), sun: lerp(a.pal.sun, b.pal.sun, m), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m)), D: lerp(st.D0, st.D1, m)};
 }
 // the shape of one wave, u along it (0..1), from the family weights: 0..1 high
 function prof(u, w, stp){
