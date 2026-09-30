@@ -52,6 +52,7 @@ export function meshObject({key, label, words, mesh, motion, dance}){
       if (motion) motion(P.m[key], P, x);
       const U = P.m[key], d = DANCE.obj[key];   // its dance, on top: a turn, a nod, a lean, a step, a lunge, a squash, a part lifting
       if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; U.lift = d.lift; U.liftPart = d.part; }
+      const Vw = S.view; if (Vw && Vw.key === key) { U.rot += Vw.yaw; U.pitch += Vw.pitch; U.size *= Vw.zoom; if (Vw.morph !== null) U.morph = Vw.morph; }   // turned and held in the Asset Viewer (ui/assets.js)
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },

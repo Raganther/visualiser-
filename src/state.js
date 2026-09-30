@@ -23,4 +23,5 @@ export const S = {
   pausedAt: 0,                   // playback position while paused
   scene: null,                   // the manual preset's scene (scene/graph.js); none means the default
   syncMs: 0,                     // the Sync slider: + draws the beat later, - earlier (for this device's speakers and screen)
+  view: null,                    // the Asset Viewer's hold on the object it shows (ui/assets.js): {key, yaw, pitch, zoom, morph (null: the music's)}
 };

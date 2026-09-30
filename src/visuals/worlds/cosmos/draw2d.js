@@ -34,8 +34,8 @@ function gas(c){
 }
 // a nebula: puffs of glowing gas through its sphere (fixed places for the nebula, from its seed), each a soft disc seen
 // from the camera, in its two hues; a few dark puffs of dust over them; its young stars
-const NEB = (() => { const r = rng(404), a = []; for (let i = 0; i < 46; i++) { let q; do q = [r()*2 - 1, r()*2 - 1, r()*2 - 1]; while (q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > 1);
-  a.push({q, s: .18 + r()*.3, h: r(), dust: i % 7 === 6}); } return a; })();
+const NEB = (() => { const r = rng(404), a = []; for (let i = 0; i < 70; i++) { let q; do q = [r()*2 - 1, r()*2 - 1, r()*2 - 1]; while (q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > 1);
+  a.push({q, s: .35 + r()*.4, h: r(), dust: i % 7 === 6}); } return a; })();
 function nebula2d(o, P, c, scr, u){
   const [nx, ny, nz, R] = c.neb, glow = c.neb2[3], puffs = [];
   for (const f of NEB) { const rel = [nx + f.q[0]*R, ny + f.q[1]*R, nz + f.q[2]*R], s = scr(rel); if (s.z > .5) puffs.push({f, s, r: f.s*R*s.k}); }
@@ -44,8 +44,8 @@ function nebula2d(o, P, c, scr, u){
   for (const {f, s, r} of puffs) {
     if (r < 2) continue;
     const g = o.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
-    if (f.dust) { g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); o.globalCompositeOperation = 'source-over'; }
-    else { const col = hc(P.hue + (f.h < .5 ? c.neb2[0] : c.neb2[1]), 70, 55, Math.min(.5, .16*glow)); g.addColorStop(0, col); g.addColorStop(1, hc(P.hue + c.neb2[0], 70, 40, 0)); o.globalCompositeOperation = 'lighter'; }
+    if (f.dust) { g.addColorStop(0, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); o.globalCompositeOperation = 'source-over'; }
+    else { const col = hc(P.hue + (f.h < .5 ? c.neb2[0] : c.neb2[1]), 75, 55, Math.min(.35, .05*glow)); g.addColorStop(0, col); g.addColorStop(1, hc(P.hue + c.neb2[0], 70, 40, 0)); o.globalCompositeOperation = 'lighter'; }
     o.fillStyle = g; o.fillRect(s.x - r, s.y - r, r*2, r*2);
   }
   o.globalCompositeOperation = 'lighter';
