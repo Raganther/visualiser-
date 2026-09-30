@@ -80,6 +80,10 @@ export const BASE = [
   {name:'Goniometer', decay:.93, zoom:1.0, rot:0, warp:.1, sym:1, vectorscope:1, ring:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Unfolding', decay:.94, zoom:1.0, rot:0, warp:0, sym:1, unfold:1, mandala:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Fractal', decay:.93, zoom:1.0, rot:.002, warp:0, sym:1, fractal:1, fireflies:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  // the engraved rosette, the times table on a circle, and a spiral galaxy over the stars
+  {name:'Engraving', decay:.93, zoom:1.0, rot:.001, warp:0, sym:1, guilloche:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'String art', decay:.92, zoom:1.0, rot:0, warp:0, sym:1, chords:1, mandala:.4, colorSpeed:.03, hueDrift:.005, mods:{}},
+  {name:'Galaxy', decay:.9, zoom:1.002, rot:.001, warp:0, sym:1, galaxy:1, space:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},

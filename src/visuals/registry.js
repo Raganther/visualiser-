@@ -33,6 +33,9 @@ import vectorscope from './layers/vectorscope.js';
 import mandala from './layers/mandala.js';
 import unfold from './layers/unfold.js';
 import fractal from './layers/fractal.js';
+import guilloche from './layers/guilloche.js';
+import chords from './layers/chords.js';
+import galaxy from './layers/galaxy.js';
 import mood from './layers/mood.js';
 import rain from './layers/rain.js';
 import constellation from './layers/constellation.js';
@@ -46,7 +49,7 @@ import jelly from './objects/jelly.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
-export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, tunnel];
+export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
