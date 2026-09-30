@@ -273,6 +273,7 @@ export const TUNE = {
     bigWave: 1.2,              // how much the near waves grow as the tension rises (1 + this at full)
     greatSecs: 3.5,            // a drop's great wave: how long it takes to curl across the front
     sunSink: .1,               // how far the sun sinks towards the horizon as the tension builds
+    shapeDrift: .35,           // how far the wave family drifts, slowly, within a section (so the shapes keep changing)
   },
   deep: {
     morphSecs: 4,              // a new section's reef: the old layers sink as the new ones rise, nearest first, over this long

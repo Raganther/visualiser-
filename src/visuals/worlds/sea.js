@@ -16,10 +16,10 @@ const PALS = [   // (the sea always stands against its sky: deep blues and teals
   {name: 'hokusai', c: ['#b9a67c', '#f3ead2', '#6f8fa6', '#0f2a52', '#fbf6e9', '#d8452b'], sun: 1},
   {name: 'dusk',    c: ['#1d1140', '#ff8a5c', '#9c5f9a', '#1b1f5e', '#ffe1d0', '#ffd166'], sun: 1},
   {name: 'tropic',  c: ['#0b6fa3', '#bff5ec', '#4fd6c8', '#004e6e', '#ffffff', '#fff6c0'], sun: 0},
-  {name: 'storm',   c: ['#15191f', '#7d8b96', '#4b5a66', '#0b141c', '#e8eef2', '#c9d3da'], sun: 0},
+  {name: 'storm',   c: ['#15191f', '#7d8b96', '#4b5a66', '#0b141c', '#e8eef2', '#c9d3da'], sun: 0, rain: 1},
   {name: 'gold',    c: ['#40132a', '#ffb04a', '#c8745a', '#1e2a5a', '#fff1c9', '#fff0a0'], sun: 1},
   {name: 'blush',   c: ['#58508d', '#ffc6d0', '#b98bb0', '#2c3a70', '#fffaf4', '#ffe38a'], sun: 1},
-  {name: 'midnight',c: ['#03040b', '#1e2c5c', '#26407a', '#050a1f', '#a9c0ff', '#dfe6ff'], sun: 0},
+  {name: 'midnight',c: ['#03040b', '#1e2c5c', '#26407a', '#050a1f', '#7fffe0', '#dfe6ff'], sun: 0, glow: 1},   // (its foam glows like plankton)
   {name: 'mint',    c: ['#123c3a', '#f2e8b6', '#83c5a6', '#0d3b4a', '#fffbe6', '#ff7b5c'], sun: 1},
 ].map(p => ({...p, c: p.c.map(hex)}));
 const fr = v => v - Math.floor(v), rnd = (D, s) => fr(Math.sin(D*127.1 + s*311.7)*43758.5453);
@@ -33,14 +33,14 @@ function style(D){
 }
 const vn = x => { const i = Math.floor(x), f = x - i, h = j => fr(Math.sin(j*127.1)*43758.5453), s = f*f*(3 - 2*f); return h(i) + (h(i + 1) - h(i))*s; };
 const lerp = (a, b, m) => a + (b - a)*m, lerp3 = (a, b, m) => a.map((v, i) => lerp(v, b[i], m));
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, lvl: .3, sw: 0, drops: 0, great: 1, flare: 0, kick: 0, hat: 0, flap: 0};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, lvl: .3, sw: 0, drops: 0, great: 1, flare: 0, kick: 0, hat: 0, flap: 0, flash: 0, boltX: 0, hit: 0};
 let cur = null, force = null;
 // for looking at one sea (tools/look.mjs --eval): hold layout D, and optionally the great wave part way
-export function seaForce(D, great){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (great != null) { st.great = great; st.flare = 1; st.hold = great; } }   // this frame's blended sea (for simple mode and the front plane)
+export function seaForce(D, great, flash){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (great != null && great >= 0) { st.great = great; st.flare = 1; st.hold = great; } if (flash) { st.flashHold = 1; st.boltX = .2; } }   // this frame's blended sea (for simple mode and the front plane)
 function blend(){
   const m0 = Math.min(1, st.tr), m = m0*m0*(3 - 2*m0), a = style(st.D0), b = style(st.D1);
   return {w: a.w.map((v, i) => lerp(v, b.w[i], m)), st: lerp(a.st, b.st, m), tear: lerp(a.tear, b.tear, m), inner: lerp(a.inner, b.inner, m),
-    m, gulls: lerp(a.gulls, b.gulls, m), boat: lerp(a.boat, b.boat, m), cloud: lerp(a.cloud, b.cloud, m), sun: lerp(a.pal.sun, b.pal.sun, m), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m)), D: lerp(st.D0, st.D1, m)};
+    m, gulls: lerp(a.gulls, b.gulls, m), boat: lerp(a.boat, b.boat, m), cloud: lerp(a.cloud, b.cloud, m), sun: lerp(a.pal.sun, b.pal.sun, m), rain: lerp(a.pal.rain || 0, b.pal.rain || 0, m), glow: lerp(a.pal.glow || 0, b.pal.glow || 0, m), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m)), D: lerp(st.D0, st.D1, m)};
 }
 // the shape of one wave, u along it (0..1), from the family weights: 0..1 high
 function prof(u, w, stp){
@@ -73,17 +73,20 @@ export default {
     st.lvl += ((J ? J.tension : .4) - st.lvl)*Math.min(1, x.dt*.4);
     if (J && J.drops !== st.drops) { st.drops = J.drops; if (on) { st.great = 0; st.flare = 1; } }
     st.great = st.hold != null ? st.hold : Math.min(1, st.great + x.dt/C.greatSecs); if (st.hold != null) st.flare = 1; st.flare = Math.max(0, st.flare - x.dt/1.5);
-    st.kick *= Math.exp(-x.dt*5); st.hat += (L.hat - st.hat)*Math.min(1, x.dt*3);
+    st.kick *= Math.exp(-x.dt*5);
+    if (x.hit > .8 && st.hit <= .8 && cur && cur.rain > .5) { st.flash = 1; st.boltX = (Math.random() - .5)*.8; }   // lightning on the stabs, in a storm
+    st.hit = x.hit || 0; st.flash *= Math.exp(-x.dt*6); if (st.flashHold) st.flash = 1; st.hat += (L.hat - st.hat)*Math.min(1, x.dt*3);
     st.flap += x.dt*(3 + 5*st.lvl);   // the gulls' wings
     st.sw += ((x.sBass || 0)*x.react - st.sw)*Math.min(1, x.dt*1.5);   // the swell, eased
     cur = blend();
+    cur.w = cur.w.map((v, i) => Math.max(0, v + C.shapeDrift*Math.sin(x.t*.04 + i*1.7 + st.D1)));   // (the waves keep changing shape within a section too)
     P.seaA = [cur.D, cur.tear, cur.inner, st.sw];
     P.seaB = [1 + C.bigWave*st.lvl, st.flare, st.great, st.kick];
     P.seaW = cur.w; P.seaS = [cur.st, cur.sun, cur.cloud, HOR + .12 - C.sunSink*st.lvl];
-    P.seaK = cur.c.flat(); P.seaD = [st.D0, st.D1, cur.m, st.hat]; P.seaE = [cur.gulls, cur.boat, st.flap, BOAT_K];
+    P.seaK = cur.c.flat(); P.seaD = [st.D0, st.D1, cur.m, st.hat]; P.seaE = [cur.gulls, cur.boat, st.flap, BOAT_K]; P.seaF = [cur.rain, cur.glow, st.flash, st.boltX];
   },
   glsl: {
-    uniforms: 'uniform vec4 uSeaA,uSeaB,uSeaW,uSeaS,uSeaD,uSeaE; uniform vec3 uSeaK[6];',
+    uniforms: 'uniform vec4 uSeaA,uSeaB,uSeaW,uSeaS,uSeaD,uSeaE,uSeaF; uniform vec3 uSeaK[6];',
     functions: `
 float seaProf(float u){
   vec4 w=uSeaW; float stp=uSeaS.x;
@@ -127,7 +130,7 @@ vec3 seaSky(vec2 sp){
   // three bands of paper clouds, far to near, each lighter on top and casting a shadow below
   for(int j=0;j<3;j++){ float i=float(j), d=seaCloud(sp,i), ds2=seaCloud(sp+vec2(-0.006,0.012),i);
     c*=1.0-0.25*smoothstep(0.0,0.01,ds2)*step(d,0.0);
-    vec3 cc=mix(mix(uSeaK[1],uSeaK[4],0.55-i*0.12),uSeaK[0],0.18*i);
+    vec3 cc=mix(mix(uSeaK[1],mix(uSeaK[4],uSeaK[5],uSeaF.y),0.55-i*0.12),uSeaK[0],0.18*i);   // (a glowing sea's clouds stay pale)
     c=mix(c,cc*(0.92+0.1*smoothstep(0.0,0.03,d)),smoothstep(0.0,0.002,d)); }
   // paper gulls gliding across, their wings beating
   if(uSeaE.x>0.01) for(int j=0;j<4;j++){ float i=float(j), gx=(fract(uTime*0.012*(1.0+i*0.3)+i*0.29)-0.5)*ASP*1.3, gy=0.2+0.12*hash(vec2(i,9.0))+0.02*sin(uTime*0.3+i);
@@ -161,7 +164,7 @@ vec4 seaGreat(vec2 sp){   // the drop's great wave: a crescent of water whose li
   col=mix(col,uSeaK[4],smoothstep(0.012+0.03*claw*up,0.004,rim)*up);
   return vec4(col*paper(sp),1.0);
 }
-vec3 sea(vec2 sp){
+vec3 seaBase(vec2 sp){
   vec4 gw=seaGreat(sp); if(gw.w>0.0) return gw.rgb;
   float yf=-9.0;   // the crest of the layer in front, for its shadow
   for(int i=${NW - 1};i>=0;i--){
@@ -173,7 +176,8 @@ vec3 sea(vec2 sp){
       vec3 col=mix(mix(base,uSeaK[4],0.25-0.1*n),base*0.72,smoothstep(0.0,0.03+0.1*n,depth));   // lit near the crest, deep below
       if(uSeaA.z>0.5){ float l=fract(depth*(60.0-30.0*n)); col=mix(col,col*0.86,step(0.85,l)*smoothstep(0.01,0.03,depth)); }   // inner cut lines
       float fw=0.004+0.006*n+0.004*uSeaB.w;   // the foam rim
-      col=mix(col,uSeaK[4],smoothstep(fw,fw*0.4,depth)*(0.85+0.15*vnz(vec2(sp.x*80.0,k))));
+      float fm=smoothstep(fw,fw*0.4,depth)*(0.85+0.15*vnz(vec2(sp.x*80.0,k)));
+      col=mix(col,uSeaK[4]*(1.0+uSeaF.y*(0.5+0.5*sin(uTime*2.0+sp.x*9.0+k))),fm);   // (on a glowing sea, the foam shimmers along the crest)
       col=mix(col,uSeaK[4],0.6*step(0.975-0.04*uSeaD.w,hash(floor(vec2(sp.x*160.0,depth*260.0))+floor(uTime*6.0*uSeaD.w)))*smoothstep(0.025,0.006,depth));   // flecks of foam, sparkling with the hats
       if(uSeaS.y>0.01){ float px=(sp.x-0.18*ASP)/(0.05+(${HS}-sp.y)*0.3);   // the sun's light on the faces, strongest just under each crest
         col=mix(col,mix(uSeaK[5],uSeaK[4],0.3),0.45*exp(-px*px*3.0)*smoothstep(0.08,0.01,depth)*uSeaS.y); }
@@ -187,10 +191,19 @@ vec3 sea(vec2 sp){
   if(uSeaB.y>0.02){ float above=sp.y-seaCrest(sp.x,${(NW - 1).toFixed(1)});   // spray off the great wave
     if(above>0.0&&above<0.16*uSeaB.y) c=mix(c,uSeaK[4],step(0.88,hash(floor(sp*110.0)+floor(uTime*9.0)))*uSeaB.y); }
   return c;
+}
+vec3 sea(vec2 sp){   // the sea, and a storm over it: slanting rain, and a paper lightning bolt on the stabs that lights the sky
+  vec3 c=seaBase(sp);
+  if(uSeaF.z>0.02){ c*=1.0+uSeaF.z*0.6*smoothstep(-0.1,0.4,sp.y);
+    float yb=clamp(sp.y,${HS},0.42), seg=floor(yb*14.0), bx=uSeaF.w*ASP+0.04*(hash(vec2(seg,uSeaF.w))-0.5)+0.04*(hash(vec2(seg+1.0,uSeaF.w))-hash(vec2(seg,uSeaF.w)))*fract(yb*14.0);
+    if(sp.y>${HS}&&sp.y<0.42&&abs(sp.x-bx)<0.004+0.004*uSeaF.z) c=mix(c,vec3(1.0,1.0,0.95),uSeaF.z); }
+  if(uSeaF.x>0.01){ vec2 q=vec2(sp.x+sp.y*0.3,sp.y)*vec2(70.0,5.0)+vec2(0.0,uTime*9.0); vec2 id=floor(q);
+    c=mix(c,uSeaK[4],0.35*uSeaF.x*step(0.82,hash(id))*step(fract(q.x),0.12)*smoothstep(0.0,0.2,fract(q.y))); }
+  return c;
 }`,
     fn: 'sea',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uSeaA, P.seaA); gl.uniform4fv(u.uSeaB, P.seaB); gl.uniform4fv(u.uSeaW, P.seaW); gl.uniform4fv(u.uSeaS, P.seaS); gl.uniform4fv(u.uSeaD, P.seaD); gl.uniform4fv(u.uSeaE, P.seaE);
+  uniforms(gl, u, P){ gl.uniform4fv(u.uSeaA, P.seaA); gl.uniform4fv(u.uSeaB, P.seaB); gl.uniform4fv(u.uSeaW, P.seaW); gl.uniform4fv(u.uSeaS, P.seaS); gl.uniform4fv(u.uSeaD, P.seaD); gl.uniform4fv(u.uSeaE, P.seaE); gl.uniform4fv(u.uSeaF, P.seaF);
     if (u['uSeaK[0]']) gl.uniform3fv(u['uSeaK[0]'], P.seaK); },
   // its front plane: the nearest wave
   front: {
@@ -222,7 +235,7 @@ float seaFront(vec2 sp){ return sp.y<seaCrest(sp.x,${(NW - 1).toFixed(1)}) ? 1.0
     }
     const D = cur.m < .5 ? st.D0 : st.D1, h2d = (a, b) => fr(Math.sin(a*127.1 + b*311.7)*43758.5453);
     for (let i = 0; i < 3; i++) {   // paper clouds (each section its own): scalloped tops, a shadow under each
-      const h1 = h2d(D, i), h2 = h2d(i, D + 3), w = .06 + .07*h1, base = .06 + i*(.08 + .06*h2) + .04*h1, cc = mix(mix(K[1], K[4], .55 - i*.12), K[0], .18*i);
+      const h1 = h2d(D, i), h2 = h2d(i, D + 3), w = .06 + .07*h1, base = .06 + i*(.08 + .06*h2) + .04*h1, cc = mix(mix(K[1], mix(K[4], K[5], cur.glow), .55 - i*.12), K[0], .18*i);
       o.fillStyle = rgb(cc); o.shadowColor = 'rgba(0,0,0,.22)'; o.shadowOffsetY = .012*u; o.shadowOffsetX = .006*u; o.shadowBlur = .01*u;
       const off = t*(.006 + .004*i) + i*3.1 + D, gw = w*(3 + h2*4);
       for (let c = Math.floor((-asp/2 + off)/w) - 1; c <= Math.ceil((asp/2 + off)/w) + 1; c++) {
@@ -271,6 +284,12 @@ float seaFront(vec2 sp){ return sp.y<seaCrest(sp.x,${(NW - 1).toFixed(1)}) ? 1.0
           o.beginPath(); o.arc(X(co[0] + Math.cos(an)*rr), Y(co[1] + Math.sin(an)*rr), (.008 + (q % 3)*.006)*u*e, 0, Math.PI*2); o.fill(); }
         o.restore(); }
     }
+    if (P.seaF[2] > .02) { o.fillStyle = `rgba(255,255,245,${(.35*P.seaF[2]).toFixed(3)})`; o.fillRect(0, 0, W, Y(HOR));   // lightning: the sky lights up, a jagged bolt
+      o.strokeStyle = `rgba(255,255,240,${P.seaF[2].toFixed(3)})`; o.lineWidth = Math.max(1, .006*u); o.beginPath();
+      for (let j = 0; j <= 8; j++) { const y = .42 - j/8*(.42 - HOR); o[j ? 'lineTo' : 'moveTo'](X(P.seaF[3]*asp + .04*(fr(Math.sin(j*91.7 + P.seaF[3]*50)*437.5) - .5)), Y(y)); } o.stroke(); }
+    if (P.seaF[0] > .01) { o.strokeStyle = rgb(K[4]); o.globalAlpha = a*.3*P.seaF[0]; o.lineWidth = 1; o.beginPath();   // the rain, slanting
+      for (let q = 0; q < 160; q++) { const rx = fr(Math.sin(q*12.9)*437.5)*W, ry = fr(Math.sin(q*78.2)*437.5 + t*1.8)*H; o.moveTo(rx, ry); o.lineTo(rx - .012*u, ry + .05*u); }
+      o.stroke(); o.globalAlpha = a; }
     if (P.seaB[1] > .02) { o.fillStyle = rgb(K[4]); o.globalAlpha = a*P.seaB[1];   // spray off the great wave
       for (let q = 0; q < 80; q++) { const xs = (fr(Math.sin(q*12.9 + Math.floor(t*9))*437.5) - .5)*asp, y = crest(xs, NW - 1, t, cur, P.seaA, P.seaB);
         o.fillRect(X(xs), Y(y + fr(Math.sin(q*78.2)*437.5)*.16*P.seaB[1]), 2, 2); } }

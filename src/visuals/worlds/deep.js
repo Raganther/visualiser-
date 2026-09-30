@@ -130,11 +130,27 @@ vec3 deepFish(vec2 sp,vec3 col){   // the school: paper fish, two-tone, each wit
       return fc*(0.85+0.15*step(0.0,-body-0.004)); } }
   return col;
 }
+vec4 deepWhale(vec2 sp){   // a paper whale gliding across far off, its tail beating: hazed like the far reef, its belly grooved
+  float t=uDeepG.x, wx=(fract(t*0.005+0.3)-0.5)*ASP*2.6, wy=0.1+0.05*sin(t*0.07), s=0.18;
+  vec2 q=(sp-vec2(wx,wy))/s; q.y-=0.06*sin(q.x*1.5-t*0.9)*smoothstep(0.2,-1.4,q.x);   // (the body flexes towards the tail)
+  if(abs(q.x)>2.2||abs(q.y)>0.8) return vec4(0.0);
+  float th=q.x>-1.3 ? 0.3*sqrt(max(0.0,1.0-pow((q.x-0.05)/1.3,2.0)))*(q.x<0.0 ? 1.0+q.x*0.35 : 1.0) : 0.0;   // the body, tapering to the tail
+  float fl=0.06*sin(t*0.9);                                                                  // the flukes beat
+  bool fluke=q.x<-1.2&&q.x>-1.75&&abs(q.y-fl)<(q.x+1.75)*0.75+0.03&&abs(q.y-fl)>(q.x+1.75)*0.25-0.01;
+  bool fin=q.x<0.55&&q.x>0.0&&q.y<-0.1&&q.y>-0.1-0.45*(0.55-q.x)*(q.x/0.55)*1.6;              // the long pectoral fin
+  if(!(abs(q.y)<th||fluke||fin)) return vec4(0.0);
+  vec3 c=mix(mix(uDeepK[2],uDeepK[3],0.35),deepWater(sp),0.45);
+  if(q.y<-0.05&&q.x>-0.6&&abs(q.y)<th) c=mix(c,uDeepK[6],0.15*step(0.5,fract(q.y*14.0)));  // grooves along the belly
+  if(q.y>th-0.03&&abs(q.y)<th) c=mix(c,uDeepK[6],0.25);                                   // its back catching the light
+  if(length(q-vec2(0.95,0.02))<0.035) c*=0.4;                                                // the eye
+  return vec4(c,1.0);
+}
 vec3 deep(vec2 sp){
   float t=uDeepG.x;
   for(int i=${NL - 1};i>=0;i--){
     float k=float(i), cv=deepCov(sp,k);
     if(i==${FISH_K}){ vec3 f=deepFish(sp,vec3(-1.0)); if(f.x>=0.0) return f*paper(sp); }
+    if(i==0){ vec4 wh=deepWhale(sp); if(wh.w>0.0) return wh.rgb*paper(sp); }   // (behind all but the far layer)
     if(cv>0.5){
       float n=k/${(NL - 1).toFixed(1)};
       vec3 base=mix(uDeepK[2],uDeepK[3],pow(n,0.8));
@@ -202,7 +218,13 @@ float deepFront(vec2 sp){ return deepCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 : 
       o.strokeStyle = o.fillStyle; o.lineWidth = Math.max(1, s*.08); o.globalAlpha = a*.45;
       for (let q = -1; q <= 1; q++) { o.beginPath(); for (let y = 0; y < 12; y++) o.lineTo(X(jx) + q*s*.55 + Math.sin(y*.8 + t*3 + j)*s*.12, Y(jy) + y*s*.27); o.stroke(); }
       o.globalAlpha = a; }
+    const whale = () => { const wx = (fr(t*.005 + .3) - .5)*asp*2.6, wy = .1 + .05*Math.sin(t*.07), s = .18*u, fl = .06*Math.sin(t*.9)*s;   // the whale, far off
+      o.fillStyle = rgb(mix(mix(K[2], K[3], .35), mix(K[0], K[1], .5), .45)); o.beginPath();
+      o.ellipse(X(wx + .05*.18), Y(wy), 1.3*s, .3*s, 0, 0, Math.PI*2); o.moveTo(X(wx) - 1.2*s, Y(wy));
+      o.lineTo(X(wx) - 1.75*s, Y(wy) - .45*s + fl); o.lineTo(X(wx) - 1.6*s, Y(wy) + fl); o.lineTo(X(wx) - 1.75*s, Y(wy) + .45*s + fl); o.closePath();
+      o.moveTo(X(wx), Y(wy) + .1*s); o.lineTo(X(wx) + .55*s, Y(wy) + .1*s); o.lineTo(X(wx) + .2*s, Y(wy) + .45*s); o.closePath(); o.fill(); };
     for (let k = 0; k < NL; k++) {   // the reef, far to near: each layer's ground and its forms, with a shadow on the one behind
+      if (k === 1) whale();   // (in front of the far layer only)
       const n = k/(NL - 1), base = mix(mix(K[2], K[3], Math.pow(n, .8)), mix(K[0], K[1], .5), .35*(1 - n));
       o.shadowColor = 'rgba(0,0,0,.35)'; o.shadowBlur = .015*u; o.shadowOffsetY = -.012*u; o.shadowOffsetX = .006*u;
       o.fillStyle = rgb(base); o.beginPath(); o.moveTo(0, H);

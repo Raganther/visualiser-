@@ -15,12 +15,12 @@ const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)/255);
 // palettes: sky top, sky at the horizon, far wood, near wood, foliage A, foliage B, light; and a sun, fireflies, snow,
 // how much falls (leaves, petals or snow), and what colour the falling things are (from the foliage or the light)
 const PALS = [
-  {name: 'autumn',  c: ['#3a1f4f', '#ffb86b', '#c98a6b', '#2b1a1f', '#e8702a', '#b8322a', '#ffe7a3'], sun: 1, ff: 0, snow: 0, fall: 1},
-  {name: 'dawn',    c: ['#6a7fdb', '#ffd3c4', '#a8b8c8', '#1f3b3a', '#8fd694', '#3f8f6a', '#fff1d6'], sun: 1, ff: 0, snow: 0, fall: .4},
+  {name: 'autumn',  c: ['#3a1f4f', '#ffb86b', '#c98a6b', '#2b1a1f', '#e8702a', '#b8322a', '#ffe7a3'], sun: 1, ff: 0, snow: 0, fall: 1, birds: 1},
+  {name: 'dawn',    c: ['#6a7fdb', '#ffd3c4', '#a8b8c8', '#1f3b3a', '#8fd694', '#3f8f6a', '#fff1d6'], sun: 1, ff: 0, snow: 0, fall: .4, birds: 1},
   {name: 'winter',  c: ['#2b3d6b', '#dfe8f2', '#9fb3c8', '#12203a', '#3e6b7a', '#1d3b4a', '#ffffff'], sun: 0, ff: 0, snow: 1, fall: 1},
   {name: 'night',   c: ['#07061a', '#2f5d6b', '#1f3d4a', '#050a10', '#1f6b5a', '#6b2fa0', '#b8ffea'], sun: 0, ff: 1, snow: 0, fall: 0},
-  {name: 'mist',    c: ['#8c9a92', '#e6ece4', '#b7c4b8', '#2c3a33', '#6f8f6a', '#3d5a45', '#ffffff'], sun: 0, ff: 0, snow: 0, fall: .3},
-  {name: 'sunset',  c: ['#2e1b5b', '#ff6f61', '#b0567a', '#1a0f24', '#ff9e5e', '#8a2c6b', '#ffd27a'], sun: 1, ff: .5, snow: 0, fall: .6},
+  {name: 'mist',    c: ['#8c9a92', '#e6ece4', '#b7c4b8', '#2c3a33', '#6f8f6a', '#3d5a45', '#ffffff'], sun: 0, ff: 0, snow: 0, fall: .3, birds: 1},
+  {name: 'sunset',  c: ['#2e1b5b', '#ff6f61', '#b0567a', '#1a0f24', '#ff9e5e', '#8a2c6b', '#ffd27a'], sun: 1, ff: .5, snow: 0, fall: .6, birds: 1},
   {name: 'blossom', c: ['#e89ab8', '#fff4e6', '#e7b7c8', '#4a2b3a', '#ff9ec4', '#e85d9a', '#fffaf0'], sun: 0, ff: 0, snow: 0, fall: 1},
 ].map(p => ({...p, c: p.c.map(hex)}));
 const fr = v => v - Math.floor(v), rnd = (D, s) => fr(Math.sin(D*127.1 + s*311.7)*43758.5453);
@@ -32,7 +32,7 @@ let cur = null, force = null;
 export function forestForce(D, gust){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (gust != null) st.gustHold = gust; }
 function blend(){
   const m0 = Math.min(1, st.tr), m = m0*m0*(3 - 2*m0), a = style(st.D0), b = style(st.D1), P2 = k => lerp(a.pal[k], b.pal[k], m);
-  return {m, w: a.w.map((v, i) => lerp(v, b.w[i], m)), sun: P2('sun'), ff: P2('ff'), snow: P2('snow'), fall: P2('fall'), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m))};
+  return {m, w: a.w.map((v, i) => lerp(v, b.w[i], m)), sun: P2('sun'), birds: lerp(a.pal.birds || 0, b.pal.birds || 0, m), ff: P2('ff'), snow: P2('snow'), fall: P2('fall'), c: a.pal.c.map((c, i) => lerp3(c, b.pal.c[i], m))};
 }
 const SUN = [-.35, HOR + .1];
 // layer k's ground (0 far .. NL-1 near) in layout D
@@ -61,10 +61,10 @@ export default {
     cur = blend();
     P.forA = [st.D0, st.D1, st.tr, st.sw*C.sway + gust*C.gust];
     P.forB = [st.lvl, gust, st.h, cur.m];
-    P.forW = [...cur.w, st.trk]; P.forS = [cur.sun, cur.ff, cur.snow, cur.fall]; P.forK = cur.c.flat();
+    P.forW = [...cur.w, st.trk]; P.forE = [cur.birds, 0, 0, 0]; P.forS = [cur.sun, cur.ff, cur.snow, cur.fall]; P.forK = cur.c.flat();
   },
   glsl: {
-    uniforms: 'uniform vec4 uForA,uForB,uForW,uForS; uniform vec3 uForK[7];',
+    uniforms: 'uniform vec4 uForA,uForB,uForW,uForS,uForE; uniform vec3 uForK[7];',
     functions: `
 float forGround(float x,float k,float D){ return -0.02-0.085*k+0.03*sin(x*(1.6+k*0.5)+k*1.7+D*2.3)+0.012*sin(x*(5.0+k)+D); }
 // what layer k covers at p, in layout D: 0 nothing, 1 ground, 2 trunk, 3 foliage (4: snow on it)
@@ -109,6 +109,12 @@ vec3 forSky(vec2 sp){
     c=mix(c,uForK[6],ray*0.18*uForS.x*exp(-d*1.2));
     float disc=smoothstep(0.1,0.095,d), band=step(0.35,fract(((${SUN[1].toFixed(3)})-sp.y)*28.0))+step(sp.y,(${SUN[1].toFixed(3)})-0.01);
     c=mix(c,mix(uForK[6],uForK[1],0.3),disc*mix(1.0,band,smoothstep(0.0,-0.06,sp.y-(${SUN[1].toFixed(3)})))*uForS.x); }
+  // a flock of birds crossing in a V, their wings beating
+  if(uForE.x>0.01){ vec2 L=vec2((fract(uTime*0.008)-0.5)*ASP*1.6,0.28+0.04*sin(uTime*0.2));
+    for(int j=0;j<7;j++){ float fj=float(j), side=mod(fj,2.0)*2.0-1.0, rank=floor((fj+1.0)*0.5);
+      vec2 q=(sp-L-vec2(-rank*0.04,side*rank*0.022))/0.012; float fl=sin(uTime*7.0+fj*1.3);
+      float wing=q.y-(abs(q.x)*(0.3+0.5*fl)-0.3*q.x*q.x*(1.0+fl));
+      c=mix(c,uForK[3],uForE.x*smoothstep(0.25,0.1,abs(wing))*step(abs(q.x),1.0)); } }
   return c;
 }
 vec3 forest(vec2 sp){
@@ -144,7 +150,7 @@ vec3 forest(vec2 sp){
 }`,
     fn: 'forest',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uForA, P.forA); gl.uniform4fv(u.uForB, P.forB); gl.uniform4fv(u.uForW, P.forW); gl.uniform4fv(u.uForS, P.forS);
+  uniforms(gl, u, P){ gl.uniform4fv(u.uForA, P.forA); gl.uniform4fv(u.uForB, P.forB); gl.uniform4fv(u.uForW, P.forW); gl.uniform4fv(u.uForS, P.forS); gl.uniform4fv(u.uForE, P.forE);
     if (u['uForK[0]']) gl.uniform3fv(u['uForK[0]'], P.forK); },
   // its front plane: the nearest layer of the wood
   front: {
@@ -190,6 +196,11 @@ float forestFront(vec2 sp){ return forCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 :
       }
       o.shadowColor = 'transparent';
     }
+    if (cur.birds > .01) { o.strokeStyle = rgb(K[3]); o.lineWidth = Math.max(1, .003*u); o.globalAlpha = a*cur.birds;   // a flock crossing in a V
+      const lx = (fr(t*.008) - .5)*asp*1.6, ly = .28 + .04*Math.sin(t*.2);
+      for (let j = 0; j < 7; j++) { const side = (j % 2)*2 - 1, rank = Math.floor((j + 1)/2), bx = X(lx - rank*.04), by = Y(ly + side*rank*.022), sz = .012*u, d = (.3 + .5*Math.sin(t*7 + j*1.3))*sz;
+        o.beginPath(); o.moveTo(bx - sz, by - d); o.quadraticCurveTo(bx - sz*.4, by - d*.2, bx, by); o.quadraticCurveTo(bx + sz*.4, by - d*.2, bx + sz, by - d); o.stroke(); }
+      o.globalAlpha = a; }
     if (cur.fall > .01) { o.globalAlpha = a*cur.fall;   // leaves, petals or snow drifting down
       for (let i = 0; i < 50; i++) { const h = rnd(i, 3), px = fr(h*7 + t*.02*(1 + h))*asp - asp/2 + .03*Math.sin(t + i), py = .5 - fr(h*3 + t*(.05 + .03*h)*(1 + cur.snow*.5));
         o.fillStyle = rgb(mix(mix(K[4], K[5], fr(h*7)), K[6], cur.snow)); o.beginPath(); o.ellipse(X(px), Y(py), .007*u, cur.snow > .5 ? .007*u : .003*u, t*(1 + h*2) + h*40, 0, Math.PI*2); o.fill(); }
