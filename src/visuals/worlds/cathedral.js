@@ -25,7 +25,7 @@ export default {
   key: 'cathedral', kind: 'world', label: 'The Cathedral',
   light: {hue: .1, sat: .4, x: 0, y: .6},               // the oculi's light, from above
   // grand, building music: tension and space, less of a busy top
-  suits: (rf, T) => T*.3 + rf.low*.1 + rf.mel*.15 - rf.perc*.05,
+  suits: (rf, T) => T*.3 + rf.low*.1 + rf.bright*.15 + rf.mid*.1 - rf.busy*.1,
   onBeat(){ st.wave = 0; },   // each kick: the oculi pulse and a wave of light runs down the floor
   params(P, x){
     const T = TUNE.cathedral, J = x.J, on = P.w.cathedral > .05, ten = (J && J.tension) || 0;
