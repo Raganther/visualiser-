@@ -528,7 +528,7 @@ A world that is a 3D place rather than a painted backdrop: generated star system
 - **Drawing** (WebGL): per pixel, three point lights (`U.lights`), wrap diffuse and a highlight per part (skin, teeth, wet eyes, brass), light through the thin parts from behind, and the first light's shadow (a 1024² depth map from the light, packed into RGBA, nine taps). It shares render/mesh.js's camera, so masks, scenes and the cosmos's monument work as for the wire objects. Its textures start decoding when the module loads. Into the trails it adds a dim copy (its ghosts). Simple mode draws the small mesh flat-lit by the same lights, without shadows.
 - **The rig** (`TUNE.goblinLit`): a warm key light swinging round the head over the phrase and changing height each bar (stabs flash it), a rim light in the palette's second colour from behind (the ears glow), a kick light from below in the third; a drop spins them round it and the camera lunges in, a build pushes in, a breakdown leaves the key alone.
 - **Journey** doesn't pick it by itself yet (`noJourney`: left out of the centrepiece draw, so Journey's draws are unchanged); pinning it (O, then its number, while Journey runs) makes it the centrepiece.
-- **Cost:** one draw of ~27–40k triangles and a shadow pass; much cheaper than the cosmos's ray marching. The module is about 1–3 MB (textures), so each lit asset adds that to the published page.
+- **Cost:** one draw of ~27–40k triangles and a shadow pass; much cheaper than the cosmos's ray marching. The goblin's module is 2.5 MB (2048² WebP textures, 46,800 triangles): the published page goes from about 2 to 3.5 MB.
 
 **The maths shapes** (`meshes/maths.js`) are worked out when the page loads, not generated:
 - a geodesic sphere (320 panes);

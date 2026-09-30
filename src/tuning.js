@@ -204,7 +204,7 @@ export const TUNE = {
     pitch: -.05,               // tipped a little up, so it looks down at us
   },
   goblinLit: {chance: 0, size: .95, hinge: 0,     // the goblin, lit (baked from the Blender sculpt, render/lit.js): a solid head under moving lights
-    key: 2.6, rim: 4, kick: 1.8, amb: .14,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
+    key: 3.4, rim: 4, kick: 1.8, amb: .18,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
     lightDist: 2.2,            // how far out the lights circle (the head fits a sphere of about .6)
     keySpeed: .35, keySwing: 1.25,  // the key light's swing round the head (radians a second, times .4 + the tension) and how far each way
     dropSpin: 3, dropSecs: 2.5,     // a drop spins the lights round it this fast, fading over about this long

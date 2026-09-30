@@ -4,7 +4,7 @@
 # Everything is centred and scaled to fit a sphere of --size, like tools/import-glb.mjs (the skull's is about .6).
 import sys, os, io, base64
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 args = sys.argv[1:]; D, OUT = args[0], args[1]
 def opt(k, d): return type(d)(args[args.index(k) + 1]) if k in args else d
@@ -27,7 +27,11 @@ def img(name, size=None, mul=None):
     im = Image.open(os.path.join(D, name + '.png')).convert('RGB')
     if mul is not None:   # the creases' shade, multiplied into the colour (a little softened)
         a = np.asarray(im, np.float32)/255; ao = np.asarray(Image.open(os.path.join(D, mul + '.png')).convert('L'), np.float32)/255
-        im = Image.fromarray(np.uint8(np.clip(a*(.15 + .85*ao[..., None]**.8), 0, 1)*255))
+        # where the bake's rays missed the sculpt the colour is black: filled from the colour round it
+        ok = (a.sum(2) > .03).astype(np.float32)[..., None]; blur = lambda x, r: np.asarray(Image.fromarray(np.uint8(np.clip(x, 0, 1)*255)).filter(ImageFilter.GaussianBlur(r)), np.float32)/255
+        for r in (6, 24):
+            fill = blur(a*ok, r)/np.maximum(blur(np.repeat(ok, 3, 2), r), 1e-3); a = a*ok + fill*(1 - ok); ok = np.maximum(ok, (a.sum(2) > .03)[..., None].astype(np.float32))
+        im = Image.fromarray(np.uint8(np.clip(a*(.35 + .65*np.maximum(ao, .25)[..., None]**.8), 0, 1)*255))
     if size: im = im.resize((size, size), Image.LANCZOS)
     b = io.BytesIO(); im.save(b, 'WEBP', quality=Q, method=6); return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 color, normal, emit = img('color', mul='ao'), img('normal'), img('emit', 512)
