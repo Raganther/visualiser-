@@ -54,12 +54,16 @@ It gets its slider, its key in the O group, Journey's centrepiece pool and the o
 
 ## A lifelike (lit) object instead
 
-For a detailed, textured model lit by moving lights (not the wire look), follow `tools/blender/goblin_hd.py`:
-- **Sculpt** at high detail (distance fields and marching cubes via scikit-image in the venv, or any Blender mesh), and render it in Cycles to judge it (`still`, `anim`). The venv also needs `numpy scikit-image pillow`.
-- **Bake** (`bake <dir>`): a decimated low mesh with one UV atlas, colour, object-space normals, AO and emission baked from the high one (selected to active), plus per-corner thickness, the shape key's move and a small vertex-coloured mesh for simple mode.
-- **Pack** with `tools/blender/lit_export.py <dir> src/visuals/objects/meshes/<name>-lit.js`, and copy `objects/goblin-lit.js` for the object (its light rig, `TUNE.<key>`).
-- Blender's object-space normals are z up: `render/lit.js` turns them. Keep the corners under 65,536 (16-bit indices), and the module to a few MB (the published page's limit is 16 MB).
+For a detailed, textured model lit by moving lights (not the wire look), use the kit, `tools/blender/lit_kit.py`, as `tentacle.py`, `hand.py` and `heart.py` do (the goblin, `goblin_hd.py`, came first and keeps its own copy):
+- The venv also needs `numpy scikit-image pillow`. Run scripts from `tools/blender/` (they import `lit_kit`).
+- **Sculpt** in distance fields: `Grid(f, lo, hi, step)` meshes a whole shape, `G.local(c, r, op)` adds a local feature inside its own box (a sucker, a nail's groove), `cached('<name>_mesh', fn)` keeps the result (`--remesh` to sculpt again). Push detail along the normals, `relax` a little. Build a skeleton when something must bend (the hand: bones by forward kinematics, the shape key by moving each point with its bone).
+- **Render** it in Cycles to judge it: `still out.png --res 600 --samples 24` for quick looks, `--morph` for the shape key, `--look marble` for the statue.
+- **Bake** (`bake <dir> --tex 2048 --tris 36000`), then **pack** with `tools/blender/lit_export.py <dir> src/visuals/objects/meshes/<name>-lit.js`.
+- **The object:** `litObject({key, label, words, asset, dance, motion, beat, bend})` in `objects/lit-object.js` (copy `tentacle.js`, `hand.js` or `heart.js`), a line in `TUNE` (`chance: 0, size, hinge, turn, turnSwing, pitch` and its own motion's numbers), a registry entry, a preset, the Asset Viewer's source line and the CLAUDE.md Lit objects list.
+- Parts: 1 organic (skin, muscle), 2 hard and glossy (nails, teeth), 3 wet eyes, 4 metal. Blender's object-space normals are z up: `render/lit.js` turns them. Keep the corners under 65,536 (16-bit indices) and each module to about 2 MB (the published page's limit is 16 MB).
+- Never call `Math.random` in its `onBeat`: every visual's runs off screen too, and it shifts Journey's seeded draws (the golden test catches it).
 - Memory: don't subdivide a 650k-triangle sculpt again at render time (it took 14 GB and was killed).
+- Waiting on another background job: `pgrep -f` matches the waiting shell's own command line, so a loop on it never ends. Chain the jobs in one command instead.
 
 ## 4. Check it
 
