@@ -247,6 +247,10 @@ export const TUNE = {
 
   // the Hollow (visuals/worlds/hollow.js), the cave flown through: its speed (units a motion-second) at full tension (calm:
   // this share of it), a drop's surge (times the speed) and how fast it fades, how long a section's cave takes to re-form
+  cathedral: {speed: 2.2, calm: .45, surge: 1.8, surgeSecs: 3, morphSecs: 5,   // the Cathedral (worlds/cathedral.js): its flight down the nave, a drop's surge, a new section's hall growing in
+    low: .1, high: 2.2,        // the camera's height: low in the nave when calm, up in the vaults at the height of a build
+    lookAside: .35,            // calm music: glancing along the side aisles (radians)
+  },
   hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
     chamberBars: 8,            // a chamber every this many bars (and at each new section)
     chamberAhead: 22,          // how far ahead on the route it opens (units: about 10 s of flight)

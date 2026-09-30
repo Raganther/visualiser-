@@ -10,6 +10,7 @@ import sea from './worlds/sea.js';
 import deep from './worlds/deep.js';
 import dunes from './worlds/dunes.js';
 import hollow from './worlds/hollow.js';
+import cathedral from './worlds/cathedral.js';
 import forest from './worlds/forest.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
@@ -53,7 +54,7 @@ import tentacle from './objects/tentacle.js';
 import hand from './objects/hand.js';
 import heart from './objects/heart.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart];   // 3D centrepieces, drawn crisp over the picture

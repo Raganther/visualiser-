@@ -1,5 +1,5 @@
-// The Hollow: a cave to fly through for ever, now a journey. The rock is one of four endless labyrinths (a gyroid, Schwarz's
-// P, the diamond, Neovius's: smooth branching tunnels with no end), each section its own, with its own stuff (stone,
+// The Hollow: a cave to fly through for ever, now a journey. The rock is a gyroid (a honeycomb of smooth branching tunnels
+// with no end; hwTp holds three more labyrinths, unused: they broke into floating blobs), each section with its own stuff (stone,
 // crystal, flesh that breathes with the bass, ice) and hues (a returning section its own again). The camera's route is
 // carved clear through it, a run of stretches each its own kind (a wander, a corkscrew, great swoops up and down, a
 // slalom), blended into one another, and the camera banks into the turns. Every few bars, and at each new section, the
@@ -15,13 +15,14 @@ import { TUNE } from '../../tuning.js';
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, bars: 0, lastD: null, ch: null, want: false, roll: 0, look: 0, bass: 0};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 // a section's cave: scale, how open, two hues, its labyrinth (0 gyroid, 1 Schwarz P, 2 diamond, 3 Neovius), its stuff (0 stone, 1 crystal, 2 flesh, 3 ice)
-const LOOK = D => [.75 + hh(D + .3)*.5, -.35 + hh(D + 1.7)*.35, hh(D + 3.1), hh(D + 5.9), D ? Math.floor(hh(D + 7.7)*4) : 0, D ? Math.floor(hh(D + 9.3)*4) : 0];
+// (always the gyroid: the user loved its honeycomb, and the other labyrinths broke into floating blobs, "an asteroid belt")
+const LOOK = D => [.75 + hh(D + .3)*.5, -.35 + hh(D + 1.7)*.35, hh(D + 3.1), hh(D + 5.9), 0, D ? Math.floor(hh(D + 9.3)*4) : 0];
 // the route: stretches of SEG units, each its kind, the next blended in over the last part of each
 const SEG = 40, kindOf = k => Math.floor(hh(k*1.37 + .11)*4);
 function off(kind, z){
   return kind === 0 ? [Math.sin(z*.13)*1.6 + Math.sin(z*.071)*.9, Math.cos(z*.11)*1.1 + Math.sin(z*.05)*.5]   // a wander
-    : kind === 1 ? [Math.cos(z*.4)*1.6, Math.sin(z*.4)*1.6]                                                  // a corkscrew
-    : kind === 2 ? [Math.sin(z*.1)*3.2 + Math.sin(z*.047)*1.1, Math.sin(z*.085 + 1.3)*3.8]                  // swoops, up and down
+    : kind === 1 ? [Math.cos(z*.4)*1.3, Math.sin(z*.4)*1.3]                                                  // a corkscrew
+    : kind === 2 ? [Math.sin(z*.1)*2.2 + Math.sin(z*.047)*.8, Math.sin(z*.085 + 1.3)*2.6]                   // swoops, up and down
     : [Math.sin(z*.3)*2.2, Math.cos(z*.15)*.8];                                                             // a slalom
 }
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
@@ -92,8 +93,8 @@ export default {
     functions: `
 vec2 hwOff(float k,float z){
   if(k<0.5) return vec2(sin(z*0.13)*1.6+sin(z*0.071)*0.9,cos(z*0.11)*1.1+sin(z*0.05)*0.5);
-  if(k<1.5) return vec2(cos(z*0.4),sin(z*0.4))*1.6;
-  if(k<2.5) return vec2(sin(z*0.1)*3.2+sin(z*0.047)*1.1,sin(z*0.085+1.3)*3.8);
+  if(k<1.5) return vec2(cos(z*0.4),sin(z*0.4))*1.3;
+  if(k<2.5) return vec2(sin(z*0.1)*2.2+sin(z*0.047)*0.8,sin(z*0.085+1.3)*2.6);
   return vec2(sin(z*0.3)*2.2,cos(z*0.15)*0.8);
 }
 vec3 hwPath(float z){   // the route: the stretch z falls in, blended into the next over its last part (their kinds from uHwK)
