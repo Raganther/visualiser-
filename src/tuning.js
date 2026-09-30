@@ -183,11 +183,24 @@ export const TUNE = {
   knot: {chance: 0, size: .52, hinge: 0},
   dodeca: {chance: 0, size: .4, hinge: 0},
   spikes: {chance: 0, size: .4, hinge: 0},
+  crystal: {chance: 0, size: .95, hinge: 0},
   manta: {chance: 0, size: .68, hinge: 0,         // the manta ray (a Blender model: tools/blender/manta.py), gliding:
     flap: 1,                   // how far its wings beat (the shape key's weight, both ways), more as the tension rises
     beatsPerFlap: 2,           // one wingbeat every this many beats, in step with the bar
     pitch: .42,                // how far it's tipped towards us, so its back shows
     turn: .12,                 // how far it turns from side to side as it glides, slowly (radians)
+  },
+  lotus: {chance: 0, size: .8, hinge: 0,         // the lotus (a Blender model: tools/blender/lotus.py), blooming with the phrase:
+    bloom: .95,                // how far it opens and closes over the phrase (the shape key's weight, both ways)
+    burstSecs: 2.5,            // a drop bursts it fully open, easing back over about this long
+    pitch: .75,                // how far it's tipped towards us, so we look into the flower
+    turn: .06,                 // its slow turn (radians a motion-second)
+  },
+  jelly: {chance: 0, size: .9, hinge: 0,          // the jellyfish (a Blender model: tools/blender/jelly.py), swimming to the beat:
+    beatsPerStroke: 1,         // one stroke of the bell every this many beats
+    snap: 7,                   // how fast the bell contracts on the beat (it relaxes over the rest of the stroke)
+    lift: .05,                 // how far each stroke lifts it (of the screen's height)
+    pitch: .28, turn: .05,     // tipped a little towards us, turning slowly
   },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'

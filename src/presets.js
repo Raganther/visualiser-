@@ -94,6 +94,10 @@ export const BASE = [
   {name:'Unicorn', journey:false, decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, unicorn:1, ribbons:.4, colorSpeed:.03, hueDrift:.005,
     mods:{ribbons:{src:'mid', amt:.3}}},
   {name:'Manta', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, manta:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
+  // the new centrepieces: the lotus over the unfolding mandala, the jellyfish in deep water, the crystals under the aurora
+  {name:'Lotus', journey:false, decay:.9, zoom:1.004, rot:.001, warp:0, sym:1, unfold:.8, lotus:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Jellyfish', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, jelly:1, fireflies:.35, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Crystals', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, aurora:1, crystal:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
     mods:{ring:{src:'kick', amt:.3}},
