@@ -1,6 +1,6 @@
 # Packs a baked asset (goblin_hd.py bake <dir>) into one module the page loads: the low mesh as base64 typed arrays,
 # its textures as WebP data URLs, and simple mode's smaller mesh. Needs numpy and Pillow (the Blender venv has both).
-#   python tools/blender/lit_export.py <bakedir> src/visuals/objects/meshes/<name>-lit.js [--size .6] [--q 88]
+#   python tools/blender/lit_export.py <bakedir> src/visuals/objects/meshes/<name>-lit.js [--size .6] [--q 88] [--thin-x .36 (the goblin)]
 # Everything is centred and scaled to fit a sphere of --size, like tools/import-glb.mjs (the skull's is about .6).
 import sys, os, io, base64
 import numpy as np
@@ -18,7 +18,8 @@ def q16(a):   # signed 16-bit, with the scale to undo it
     s = float(np.abs(a).max()) or 1.; return b64(np.round(a/s*32767).astype('<i2')), s
 P, ps = q16(pos); M, ms = q16(morph)
 uv = b64(np.round(np.clip(L['uv'], 0, 1)*65535).astype('<u2'))
-thick = np.where(np.abs(L['pos'][:, 0]) > .36, L['thick'], .12)   # (only the ears let light through: lips and lids are thin too, but not like that)
+TX = opt('--thin-x', 0.)   # (the goblin: only its ears let light through, |x| past .36; its lips and lids are thin too, but not like that)
+thick = np.where(np.abs(L['pos'][:, 0]) > TX, L['thick'], .12) if TX else L['thick']
 th = b64(np.round(np.clip(thick/.12, 0, 1)*255).astype(np.uint8)); pa = b64(L['part'].astype(np.uint8))
 tri = L['tri']; assert tri.max() < 65536, 'too many corners for 16-bit indices'
 T = b64(tri.astype('<u2'))

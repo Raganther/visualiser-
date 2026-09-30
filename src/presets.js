@@ -35,6 +35,8 @@ export const SPEC = [
   {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
   // the fractal's dive twisting into a logarithmic whirlpool, spinning as it falls (last, so the rest keep their places)
   {g:'Fractal', k:'fracVortex', label:'Fractal vortex: the dive twists into a spiral (0 off, 1 on)', min:0, max:1, step:1},
+  // how the lit objects (Blender models, render/lit.js) are drawn (last, so the rest keep their places)
+  {g:'Objects', k:'litLook', label:'Lit objects: 0 real, 1 toon, 2 neon, 3 chrome, 4 marble', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
@@ -135,6 +137,7 @@ export const BASE = [
   {name:'Vortex', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, fractal:1, fracVortex:1, colorSpeed:.03, hueDrift:.006, mods:{}},
   // the lit goblin alone under its moving lights (a Blender sculpt baked for real time)
   {name:'Goblin, lit', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, goblinLit:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Tentacle', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, tentacle:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0); p.mods = p.mods || {}; });   // (a setting can carry its own default)

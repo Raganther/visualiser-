@@ -204,17 +204,38 @@ export const TUNE = {
     snapDecay: 3.5,            // how fast a downbeat's snarl eases off (a second)
     pitch: -.05,               // tipped a little up, so it looks down at us
   },
-  goblinLit: {chance: 0, size: .95, hinge: 0,     // the goblin, lit (baked from the Blender sculpt, render/lit.js): a solid head under moving lights
+  // the lit objects (Blender models baked for real time, render/lit.js, objects/lit-object.js): their shared light rig
+  lit: {
     key: 3.4, rim: 4, kick: 1.8, amb: .18,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
-    lightDist: 2.2,            // how far out the lights circle (the head fits a sphere of about .6)
-    keySpeed: .35, keySwing: 1.25,  // the key light's swing round the head (radians a second, times .4 + the tension) and how far each way
+    lightDist: 2.2,            // how far out the lights circle (an object fits a sphere of about .6)
+    keySpeed: .35, keySwing: 1.25,  // the key light's swing round it (radians a second, times .4 + the tension) and how far each way
     dropSpin: 3, dropSecs: 2.5,     // a drop spins the lights round it this fast, fading over about this long
-    trans: 1,                  // light glowing through the ears from behind
+    trans: 1,                  // light glowing through thin parts from behind (the goblin's ears, the tentacle)
     trail: 0,                  // how much of it the trails keep (its ghosts; off, as for the wire objects: TUNE.mesh.trail)
     zoom: .2, zoomRate: .08,   // the camera breathing in and out (of its size), and how slowly (radians a motion-second)
     buildZoom: .25, dropZoom: .35,  // pushing in through a build towards a known drop, and the lunge on the drop
+  },
+  goblinLit: {chance: 0, size: .95, hinge: 0,     // the goblin, lit: its snarl is the goblin's (TUNE.goblin)
     turn: .11, turnSwing: .6,  // its slow turn between three-quarter views, and how far each way
     pitch: .06,                // tipped a little down, glowering
+  },
+  tentacle: {chance: 0, size: .8, hinge: 0,       // the octopus's arm (tools/blender/tentacle.py), writhing: bent along its length at ten joints
+    turn: .09, turnSwing: .5, pitch: 0,
+    wave: .09, waveLen: .75, waveSpeed: 2.2,   // a wave running up it (radians at each joint, radians of phase a joint, and a motion-second)
+    bass: .12,                 // the bass swelling the wave
+    kick: .06,                 // each kick flexing it
+    curl: .5,                  // a drop curling it (radians, most at the tip), easing back
+  },
+  hand: {chance: 0, size: .95, hinge: 0,          // the hand (tools/blender/hand.py): its shape key clenches it into a claw (1) or spreads it (-1)
+    turn: .1, turnSwing: .55, pitch: .05,
+    rest: -.3,                 // relaxed, fingers a little spread
+    grip: .9,                  // each kick clenching it, more when intense
+    spread: 1,                 // a drop flinging it open
+  },
+  heart: {chance: 0, size: 1, hinge: 0,           // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
+    turn: .08, turnSwing: .45, pitch: .04,
+    beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
+    snap: 6,                   // how fast the squeeze lets go (a second)
   },
   jelly: {chance: 0, size: .9, hinge: 0,          // the jellyfish (a Blender model: tools/blender/jelly.py), swimming to the beat:
     beatsPerStroke: 1,         // one stroke of the bell every this many beats
