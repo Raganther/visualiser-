@@ -247,7 +247,17 @@ export const TUNE = {
 
   // the Hollow (visuals/worlds/hollow.js), the cave flown through: its speed (units a motion-second) at full tension (calm:
   // this share of it), a drop's surge (times the speed) and how fast it fades, how long a section's cave takes to re-form
-  hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5},
+  hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
+    chamberBars: 8,            // a chamber every this many bars (and at each new section)
+    chamberAhead: 22,          // how far ahead on the route it opens (units: about 10 s of flight)
+    chamberR: [3.2, 4.6],      // its size, smallest to largest (the tunnel is .9 across)
+    chamberSide: .42,          // its heart, off the route to one side (of its size), so the camera passes beside it
+    chamberSlow: .4,           // the flight slows to this through a chamber
+    lookAt: .55,               // how far the camera turns to look at the heart as it passes
+    bank: 1.6, bankMax: .55,   // banking into the route's turns (radians per unit of its sideways pull, and at most)
+    breathe: .1,               // a flesh cave's walls swelling with the bass
+    heartSize: .22,            // a centrepiece in the heart, as a share of the chamber's size
+  },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {
