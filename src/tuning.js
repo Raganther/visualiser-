@@ -228,8 +228,9 @@ export const TUNE = {
   },
   hand: {chance: 0, size: .75, hinge: 0,           // the hand (tools/blender/hand.py): its shape key clenches it into a claw (1) or spreads it (-1)
     turn: .1, turnSwing: .55, pitch: .05,
-    rest: -.32,                // relaxed, fingers a little spread
-    grip: .9,                  // each kick clenching it, more when intense
+    rest: -.35,                // relaxed, fingers a little spread
+    grip: 1.6,                 // each beat clenching it (times .5, up to 1.1 when intense)
+    release: 7,                // how fast the grip lets go (a second)
     spread: 1,                 // a drop flinging it open
   },
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)

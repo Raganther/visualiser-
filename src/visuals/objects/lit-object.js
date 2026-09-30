@@ -25,7 +25,7 @@ export function litObject({key, label, words, asset: A, dance, motion, beat, ben
   return {
     key, kind: 'object', label, words, optIn: true, noJourney: true, lit: true, dance,
     stats: `${A.t.toLocaleString()} triangles · textures from Blender · 3 lights`,
-    get mesh(){ const M = lodOf(); return lodMesh || (lodMesh = {pieces: [{pos: M.pos, tri: M.tri, part: M.part, morph: M.morph}], hinge: [0, 0, 0]}); },   // (simple mode's, for the tests and the Asset Viewer)
+    get mesh(){ const M = lodOf(); return lodMesh || (lodMesh = {pieces: [{pos: M.pos, tri: M.tri, part: M.part, morph: M.morph.some(x => x) ? M.morph : undefined}], hinge: [0, 0, 0]}); },   // (a shape key only if it has one: the tentacle bends instead)   // (simple mode's, for the tests and the Asset Viewer)
     onBeat(pos){ if (pos === 0) { st.hit = 1; st.glow = 1; st.elT = ELEV[st.bar = (st.bar + 1) % ELEV.length]; } if (beat) beat(pos, st); },   // (no Math.random: it runs off screen too, and would shift Journey's draws)
     breakApart(){ st.startle = 1; st.flash = 1; },   // (it can't shatter: it startles, whipping round in a flash)
     params(P, x){

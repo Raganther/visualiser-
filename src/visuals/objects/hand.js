@@ -7,9 +7,11 @@ import A from './meshes/hand-lit.js';
 
 export default litObject({key: 'hand', label: 'Hand', words: 'A hand grips to the beat', asset: A,
   dance: {moves: {look: 1.4, float: 1, still: 1, approach: 1.2, pulse: 1, groove: .6, bang: .6, face: .4, spin: .2, rise: .4, lift: 0}, sym: 2, liftPart: 0},
+  beat(pos, st){ st.k = 1; },   // its own grip on each beat, letting go over the beat (the pulse, P.beat, is too gentle for a fist)
   motion(U, P, x, st){
     const T = TUNE.hand, ten = (x.J && x.J.tension) || 0;
-    const want = T.rest + P.beat*T.grip*(.5 + ten) - st.drop*T.spread;
+    st.k = (st.k || 0)*Math.exp(-x.dt*T.release);
+    const want = T.rest + st.k*T.grip*(.5 + .6*ten) - st.drop*T.spread;
     st.g = (st.g ?? T.rest) + (Math.max(-.35, Math.min(1, want)) - (st.g ?? T.rest))*Math.min(1, x.dt*14);
     U.morph = st.g;
   },
