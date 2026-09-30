@@ -27,7 +27,7 @@ const fr = v => v - Math.floor(v), rnd = (D, s) => fr(Math.sin(D*127.1 + s*311.7
 // a section's wood: its palette, and how much of each tree (pines, round canopies, poplars; and gaps)
 function style(D){ const w = [0, 0, 0].map((_, i) => rnd(D, 20 + i) < .45 ? .1 : 1); return {pal: PALS[Math.floor(rnd(D, 3)*PALS.length)], w}; }
 const lerp = (a, b, m) => a + (b - a)*m, lerp3 = (a, b, m) => a.map((v, i) => lerp(v, b[i], m));
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, lvl: .3, gust: 0, drops: 0, h: 0, sw: 0};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, lvl: .3, gust: 0, drops: 0, h: 0, sw: 0, trk: 0};
 let cur = null, force = null;
 export function forestForce(D, gust){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (gust != null) st.gustHold = gust; }
 function blend(){
@@ -57,10 +57,11 @@ export default {
     st.gust = Math.max(0, st.gust - x.dt/C.gustSecs); st.h += (L.hat - st.h)*Math.min(1, x.dt*3);
     st.sw += ((x.sBass || 0)*x.react - st.sw)*Math.min(1, x.dt*2);
     const gust = st.gustHold != null ? st.gustHold : Math.sin(Math.PI*Math.min(1, (1 - st.gust)*1.5))*st.gust;   // a bend that whips over and springs back
+    st.trk += x.dt*C.track*(.5 + st.lvl);   // the camera tracks slowly through the wood
     cur = blend();
     P.forA = [st.D0, st.D1, st.tr, st.sw*C.sway + gust*C.gust];
     P.forB = [st.lvl, gust, st.h, cur.m];
-    P.forW = [...cur.w, 0]; P.forS = [cur.sun, cur.ff, cur.snow, cur.fall]; P.forK = cur.c.flat();
+    P.forW = [...cur.w, st.trk]; P.forS = [cur.sun, cur.ff, cur.snow, cur.fall]; P.forK = cur.c.flat();
   },
   glsl: {
     uniforms: 'uniform vec4 uForA,uForB,uForW,uForS; uniform vec3 uForK[7];',
@@ -70,7 +71,7 @@ float forGround(float x,float k,float D){ return -0.02-0.085*k+0.03*sin(x*(1.6+k
 float forCov1(vec2 p,float k,float D){
   float g=forGround(p.x,k,D);
   if(p.y<g) return 1.0;
-  float n=k/${(NL - 1).toFixed(1)}, fw=0.045+0.075*n, bend=uForA.w*(0.3+n)*(0.7+0.3*sin(uTime*0.9+k*1.3));
+  float n=k/${(NL - 1).toFixed(1)}, fw=0.045+0.075*n, bend=uForA.w*(0.3+n)*(0.7+0.3*sin(uTime*0.9+k*1.3))+0.012*(0.3+n)*sin(uTime*0.5+k*1.7);   // (the bass, and a breeze)
   // (a tree bends from its root: find its slot where its trunk leans at this height)
   float s=floor((p.x-bend*max(p.y-g,0.0)*3.0)/fw);
   for(int j=-1;j<2;j++){ float sj=s+float(j);   // (this slot and both neighbours: a canopy can reach over)
@@ -97,7 +98,7 @@ float forCov1(vec2 p,float k,float D){
 float forCov(vec2 p,float k){   // (a new wood rises as the old sinks, nearest first)
   float m=clamp(uForB.w*1.6-(${(NL - 1).toFixed(1)}-k)*0.12,0.0,1.0), D=m<0.5 ? uForA.x : uForA.y;
   float tr=clamp(uForA.z*1.6-(${(NL - 1).toFixed(1)}-k)*0.12,0.0,1.0);
-  return forCov1(vec2(p.x,p.y+(1.0-abs(tr*2.0-1.0))*0.7),k,D);
+  return forCov1(vec2(p.x+uForW.w*(0.15+0.85*k/${(NL - 1).toFixed(1)}),p.y+(1.0-abs(tr*2.0-1.0))*0.7),k,D);   // (near layers slide past faster)
 }
 vec3 forSky(vec2 sp){
   float t=clamp((sp.y-(${HOR.toFixed(3)}))/0.7,0.0,1.0);
@@ -151,7 +152,7 @@ vec3 forest(vec2 sp){
     glsl: `
 float forestFront(vec2 sp){ return forCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 : 0.0; }`,
     path2d(o, P, t){ if (!cur) return; const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, D = cur.m < .5 ? st.D0 : st.D1;
-      o.moveTo(0, H); for (let j = 0; j <= 100; j++) { const x = (j/100 - .5)*asp; o.lineTo(X(x), Y(ground(x, NL - 1, D))); } o.lineTo(W, H); o.closePath(); },
+      o.moveTo(0, H); for (let j = 0; j <= 100; j++) { const x = (j/100 - .5)*asp; o.lineTo(X(x), Y(ground(x + P.forW[3], NL - 1, D))); } o.lineTo(W, H); o.closePath(); },
   },
   draw2d(o, P, t){
     if (!cur) return;
@@ -170,12 +171,13 @@ float forestFront(vec2 sp){ return forCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 :
       const n = k/(NL - 1), base = mix(mix(K[2], K[3], Math.pow(n, .75)), K[1], .55*Math.pow(1 - n, 1.6)), fol = mix(mix(base, mix(K[4], K[5], .5), .25 + .55*n), K[1], .55*Math.pow(1 - n, 1.6));
       o.shadowColor = 'rgba(0,0,0,.35)'; o.shadowBlur = .015*u; o.shadowOffsetY = -.014*u; o.shadowOffsetX = .008*u;
       o.fillStyle = rgb(base); o.beginPath(); o.moveTo(0, H);
-      for (let j = 0; j <= 100; j++) { const x = (j/100 - .5)*asp; o.lineTo(X(x), Y(ground(x, k, D))); } o.lineTo(W, H); o.fill();
-      const fw = .045 + .075*n, bend = bend0*(.3 + n)*(.7 + .3*Math.sin(t*.9 + k*1.3));
+      const off = P.forW[3]*(.15 + .85*n);
+      for (let j = 0; j <= 100; j++) { const x = (j/100 - .5)*asp; o.lineTo(X(x), Y(ground(x + off, k, D))); } o.lineTo(W, H); o.fill();
+      const fw = .045 + .075*n, bend = bend0*(.3 + n)*(.7 + .3*Math.sin(t*.9 + k*1.3)) + .012*(.3 + n)*Math.sin(t*.5 + k*1.7);
       o.fillStyle = rgb(fol);
-      for (let s = Math.floor(-asp/2/fw) - 1; s <= Math.ceil(asp/2/fw) + 1; s++) {
+      for (let s = Math.floor((-asp/2 + off)/fw) - 1; s <= Math.ceil((asp/2 + off)/fw) + 1; s++) {
         const tr = tree(s, k, D, cur.w); if (!tr) continue;
-        const [type, c, h] = tr, gb = ground(c, k, D), bx = y => c + bend*y*y/h*3;
+        const [type, cw, h] = tr, c = cw - off, gb = ground(cw, k, D), bx = y => c + bend*y*y/h*3;
         o.fillStyle = rgb(mix(mix(base, mix(K[4], K[5], rnd(s, k*13 + D)), .25 + .55*n), K[1], .55*Math.pow(1 - n, 1.6)));
         o.beginPath();
         if (type === 1) for (let q = 0; q < 3; q++) { const yb = h*(.14 + q*.24), yt = yb + h*.42, hw = Math.min(h*.28, fw*1.3)*(1 - q*.22);

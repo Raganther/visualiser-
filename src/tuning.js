@@ -266,16 +266,19 @@ export const TUNE = {
     sway: .02,                 // how far the trees bend with the bass (the nearest most)
     gust: .12,                 // how far a drop's gust bends them
     gustSecs: 3,               // how long the gust takes to blow over
+    track: .022,               // how fast the camera tracks through the wood (the near layers slide past fastest), faster as the tension builds
   },
   sea: {
     morphSecs: 5,              // a new section's sea: its colours and wave shapes morph into the new ones over this long
     bigWave: 1.2,              // how much the near waves grow as the tension rises (1 + this at full)
     greatSecs: 3.5,            // a drop's great wave: how long it takes to curl across the front
+    sunSink: .1,               // how far the sun sinks towards the horizon as the tension builds
   },
   deep: {
     morphSecs: 4,              // a new section's reef: the old layers sink as the new ones rise, nearest first, over this long
     sway: .03,                 // how far the seaweed sways with the bass (the nearest most)
     ballSecs: 6,               // a drop's bait ball: how long the school circles before it swims on
+    track: .015,               // how fast we drift along the reef (the near layers slide past fastest)
   },
   // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
   objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},

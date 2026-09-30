@@ -53,7 +53,7 @@ function crest(x, k, t, S, A, B){
   const n = k/(NW - 1), f = 9 - 7.4*Math.pow(n, .7), amp = (.012 + .15*Math.pow(n, 1.8))*(1 + A[3]*.9)*(1 + (B[0] - 1)*n);
   const q = x*f + k*1.93 + S.D*.71 + t*(.05 + .09*n)*(k % 2 ? -1 : 1), u = fr(q);
   let y = HOR - .015 - .4*Math.pow(n, 1.4) + amp*(prof(u, S.w, S.st) - .5) + amp*.25*Math.sin(x*f*.41 + k);
-  y += A[3]*.012*n*Math.sin(t*.7 + k);                              // the swell lifts the near waves
+  y += A[3]*.012*n*Math.sin(t*.7 + k) + (.004 + .012*n)*Math.sin(t*.9 + k*2.1);   // the swell lifts the near waves; each flat rocks, out of step with its neighbours (a paper theatre's wave machine)
   if (S.tear > 0) y += S.tear*(vn(x*50 + k*7) - .5);
   if (k >= NW - 2 && B[2] < 1) { const g = B[2], xg = -1.2 + g*2.6, d = x - xg, e = Math.sin(Math.PI*Math.min(1, g*1.2));   // the great wave
     y += .14*e*(k === NW - 1 ? 1 : .45)*Math.exp(-Math.pow(d/(d > 0 ? .1 : .4), 2)); }
@@ -79,7 +79,7 @@ export default {
     cur = blend();
     P.seaA = [cur.D, cur.tear, cur.inner, st.sw];
     P.seaB = [1 + C.bigWave*st.lvl, st.flare, st.great, st.kick];
-    P.seaW = cur.w; P.seaS = [cur.st, cur.sun, cur.cloud, 0];
+    P.seaW = cur.w; P.seaS = [cur.st, cur.sun, cur.cloud, HOR + .12 - C.sunSink*st.lvl];
     P.seaK = cur.c.flat(); P.seaD = [st.D0, st.D1, cur.m, st.hat]; P.seaE = [cur.gulls, cur.boat, st.flap, BOAT_K];
   },
   glsl: {
@@ -95,7 +95,7 @@ float seaCrest(float x,float k){
   float n=k/${(NW - 1).toFixed(1)}, f=9.0-7.4*pow(n,0.7), amp=(0.012+0.15*pow(n,1.8))*(1.0+uSeaA.w*0.9)*(1.0+(uSeaB.x-1.0)*n);
   float q=x*f+k*1.93+uSeaA.x*0.71+uTime*(0.05+0.09*n)*(mod(k,2.0)>0.5 ? -1.0 : 1.0);
   float y=${HS}-0.015-0.4*pow(n,1.4)+amp*(seaProf(fract(q))-0.5)+amp*0.25*sin(x*f*0.41+k);
-  y+=uSeaA.w*0.012*n*sin(uTime*0.7+k);
+  y+=uSeaA.w*0.012*n*sin(uTime*0.7+k)+(0.004+0.012*n)*sin(uTime*0.9+k*2.1);
   if(uSeaA.y>0.0){ float xi=x*50.0+k*7.0, i0=floor(xi), fx=fract(xi); fx=fx*fx*(3.0-2.0*fx);
     y+=uSeaA.y*(mix(fract(sin(i0*127.1)*43758.5453),fract(sin((i0+1.0)*127.1)*43758.5453),fx)-0.5); }
   if(k>${(NW - 2.5).toFixed(1)}&&uSeaB.z<1.0){ float g=uSeaB.z, d=x-(-1.2+g*2.6), e=sin(3.14159265*min(1.0,g*1.2));
@@ -116,7 +116,7 @@ vec3 seaSky(vec2 sp){
   if(dark>0.0){ vec2 g=sp*80.0, cell=floor(g); float h=hash(cell);
     c+=vec3(0.85,0.9,1.0)*dark*step(0.985,h)*smoothstep(0.3,0.0,length(fract(g)-0.5))*smoothstep(0.1,0.5,t)*(0.6+0.4*sin(uTime*1.7+h*50.0)); }
   // the sun, a paper disc cut with bands, sitting on the horizon (not every sea has one)
-  vec2 sc=vec2(0.18*ASP,${HS}+0.07); float ds=length(sp-sc);
+  vec2 sc=vec2(0.18*ASP,uSeaS.w); float ds=length(sp-sc);
   if(uSeaS.y>0.01){
     c+=uSeaK[5]*exp(-ds*4.0)*0.35*uSeaS.y;
     float disc=smoothstep(0.155,0.15,ds)*step(0.05,sp.y-${HS}+0.05);
@@ -212,7 +212,7 @@ float seaFront(vec2 sp){ return sp.y<seaCrest(sp.x,${(NW - 1).toFixed(1)}) ? 1.0
     const sky = o.createLinearGradient(0, Y(.55), 0, Y(HOR)); sky.addColorStop(0, rgb(K[0], .9)); sky.addColorStop(1, rgb(K[1], .82));   // (a little darker: simple mode's glow would wash it out)
     o.fillStyle = sky; o.fillRect(0, 0, W, Y(HOR) + 2);
     if (cur.sun > .01) {   // the banded paper sun
-      const sx = X(.18*asp), sy = Y(HOR + .07), R = .15*u, g = o.createRadialGradient(sx, sy, 0, sx, sy, R*3);
+      const sx = X(.18*asp), sy = Y(P.seaS[3]), R = .15*u, g = o.createRadialGradient(sx, sy, 0, sx, sy, R*3);
       g.addColorStop(0, `rgba(${K[5].map(v => Math.round(v*255)).join(',')},${(.35*cur.sun).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)');
       o.fillStyle = g; o.fillRect(0, 0, W, Y(HOR));
       o.save(); o.beginPath(); o.rect(0, 0, W, Y(HOR)); o.clip(); o.globalAlpha = a*cur.sun; o.fillStyle = rgb(mix(K[5], K[4], .35));

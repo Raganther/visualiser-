@@ -23,7 +23,7 @@ const fr = v => v - Math.floor(v), rnd = (D, s) => fr(Math.sin(D*127.1 + s*311.7
 // a section's reef: palette, and how much of each form (seaweed, fans, branching coral, tubes)
 function style(D){ const w = [.4, .4, .4, .4].map((v, i) => rnd(D, 10 + i) < .5 ? .15 : 1); return {pal: PALS[Math.floor(rnd(D, 3)*PALS.length)], w}; }
 const lerp = (a, b, m) => a + (b - a)*m, lerp3 = (a, b, m) => a.map((v, i) => lerp(v, b[i], m));
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, flare: 0, drops: 0, h: 0, kick: 0, ball: 0, fx: 0, fy: 0, fa: 0, fdir: 1, bar: 0};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, flare: 0, drops: 0, h: 0, kick: 0, ball: 0, fx: 0, fy: 0, fa: 0, fdir: 1, bar: 0, trk: 0};
 let cur = null, force = null;
 export function deepForce(D, ball){ force = D; st.D0 = st.D1 = D; st.tr = 1; if (ball != null) st.ballHold = ball; }
 function blend(){
@@ -62,12 +62,13 @@ export default {
     st.fa += (Math.atan2(ty - st.fy, (tx - st.fx) || 1e-4)*0 + (st.fdir > 0 ? 0 : Math.PI) - st.fa)*Math.min(1, x.dt*2);
     st.fx += (tx - st.fx)*Math.min(1, x.dt*.8); st.fy += (ty - st.fy)*Math.min(1, x.dt*.8);
     const ball = st.ballHold != null ? st.ballHold : Math.sin(Math.PI*Math.min(1, st.ball*1.1))**.5*(st.ball > 0 ? 1 : 0);
+    st.trk += x.dt*C.track;   // drifting slowly along the reef
     cur = blend();
     P.deepBubbles = bubbles;
     P.deepA = [st.D0, st.D1, cur.m, (x.sBass || 0)*x.react*C.sway];
     P.deepB = [st.h, st.flare*st.flare, P.mid*x.react, st.kick];
     P.deepW = cur.w; P.deepK = cur.c.flat();
-    P.deepF = [st.fx, st.fy, st.fa, ball]; P.deepG = [x.t, cur.glow, 0, 0];
+    P.deepF = [st.fx, st.fy, st.fa, ball]; P.deepG = [x.t, cur.glow, st.trk, 0];
   },
   glsl: {
     uniforms: 'uniform vec4 uDeepA,uDeepB,uDeepW,uDeepF,uDeepG; uniform vec3 uDeepK[7];',
@@ -105,7 +106,7 @@ float deepCov1(vec2 p,float k,float D){
 }
 float deepCov(vec2 p,float k){   // (a new reef grows in: the old layer sinks away as the new one rises, nearest first)
   float m=clamp(uDeepA.z*1.6-(${(NL - 1).toFixed(1)}-k)*0.15,0.0,1.0), D=m<0.5 ? uDeepA.x : uDeepA.y;
-  return deepCov1(vec2(p.x,p.y+(1.0-abs(m*2.0-1.0))*0.7),k,D);
+  return deepCov1(vec2(p.x+uDeepG.z*(0.15+0.85*k/${(NL - 1).toFixed(1)}),p.y+(1.0-abs(m*2.0-1.0))*0.7),k,D);   // (near layers drift past faster)
 }
 vec3 deepWater(vec2 sp){
   float t=uDeepG.x, y=clamp((sp.y+0.5)/(${SURF.toFixed(3)}+0.5),0.0,1.0);
@@ -178,7 +179,7 @@ vec3 deep(vec2 sp){
     glsl: `
 float deepFront(vec2 sp){ return deepCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 : 0.0; }`,
     path2d(o, P, t){ const W = o.canvas.width, H = o.canvas.height, u = H, X = x => W/2 + x*u, Y = y => H/2 - y*u, asp = W/H, D = P.deepA[2] < .5 ? P.deepA[0] : P.deepA[1];
-      o.moveTo(0, H); for (let j = 0; j <= 120; j++) { const x = (j/120 - .5)*asp; o.lineTo(X(x), Y(ground(x, NL - 1, D))); } o.lineTo(W, H); o.closePath(); },
+      o.moveTo(0, H); for (let j = 0; j <= 120; j++) { const x = (j/120 - .5)*asp; o.lineTo(X(x), Y(ground(x + P.deepG[2], NL - 1, D))); } o.lineTo(W, H); o.closePath(); },
   },
   draw2d(o, P, t){
     if (!cur) return;
@@ -205,10 +206,11 @@ float deepFront(vec2 sp){ return deepCov(sp,${(NL - 1).toFixed(1)})>0.5 ? 1.0 : 
       const n = k/(NL - 1), base = mix(mix(K[2], K[3], Math.pow(n, .8)), mix(K[0], K[1], .5), .35*(1 - n));
       o.shadowColor = 'rgba(0,0,0,.35)'; o.shadowBlur = .015*u; o.shadowOffsetY = -.012*u; o.shadowOffsetX = .006*u;
       o.fillStyle = rgb(base); o.beginPath(); o.moveTo(0, H);
-      for (let j = 0; j <= 140; j++) { const x = (j/140 - .5)*asp; o.lineTo(X(x), Y(ground(x, k, D))); } o.lineTo(W, H); o.fill();
+      const off = P.deepG[2]*(.15 + .85*n);
+      for (let j = 0; j <= 140; j++) { const x = (j/140 - .5)*asp; o.lineTo(X(x), Y(ground(x + off, k, D))); } o.lineTo(W, H); o.fill();
       const fw = .11 + .09*n, sc = .8 + 1.6*n, tot = cur.w.reduce((s, v) => s + v, 0) + 1.8;
-      for (let s = Math.floor(-asp/2/fw) - 1; s <= Math.ceil(asp/2/fw) + 1; s++) {
-        const h1 = rnd(s, k*13 + D), h2 = rnd(s + 7, k + D*3), c = (s + .5 + (h1 - .5)*.4)*fw, gb = ground(c, k, D);
+      for (let s = Math.floor((-asp/2 + off)/fw) - 1; s <= Math.ceil((asp/2 + off)/fw) + 1; s++) {
+        const h1 = rnd(s, k*13 + D), h2 = rnd(s + 7, k + D*3), cw = (s + .5 + (h1 - .5)*.4)*fw, c = cw - off, gb = ground(cw, k, D);
         let pick = h2*tot, form = 0; for (let f = 0; f < 4; f++) { if (pick < cur.w[f]) { form = f + 1; break; } pick -= cur.w[f]; }
         if (!form) continue;
         o.fillStyle = rgb(mix(base, form === 3 ? K[5] : form === 2 ? K[4] : form === 4 ? mix(K[4], K[5], .5) : mix(K[3], K[5], .4), .25 + .6*n));
