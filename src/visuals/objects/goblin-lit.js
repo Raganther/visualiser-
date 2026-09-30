@@ -65,7 +65,8 @@ export default {
     if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; }
     const Vw = S.view; if (Vw && Vw.key === key) { U.rot = Vw.yaw + (d ? d.yaw : 0); U.pitch += Vw.pitch; U.size *= Vw.zoom; if (Vw.morph !== null) U.morph = Vw.morph; }   // turned and held in the Asset Viewer
   },
-  drawGL(gl, P, W, H, stage){ if (!gl1 || glGen !== S.glGen) { gl1 = litGL(gl, A); glGen = S.glGen; } gl1(P.m[key], W, H, stage); },
+  drawGL(gl, P, W, H, stage){ if (stage === 'trails' && !P.m[key].trail) return;
+    if (!gl1 || glGen !== S.glGen) { gl1 = litGL(gl, A); glGen = S.glGen; } gl1(P.m[key], W, H, stage); },
   draw2d(o, P){ lit2d(o, lodOf(), P.m[key]); },
   path2d(o, P){ litPath2d(o, lodOf(), P.m[key]); },
 };

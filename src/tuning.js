@@ -173,7 +173,8 @@ export const TUNE = {
     fill: .12,                 // how much light the glass panes hold
     dark: .75,                 // how much the glass darkens what's behind it (so it reads as a solid)
     xray: .22,                 // how brightly the far side's edges show through
-    trail: .15,                // how bright the ghosts they leave in the trails are
+    trail: 0,                  // how bright the ghosts they leave in the trails are (0: none, and no pass for them; the user found the streaks
+                               // they smear into, out from the object, distracting: .15 before)
   },
   // each object: chance (how often Journey makes it a section's centrepiece; 0 = never, try ?lab=skull or ?lab=objects),
   // size (about 1.1 × this, as a fraction of the screen's height) and hinge (its hinged piece's swing on the pulse, radians)
@@ -209,7 +210,7 @@ export const TUNE = {
     keySpeed: .35, keySwing: 1.25,  // the key light's swing round the head (radians a second, times .4 + the tension) and how far each way
     dropSpin: 3, dropSecs: 2.5,     // a drop spins the lights round it this fast, fading over about this long
     trans: 1,                  // light glowing through the ears from behind
-    trail: .03,                // how much of it the trails keep (its ghosts: more and they bloom into a halo)
+    trail: 0,                  // how much of it the trails keep (its ghosts; off, as for the wire objects: TUNE.mesh.trail)
     zoom: .2, zoomRate: .08,   // the camera breathing in and out (of its size), and how slowly (radians a motion-second)
     buildZoom: .25, dropZoom: .35,  // pushing in through a build towards a known drop, and the lunge on the drop
     turn: .11, turnSwing: .6,  // its slow turn between three-quarter views, and how far each way
