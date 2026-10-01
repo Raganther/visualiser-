@@ -42,7 +42,7 @@ const onScreen = (cam, p) => { const rel = sub3(p, cam.ro), z = dot3(rel, cam.f)
 
 export const hollowChamber = () => { st.want = true; };   // (for tests and labs: open a chamber ahead now)
 export default {
-  key: 'hollow', kind: 'world', label: 'The Hollow',
+  key: 'hollow', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Hollow',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .55, sat: .5, x: 0, y: 0},               // the lamp, from the camera
   // driving, hypnotic music: a steady kick, some weight
   suits: (rf, T) => rf.perc*.3 + rf.low*.15 + T*.2 - rf.mid*.1,

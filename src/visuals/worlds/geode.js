@@ -26,7 +26,7 @@ function camFrame(z){   // the camera on the route, looking along it (as gdRay)
 const onScreen = (cam, p) => { const rel = sub3(p, cam.ro), z = dot3(rel, cam.f); return {z, x: dot3(rel, cam.r)/z/1.25, y: dot3(rel, cam.u)/z/1.25}; };
 export const geodeAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)
 export default {
-  key: 'geode', kind: 'world', label: 'The Geode',
+  key: 'geode', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Geode',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .78, sat: .5, x: 0, y: 0},
   // bright, glittering music: the top end and some space
   suits: (rf, T) => rf.bright*.35 + (rf.hat || 0)*.2 - rf.low*.1 + T*.1,

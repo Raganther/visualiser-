@@ -8,7 +8,7 @@ import { syncSliders, updateSectionUI } from './panel.js';
 import { nextPreset, randomize, setPreset } from './presets.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
-import { showFps } from './fps.js';
+import { nextGfx, showFps } from './fps.js';
 import { MEDIA, clearMedia, startCamera } from '../media/source.js';
 import { unhookMediaAudio } from '../audio/player.js';
 import { TUNE } from '../tuning.js';
@@ -45,7 +45,7 @@ export function pollPad(){
 }
 addEventListener('gamepadconnected', () => toast('Controller connected'));
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' && e.key !== ' ') return;
+  if ((e.target.tagName === 'INPUT' && e.key !== ' ') || e.target.tagName === 'TEXTAREA') return;   // (typing a comment)
   wake();
   switch (e.key.toLowerCase()) {
     case ' ': e.preventDefault(); togglePlay(); break;
@@ -58,6 +58,7 @@ addEventListener('keydown', e => {
     case 'h': document.body.classList.toggle('clean'); break;
     case 'f': fullscreen(); break;
     case 'p': showFps($('#fps').hidden); break;
+    case 'q': nextGfx(); break;
   }
 });
 addEventListener('keyup', e => { if (e.key.toLowerCase() === 'x') keyHold = false; });

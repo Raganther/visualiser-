@@ -24,7 +24,7 @@ function camera(){   // where the camera is and where it looks (its own frame, h
 }
 export const cathedralAltar = () => { st.want = true; };   // (for tests and labs: set an altar ahead now)
 export default {
-  key: 'cathedral', kind: 'world', label: 'The Cathedral',
+  key: 'cathedral', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Cathedral',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .1, sat: .4, x: 0, y: .6},               // the oculi's light, from above
   // grand, building music: tension and space, less of a busy top
   suits: (rf, T) => T*.3 + rf.low*.1 + rf.bright*.15 + rf.mid*.1 - rf.busy*.1,

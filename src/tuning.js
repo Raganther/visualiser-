@@ -78,6 +78,10 @@ export const TUNE = {
     // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
     auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, worldMin: .5, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
       probeMs: 6000, ceilMs: 120000, stallMs: 1000},   // probe: a drop this soon after a step up keeps it under that step for ceilMs; stall: a gap this long (a hidden tab) restarts the count
+    // the fixed graphics levels (render/quality.js; the panel's Graphics, or Q): the share of the screen drawn, the share a
+    // heavy world (the cosmos, the 3D worlds) is drawn at, and the trails' resolution. They never switch, unlike Auto
+    gfx: {best: {scale: 1, world: 1, trail: .75}, balanced: {scale: .85, world: .7, trail: .7}, fast: {scale: .7, world: .55, trail: .6},
+      fastest: {scale: .55, world: .45, trail: .5}},
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
   },

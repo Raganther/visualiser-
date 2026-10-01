@@ -32,7 +32,7 @@ function outline(kind, w){
 }
 export const corridorAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)
 export default {
-  key: 'corridor', kind: 'world', label: 'The Corridor',
+  key: 'corridor', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Corridor',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .85, sat: .7, x: 0, y: -.3},
   // driving, percussive music: the kick and the build
   suits: (rf, T) => rf.perc*.35 + rf.busy*.1 + T*.25 - rf.mid*.05,

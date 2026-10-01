@@ -17,7 +17,7 @@ const path = z => [Math.sin(z*.11)*1.4 + Math.sin(z*.053)*1.1, Math.cos(z*.09)*.
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 export const vesselAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)
 export default {
-  key: 'vessel', kind: 'world', label: 'The Vessel',
+  key: 'vessel', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Vessel',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .0, sat: .6, x: 0, y: 0},               // the lamp, warm through the walls
   // a steady, heavy pulse: the kick and the low end
   suits: (rf, T) => rf.low*.3 + rf.perc*.2 - rf.bright*.15 + T*.1,
