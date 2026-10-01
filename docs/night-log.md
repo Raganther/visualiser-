@@ -47,3 +47,11 @@ Rules for each wake-up:
   branches, red cells tumbling past; each kick swells the walls and surges the flow, a drop floods it with light. Each
   section is its own vessel (artery, vein, lymph, nerve with sparks). It joined Journey's worlds (golden re-recorded). To see
   it: the "The Vessel" preset, or W and its number.
+- **03:55, version 60.** (1) The Geode, a new 3D world: a winding fissure carpeted with crystal points (amethyst, citrine,
+  quartz or emerald by section), milky at the base and glowing at the tip, over agate-banded rock, opening into caverns
+  where the crystals grow huge; they lengthen through a build, a wave of light runs through them on the kick, glinting
+  dust hangs in the air; an object stands in each cavern. See it: the "The Geode" preset, or W and its number.
+  (2) Reaching out: on a drop the hand, tentacle, goblins and skull turn face-on and lunge towards you, hold, and ease
+  back (see it: the "Hand" or "Tentacle" preset, and wait for a drop). (3) Journey now casts the lit objects (goblin,
+  tentacle, hand, heart) as centrepieces, often in neon. (4) Fixed: the lasers' "crossing" pattern leaned off the screen
+  (two bars of nothing); now the beams cross from the corners.
