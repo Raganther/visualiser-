@@ -84,3 +84,7 @@ Rules for each wake-up:
   hexagons or rings by section, in the palette's colours) flown through in the dark over a black mirror floor that
   doubles them; each kick sends a wave of light rushing away down the hall, every fourth frame burns brighter, a drop
   strobes it. An object stands in the hall every so often. See it: the "The Corridor" preset, or W and its number.
+- **06:40, version 62.** The Geode's drop (a white flash racing out through the crystals, the dust bursting; dark
+  specks from the dust fixed); an object floats in the Vessel with the cells passing in front of it (and its simple-mode
+  front no longer covers the picture); the glowing layers on the Vessel's walls and in the Corridor's mirror floor. The
+  plan is done: the night shift Routine is disabled.
