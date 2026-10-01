@@ -1,5 +1,28 @@
 # Night log
 
+## Morning summary (2026-10-01)
+
+Published as versions 55–62 of https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. To try each, pick its preset (or, with
+Journey on, press W and the world's number to keep it):
+- **Four new 3D worlds**, each joining Journey's worlds:
+  - **The Cathedral**: an endless hall church of columns and rib vaults, stained glass pulsing on the kick, altars;
+  - **The Vessel**: a flight along an artery, red cells tumbling past, the walls swelling on the kick;
+  - **The Geode**: a winding fissure carpeted with crystals that grow through a build and flash white on a drop;
+  - **The Corridor**: an endless hall of neon frames over a black mirror floor, the kick's light rushing down it, a
+    strobe on the drop (made for minimal techno).
+- **Objects inside the worlds:** every 3D world has places where the centrepiece stands (the Hollow's chambers, the
+  Cathedral's altars, the Geode's caverns, spots in the Vessel and the Corridor), with the near walls, pillars, crystals
+  and cells passing in front of it.
+- **Particles and layers in the worlds:** spores, dust and glitter drift through the worlds; the glowing layers are laid
+  on their walls (and reflected in the Corridor's floor).
+- **Reaching out:** on a drop, the hand, tentacle, goblins and skull turn to face you and lunge towards you.
+- **Journey uses the lit objects** (goblin, tentacle, hand, heart) as centrepieces now, often in neon.
+- **Fixed:** the lasers' crossing pattern was off the screen (two dark bars); the Geode's dust made dark specks with loud
+  hats; the Vessel's simple-mode front covered the whole picture; the Cathedral was never chosen by Journey.
+- **Worth your eyes:** the Corridor and the Geode with a real set; whether Journey now brings in too many objects (a
+  centrepiece in about a quarter of sections, a lit one in about a quarter of those); the objects test's "beats its
+  wings" check fails for four objects (lotus, goblin, goblinLit, hand), as it did before tonight.
+
 The user went to bed on 2026-09-30 and asked Claude to keep iterating on its own through the night: more worlds, more
 layers, new ways of combining them, graphical layers and particles in the new 3D worlds, objects placed in worlds, "anything
 at all". An hourly wake-up (a Routine firing into the session) carries the work on; each wake-up takes the top open item,
