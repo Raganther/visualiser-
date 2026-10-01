@@ -30,7 +30,7 @@ Rules for each wake-up:
 6. ~~**Reaching out:**~~ (done 01:50) a move in which an object turns to face us and comes towards us on a drop (the user loved the hand and
    tentacle "reaching out towards you").
 7. ~~**Journey and the lit objects:**~~ (done 03:20) let Journey cast a lit object as a centrepiece now and then, placed in the worlds.
-8. **A new world for the club: the Corridor:** an endless hall of neon frames (arches, squares, hexagons by section) the
+8. ~~**A new world for the club: the Corridor:**~~ (done 04:35, version 61) an endless hall of neon frames (arches, squares, hexagons by section) the
    camera flies through, each frame lighting as the kick passes it, a mirror floor doubling them, strobes on a drop:
    the most techno of the worlds, and cheap to draw (added at 03:20: the plan was done, and the user's music is
    minimal techno).
@@ -55,3 +55,7 @@ Rules for each wake-up:
   back (see it: the "Hand" or "Tentacle" preset, and wait for a drop). (3) Journey now casts the lit objects (goblin,
   tentacle, hand, heart) as centrepieces, often in neon. (4) Fixed: the lasers' "crossing" pattern leaned off the screen
   (two bars of nothing); now the beams cross from the corners.
+- **04:35, version 61.** The Corridor, a new 3D world for the techno: an endless hall of neon frames (arches, squares,
+  hexagons or rings by section, in the palette's colours) flown through in the dark over a black mirror floor that
+  doubles them; each kick sends a wave of light rushing away down the hall, every fourth frame burns brighter, a drop
+  strobes it. An object stands in the hall every so often. See it: the "The Corridor" preset, or W and its number.
