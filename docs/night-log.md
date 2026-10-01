@@ -34,9 +34,11 @@ Rules for each wake-up:
    camera flies through, each frame lighting as the kick passes it, a mirror floor doubling them, strobes on a drop:
    the most techno of the worlds, and cheap to draw (added at 03:20: the plan was done, and the user's music is
    minimal techno).
-9. **The Geode's drop:** the crystals flash white from the cavern outward and shed glinting shards (the dust bursts).
-10. **The worlds in the lit objects' looks:** Journey's neon hand in the Corridor or the Geode reads well; check each 3D
+9. ~~**The Geode's drop:**~~ (done 05:10) the crystals flash white from the cavern outward and shed glinting shards (the dust bursts).
+10. ~~**The worlds in the lit objects' looks:**~~ (done 05:10: the Vessel had no place for an object, and its simple-mode front covered everything; both fixed) Journey's neon hand in the Corridor or the Geode reads well; check each 3D
    world with a lit object for placement and lighting, and fix any that float wrongly.
+11. **The layers in the newer worlds:** the glowing layers laid on the Vessel's walls (as on the Hollow's rock) and
+   reflected in the Corridor's black mirror floor, so the layers belong to those places too.
 
 ## Log
 - 22:05 UTC: published version 55: the Hollow's honeycomb back (every section the gyroid; gentler swoops), the Cathedral (a new world: preset "The Cathedral", or W then its number), the hand rebaked (nails at the fingertips). Tests for the new world (Journey, visuals, golden) running.
