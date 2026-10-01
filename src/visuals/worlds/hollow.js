@@ -87,9 +87,10 @@ export default {
       else { P.anchor = {pos: [s.x*near, s.y*near], size: (ch.R*T.heartSize/s.z/1.25/.49)*near + (1 - near)*.9, dist: Math.hypot(...sub3(ch.C, cam.ro))}; }
     }
     P.hwF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.2;   // its front plane: the walls nearer than the centrepiece (they pass in front of it), or the near walls
+    P.hwM = T.motes*(.6 + (P.treb || 0)*x.react*.8 + st.surge*1.5)*x.dim;   // the spores: livelier with the hi-hats, a burst on a drop
   },
   glsl: {
-    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK; uniform float uHwF;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
+    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK; uniform float uHwF, uHwM;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
 // the camera's bank and turn to the chamber, the chamber's light, the section's blend; the labyrinths and stuffs blended; the chamber (its heart, its size); the route's stretches`,
     functions: `
 vec2 hwOff(float k,float z){
@@ -148,7 +149,9 @@ vec3 hollow(vec2 sp){
   // the chamber's heart: a glow in the middle of the hall, seen through the haze
   float glow=0.0;
   if(uHwC.w>0.0){ float tc=dot(uHwC.xyz-ro,rd); if(tc>0.0&&(t<0.0||tc<t)){ float dd=length(ro+rd*tc-uHwC.xyz); glow=exp(-dd*dd*1.1)*uHw3.z; } }
-  if(t<0.0) return c+hsv(uHue+uHw2.x,0.45,0.5)*pow(max(dot(rd,normalize(hwPath(uHw.z+8.0)-ro)),0.0),12.0)+heartC*glow*0.35;   // the light far down the tunnel
+  float spo=motes(ro,rd,t<0.0 ? 9.0 : min(t,9.0),0.6,vec3(sin(uTime*0.13)*0.3,-uTime*0.07,0.0),0.005*(1.0+uHw.w*1.5),0.6,vec2(0.0));   // spores drifting up through the lamp's light
+  vec3 spC=hsv(uHue+uHw2.y,0.35,1.0)*spo*uHwM;
+  if(t<0.0) return c+hsv(uHue+uHw2.x,0.45,0.5)*pow(max(dot(rd,normalize(hwPath(uHw.z+8.0)-ro)),0.0),12.0)+heartC*glow*0.35+spC;   // the light far down the tunnel
   vec3 p=ro+rd*t; vec2 e=vec2(0.01,0.0);
   vec3 n=normalize(vec3(hwMap(p+e.xyy)-hwMap(p-e.xyy),hwMap(p+e.yxy)-hwMap(p-e.yxy),hwMap(p+e.yyx)-hwMap(p-e.yyx)));
   vec4 M=mix(hwStuff(uHw4.z),hwStuff(uHw4.w),uHw3.w);
@@ -171,11 +174,11 @@ vec3 hollow(vec2 sp){
   float wave=exp(-pow((t-uHw2.z*14.0)*0.8,2.0))*exp(-uHw2.z*1.2);
   col+=hsv(uHue+uHw2.y,0.8,1.0)*vein*(0.4+2.5*wave*uHw2.w+1.8*uHw.w)*(0.5+0.5*fall);
   col+=hsv(uHue+uHw2.y,0.7,1.0)*smoothstep(0.3,0.0,g2)*0.08*fall;   // their soft light on the rock round them
-  return mix(col,c,1.0-exp(-t*0.07))+heartC*glow*0.35;
+  return mix(col,c,1.0-exp(-t*0.07))+heartC*glow*0.35+spC;
 }`,
     fn: 'hollow',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); gl.uniform1f(u.uHwF, P.hwF || 2.2); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); gl.uniform1f(u.uHwF, P.hwF || 2.2); gl.uniform1f(u.uHwM, P.hwM || 0); },
   // its front plane: the near walls
   front: {
     fn: 'hollowFront',
@@ -199,6 +202,7 @@ float hollowFront(vec2 sp){ vec3 ro, rd=hwCam(sp,ro); float t=hwMarch(ro,rd,uHwF
       const w = Math.exp(-(((r.t - wave*14)*.8)**2))*Math.exp(-wave*1.2)*dim;
       o.strokeStyle = hc(h + h2, 80, 60, Math.min(1, (.25 + 2.2*w + 1.5*surge)*(1 - fog*.8))); o.lineWidth = lw; o.stroke();
     }
+    motes2d(o, W, H, (P.hw[2] - (st.z2d ?? P.hw[2])), a2 => hc(h + h2, 40, 80, a2), P.hwM || 0, P.t2 || 0); st.z2d = P.hw[2];   // the spores
     const [, , glow] = P.hw3, C = P.hwC;   // the chamber's heart, glowing
     if (C[3] > 0 && glow > .01) {
       const cam = camFrame(P.hw[2], P.hw3[1], P.hw3[0], C), s = onScreen(cam, C);
@@ -209,6 +213,17 @@ float hollowFront(vec2 sp){ vec3 ro, rd=hwCam(sp,ro); float t=hwMarch(ro,rd,uHwF
     o.globalAlpha = 1;
   },
 };
+// simple mode's motes: points streaming past as the camera flies, bigger and brighter near, twinkling
+const MOTES = Array.from({length: 70}, (_, i) => ({a: hh(i + .5)*Math.PI*2, r: .15 + hh(i + 1.5)*.85, z: hh(i + 2.5)*8, tw: hh(i + 3.5)*6}));
+function motes2d(o, W, H, dz, col, amt, t){
+  o.globalCompositeOperation = 'lighter';
+  for (const m of MOTES) {
+    m.z -= dz; if (m.z < .3) { m.z += 8; m.a = (m.a + 2.4) % (Math.PI*2); }
+    const k = 1/m.z, x = W/2 + Math.cos(m.a)*m.r*k*H*.5, y = H/2 + Math.sin(m.a)*m.r*k*H*.5, s = Math.max(1, 2.5*k*H/540);
+    o.fillStyle = col(Math.min(1, amt*(.4 + .6*Math.sin(t*3 + m.tw)**2)*k*.9)); o.beginPath(); o.arc(x, y, s, 0, Math.PI*2); o.fill();
+  }
+  o.globalCompositeOperation = 'source-over';
+}
 // simple mode's tunnel: cross-sections of the route ahead, projected (each a wobbling ring, widening into a chamber), nearest first
 function rings(P, W, H){
   const z0 = P.hw[2], C = P.hwC, cam = camFrame(z0, P.hw3[1], P.hw3[0], C[3] > 0 ? C : null), out = [];

@@ -253,6 +253,7 @@ export const TUNE = {
     altarBars: 8,              // an altar in a side aisle every this many bars (and at each new section), where a centrepiece stands
     altarAhead: 18, altarHeight: 1.1, altarSize: .9,   // how far ahead it's set, how high above the floor it stands, how big it is (world units)
     altarLook: .55,            // how far the camera turns to it as it passes
+    motes: 1.6,                // dust drifting in the oculi's columns of light (its brightness)
   },
   hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
     chamberBars: 8,            // a chamber every this many bars (and at each new section)
@@ -264,6 +265,7 @@ export const TUNE = {
     bank: 1.6, bankMax: .55,   // banking into the route's turns (radians per unit of its sideways pull, and at most)
     breathe: .1,               // a flesh cave's walls swelling with the bass
     heartSize: .22,            // a centrepiece in the heart, as a share of the chamber's size
+    motes: 1.4,                // spores drifting in the lamp's light (their brightness)
   },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'

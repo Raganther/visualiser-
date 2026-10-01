@@ -62,6 +62,24 @@ float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float vnz(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
 float paper(vec2 sp){ return 0.93+0.05*vnz(sp*vec2(90.0,260.0))+0.03*vnz(sp*420.0); }
+// motes floating in a 3D world (the Hollow's spores, the Cathedral's dust): one in each cell of a grid, found along the view
+// ray up to tmax (so the rock hides those behind it), each a soft point a few pixels wide, twinkling (sparkle), dimmer far
+// off; drift moves them all (world units); shaft (x and z periods) gathers them into columns of light where it's set
+float motes(vec3 ro,vec3 rd,float tmax,float cell,vec3 drift,float size,float sparkle,vec2 shaft){
+  float g=0.0, dt=cell*0.34;
+  for(int i=0;i<30;i++){
+    float t=0.25+float(i)*dt; if(t>tmax) break;
+    vec3 c=floor((ro+rd*t+drift)/cell);
+    vec3 h=fract(sin(vec3(dot(c,vec3(127.1,311.7,74.7)),dot(c,vec3(269.5,183.3,246.1)),dot(c,vec3(113.5,271.9,124.6))))*43758.5453);
+    vec3 m=(c+h)*cell-drift; float along=dot(m-ro,rd);
+    if(abs(along-t)>dt*0.5||along>tmax||along<0.2) continue;   // (each counted once, from the sample nearest it)
+    float d=length(cross(m-ro,rd)), r=max(0.011,size*along),   // (near ones bigger and soft, like lights out of focus; far ones a few pixels)
+      w=(0.25+0.75*step(0.55,h.z))*(1.0-sparkle+sparkle*(0.5+0.5*sin(uTime*(3.0+h.x*7.0)+h.y*40.0)));
+    if(shaft.x>0.0){ vec2 q=vec2(mod(m.x+shaft.x*0.5,shaft.x)-shaft.x*0.5,mod(m.z,shaft.y)-shaft.y*0.5); w*=0.15+exp(-dot(q,q)*1.8); }
+    g+=exp(-d*d/(r*r))*w/(1.0+along*0.2);
+  }
+  return g;
+}
 ${VISUALS.filter(v => v.glsl && v.glsl.functions && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
 ${WV.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
 float frontCov(vec2 sp){ float fc=0.0;

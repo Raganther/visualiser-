@@ -57,6 +57,7 @@ export default {
     P.ct4 = [mix(A[0], B[0]), mix(A[1], B[1]), mix(A[2], B[2]), mix(A[5], B[5])];
     P.ctA = st.alt ? [st.alt.x, st.alt.y, st.alt.z, sst(T.altarAhead + 4, T.altarAhead - 4, dz)] : [0, 0, -1e4, 0];
     P.ctF = 3;
+    P.ctM = T.motes*(.6 + (P.treb || 0)*x.react*.8 + st.surge*1.5)*x.dim;   // the dust: livelier with the hi-hats, a burst on a drop
     // the centrepiece stands at the altar (the objects read P.anchor): its distance, so the columns nearer than it pass in front
     if (st.alt && P.w.cathedral > .5) {
       const f = cam.f, rl = Math.hypot(f[2], f[0]), r0 = [f[2]/rl, 0, -f[0]/rl], u0 = [f[1]*r0[2] - f[2]*r0[1], f[2]*r0[0] - f[0]*r0[2], f[0]*r0[1] - f[1]*r0[0]];
@@ -67,7 +68,7 @@ export default {
     }
   },
   glsl: {
-    uniforms: `uniform vec4 uCt, uCt2, uCt3, uCt4, uCtA; uniform float uCtF;   // the altar (where, how near), the front plane's depth; the camera (where, the surge), where it looks and its roll; two hues, the kick's wave, dim; the bay, pointedness, columns, the stone`,
+    uniforms: `uniform vec4 uCt, uCt2, uCt3, uCt4, uCtA; uniform float uCtF, uCtM;   // the altar (where, how near), the front plane's depth; the camera (where, the surge), where it looks and its roll; two hues, the kick's wave, dim; the bay, pointedness, columns, the stone`,
     functions: `
 // the arches' curve: a pointed arch spanning a bay's width, springing at ${SPRING}: two circles, each through the far column
 float ctArch(float ax,float y,float e){ float R=${W.toFixed(1)}+e; return length(vec2(ax+e,y-${SPRING.toFixed(1)}))-R; }
@@ -110,7 +111,9 @@ vec3 cathedral(vec2 sp){
   float h1=uCt3.x, h2=uCt3.y, kick=exp(-uCt3.z*2.5)*uCt3.w, apex=ctApex(uCt4.y);
   vec3 fogC=hsv(uHue+h1,0.55,0.1)*(1.0+uCt.w), c=fogC*(0.8+0.4*max(rd.y,0.0));
   float t=ctMarch(ro,rd,96,42.0);
-  if(t<0.0) return c;
+  float dust=motes(ro,rd,t<0.0 ? 12.0 : min(t,12.0),0.5,vec3(sin(uTime*0.07)*0.2,uTime*0.02,0.0),0.0045*(1.0+uCt.w),0.5,vec2(${(2*W).toFixed(1)},uCt4.x));   // dust in the oculi's columns of light
+  vec3 dC=mix(hsv(uHue+h1,0.3,1.0),hsv(uHue+h2,0.3,1.0),0.5)*dust*uCtM*(0.7+kick);
+  if(t<0.0) return c+dC;
   vec3 p=ro+rd*t; vec2 e=vec2(0.004,0.0);
   vec3 n=normalize(vec3(ctMap(p+e.xyy)-ctMap(p-e.xyy),ctMap(p+e.yxy)-ctMap(p-e.yxy),ctMap(p+e.yyx)-ctMap(p-e.yyx)));
   float stone=uCt4.w, obs=smoothstep(1.5,2.0,stone), mar=smoothstep(0.5,1.0,stone)*(1.0-obs);
@@ -139,11 +142,11 @@ vec3 cathedral(vec2 sp){
   }
   col=mix(col,c,1.0-exp(-t*0.055));
   if(uCtA.w>0.0){ float tc=dot(uCtA.xyz-ro,rd); if(tc>0.0&&tc<t){ float dd=length(ro+rd*tc-uCtA.xyz); col+=hsv(uHue+h2,0.5,1.0)*exp(-dd*dd*1.5)*0.35*uCtA.w; } }   // its haze
-  return col;
+  return col+dC;
 }`,
     fn: 'cathedral',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uCt, P.ct); gl.uniform4fv(u.uCt2, P.ct2); gl.uniform4fv(u.uCt3, P.ct3); gl.uniform4fv(u.uCt4, P.ct4); gl.uniform4fv(u.uCtA, P.ctA); gl.uniform1f(u.uCtF, P.ctF || 3); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uCt, P.ct); gl.uniform4fv(u.uCt2, P.ct2); gl.uniform4fv(u.uCt3, P.ct3); gl.uniform4fv(u.uCt4, P.ct4); gl.uniform4fv(u.uCtA, P.ctA); gl.uniform1f(u.uCtF, P.ctF || 3); gl.uniform1f(u.uCtM, P.ctM || 0); },
   // its front plane: the nearest columns and ribs
   front: {
     fn: 'cathFront',
@@ -170,9 +173,21 @@ float cathFront(vec2 sp){ vec3 ro, rd=ctRay(sp,ro); float t=ctMarch(ro,rd,uCtF>3
       o.fillStyle = hc(h + (k % 2 ? h1 : h2), 85, 55, Math.min(1, (.35 + 1.2*kick + surge)*(1 - fog*.7)));
       o.beginPath(); o.arc(b.oc[0], b.oc[1], b.oc[2], 0, Math.PI*2); o.fill();
     }
+    motes2d(o, Wc, H, (P.ct[2] - (st.z2d ?? P.ct[2])), a2 => hc(h + h1, 30, 80, a2), P.ctM || 0, P.t2 || 0); st.z2d = P.ct[2];   // the dust
     o.globalAlpha = 1;
   },
 };
+// simple mode's motes: points streaming past as the camera flies, bigger and brighter near, twinkling
+const MOTES = Array.from({length: 70}, (_, i) => ({a: hh(i + .5)*Math.PI*2, r: .15 + hh(i + 1.5)*.85, z: hh(i + 2.5)*8, tw: hh(i + 3.5)*6}));
+function motes2d(o, W, H, dz, col, amt, t){
+  o.globalCompositeOperation = 'lighter';
+  for (const m of MOTES) {
+    m.z -= dz; if (m.z < .3) { m.z += 8; m.a = (m.a + 2.4) % (Math.PI*2); }
+    const k = 1/m.z, x = W/2 + Math.cos(m.a)*m.r*k*H*.5, y = H/2 + Math.sin(m.a)*m.r*k*H*.5, s = Math.max(1, 2.5*k*H/540);
+    o.fillStyle = col(Math.min(1, amt*(.4 + .6*Math.sin(t*3 + m.tw)**2)*k*.9)); o.beginPath(); o.arc(x, y, s, 0, Math.PI*2); o.fill();
+  }
+  o.globalCompositeOperation = 'source-over';
+}
 // simple mode's nave: its bays ahead, projected (columns, the rib across and the oculus at its crown), nearest first
 function bays(P, Wc, H){
   const [cx, cy, cz] = P.ct, [fx, fy, fz, roll] = P.ct2, bay = P.ct4[0], e = P.ct4[1], out = [], R = W + e, apex = SPRING + Math.sqrt(R*R - e*e);
