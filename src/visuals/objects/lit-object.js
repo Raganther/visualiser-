@@ -23,7 +23,7 @@ export function litObject({key, label, words, asset: A, dance, motion, beat, ben
   litData(A, bend);   // its textures start decoding now, so they're ready long before it first appears
   const lodOf = () => lod || (lod = litLod(A, bend));
   return {
-    key, kind: 'object', label, words, optIn: true, noJourney: true, lit: true, dance,
+    key, kind: 'object', label, words, optIn: true, lit: true, dance,
     stats: `${A.t.toLocaleString()} triangles · textures from Blender · 3 lights`,
     get mesh(){ const M = lodOf(); return lodMesh || (lodMesh = {pieces: [{pos: M.pos, tri: M.tri, part: M.part, morph: M.morph.some(x => x) ? M.morph : undefined}], hinge: [0, 0, 0]}); },   // (a shape key only if it has one: the tentacle bends instead)   // (simple mode's, for the tests and the Asset Viewer)
     onBeat(pos){ if (pos === 0) { st.hit = 1; st.glow = 1; st.elT = ELEV[st.bar = (st.bar + 1) % ELEV.length]; } if (beat) beat(pos, st); },   // (no Math.random: it runs off screen too, and would shift Journey's draws)

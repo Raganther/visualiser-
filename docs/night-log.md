@@ -26,10 +26,10 @@ Rules for each wake-up:
    neon runs along the walls rather than floating over the picture.
 4. ~~**A new world: inside the body:**~~ (done 01:05, version 59) a flight along an artery, red cells tumbling past, the walls pulsing with the kick,
    branching vessels; the heart could stand where they meet.
-5. **A new world: the geode:** a crystal cavity, spikes lit from inside, refracting, cracking open on a drop.
-6. **Reaching out:** a move in which an object turns to face us and comes towards us on a drop (the user loved the hand and
+5. ~~**A new world: the geode:**~~ (done 01:50) a crystal cavity, spikes lit from inside, refracting, cracking open on a drop.
+6. ~~**Reaching out:**~~ (done 01:50) a move in which an object turns to face us and comes towards us on a drop (the user loved the hand and
    tentacle "reaching out towards you").
-7. **Journey and the lit objects:** let Journey cast a lit object as a centrepiece now and then, placed in the worlds.
+7. ~~**Journey and the lit objects:**~~ (done 03:20) let Journey cast a lit object as a centrepiece now and then, placed in the worlds.
 
 ## Log
 - 22:05 UTC: published version 55: the Hollow's honeycomb back (every section the gyroid; gentler swoops), the Cathedral (a new world: preset "The Cathedral", or W then its number), the hand rebaked (nails at the fingertips). Tests for the new world (Journey, visuals, golden) running.

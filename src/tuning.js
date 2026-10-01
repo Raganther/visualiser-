@@ -206,6 +206,8 @@ export const TUNE = {
   },
   // the lit objects (Blender models baked for real time, render/lit.js, objects/lit-object.js): their shared light rig
   lit: {
+    journey: .8,               // Journey's centrepiece draw: a lit object's weight against a wire one's (1: the same; a weighted draw, u^(1/w))
+    looks: [1, .5, 1.6, .7, .5],   // the look Journey gives one: real, toon, neon (the user's favourite), chrome, marble
     key: 3.4, rim: 4, kick: 1.8, amb: .18,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
     lightDist: 2.2,            // how far out the lights circle (an object fits a sphere of about .6)
     keySpeed: .35, keySwing: 1.25,  // the key light's swing round it (radians a second, times .4 + the tension) and how far each way
