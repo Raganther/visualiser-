@@ -254,6 +254,7 @@ export const TUNE = {
     altarAhead: 18, altarHeight: 1.1, altarSize: .9,   // how far ahead it's set, how high above the floor it stands, how big it is (world units)
     altarLook: .55,            // how far the camera turns to it as it passes
     motes: 1.6,                // dust drifting in the oculi's columns of light (its brightness)
+    wallGlow: .7,              // the glowing layers' picture laid on the stone (0: none)
   },
   hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
     chamberBars: 8,            // a chamber every this many bars (and at each new section)
@@ -266,6 +267,7 @@ export const TUNE = {
     breathe: .1,               // a flesh cave's walls swelling with the bass
     heartSize: .22,            // a centrepiece in the heart, as a share of the chamber's size
     motes: 1.4,                // spores drifting in the lamp's light (their brightness)
+    wallGlow: .8,              // the glowing layers' picture wrapped round the tunnel's walls (0: none)
   },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'

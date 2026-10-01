@@ -57,6 +57,7 @@ export default {
     P.ct4 = [mix(A[0], B[0]), mix(A[1], B[1]), mix(A[2], B[2]), mix(A[5], B[5])];
     P.ctA = st.alt ? [st.alt.x, st.alt.y, st.alt.z, sst(T.altarAhead + 4, T.altarAhead - 4, dz)] : [0, 0, -1e4, 0];
     P.ctF = 3;
+    P.ctG = T.wallGlow*x.dim;   // the layers' glow laid on the stone
     P.ctM = T.motes*(.6 + (P.treb || 0)*x.react*.8 + st.surge*1.5)*x.dim;   // the dust: livelier with the hi-hats, a burst on a drop
     // the centrepiece stands at the altar (the objects read P.anchor): its distance, so the columns nearer than it pass in front
     if (st.alt && P.w.cathedral > .5) {
@@ -68,7 +69,7 @@ export default {
     }
   },
   glsl: {
-    uniforms: `uniform vec4 uCt, uCt2, uCt3, uCt4, uCtA; uniform float uCtF, uCtM;   // the altar (where, how near), the front plane's depth; the camera (where, the surge), where it looks and its roll; two hues, the kick's wave, dim; the bay, pointedness, columns, the stone`,
+    uniforms: `uniform vec4 uCt, uCt2, uCt3, uCt4, uCtA; uniform float uCtF, uCtM, uCtG;   // the altar (where, how near), the front plane's depth; the camera (where, the surge), where it looks and its roll; two hues, the kick's wave, dim; the bay, pointedness, columns, the stone`,
     functions: `
 // the arches' curve: a pointed arch spanning a bay's width, springing at ${SPRING}: two circles, each through the far column
 float ctArch(float ax,float y,float e){ float R=${W.toFixed(1)}+e; return length(vec2(ax+e,y-${SPRING.toFixed(1)}))-R; }
@@ -131,6 +132,7 @@ vec3 cathedral(vec2 sp){
   col+=vec3(1.0)*pow(lamp,40.0)*(0.15+0.6*mar+0.9*obs)*fall;                    // polish
   col+=mix(hsv(uHue+h2,0.9,1.0),hsv(uHue+h1,0.9,1.0),0.3)*obs*pow(1.0-lamp,4.0)*0.9*fall;   // obsidian's neon edges
   if(uCtA.w>0.0){ vec3 L=uCtA.xyz-p; float d=length(L); col+=base*hsv(uHue+h2,0.5,1.0)*(0.8+1.2*kick)*max(dot(n,L/d),0.0)/(1.0+d*d*0.35)*uCtA.w*1.4; }   // the altar's light
+  { vec2 wuv=abs(n.y)>0.6 ? vec2(p.x*0.11,p.z*0.07) : vec2((p.x+p.z)*0.09,p.y*0.16); col+=wallGlow(wuv)*uCtG*(0.3+0.7*fall)*(0.5+0.5*ao); }   // the glowing layers laid on the stone, floor and vaults and columns
   // an oculus: stained glass at each bay's crown
   float oc=length(vec2(xr,pz));
   if(p.y>apex-0.35&&oc<0.62) col=mix(col,ctGlass(p,h1,h2)*(0.8+1.8*kick+uCt.w)*1.4,smoothstep(0.62,0.55,oc));
@@ -146,7 +148,7 @@ vec3 cathedral(vec2 sp){
 }`,
     fn: 'cathedral',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uCt, P.ct); gl.uniform4fv(u.uCt2, P.ct2); gl.uniform4fv(u.uCt3, P.ct3); gl.uniform4fv(u.uCt4, P.ct4); gl.uniform4fv(u.uCtA, P.ctA); gl.uniform1f(u.uCtF, P.ctF || 3); gl.uniform1f(u.uCtM, P.ctM || 0); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uCt, P.ct); gl.uniform4fv(u.uCt2, P.ct2); gl.uniform4fv(u.uCt3, P.ct3); gl.uniform4fv(u.uCt4, P.ct4); gl.uniform4fv(u.uCtA, P.ctA); gl.uniform1f(u.uCtF, P.ctF || 3); gl.uniform1f(u.uCtM, P.ctM || 0); gl.uniform1f(u.uCtG, P.ctG || 0); },
   // its front plane: the nearest columns and ribs
   front: {
     fn: 'cathFront',

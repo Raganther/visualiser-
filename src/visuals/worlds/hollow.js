@@ -87,10 +87,11 @@ export default {
       else { P.anchor = {pos: [s.x*near, s.y*near], size: (ch.R*T.heartSize/s.z/1.25/.49)*near + (1 - near)*.9, dist: Math.hypot(...sub3(ch.C, cam.ro))}; }
     }
     P.hwF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.2;   // its front plane: the walls nearer than the centrepiece (they pass in front of it), or the near walls
+    P.hwG = T.wallGlow*x.dim;   // the layers' glow wrapped round the tunnel's walls
     P.hwM = T.motes*(.6 + (P.treb || 0)*x.react*.8 + st.surge*1.5)*x.dim;   // the spores: livelier with the hi-hats, a burst on a drop
   },
   glsl: {
-    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK; uniform float uHwF, uHwM;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
+    uniforms: `uniform vec4 uHw, uHw2, uHw3, uHw4, uHwC, uHwK; uniform float uHwF, uHwM, uHwG;   // the cave (scale, openness, where along the route, surge); two hues, the kick's wave, dim;
 // the camera's bank and turn to the chamber, the chamber's light, the section's blend; the labyrinths and stuffs blended; the chamber (its heart, its size); the route's stretches`,
     functions: `
 vec2 hwOff(float k,float z){
@@ -169,6 +170,7 @@ vec3 hollow(vec2 sp){
     vec3 L=uHwC.xyz-p; float d=length(L);
     col+=rockC*heartC*max(dot(n,L/d),0.0)/(1.0+d*d*0.25)*uHw3.z*0.75*(0.4+0.6*ao);
   }
+  { vec3 cp=hwPath(p.z); col+=wallGlow(vec2(atan(p.y-cp.y,p.x-cp.x)/6.2831853+0.5,p.z*0.06))*uHwG*(0.3+0.7*fall)*(0.4+0.6*ao); }   // the glowing layers, wrapped round the tunnel like a sleeve
   // the veins: a finer gyroid's seams, glowing, a wave of light rushing down them on each kick
   float g2=abs(hwGy(p*uHw.x*3.3+vec3(1.7,0.3,2.1))), vein=smoothstep(0.05+0.01*t,0.0,g2);
   float wave=exp(-pow((t-uHw2.z*14.0)*0.8,2.0))*exp(-uHw2.z*1.2);
@@ -178,7 +180,7 @@ vec3 hollow(vec2 sp){
 }`,
     fn: 'hollow',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); gl.uniform1f(u.uHwF, P.hwF || 2.2); gl.uniform1f(u.uHwM, P.hwM || 0); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uHw, P.hw); gl.uniform4fv(u.uHw2, P.hw2); gl.uniform4fv(u.uHw3, P.hw3); gl.uniform4fv(u.uHw4, P.hw4); gl.uniform4fv(u.uHwC, P.hwC); gl.uniform4fv(u.uHwK, P.hwK); gl.uniform1f(u.uHwF, P.hwF || 2.2); gl.uniform1f(u.uHwM, P.hwM || 0); gl.uniform1f(u.uHwG, P.hwG || 0); },
   // its front plane: the near walls
   front: {
     fn: 'hollowFront',

@@ -48,6 +48,7 @@ uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower
 uniform vec4 uKal, uKal2; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
+${groups.includes('main') ? '#define HAS_MAIN 1' : ''}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
@@ -65,6 +66,15 @@ float paper(vec2 sp){ return 0.93+0.05*vnz(sp*vec2(90.0,260.0))+0.03*vnz(sp*420.
 // motes floating in a 3D world (the Hollow's spores, the Cathedral's dust): one in each cell of a grid, found along the view
 // ray up to tmax (so the rock hides those behind it), each a soft point a few pixels wide, twinkling (sparkle), dimmer far
 // off; drift moves them all (world units); shaft (x and z periods) gathers them into columns of light where it's set
+// the glowing layers' picture (the main trails), wrapped onto a 3D world's walls: tiled mirrored, so it has no seams; black
+// where this pass doesn't draw the trails
+vec3 wallGlow(vec2 uv){
+#ifdef HAS_MAIN
+  return texture2D(uT_main,abs(fract(uv*0.5)*2.0-1.0)).rgb;
+#else
+  return vec3(0.0);
+#endif
+}
 float motes(vec3 ro,vec3 rd,float tmax,float cell,vec3 drift,float size,float sparkle,vec2 shaft){
   float g=0.0, dt=cell*0.34;
   for(int i=0;i<30;i++){
