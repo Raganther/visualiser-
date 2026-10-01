@@ -61,7 +61,7 @@ export default {
     P.crF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.5;   // its front plane: the frames nearer than the centrepiece, or the near ones
   },
   glsl: {
-    uniforms: `uniform vec4 uCr, uCr2, uCr3; uniform float uCrF, uCrG;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow`,
+    uniforms: `uniform vec4 uCr, uCr2, uCr3; uniform float uCrF, uCrG, uCrW;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow; the glowing layers in the floor`,
     functions: `
 float crX(float z){ return sin(z*0.045)*2.2+sin(z*0.017)*1.5; }
 // a frame's outline (its distance in the frame's plane): 0 square, 1 arch, 2 hexagon, 3 ring
@@ -104,12 +104,13 @@ vec3 corridor(vec2 sp){
     col+=crGlow(fp+rr*0.02,rr,30.0,40)*uCrG*0.4*exp(-tf*0.04);
     float id=floor(fp.z/${SP.toFixed(1)}+0.5), ln=exp(-pow((fp.z-id*${SP.toFixed(1)})*14.0,2.0))*step(abs(fp.x-crX(id*${SP.toFixed(1)})),1.5*uCr2.w);   // (only between the frame's feet)
     col+=crCol(id)*ln*0.15*exp(-tf*0.06);
+    col+=wallGlow(vec2(fp.x*0.12+0.5,fp.z*0.05))*uCrW*exp(-tf*0.05);   // the glowing layers, reflected in the black floor
   }
   return col;
 }`,
     fn: 'corridor',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); gl.uniform1f(u.uCrW, TUNE.corridor.wallGlow); },
   front: {
     fn: 'corridorFront',
     glsl: `

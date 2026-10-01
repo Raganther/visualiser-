@@ -46,7 +46,7 @@ export default {
     P.vsF = P.anchor && P.anchor.dist ? P.anchor.dist : 1.8;   // its front plane: what's nearer than the centrepiece, or the near walls
   },
   glsl: {
-    uniforms: `uniform vec4 uVs, uVs2, uVs3; uniform float uVsF;   // the Vessel: where along it, the cells' drift, the kick's wave, the surge; its kinds blended, its width; a hue nudge, the cells, the pulse, dim; the front plane's depth`,
+    uniforms: `uniform vec4 uVs, uVs2, uVs3; uniform float uVsF, uVsG;   // the Vessel: where along it, the cells' drift, the kick's wave, the surge; its kinds blended, its width; a hue nudge, the cells, the pulse, dim; the front plane's depth; the glowing layers on its walls`,
     functions: `
 vec3 vsPath(float z){ return vec3(sin(z*0.11)*1.4+sin(z*0.053)*1.1,cos(z*0.09)*0.9+sin(z*0.041)*0.8,z); }
 // the tube: a wide radius round the route, ribbed with folds, swelling where the kick's wave has reached; branches open off it
@@ -99,6 +99,7 @@ vec3 vessel(vec2 sp){
     vec3 vc=mix(tint*1.6+0.1,vec3(0.4,0.75,1.0),nerve);
     float pulse=exp(-pow((p.z-uVs.x-uVs.z*6.0)*0.7,2.0))*exp(-uVs.z*0.9)*uVs3.w;
     col+=vc*(vein*(0.3+2.2*pulse+uVs.w)+fine*0.2);
+    col+=wallGlow(vec2(atan(p.y-vsPath(p.z).y,p.x-vsPath(p.z).x)/6.2831853+0.5,p.z*0.06))*uVsG*(0.4+0.6*lamp);   // the glowing layers, wrapped round the vessel
     if(nerve>0.0) col+=vec3(0.5,0.8,1.0)*nerve*smoothstep(0.92,1.0,sin(p.z*3.0-uTime*12.0+vein*3.0))*vein*2.0;   // sparks along a nerve
   }
   col*=fall;
@@ -106,7 +107,7 @@ vec3 vessel(vec2 sp){
 }`,
     fn: 'vessel',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uVs, P.vs); gl.uniform4fv(u.uVs2, P.vs2); gl.uniform4fv(u.uVs3, P.vs3); gl.uniform1f(u.uVsF, P.vsF || 1.8); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uVs, P.vs); gl.uniform4fv(u.uVs2, P.vs2); gl.uniform4fv(u.uVs3, P.vs3); gl.uniform1f(u.uVsF, P.vsF || 1.8); gl.uniform1f(u.uVsG, TUNE.vessel.wallGlow); },
   front: {
     fn: 'vesselFront',
     glsl: `
