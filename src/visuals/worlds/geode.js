@@ -9,7 +9,7 @@
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
 
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, grow: .5};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, grow: .5, age: 99};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 const GAP = 24, R0 = 2.8, RB = 3.2;   // a cavern every GAP units along the way; the fissure's radius, and how much wider a cavern is
 // a section's crystal: its kind (0 amethyst, 1 citrine, 2 quartz, 3 emerald), how thick the points grow
@@ -34,7 +34,8 @@ export default {
   params(P, x){
     const T = TUNE.geode, J = x.J, on = P.w.geode > .05, ten = (J && J.tension) || 0;
     sectionLayout(st, 'geoD', J, on, x.dt, T.morphSecs);
-    if (J && st.drop !== J.lastDrop) { if (st.drop !== null && on) st.surge = 1; st.drop = J.lastDrop; }
+    if (J && st.drop !== J.lastDrop) { if (st.drop !== null && on) { st.surge = 1; st.age = 0; } st.drop = J.lastDrop; }
+    st.age += x.dt;
     st.surge *= Math.exp(-x.dt/T.surgeSecs);
     const slow = 1 - (1 - T.cavitySlow)*bulge(st.z);   // slower through a cavern, to take it in
     const want = T.speed*(T.calm + (1 - T.calm)*ten)*(1 + T.surge*st.surge)*slow;
@@ -44,7 +45,7 @@ export default {
     st.wave += x.dt;
     st.grow += ((T.growCalm + (T.growHigh - T.growCalm)*ten + st.surge*.3) - st.grow)*Math.min(1, x.dt*.4);   // the crystals grow as it builds
     const A = LOOK(st.D0), B = LOOK(st.D1), m = st.tr*st.tr*(3 - 2*st.tr);
-    P.gd = [st.z, 0, 0, st.surge];
+    P.gd = [st.z, Math.min(st.age, 99), x.dim, st.surge];   // (the drop's age: its white flash racing out through the crystals)
     P.gd2 = [0, 0, 0, st.grow];
     P.gd3 = [A[0], B[0], m, A[1] + (B[1] - A[1])*m];
     P.gd4 = [st.wave, x.dim, (P.treb || 0)*x.react, 0];
@@ -94,22 +95,23 @@ vec3 geode(vec2 sp){
   vec3 ro, rd=gdRay(sp,ro); float cry;
   vec3 tint=mix(gdTint(uGd3.x),gdTint(uGd3.y),uGd3.z), fogC=tint*0.04*(1.0+uGd.w);
   float t=gdMarch(ro,rd,110,30.0,cry);
-  float dust=motes(ro,rd,t<0.0 ? 9.0 : min(t,9.0),0.7,vec3(0.0,-uTime*0.04,0.0),0.005*(1.0+uGd.w*2.0),0.8+uGd4.z,vec2(0.0))*uGdM;   // glittering dust hanging in the air
+  float dust=motes(ro,rd,t<0.0 ? 9.0 : min(t,9.0),0.7,vec3(0.0,-uTime*0.04,0.0),0.005*(1.0+uGd.w*3.0),min(1.0,0.75+0.25*uGd4.z+uGd.w),vec2(0.0))*uGdM;   // glittering dust hanging in the air
   if(t<0.0) return fogC+tint*dust;
   vec3 p=ro+rd*t; vec2 e=vec2(0.003,0.0); float cc;
   vec3 n=normalize(vec3(gdMap(p+e.xyy,cc)-gdMap(p-e.xyy,cc),gdMap(p+e.yxy,cc)-gdMap(p-e.yxy,cc),gdMap(p+e.yyx,cc)-gdMap(p-e.yyx,cc)));
   float lamp=max(dot(n,-rd),0.0), fall=1.0/(1.0+t*t*0.02), fres=pow(1.0-lamp,3.0);
   float kick=exp(-pow((t-uGd4.x*16.0)*0.6,2.0))*exp(-uGd4.x*0.8)*uGd4.y;   // the kick's wave rushing through the crystals
+  float flash=exp(-pow((t-uGd.y*14.0),2.0)*0.15)*exp(-uGd.y*0.6)*uGd.z;   // a drop: a white flash racing out from us through the cavern
   vec3 col;
   if(cry>0.25){
     float up=cry*2.0-1.0;   // the crystal's base pale and milky, its tip deep and glowing
     vec3 hv=normalize(-rd+normalize(vec3(0.3,0.8,-0.2)));
     float l2=max(dot(n,-rd),0.0), glint=pow(max(dot(n,hv),0.0),40.0)*(1.0+3.0*uGd4.z);
     vec3 body=mix(mix(tint,vec3(0.9),0.55)*0.5,tint*1.3,up);
-    col=body*(0.15+0.5*l2)+tint*fres*1.4+vec3(1.0)*glint*0.9+tint*(0.12+0.35*up)*(1.0+5.0*kick+3.0*uGd.w);
+    col=body*(0.15+0.5*l2)+tint*fres*1.4+vec3(1.0)*glint*0.9+tint*(0.12+0.35*up)*(1.0+5.0*kick+3.0*uGd.w)+mix(tint,vec3(1.0),0.7)*flash*(0.6+1.4*up);
   } else {
     vec3 cp=gdPath(p.z); vec2 q=p.xy-cp.xy; float band=sin(p.z*1.3+atan(q.y,q.x)*2.0+vnz(p.xz*2.0+p.y)*3.0);
-    col=mix(vec3(0.22,0.2,0.19),mix(tint*0.6,vec3(0.85,0.8,0.75),0.5),0.5+0.5*band)*(0.2+0.7*lamp);   // agate bands
+    col=mix(vec3(0.22,0.2,0.19),mix(tint*0.6,vec3(0.85,0.8,0.75),0.5),0.5+0.5*band)*(0.2+0.7*lamp)+vec3(0.25)*flash;   // agate bands
     col+=wallGlow(vec2(atan(q.y,q.x)/6.2831853+0.5,p.z*0.06))*uGdG*(0.4+0.6*lamp);   // the glowing layers on the rock
   }
   col*=fall;
@@ -135,10 +137,11 @@ float geodeFront(vec2 sp){ vec3 ro, rd=gdRay(sp,ro); float cry; float t=gdMarch(
       const zj = (Math.floor(z0/STEP) + j)*STEP, c = path(zj), s = onScreen(cam, c); if (s.z < .4) continue;
       const R = R0 + RB*bulge(zj), px = H*.5/s.z/1.25, cx = W/2 + s.x*H*.5, cy = H/2 - s.y*H*.5;
       const fog = 1 - Math.exp(-s.z*.07), kick = Math.exp(-(((s.z - wave*16)*.6)**2))*Math.exp(-wave*.8)*dim, n = 22;
+      const flash = Math.exp(-((s.z - P.gd[1]*14)**2)*.15)*Math.exp(-P.gd[1]*.6)*P.gd[2];   // a drop's white flash racing out
       for (let i = 0; i < n; i++) {
         const an = (i + (j & 1)*.5)/n*Math.PI*2, h = hh(i + Math.round(zj/STEP)*7.1), L = (.25 + h*h*.95)*(.55 + .45*R/R0)*P.gd2[3];
         const x0 = cx + Math.cos(an)*R*px, y0 = cy + Math.sin(an)*R*px, wd = .12*(.55 + .45*R/R0)*px;
-        o.fillStyle = hc(hue, sat, (18 + 45*kick + 25*hats*hh(i*3 + j) + 30*surge)*(1 - fog*.85)*(.6 + .6*h), 1);
+        o.fillStyle = hc(hue, sat*(1 - .7*Math.min(1, flash)), (18 + 60*flash + 45*kick + 25*hats*hh(i*3 + j) + 30*surge)*(1 - fog*.85)*(.6 + .6*h), 1);
         o.beginPath(); o.moveTo(x0 - Math.sin(an)*wd, y0 + Math.cos(an)*wd); o.lineTo(x0 - Math.cos(an)*L*px, y0 - Math.sin(an)*L*px); o.lineTo(x0 + Math.sin(an)*wd, y0 - Math.cos(an)*wd); o.closePath(); o.fill();
       }
     }
