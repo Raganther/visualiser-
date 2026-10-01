@@ -30,6 +30,13 @@ Rules for each wake-up:
 6. ~~**Reaching out:**~~ (done 01:50) a move in which an object turns to face us and comes towards us on a drop (the user loved the hand and
    tentacle "reaching out towards you").
 7. ~~**Journey and the lit objects:**~~ (done 03:20) let Journey cast a lit object as a centrepiece now and then, placed in the worlds.
+8. **A new world for the club: the Corridor:** an endless hall of neon frames (arches, squares, hexagons by section) the
+   camera flies through, each frame lighting as the kick passes it, a mirror floor doubling them, strobes on a drop:
+   the most techno of the worlds, and cheap to draw (added at 03:20: the plan was done, and the user's music is
+   minimal techno).
+9. **The Geode's drop:** the crystals flash white from the cavern outward and shed glinting shards (the dust bursts).
+10. **The worlds in the lit objects' looks:** Journey's neon hand in the Corridor or the Geode reads well; check each 3D
+   world with a lit object for placement and lighting, and fix any that float wrongly.
 
 ## Log
 - 22:05 UTC: published version 55: the Hollow's honeycomb back (every section the gyroid; gentler swoops), the Cathedral (a new world: preset "The Cathedral", or W then its number), the hand rebaked (nails at the fingertips). Tests for the new world (Journey, visuals, golden) running.
