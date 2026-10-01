@@ -130,12 +130,13 @@ function render(now){
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*speedOf('ribbons')*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*speedOf('horizon')*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt*speedOf('flow'), react, S.MT*1000);
+  if (S.hueSet != null) { hueAcc = S.hueSet; S.hueSet = null; }   // (a walk-through's clean slate starts every time in the same colours)
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
   // (a world's camera flying in streams the trails outwards: CTX.fly.z)
   const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
-    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
+    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - Math.max(J.on ? J.wipe : 0, S.wipe)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,   // (and towards a world's subject: below)
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)

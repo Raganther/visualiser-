@@ -16,7 +16,7 @@ import { syncSliders } from './panel.js';
 import { compose } from './scene.js';
 import { FLY, flyKey } from './fly.js';
 import { toast } from './toast.js';
-import { tutorial } from './tutorial.js';
+import { combos, tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
@@ -119,7 +119,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   const k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
-  else if (k === 't' && mode !== 'c') { mode = null; tutorial(); }   // (in the camera group T takes off)
+  else if (k === 't' && mode !== 'c') { mode = null; if (e.shiftKey) combos(); else tutorial(); }   // (Shift+T: the walk-throughs of combinations)   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (mode === 'k' && k === 'm') {   // the kind: wedges, a mirror box, a dive (while Journey runs, it keeps that kind)
@@ -205,3 +205,5 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
 // the strip goes (and the group with it) after a while untouched, so a stray number later doesn't change anything
 setInterval(() => { if (mode && performance.now() - idle > TUNE.keys.idleSecs*1000) { mode = null; show(); } else if (mode) show(); }, 500);
 export const keyMode = () => mode;
+export const sceneKey = () => S.scene ? sceneKeyByHand : null;   // the scene template picked by hand (S then a number), while it's on
+export function leaveGroup(){ mode = null; show(); }

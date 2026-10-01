@@ -152,6 +152,11 @@ body.idle,body.clean{cursor:none}
 #tutorial .tbtns{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
 #tutorial .tbtns button{border:1px solid var(--line);font-size:13px;padding:4px 12px}
 #tutorial .tbtns button:disabled{opacity:.4}
+#tutorial .tlist{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto;margin-top:8px}
+#tutorial .tlist button{text-align:left;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:14px;background:transparent;color:inherit}
+#tutorial .tlist button:hover,#tutorial .tlist button:focus-visible{border-color:var(--accent)}
+#tutorial .tlist span{display:block;font-size:12px;color:var(--dim);margin-top:2px}
+#tutorial .tbtns{flex-wrap:wrap}
 #welcome{z-index:6}   /* its buttons above the bar on a short window */
 #welcome.gone,#welcome.gone *{pointer-events:none}   /* (and nothing of it catches a click once it's gone) */
 

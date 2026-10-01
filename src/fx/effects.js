@@ -29,7 +29,7 @@ export function onHitFX(){
 export function stepFX(dt, react, now){
   const tt = now/1000, rdt = dt; dt *= PACE.ts;             // now is motion time; hits still age in real time
   for (const h of HIT_VISUALS) if (h.step) h.step(rdt);
-  J.wipe *= Math.pow(.02, rdt);
+  J.wipe *= Math.pow(.02, rdt); S.wipe *= Math.pow(.05, rdt);
   const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, tc = TW.comets, bands = tc && tc.band !== null ? [tc.band*2, tc.band*2, tc.band*2] : [sBass*1.3, sMid*2, sTreb*4];
   const cdt = dt*speedOf('comets');   // the comets at their own speed
   comets.forEach((c, i) => {
