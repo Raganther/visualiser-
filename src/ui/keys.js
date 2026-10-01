@@ -29,7 +29,7 @@ const SCENE_WORDS = {plain: 'plain', between: 'between', split: 'split', among: 
 // the groups: their key, name, and what number n does (items: [label, isOn] for the strip)
 const GROUPS = {
   l: {name: 'Layers', list: () => layers.map((v, i) => [v.label, on(v.key), i < 9 ? i + 1 : MORE[i - 9] || '']), pick: n => toggle(layers[n - 1], TUNE.keys.layer), all: layers},
-  w: {name: 'Worlds', list: () => worlds.map(v => [v.label, on(v.key, .3)]), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
+  w: {name: 'Worlds', list: () => worlds.map((v, i) => [v.label, on(v.key, .3), i < 9 ? i + 1 : WMORE[i - 9] || '']), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
   e: {name: 'Hits', list: () => HIT_VISUALS.map(v => [v.label, on(v.key)]), pick: n => toggle(HIT_VISUALS[n - 1], (HIT_VISUALS[n - 1] || {}).level), all: HIT_VISUALS},
   o: {name: 'Objects', list: () => OBJECT_VISUALS.map(v => [v.label, on(v.key, .3)]), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
   // the kaleidoscope: a mirror fold of the picture (everything, the world, the glow, or inside the object), and its letters
@@ -45,6 +45,7 @@ const GROUPS = {
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
+const WMORE = ['H', 'N', 'V', 'G', 'D'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall), none a group's letter, T, R, A or X
 const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal); the letters run out there, so later layers are on their sliders
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
@@ -154,6 +155,10 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();   // (X is also a single key outside the groups)
     if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l'); else toggle(v, TUNE.keys.layer); }
+  else if (mode === 'w' && WMORE.includes(e.key.toUpperCase()) && worlds[9 + WMORE.indexOf(e.key.toUpperCase())]) {
+    const v = worlds[9 + WMORE.indexOf(e.key.toUpperCase())];
+    e.stopPropagation();
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'w'); else one(worlds, v, 1); }
   else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points, shaded (Journey keeps it going)
     const n = ((J.on ? J.objStyle || 0 : Math.round(S.active.objStyle || 0)) + 1) % STYLES.length;
     if (J.on) { J.objStyle = n; } else { S.active.objStyle = n; } curP.objStyle = n;
