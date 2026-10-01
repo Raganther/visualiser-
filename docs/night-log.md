@@ -24,7 +24,7 @@ Rules for each wake-up:
    moving with the camera's flight, livelier with the hi-hats, bursting on a drop.
 3. ~~**Layers on the walls:**~~ (done 00:40) the glowing layers' picture wrapped onto the Hollow's rock and the Cathedral's stone, so the
    neon runs along the walls rather than floating over the picture.
-4. **A new world: inside the body:** a flight along an artery, red cells tumbling past, the walls pulsing with the kick,
+4. ~~**A new world: inside the body:**~~ (done 01:05, version 59) a flight along an artery, red cells tumbling past, the walls pulsing with the kick,
    branching vessels; the heart could stand where they meet.
 5. **A new world: the geode:** a crystal cavity, spikes lit from inside, refracting, cracking open on a drop.
 6. **Reaching out:** a move in which an object turns to face us and comes towards us on a drop (the user loved the hand and
@@ -36,3 +36,7 @@ Rules for each wake-up:
 - 23:40 UTC: version 56: objects inside the 3D worlds. The Cathedral sets an altar in a side aisle every 8 bars (and at each new section), where the centrepiece stands, lit, seen past the columns; the Hollow's chambers hold it too; in both, the walls, pillars and columns nearer than the object pass in front of it (the world's front plane drawn only as deep as the object). To see it: the Cathedral or the Hollow, plus an object (O then its number), and wait for an altar or a chamber. Also: the Cathedral's Journey score fixed (it was NaN: never chosen), the golden tests re-recorded for the new world.
 - 00:05 UTC: version 57: particles in the 3D worlds: spores rising through the Hollow's lamp light, dust gathered in the Cathedral's columns of light under the oculi; real 3D points along each view ray (walls hide the ones behind them), the near ones soft and bigger like lights out of focus, twinkling, livelier with the hi-hats, bursting on a drop. Simple mode streams dots past. To see it: either world.
 - 00:40 UTC: version 58: the glowing layers' picture laid on the 3D worlds' walls, stuck to them: wrapped round the Hollow's tunnel like a sleeve, laid on the Cathedral's floor, vaults and columns, so the neon slides past as the camera flies (WebGL; subtle, an echo, not a second layer). To see it: either world with a layer on (Into the Hollow has the flow field).
+- **01:05, the Vessel (version 59).** A new 3D world: a flight along an artery, wet ribbed walls with glowing veins, side
+  branches, red cells tumbling past; each kick swells the walls and surges the flow, a drop floods it with light. Each
+  section is its own vessel (artery, vein, lymph, nerve with sparks). It joined Journey's worlds (golden re-recorded). To see
+  it: the "The Vessel" preset, or W and its number.
