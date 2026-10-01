@@ -15,6 +15,7 @@ const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s
 const LOOK = D => [D ? Math.floor(hh(D + .7)*4) : 0, .9 + hh(D + 2.1)*.5, (hh(D + 4.3) - .5)*.08, .5 + hh(D + 6.1)*.5];
 const path = z => [Math.sin(z*.11)*1.4 + Math.sin(z*.053)*1.1, Math.cos(z*.09)*.9 + Math.sin(z*.041)*.8, z];
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
+export const vesselAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)
 export default {
   key: 'vessel', kind: 'world', label: 'The Vessel',
   light: {hue: .0, sat: .6, x: 0, y: 0},               // the lamp, warm through the walls
@@ -35,9 +36,17 @@ export default {
     P.vs = [st.z, st.flow, st.wave, st.surge];
     P.vs2 = [A[0], B[0], m, mix(A[1], B[1])];
     P.vs3 = [mix(A[2], B[2]), mix(A[3], B[3])*T.cells, st.push, x.dim];
+    // a centrepiece floats in the middle of the vessel every `gate` units, the walls and cells nearer than it passing in front
+    if (P.w.vessel > .5) {
+      const kc = Math.ceil((st.z + 1)/T.gate)*T.gate, C = path(kc), ro = path(st.z), f = norm3(sub3(path(st.z + 1.5), ro)), r = norm3(cross3([0, 1, 0], f)), u = cross3(f, r);
+      const rel = sub3(C, ro), z = dot3(rel, f);
+      if (z < 1.2) P.anchor = {hide: true};
+      else if (z < T.gate*.8) P.anchor = {pos: [dot3(rel, r)/z/1.25, dot3(rel, u)/z/1.25], size: T.heartSize/z/1.25/.49, dist: Math.hypot(...rel)};
+    }
+    P.vsF = P.anchor && P.anchor.dist ? P.anchor.dist : 1.8;   // its front plane: what's nearer than the centrepiece, or the near walls
   },
   glsl: {
-    uniforms: `uniform vec4 uVs, uVs2, uVs3;   // the Vessel: where along it, the cells' drift, the kick's wave, the surge; its kinds blended, its width; a hue nudge, the cells, the pulse, dim`,
+    uniforms: `uniform vec4 uVs, uVs2, uVs3; uniform float uVsF;   // the Vessel: where along it, the cells' drift, the kick's wave, the surge; its kinds blended, its width; a hue nudge, the cells, the pulse, dim; the front plane's depth`,
     functions: `
 vec3 vsPath(float z){ return vec3(sin(z*0.11)*1.4+sin(z*0.053)*1.1,cos(z*0.09)*0.9+sin(z*0.041)*0.8,z); }
 // the tube: a wide radius round the route, ribbed with folds, swelling where the kick's wave has reached; branches open off it
@@ -97,15 +106,15 @@ vec3 vessel(vec2 sp){
 }`,
     fn: 'vessel',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uVs, P.vs); gl.uniform4fv(u.uVs2, P.vs2); gl.uniform4fv(u.uVs3, P.vs3); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uVs, P.vs); gl.uniform4fv(u.uVs2, P.vs2); gl.uniform4fv(u.uVs3, P.vs3); gl.uniform1f(u.uVsF, P.vsF || 1.8); },
   front: {
     fn: 'vesselFront',
     glsl: `
-float vesselFront(vec2 sp){ vec3 ro, rd=vsCam(sp,ro); float t=0.05, hit; for(int i=0;i<20;i++){ float d=vsMap(ro+rd*t,hit); if(d<0.003*t) return 1.0; t+=d*0.8; if(t>1.8) break; } return 0.0; }`,
+float vesselFront(vec2 sp){ vec3 ro, rd=vsCam(sp,ro); float t=0.05, hit; int n=uVsF>1.9 ? 48 : 20; for(int i=0;i<48;i++){ if(i>=n) break; float d=vsMap(ro+rd*t,hit); if(d<0.003*t) return 1.0; t+=d*0.8; if(t>uVsF) break; } return 0.0; }`,
     path2d(o, P){
       const W = o.canvas.width, H = o.canvas.height, R = rings(P, W, H)[0];
       if (!R) return;
-      o.rect(0, 0, W, H); o.moveTo(R.pts[0][0], R.pts[0][1]); for (let j = R.pts.length - 1; j >= 0; j--) o.lineTo(R.pts[j][0], R.pts[j][1]); o.closePath();
+      o.rect(0, 0, W, H); o.moveTo(R.pts[0][0], R.pts[0][1]); for (let j = 1; j < R.pts.length; j++) o.lineTo(R.pts[j][0], R.pts[j][1]); o.closePath();   // (the ring winds against the rect, so it cuts a hole)
     },
   },
   draw2d(o, P){

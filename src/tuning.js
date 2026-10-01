@@ -253,6 +253,7 @@ export const TUNE = {
     push: .9, pushDecay: 4,    // each kick surges the flow (a share of the speed), easing off this fast (a second)
     cellsFaster: .25,          // the cells drift this much faster than the camera
     cells: 1,                  // how many cells (the share of the grid's places holding one)
+    gate: 40, heartSize: .7,   // a centrepiece floats in the vessel this often (units), and its size at one unit away
   },
   corridor: {speed: 3.2, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Corridor (worlds/corridor.js): its flight, a drop's surge, a new section's frames growing in
     waveSpeed: 26, waveFade: .7,   // the kick's wave of light: how fast it rushes away down the frames (units a second), how fast it fades
