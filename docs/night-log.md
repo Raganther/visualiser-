@@ -20,7 +20,7 @@ Rules for each wake-up:
 1. ~~**Objects truly inside the worlds:**~~ (done 23:40) the 3D worlds hand their depth to the objects, so the Hollow's pillars and the
    Cathedral's columns pass in front of a centrepiece; the Cathedral gets an altar (a place ahead in the nave where the
    centrepiece stands, as the Hollow's chambers do).
-2. **Particles in the worlds:** drifting spores lit by the Hollow's lamp, dust in the Cathedral's shafts of light, both
+2. ~~**Particles in the worlds:**~~ (done 00:05) drifting spores lit by the Hollow's lamp, dust in the Cathedral's shafts of light, both
    moving with the camera's flight, livelier with the hi-hats, bursting on a drop.
 3. **Layers on the walls:** the glowing layers' picture wrapped onto the Hollow's rock and the Cathedral's stone, so the
    neon runs along the walls rather than floating over the picture.
@@ -34,3 +34,4 @@ Rules for each wake-up:
 ## Log
 - 22:05 UTC: published version 55: the Hollow's honeycomb back (every section the gyroid; gentler swoops), the Cathedral (a new world: preset "The Cathedral", or W then its number), the hand rebaked (nails at the fingertips). Tests for the new world (Journey, visuals, golden) running.
 - 23:40 UTC: version 56: objects inside the 3D worlds. The Cathedral sets an altar in a side aisle every 8 bars (and at each new section), where the centrepiece stands, lit, seen past the columns; the Hollow's chambers hold it too; in both, the walls, pillars and columns nearer than the object pass in front of it (the world's front plane drawn only as deep as the object). To see it: the Cathedral or the Hollow, plus an object (O then its number), and wait for an altar or a chamber. Also: the Cathedral's Journey score fixed (it was NaN: never chosen), the golden tests re-recorded for the new world.
+- 00:05 UTC: version 57: particles in the 3D worlds: spores rising through the Hollow's lamp light, dust gathered in the Cathedral's columns of light under the oculi; real 3D points along each view ray (walls hide the ones behind them), the near ones soft and bigger like lights out of focus, twinkling, livelier with the hi-hats, bursting on a drop. Simple mode streams dots past. To see it: either world.
