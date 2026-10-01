@@ -254,6 +254,12 @@ export const TUNE = {
     cellsFaster: .25,          // the cells drift this much faster than the camera
     cells: 1,                  // how many cells (the share of the grid's places holding one)
   },
+  corridor: {speed: 3.2, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Corridor (worlds/corridor.js): its flight, a drop's surge, a new section's frames growing in
+    waveSpeed: 26, waveFade: .7,   // the kick's wave of light: how fast it rushes away down the frames (units a second), how fast it fades
+    strobeHz: 6,               // a drop's strobe (flashes a second, while the surge lasts; halved with reduce motion)
+    gate: 36,                  // a centrepiece stands in the hall this often (units)
+    heartSize: .35,            // its size at one unit away
+    glow: 1},                  // the frames' glow
   geode: {speed: 2.2, calm: .35, surge: 2.2, surgeSecs: 2.5, morphSecs: 5,   // the Geode (worlds/geode.js): its flight, a drop's surge, a new section's crystal growing in
     cavitySlow: .45,           // through a cavity's middle the flight slows to this share, to take it in
     growCalm: .55, growHigh: 1.15,   // how long the crystals grow, calm to intense (a drop adds a little)
