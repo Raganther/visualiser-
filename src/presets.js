@@ -89,6 +89,7 @@ export const BASE = [
   // the cave flown through, with the flow's particles streaming past
   {name:'Into the Hollow', decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, hollow:1, flow:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'The Vessel', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, vessel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Geode', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, geode:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'The Cathedral', journey:false, decay:.9, zoom:1.003, rot:0, warp:.03, sym:1, cathedral:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
