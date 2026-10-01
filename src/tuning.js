@@ -422,6 +422,7 @@ export const TUNE = {
     // layers, round the picture's centre (radians, scale): how far each move goes at middling energy
     layer: {rock: .25, breathe: .08, spin: .25, push: .18, pulse: .06, bloom: .12},
     // objects: a head bang's nod, a groove's bounce and squash, a glance, a pulse, a float, coming towards us (scale), tipping back (radians)
-    obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5},
+    obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5,
+      reach: .4, reachTip: .45, reachIn: .25, reachHold: 1, reachOut: 1.5},   // a reacher on a drop (the user loved the hand and tentacle "reaching out towards you"): how much closer, how far its top tips towards us, the lunge, the hold and the easing back (bars)
   },
 };

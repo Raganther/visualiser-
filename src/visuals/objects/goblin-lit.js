@@ -7,7 +7,7 @@ import { litObject } from './lit-object.js';
 import A from './meshes/goblin-lit.js';
 
 export default litObject({key: 'goblinLit', label: 'Goblin, lit', words: 'A lifelike goblin under moving lights', asset: A,
-  dance: {moves: {bang: 1.2, look: 1.6, face: .6, pulse: .8, approach: 1.6, still: 1.2, groove: .3, float: .3, spin: .1, rise: .2, lift: 0}, sym: 4, liftPart: 0},
+  dance: {moves: {bang: 1.2, look: 1.6, face: .6, pulse: .8, approach: 1.6, still: 1.2, groove: .3, float: .3, spin: .1, rise: .2, lift: 0}, sym: 4, reach: true, liftPart: 0},
   motion(U, P, x, st){   // the snarl: a glower while it's quiet, the mids working the jaw, a full snarl on the downbeat when intense
     const G = TUNE.goblin, ten = (x.J && x.J.tension) || 0;
     st.hit *= Math.exp(-x.dt*G.snapDecay);

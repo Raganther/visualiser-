@@ -7,7 +7,7 @@ import A from './meshes/tentacle-lit.js';
 
 const z = new Array(9).fill(0), xs = new Array(9).fill(0);
 export default litObject({key: 'tentacle', label: 'Tentacle', words: 'An octopus arm writhes to the music', asset: A, bend: true,
-  dance: {moves: {look: 1.4, float: 1.4, still: 1, approach: 1, pulse: .8, groove: .5, bang: .2, face: .3, spin: .2, rise: .3, lift: 0}, sym: 2, liftPart: 0},
+  dance: {moves: {look: 1.4, float: 1.4, still: 1, approach: 1, pulse: .8, groove: .5, bang: .2, face: .3, spin: .2, rise: .3, lift: 0}, sym: 2, reach: true, liftPart: 0},
   motion(U, P, x, st){
     const T = TUNE.tentacle, ten = (x.J && x.J.tension) || 0;
     st.ph = (st.ph || 0) + x.dt*T.waveSpeed*(.5 + ten);

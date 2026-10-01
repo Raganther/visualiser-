@@ -6,7 +6,7 @@ import { litObject } from './lit-object.js';
 import A from './meshes/hand-lit.js';
 
 export default litObject({key: 'hand', label: 'Hand', words: 'A hand grips to the beat', asset: A,
-  dance: {moves: {look: 1.4, float: 1, still: 1, approach: 1.2, pulse: 1, groove: .6, bang: .6, face: .4, spin: .2, rise: .4, lift: 0}, sym: 2, liftPart: 0},
+  dance: {moves: {look: 1.4, float: 1, still: 1, approach: 1.2, pulse: 1, groove: .6, bang: .6, face: .4, spin: .2, rise: .4, lift: 0}, sym: 2, reach: true, liftPart: 0},
   beat(pos, st){ st.k = 1; },   // its own grip on each beat, letting go over the beat (the pulse, P.beat, is too gentle for a fist)
   motion(U, P, x, st){
     const T = TUNE.hand, ten = (x.J && x.J.tension) || 0;

@@ -87,8 +87,8 @@ export function danceBeat(pos, J){
   for (const k in D) {
     const d = D[k];
     d.turn += d.move === 'face' ? d.sign*TAU/(d.n || 4) : d.move === 'turns' ? d.sign*TAU/12 : 0;   // snap turns step round on the bar (a layer by a notch)
-    if (drop) { wrap(d); d.burst = 1; d.move = 'spin'; d.bar = bar; continue; }
-    if (phrase || section || d.move === 'still' && mood.b < .5) {
+    if (drop) { wrap(d); d.bar = bar; if (d.reach) d.move = 'reach'; else { d.burst = 1; d.move = 'spin'; } continue; }   // a reacher reaches out at us instead of spinning
+    if ((phrase || section || d.move === 'still' && mood.b < .5) && !(d.move === 'reach' && bar - d.bar < 3)) {   // (a reach plays out)
       wrap(d);
       d.move = choose(d, k, k.startsWith('o:') ? OBJ_MOVES : LAYER_MOVES, J, d.character); d.bar = bar;
       d.sign = rnd() < .5 ? -1 : 1;
@@ -134,7 +134,7 @@ export function stepDance(dt, x, layers, objects, chars){
   for (const k in DANCE.layer) if (!D[k]) delete DANCE.layer[k];
   for (const key of objects) {
     const k = 'o:' + key, d = D[k], ch = chars[key] || {};
-    d.character = ch.moves; d.n = ch.sym || 4;
+    d.character = ch.moves; d.n = ch.sym || 4; d.reach = ch.reach;
     const t = (bar - d.bar + bp), s = d.s, g = d.sign, a = T.obj;
     d.kick *= Math.exp(-dt*7); d.burst *= Math.exp(-dt*1.2);
     if ((SIG.stab || 0) > .8) d.stab = 1; d.stab *= Math.exp(-dt*5);
@@ -151,6 +151,8 @@ export function stepDance(dt, x, layers, objects, chars){
       case 'lift': lift = arc(t/2)*big; break;
       case 'approach': sz = 1 + (ch.approach ?? a.approach)*arc(t/8); break;                 // coming slowly towards us over eight bars, and back
       case 'rise': pitch = -(ch.rise ?? a.rise)*arc(t/8); sz = 1 + .1*arc(t/8); break;       // tipping back to show its underside, and down again
+      case 'reach': { const e = Math.min(1, t/a.reachIn)*Math.max(0, Math.min(1, 1 - (t - a.reachHold)/a.reachOut));   // (a drop) lunging at us, holding, easing back
+        yaw = 0; pitch = a.reachTip*e*e*(3 - 2*e); sz = 1 + (ch.reachSize ?? a.reach)*e*e*(3 - 2*e); break; }   // face on, tipping its top towards us, coming close
     }
     yaw += d.burst*g*TAU; sz += d.burst*.15;
     const k2 = T.stiff*T.objStiff;
