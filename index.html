@@ -88,8 +88,10 @@
     <input type="range" id="sync" min="-200" max="400" step="5" value="0"></div>
   <div class="row"><button id="tapSync" class="btn" type="button">Tap on the kick</button><output id="tapOut">tap along to set the sync (Bluetooth speakers)</output></div>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
+  <div class="row"><label for="res">Resolution</label><output id="resOut">Automatic</output>
+    <select id="res" aria-label="Resolution"><option value="0">Automatic (follows the frame rate)</option><option value="1">Full, held</option><option value="0.75">75%, held</option><option value="0.5">50%, held</option><option value="0.35">35%, held</option></select></div>
   <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey, and no other world, until this tab closes (to keep it for a while, W then its number while Journey runs). Whenever the cosmos is on screen, C then a key flies it (? lists them)</label>
-  <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
+  <p class="note">If the picture keeps stalling as it adjusts, hold the Resolution at a lower size. If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
   <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
     <button id="assetsBtn" style="border-color:var(--line)" title="Every world, layer, hit and object, to look at on its own (V)">Assets</button>
     <button id="copyBtn" style="border-color:var(--line)">Copy settings</button>

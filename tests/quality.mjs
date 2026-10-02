@@ -7,6 +7,20 @@ const {srv, url} = await serve();
 let failed = false;
 const check = (ok, msg) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); };
 
+// the panel's Resolution held at 50%: half the size at once, and it stays there through slow and fast frames
+async function held(page, mode, gl){
+  const h = await page.evaluate(async gl => {
+    const w = () => document.querySelector('canvas').width, sel = document.querySelector('#res');
+    const pick = v => { sel.value = v; sel.dispatchEvent(new Event('change')); __step(2); };
+    const w1 = w(); pick('1'); const full = w(); pick('0.5'); const half = w();
+    __step(25*(gl ? 4 : 12), 40); const slow = w(); __step(60*(gl ? 20 : 40)); const fast = w();
+    const saved = localStorage.getItem('afterglow.res'), out = document.querySelector('#resOut').textContent;
+    pick('0'); return {w1, full, half, slow, fast, saved, out, auto: w()};
+  }, gl);
+  check(Math.abs(h.half/h.full - .5) < .02 && h.slow === h.half && h.fast === h.half && h.saved === '0.5' && h.out === '50%' && h.auto === h.full,
+    `${mode}: Resolution held at 50% stays put (width ${h.full} → ${h.half}; slow ${h.slow}, fast ${h.fast}; "${h.out}", saved ${h.saved}; automatic again ${h.auto})`);
+}
+
 // the whole controller in simple mode; WebGL (slow in software) just a drop and a recovery, with the waits shortened
 for (const mode of ['2d', 'gl']) {
   const gl = mode === 'gl', browser = await launch(mode);
@@ -23,7 +37,7 @@ for (const mode of ['2d', 'gl']) {
   const errors = await page.errors();
   check(!errors.length && r.steady[0] === 1 && r.slow[0] < 1 && r.slow[1] < r.steady[1] && r.floor >= .5 && r.back[0] === 1 && r.back[1] === r.steady[1],
     `${mode}: resolution follows the frame rate (60 fps ${r.steady[0]}, 25 fps ${r.slow[0]} then ${r.floor}, back to ${r.back[0]}; width ${r.steady[1]} → ${r.slow[1]} → ${r.back[1]})${errors.length ? ' ' + errors : ''}`);
-  if (gl) { await browser.close(); continue; }
+  if (gl) { await held(page, mode, gl); await browser.close(); continue; }
   // a step up that makes it slow again: it goes back down and stays under that step for a while
   const p = await page.evaluate(async () => {
     const w0 = document.querySelector('canvas').width, Q = {get scale(){ return Math.round(document.querySelector("canvas").width/w0*100)/100; }};
@@ -33,6 +47,7 @@ for (const mode of ['2d', 'gl']) {
     __step(60*40); return {low, tried, after, held: Q.scale};
   });
   check(p.tried > p.low && p.after < p.tried && p.held < p.tried, `${mode}: a step up that's too much is taken back and not retried at once (${p.low} → ${p.tried} → ${p.after}, ${p.held} 40 s later)`);
+  await held(page, mode, gl);
   await browser.close();
 }
 

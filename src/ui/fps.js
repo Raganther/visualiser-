@@ -1,5 +1,6 @@
-// The frame-rate readout (on until hidden with P or "Show frame rate" in the panel): frames drawn a second, the time each takes, and what's on screen.
+// The frame-rate readout (on until hidden with P or "Show frame rate" in the panel): frames drawn a second, the time each takes, and what's on screen; and the Resolution setting.
 import { $ } from '../util.js';
+import { setResolution } from '../render/quality.js';
 
 const on0 = (() => { try { return localStorage.getItem('afterglow.fps') !== '0'; } catch (e) { return true; } })();
 let on = on0, n = 0, cpu = 0, worst = 0, since = 0, lastT = 0, gap = 0;
@@ -22,3 +23,12 @@ export function fpsTick(now, ms, info){
 }
 $('#fpsOn').addEventListener('change', e => showFps(e.target.checked));
 showFps(on0);
+
+// Resolution: automatic, or held at one size (remembered), for devices where the stepping up and down itself stalls
+function holdRes(v){
+  const sel = $('#res'); if (![...sel.options].some(o => o.value === v)) v = '0';
+  sel.value = v; $('#resOut').textContent = sel.selectedOptions[0].textContent.replace(/ \(.*|, held/g, ''); setResolution(+v);
+  try { localStorage.setItem('afterglow.res', v); } catch (e) {}
+}
+$('#res').addEventListener('change', e => holdRes(e.target.value));
+holdRes((() => { try { return localStorage.getItem('afterglow.res') || '0'; } catch (e) { return '0'; } })());
