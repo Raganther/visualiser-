@@ -205,3 +205,72 @@ This could allow sound and visuals to feel intentionally composed together rathe
 - How should human actions override AI decisions?
 - Could the AI learn a performer's musical preferences over time?
 - Can Journey and the musical AI share a higher-level concept of tension, release and narrative?
+
+
+## 14. Minimum viable experiment — prove the AI musician
+
+Before building the full DJ system, test the smallest version of the central premise:
+
+**Can an AI understand an existing track well enough to add a simple musical contribution in real time that feels intentional rather than random?**
+
+### MVP scope
+
+1. **One audio deck**
+   - Load one techno track.
+   - Reuse Afterglow's existing pre-analysis.
+   - Expose BPM, beat grid, bars, energy and upcoming structural changes to the AI layer.
+
+2. **One tiny built-in drum instrument**
+   - Kick.
+   - Closed hi-hat.
+   - Open hi-hat.
+   - Simple 16-step sequencer.
+   - No attempt to build a full synthesizer yet.
+
+3. **One constrained AI performer**
+   - Start a pattern.
+   - Change a pattern.
+   - Stop a pattern.
+   - Choose from a deliberately small rhythmic vocabulary.
+   - Quantise all actions to musical boundaries.
+
+4. **One controllable production effect**
+   - Start with either a filter or delay.
+   - Allow the AI to automate it over beats/bars.
+   - This tests production decisions as well as note/rhythm decisions.
+
+5. **Journey remains active**
+   - Journey continues responding to the original track.
+   - Journey also receives AI performance events so the experiment can test musical and visual coexistence.
+
+### Example test
+
+Load a techno track and press **AI Perform**.
+
+The AI sees that the track is entering a sparse breakdown and that energy will rise toward an upcoming drop. It decides to introduce a restrained hi-hat pattern on the next bar, modifies that pattern as the build develops, gradually changes the selected effect, and deliberately stops before the drop.
+
+### Success criterion
+
+The first milestone is not feature count.
+
+The experiment succeeds if listening to the result produces the impression:
+
+> **"That felt like another musician understood what the track was doing."**
+
+If the additions feel random, intrusive or mechanically reactive, improve the analysis/decision model before expanding the product.
+
+### Explicitly outside MVP
+
+Do not initially build:
+- Deck B
+- Crossfader
+- Full DJ mixer
+- Full synth engine
+- VST hosting
+- Ableton integration
+- Stems
+- Large sample library
+- Complex live sampling
+- Autonomous DJing
+
+Those become later experiments once the AI-musician premise has been demonstrated.
