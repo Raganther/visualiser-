@@ -102,27 +102,80 @@ Initial possibilities:
 
 The system could send notes, velocity, duration and parameter automation to these instruments.
 
-## 8. VST integration
+## 8. Plugins and instrument rack
 
-Longer-term, Afterglow could potentially host VST instruments/effects through a native audio component.
+For the first experiments, **do not build our own instruments**.
 
-A simpler experimental route may be to use an existing DAW as the instrument host first.
+Use existing free/open software instruments and effects as the AI's playable instrument rack. The rack can deliberately stay small:
+- Drum/percussion instrument
+- Bass synth
+- Poly/pad synth
+- Optional lead/arpeggiator
+- EQ
+- Filter
+- Compressor / sidechain compressor
+- Reverb
+- Delay
 
-## 9. Ableton experiment
+The DAW hosts these plugins and handles audio/MIDI execution. Afterglow and the AI focus on perception, musical decisions and performance intent.
 
-Ableton Live could act as the sound/instrument environment while Afterglow provides musical analysis, foresight and visual intelligence.
+Longer-term, Afterglow could potentially host VST/LV2/AU instruments/effects through its own native audio component, but only if there is a clear benefit after the AI-musician premise has been proven.
 
-Example routing:
+## 9. DAW host strategy — Ardour first, Ableton still possible
+
+A DAW can act as the AI's studio rather than Afterglow initially rebuilding a DAW.
+
+### Current MVP candidate: Ardour
+
+Ardour is especially interesting because it is open-source, supports software-instrument/effect plugins, scripting/external control, and now has an experimental MCP HTTP control surface intended for AI clients.
+
+For the MVP, Ardour could provide:
+- Instrument/plugin hosting
+- MIDI regions and note playback
+- Mixer
+- EQ
+- Filters
+- Compression and sidechaining
+- Reverb/delay/effects
+- Sends/routing
+- Automation
+- Transport and musical-time execution
+
+This makes Ardour analogous to an **instrument rack + mixer + production environment** that the AI can operate.
+
+### Ableton remains an option
+
+Ableton Live could still act as the sound/instrument environment while Afterglow provides musical analysis, foresight and visual intelligence.
+
+Example routing in either host:
 - MIDI 1 → drums
 - MIDI 2 → hats/percussion
-- MIDI 3 → bass VST
+- MIDI 3 → bass synth
 - MIDI 4 → chords/pads
 - MIDI 5 → lead/arpeggiator
 - Additional control → filters, effects, sends, mutes and automation
 
-Ableton handles sound generation and VST hosting. Afterglow/Journey handles analysis and visuals. An AI performance layer makes bounded musical decisions and sends MIDI/control information.
+The architectural goal is to avoid making the AI-musician concept dependent on one DAW.
 
-## 10. AI-native performance layer
+## 10. MCP / control interface
+
+MCP may provide the AI-friendly control surface between the decision layer and external music software.
+
+A useful conceptual chain is:
+
+**Afterglow analysis → structured musical state → AI musician → MCP/control tools → DAW/plugins**
+
+Ardour's experimental built-in MCP server makes it particularly useful for the first probe. Its documented control surface includes areas relevant to the MVP such as transport/musical time, tracks and buses, plugins and parameters, routing/sends, regions/loops and MIDI-region/note editing.
+
+The important distinction is:
+- MCP/control layer gives the AI **hands**.
+- Afterglow analysis gives the AI **ears and foresight**.
+- The AI model supplies **musical/production decisions**.
+- The DAW and plugins supply **sound generation, mixing and precise execution**.
+
+We should test actual real-time latency and reliability rather than assuming that an MCP interface designed for general AI control is automatically suitable for beat-by-beat performance. Higher-level actions scheduled ahead to bars/phrases may prove more reliable than requiring an LLM round-trip on every beat.
+
+## 11. AI-native performance layer
 
 The AI does not necessarily need to "hear" raw audio directly.
 
@@ -151,7 +204,7 @@ It can then make decisions such as:
 
 The sequencer/audio engine executes those decisions sample-accurately or beat-accurately.
 
-## 11. Fast decision AI / JEV-like architecture
+## 12. Fast decision AI / JEV-like architecture
 
 Explore whether a fast decision model is useful for moment-to-moment performance.
 
@@ -163,7 +216,7 @@ Important distinction:
 
 Do not commit to JEV or any particular model yet. Investigate latency, reliability, local vs API execution, structured outputs and whether conventional algorithms can handle some decisions better than an AI model.
 
-## 12. Bounded AI musicianship
+## 13. Bounded AI musicianship
 
 Avoid giving the AI unrestricted control.
 
@@ -185,7 +238,7 @@ Possible user control:
 
 The goal is not an autopilot DJ. The human remains the performer while the AI behaves more like a responsive musical collaborator.
 
-## 13. Journey + AI together
+## 14. Journey + AI together
 
 Journey and the musical AI should consume the same event/state stream.
 
@@ -207,7 +260,7 @@ This could allow sound and visuals to feel intentionally composed together rathe
 - Can Journey and the musical AI share a higher-level concept of tension, release and narrative?
 
 
-## 14. Minimum viable experiment — prove the AI musician
+## 15. Minimum viable experiment — prove the AI musician
 
 Before building the full DJ system, test the smallest version of the central premise:
 
@@ -220,12 +273,13 @@ Before building the full DJ system, test the smallest version of the central pre
    - Reuse Afterglow's existing pre-analysis.
    - Expose BPM, beat grid, bars, energy and upcoming structural changes to the AI layer.
 
-2. **One tiny built-in drum instrument**
+2. **One tiny external drum/percussion instrument rack**
+   - Hosted in Ardour for the first experiment.
    - Kick.
    - Closed hi-hat.
    - Open hi-hat.
-   - Simple 16-step sequencer.
-   - No attempt to build a full synthesizer yet.
+   - A simple MIDI pattern/region is enough.
+   - Prefer an existing free plugin rather than building a synth or drum machine ourselves.
 
 3. **One constrained AI performer**
    - Start a pattern.
@@ -235,9 +289,10 @@ Before building the full DJ system, test the smallest version of the central pre
    - Quantise all actions to musical boundaries.
 
 4. **One controllable production effect**
-   - Start with either a filter or delay.
+   - Start with either a filter or delay hosted in Ardour.
    - Allow the AI to automate it over beats/bars.
    - This tests production decisions as well as note/rhythm decisions.
+   - A follow-up test can sidechain an AI-generated bass or instrument against the source track's kick/energy structure.
 
 5. **Journey remains active**
    - Journey continues responding to the original track.
@@ -276,7 +331,7 @@ Do not initially build:
 Those become later experiments once the AI-musician premise has been demonstrated.
 
 
-## 15. DJ fundamentals to preserve
+## 16. DJ fundamentals to preserve
 
 The DJ layer should support both traditional hands-on control and assisted control.
 
@@ -303,7 +358,7 @@ This could allow transitions such as retaining Track A's bass while introducing 
 
 Stem information could also become useful input to Journey and the AI musician.
 
-## 16. AI as producer, not only note generator
+## 17. AI as producer, not only note generator
 
 The AI performance layer should eventually be able to make **production decisions** as well as generate MIDI notes or rhythms.
 
@@ -324,7 +379,7 @@ Example: the AI adds its own bass synth and sidechains it to the kick detected i
 
 This means the AI's playable instrument can eventually be the **whole production environment**, not merely a synthesizer.
 
-## 17. AI-native principle — build the musician, not necessarily the instruments
+## 18. AI-native principle — build the musician, not necessarily the instruments
 
 The central AI-native idea does **not** require rebuilding every existing music tool.
 
@@ -346,3 +401,38 @@ It is:
 > **Can we build an AI musician/producer that understands an unfolding track, looks ahead using Afterglow's analysis, and operates musical tools convincingly in real time?**
 
 If that premise works, later versions can decide pragmatically which capabilities should remain external and which are worth implementing natively inside Afterglow.
+
+
+## 19. Current working architecture
+
+The current working hypothesis for the first serious prototype is:
+
+**Main track / DJ playback → Afterglow analysis → structured present + future musical state → AI musician/producer → Ardour MCP/control layer → plugin instruments + mixer/effects → audio output**
+
+At the same time:
+
+**Afterglow state + AI performance decisions → Journey → coordinated visuals**
+
+Important principles:
+- Ardour is currently a **candidate implementation tool**, not part of Afterglow's permanent identity.
+- Ardour can initially function as the AI's instrument rack, mixer and effects/production environment.
+- Existing plugins should be preferred over writing instruments from scratch for the MVP.
+- Afterglow remains responsible for the distinctive musical perception/foresight layer.
+- The AI should make higher-level musical and production decisions.
+- Deterministic audio/MIDI systems should execute time-critical events.
+- The main DJ audio and AI-generated material must share reliable musical timing.
+- Sidechain/control relationships between the source track and AI-generated instruments should be explored.
+- If external tools become limiting, capabilities can later migrate into Afterglow.
+
+## 20. Immediate research/prototype questions
+
+Before committing to a larger implementation, test:
+- Can Afterglow expose its existing analysis as a clean structured state stream?
+- Can that state include useful **future** information: next bar/phrase, upcoming breakdown/drop, energy trajectory and structural confidence?
+- How should Afterglow's clock be synchronized with Ardour's transport?
+- Can Ardour's MCP interface reliably create/change MIDI material and plugin parameters quickly enough for this use?
+- Which actions should the AI schedule several bars ahead rather than attempt instantaneously?
+- Can the source track or extracted kick information drive sidechain compression on AI-generated instruments?
+- Which free plugin instruments make a minimal, controllable AI instrument rack?
+- How should a human override or constrain AI actions during performance?
+- What is the smallest end-to-end test that makes the AI feel like a musician rather than a random pattern generator?
