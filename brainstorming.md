@@ -274,3 +274,75 @@ Do not initially build:
 - Autonomous DJing
 
 Those become later experiments once the AI-musician premise has been demonstrated.
+
+
+## 15. DJ fundamentals to preserve
+
+The DJ layer should support both traditional hands-on control and assisted control.
+
+### Beat matching
+- **Manual beat matching:** pitch/tempo adjustment, cue monitoring, waveform/beat-grid feedback and manual alignment.
+- **Automatic Sync:** match BPM and align beat grids when the performer wants assistance.
+- The goal is not to remove DJ technique; assistance should be optional.
+
+### Phrase matching
+Afterglow's pre-analysis creates the possibility of going beyond ordinary beat sync.
+
+A future **phrase match** feature could help align the start of a 16- or 32-bar phrase in one deck with a musically appropriate phrase boundary in the other. This could use Afterglow's knowledge of sections, builds, breakdowns and drops.
+
+This may become a distinctive Afterglow DJ feature: **beat match + phrase match + structural foresight**.
+
+### Stems
+Explore separating tracks into musical components such as:
+- Drums
+- Bass
+- Vocals
+- Other/melodic material
+
+This could allow transitions such as retaining Track A's bass while introducing Track B's percussion, or removing A's drums before bringing B's drums in.
+
+Stem information could also become useful input to Journey and the AI musician.
+
+## 16. AI as producer, not only note generator
+
+The AI performance layer should eventually be able to make **production decisions** as well as generate MIDI notes or rhythms.
+
+Potential controls include:
+- EQ
+- Filters
+- Compression
+- Sidechain compression
+- Reverb
+- Delay
+- Distortion
+- Sends/returns
+- Channel mutes
+- Effect routing
+- Parameter automation
+
+Example: the AI adds its own bass synth and sidechains it to the kick detected in the source track. During a breakdown it reduces the pumping, increases reverb and changes filtering. As the drop approaches it builds delay/filter movement, then clears those effects and restores stronger sidechain at the drop.
+
+This means the AI's playable instrument can eventually be the **whole production environment**, not merely a synthesizer.
+
+## 17. AI-native principle — build the musician, not necessarily the instruments
+
+The central AI-native idea does **not** require rebuilding every existing music tool.
+
+Conceptually:
+
+**Afterglow analysis = ears / musical perception**  
+**AI performance layer = musician / producer / decision-maker**  
+**Ableton, VSTs, DJ engines or Afterglow audio modules = instruments and production tools**  
+**Journey = visual performer**
+
+Existing software can remain conventional internally while becoming part of an AI-native system because the AI is operating it through a structured musical control layer.
+
+The initial research question is therefore not:
+
+> Can we rebuild Ableton or a complete DJ application?
+
+It is:
+
+> **Can we build an AI musician/producer that understands an unfolding track, looks ahead using Afterglow's analysis, and operates musical tools convincingly in real time?**
+
+If that premise works, later versions can decide pragmatically which capabilities should remain external and which are worth implementing natively inside Afterglow.
