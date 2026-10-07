@@ -6,9 +6,10 @@ import { actx, analyser, ensureAudio, playing as playerPlaying, togglePlay } fro
 
 // a deck: its track (buf), what was read ahead of it (ana: beats, bars, phrases, drops), its waveform (peaks), and where it
 // is: off (the track's time) at t0 (the audio clock's), playing at rate (its tempo, base, with a nudge, bend, and a synced
-// deck's pull back into phase, lock); cue, sync, and the mixer's settings for it
+// deck's pull back into phase, lock); cue, sync, a loop ({a, b, n}: its start and end in the track, n beats long), and the
+// mixer's settings for it
 const deck = i => ({i, name: '', buf: null, ana: null, peaks: null, src: null, playing: false, off: 0, t0: 0, rate: 1, base: 1, bend: 0, lock: 0,
-  cue: 0, sync: false, eq: {low: 0, mid: 0, high: 0}, filt: 0, fader: 1, n: null, token: 0, reading: false});
+  cue: 0, sync: false, loop: null, eq: {low: 0, mid: 0, high: 0}, filt: 0, fader: 1, n: null, token: 0, reading: false});
 export const DJ = {decks: [deck(0), deck(1)], xf: .5, lead: null, open: false};
 const D = DJ.decks, listeners = new Set();
 export const onDJ = fn => listeners.add(fn);
@@ -53,7 +54,9 @@ const level = d => d.playing ? d.fader*d.fader*xfGain(d.i) : 0;
 export function pos(d, at = actx ? actx.currentTime : 0){
   if (!d.buf) return 0;
   if (!d.playing || at < d.t0) return d.off;
-  return Math.min(d.buf.duration, d.off + (at - d.t0)*d.rate);
+  const x = d.off + (at - d.t0)*d.rate, L = d.loop;
+  if (L && x >= L.b) return L.a + (x - L.a) % (L.b - L.a);   // (round the loop, as the source plays it)
+  return Math.min(d.buf.duration, x);
 }
 const heard = d => pos(d, actx.currentTime - (actx.outputLatency || actx.baseLatency || 0));   // at the speakers now
 const mapOf = d => d.ana && d.ana.map;
@@ -82,6 +85,8 @@ function start(d, x, when = 0){
   if (playerPlaying) togglePlay();   // (the main player stops: the decks take over)
   const s = actx.createBufferSource(), now = actx.currentTime;
   s.buffer = d.buf; s.playbackRate.value = d.rate; s.connect(d.n.low);
+  if (d.loop && (x < d.loop.a - .01 || x >= d.loop.b)) d.loop = null;   // (moved out of the loop: it's left)
+  if (d.loop) { s.loop = true; s.loopStart = d.loop.a; s.loopEnd = d.loop.b; }
   s.onended = () => { if (d.src !== s) return; d.src = null; d.playing = false; d.off = d.buf.duration; changed(); };
   x = Math.max(0, Math.min(x, d.buf.duration - .01));
   s.start(Math.max(now, when), x);
@@ -105,7 +110,7 @@ export async function djLoad(i, src, name){
   let buf = src;
   if (!(src instanceof AudioBuffer)) { try { buf = await actx.decodeAudioData(await src.arrayBuffer()); } catch (e) { if (token === d.token) { d.reading = false; d.name = ''; changed(); } throw e; } }
   if (token !== d.token) return;
-  Object.assign(d, {buf, ana: null, peaks: null, off: 0, cue: 0, sync: false, bend: 0, lock: 0}); d.base = 1; setRate(d); changed();
+  Object.assign(d, {buf, ana: null, peaks: null, off: 0, cue: 0, sync: false, bend: 0, lock: 0, loop: null}); d.base = 1; setRate(d); changed();
   peaksOf(buf).then(p => { if (token === d.token) { d.peaks = p; changed(); } });
   const ana = await readAhead(buf, () => token === d.token);
   if (token !== d.token) return;
@@ -128,14 +133,32 @@ export function djPlay(i){
   }
   start(d, d.off);
 }
-// cue: while playing, back to the cue point and stop; stopped, the cue point moves here (to the nearest beat)
+// cue: back to the cue point, stopped (a club player's cue also set it when pressed while stopped, which with a mouse moved
+// it by surprise: the user found it erratic); set: the cue point here, on the nearest beat
 export function djCue(i){
   const d = D[i]; if (!d.buf) return;
-  if (d.playing) { stop(d); d.off = d.cue; changed(); return; }
-  const x = mapOf(d) ? Math.max(0, timeOfBeat(d, Math.round(beatAt(d, d.off)))) : d.off;
-  d.cue = d.off = x; changed();
+  if (d.playing) stop(d);
+  d.loop = null; d.off = d.cue; changed();
 }
-export function djSeek(i, x){ const d = D[i]; if (!d.buf) return; if (d.playing) start(d, x); else { d.off = Math.max(0, Math.min(x, d.buf.duration)); changed(); } }
+export function djSetCue(i){
+  const d = D[i]; if (!d.buf) return;
+  const x = pos(d); d.cue = mapOf(d) ? Math.max(0, timeOfBeat(d, Math.round(beatAt(d, x)))) : x; changed();
+}
+// a loop of n beats from the beat it's on (the same n again: out of it, playing on); another n changes its length. The
+// source loops it itself (seamless), and pos() follows it round
+export function djLoop(i, n){
+  const d = D[i]; if (!d.buf || !mapOf(d)) return;
+  const now = actx ? actx.currentTime : 0;
+  if (d.playing && now >= d.t0) { d.off = pos(d, now); d.t0 = now; }   // (counted from here, whatever the loop was)
+  if (d.loop && d.loop.n === n) { d.loop = null; if (d.src) d.src.loop = false; changed(); return; }
+  const a = d.loop ? d.loop.a : Math.max(0, timeOfBeat(d, Math.floor(beatAt(d, d.off) + 1e-3)));
+  d.loop = {a, b: Math.min(d.buf.duration, timeOfBeat(d, beatAt(d, a) + n)), n};
+  const past = d.off >= d.loop.b;   // (a shorter loop than where it is: round it, and the source started again there, as it would jump to the start)
+  if (past) d.off = d.loop.a + (d.off - d.loop.a) % (d.loop.b - d.loop.a);
+  if (d.src) { if (past && d.playing && now >= d.t0) return start(d, d.off); d.src.loopStart = d.loop.a; d.src.loopEnd = d.loop.b; d.src.loop = true; }
+  changed();
+}
+export function djSeek(i, x){ const d = D[i]; if (!d.buf) return; if (d.loop && (x < d.loop.a || x >= d.loop.b)) d.loop = null; if (d.playing) start(d, x); else { d.off = Math.max(0, Math.min(x, d.buf.duration)); changed(); } }
 export function djTempo(i, v){ const d = D[i]; d.sync = false; d.lock = 0; d.base = 1 + Math.max(-1, Math.min(1, v))*TUNE.dj.tempoRange; setRate(d); changed(); }
 export function djBend(i, dir){ const d = D[i]; d.bend = dir*TUNE.dj.bend; setRate(d); }
 // sync: this deck's tempo to the other's, and (both playing) its bars lined up with the other's; it then follows the

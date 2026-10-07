@@ -248,3 +248,6 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .xfl{display:flex;justify-content:space-between;color:var(--dim);font-size:11px}
 #dj .xf{width:100%}
 @media (max-width:820px){ #dj .djb{grid-template-columns:minmax(0,1fr) 180px minmax(0,1fr)} #dj .djh span{display:none} #dj .knob{width:38px} }
+#dj .dl{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+#dj .dl .lp{min-width:30px;padding:2px 6px}
+#dj .dl .set{margin-right:8px}

@@ -1,6 +1,6 @@
 // DJ mode (audio/dj.js, ui/dj.js), with real audio on two synthetic tracks (124 and 128 BPM): the panel opens under the
 // picture (which is drawn that much shorter) and closes again; each deck's beats are read; sync matches the tempo and
-// lines up the bars, and they stay in phase; the crossfader hands the beat grid to the other deck; the EQ and filter move.
+// lines up the bars, and they stay in phase; the crossfader hands the beat grid to the other deck; the EQ and filter move; cue goes back, set moves it; a loop goes round.
 // Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
@@ -71,6 +71,24 @@ check('the crossfader hands the beat grid to the other deck', x.lead === 1 && x.
 await run(() => { __dj.djEq(0, 'low', -26); __dj.djFilter(1, -.6); }); await wait(300);
 const eq = await run(() => { const D = __dj.DJ.decks; return {low: D[0].n.low.gain.value, type: D[1].n.filt.type, f: D[1].n.filt.frequency.value}; });
 check('the EQ kills the bass, and the filter closes down', eq.low < -20 && eq.type === 'lowpass' && eq.f < 2000, `low ${eq.low.toFixed(1)} dB, ${eq.type} at ${Math.round(eq.f)} Hz`);
+
+// cue: always back to the cue point, stopped; set: the cue point here, on a beat
+const cue = await run(() => { const d = __dj.DJ.decks[0], c0 = d.cue; __dj.djSeek(0, 20); __dj.djCue(0); const back = [d.playing, d.off, c0];
+  __dj.djSeek(0, 10.3); __dj.djSetCue(0); const set = d.cue, k = __dj.beatAt(d, set); __dj.djSeek(0, 30); __dj.djCue(0); return {back, set, k, again: d.off}; });
+check('cue goes back to the cue point, stopped; set puts it on the nearest beat',
+  cue.back[0] === false && Math.abs(cue.back[1] - cue.back[2]) < 1e-6 && Math.abs(cue.set - 10.3) < .3 && Math.abs(cue.k - Math.round(cue.k)) < 1e-3 && Math.abs(cue.again - cue.set) < 1e-6,
+  `back to ${cue.back[1].toFixed(3)} s; set at ${cue.set.toFixed(3)} s (beat ${cue.k.toFixed(3)}), back there from 30 s`);
+
+// a loop of 4 beats: it stays inside it, going round, and leaving it plays on
+await run(() => { __dj.djXf(.5); __dj.djPlay(0); }); await wait(600);
+const lp = await run(() => { __dj.djLoop(0, 4); const L = __dj.DJ.decks[0].loop; return {a: L.a, b: L.b, beats: __dj.beatAt(__dj.DJ.decks[0], L.b) - __dj.beatAt(__dj.DJ.decks[0], L.a)}; });
+const xs = [];
+for (let k = 0; k < 16; k++) { await wait(250); xs.push(await run(() => __dj.pos(__dj.DJ.decks[0]))); }
+const inside = xs.every(x => x >= lp.a - .01 && x < lp.b + .01), wraps = xs.filter((x, k) => k && x < xs[k - 1]).length;
+await run(() => __dj.djLoop(0, 4)); await wait(2500);
+const out = await run(() => ({x: __dj.pos(__dj.DJ.decks[0]), loop: __dj.DJ.decks[0].loop}));
+check('a 4-beat loop stays inside itself, going round, and leaving it plays on', Math.abs(lp.beats - 4) < .01 && inside && wraps >= 1 && !out.loop && out.x > lp.b,
+  `loop ${lp.a.toFixed(2)}–${lp.b.toFixed(2)} s (${lp.beats.toFixed(2)} beats), round it ${wraps} times in 4 s, then on to ${out.x.toFixed(2)} s`);
 
 const errors = await page.errors();
 check('no page errors', !errors.length, errors.join('; '));
