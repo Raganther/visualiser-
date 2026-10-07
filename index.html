@@ -19,8 +19,15 @@
   <p>Plug in an Xbox controller to play the visuals like an instrument.</p>
   <label class="pick btn" for="fileIn" id="pickBtn" tabindex="0">Choose MP3 files</label>
   <button class="pick" id="tutBtn">New here? A tutorial (T)</button>
+  <button class="pick" id="combosBtn">Walk-throughs: combinations (Shift+T)</button>
 </div>
 <div id="tutorial" hidden role="dialog" aria-label="Tutorial" aria-live="polite"></div>
+<div id="cmtPick" hidden aria-label="Click the part of the picture the comment is about"></div>
+<div id="cmtMark" hidden aria-hidden="true"></div>
+<div id="cmtBox" hidden role="dialog" aria-label="Comment">
+  <textarea id="cmtText" rows="3" maxlength="1000" placeholder="What needs refining here? (Enter saves, Shift+Enter a new line, Esc cancels)" aria-label="Comment"></textarea>
+  <div class="tbtns"><button id="cmtCancel" type="button">Cancel</button><button id="cmtSave" type="button">Save comment</button></div>
+</div>
 
 <div id="toast"></div>
 <pre id="fps" hidden aria-live="off"></pre>
@@ -30,13 +37,14 @@
 <div id="keyHud" aria-live="polite"></div>
 <div id="keyHelp" hidden role="dialog" aria-label="Every key">
   <h2>Keys</h2>
+  <p><button id="helpCombos" class="pick">Walk-throughs: combinations, step by step (Shift+T)</button></p>
   <p><b>A</b> Journey on or off. Off freezes what's on screen; on carries on from it, moving on when the music does. Any change below while Journey runs freezes it first.</p>
   <p>Pick a group with its letter, then use its numbers. The strip at the bottom shows the group, with a dot on what's on.</p>
   <table>
-    <tr><td><b>L</b></td><td>Layers</td><td>1–9 toggle ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbits; Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations, M the unfolding mandala, X the fractal. ← → the last one's speed, Shift+← → its size, B what sound it follows</td></tr>
-    <tr><td><b>W</b></td><td>Worlds</td><td>1–9 landscape, space, aurora, city, cosmos, night sea, underwater, dunes, forest (one at a time; again to turn it off)</td></tr>
+    <tr><td><b>L</b></td><td>Layers</td><td>1–9 toggle ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbits; Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations, M the unfolding mandala, X the fractal, N guilloché, H string art, P spiral galaxy. ← → the last one's speed, Shift+← → its size, B what sound it follows</td></tr>
+    <tr><td><b>W</b></td><td>Worlds</td><td>1–9 landscape, space, aurora, city, cosmos, night sea, underwater, dunes, forest; H the Hollow, N the Cathedral, V the Vessel, G the Geode, D the Corridor (one at a time; again to turn it off)</td></tr>
     <tr><td><b>E</b></td><td>Hits</td><td>1–6 toggle star flash, outline zoom, shockwaves, sparkles, lightning, glitch</td></tr>
-    <tr><td><b>O</b></td><td>Objects</td><td>1–8 skull, unicorn, sphere, torus, knot, dodecahedron, star, manta (one at a time); Y style: glass wire, solid, outline, hologram, points</td></tr>
+    <tr><td><b>O</b></td><td>Objects</td><td>1–9 skull, unicorn, sphere, torus, knot, dodecahedron, star, manta, lotus; J jellyfish, Q crystal, G goblin, U the lit goblin, I tentacle, H hand, B heart (one at a time); Y style: glass wire, solid, outline, hologram, points, shaded; M the lit objects' look: real, toon, neon, chrome, marble</td></tr>
     <tr><td><b>K</b></td><td>Kaleidoscope</td><td>2–9 mirrors of the picture; E everything, B the world, G the glow, I inside the object; M the kind: wedges, a mirror box (a hall of mirrors), a dive (zooming in through its folds) (while Journey runs: a number keeps that many, 0 never)</td></tr>
     <tr><td><b>Shift+K</b></td><td>Glow folds</td><td>2–9 ghostly folds inside the trails, M mirror trails</td></tr>
     <tr><td><b>S</b></td><td>Scene</td><td>1 plain, 2 between, 3 split, 4 among, 5 held, 6 reflect, 7 inside, 8 window, 9 glass</td></tr>
@@ -44,8 +52,8 @@
     <tr><td><b>C</b></td><td>Cosmos camera</td><td>1–7 shots, 8 black hole, 9 pulsar, 0 twin stars, S skim, U sunrise, J jump, G galaxy, B belt, K fold, W cage, L land, T take off (C or Esc leaves)</td></tr>
   </table>
   <p>In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> the last one more or less · <b>← →</b> its speed (<b>Shift</b>: its size; on the kaleidoscope: its turning) · <b>Esc</b> leaves (a few seconds untouched does too).</p>
-  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike (likes are in Adjust, under Liked)</p>
-  <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time</p>
+  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike · <b>M</b> or 💬 comment on a part of the picture (it keeps the whole look and the point) (likes are in Adjust, under Liked)</p>
+  <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>Q</b> graphics: auto, best, balanced, fast, fastest (remembered) · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time · <b>Shift+T</b> walk-throughs: combinations, each from a clean slate</p>
 </div>
 <aside id="panel" aria-label="Adjust visuals">
   <section>
@@ -67,6 +75,11 @@
     <p class="note" id="jSteer"></p>
     <p class="note" id="jNote">Journey is steering the settings below; a dot marks what's on screen. Solo shows one thing alone; a preset, or A, turns Journey off to adjust them by hand.</p>
   </section>
+  <section id="comments">
+    <h2>Comments</h2>
+    <p class="note" id="cmtNote"></p>
+    <ul id="cmtList" class="liked comments" aria-label="Comments, newest first"></ul>
+  </section>
   <section id="liked">
     <h2>Liked</h2>
     <p class="note" id="likedNote"></p>
@@ -87,6 +100,8 @@
   <div class="row"><label for="sync">Sync (visuals earlier or later)</label><output id="syncOut">0 ms</output>
     <input type="range" id="sync" min="-200" max="400" step="5" value="0"></div>
   <div class="row"><button id="tapSync" class="btn" type="button">Tap on the kick</button><output id="tapOut">tap along to set the sync (Bluetooth speakers)</output></div>
+  <div class="row"><label for="gfx">Graphics (Q; remembered on this device)</label><select id="gfx"></select></div>
+  <p class="note" id="gfxNote"></p>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
   <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey, and no other world, until this tab closes (to keep it for a while, W then its number while Journey runs). Whenever the cosmos is on screen, C then a key flies it (? lists them)</label>
   <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
@@ -117,7 +132,7 @@
     <div class="preset">
       <button id="prevP" aria-label="Previous preset">‹</button><span id="pName">Tunnel</span><button id="nextP" aria-label="Next preset">›</button>
     </div>
-    <button id="likeBtn" class="rate" aria-label="I like this" title="I like this (+)">👍</button><button id="dislikeBtn" class="rate" aria-label="Not for me" title="Not for me (−)">👎</button>
+    <button id="likeBtn" class="rate" aria-label="I like this" title="I like this (+)">👍</button><button id="dislikeBtn" class="rate" aria-label="Not for me" title="Not for me (−)">👎</button><button id="cmtBtn" class="rate" aria-label="Comment on a part of the picture" title="Comment on a part of the picture (M)">💬</button>
     <button id="randBtn">Randomize</button>
     <button id="autoBtn" aria-pressed="true">Journey</button>
     <button id="adjBtn" aria-pressed="false">Adjust</button>

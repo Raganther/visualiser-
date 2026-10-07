@@ -21,16 +21,27 @@ const local = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || '[]
 const keepLocal = a => { try { localStorage.setItem(LOCAL, JSON.stringify(a.slice(-KEEP))); } catch (e) {} };
 count = local().length;
 
-export function rate(v){ want = v; }   // taken at the end of the next drawn frame, when the canvas still holds it
+export function rate(v){ want = v; }
+export const tasteDb = () => db;   // (the comments use the same database)   // taken at the end of the next drawn frame, when the canvas still holds it
 // called by main.js after each frame is drawn
+const snaps = [];   // others waiting for a frame's picture and state (a comment: ui/comment.js)
+export const snapNext = (w, h, cb) => snaps.push({w, h, cb});
+const copy = (w, h) => { try { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage($('#gl'), 0, 0, w, h); return c; } catch (e) { return null; } };
 export function tasteFrame(){
+  while (snaps.length) { const s = snaps.shift(); s.cb(copy(s.w, s.h), momentOf()); }
   if (!want) return;
   const v = want; want = 0;
-  let c = null;   // the picture is copied now, while the canvas holds it; encoding and saving wait until after the frame
-  try { c = document.createElement('canvas'); c.width = 160; c.height = 90; c.getContext('2d').drawImage($('#gl'), 0, 0, 160, 90); } catch (e) { c = null; }
+  const c = copy(160, 90);   // the picture is copied now, while the canvas holds it; encoding and saving wait until after the frame
+  const m = {v, ...momentOf()};
+  setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
+  count++; if (v > 0) dispatchEvent(new Event('afterglow-like'));   // (the tutorial waits for one)
+  toast(v > 0 ? `Liked (${count}): it's in Adjust, under Liked` : `Not for me (${count})`);
+}
+// everything about the moment: what's on screen, the music, every setting, and the whole look to bring it back
+export function momentOf(){
   const d = window.__jdbg ? window.__jdbg() : {}, r3 = x => typeof x === 'number' ? +x.toFixed(3) : x;
   const centre = J.on ? J.centre : (OBJECT_VISUALS.filter(o => curP[o.key] > .3).sort((a, b) => curP[b.key] - curP[a.key])[0] || {}).key || null;
-  const m = {v, at: new Date().toISOString(), track: $('#track').textContent, pos: $('#tNow').textContent, onScreen: $('#onNow').textContent,
+  return {at: new Date().toISOString(), track: $('#track').textContent, pos: $('#tNow').textContent, onScreen: $('#onNow').textContent,
     journey: J.on, preset: J.on ? null : S.active.name, recipe: d.recipe || null, lead: d.lead || null, accent: d.accent || null, hit: d.hit || null,
     world: d.world || null, scene: d.scene || null, centre: d.centre || null, lens: d.lensOn && d.lens ? d.lens.n : 0,
     section: d.sec || null, pace: d.pace ? d.pace.name : null, tension: r3(d.T), bpm: d.grid && d.grid.bpm ? r3(d.grid.bpm) : null,
@@ -41,9 +52,6 @@ export function tasteFrame(){
     look: {settings: Object.fromEntries(SPEC.map(s => [s.k, r3(curP[s.k])])), mods: clone(S.active.mods || {}), tw: clone(S.active.tw || {}),
       scene: clone((J.on ? J.sceneLive : S.scene) || null), sceneKey: J.on && J.sceneLive ? J.sceneKey : null, centre},
     name: nameOf(d)};
-  setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
-  count++; if (v > 0) dispatchEvent(new Event('afterglow-like'));   // (the tutorial waits for one)
-  toast(v > 0 ? `Liked (${count}): it's in Adjust, under Liked` : `Not for me (${count})`);
 }
 // a short name for a like: what's on screen (the world and the lead), or the preset's
 function nameOf(d){
@@ -128,7 +136,7 @@ render();
 $('#likeBtn').onclick = () => rate(1);
 $('#dislikeBtn').onclick = () => rate(-1);
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === '+' || e.key === '=') rate(1);
   else if (e.key === '-' || e.key === '_') rate(-1);
 });

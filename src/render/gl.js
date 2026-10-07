@@ -4,6 +4,7 @@ import { make2D } from './canvas2d.js';
 import { FB_VISUALS, UNIT, composeFeedback, composeSegment } from './compose.js';
 import { resolveScene } from '../scene/graph.js';
 import { meshData, meshWarm } from './mesh.js';
+import { litWarm } from './lit.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -176,8 +177,10 @@ export function warmScenes(scenes){
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50)), started = [];
   try { meshWarm(gl); } catch (e) {}   // the objects' program, and each one's vertex data, one a turn
   for (const o of OBJECT_VISUALS) if (o.mesh) todo.push(['mesh', o.mesh]);
+  todo.push(['lit']);   // the lit objects' program (render/lit.js)
   const next = () => {
     if (lost) return;
+    if (todo.length && todo[0][0] === 'lit') { todo.shift(); litWarm(gl); idle(next); return; }
     if (todo.length && todo[0][0] === 'mesh') { try { meshData(todo.shift()[1]); } catch (e) {} idle(next); return; }
     for (const e of started) if (!e.p && !e.failed && segDone(e)) try { segLink(e); } catch (err) {}   // link what's finished
     if (todo.length) { const [k, st, plan, wk] = todo.shift(); if (!segProgs.has(k)) try { started.push(segJob(k, st, plan, wk)); } catch (err) {} }

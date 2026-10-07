@@ -10,6 +10,10 @@ import sea from './worlds/sea.js';
 import deep from './worlds/deep.js';
 import dunes from './worlds/dunes.js';
 import hollow from './worlds/hollow.js';
+import cathedral from './worlds/cathedral.js';
+import vessel from './worlds/vessel.js';
+import geode from './worlds/geode.js';
+import corridor from './worlds/corridor.js';
 import forest from './worlds/forest.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
@@ -48,11 +52,15 @@ import manta from './objects/manta.js';
 import lotus from './objects/lotus.js';
 import jelly from './objects/jelly.js';
 import goblin from './objects/goblin.js';
+import goblinLit from './objects/goblin-lit.js';
+import tentacle from './objects/tentacle.js';
+import hand from './objects/hand.js';
+import heart from './objects/heart.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, tunnel];
-export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin];   // 3D centrepieces, drawn crisp over the picture
+export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);

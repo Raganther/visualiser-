@@ -16,7 +16,7 @@ import { syncSliders } from './panel.js';
 import { compose } from './scene.js';
 import { FLY, flyKey } from './fly.js';
 import { toast } from './toast.js';
-import { tutorial } from './tutorial.js';
+import { combos, tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
@@ -29,9 +29,9 @@ const SCENE_WORDS = {plain: 'plain', between: 'between', split: 'split', among: 
 // the groups: their key, name, and what number n does (items: [label, isOn] for the strip)
 const GROUPS = {
   l: {name: 'Layers', list: () => layers.map((v, i) => [v.label, on(v.key), i < 9 ? i + 1 : MORE[i - 9] || '']), pick: n => toggle(layers[n - 1], TUNE.keys.layer), all: layers},
-  w: {name: 'Worlds', list: () => worlds.map(v => [v.label, on(v.key, .3)]), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
+  w: {name: 'Worlds', list: () => worlds.map((v, i) => [v.label, on(v.key, .3), i < 9 ? i + 1 : WMORE[i - 9] || '']), pick: n => one(worlds, worlds[n - 1], 1), all: worlds},
   e: {name: 'Hits', list: () => HIT_VISUALS.map(v => [v.label, on(v.key)]), pick: n => toggle(HIT_VISUALS[n - 1], (HIT_VISUALS[n - 1] || {}).level), all: HIT_VISUALS},
-  o: {name: 'Objects', list: () => OBJECT_VISUALS.map(v => [v.label, on(v.key, .3)]), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
+  o: {name: 'Objects', list: () => OBJECT_VISUALS.map((v, i) => [v.label, on(v.key, .3), i < 9 ? i + 1 : OMORE[i - 9] || '']), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
   // the kaleidoscope: a mirror fold of the picture (everything, the world, the glow, or inside the object), and its letters
   k: {name: 'Kaleidoscope: mirrors', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.kal || 0) === n, n])
       .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()])),
@@ -45,7 +45,10 @@ const GROUPS = {
 };
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
-const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal); the letters run out there, so later layers are on their sliders
+const WMORE = ['H', 'N', 'V', 'G', 'D'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall), none a group's letter, T, R, A or X
+const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat)); Y is the style, M the lit look
+const LOOKS = ['real', 'toon', 'neon', 'chrome', 'marble'];   // the lit objects' looks (litLook), M in the objects group
+const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X', 'N', 'H', 'P'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal, guilloché (eNgraving), string art (Harp), spiral galaxy (sPiral)); the mirror tunnel (media) stays on its slider
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
 const on = (k, min = .05) => (S.active[k] || 0) > min;
 let sceneKeyByHand = null;
@@ -103,9 +106,9 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (wedges, mirror box, dive) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (wedges, mirror box, dive) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
-    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · Esc leaves'
+    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · Esc leaves'
     : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (wedges, mirror box, dive) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
@@ -116,7 +119,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   const k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
-  else if (k === 't' && mode !== 'c') { mode = null; tutorial(); }   // (in the camera group T takes off)
+  else if (k === 't' && mode !== 'c') { mode = null; if (e.shiftKey) combos(); else tutorial(); }   // (Shift+T: the walk-throughs of combinations)   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (mode === 'k' && k === 'm') {   // the kind: wedges, a mirror box, a dive (while Journey runs, it keeps that kind)
@@ -154,6 +157,19 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();   // (X is also a single key outside the groups)
     if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l'); else toggle(v, TUNE.keys.layer); }
+  else if (mode === 'w' && WMORE.includes(e.key.toUpperCase()) && worlds[9 + WMORE.indexOf(e.key.toUpperCase())]) {
+    const v = worlds[9 + WMORE.indexOf(e.key.toUpperCase())];
+    e.stopPropagation();
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'w'); else one(worlds, v, 1); }
+  else if (mode === 'o' && OMORE.includes(e.key.toUpperCase()) && OBJECT_VISUALS[9 + OMORE.indexOf(e.key.toUpperCase())]) {
+    const v = OBJECT_VISUALS[9 + OMORE.indexOf(e.key.toUpperCase())];
+    e.stopPropagation();
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'o'); else one(OBJECT_VISUALS, v, TUNE.mesh.level); }
+  else if (k === 'm' && mode === 'o') {   // the lit objects' look: real, toon, neon, chrome, marble (Journey keeps it going)
+    const n = ((J.on ? J.litLook || 0 : Math.round(S.active.litLook || 0)) + 1) % LOOKS.length;
+    if (J.on) J.litLook = n; else S.active.litLook = n; curP.litLook = n;
+    toast('Lit objects: ' + LOOKS[n]);
+  }
   else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points, shaded (Journey keeps it going)
     const n = ((J.on ? J.objStyle || 0 : Math.round(S.active.objStyle || 0)) + 1) % STYLES.length;
     if (J.on) { J.objStyle = n; } else { S.active.objStyle = n; } curP.objStyle = n;
@@ -189,3 +205,5 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
 // the strip goes (and the group with it) after a while untouched, so a stray number later doesn't change anything
 setInterval(() => { if (mode && performance.now() - idle > TUNE.keys.idleSecs*1000) { mode = null; show(); } else if (mode) show(); }, 500);
 export const keyMode = () => mode;
+export const sceneKey = () => S.scene ? sceneKeyByHand : null;   // the scene template picked by hand (S then a number), while it's on
+export function leaveGroup(){ mode = null; show(); }

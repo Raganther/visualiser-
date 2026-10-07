@@ -35,6 +35,8 @@ export const SPEC = [
   {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
   // the fractal's dive twisting into a logarithmic whirlpool, spinning as it falls (last, so the rest keep their places)
   {g:'Fractal', k:'fracVortex', label:'Fractal vortex: the dive twists into a spiral (0 off, 1 on)', min:0, max:1, step:1},
+  // how the lit objects (Blender models, render/lit.js) are drawn (last, so the rest keep their places)
+  {g:'Objects', k:'litLook', label:'Lit objects: 0 real, 1 toon, 2 neon, 3 chrome, 4 marble', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
@@ -86,6 +88,10 @@ export const BASE = [
   {name:'Galaxy', decay:.9, zoom:1.002, rot:.001, warp:0, sym:1, galaxy:1, space:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // the cave flown through, with the flow's particles streaming past
   {name:'Into the Hollow', decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, hollow:1, flow:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Vessel', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, vessel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Geode', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, geode:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Corridor', journey:false, decay:.88, zoom:1.006, rot:0, warp:.03, sym:1, corridor:1, colorSpeed:.03, hueDrift:.005, mods:{}},
+  {name:'The Cathedral', journey:false, decay:.9, zoom:1.003, rot:0, warp:.03, sym:1, cathedral:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},
@@ -133,6 +139,11 @@ export const BASE = [
   // a world alone, to look at it: the cosmos with nothing over it (Solo on any slider does the same for anything)
   // the fractal's endless dive twisted into its vortex
   {name:'Vortex', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, fractal:1, fracVortex:1, colorSpeed:.03, hueDrift:.006, mods:{}},
+  // the lit goblin alone under its moving lights (a Blender sculpt baked for real time)
+  {name:'Goblin, lit', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, goblinLit:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Tentacle', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, tentacle:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Hand', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, hand:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Heart', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, heart:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
 BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0); p.mods = p.mods || {}; });   // (a setting can carry its own default)

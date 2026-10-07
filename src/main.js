@@ -33,6 +33,7 @@ import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
 import { showNow } from './ui/panel.js';
 import { tasteFrame } from './ui/taste.js';
+import './ui/comment.js';
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
 import { S } from './state.js';
@@ -41,6 +42,7 @@ import { tIndex, tracks } from './audio/player.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
 import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
+const INSIDE = [{world: 'all'}, {trails: 'main'}, {objects: true}, {world: 'front'}, {hits: true}];   // an object inside a 3D world
 import { G } from './audio/beatgrid.js';
 import { comets, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
@@ -51,7 +53,7 @@ import { stepJourney } from './journey/director.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
 import { BASE, SPEC, curP, eff } from './presets.js';
 import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
-import { Q, qualityTick } from './render/quality.js';
+import { Q, gfxLevel, qualityTick } from './render/quality.js';
 import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI } from './ui/panel.js';
@@ -95,7 +97,7 @@ function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%${gfxLevel() === 'auto' ? ', lowered for speed' : ''})` : '') + (Q.heavy && Q.world < 1 ? `, the 3D world at ${Math.round(Q.world*100)}%` : '') + ` · graphics: ${gfxLevel()} (Q)`
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 let kalA = 0, kalZ = 0;   // the kaleidoscope's turn, and how far it has dived
@@ -129,12 +131,13 @@ function render(now){
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*speedOf('ribbons')*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*speedOf('horizon')*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt*speedOf('flow'), react, S.MT*1000);
+  if (S.hueSet != null) { hueAcc = S.hueSet; S.hueSet = null; }   // (a walk-through's clean slate starts every time in the same colours)
   hueAcc += mdt*eff.colorSpeed;
   const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
   // (a world's camera flying in streams the trails outwards: CTX.fly.z)
   const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
-    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
+    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - Math.max(J.on ? J.wipe : 0, S.wipe)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,   // (and towards a world's subject: below)
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
@@ -165,6 +168,9 @@ function render(now){
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
   for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
+  // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
+  // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
+  if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {

@@ -229,6 +229,7 @@ export function stepJourney(now, dt){
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k) || k === 'kal') ? swap : rate);   // (the kaleidoscope unfolds over about a bar)
   }
   jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
+  jState.litLook = J.litLook || 0;     // and a lit one's look
   if (J.kal && !MEDIA.on) jState.kalWhere = J.kal.where;   // what the kaleidoscope folds: a switch
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
