@@ -1,4 +1,5 @@
 // Lightning: a forked bolt cracking down from the top on the stabs, lighting everything for an instant, then gone.
+import { viewAsp } from '../../state.js';
 import { hc } from '../../util.js';
 
 const NB = 16, BA = new Float32Array(NB*2), BB = new Float32Array(8*2);   // the bolt's points, and one branch's
@@ -9,7 +10,7 @@ export default {
   // sharp, stabby, intense
   suits: (rf, wOn, seed) => rf.busy*.4 + rf.bright*.3 + (rf.T || 0)*.2 + seed + (wOn ? .15 : 0),
   fire(){
-    const asp = innerWidth/innerHeight; let x = (Math.random() - .5)*asp*.8, y = .55;
+    const asp = viewAsp(); let x = (Math.random() - .5)*asp*.8, y = .55;
     const end = -.1 - Math.random()*.35, pts = [];
     for (let i = 0; i < NB; i++) { pts.push([x, y]); y -= (.55 - end)/(NB - 1); x += (Math.random() - .5)*.09; }
     const k = 3 + Math.floor(Math.random()*6), br = []; let [bx, by] = pts[k];

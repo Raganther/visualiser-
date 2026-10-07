@@ -1,5 +1,5 @@
 // Flow-field particles.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { sMid } from '../audio/analysis.js';
 import { shocks } from './effects.js';
 import { J } from '../journey/core.js';
@@ -12,7 +12,7 @@ export const NP = 600, parts = new Float32Array(NP*3);
 function seedPart(i, asp){ parts[i*3] = (Math.random() - .5)*asp; parts[i*3+1] = Math.random() - .5; parts[i*3+2] = .3 + Math.random()*.7; }
 export function seedParticles(){ for (let i = 0; i < NP; i++) seedPart(i, 16/9); }
 export function stepParts(dt, react, now){
-  const asp = innerWidth/innerHeight, t = now/1000, hx = asp/2;
+  const asp = viewAsp(), t = now/1000, hx = asp/2;
   const speed = .06 + sMid*react*.35 + S.beat*.5 + J.tension*.1, drift = J.clock*.05;
   // the dance's way of moving (scene/dance.js): the field, or converging from both sides, swirling, blooming out of the middle.
   // Those go in mirrored pairs (each odd particle the reflection of the one before), so the picture is symmetric

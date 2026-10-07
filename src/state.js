@@ -24,5 +24,8 @@ export const S = {
   pausedAt: 0,                   // playback position while paused
   scene: null,                   // the manual preset's scene (scene/graph.js); none means the default
   syncMs: 0,                     // the Sync slider: + draws the beat later, - earlier (for this device's speakers and screen)
+  djH: 0,                        // the DJ panel's height while it's open under the picture (ui/dj.js): the picture is that much shorter
   view: null,                    // the Asset Viewer's hold on the object it shows (ui/assets.js): {key, yaw, pitch, zoom, morph (null: the music's)}
 };
+// the picture's size on screen: the window, less the DJ panel when it's open under it (S.djH)
+export const viewH = () => Math.max(1, innerHeight - S.djH), viewAsp = () => innerWidth/viewH();

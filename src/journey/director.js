@@ -1,5 +1,5 @@
 // Journey: the per-frame director, drops, fresh starts, nudges and debug state.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { lastBeat, sBass, sMid, sTreb } from '../audio/analysis.js';
 import { G } from '../audio/beatgrid.js';
 import { comets, shocks } from '../fx/effects.js';
@@ -241,7 +241,7 @@ export function stepJourney(now, dt){
   if (J.accent !== J.lead) jState[J.accent] = Math.max(jState[J.accent], J.accEnv*(wOn ? .7 : .85));
 }
 function dropFX(){
-  const asp = innerWidth/innerHeight;
+  const asp = viewAsp();
   for (let i = 0; i < 6; i++) {
     const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
     const sh = shocks[S.shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;

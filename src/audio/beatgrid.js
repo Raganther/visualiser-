@@ -126,7 +126,8 @@ function mapFrame(t){
     gridBeat(pos);
   }
   const i = Math.min(B.length - 1, G.mi);
-  G.period = i > 0 ? B[i] - B[i - 1] : M.period; G.next = t + (B[i] - x); G.conf = 1; G.down = 0; G.dsure = M.dsure; G.ev = 99;
+  const r = F.rate || 1;   // (a DJ deck sped up or slowed down: its beats come that much sooner or later)
+  G.period = (i > 0 ? B[i] - B[i - 1] : M.period)/r; G.next = t + (B[i] - x)/r; G.conf = 1; G.down = 0; G.dsure = M.dsure; G.ev = 99;
   S.beatPeriod = G.period;
   return true;
 }

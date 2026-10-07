@@ -3,6 +3,7 @@
 // state (ui/taste.js momentOf: what's on screen, the music, every setting and the look, so it can be brought back). The user
 // asked for this to show Claude what needs refining: on the published page they go to the Artifact's database (collection
 // "comments"), where Claude reads them; elsewhere they're kept in this browser. The Adjust panel lists them.
+import { viewH } from '../state.js';
 import { restore, snapNext, tasteDb } from './taste.js';
 import { keyMode } from './keys.js';
 import { toast } from './toast.js';
@@ -21,7 +22,7 @@ export function commentMode(on = !picking){
   if (on) toast('Click the part of the picture the comment is about (Esc cancels)');
 }
 $('#cmtPick').addEventListener('click', e => {
-  const x = e.clientX/innerWidth, y = e.clientY/innerHeight;
+  const x = e.clientX/innerWidth, y = e.clientY/viewH();   // (on the picture: the DJ panel may be under it)
   commentMode(false);
   snapNext(TW, TH, (c, state) => { pending = {x, y, c, state}; openBox(x, y); });
 });
@@ -30,7 +31,7 @@ function openBox(x, y){
   const mk = $('#cmtMark'), box = $('#cmtBox'), ta = $('#cmtText');
   mk.style.left = x*100 + '%'; mk.style.top = y*100 + '%'; mk.hidden = false;
   box.hidden = false; ta.value = '';
-  const bw = box.offsetWidth, bh = box.offsetHeight, px = x*innerWidth, py = y*innerHeight;   // beside the point, on screen
+  const bw = box.offsetWidth, bh = box.offsetHeight, px = x*innerWidth, py = y*viewH();   // beside the point, on screen
   box.style.left = Math.max(8, Math.min(innerWidth - bw - 8, px + (px + 24 + bw < innerWidth ? 24 : -24 - bw))) + 'px';
   box.style.top = Math.max(8, Math.min(innerHeight - bh - 8, py - bh/2)) + 'px';
   ta.focus();
@@ -48,7 +49,7 @@ async function send(){
     g.fillStyle = '#ff3d6e'; g.beginPath(); g.arc(X, Y, 2.5, 0, 7); g.fill();
     thumb = p.c.toDataURL('image/jpeg', .75);
   } catch (e) {}
-  const rec = {at: new Date().toISOString(), text, x: +p.x.toFixed(4), y: +p.y.toFixed(4), screen: [innerWidth, innerHeight], thumb, state: p.state};
+  const rec = {at: new Date().toISOString(), text, x: +p.x.toFixed(4), y: +p.y.toFixed(4), screen: [innerWidth, viewH()], thumb, state: p.state};
   const d = db();
   if (d) { try { await d.collection('comments').add(rec); toast('Comment saved: Claude can read it (Adjust lists them)'); watch(); return; } catch (e) {} }
   rec.id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); rec.local = true;
