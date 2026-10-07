@@ -95,7 +95,7 @@ function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, ${Q.fixed ? 'held' : 'lowered for speed'})` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
 let kalA = 0, kalZ = 0;   // the kaleidoscope's turn, and how far it has dived
