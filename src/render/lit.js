@@ -150,16 +150,24 @@ void main(){
 }`;
 
 const ATT = ['aPos', 'aMorph', 'aUV', 'aInfo'], PROGS = new WeakMap();
+// started at idle (litWarm) and read once the driver has built it; null until then, where the driver can say
+// (KHR_parallel_shader_compile): waiting for it froze the picture
 function prog(gl){
   let s = PROGS.get(gl);
-  if (s && gl.isProgram(s.p)) return s;
-  const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => {
-    const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
-  ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(p));
-  const u = {}; for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name.replace('[0]', '')] = gl.getUniformLocation(p, a.name); }
-  PROGS.set(gl, s = {p, u}); return s;
+  if (!s || !gl.isProgram(s.p)) {
+    const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => {
+      const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
+    ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
+    gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null});
+  }
+  if (!s.u) {
+    const x = gl.getExtension('KHR_parallel_shader_compile');
+    if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;
+    if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
+    const u = {}; for (let i = 0, n = gl.getProgramParameter(s.p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(s.p, i); u[a.name.replace('[0]', '')] = gl.getUniformLocation(s.p, a.name); }
+    s.u = u;
+  }
+  return s;
 }
 // the rotation of a normal: the same turns as the corners (ry, then rx, then rz), as a column-major mat3
 function turn(U){
@@ -176,8 +184,9 @@ function lightBasis(p){
 }
 const ZERO = new Float32Array(NJ*2);
 export const litWarm = gl => { try { prog(gl); } catch (e) {} };
-export function litGL(gl, A, bend){
-  const D = litData(A, bend), {p, u} = prog(gl);
+export function litGL(gl, A, bend){   // null while the program is still being built: the object shows once it is
+  const pr = prog(gl); if (!pr) return null;
+  const D = litData(A, bend), {p, u} = pr;
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, D.v, gl.STATIC_DRAW);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, D.tri, gl.STATIC_DRAW);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);

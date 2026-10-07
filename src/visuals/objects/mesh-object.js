@@ -56,7 +56,7 @@ export function meshObject({key, label, words, mesh, motion, dance}){
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (stage === 'trails' && !P.m[key].trail) return;   // (no ghosts: TUNE.mesh.trail 0)
-      if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } drawGL(P.m[key], W, H, stage); },
+      if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } if (drawGL) drawGL(P.m[key], W, H, stage); },   // (null: its program is still being built)
     draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
     path2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshPath2d(o, panes2d, mesh.hinge, P.m[key]); },   // its silhouette, for masks
   };

@@ -109,7 +109,7 @@ function fbPick(P){
 export const fbInfo = () => FB.key === '*' ? `all ${FB_VISUALS.length} visuals` : FB.key;
 function setupGL(){
   for (const e of FB.progs.values()) if (e.prog) gl.deleteProgram(e.prog.p);
-  FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile');
+  FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile'); lastSc = null; canWait = true;
   fbProg = FB.all = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
   post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
   low = null; lowOk = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) > UNIT.low;
@@ -152,25 +152,37 @@ const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length 
 const segJob = (key, seg, plan, wk) => { const e = {job: startProgram(composeSegment(seg, plan, wk)), at: performance.now(), p: null}; segProgs.set(key, e); return e; };
 const segDone = e => !!e.job && (FB.par ? gl.getProgramParameter(e.job.p, FB.par.COMPLETION_STATUS_KHR) : performance.now() - e.at > TUNE.render.fbWait);
 function segLink(e){ const j = e.job; e.job = null; try { e.p = linked(j); } catch (err) { e.failed = err; } if (e.failed) throw e.failed; return e.p; }
+// Never waited for once a scene has drawn: on some drivers (Direct3D's compiler, under Chrome on Windows) a big shader
+// takes seconds to build, one at a time, and waiting froze the picture for up to 30 s at a scene change. A ready program
+// for the same run stands in, the one holding the most of these worlds (a world coming in shows once its own is built);
+// with none, null, and drawGL keeps drawing the last scene that could draw
+let canWait = true;   // only before anything has drawn (the first frame, or after a lost context)
 function segProg(seg, plan, P){
   const wk = segWorlds(seg, P), key = segKey(seg, wk);
   const e = segProgs.get(key) || segJob(key, seg, plan, wk);
   if (e.p) return e.p;
   if (e.failed) throw e.failed;
   if (segDone(e)) return segLink(e);
-  const all = segProgs.get(seg.key + '|*');
-  if (all && all.p) return all.p;
-  if (all && segDone(all)) try { return segLink(all); } catch (err) {}
-  return segLink(e);   // nothing to stand in: wait for it
+  let best = null, bn = -1;
+  for (const [k, c] of segProgs) {
+    if (!k.startsWith(seg.key + '|')) continue;
+    if (FB.par && !c.p && !c.failed && segDone(c)) try { segLink(c); } catch (err) {}   // (without the extension a link may wait: only those already linked)
+    if (!c.p) continue;
+    const ws = k.slice(seg.key.length + 1), n = ws === '*' ? wk.length : wk.filter(w => ws.split(',').includes(w)).length;
+    if (n > bn) { best = c; bn = n; }
+  }
+  return best ? best.p : canWait ? segLink(e) : null;
 }
 export const segInfo = () => [...segProgs].map(([k, e]) => k + (e.p ? '' : e.failed ? ' (failed)' : ' (compiling)'));   // for tests and tools
-// compile the segment shaders these scenes will need while the page is idle, so a scene's first bar line doesn't stall on a
-// shader compile: each run without the big world and with it, and the worlds drawn at their own size
+// compile the segment shaders these scenes will need while the page is idle, so a scene's first bar line has them ready:
+// each run without the big worlds, and the big worlds drawn at their own size
 export function warmScenes(scenes){
   if (!gl) return;
   const todo = [], seen = new Set(), add = (st, plan, wk) => { const k = segKey(st, wk); if (!seen.has(k)) { seen.add(k); todo.push([k, st, plan, wk]); } };
-  const small = WORLD_VISUALS.filter(v => !v.lowRes).map(v => v.key), all = WORLD_VISUALS.map(v => v.key);
-  const both = (st, plan) => { if (segHasW(st)) { add(st, plan, small); add(st, plan, all); } else add(st, plan, []); };
+  // each run without the big worlds only: one coming in is built when it's first drawn, and the run stands in meanwhile
+  // (warming every run with all of them too queued dozens of huge shaders, built one at a time, ahead of what was needed)
+  const small = WORLD_VISUALS.filter(v => !v.lowRes).map(v => v.key);
+  const both = (st, plan) => add(st, plan, segHasW(st) ? small : []);
   for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) both(st, plan); }
   if (todo.length) { const plan = todo[0][2]; for (const v of WORLD_VISUALS) if (v.lowRes) add(lowSeg(v.key), plan, [v.key]);   // a world drawn at its own size has its own
     both(WORLD_FILL, plan); }
@@ -273,9 +285,12 @@ function trailPass(now, P, g){
 }
 // the objects a mesh step draws: one placed object, or every object on screen that no entry places
 const meshesOf = (P, step) => OBJECT_VISUALS.filter(o => o.drawGL && P.o[o.key] > .003 && (step.mesh === '*' ? !P.sc.placed.has(o.key) : o.key === step.mesh));
+let lastSc = null;   // the last scene drawn: kept on screen while a new one's shaders are still being built
 export function drawGL(now, P){
   if (lost) return;
+  if (lastSc && P.sc !== lastSc && !P.sc.steps.every(st => !st.seg || segProg(st, P.sc, P))) P = {...P, sc: lastSc};
   const sc = P.sc, out = {};
+  lastSc = sc; canWait = false;
   for (const g in groups) if (!(g in sc.groups)) { groups[g].fbos.forEach(drop); delete groups[g]; }   // a group this scene doesn't use: gone (no stale frames later)
   fbPick(P);
   fbShared(now, P);
@@ -377,7 +392,7 @@ function lowPass(now, P){
   const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003);
   Q.heavy = !!(w && w.heavy && w.heavy(P));   // a slow device draws a heavy world smaller before the whole picture (render/quality.js)
   const s = w ? Math.min(1, w.lowRes(P), Q.heavy ? Q.world : 1) : 1;
-  lowOn = s < .999;
+  lowOn = s < .999 && !!segProg(lowSeg(w.key), P.sc, P);   // (not built yet: the segment traces it at full size meanwhile)
   if (!lowOn) return;
   const lw = Math.max(2, Math.round(W*s)), lh = Math.max(2, Math.round(H*s));
   if (!low || low.w !== lw || low.h !== lh) { drop(low); low = target(lw, lh, false, hdr); }
@@ -387,7 +402,9 @@ function lowPass(now, P){
 const trailFills = {}, trailFill = g => trailFills[g] || (trailFills[g] = {seg: [{t: 'trails', g}], first: true, last: false, fill: true, key: 'trail-fill:' + g});
 // one display segment over the picture so far (under), into whatever is bound
 function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLow = false){
-  const sc = P.sc, pr = segProg(st, sc, P), v = pr.u;
+  const sc = P.sc, pr = segProg(st, sc, P);
+  if (!pr) return;   // (a fill whose shader isn't built yet: it shows next time)
+  const v = pr.u;
   gl.useProgram(pr.p);
   if (v.uLow) { gl.uniform1f(v.uLow, useLow ? 1 : 0);   // read the world drawn smaller (lowPass), or trace it here
     if (useLow) { gl.activeTexture(gl.TEXTURE0 + UNIT.low); gl.bindTexture(gl.TEXTURE_2D, low.tex); gl.uniform1i(v.uLowT, UNIT.low); } }
@@ -398,7 +415,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLo
   if (v.uKal) { const f = kal.on && zoom === 1 && !st.only;   // the world or the glow folded (not in a fill, nor the world drawn alone)
     gl.uniform4fv(v.uKal, kal.v || [2, 0, 0, 0]); if (v.uKal2) gl.uniform4fv(v.uKal2, kal.v2 || [0, 0, 0, 1]); gl.uniform2f(v.uKalC, (kal.c || [0, 0])[0], (kal.c || [0, 0])[1]);
     gl.uniform1f(v.uKalW, f && kal.where === 1 ? 1 : 0); gl.uniform1f(v.uKalT, f && kal.where === 2 ? 1 : 0); }
-  for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i]);
+  for (const it of st.seg) if (it.drive) gl.uniform1f(v['uK' + it.i], P.kw[it.i] ?? 1);   // (?? : the last scene kept on screen)
   for (const g in out) { const unit = g === 'main' ? UNIT.main : UNIT.group[sc.extra.indexOf(g)];
     if (unit === undefined) continue;
     gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, out[g].tex); gl.uniform1i(v['uT_' + g], unit); }
