@@ -6,7 +6,8 @@
 // vanished), fill, dark (how much the glass darkens what's behind it), xray (how bright the far side's edges show through),
 // line (px), hue, partHue, sweep (0..1 down the object) and sweepAmt, spark and sparkSeed, glow, trail, w (overall), morph;
 // and its dance (scene/dance.js): roll (a lean), sq (squash and stretch), lift and liftPart (one part lifting off); and
-// style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points.
+// style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points, 5 shaded
+// (smooth, lit like skin: each corner's normal averaged over the panes round it, lit per pixel, the wire faint over it).
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // a small, fixed random number per pane, the same in both renderers
@@ -16,9 +17,22 @@ const seedOf = i => { const x = Math.sin(i*127.1 + 311.7)*43758.5453; return x -
 // each corner, the centre and the normal move to the morph's pose (dv, dc, dn)
 const unit = (v, u, w) => { const a = u.map((x, k) => x - v[k]), b = w.map((x, k) => x - v[k]);
   const n = [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]], l = Math.hypot(...n) || 1; return n.map(x => x/l); };
+// each vertex's normal: the panes round it, weighted by their size (for the shaded style); of the morph's pose too
+function vertexNormals(pos, tri){
+  const vn = new Float32Array(pos.length);
+  for (let t = 0; t < tri.length; t += 3) {
+    const [a, b, c] = [tri[t]*3, tri[t + 1]*3, tri[t + 2]*3], u = [0, 1, 2].map(k => pos[b + k] - pos[a + k]), w = [0, 1, 2].map(k => pos[c + k] - pos[a + k]);
+    const n = [u[1]*w[2] - u[2]*w[1], u[2]*w[0] - u[0]*w[2], u[0]*w[1] - u[1]*w[0]];
+    for (const i of [a, b, c]) for (let k = 0; k < 3; k++) vn[i + k] += n[k];
+  }
+  for (let i = 0; i < vn.length; i += 3) { const l = Math.hypot(vn[i], vn[i + 1], vn[i + 2]) || 1; vn[i] /= l; vn[i + 1] /= l; vn[i + 2] /= l; }
+  return vn;
+}
 export function panesOf(mesh){
   const panes = [];
-  for (const pc of mesh.pieces) for (let t = 0; t < pc.tri.length; t += 3) {
+  for (const pc of mesh.pieces) {
+  const VN = vertexNormals(pc.pos, pc.tri), VNM = pc.morph ? vertexNormals(pc.pos.map((x, i) => x + pc.morph[i]), pc.tri) : null;
+  for (let t = 0; t < pc.tri.length; t += 3) {
     const v = [0, 1, 2].map(k => { const i = pc.tri[t + k]*3; return [pc.pos[i], pc.pos[i + 1], pc.pos[i + 2]]; });
     const c = [0, 1, 2].map(k => (v[0][k] + v[1][k] + v[2][k])/3), n = unit(...v);
     const q = {v, c, n, part: pc.part[t/3], hinged: pc.hinge ? 1 : 0, seed: seedOf(panes.length)};
@@ -27,7 +41,10 @@ export function panesOf(mesh){
       q.dc = [0, 1, 2].map(k => (q.dv[0][k] + q.dv[1][k] + q.dv[2][k])/3);
       q.dn = unit(...v.map((p, i) => p.map((x, k) => x + q.dv[i][k]))).map((x, k) => x - n[k]);
     }
+    q.sn = [0, 1, 2].map(k => { const i = pc.tri[t + k]*3; return [VN[i], VN[i + 1], VN[i + 2]]; });
+    if (VNM) q.dsn = [0, 1, 2].map(k => { const i = pc.tri[t + k]*3; return [VNM[i] - VN[i], VNM[i + 1] - VN[i + 1], VNM[i + 2] - VN[i + 2]]; });
     panes.push(q);
+  }
   }
   return panes;
 }
@@ -36,9 +53,10 @@ export function panesOf(mesh){
 const VS = `
 attribute vec3 aPos, aOth, aCen, aNrm; attribute vec4 aInfo;   // info: part, hinged, seed, side (0 for panes, +-1 for edges)
 attribute vec3 aPosD, aOthD, aCenD, aNrmD;                      // the morph: how each moves to its pose
+attribute vec3 aSN, aSND;                                       // the corner's smooth normal, and its move to the pose (for the shaded style)
 uniform float uStyle,uRoll,uSq,uLift,uLiftPart,uMorph,uRot,uPitch,uSize,uAsp,uJaw,uEx,uGone,uFill,uDark,uHue,uPartHue,uSweep,uSweepAmt,uSpark,uSparkSeed,uGlow,uLine,uH,uEdge,uBright,uFillPart;
 uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
-varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
+varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW; varying vec3 vN, vLC; varying float vEmit, vWL;
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
@@ -58,7 +76,7 @@ vec3 place(vec3 p){
 vec2 screen(vec3 p){ return uPos+p.xy*uSize*${FOCAL.toFixed(1)}/(${CAM.toFixed(1)}-p.z); }
 void main(){
   mC=aCen+aCenD*uMorph; mN=normalize(aNrm+aNrmD*uMorph);
-  vec3 p0=aPos+aPosD*uMorph; if(uStyle>3.5) p0=mC+(p0-mC)*0.2;   // points: each pane shrunk to a dot at its centre
+  vec3 p0=aPos+aPosD*uMorph; if(uStyle>3.5&&uStyle<4.5) p0=mC+(p0-mC)*0.2;   // points: each pane shrunk to a dot at its centre
   vec3 p=place(p0); vec2 s=screen(p);
   if(aInfo.w!=0.0){                                     // an edge: widened sideways on screen into a band
     vec2 o=screen(place(aOth+aOthD*uMorph)), d=normalize(vec2(o.x-s.x,o.y-s.y)+vec2(0.00001,0.0));
@@ -88,19 +106,34 @@ void main(){
     if(uEdge>0.5) rgb=col*rim*(1.4+uGlow)+vec3(sweep+spark)*rim; else { rgb=vec3(0.0); al=1.0; }
   } else if(uStyle>2.5&&uStyle<3.5){                      // hologram: see-through, tinted, bright edges (scan lines in the fragments)
     rgb=hsv(uHue+uPal.y+0.5,0.8,1.0)*max(rgb.r,max(rgb.g,rgb.b))*(uEdge>0.5 ? 0.6 : 0.035); al=0.0;
-  } else if(uStyle>3.5){                                  // points: the dots glow, no edges
+  } else if(uStyle>3.5&&uStyle<4.5){                      // points: the dots glow, no edges
     rgb=uEdge>0.5 ? vec3(0.0) : col*(1.1+uGlow+spark*2.0+sweep*1.5); al=0.0;
+  } else if(uStyle>4.5){                                  // shaded: the pane's own colour, lit per pixel (below); the wire faint over it
+    if(uEdge>0.5) rgb=col*0.05*(1.0+uGlow+sweep*2.0+spark*2.0);
+    else { rgb=aInfo.x>6.5 ? col*(aInfo.x<7.5 ? 0.15+uGlow*1.6 : 0.02) : hsv(uHue+uPartHue+(pk<0.5 ? uPal.x : pk<1.5 ? uPal.y : uPal.z)+floor(aInfo.x/3.0)*0.04,0.42,0.85)+vec3(sweep+spark)*0.5; al=1.0; }
   }
+  vec3 sn=normalize(aSN+aSND*uMorph+vec3(0.0,0.0,1e-5)); if(aInfo.y>0.5) sn=rx(sn,uJaw);
+  vN=rz(rx(ry(sn,uRot),uPitch),uRoll); vLC=hsv(uHue+uLight.x,uLight.y,1.0)*uLight.z; vEmit=aInfo.x>6.5 ? 1.0 : 0.0; vWL=max(dot(vN,normalize(vec3(uLightDir,0.4))),0.0);
   vCol=vec4(rgb*uBright*(1.0-gone),al*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
   vFillW=(uFillPart>0.5 ? step(abs(aInfo.x-uFillPart),0.5) : aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass (or one part), not in the holes
   gl_Position=vec4(s.x*2.0/uAsp,s.y*2.0,-p.z/3.0,1.0);   // nearer is smaller depth, for hiding the far side
 }`;
-const FS = `precision mediump float; varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW;
-uniform sampler2D uFillTex; uniform float uFillAmt, uCover, uHolo, uScan;
+const FS = `precision mediump float; varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW; varying vec3 vN, vLC; varying float vEmit, vWL;
+uniform sampler2D uFillTex; uniform float uFillAmt, uCover, uHolo, uScan, uShade;
 void main(){
   if(uCover>0.5){ gl_FragColor=vec4(vec3(step(0.001,vFillW)),1.0); return; }   // the silhouette, for masks
   float f=vSide==0.0 ? 1.0 : 1.0-vSide*vSide; vec3 c=vCol.rgb*f;
+  if(uShade>0.5&&vSide==0.0&&vEmit<0.5){   // shaded: skin-like light from the smooth normal (a warm key light wrapping round, a
+    // cool sky from above, light glowing through the thin edges, a soft highlight, and the world's light as a rim)
+    vec3 n=normalize(vN), L=normalize(vec3(-0.45,0.55,0.7)), H=normalize(L+vec3(0.0,0.0,1.0));
+    float ndl=dot(n,L), wrap=max((ndl+0.4)/1.4,0.0), fres=pow(1.0-max(n.z,0.0),2.5), sky=0.5+0.5*n.y;
+    vec3 base=vCol.rgb;
+    c=base*(vec3(1.0,0.93,0.85)*wrap*0.95+vec3(0.35,0.45,0.6)*sky*0.25)
+      +base*vec3(1.0,0.45,0.35)*pow(max(0.35-ndl,0.0),1.5)*0.45                  // light through the thin edges (ears)
+      +vec3(1.0,0.95,0.9)*pow(max(dot(n,H),0.0),40.0)*0.35
+      +(vLC*0.9+base*0.25)*fres*0.9+vLC*vWL*0.3;
+  }
   if(vSide==0.0 && uFillAmt>0.0) c+=texture2D(uFillTex,vScr).rgb*uFillAmt*vFillW;   // a fill seen through the glass
   if(uHolo>0.5) c*=0.6+0.4*step(0.5,fract(vScr.y*uScan));   // a hologram's scan lines
   gl_FragColor=vec4(c,vCol.a*f);
@@ -108,7 +141,7 @@ void main(){
 
 // One program serves every mesh, started early (meshWarm, at idle) and linked on first use: compiling it, or building a
 // mesh's vertex data, the moment a centrepiece first appears would stall that frame
-const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo', 'aPosD', 'aOthD', 'aCenD', 'aNrmD'], NF = 28, PROGS = new WeakMap(), DATA = new WeakMap();
+const ATT = ['aPos', 'aOth', 'aCen', 'aNrm', 'aInfo', 'aPosD', 'aOthD', 'aCenD', 'aNrmD', 'aSN', 'aSND'], NF = 34, PROGS = new WeakMap(), DATA = new WeakMap();
 function meshStart(gl){
   let s = PROGS.get(gl);
   if (s && gl.isProgram(s.p)) return s;   // (a lost context's programs are gone: start again)
@@ -127,13 +160,14 @@ function meshProg(gl){
   return s;
 }
 // one interleaved array each for the panes and the edges: pos, other end, centre, normal (3 each), info (4), then the
-// morph's moves of pos, other end, centre and normal (3 each, 0 without one); worked out once a mesh
+// morph's moves of pos, other end, centre and normal (3 each, 0 without one), the corner's smooth normal and its move; worked out once a mesh
 export function meshData(mesh){
   let d = DATA.get(mesh); if (d) return d;
   const panes = panesOf(mesh), fill = new Float32Array(panes.length*3*NF), edge = new Float32Array(panes.length*18*NF), Z = [0, 0, 0];
   const put = (arr, o, k, j, q, side) => {   // corner k, its edge's other end j
     arr.set(q.v[k], o); arr.set(q.v[j], o + 3); arr.set(q.c, o + 6); arr.set(q.n, o + 9); arr[o + 12] = q.part; arr[o + 13] = q.hinged; arr[o + 14] = q.seed; arr[o + 15] = side;
     if (q.dv) { arr.set(q.dv[k], o + 16); arr.set(q.dv[j], o + 19); arr.set(q.dc, o + 22); arr.set(q.dn, o + 25); } else for (let i = 16; i < 28; i += 3) arr.set(Z, o + i);
+    arr.set(q.sn[k], o + 28); arr.set(q.dsn ? q.dsn[k] : Z, o + 31);   // the corner's smooth normal, and its move to the pose
     return o + NF; };
   let fo = 0, eo = 0;
   for (const q of panes) {
@@ -154,7 +188,7 @@ export function meshGL(gl, mesh){
   // Into the trails (no depth there): the edges only, dimmer. 'cover': the panes flat white, for a mask.
   return function draw(U, W, H, stage){
     gl.useProgram(p);
-    const sty = U.style || 0; gl.uniform1f(u.uStyle, sty); gl.uniform1f(u.uHolo, sty === 3 ? 1 : 0); gl.uniform1f(u.uScan, H/5);
+    const sty = U.style || 0; gl.uniform1f(u.uStyle, sty); gl.uniform1f(u.uHolo, sty === 3 ? 1 : 0); gl.uniform1f(u.uShade, sty === 5 ? 1 : 0); gl.uniform1f(u.uScan, H/5);
     gl.uniform1f(u.uMorph, U.morph || 0); gl.uniform1f(u.uRoll, U.roll || 0); gl.uniform1f(u.uSq, U.sq || 0); gl.uniform1f(u.uLift, U.lift || 0); gl.uniform1f(u.uLiftPart, U.liftPart || 1); gl.uniform1f(u.uRot, U.rot); gl.uniform1f(u.uPitch, U.pitch); gl.uniform1f(u.uSize, U.size); gl.uniform1f(u.uAsp, W/H);
     gl.uniform2f(u.uPos, U.pos[0], U.pos[1]); gl.uniform3fv(u.uHinge, mesh.hinge); gl.uniform1f(u.uJaw, U.jaw);
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
@@ -173,10 +207,10 @@ export function meshGL(gl, mesh){
       gl.drawArrays(gl.TRIANGLES, 0, b.n);
     };
     if (stage === 'cover') pass('fill', 1);
-    else if (stage === 'trails') { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pass(sty === 4 ? 'fill' : 'edge', U.trail*(sty === 4 ? 2 : sty === 3 ? .3 : 1)); }   // (points leave their dots; a hologram hardly any ghosts)
+    else if (stage === 'trails') { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pass(sty === 4 ? 'fill' : 'edge', U.trail*(sty === 4 ? 2 : sty === 3 ? .3 : sty === 5 ? .15 : 1)); }   // (points leave their dots; a hologram and the shaded hardly any ghosts)
     else {
       gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE); if (sty !== 2 && sty !== 4) pass('edge', U.xray);   // the far side (a hologram shows it clearly; an outline and points don't)
+      gl.blendFunc(gl.ONE, gl.ONE); if (sty !== 2 && sty !== 4 && sty !== 5) pass('edge', U.xray);   // the far side (a hologram shows it clearly; an outline, points and the shaded don't)
       gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);          // panes sit just behind their own edges
       // the fill, if it has one (otherwise the blank bound above)
@@ -246,7 +280,11 @@ function project2d(o, panes, hinge, U){
       s.push([Wc/2 + U.pos[0]*Hc + out[0]*w, Hc/2 - U.pos[1]*Hc - out[1]*w]);
     }
     const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy0 = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1, nwy = so*nx1 + co*nwy0;   // the pane's facing
-    L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt});
+    // the smooth normal (the corners' averaged, for the shaded style), turned the same way
+    let ax = 0, ay = 0, az = 0; for (let i = 0; i < 3; i++) { const a = q0.sn[i], d = q0.dsn && mw ? q0.dsn[i] : null; ax += a[0] + (d ? d[0]*mw : 0); ay += a[1] + (d ? d[1]*mw : 0); az += a[2] + (d ? d[2]*mw : 0); }
+    if (q.hinged) { const ay2 = cj*ay - sj*az; az = sj*ay + cj*az; ay = ay2; }
+    const al = Math.hypot(ax, ay, az) || 1, sx1 = (cr*ax + sr*az)/al, sz1 = (-sr*ax + cr*az)/al, sy0 = (cp*ay/al - spi*sz1), snz = spi*ay/al + cp*sz1;
+    L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt, sn: [co*sx1 - so*sy0, so*sx1 + co*sy0, snz]});
   }
   L.sort((a, b) => a.z - b.z);
   U.proj = {key, L};
@@ -271,13 +309,23 @@ export function meshDraw2d(o, panes, hinge, U){
       o.fillStyle = hsl(h, 60 + 25*spark, Math.min(1, (.35 + .5*face + U.glow*.4 + spark)*U.w)); o.fillRect((s[0][0] + s[1][0] + s[2][0])/3 - r/2, (s[0][1] + s[1][1] + s[2][1])/3 - r/2, r, r); }
     o.globalCompositeOperation = 'source-over'; return;
   }
-  for (const {q, s, face, lit} of L) {
+  for (const L2 of L) { const {q, s, face, lit} = L2;
     const sweep = U.sweepAmt*Math.exp(-(((q.c[1] - (.55 - U.sweep*1.1))*7)**2)), spark = U.spark*(((q.seed*91.7 + U.sparkSeed) % 1) >= .88 ? 1 : 0);
     const hole = q.part >= 7, h = hole ? U.hue + U.partHue + pal[2] + .5 : U.hue + U.partHue + ph(q.part), w = U.w;   // eye sockets and nose: dark holes
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
     const back = face < .45 && !sweep && !spark;   // the far side: edges only (the near glass covers it)
     const rim = 1 - Math.min(1, Math.max(0, (Math.abs(face - .5)*2 - .1)/.3));   // (an outline's rim: panes turned side-on)
-    if (sty === 1 && !back && !hole) {   // solid: lit facets
+    if (sty === 5 && !back && !hole) {   // shaded: lit like skin from the smooth normal, as in WebGL
+      const [snx, sny, snz] = L2.sn, ndl = snx*-.45/.99 + sny*.55/.99 + snz*.7/.99, wrap = Math.max(0, (ndl + .4)/1.4), fres = Math.pow(1 - Math.max(0, snz), 2.5), sky = .5 + .5*sny;
+      const hx2 = -.45/.99, hy2 = .55/.99, hz2 = .7/.99 + 1, hl = Math.hypot(hx2, hy2, hz2), spec = Math.pow(Math.max(0, (snx*hx2 + sny*hy2 + snz*hz2)/hl), 40)*.35;
+      const base = hsvRgb(h, .42, .85), lc = hsvRgb(lh/360, U.light ? U.light.sat : 0, 1).map(x => x*(U.light ? U.light.amt : 0)), thin = Math.pow(Math.max(0, .35 - ndl), 1.5)*.45;
+      const warm = [1, .93, .85], cool = [.35, .45, .6], through = [1, .45, .35];
+      const c = [0, 1, 2].map(k => Math.min(255, Math.round((base[k]*(warm[k]*wrap*.95 + cool[k]*sky*.25) + base[k]*through[k]*thin + spec + (lc[k]*.9 + base[k]*.25)*fres*.9 + lc[k]*L2.lit*.3 + (sweep + spark)*.5)*w*255)));
+      o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); o.fillStyle = `rgb(${c})`; o.fill(); o.strokeStyle = o.fillStyle; o.lineWidth = .8; o.stroke();   // (its own colour round the edge: no seams between panes)
+    } else if (sty === 5 && hole && !back) {   // the eyes glow, other holes dark
+      const g = hsvRgb(h, .9, q.part === 7 ? Math.min(1, .15 + U.glow*1.6) : .02).map(x => Math.round(x*255*w));
+      o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); o.fillStyle = `rgb(${g})`; o.fill();
+    } else if (sty === 1 && !back && !hole) {   // solid: lit facets
       const lam = .3 + .7*Math.max(0, face*1.2 - .2) + lit*.3, c = hsvRgb(h, .6, Math.min(1, lam*(.55 + .45*U.glow + .3)*w)).map(x => Math.round(x*255));
       o.beginPath(); o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); o.fillStyle = `rgb(${c})`; o.fill();
     } else if (sty === 2 && !back) {   // outline: black
@@ -290,7 +338,7 @@ export function meshDraw2d(o, panes, hinge, U){
       o.fillStyle = `rgba(${c(0)},${c(1)},${c(2)},${d.toFixed(3)})`; o.fill();
     }
     let a = ((.35 + .65*face)*(.8 + U.glow*.8) + sweep*1.5 + spark*1.2)*w*.45*(hole ? .2 : 1)*(back ? .6 : 1);
-    if (sty === 1) a *= .15; else if (sty === 2) a = back ? 0 : a*rim*2.2; else if (sty === 3) a *= back ? 1.4 : 1.2;
+    if (sty === 1) a *= .15; else if (sty === 5) a *= .06; else if (sty === 2) a = back ? 0 : a*rim*2.2; else if (sty === 3) a *= back ? 1.4 : 1.2;
     if (a < .01) continue;
     const hk = Math.round((((h % 1) + 1) % 1)*72), lk = Math.round((55 + 30*Math.min(1, sweep + spark))/5)*5, ak = Math.min(25, Math.round(a*25));
     const key = hk*10000 + lk*100 + ak;

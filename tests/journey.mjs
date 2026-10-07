@@ -11,7 +11,7 @@ const r = await page.evaluate(async (N) => {
   const {presets} = await import('/src/presets.js'), reg = await import('/src/visuals/registry.js'), {TEMPLATES} = await import('/src/scene/templates.js');
   __step(60*12);                                       // let the first section form
   const worlds = {}, hits = {}, recipes = {}, scenes = {};
-  let centres = 0, kals = 0, grains = 0, tws = 0; const kalWhere = {};
+  let centres = 0, kals = 0, grains = 0, tws = 0, lits = 0; const kalWhere = {}, looks = {};
   for (let i = 0; i < N; i++) {
     for (const f in J.fS) { J.fS[f] = Math.random(); J.fMin[f] = 0; J.fMax[f] = 1; }
     J.tension = Math.random();
@@ -24,9 +24,10 @@ const r = await page.evaluate(async (N) => {
     worlds[J.world] = (worlds[J.world] || 0) + 1; hits[J.hit || 'none'] = (hits[J.hit || 'none'] || 0) + 1;
     recipes[J.recipe.name] = (recipes[J.recipe.name] || 0) + 1;
     scenes[J.sceneKey] = (scenes[J.sceneKey] || 0) + 1; if (J.centre) centres++;
+    if (J.centre && reg.byKey[J.centre].lit) { lits++; looks[J.litLook] = 1; }
     if (J.kal) { kals++; kalWhere[J.kal.where] = (kalWhere[J.kal.where] || 0) + 1; } if (J.grain) grains++; if (Object.keys(J.tw || {}).length) tws++;
   }
-  return {worlds, hits, recipes, scenes, centres, kals, kalWhere, grains, tws, allScenes: TEMPLATES.map(t => t.key), allWorlds: ['none', ...reg.WORLDS], allHits: reg.HITS, allRecipes: presets.filter(p => p.journey !== false).map(p => p.name)};
+  return {worlds, hits, recipes, scenes, centres, lits, looks: Object.keys(looks).length, kals, kalWhere, grains, tws, allScenes: TEMPLATES.map(t => t.key), allWorlds: ['none', ...reg.WORLDS], allHits: reg.HITS, allRecipes: presets.filter(p => p.journey !== false).map(p => p.name)};
 }, N);
 const errors = await page.errors();
 await browser.close(); srv.close();
@@ -39,6 +40,7 @@ const checks = [
   ['nearly every recipe chosen (all but 2 at most)', missing(r.allRecipes, r.recipes), v => v.length <= 2],
   ['hits in 15-40% of sections', hitRate + '%', v => parseInt(v) >= 15 && parseInt(v) <= 40],
   ['every scene template chosen', missing(r.allScenes, r.scenes), v => !v.length],
+  ['a lit object as the centrepiece sometimes, in more than one look', `${r.lits} sections, ${r.looks} looks`, () => r.lits >= 3 && r.looks >= 2],
   ['a centrepiece in 15-45% of sections', Math.round(r.centres/N*100) + '%', v => parseInt(v) >= 15 && parseInt(v) <= 45],
   // the extras (journey/extras.js): Journey reaches the kaleidoscope (folding each thing it can), the grain and the layers' own speed and size
   ['a kaleidoscope in 10-40% of sections', Math.round(r.kals/N*100) + '%', v => parseInt(v) >= 10 && parseInt(v) <= 40],

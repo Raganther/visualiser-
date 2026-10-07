@@ -27,6 +27,9 @@ export function steerKal(){
   if (STEER.ban.kal) J.kal = null;
   else if (STEER.pin.kal) J.kal = {where: whereFor(), turn: .03, ...(J.kal || {}), n: STEER.pin.kal, ...(STEER.kalWhere != null ? {where: STEER.kalWhere} : {}), ...(STEER.kalMode != null ? {mode: STEER.kalMode} : {})};
 }
+// how intricate the mandalas are this section: simpler when calm, more ornate as it builds, with some chance either way
+export function chooseFrac(){ J.fracV = Math.random() < TUNE.extras.fracVortex ? 1 : 0; }   // the fractal's vortex, now and then
+export function chooseMand(){ const M = TUNE.extras.mand; J.mand = +Math.min(1, Math.max(0, M.base + M.tension*(J.tension - .5) + (Math.random() - .5)*M.spread)).toFixed(2); }
 // the film grain, now and then
 export function chooseGrain(){ const G = TUNE.extras.grain; J.grain = Math.random() < G.chance ? +rnd(G.amt).toFixed(2) : 0; }
 // the lead's and the accent's own speed and size: a layer staying in the cast keeps what it had (no jump mid-phrase)

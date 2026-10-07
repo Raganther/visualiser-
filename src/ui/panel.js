@@ -8,6 +8,8 @@ import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
 import { setJourney } from './controls.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
+import { F } from '../audio/foresee.js';
+import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { solo } from './presets.js';
@@ -109,6 +111,25 @@ $('#react').addEventListener('input', e => $('#reactOut').textContent = (+e.targ
 const showSync = v => { S.syncMs = v; $('#sync').value = v; $('#syncOut').textContent = (v > 0 ? '+' : '') + v + ' ms'; };
 try { showSync(+(localStorage.getItem('afterglow.syncMs') || 0)); } catch (e) {}
 $('#sync').addEventListener('input', e => { showSync(+e.target.value); try { localStorage.setItem('afterglow.syncMs', S.syncMs); } catch (e) {} });
+// tap to sync: tapping on the kick as it's heard, against the beat map's beats (audio/foresee.js): how far the speakers are
+// behind what the browser says (Bluetooth), the middle of several taps, becomes the Sync setting
+const taps = [];
+$('#tapSync').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const M = F.map, x = F.at && F.at(), out = $('#tapOut');
+  if (!M || x == null) { out.textContent = 'needs a track playing (one with a steady beat)'; return; }
+  const h = x - (TUNE.sync.displayMs - S.syncMs)/1000, B = M.beats, T = TUNE.sync;   // where the browser says the speakers are
+  const g = h - T.tapLead - T.tapMid;   // (the beat heard is looked for around the usual delay, so a long one isn't taken for the next beat)
+  let lo = 0, hi = B.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (B[m] < g) lo = m + 1; else hi = m; }
+  const b = lo > 0 && Math.abs(B[lo - 1] - g) < Math.abs(B[lo] - g) ? B[lo - 1] : B[lo];
+  const now = performance.now(); if (taps.length && now - taps[taps.length - 1].at > 3000) taps.length = 0;   // (a pause: start again)
+  taps.push({at: now, d: h - T.tapLead - b});
+  if (taps.length < T.taps) { out.textContent = `tap ${taps.length} of ${T.taps}…`; return; }
+  const d = taps.map(t => t.d).sort((a, b) => a - b), mid = d[d.length >> 1];
+  const ms = Math.max(-200, Math.min(400, Math.round(mid*1000/5)*5)); taps.length = 0;
+  showSync(ms); try { localStorage.setItem('afterglow.syncMs', ms); } catch (e) {}
+  out.textContent = `set: the visuals ${ms > 0 ? ms + ' ms later' : ms < 0 ? -ms + ' ms earlier' : 'as they were'}`;
+});
 $('#resetBtn').onclick = () => {
   const i = presets.indexOf(S.active);
   if (i >= 0) { Object.assign(S.active, clone(BASE[i])); syncSliders(); toast('Preset reset'); }

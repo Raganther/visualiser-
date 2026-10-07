@@ -29,10 +29,10 @@ export default {
   hold(secs){ hold(secs); },
   jump(to){ jump(to); },
   galaxy(){ if (C.sys) galaxyTrip(sysIndex(C.galaxy, C.sys.arm, C.armNext[C.sys.arm]++)); },
-  // jump to the next system (on this track's galaxy) that has one: 'hole', 'pulsar', 'binary', 'belt' or 'halo'
+  // jump to the next system (on this track's galaxy) that has one: 'hole', 'pulsar', 'binary', 'belt', 'halo' or 'neb'
   visit(what){
     if (!C.sys) return;
-    const has = s => what === 'belt' ? s.belt : what === 'halo' ? s.halo : s.sun.type === what;
+    const has = s => what === 'belt' ? s.belt : what === 'halo' ? s.halo : what === 'neb' ? s.neb : s.sun.type === what;
     for (let k = 0; k < 300; k++) for (let a = 2; a >= 0; a--) {
       const i = sysIndex(C.galaxy, a, 150 + k); if (i !== C.sys.idx && has(makeSystem(i))) return jump(i);
     }
@@ -45,7 +45,7 @@ export default {
   land(){ land(C.subj); }, takeoff(){ takeoff(); },
   dress(mode){ C.dress.hand = [null, {cage: 1, motes: 0}, {cage: 1, motes: 1}, {cage: 0, motes: 1}][mode] || null; },
   info: () => ({shot: C.kind, system: C.sys && C.sys.idx, arm: C.sys && C.sys.arm, star: C.sys && C.sys.sun.type, belt: !!(C.sys && C.sys.belt),
-    halo: !!(C.sys && C.sys.halo), subject: nameOf(C.subj, C.sys), caption: C.caption, warp: C.warp, building: C.building, prog: C.prog,
+    halo: !!(C.sys && C.sys.halo), neb: !!(C.sys && C.sys.neb), nebIn: C.sys && C.sys.neb ? len(sub(C.cam.pos, C.sys.neb.c))/C.sys.neb.R : 99, subject: nameOf(C.subj, C.sys), caption: C.caption, warp: C.warp, building: C.building, prog: C.prog,
     calm: C.calm, mon: C.monOn, fold: C.fold.amt, surf: SF.amt, sfPhase: SF.phase, sfAlt: SF.alt, sfMode: SF.mode, cage: C.dress.cage, motes: C.dress.motes, burst: C.dress.burst, motion: {...C.motion}, galaxy: G.on, galPhase: G.phase,
     near: C.subj ? len(sub(C.cam.pos, C.subj.p))/C.subj.r : 99, eyeR: Math.hypot(C.cam.pos[0], C.cam.pos[2]), eyeY: C.cam.pos[1], beltR: C.sys && C.sys.belt ? C.sys.belt.R : 0,
     clear: C.sys ? Math.min(...[C.sys.sun, ...C.sys.bodies].map(b => len(sub(C.cam.pos, b.p))/b.r)) : 99}),   // how near a body the camera is (in its radii)
@@ -76,6 +76,9 @@ export default {
       star: [STAR[sun.type], 0, 0, 0], twin: tw ? [...sub(tw.p, cam.pos), tw.r] : [0, 0, 0, 0],
       twinC: tw ? hsv2rgb(P.hue + P.pal[tw.slot], .35, 1).map(v => v*1.3) : [0, 0, 0],
       belt: belt ? [belt.R, belt.W, belt.H, near ? 1 : 0] : [0, 0, 0, 0], halo: halo ? [halo.R, halo.H, 1, P.pal[halo.slot]] : [0, 0, 0, 0],
+      // the nebula (from the camera), its hues, seed and glow, and its young stars (from the camera, how bright)
+      neb: sys.neb ? [...sub(sys.neb.c, cam.pos), sys.neb.R] : [0, 0, 0, 0], neb2: sys.neb ? [sys.neb.hues[0], sys.neb.hues[1] + .45, sys.neb.seed, TUNE.cosmos.nebula.glow*(1 + x.sBass*x.react*.25)] : [0, 0, 0, 0],
+      nebS: sys.neb ? Float32Array.from(sys.neb.stars.flatMap(([a, b, c2, w]) => [...sub(add(sys.neb.c, mul([a, b, c2], sys.neb.R)), cam.pos), w*(1 + P.beat*.25)])) : new Float32Array(12),
       fx: [x.sTreb*x.react, Math.min(1, P.hit)],
       warp: Math.max(C.warp, C.stretch*.3),   // a build starts the stars stretching
       seed: (sys.idx*1.37) % 10, vis, sRel, sunR: sun.r, type: sun.type, sys, k2,
@@ -135,6 +138,7 @@ float czFront(vec2 sp){
     gl.uniform1f(u.uCosTan, c.tan); gl.uniform1f(u.uCosWarp, c.warp); gl.uniform1f(u.uCosSeed, c.seed);
     gl.uniform4fv(u.uCosSun, c.sun); gl.uniform3fv(u.uCosSunC, c.sunC); gl.uniform3fv(u.uCosAxis, c.axis); gl.uniform4fv(u.uCosStar, c.star);
     gl.uniform4fv(u.uCosTwin, c.twin); gl.uniform3fv(u.uCosTwinC, c.twinC); gl.uniform4fv(u.uCosBelt, c.belt); gl.uniform4fv(u.uCosHalo, c.halo);
+    gl.uniform4fv(u.uCosNeb, c.neb); gl.uniform4fv(u.uCosNeb2, c.neb2); if (u['uCosNebS[0]']) gl.uniform4fv(u['uCosNebS[0]'], c.nebS);
     gl.uniform4fv(u['uCosB[0]'], c.B); gl.uniform4fv(u['uCosK[0]'], c.K); gl.uniform4fv(u['uCosA[0]'], c.A); gl.uniform4fv(u['uCosE[0]'], c.E); gl.uniform4fv(u['uCosT[0]'], c.T);
     gl.uniform4fv(u.uCzFold, c.fold); gl.uniform2fv(u.uCzFold2, c.fold2);
     gl.uniform4fv(u.uCzCage, c.cage); gl.uniform2fv(u.uCzCage2, c.cage2);

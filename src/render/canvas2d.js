@@ -291,6 +291,11 @@ export function make2D(view){
       out.globalCompositeOperation = 'lighter'; out.globalAlpha = .25*gl;   // the colours split: a faint offset copy
       out.drawImage(c, .007*gl*W, 0); out.restore();
     }
+    if ((P.hush || 0) > .01) {   // holding its breath before a drop: darker, most at the edges
+      out.save(); const g = out.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.hypot(W, H)/2);
+      g.addColorStop(0, `rgba(0,0,0,${(P.hush*.75).toFixed(3)})`); g.addColorStop(1, `rgba(0,0,0,${Math.min(1, P.hush*1.05).toFixed(3)})`);
+      out.globalCompositeOperation = 'source-over'; out.fillStyle = g; out.fillRect(0, 0, W, H); out.restore();
+    }
     if (gr > .01) {
       if (!grainCan) { grainCan = document.createElement('canvas'); grainCan.width = grainCan.height = 128; const x = grainCan.getContext('2d'), id = x.createImageData(128, 128);
         for (let i = 0; i < id.data.length; i += 4) { const v = Math.random()*255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } x.putImageData(id, 0, 0); }

@@ -47,7 +47,7 @@ vec2 kalUv(vec2 uv,vec2 asp){
   return 1.0-abs(1.0-mod(q,2.0));   // off the picture: mirrored back into it
 }`;
 export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal, uKal2; uniform vec2 uKalC, uAsp;
-uniform vec2 uGl; uniform float uGrain, uT;   // the glitch (how much, which slicing), film grain, time
+uniform vec2 uGl; uniform float uGrain, uT, uHush;   // the glitch (how much, which slicing), film grain, time; the breath held before a drop
 vec3 pic(vec2 uv){ return texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt; }
 ${KAL}
 void main(){
@@ -60,6 +60,7 @@ void main(){
   vec3 c=so>0.0?vec3(pic(uv+vec2(so,0.0)).r,pic(uv).g,pic(uv-vec2(so,0.0)).b):pic(uv);
   float m=max(c.r,max(c.g,c.b));
   if(m>uKnee){ float k=1.0-uKnee; c*=(uKnee+k*(1.0-exp(-(m-uKnee)/k)))/m; }   // roll off, keeping the colour
+  if(uHush>0.0) c*=1.0-uHush*min(1.0,0.75+0.6*length(vUv-0.5));   // holding its breath before a drop: darker, most at the edges
   c+=(fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-0.5)/255.0;   // dither
   if(uGrain>0.0){   // film grain and scan lines
     float n=fract(sin(dot(gl_FragCoord.xy+fract(uT*7.3)*vec2(113.0,71.0),vec2(12.9898,78.233)))*43758.5453);

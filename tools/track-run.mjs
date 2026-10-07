@@ -32,19 +32,23 @@ const res = await page.evaluate(async (mode) => {
   // 2. fed to the page in place of the built-in beat
   window.__synth = (t, freq, wave, db) => { const k = Math.min(N - 1, Math.round(t*60/1000));
     freq.set(F.subarray(k*1024, k*1024 + 1024)); db.set(FD.subarray(k*700, k*700 + 700)); for (let i = 700; i < 1024; i++) db[i] = freq[i]/255*70 - 100; for (let i = 0; i < 256; i++) wave[i*8] = WV[k*256 + i]; window.__width = WD[k]; return 'db'; };
-  // 3. step through, recording
+  // 3. read ahead for the drops, as the player does (audio/foresee.js), on the offline clock
+  const {F: FS, foresee} = await import('/src/audio/foresee.js'); let fclock = 0; await foresee(buf); FS.at = () => fclock;
+  // 4. step through, recording
   const an2 = await import('/src/audio/analysis.js'), {J} = await import('/src/journey/core.js'), {L} = await import('/src/audio/listen.js');
   const r2 = x => +x.toFixed(2);
   const secs = [], shots = []; let lb = an2.lastBeat, kicks = 0, stabs = 0, lastHit = 0;
+  const drops = []; let ld = J.lastDrop;
   for (let f = 0; f < N; f++) {
-    __step(1);
+    fclock = (f + 1)/60; __step(1);
+    if (J.lastDrop !== ld) { ld = J.lastDrop; drops.push({s: r2(fclock), foreseen: (J.foreDrops || 0) > drops.filter(d => d.foreseen).length}); }
     if (an2.lastBeat !== lb) { kicks++; lb = an2.lastBeat; }
     if (an2.hit > .8 && lastHit <= .8) stabs++; lastHit = an2.hit;
     if (f % 60 === 59) {
       const d = __jdbg();
       secs.push({s: (f + 1)/60, bpm: d.grid.bpm && +d.grid.bpm.toFixed(1), locked: d.grid.locked, dsure: d.grid.dsure && +d.grid.dsure.toFixed(2),
         sec: d.sec, types: d.types, recipe: d.recipe, lead: d.lead, accent: d.accent, hit: d.hit, world: d.world, scene: d.scene, centre: d.centre, pal: J.type && J.type.pal, lens: d.lensOn ? (d.lens && d.lens.n) : 0,
-        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
+        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), anticip: r2(J.anticip || 0), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
       kicks = 0; stabs = 0;
     }
     if (f % 1800 === 900) shots.push({s: f/60, png: document.querySelector('canvas').toDataURL('image/jpeg', .8)});
@@ -52,7 +56,7 @@ const res = await page.evaluate(async (mode) => {
   // an independent tempo estimate: autocorrelation of the low band's rises
   const env = new Float32Array(N); for (let k = 1; k < N; k++) { let s = 0; for (let i = 1; i < 7; i++) s += Math.max(0, F[k*1024 + i] - F[(k - 1)*1024 + i]); env[k] = s; }
   let best = 0, bl = 0; for (let lag = 20; lag <= 45; lag++) { let s = 0; for (let k = lag; k < N; k++) s += env[k]*env[k - lag]; if (s > best) { best = s; bl = lag; } }
-  return {dur: buf.duration, N, secs, shots, acBpm: 3600/bl};
+  return {dur: buf.duration, N, secs, shots, acBpm: 3600/bl, readAhead: FS.drops, drops, map: FS.map && {bpm: FS.map.bpm, conf: FS.map.conf, down: FS.map.down, phrase: FS.map.phrase, changes: FS.map.changes.map(c => c.t)}};
 }, mode);
 const name = path.basename(track).replace(/\.[^.]+$/, '');
 fs.writeFileSync(path.join(OUT, `${name}-${mode}-${seed}.json`), JSON.stringify({...res, shots: undefined}));
@@ -61,6 +65,9 @@ res.shots.forEach(s => fs.writeFileSync(path.join(OUT, `${name}-${mode}-${Math.r
 const S = res.secs, locked = S.filter(s => s.locked), bpms = locked.map(s => s.bpm).filter(Boolean).sort((a, b) => a - b);
 const count = k => Object.entries(S.reduce((o, s) => (o[s[k] || 'none'] = (o[s[k] || 'none'] || 0) + 1, o), {})).map(([v, n]) => `${v} ${n}s`).join(', ');
 console.log(`${res.dur.toFixed(0)} s; grid locked ${locked.length} s, median ${bpms[bpms.length >> 1] || '?'} BPM (autocorrelation says ${res.acBpm.toFixed(1)})`);
+const mmss = t => `${Math.floor(t/60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+console.log(`read ahead: ${res.readAhead.length ? res.readAhead.map(d => mmss(d.t) + (d.jump ? ' (arrives)' : '')).join(', ') : 'no drops'}; Journey dropped at ${res.drops.map(d => mmss(d.s) + (d.foreseen ? ' (seen coming)' : ' (heard live)')).join(', ') || 'none'}`);
+console.log(res.map ? `beat map: ${res.map.bpm} BPM (fit ${res.map.conf}), changes at ${res.map.changes.map(mmss).join(', ')}` : 'beat map: none (no steady beat): the live grid listened');
 console.log(`sections: ${new Set(S.map(s => s.sec)).size}; section changes: ${S.filter((s, i) => i && s.sec !== S[i - 1].sec).length}`);
 for (const k of ['world', 'recipe', 'lead', 'scene', 'hit', 'centre', 'pace']) console.log(`${k}: ${count(k)}`);
 console.log(`written to ${OUT}/; errors ${JSON.stringify(await page.errors())}`);

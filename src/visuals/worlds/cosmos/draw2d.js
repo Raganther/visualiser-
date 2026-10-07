@@ -32,6 +32,28 @@ function gas(c){
   for (const k of GAS) { const rel = sub(k.p, c.eye); if (k.fresh || dot(rel, c.Z) < -k.r || len(rel) > 160) respawn(k, c, 10, 150, 1.6); }
   return GAS;
 }
+// a nebula: puffs of glowing gas through its sphere (fixed places for the nebula, from its seed), each a soft disc seen
+// from the camera, in its two hues; a few dark puffs of dust over them; its young stars
+const NEB = (() => { const r = rng(404), a = []; for (let i = 0; i < 70; i++) { let q; do q = [r()*2 - 1, r()*2 - 1, r()*2 - 1]; while (q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > 1);
+  a.push({q, s: .35 + r()*.4, h: r(), dust: i % 7 === 6}); } return a; })();
+function nebula2d(o, P, c, scr, u){
+  const [nx, ny, nz, R] = c.neb, glow = c.neb2[3], puffs = [];
+  for (const f of NEB) { const rel = [nx + f.q[0]*R, ny + f.q[1]*R, nz + f.q[2]*R], s = scr(rel); if (s.z > .5) puffs.push({f, s, r: f.s*R*s.k}); }
+  puffs.sort((a, b) => b.s.z - a.s.z);
+  o.save();
+  for (const {f, s, r} of puffs) {
+    if (r < 2) continue;
+    const g = o.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
+    if (f.dust) { g.addColorStop(0, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); o.globalCompositeOperation = 'source-over'; }
+    else { const col = hc(P.hue + (f.h < .5 ? c.neb2[0] : c.neb2[1]), 75, 55, Math.min(.35, .05*glow)); g.addColorStop(0, col); g.addColorStop(1, hc(P.hue + c.neb2[0], 70, 40, 0)); o.globalCompositeOperation = 'lighter'; }
+    o.fillStyle = g; o.fillRect(s.x - r, s.y - r, r*2, r*2);
+  }
+  o.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 3; k++) { const s = scr([c.nebS[k*4], c.nebS[k*4 + 1], c.nebS[k*4 + 2]]); if (s.z <= .5) continue;
+    const r = Math.max(2, u/150)*(1 + c.nebS[k*4 + 3]), g = o.createRadialGradient(s.x, s.y, 0, s.x, s.y, r*4);
+    g.addColorStop(0, 'rgba(255,245,230,.95)'); g.addColorStop(.25, 'rgba(255,240,220,.35)'); g.addColorStop(1, 'rgba(255,240,220,0)'); o.fillStyle = g; o.fillRect(s.x - r*4, s.y - r*4, r*8, r*8); }
+  o.restore();
+}
 // the galaxy's stars, on its three arms (cold, warm, hot), for the galaxy view
 const GSTARS = (() => { const r = rng(55), a = []; for (let i = 0; i < 1400; i++) { const arm = i % 3, [a0, r0, dr, turn] = GAL_ARM(arm), rho = 4 + r()*80;
   const th = a0 + (rho - r0)/dr*turn + (r() + r() + r() - 1.5)*(1.5 + rho*.08)/Math.max(rho, 4); a.push({p: [Math.cos(th)*rho, (r() - .5)*.8, Math.sin(th)*rho], arm, s: r()}); } return a; })();
@@ -123,6 +145,7 @@ function drawSpace(o, P){
   const scr = rel => { const z = dot(rel, c.Z), k = k2/z; return {x: cx + dot(rel, c.X)*k*u, y: cy - dot(rel, c.Y)*k*u, z, k: k*u}; };
   const path = (pts, close) => { o.beginPath(); let on = false;   // a polyline through the points in front of the camera
     for (const pt of pts) { const s = scr(pt); if (s.z <= .05) { on = false; continue; } if (on) o.lineTo(s.x, s.y); else o.moveTo(s.x, s.y); on = true; } };
+  if (c.neb && c.neb[3] > 0) nebula2d(o, P, c, scr, u);
   if (c.halo[2]) {   // the built ring round the star: its two edges and a band between, seen from wherever the camera is
     const [R, Hh] = c.halo, pts = y => Array.from({length: 97}, (_, j) => { const a = j/96*Math.PI*2; return sub([Math.cos(a)*R, y, Math.sin(a)*R], c.eye); });
     o.lineWidth = Math.max(1, u/400); o.strokeStyle = hc(P.hue + c.halo[3], 15, 55, .7);

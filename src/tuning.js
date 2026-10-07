@@ -78,6 +78,10 @@ export const TUNE = {
     // the resolution follows the frame rate (render/quality.js): one step down when it's under low, one up after upMs at high
     auto: {on: 1, low: 48, slowN: 2, high: 57, min: .5, step: .8, worldMin: .5, windowMs: 1000, graceMs: 4000, settleMs: 2000, upMs: 10000,
       probeMs: 6000, ceilMs: 120000, stallMs: 1000},   // probe: a drop this soon after a step up keeps it under that step for ceilMs; stall: a gap this long (a hidden tab) restarts the count
+    // the fixed graphics levels (render/quality.js; the panel's Graphics, or Q): the share of the screen drawn, the share a
+    // heavy world (the cosmos, the 3D worlds) is drawn at, and the trails' resolution. They never switch, unlike Auto
+    gfx: {best: {scale: 1, world: 1, trail: .75}, balanced: {scale: .85, world: .7, trail: .7}, fast: {scale: .7, world: .55, trail: .6},
+      fastest: {scale: .55, world: .45, trail: .5}},
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
   },
@@ -102,7 +106,8 @@ export const TUNE = {
     fov: 55,                   // the view's width in degrees (shots widen or narrow it a little)
     kick: 1.2,                 // degrees the kick nudges the view in
     lookK: 1.5,                // how much quicker the view turns than the camera moves
-    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9, sunrise: .75},   // how quickly the camera follows each shot (per second)
+    nebula: {glow: 2.4},       // how brightly a nebula's gas glows
+    k: {orbit: .7, approach: .5, flyby: 1.1, reveal: .45, eclipse: .6, drift: .5, push: .6, belt: .8, skim: .9, sunrise: .75, nebula: .45},   // how quickly the camera follows each shot (per second)
     galaxyChance: .45,         // how often the biggest drops (after a full build) go out to the galaxy and back (else a black hole)
     handSecs: 30,              // seconds a shot picked by hand (the lab's keys) holds the camera before the music takes over again
     galFade: 1.8, galHoldSecs: 9,   // seconds to fade out to the galaxy (and back), and to look across it before diving
@@ -172,7 +177,8 @@ export const TUNE = {
     fill: .12,                 // how much light the glass panes hold
     dark: .75,                 // how much the glass darkens what's behind it (so it reads as a solid)
     xray: .22,                 // how brightly the far side's edges show through
-    trail: .15,                // how bright the ghosts they leave in the trails are
+    trail: 0,                  // how bright the ghosts they leave in the trails are (0: none, and no pass for them; the user found the streaks
+                               // they smear into, out from the object, distracting: .15 before)
   },
   // each object: chance (how often Journey makes it a section's centrepiece; 0 = never, try ?lab=skull or ?lab=objects),
   // size (about 1.1 × this, as a fraction of the screen's height) and hinge (its hinged piece's swing on the pulse, radians)
@@ -183,16 +189,116 @@ export const TUNE = {
   knot: {chance: 0, size: .52, hinge: 0},
   dodeca: {chance: 0, size: .4, hinge: 0},
   spikes: {chance: 0, size: .4, hinge: 0},
+  crystal: {chance: 0, size: .95, hinge: 0},
   manta: {chance: 0, size: .68, hinge: 0,         // the manta ray (a Blender model: tools/blender/manta.py), gliding:
     flap: 1,                   // how far its wings beat (the shape key's weight, both ways), more as the tension rises
     beatsPerFlap: 2,           // one wingbeat every this many beats, in step with the bar
     pitch: .42,                // how far it's tipped towards us, so its back shows
     turn: .12,                 // how far it turns from side to side as it glides, slowly (radians)
   },
+  lotus: {chance: 0, size: .8, hinge: 0,         // the lotus (a Blender model: tools/blender/lotus.py), blooming with the phrase:
+    bloom: .95,                // how far it opens and closes over the phrase (the shape key's weight, both ways)
+    burstSecs: 2.5,            // a drop bursts it fully open, easing back over about this long
+    pitch: .75,                // how far it's tipped towards us, so we look into the flower
+    turn: .06,                 // its slow turn (radians a motion-second)
+  },
+  goblin: {chance: 0, size: .9, hinge: 0,         // the goblin (a Blender sculpt: tools/blender/goblin.py), snarling with the music:
+    glower: .55,               // how far from a snarl it rests (the shape key's weight below 0: tight-lipped)
+    mids: 1.1, snarl: 1.6,     // how much the mids work its jaw, and a downbeat's snarl when it's intense
+    snapDecay: 3.5,            // how fast a downbeat's snarl eases off (a second)
+    pitch: -.05,               // tipped a little up, so it looks down at us
+  },
+  // the lit objects (Blender models baked for real time, render/lit.js, objects/lit-object.js): their shared light rig
+  lit: {
+    journey: .8,               // Journey's centrepiece draw: a lit object's weight against a wire one's (1: the same; a weighted draw, u^(1/w))
+    looks: [1, .5, 1.6, .7, .5],   // the look Journey gives one: real, toon, neon (the user's favourite), chrome, marble
+    key: 3.4, rim: 4, kick: 1.8, amb: .18,     // the lights' strengths: warm key, the rim from behind (the palette's second colour), the kick from below (its third); the world's light all round
+    lightDist: 2.2,            // how far out the lights circle (an object fits a sphere of about .6)
+    keySpeed: .35, keySwing: 1.25,  // the key light's swing round it (radians a second, times .4 + the tension) and how far each way
+    dropSpin: 3, dropSecs: 2.5,     // a drop spins the lights round it this fast, fading over about this long
+    trans: 1,                  // light glowing through thin parts from behind (the goblin's ears, the tentacle)
+    trail: 0,                  // how much of it the trails keep (its ghosts; off, as for the wire objects: TUNE.mesh.trail)
+    zoom: .2, zoomRate: .08,   // the camera breathing in and out (of its size), and how slowly (radians a motion-second)
+    buildZoom: .25, dropZoom: .35,  // pushing in through a build towards a known drop, and the lunge on the drop
+  },
+  goblinLit: {chance: 0, size: .95, hinge: 0,     // the goblin, lit: its snarl is the goblin's (TUNE.goblin)
+    turn: .11, turnSwing: .6,  // its slow turn between three-quarter views, and how far each way
+    pitch: .06,                // tipped a little down, glowering
+  },
+  tentacle: {chance: 0, size: .8, hinge: 0,       // the octopus's arm (tools/blender/tentacle.py), writhing: bent along its length at ten joints
+    turn: .09, turnSwing: .5, pitch: 0,
+    wave: .09, waveLen: .75, waveSpeed: 2.2,   // a wave running up it (radians at each joint, radians of phase a joint, and a motion-second)
+    bass: .12,                 // the bass swelling the wave
+    kick: .06,                 // each kick flexing it
+    curl: .5,                  // a drop curling it (radians, most at the tip), easing back
+  },
+  hand: {chance: 0, size: .75, hinge: 0,           // the hand (tools/blender/hand.py): its shape key clenches it into a claw (1) or spreads it (-1)
+    turn: .1, turnSwing: .55, pitch: .05,
+    rest: -.35,                // relaxed, fingers a little spread
+    grip: 1.6,                 // each beat clenching it (times .5, up to 1.1 when intense)
+    release: 7,                // how fast the grip lets go (a second)
+    spread: 1,                 // a drop flinging it open
+  },
+  heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
+    turn: .08, turnSwing: .45, pitch: .04,
+    beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
+    snap: 6,                   // how fast the squeeze lets go (a second)
+  },
+  jelly: {chance: 0, size: .9, hinge: 0,          // the jellyfish (a Blender model: tools/blender/jelly.py), swimming to the beat:
+    beatsPerStroke: 1,         // one stroke of the bell every this many beats
+    snap: 7,                   // how fast the bell contracts on the beat (it relaxes over the rest of the stroke)
+    lift: .05,                 // how far each stroke lifts it (of the screen's height)
+    pitch: .28, turn: .05,     // tipped a little towards us, turning slowly
+  },
+
+  // the Hollow (visuals/worlds/hollow.js), the cave flown through: its speed (units a motion-second) at full tension (calm:
+  // this share of it), a drop's surge (times the speed) and how fast it fades, how long a section's cave takes to re-form
+  vessel: {speed: 2.6, calm: .4, surge: 2, surgeSecs: 2.5, morphSecs: 5,   // the Vessel (worlds/vessel.js): its flight, a drop's surge, a new section's vessel growing in
+    push: .9, pushDecay: 4,    // each kick surges the flow (a share of the speed), easing off this fast (a second)
+    cellsFaster: .25,          // the cells drift this much faster than the camera
+    cells: 1,                  // how many cells (the share of the grid's places holding one)
+    wallGlow: .6,              // the glowing layers laid on its walls (WebGL)
+    gate: 40, heartSize: .7,   // a centrepiece floats in the vessel this often (units), and its size at one unit away
+  },
+  corridor: {speed: 3.2, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Corridor (worlds/corridor.js): its flight, a drop's surge, a new section's frames growing in
+    waveSpeed: 26, waveFade: .7,   // the kick's wave of light: how fast it rushes away down the frames (units a second), how fast it fades
+    strobeHz: 6,               // a drop's strobe (flashes a second, while the surge lasts; halved with reduce motion)
+    gate: 36,                  // a centrepiece stands in the hall this often (units)
+    heartSize: .35,            // its size at one unit away
+    glow: 1,                   // the frames' glow
+    wallGlow: .45},            // the glowing layers reflected in its floor (WebGL)
+  geode: {speed: 2.2, calm: .35, surge: 2.2, surgeSecs: 2.5, morphSecs: 5,   // the Geode (worlds/geode.js): its flight, a drop's surge, a new section's crystal growing in
+    cavitySlow: .45,           // through a cavity's middle the flight slows to this share, to take it in
+    growCalm: .55, growHigh: 1.15,   // how long the crystals grow, calm to intense (a drop adds a little)
+    heartSize: .3,             // a centrepiece standing in a cavity: its size at one unit away
+    motes: 1.2, wallGlow: .6}, // glittering dust in the cavities; the glowing layers laid on the rock
+  cathedral: {speed: 2.2, calm: .45, surge: 1.8, surgeSecs: 3, morphSecs: 5,   // the Cathedral (worlds/cathedral.js): its flight down the nave, a drop's surge, a new section's hall growing in
+    low: .1, high: 2.2,        // the camera's height: low in the nave when calm, up in the vaults at the height of a build
+    lookAside: .35,            // calm music: glancing along the side aisles (radians)
+    altarBars: 8,              // an altar in a side aisle every this many bars (and at each new section), where a centrepiece stands
+    altarAhead: 18, altarHeight: 1.1, altarSize: .9,   // how far ahead it's set, how high above the floor it stands, how big it is (world units)
+    altarLook: .55,            // how far the camera turns to it as it passes
+    motes: 1.6,                // dust drifting in the oculi's columns of light (its brightness)
+    wallGlow: .7,              // the glowing layers' picture laid on the stone (0: none)
+  },
+  hollow: {speed: 2.4, calm: .4, surge: 2.2, surgeSecs: 3, morphSecs: 5,   // the Hollow (worlds/hollow.js): its flight, a drop's surge, a new section's cave growing in
+    chamberBars: 8,            // a chamber every this many bars (and at each new section)
+    chamberAhead: 22,          // how far ahead on the route it opens (units: about 10 s of flight)
+    chamberR: [3.2, 4.6],      // its size, smallest to largest (the tunnel is .9 across)
+    chamberSide: .42,          // its heart, off the route to one side (of its size), so the camera passes beside it
+    chamberSlow: .4,           // the flight slows to this through a chamber
+    lookAt: .55,               // how far the camera turns to look at the heart as it passes
+    bank: 1.6, bankMax: .55,   // banking into the route's turns (radians per unit of its sideways pull, and at most)
+    breathe: .1,               // a flesh cave's walls swelling with the bass
+    heartSize: .22,            // a centrepiece in the heart, as a share of the chamber's size
+    motes: 1.4,                // spores drifting in the lamp's light (their brightness)
+    wallGlow: .8,              // the glowing layers' picture wrapped round the tunnel's walls (0: none)
+  },
 
   // sync with real audio: beats are drawn ahead by the analyser's own delay and the screen's, and held back by the speakers'
   sync: {
     displayMs: 30,             // how long a drawn frame takes to reach the screen
+    taps: 8, tapLead: .02, tapMid: .1,   // tap to sync (ui/panel.js): taps taken, how early people tap ahead of the beat they hear (s), and the speakers' delay the beat is looked for around
   },
 
   // kick detection (audio/analysis.js)
@@ -226,6 +332,20 @@ export const TUNE = {
   // peak at this share of the way through, and winding down to the end
   arc: {start: .25, peak: .8, peakAt: .68, end: .3},
 
+  // looking ahead (audio/foresee.js): a dropped-in track is read for its drops before it plays, and Journey builds towards
+  // each one (journey/director.js). The run-up lasts leadBars bars (at most the breakdown's length, at least minSecs); over it
+  // the tension is lifted towards tension, the trails zoom and turn faster (zoom, spin), and in the last hushBeats beats the
+  // picture holds its breath (dims by hush) so the drop lands harder. New sections wait for the drop in the last holdBars.
+  foresee: {on: true, leadBars: 8, minSecs: 3, tension: .95, zoom: .03, spin: 1.5, hushBeats: 1, hush: .45, holdBars: 8,
+    jumpDb: 12, jumpGap: 12, gap: 15, waitMs: 3000,   // (and a track starts once it's read, or after this long)
+    // the beat map (audio/foresee.js beatMap): the claps' and hats' share of the onsets; an onset counts from this strength;
+    // the fine tempo search (a share either side of the rough one, in steps of this share); the onsets' line-up needed to
+    // map a track at all (below: the live grid); how far a beat may be nudged towards its kicks (s); the filters' delay (s);
+    // the kick counted full at this strength; how the downbeat is weighed (claps, drops) and how clear it must be; a
+    // change of this size (in bars' usual spread) on a phrase line is a new part; drops within this share of a beat snap to it
+    map: {on: true, highW: .3, peak: .15, search: .025, step: 2e-5, sure: .08, drift: .03, delay: .003, kickFull: .5,
+      clapW: .5, dropW: 1, downMargin: .5, change: 1.2, snap: .3,
+      softPulse: .35, coverBars: 8, attack: .3}},   // (a kick's attack: where the whole spectrum's rise first reaches this share of its most)   // (and within this many bars of a change the map found, the live novelty waits for it)   // read ahead, a beat with no kick (a breakdown) pulses this hard   // the low end arriving this many dB above the 8 s before is a drop too (none within jumpGap s of another); drops closer than gap s to the last are left to land by themselves
   // listening for texture (audio/listen.js): what tells compressed techno's parts apart when its loudness barely moves
   listen: {
     forget: .01,               // how fast the loudest hats heard fade (a share a second), so a quieter part is heard on its own terms
@@ -281,8 +401,13 @@ export const TUNE = {
     ballSecs: 6,               // a drop's bait ball: how long the school circles before it swims on
     track: .015,               // how fast we drift along the reef (the near layers slide past fastest)
   },
-  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points: calm to intense
-  objStyles: {calm: [1, .3, .3, 1, .6], intense: [.6, 1, 1, .5, .9]},
+  // how Journey draws a centrepiece (render/mesh.js), weights for glass wire, solid, outline, hologram, points, shaded: calm to intense
+  objStyles: {calm: [1, .3, .3, 1, .6, .8], intense: [.6, 1, 1, .5, .9, .7]},
+  unfold: {barsPerRing: 2},    // the unfolding mandala: a new ring every this many bars (faster, and the trails smear the rings outwards)
+  // the fractal's endless dive (visuals/layers/fractal.js): octaves a motion-second at full tension (calm: this share of it), each
+  // octave this much bigger than the next; a drop's surge (times the speed) and how fast it fades; the kick's flash (log radius a
+  // second); the folds an octave can be born with, calm to intense
+  fractal: {speed: .22, calm: .45, octave: 2.5, surge: 4, surgeSecs: 2.5, echoSpeed: 2.5, folds: [4, 5, 6, 8, 10]},
   // the kaleidoscope's other kinds (kalMode): the mirror box's hall (how fast its copies recede toward the edges), and the
   // dive (how fast it zooms in, faster as the tension rises; each band's width in log radius: each band e^band smaller)
   kal: {hall: 1, dive: .25, band: .8},
@@ -293,6 +418,8 @@ export const TUNE = {
       mode: [1, .6, .8],                                       // wedges, a mirror box, a dive
       where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
     grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
+    mand: {base: .5, tension: .5, spread: .7},                 // the mandalas' detail: its middle, how much the tension raises it, how far chance spreads it
+    fracVortex: .35,                                           // the share of sections whose fractal dive twists into the vortex
     tw: {chance: .35, speed: [.55, 1.8], size: [.75, 1.4]},    // a layer's own speed and size: the share of sections the lead or accent gets its own, and the ranges
   },
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
@@ -310,6 +437,7 @@ export const TUNE = {
     // layers, round the picture's centre (radians, scale): how far each move goes at middling energy
     layer: {rock: .25, breathe: .08, spin: .25, push: .18, pulse: .06, bloom: .12},
     // objects: a head bang's nod, a groove's bounce and squash, a glance, a pulse, a float, coming towards us (scale), tipping back (radians)
-    obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5},
+    obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5,
+      reach: .4, reachTip: .45, reachIn: .25, reachHold: 1, reachOut: 1.5},   // a reacher on a drop (the user loved the hand and tentacle "reaching out towards you"): how much closer, how far its top tips towards us, the lunge, the hold and the easing back (bars)
   },
 };

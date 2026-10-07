@@ -19,6 +19,7 @@ import { $, jn, reduceMotion } from '../util.js';
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { L } from '../audio/listen.js';
+import { F } from '../audio/foresee.js';
 
 // the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
 export function arcBias(now){
@@ -26,6 +27,37 @@ export function arcBias(now){
   const f = Math.min(1, (now - J.arcStart)/(J.arcMins*60000)), A = TUNE.arc;
   const v = f < A.peakAt ? A.start + (A.peak - A.start)*Math.sin(f/A.peakAt*Math.PI/2) : A.peak + (A.end - A.peak)*(1 - Math.cos((f - A.peakAt)/(1 - A.peakAt)*Math.PI))/2;
   return v - .5;
+}
+// looking ahead (audio/foresee.js): where the next drop we know of is, how far into its run-up we are (J.anticip, 0..1),
+// and the breath held in its last beat (J.hush). Drops too close to the one before (TUNE.foresee.gap) are left alone, as the
+// live detector leaves them. Returns the drop crossed this frame, if any (a seek over one doesn't count)
+function foreStep(dt, now){
+  const Fo = TUNE.foresee, t = F.ready && F.at ? F.at() : null;
+  J.anticip = 0; J.hush = 0; J.fore = null;
+  if (t == null) { J.foreT = null; return null; }
+  const last = J.foreT ?? t; J.foreT = t;
+  const beat = G.locked && G.period ? G.period : .47;
+  let crossed = null, prev = -1e9;
+  for (const d of F.drops) {
+    if (d.t - prev < Fo.gap || d.t < 8) continue;
+    prev = d.t;
+    if (d.t <= last) continue;
+    if (d.t <= t) { if (t - last < .5) crossed = d; continue; }
+    const lead = Math.min(Math.max(Fo.leadBars*4*beat, Fo.minSecs), Math.max(Fo.minSecs, d.t - d.brk)), left = d.t - t;
+    J.fore = {t: d.t, left, bars: left/(4*beat), lead};
+    J.anticip = Math.max(0, Math.min(1, 1 - left/lead));
+    J.hush = Math.max(0, Math.min(1, 1 - left/(Fo.hushBeats*beat)));
+    break;
+  }
+  // the beat map's own section lines (audio/foresee.js): a change one beat off starts a section on its downbeat
+  const M = F.map; J.mapNear = false;
+  if (M) { const P = M.period, near = TUNE.foresee.map.coverBars*4*P;
+    for (const c of M.changes) {
+      if (Math.abs(c.t - t) < near) J.mapNear = true;
+      if (!(c.t - P > last && c.t - P <= t)) continue;
+      if (J.on && J.type && !J.pending && J.secAge > TUNE.sectionMinAge && !STEER.hold) { J.pending = true; J.pendingSince = now; J.pendStrength = Math.max(1, c.nov/2); J.novBar = J.bar + 1; }
+    } }
+  return crossed;
 }
 export function stepJourney(now, dt){
   // energy at three timescales: right now, the last few seconds, the last ~20 seconds
@@ -40,12 +72,15 @@ export function stepJourney(now, dt){
   // the tension: loudness, and how full the texture is (hats, noise, bass: compressed techno's loudness barely moves)
   J.biasEff = Math.min(1, Math.max(0, J.bias + arcBias(now)));   // the slider, and the set arc if one's running
   const wF = TUNE.listen.fullWeight, targetT = Math.min(1, Math.max(0, (lvl*(.8 - wF*.75) + L.full*wF + rise*.5 + (J.biasEff - .5)*.8)*(1 - .5*J.intro)));
-  J.tension += (targetT - J.tension)*Math.min(1, dt/2);
+  const drop = foreStep(dt, now);
+  J.tension += (Math.max(targetT, J.anticip*TUNE.foresee.tension) - J.tension)*Math.min(1, dt/(J.anticip > 0 ? 1 : 2));   // (a known drop coming lifts it)
   J.tmin = Math.min(J.tension, J.tmin + dt*.06);
   J.dropGlow *= Math.pow(.35, dt);
   J.zoomFlip *= Math.pow(.25, dt);
   features(dt);
   if (!J.on) return;
+  // a drop we saw coming lands on the moment: new sections held for it start with it (the live rules below then stand down)
+  if (drop && now - J.lastDrop > 5000) { J.lastDrop = now; J.foreDrops = (J.foreDrops || 0) + 1; dropFX(); if (J.pending) newSection(Math.max(1, J.pendStrength)); J.cutNow = true; }
   if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
   // or the bass coming back after a breakdown (audio/listen.js): the drop, even when the loudness hardly changed
   if (L.drops !== J.drops) { J.drops = L.drops; if (J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); } }
@@ -63,8 +98,11 @@ export function stepJourney(now, dt){
   const wasHold = J.novHold;
   J.novHold = J.type && J.nov > Math.max(TUNE.novelty*(1 - .5*still), J.novAvg*(TUNE.noveltyVsAvg - .5*still)) ? (J.novHold || 0) + dt : 0;
   if (!wasHold && J.novHold) J.novBar = J.bar + (J.pos >= 2 ? 1 : 0);   // the downbeat nearest to where the change began   // the change has to last, not just be a blip
-  if (!J.pending && !STEER.hold && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) { J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }   // (held by hand: no new sections)
-  if (J.pending && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
+  if (!J.pending && !STEER.hold && !J.mapNear && J.secAge > TUNE.sectionMinAge && J.novHold > TUNE.noveltyHold) {   // (read ahead: near a known change, that one brings it)
+    J.pending = true; J.pendingSince = now; J.pendStrength = J.nov*6; }   // (held by hand: no new sections)
+  J.foreHold = !!J.fore && J.fore.bars < TUNE.foresee.holdBars;   // a known drop is near: save the change for it
+  if (J.foreHold && J.pending) J.pendingSince = now;
+  if (J.pending && !J.foreHold && now - J.pendingSince > 1600) newSection(J.pendStrength);   // no bar line came: change anyway
   // once it has settled, ask: is this a part we've heard before? (checked twice, in case of a slow transition)
   if (J.type && (J.identified < 1 && J.secAge > 6 || J.identified < 2 && J.secAge > 14)) {
     J.identified = J.secAge > 14 ? 2 : 1;
@@ -143,11 +181,13 @@ export function stepJourney(now, dt){
   const K = MEDIA.on ? null : J.kal;
   tgt.kal = K ? K.n : 0; if (K) { tgt.kalTurn = K.turn; jState.kalMode = K.mode || 0; tgt.sym = 1; tgt.mirror = 0; } else tgt.kalTurn = 0;
   tgt.grain = J.grain || 0;
+  tgt.mandDetail = J.mand ?? .5; tgt.fracVortex = J.fracV || 0;   // how intricate the mandalas are, and the fractal's vortex (extras.js)
   tgt.decay = .955 - T*.05 + jn(c*.4, 320)*.012;
   tgt.zoom = 1.0 + T*.018 + ty.zoomBias + jn(c*.3, 360)*.01 + breath*.008 + J.zoomFlip;
   tgt.rot = (.35 + .65*Math.abs(jn(c*.35, 330)))*.03*(.4 + T)*J.spinDir*ty.spin;
   tgt.warp = .1 + (1.3 - T)*1.1*n01(340, .5);
   tgt.wander = TUNE.wander[0] + (TUNE.wander[1] - TUNE.wander[0])*(1 - T*.6)*n01(350, .3);   // the centre stays near the middle (TUNE.wander)
+  if (J.anticip > 0) { const a = J.anticip*J.anticip; tgt.zoom += a*TUNE.foresee.zoom; tgt.rot *= 1 + a*TUNE.foresee.spin; }   // the run-up: rushing, turning faster
   tgt.colorSpeed = .015 + T*.05;
   tgt.hueDrift = .004 + T*.02;
   // pace: the section's own character, lifted by intensity and the calm-to-intense slider; glides over a few seconds
@@ -189,6 +229,7 @@ export function stepJourney(now, dt){
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k) || k === 'kal') ? swap : rate);   // (the kaleidoscope unfolds over about a bar)
   }
   jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
+  jState.litLook = J.litLook || 0;     // and a lit one's look
   if (J.kal && !MEDIA.on) jState.kalWhere = J.kal.where;   // what the kaleidoscope folds: a switch
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean

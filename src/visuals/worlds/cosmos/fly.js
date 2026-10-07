@@ -95,7 +95,7 @@ const monBody = () => ({kind: 'monument', get p(){ return C.sys.mon.p; }, r: C.s
 // a black hole is circled on a tilted orbit, so its disk opens up instead of showing edge on
 const subjOf = b => b ? {p: b.p, r: b.r, axis: b.axis} : C.sys.sun.type === 'hole'
   ? {p: C.sys.sun.p, r: C.sys.sun.r*2.5, axis: norm(add(C.sys.sun.axis, mul(around(C.sys.sun.axis)[0], 1.4)))} : {p: C.sys.sun.p, r: C.sys.sun.r, axis: C.sys.sun.axis};
-const ctx = () => ({cam: C.cam, subj: subjOf(C.subj), sys: {p: [0, 0, 0], R: C.sys.R, belt: C.sys.belt}, sun: C.sys.sun.p, prog: C.prog});
+const ctx = () => ({cam: C.cam, subj: subjOf(C.subj), sys: {p: [0, 0, 0], R: C.sys.R, belt: C.sys.belt, neb: C.sys.neb}, sun: C.sys.sun.p, prog: C.prog});
 const planets = () => C.sys.bodies.filter(b => !b.moon);
 
 export function startShot(kind, subj){
@@ -105,19 +105,20 @@ export function startShot(kind, subj){
     subj = C.monOn && kind !== 'eclipse' && C.r() < .25 ? monBody() : list[Math.floor(C.r()*list.length)];
   }
   if (kind === 'belt' && !C.sys.belt) kind = 'drift';
+  if (kind === 'nebula' && !C.sys.neb) kind = 'drift';
   if (kind === 'skim' && !(subj && SOLID(subj))) {   // a solid world to skim over (a gas giant has no surface)
     const solid = C.sys.bodies.filter(b => SOLID(b) && b !== C.subj); if (solid.length) subj = solid[Math.floor(C.r()*solid.length)]; else kind = 'approach';
   }
-  C.kind = kind; C.subj = kind === 'reveal' || kind === 'drift' || kind === 'belt' ? null : subj; C.st = 0; C.bars = 0;
+  C.kind = kind; C.subj = kind === 'reveal' || kind === 'drift' || kind === 'belt' || kind === 'nebula' ? null : subj; C.st = 0; C.bars = 0;
   C.shot = SHOTS[kind].start(ctx(), [C.r(), C.r(), C.r()]);
   C.caption = kind === 'reveal' ? `Pulling back: ${planets().length} worlds round ${starName(C.sys)}`
-    : kind === 'drift' ? (C.calm ? 'Drifting in the quiet' : 'Drifting between the worlds') : kind === 'belt' ? 'Through the asteroid belt'
+    : kind === 'drift' ? (C.calm ? 'Drifting in the quiet' : 'Drifting between the worlds') : kind === 'belt' ? 'Through the asteroid belt' : kind === 'nebula' ? 'Drifting into a nebula'
     : kind === 'skim' ? `Skimming low over ${nameOf(C.subj, C.sys)}`
     : `${WORDS[kind]} ${nameOf(C.subj, C.sys)}`;
 }
 export function nextShot(T){
-  const belt = C.sys.belt ? 1 : 0;   // a belt to fly through: more likely when it's intense (the rocks rush past)
-  const calm = {orbit: 3, drift: 2, eclipse: 2, sunrise: 1.2, reveal: 1.5, approach: 1, flyby: .5, belt: .6*belt, skim: .6}, hot = {flyby: 3, approach: 2.5, orbit: 1.5, eclipse: 1, sunrise: .6, reveal: .5, drift: .3, belt: 2*belt, skim: 1.3};
+  const belt = C.sys.belt ? 1 : 0, neb = C.sys.neb ? 1 : 0;   // a belt to fly through (more when it's intense: the rocks rush past); a nebula to drift into (more when calm)
+  const calm = {orbit: 3, drift: 2, eclipse: 2, sunrise: 1.2, reveal: 1.5, approach: 1, flyby: .5, belt: .6*belt, skim: .6, nebula: 2.5*neb}, hot = {flyby: 3, approach: 2.5, orbit: 1.5, eclipse: 1, sunrise: .6, reveal: .5, drift: .3, belt: 2*belt, skim: 1.3, nebula: .4*neb};
   const w = Object.keys(calm).map(k => [k, k === C.kind ? 0 : calm[k]*(1 - T) + hot[k]*T]), sum = w.reduce((s, [, v]) => s + v, 0);
   let x = C.r()*sum; for (const [k, v] of w) if ((x -= v) <= 0) return startShot(k);
   startShot('orbit');
@@ -242,7 +243,7 @@ export function fly(dt, x){
   // the track's shape: tension climbing faster than its slow average is a build
   const T = J.tension || 0;
   C.tf += (T - C.tf)*Math.min(1, dt/CZ.buildFast); C.ts += (T - C.ts)*Math.min(1, dt/CZ.buildSlow);
-  const b = C.tf > CZ.buildFloor ? Math.max(0, Math.min(1, (C.tf - C.ts)/CZ.buildSpan)) : 0;
+  const b = Math.max(C.tf > CZ.buildFloor ? Math.max(0, Math.min(1, (C.tf - C.ts)/CZ.buildSpan)) : 0, J.anticip || 0);   // (or a drop read ahead: audio/foresee.js)
   C.build += (b - C.build)*Math.min(1, dt*.8);
   if (J.on && J.type && J.type !== C.lastType) {   // the first section owns where the camera already is
     const was = C.lastType; C.lastType = J.type;
@@ -279,6 +280,7 @@ export function fly(dt, x){
   if (C.warpDir === -1 && (C.warp -= dt/CZ.warpDown) <= 0) { C.warp = 0; C.warpDir = 0; }
   C.fovKick *= Math.exp(-dt*1.2);
   const f = C.fold, fo = f.hand ? 1 : f.bars > 0 && !G.phase ? 1 : 0; f.amt += (fo - f.amt)*Math.min(1, dt*TUNE.cosmos.fold.ease);
+  if (C.kind === 'nebula' && C.sys.neb && len(sub(C.cam.pos, C.sys.neb.c)) < C.sys.neb.R*.75) C.caption = 'Inside a nebula, among its young stars';
   const g = SHOTS[C.kind].goal(ctx(), C.shot, C.st), k = CZ.k[C.kind]*(.6 + .8*x.ts)*(C.calm ? CZ.quietSlow : 1);
   g.fov = (g.fov/55)*CZ.fov*(1 - CZ.pushNarrow*C.stretch) + 40*C.warp + C.fovKick - CZ.kick*(1 + C.build)*S.beat*x.react;   // the kick nudges the view in, harder in a build
   follow(cam, g, mdt, k, k*CZ.lookK);

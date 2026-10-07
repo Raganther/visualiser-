@@ -89,6 +89,16 @@ export const SHOTS = {
       return {pos, look: add(pos, add(mul(tg, 12), [-Math.cos(a)*1.5, -.3, -Math.sin(a)*1.5])), fov: 64};
     },
   },
+  // into a nebula (sys.neb: its centre and radius): drifting in from wherever the camera is, towards its heart and on
+  // through it, looking ahead with a slow turn, so the gas thickens round the view and its young stars pass by
+  nebula: {
+    start: (c, s) => { const n = c.sys.neb, d = norm(sub(n.c, c.cam.pos)); return {from: [...c.cam.pos], d, turn: (s[0] - .5)*.03, sp: n.R/(22 + s[1]*10), lift: (s[2] - .5)*.2}; },
+    goal: (c, st, t) => {
+      const a = st.turn*t, d = [st.d[0]*Math.cos(a) - st.d[2]*Math.sin(a), st.d[1] + st.lift*Math.min(1, t/30), st.d[0]*Math.sin(a) + st.d[2]*Math.cos(a)];
+      const pos = add(st.from, mul(norm(d), st.sp*t));
+      return {pos, look: add(pos, mul(norm(d), 30)), fov: 66};
+    },
+  },
   // skim low over the subject's surface along a great circle, its curved horizon ahead
   skim: {
     start: (c, s) => { const u = norm(sub(c.cam.pos, c.subj.p)); let v = cross(u, c.subj.axis); if (V.len(v) < .1) v = cross(u, [1, 0, 0]);

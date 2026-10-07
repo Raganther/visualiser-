@@ -87,3 +87,27 @@ export function star(r = .26, spike = .47){
   });
   return B.done();
 }
+
+// a crystal cluster: a tall hexagonal crystal standing in the middle and six smaller ones leaning out round it, each a
+// six-sided prism in three bands with a pointed tip, and six small ones leaning low round the edge (about 620 panes); each crystal its own part
+export function crystal(){
+  const B = builder(), R = [0, 1, 2];
+  const one = (dir, L, r, twist, pt) => {
+    const d = norm(dir), a = Math.abs(d[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
+    const u = norm([a[1]*d[2] - a[2]*d[1], a[2]*d[0] - a[0]*d[2], a[0]*d[1] - a[1]*d[0]]), w = [d[1]*u[2] - d[2]*u[1], d[2]*u[0] - d[0]*u[2], d[0]*u[1] - d[1]*u[0]];
+    const o = R.map(i => i === 1 ? 0 : d[i]*.16);   // (rooted a little apart, not all at one point)
+    const at = (t, rad) => Array.from({length: 6}, (_, k) => { const an = k*Math.PI/3 + twist; return R.map(i => o[i] + d[i]*t + (u[i]*Math.cos(an) + w[i]*Math.sin(an))*rad); });
+    const rings = [[0, r*.85], [L*.4, r], [L*.78, r*.97]].map(([t, rad]) => at(t, rad).map(p => B.v(p)));
+    const tip = B.v(R.map(i => o[i] + d[i]*(L + r*1.3))), base = B.v(R.map(i => o[i] - d[i]*.03));
+    const inside = t => R.map(i => o[i] + d[i]*t);
+    for (let s = 0; s < 2; s++) for (let k = 0; k < 6; k++) {
+      const m = inside(L*(.2 + .4*s)); B.add(rings[s][k], rings[s][(k + 1) % 6], rings[s + 1][(k + 1) % 6], m, pt); B.add(rings[s][k], rings[s + 1][(k + 1) % 6], rings[s + 1][k], m, pt);
+    }
+    for (let k = 0; k < 6; k++) { B.add(rings[2][k], rings[2][(k + 1) % 6], tip, inside(L*.8), pt); B.add(rings[0][k], rings[0][(k + 1) % 6], base, inside(L*.1), pt); }
+  };
+  one([0, 1, 0], .5, .085, 0, 1);
+  for (let k = 0; k < 6; k++) { const an = k*Math.PI/3 + Math.PI/6; one([Math.cos(an)*1.1, 1, Math.sin(an)*1.1], .38 - (k % 2)*.07, .065, k*.4, 2 + k % 2); }
+  for (let k = 0; k < 6; k++) { const an = k*Math.PI/3; one([Math.cos(an)*2.6, 1, Math.sin(an)*2.6], .22 - (k % 2)*.04, .045, k*.7, 4 + k % 3); }
+  const done = B.done(), P = done.pieces[0].pos; for (let i = 1; i < P.length; i += 3) P[i] -= .25;   // (stood on its base, centred in height)
+  return done;
+}

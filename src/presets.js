@@ -30,7 +30,13 @@ export const SPEC = [
   // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
   // the kaleidoscope's kind (last, so the rest keep their places): wedges meeting at a point, a mirror box (a hall of mirrors), a dive (zooming in through its folds)
   {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive', min:0, max:2, step:1},
-  {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points', min:0, max:4, step:1},
+  {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points, 5 shaded', min:0, max:5, step:1},
+  // how intricate the mandalas are: few folds and plain rings, to many folds, doubled petals and ornament (last, so the rest keep their places)
+  {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
+  // the fractal's dive twisting into a logarithmic whirlpool, spinning as it falls (last, so the rest keep their places)
+  {g:'Fractal', k:'fracVortex', label:'Fractal vortex: the dive twists into a spiral (0 off, 1 on)', min:0, max:1, step:1},
+  // how the lit objects (Blender models, render/lit.js) are drawn (last, so the rest keep their places)
+  {g:'Objects', k:'litLook', label:'Lit objects: 0 real, 1 toon, 2 neon, 3 chrome, 4 marble', min:0, max:4, step:1},
 ];
 /* movers: what makes a setting move by itself. amt is a fraction of the setting's full range */
 export const SOURCES = [['none','Fixed'], ...SIGNALS.map(([k, l]) => [k, l])];   // every signal on the bus
@@ -76,6 +82,16 @@ export const BASE = [
   {name:'Goniometer', decay:.93, zoom:1.0, rot:0, warp:.1, sym:1, vectorscope:1, ring:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Unfolding', decay:.94, zoom:1.0, rot:0, warp:0, sym:1, unfold:1, mandala:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Fractal', decay:.93, zoom:1.0, rot:.002, warp:0, sym:1, fractal:1, fireflies:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
+  // the engraved rosette, the times table on a circle, and a spiral galaxy over the stars
+  {name:'Engraving', decay:.93, zoom:1.0, rot:.001, warp:0, sym:1, guilloche:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'String art', decay:.92, zoom:1.0, rot:0, warp:0, sym:1, chords:1, mandala:.4, colorSpeed:.03, hueDrift:.005, mods:{}},
+  {name:'Galaxy', decay:.9, zoom:1.002, rot:.001, warp:0, sym:1, galaxy:1, space:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  // the cave flown through, with the flow's particles streaming past
+  {name:'Into the Hollow', decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, hollow:1, flow:.5, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Vessel', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, vessel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Geode', journey:false, decay:.9, zoom:1.004, rot:0, warp:.05, sym:1, geode:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'The Corridor', journey:false, decay:.88, zoom:1.006, rot:0, warp:.03, sym:1, corridor:1, colorSpeed:.03, hueDrift:.005, mods:{}},
+  {name:'The Cathedral', journey:false, decay:.9, zoom:1.003, rot:0, warp:.03, sym:1, cathedral:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Flower of life', decay:.95, zoom:1.0, rot:.002, warp:0, sym:1, mandala:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Storm', decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, sea:1, lightning:1, ribbons:.3, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Glowing wood', decay:.93, zoom:1.0, rot:0, warp:.15, sym:1, forest:1, fireflies:.7, colorSpeed:.012, hueDrift:.003, mods:{}},
@@ -90,6 +106,10 @@ export const BASE = [
   {name:'Unicorn', journey:false, decay:.9, zoom:1.004, rot:0, warp:.1, sym:1, aurora:1, unicorn:1, ribbons:.4, colorSpeed:.03, hueDrift:.005,
     mods:{ribbons:{src:'mid', amt:.3}}},
   {name:'Manta', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, manta:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
+  // the new centrepieces: the lotus over the unfolding mandala, the jellyfish in deep water, the crystals under the aurora
+  {name:'Lotus', journey:false, decay:.9, zoom:1.004, rot:.001, warp:0, sym:1, unfold:.8, lotus:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Jellyfish', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, jelly:1, fireflies:.35, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Crystals', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, aurora:1, crystal:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
     mods:{ring:{src:'kick', amt:.3}},
@@ -117,9 +137,16 @@ export const BASE = [
   {name:'Torus knot', journey:false, decay:.93, zoom:1.01, rot:.003, warp:.2, sym:1, knot:1, comets:.5, colorSpeed:.04, hueDrift:.008,
     mods:{rot:{src:'drift', amt:.3}}},
   // a world alone, to look at it: the cosmos with nothing over it (Solo on any slider does the same for anything)
+  // the fractal's endless dive twisted into its vortex
+  {name:'Vortex', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, fractal:1, fracVortex:1, colorSpeed:.03, hueDrift:.006, mods:{}},
+  // the lit goblin alone under its moving lights (a Blender sculpt baked for real time)
+  {name:'Goblin, lit', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, goblinLit:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Tentacle', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, tentacle:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Hand', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, hand:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Heart', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, heart:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Cosmos', journey:false, decay:.9, zoom:1, rot:0, warp:0, sym:1, cosmos:1, colorSpeed:.02, hueDrift:.004, mods:{}},
 ];
-BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.k === 'sym' ? 1 : 0; p.mods = p.mods || {}; });
+BASE.forEach(p => { for (const s of SPEC) if (p[s.k] === undefined) p[s.k] = s.def ?? (s.k === 'sym' ? 1 : 0); p.mods = p.mods || {}; });   // (a setting can carry its own default)
 export const presets = BASE.map(clone);
 // the looks the user liked (👍, ui/taste.js), each as a preset: every setting, its movers, its scene. Journey reads them as
 // recipes too, favoured (TUNE.liked), so what the user likes comes back when the music suits it
