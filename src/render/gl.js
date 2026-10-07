@@ -166,7 +166,7 @@ function segProg(seg, plan, P){
   let best = null, bn = -1;
   for (const [k, c] of segProgs) {
     if (!k.startsWith(seg.key + '|')) continue;
-    if (!c.p && !c.failed && segDone(c)) try { segLink(c); } catch (err) {}
+    if (FB.par && !c.p && !c.failed && segDone(c)) try { segLink(c); } catch (err) {}   // (without the extension a link may wait: only those already linked)
     if (!c.p) continue;
     const ws = k.slice(seg.key.length + 1), n = ws === '*' ? wk.length : wk.filter(w => ws.split(',').includes(w)).length;
     if (n > bn) { best = c; bn = n; }
