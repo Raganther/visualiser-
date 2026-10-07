@@ -150,9 +150,12 @@ function meshStart(gl){
   ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
   gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); return s;
 }
+// null until the driver has built it, where it can say (KHR_parallel_shader_compile): waiting froze the picture
+const built = (gl, p) => { const x = gl.getExtension('KHR_parallel_shader_compile'); return !x || gl.getProgramParameter(p, x.COMPLETION_STATUS_KHR); };
 function meshProg(gl){
   const s = meshStart(gl);
   if (!s.u) {
+    if (!built(gl, s.p)) return null;
     if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
     const u = {}; for (let i = 0, n = gl.getProgramParameter(s.p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(s.p, i); u[a.name] = gl.getUniformLocation(s.p, a.name); }
     s.u = u;
@@ -178,8 +181,9 @@ export function meshData(mesh){
   DATA.set(mesh, d = {fill, edge}); return d;
 }
 export const meshWarm = gl => { meshStart(gl); };
-export function meshGL(gl, mesh){
-  const {p, u} = meshProg(gl), D = meshData(mesh);
+export function meshGL(gl, mesh){   // null while the program is still being built: the object shows once it is
+  const pr = meshProg(gl); if (!pr) return null;
+  const {p, u} = pr, D = meshData(mesh);
   const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); return {b, n: data.length/NF}; };
   const B = {fill: buf(D.fill), edge: buf(D.edge)};
   let blank = null;
