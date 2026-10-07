@@ -21,7 +21,7 @@ for (const mode of ['2d', 'gl']) {
     for (const v of OBJECT_VISUALS) {
       set(v.key, 1); __step(${mode === 'gl' ? 50 : 90});
       const on = ${THUMB};
-      // a model with a shape key (the manta's wingbeat) plays it both ways over two beats: its weight each frame
+      // a model with a shape key plays it over two beats (the manta's wingbeat both ways): its weight each frame
       let flap = null;
       if (v.mesh.pieces.some(p => p.morph)) { const pr = v.params, ws = [];
         v.params = (P, x) => { pr.call(v, P, x); ws.push(P.m[v.key].morph); }; __step(70); v.params = pr;
@@ -43,10 +43,10 @@ for (const mode of ['2d', 'gl']) {
   const sd = st.slice(1).map(x => diff(st[0], x)), sok = sd.every(d => d > .3) && !errors.length; if (!sok) failed = true;
   console.log(`${mode}: ${sok ? 'ok' : 'FAILED'}  each style draws the skull its own way (solid, outline, hologram, points against glass: ${sd.map(d => d.toFixed(1)).join(', ')})`);
   for (const [k, {on, apart, flap}] of Object.entries(res.out)) {
-    const shown = diff(res.off, on), broke = diff(on, apart), flaps = !flap || (flap[0] < -.3 && flap[1] > .3);
+    const shown = diff(res.off, on), broke = diff(on, apart), flaps = !flap || (k === 'manta' ? flap[0] < -.3 && flap[1] > .3 : flap[1] - flap[0] > .2);   // the manta's wings both ways; a bloom, snarl or grip one way
     const ok = shown > .6 && broke > .5 && flaps && !errors.length;   // few-edged shapes (the dodecahedron) change the least
     console.log(`${mode}: ${ok ? 'ok' : 'FAILED'}  ${k} drawn (change ${shown.toFixed(1)}), shatters (change ${broke.toFixed(1)})` +
-      (flap ? `, beats its wings (${flap[0].toFixed(2)} to ${flap[1].toFixed(2)})` : ''), errors.length ? errors : '');
+      (flap ? `, plays its shape key (${flap[0].toFixed(2)} to ${flap[1].toFixed(2)})` : ''), errors.length ? errors : '');
     if (!ok) failed = true;
   }
   // Journey with the skull lab: it becomes a centrepiece, with no lens over it (simple mode only; WebGL is too slow to run sections)
