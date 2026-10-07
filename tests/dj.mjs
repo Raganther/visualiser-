@@ -1,6 +1,6 @@
 // DJ mode (audio/dj.js, ui/dj.js), with real audio on two synthetic tracks (124 and 128 BPM): the panel opens under the
 // picture (which is drawn that much shorter) and closes again; each deck's beats are read; sync matches the tempo and
-// lines up the bars, and they stay in phase; the crossfader hands the beat grid to the other deck; the EQ and filter move; cue goes back, set moves it; a loop goes round.
+// lines up the bars, and they stay in phase; the crossfader hands the beat grid to the other deck; the EQ and filter move; cue goes back, set moves it; a loop goes round; the groovebox locks to the lead deck or keeps its own tempo.
 // Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
@@ -89,6 +89,23 @@ await run(() => __dj.djLoop(0, 4)); await wait(2500);
 const out = await run(() => ({x: __dj.pos(__dj.DJ.decks[0]), loop: __dj.DJ.decks[0].loop}));
 check('a 4-beat loop stays inside itself, going round, and leaving it plays on', Math.abs(lp.beats - 4) < .01 && inside && wraps >= 1 && !out.loop && out.x > lp.b,
   `loop ${lp.a.toFixed(2)}–${lp.b.toFixed(2)} s (${lp.beats.toFixed(2)} beats), round it ${wraps} times in 4 s, then on to ${out.x.toFixed(2)} s`);
+
+// the groovebox: locked to the lead deck its steps land on that deck's 16ths, step 1 on its 1; on its own, at its own tempo
+await run(() => { const D = __dj.DJ.decks; if (D[1].playing) __dj.djPlay(1); if (!D[0].playing) __dj.djPlay(0); __dj.djXf(0); }); await step(3);
+await run(async () => { window.__g = await import('/src/audio/groove.js'); Object.assign(__g.GB, {sync: true, swing: 0}); __g.grooveToggle(); });
+await wait(2500);
+const lock = await run(() => { const A = __dj.DJ.decks[0], M = A.ana.map, L = __g.LOG.slice(-12);
+  return {lead: __dj.DJ.lead && __dj.DJ.lead.i, n: L.length, steps: L.map(s => { const k = __dj.beatAt(A, __dj.pos(A, s.t))*4; return {off: Math.abs(k - Math.round(k)), ok: ((Math.round(k) - M.down*4) % 16 + 16) % 16 === s.i}; })}; });
+const worstOff = Math.max(...lock.steps.map(s => s.off));
+check('the groovebox, locked to the lead deck, plays on its 16ths and bars', lock.lead === 0 && lock.n >= 8 && worstOff < .03 && lock.steps.every(s => s.ok),
+  `${lock.n} steps, worst ${(worstOff*60000/124/4).toFixed(1)} ms off a 16th, steps in place in the bar: ${lock.steps.every(s => s.ok)}`);
+await run(() => { __g.grooveToggle(); Object.assign(__g.GB, {sync: false, bpm: 128}); __g.grooveToggle(); }); await wait(2000);
+const own = await run(() => { const L = __g.LOG.slice(-10); return L.slice(1).map((s, k) => s.t - L[k].t); });
+check('on its own it keeps its own tempo', own.length >= 8 && own.every(d => Math.abs(d - 60/128/4) < .001), `steps ${(own.reduce((a, b) => a + b, 0)/own.length*1000).toFixed(2)} ms apart (128 BPM: ${(60/128/4*1000).toFixed(2)})`);
+const ui = await run(() => { document.querySelector('#dj .tab[data-t=groove]').click(); const c = document.querySelector('#dj .gdrums .gc[data-v=snare][data-i="5"]'), before = __g.GB.snare[5];
+  c.click(); const after = __g.GB.snare[5]; const sel = document.querySelector('#dj .gpre'); sel.value = 'Minimal'; sel.dispatchEvent(new Event('change')); __g.grooveToggle();
+  return {before, after, preset: __g.GB.preset, rim: __g.GB.rim.join('')}; });
+check('a click on the grid sets a step, and a starter pattern loads', ui.after === (ui.before + 1) % 3 && ui.preset === 'Minimal' && ui.rim.includes('1'), `snare step 6: ${ui.before} → ${ui.after}; pattern ${ui.preset}`);
 
 const errors = await page.errors();
 check('no page errors', !errors.length, errors.join('; '));

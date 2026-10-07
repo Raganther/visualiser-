@@ -454,4 +454,9 @@ export const TUNE = {
     lockMax: .006,
     zoomSecs: 6,               // seconds of the track across the close waveform
   },
+  // the groovebox (audio/groove.js): a drum machine and an acid bass on a 16-step sequencer
+  groove: {
+    ahead: .12,                // seconds of steps scheduled ahead on the audio clock (a stalled frame can't knock them out of time)
+    tickMs: 25,                // how often more are scheduled
+  },
 };

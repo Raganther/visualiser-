@@ -34,6 +34,8 @@ function mixer(){
     applyEq(d); applyFilter(d); applyGain();
   }
 }
+// where another source joins the mix (the groovebox: audio/groove.js): the master, before the limiter
+export const djBus = () => { mixer(); return master; };
 const ease = (p, v) => p.setTargetAtTime(v, actx.currentTime, .012);   // (a short glide: no zipper noise as a knob turns)
 function applyEq(d){ if (!d.n) return; for (const b of ['low', 'mid', 'high']) ease(d.n[b].gain, d.eq[b]); }
 // the filter knob: centre off, left a low-pass closing down, right a high-pass opening up
