@@ -218,6 +218,8 @@ export function litGL(gl, A, bend){   // null while the program is still being b
   const draw = () => gl.drawElements(gl.TRIANGLES, D.tri.length, gl.UNSIGNED_SHORT, 0);
   // 'screen': its depth map from the key light, then lit on the picture (depth-tested against itself); 'trails': lit,
   // dim and added (its ghosts); 'cover': flat white, for a mask
+  const texs = shm => { [[5, tex.col || null, u.uCol], [6, tex.nrm || null, u.uNrm], [7, tex.em || null, u.uEm], [4, shm, u.uShMap]].forEach(([k, t, loc]) => { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, k); });
+    gl.activeTexture(gl.TEXTURE0); };
   return function drawLit(U, W, H, stage){
     if (stage !== 'cover' && !ready()) return;   // (the textures are still decoding: a frame or two after the page loads)
     gl.useProgram(p); bind();
@@ -227,6 +229,9 @@ export function litGL(gl, A, bend){   // null while the program is still being b
     if (bent) { for (let j = 0; j < NJ; j++) { BA[j*2] = U.bend.z[j] || 0; BA[j*2 + 1] = U.bend.x[j] || 0; } gl.uniform4fv(u.uJ, D.spine); gl.uniform2fv(u.uBA, BA); }
     else gl.uniform2fv(u.uBA, ZERO);
     const [lx, ly, lz] = lightBasis(U.lights[0].p); gl.uniform3fv(u.uLx, lx); gl.uniform3fv(u.uLy, ly); gl.uniform3fv(u.uLz, lz);
+    // its own textures on its samplers' units before any draw: a unit still holding the surface being drawn into (the
+    // shadow map in its own pass, a mask drawn on 4 or 5) is a feedback loop, and the browser refuses the draw
+    texs(null);
     if (stage === 'cover') { gl.uniform1f(u.uStage, 2); draw(); unbind(); return; }
     const shadows = stage === 'screen' && shOk && U.shadow !== false && U.look !== 2 && U.look !== 3;   // (neon and chrome cast none)
     if (shadows) {   // the depth map, seen from the key light
@@ -242,8 +247,7 @@ export function litGL(gl, A, bend){   // null while the program is still being b
     gl.uniform3fv(u.uLp, U.lights.flatMap(l => l.p)); gl.uniform3fv(u.uLc, U.lights.flatMap(l => l.c)); gl.uniform3fv(u.uAmb, U.amb);
     gl.uniform3fv(u.uNeon, (U.neon || [[0, 1, 1], [1, 0, 1]]).flat());
     gl.uniform1f(u.uGlow, U.glow); gl.uniform1f(u.uTrans, U.trans);
-    [[5, tex.col, u.uCol], [6, tex.nrm, u.uNrm], [7, tex.em, u.uEm], [4, sm, u.uShMap]].forEach(([k, t, loc]) => { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, k); });
-    gl.activeTexture(gl.TEXTURE0);
+    texs(sm);
     gl.enable(gl.BLEND);
     if (stage === 'trails') {   // no depth in the trails: the near side only, dim, added
       gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.blendFunc(gl.ONE, gl.ONE); gl.uniform1f(u.uW, U.w*U.trail); draw(); gl.disable(gl.CULL_FACE);
