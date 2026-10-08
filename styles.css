@@ -254,7 +254,7 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .djh .tabs{flex:none;display:flex;gap:4px}
 #dj .djh .tab{padding:2px 10px}
 #dj .djh .hint{flex:1}
-#dj .djb[hidden],#dj .gbx[hidden]{display:none}
+#dj .djb[hidden],#dj .gbx[hidden],#dj .fxb[hidden]{display:none}
 /* the groovebox (ui/groove.js) */
 #dj .gbx{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
 #dj .gtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -306,3 +306,24 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .tapb{min-width:64px;font-variant-numeric:tabular-nums}
 #dj .tapb.hit{background:#7cff9a;color:#000;border-color:#7cff9a}
 #dj .mmode{white-space:nowrap}
+/* the effects (ui/mix.js): a row a strip, its level, pan and sends, then its chain of effects as cards */
+#dj .fxb{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:6px}
+#dj .fxb[hidden]{display:none}
+#dj .mxnote{color:var(--dim);font-size:11px}
+#dj .mxrows{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+#dj .mxrow{display:flex;gap:8px;align-items:stretch;min-width:0}
+#dj .mxh{display:flex;align-items:center;gap:0;flex:none;padding:4px 6px;border:1px solid var(--line);border-radius:8px}
+#dj .mxh b{width:72px;font-size:12px}
+#dj .mxrow.send .mxh b{color:#ffb000}
+#dj .mxrow.master .mxh b{color:var(--accent)}
+#dj .mxc{flex:1;min-width:0;display:flex;gap:6px;align-items:stretch;overflow-x:auto}
+#dj .fxc{flex:none;display:flex;flex-direction:column;padding:3px 4px;border:1px solid var(--line);border-radius:8px;background:#0c0d10}
+#dj .fxc.off{opacity:.45}
+#dj .fxh{display:flex;gap:2px;align-items:center}
+#dj .fxh .fxn{flex:1;text-align:left;font-size:11px;padding:1px 6px;color:var(--accent)}
+#dj .fxc.off .fxn{color:var(--dim);text-decoration:line-through}
+#dj .fxh .fxm{padding:0 5px;font-size:10px}
+#dj .fxk{display:flex}
+#dj .mxadd{align-self:center;flex:none;background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:11px;padding:2px;max-width:150px}
+@media (max-width:700px){ #dj .mxrow{flex-direction:column} #dj .mxh{flex-wrap:wrap} }
+#dj .fxk .knob .kv,#dj .fxk .knob .kl{white-space:nowrap;max-width:46px;overflow:hidden;text-overflow:ellipsis}

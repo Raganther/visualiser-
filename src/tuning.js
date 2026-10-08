@@ -442,7 +442,7 @@ export const TUNE = {
   },
   // DJ mode (audio/dj.js, ui/dj.js): two decks and a mixer under the picture, the visualiser following the mix
   dj: {
-    headH: 34, decksH: 262, grooveH: 236,   // px: the panel's head (its tabs and the sync strip), and the decks' and the groovebox's sections under it
+    headH: 34, decksH: 262, grooveH: 236, fxH: 250,   // px: the panel's head (its tabs and the sync strip), and the decks', the groovebox's and the effects' sections under it
     maxShare: .68,             // the most of the window's height the panel takes (its sections share what's left)
     tempoRange: .08,           // the tempo slider's reach either way (±8%, like a turntable)
     bend: .04,                 // how much faster or slower a deck plays while a nudge button is held

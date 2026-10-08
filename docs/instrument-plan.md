@@ -198,4 +198,6 @@ A pattern sequencer with tracks:
 
 ## Log
 
-- (empty: stage 0 first)
+- **Stage 0.** The user has no MIDI controller, so the published claude.ai page stays home; MIDI (stage 7) waits until there's a device to try. The probe page (https://claude.ai/artifact/5E5bJVuMGc1oLiKWZbRJKN) is there for then.
+- **Stage 1 done.** `audio/engine/`: `clock.js` (one master; the taps and the groovebox's own tempo are one internal clock), `events.js` (the note bus; the groovebox announces every note), `mixer.js` (a channel each for the decks and the groovebox), `registry.js`. No change heard or seen: golden matches in both renderers, dj passes, `tests/audio-engine.mjs` added.
+- **Stage 2 done.** Thirteen effects, one module each in `audio/engine/fx/` (delay, reverb, chorus, flanger, phaser, drive, bitcrush, filter, EQ, compressor, sidechain, width, auto-pan), sharing `fx/kit.js`. The mixer gives every strip insert slots, level and pan, and the channels two sends (A an echo, B a reverb, returned into the mix); the master has inserts before the limiter. Tempo-synced times follow the master clock (a 40 ms tick); the sidechain ducks on the note bus's kicks or on the master's beats (so a deck pumps too). The DJ panel's **Effects** section builds its cards from each effect's description. Kept in `localStorage` (`afterglow.mix`). The bitcrusher reduces bits only: lowering the sample rate needs a worklet, left for when one is needed. `tests/effects.mjs` renders each effect offline and measures it.
