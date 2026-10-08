@@ -71,6 +71,13 @@ await kb.press('Escape'); const shut = await page.evaluate(() => ({on: __P.PLAY.
 await kb.press('h'); const clean = await page.evaluate(() => document.body.classList.contains('clean'));
 check('Esc closes the lab, and the page\'s keys work again', !shut.on && shut.cv && clean, JSON.stringify({...shut, clean}));
 
+// reopened on a toy left from last time (the touch toy, which reads the objects): moving and closing before it's touched
+await page.evaluate(() => localStorage.setItem('afterglow.play', JSON.stringify({toy: 1}))); await page.reload();
+await page.evaluate(() => document.querySelector('#playLabBtn').click()); await M.move(400, 300); await M.move(600, 400);
+await page.evaluate(async () => { (await import('/src/play/host.js')).setPlay(false); });
+const re = await page.evaluate(async () => (await import('/src/play/host.js')).PLAY.toy);
+check('reopened on the touch toy, it moves and closes without errors', re === 1, String(re));
+
 const errors = await page.errors();
 check('no page errors', !errors.length, errors.join('; '));
 await browser.close(); srv.close();

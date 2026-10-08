@@ -71,6 +71,9 @@ export const api = {
   hint(s){ const h = bar && bar.querySelector('.plhow'); if (h) h.textContent = s; },
 };
 const toy = () => TOYS[PLAY.toy] || TOYS[0];
+// a toy's own handler, only once it's set up, and never taking the page down with it (a prototype's slip is shown, once)
+let slipped = false;
+function call(T, fn, ...a){ if (!T.ready || !T[fn]) return; try { return T[fn](...a); } catch (e) { if (!slipped) { slipped = true; console.error(e); toast(`${T.label}: ${e.message}`); } } }
 
 // the sounds, made on first use: a 909 kit and a synth on the lab's own mixer channel
 function sounds(){
@@ -85,7 +88,7 @@ function loadPreset(){ const p = PRESETS[toy().preset] || {}; poly.load({...DEF,
 function tick(){
   const c = clock(), now = actx.currentTime, T = toy();
   let {t, s, dur} = api.next16();
-  for (; t < now + .1; t += dur, s++) if (t > lastT + dur*.5) { lastT = t; if (T.step) T.step({t, s, dur}); }
+  for (; t < now + .1; t += dur, s++) if (t > lastT + dur*.5) { lastT = t; call(T, 'step', {t, s, dur}); }
 }
 
 /* ---------- open and close; switching toys ---------- */
@@ -98,15 +101,15 @@ export function setPlay(on){
     build(); cv.hidden = bar.hidden = false; start(PLAY.toy);
     lastT = -1; timer = setInterval(tick, 25); raf = requestAnimationFrame(frame);
   } else {
-    clearInterval(timer); cancelAnimationFrame(raf); const T = toy(); if (T.stop) T.stop(); if (poly) poly.allOff(); api.release(); later.length = 0;
+    clearInterval(timer); cancelAnimationFrame(raf); call(toy(), 'stop'); if (poly) poly.allOff(); api.release(); later.length = 0;
     cv.hidden = bar.hidden = true;
   }
 }
 export const goTo = key => start(TOYS.findIndex(t => t.key === key));   // (for tests)
 function start(i){
-  const old = toy(); if (old.stop && PLAY.on) old.stop(); if (poly) poly.allOff(); api.release();
+  if (PLAY.on) call(toy(), 'stop'); if (poly) poly.allOff(); api.release();
   PLAY.toy = (i + TOYS.length) % TOYS.length; keep();
-  const T = toy(); loadPreset(); if (!T.ready) { T.init(api); T.ready = true; } if (T.start) T.start();
+  const T = toy(); loadPreset(); if (!T.ready) { T.init(api); T.ready = true; } call(T, 'start');
   bar.querySelector('.plname').textContent = `${PLAY.toy + 1}. ${T.label}`; api.hint(T.how); rated();
 }
 
@@ -123,17 +126,17 @@ function build(){
   document.body.append(bar);
   const q = s => bar.querySelector(s);
   q('.plprev').onclick = () => start(PLAY.toy - 1); q('.plnext').onclick = () => start(PLAY.toy + 1); q('.plx').onclick = () => setPlay(false);
-  q('.plscale').value = PLAY.scale; q('.plscale').onchange = e => { PLAY.scale = e.target.value; keep(); const T = toy(); if (T.rescale) T.rescale(); };
+  q('.plscale').value = PLAY.scale; q('.plscale').onchange = e => { PLAY.scale = e.target.value; keep(); call(toy(), 'rescale'); };
   q('.plup').onclick = () => rate(1); q('.pldown').onclick = () => rate(-1);
   q('.plnote').onclick = () => { const t = prompt(`Your note on "${toy().label}": what feels good, what doesn't?`); if (t) { notes().push({toy: toy().key, note: t, at: Date.now()}); save(); toast('Note kept'); } };
   q('.plcopy').onclick = () => { const txt = notes().map(n => `${n.toy}: ${n.v ? (n.v > 0 ? '👍' : '👎') : ''} ${n.note || ''}`.trim()).join('\n') || '(no notes yet)';
     (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Notes copied: paste them to Claude'), () => prompt('Copy these notes:', txt)); };
   // the pointer: the toy gets positions in the overlay's own pixels
   const at = e => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, b: e.button, shift: e.shiftKey, alt: e.altKey, id: e.pointerId}; };
-  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const T = toy(); if (T.down) T.down(at(e)); });
-  cv.addEventListener('pointermove', e => { const T = toy(); if (T.move) T.move(at(e), cv.hasPointerCapture(e.pointerId)); });
-  const up = e => { const T = toy(); if (T.up) T.up(at(e)); }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('wheel', e => { e.preventDefault(); const T = toy(); if (T.wheel) T.wheel({...at(e), d: Math.sign(e.deltaY)}); }, {passive: false});
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); call(toy(), 'down', at(e)); });
+  cv.addEventListener('pointermove', e => call(toy(), 'move', at(e), cv.hasPointerCapture(e.pointerId)));
+  const up = e => call(toy(), 'up', at(e)); cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => { e.preventDefault(); call(toy(), 'wheel', {...at(e), d: Math.sign(e.deltaY)}); }, {passive: false});
   cv.addEventListener('contextmenu', e => e.preventDefault());
 }
 // the ratings and notes, kept on the device
@@ -151,7 +154,7 @@ function frame(){
   g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const h = heardNow(), T = toy();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].t <= h) { const f = later[i].fn; later.splice(i, 1); f(); }
-  if (T.draw) T.draw(g, W, H, h);
+  call(T, 'draw', g, W, H, h);
   g.globalCompositeOperation = 'lighter';
   for (const s of sparks) { const a = h - s.t; if (a < 0 || a > .6) continue; const k = 1 - a/.6, r = (8 + 40*a)*s.r;
     const gr = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, r); gr.addColorStop(0, s.col); gr.addColorStop(1, 'rgba(0,0,0,0)');
@@ -164,11 +167,11 @@ const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 addEventListener('keydown', e => {
   if (!PLAY.on || typing(e) || e.metaKey || e.ctrlKey) return;
   const T = toy();
-  if (T.keys && T.keys(e, true)) {}
+  if (call(T, 'keys', e, true)) {}
   else if (e.key === 'Escape') setPlay(false);
   else if (e.key === 'ArrowLeft') start(PLAY.toy - 1);
   else if (e.key === 'ArrowRight') start(PLAY.toy + 1);
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
-addEventListener('keyup', e => { if (!PLAY.on || typing(e)) return; const T = toy(); if (T.keys) T.keys(e, false); e.stopImmediatePropagation(); }, true);
+addEventListener('keyup', e => { if (!PLAY.on || typing(e)) return; call(toy(), 'keys', e, false); e.stopImmediatePropagation(); }, true);
 $('#playLabBtn').addEventListener('click', () => setPlay(!PLAY.on));
