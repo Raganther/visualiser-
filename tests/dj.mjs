@@ -113,8 +113,35 @@ const ui = await run(() => { const c = document.querySelector('#dj .gdrums .gc[d
 await run(() => { __g.GB.sync = true; __g.grooveToggle(); }); await wait(800);
 const strip = await run(() => { for (let k = 0; k < 3; k++) __step(1); return document.querySelector('#dj .sync').textContent.replace(/\s+/g, ' ').trim(); });
 await run(() => { if (__g.GB.playing) __g.grooveToggle(); });
-check('the sync strip shows the bar, the tempo and the groovebox locked to the lead deck', /Bar \d+ · [1-4]/.test(strip) && /BPM · deck A/.test(strip) && /locked to deck A · step/.test(strip), strip);
+check('the sync strip shows the bar, the tempo and the groovebox locked to the lead deck', /Bar \d+ · [1-4]/.test(strip) && /Master: deck A · [\d.]+ BPM/.test(strip) && /locked to deck A · step/.test(strip), strip);
 check('a click on the grid sets a step, and a starter pattern loads', ui.after === (ui.before + 1) % 3 && ui.preset === 'Minimal' && ui.rim.includes('1'), `snare step 6: ${ui.before} → ${ui.after}; pattern ${ui.preset}`);
+
+// tap tempo and the master clock: taps at 128 BPM set it; with nothing playing they lead (the groovebox and the beat
+// grid follow), a playing deck takes over in Auto, and with Master: Tap they lead anyway, a synced deck following them
+await run(() => { const D = __dj.DJ.decks; for (const d of D) if (d.playing) __dj.djPlay(d.i); if (__g.GB.playing) __g.grooveToggle(); });
+const tp = await run(async () => { const {actx} = await import('/src/audio/player.js'), P = 60/128, t0 = actx.currentTime - 8*P;
+  for (let k = 0; k < 8; k++) __dj.djTap(t0 + k*P); for (let k = 0; k < 3; k++) __step(1);
+  const {F} = await import('/src/audio/foresee.js'), m = __dj.DJ.master;
+  return {bpm: 60/__dj.TAP.P, beat0: __dj.tapBeat(t0), tap: !!(m && m.tap), grid: F.map && F.map.bpm}; });
+check('taps set the tempo (the first the bar\'s 1), and with nothing playing they lead, the beat grid too', Math.abs(tp.bpm - 128) < .05 && Math.abs(tp.beat0) < .01 && tp.tap && Math.abs(tp.grid - 128) < .05,
+  `${tp.bpm.toFixed(2)} BPM, first tap at beat ${tp.beat0.toFixed(3)}, master ${tp.tap ? 'the taps' : '?'}, grid ${tp.grid && tp.grid.toFixed(1)} BPM`);
+await run(() => __dj.djPlay(0)); await wait(500); await step(3);
+const au = await run(() => { const m = __dj.DJ.master; return m && m.d ? m.d.i : m && m.tap ? 'taps' : null; });
+await run(() => __dj.djMasterMode('tap')); await step(3);
+const tm = await run(() => { const m = __dj.DJ.master; return m && m.tap ? 'taps' : m && m.d ? m.d.i : null; });
+check('in Auto a playing deck is the master; with Master: Tap the taps are', au === 0 && tm === 'taps', `Auto: ${au === 0 ? 'deck A' : au}; Tap: ${tm}`);
+await run(() => __dj.djSync(0)); await wait(2500);
+let tw = 0;
+for (let k = 0; k < 8; k++) { await step(2); await wait(250);
+  const e = await run(async () => { const {actx} = await import('/src/audio/player.js'), d = __dj.DJ.decks[0], now = actx.currentTime; return ((__dj.tapBeat(now) - (__dj.beatAt(d, __dj.pos(d, now)) - d.ana.map.down)) % 4 + 4) % 4; });
+  tw = Math.max(tw, Math.abs(((e + 2) % 4) - 2)); }
+const sb = await run(() => __dj.bpm(__dj.DJ.decks[0]));
+check('a deck synced to the taps plays at their tempo, its bars on theirs', Math.abs(sb - 128) < .1 && tw < .06, `deck A at ${sb.toFixed(2)} BPM, worst ${(tw*60000/128).toFixed(1)} ms out`);
+await run(() => { Object.assign(__g.GB, {sync: true, swing: 0}); __g.grooveToggle(); }); await wait(2000);
+const gt = await run(() => { const L = __g.LOG.slice(-10); return L.map(s => { const k = __dj.tapBeat(s.t)*4; return {off: Math.abs(k - Math.round(k)), ok: ((Math.round(k) % 16) + 16) % 16 === s.i}; }); });
+const gw = Math.max(...gt.map(x => x.off));
+check('the groovebox locks to the taps: their 16ths, step 1 on their 1', gt.length >= 8 && gw < .02 && gt.every(x => x.ok), `worst ${(gw*60000/128/4).toFixed(2)} ms off`);
+await run(() => { __g.grooveToggle(); __dj.djMasterMode('auto'); });
 
 const errors = await page.errors();
 check('no page errors', !errors.length, errors.join('; '));
