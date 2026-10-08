@@ -453,6 +453,8 @@ export const TUNE = {
     lock: .015,                // how hard a synced deck is pulled back into phase, per beat out (its tempo nudged, at most lockMax)
     lockMax: .006,
     zoomSecs: 6,               // seconds of the track across the close waveform
+    tapMin: 4, tapGap: 2,      // tap tempo: taps before it has a tempo, and seconds of pause that start a new run
+    tapMax: 200, tapMin_bpm: 60,   // BPM: the fastest and slowest it takes
   },
   // the groovebox (audio/groove.js): a drum machine and an acid bass on a 16-step sequencer
   groove: {

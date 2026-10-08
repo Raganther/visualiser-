@@ -10,7 +10,7 @@ import { actx, analyser, ensureAudio, playing as playerPlaying, togglePlay } fro
 // mixer's settings for it
 const deck = i => ({i, name: '', buf: null, ana: null, peaks: null, src: null, playing: false, off: 0, t0: 0, rate: 1, base: 1, bend: 0, lock: 0,
   cue: 0, sync: false, loop: null, eq: {low: 0, mid: 0, high: 0}, filt: 0, fader: 1, n: null, token: 0, reading: false});
-export const DJ = {decks: [deck(0), deck(1)], xf: .5, lead: null, open: false};
+export const DJ = {decks: [deck(0), deck(1)], xf: .5, lead: null, open: false, mode: 'auto', master: null};   // lead: the deck the faders favour; master: what sets the beat (below)
 const D = DJ.decks, listeners = new Set();
 export const onDJ = fn => listeners.add(fn);
 const changed = () => listeners.forEach(fn => fn());
@@ -138,11 +138,12 @@ export function djPlay(i){
   const d = D[i], o = D[1 - i]; if (!d.buf) return;
   if (d.playing) return stop(d);
   mixer();
-  if (d.sync && o.playing && mapOf(d) && mapOf(o)) {
-    const now = actx.currentTime, xo = pos(o, now), Mo = mapOf(o);
-    let k = Math.ceil(beatAt(o, xo) + .05); while (mod(k - Mo.down, 4)) k++;
-    const when = now + (timeOfBeat(o, k) - xo)/o.rate, M = mapOf(d);
-    const kd = M.down + 4*Math.round((beatAt(d, d.off) - M.down)/4);
+  const tg = target(d);
+  if (d.sync && mapOf(d) && (tg === 'tap' || (tg && tg.playing))) {   // started on the next 1 of what it follows, from its own nearest 1
+    const now = actx.currentTime, M = mapOf(d), kd = M.down + 4*Math.round((beatAt(d, d.off) - M.down)/4);
+    let when;
+    if (tg === 'tap') { let k = Math.ceil(tapBeat(now) + .05); while (mod(k, 4)) k++; when = TAP.a + k*TAP.P; }
+    else { const xo = pos(tg, now), Mo = mapOf(tg); let k = Math.ceil(beatAt(tg, xo) + .05); while (mod(k - Mo.down, 4)) k++; when = now + (timeOfBeat(tg, k) - xo)/tg.rate; }
     return start(d, Math.max(0, timeOfBeat(d, kd)), when);
   }
   start(d, d.off);
@@ -186,16 +187,59 @@ export function djBend(i, dir){ const d = D[i]; d.bend = dir*TUNE.dj.bend; setRa
 // sync: this deck's tempo to the other's, and (both playing) its bars lined up with the other's; it then follows the
 // other's tempo and is kept in phase (djFrame). Again: off
 export function djSync(i){
-  const d = D[i], o = D[1 - i];
+  const d = D[i], tg = target(d);
   if (d.sync) { d.sync = false; d.lock = 0; setRate(d); changed(); return false; }
-  if (!mapOf(d) || !mapOf(o)) return null;   // (no steady beat read in one of them)
-  d.sync = true; o.sync = false; o.lock = 0; setRate(o);
-  d.lock = 0; d.base = mapOf(o).bpm*o.rate/mapOf(d).bpm; setRate(d);
-  if (d.playing && o.playing && actx.currentTime >= d.t0) {
-    let e = barBeat(o) - barBeat(d); e = mod(e + 2, 4) - 2;
+  if (!mapOf(d) || !tg) return null;   // (no steady beat read in it, or nothing to follow)
+  d.sync = true; d.lock = 0;
+  if (tg !== 'tap') { tg.sync = false; tg.lock = 0; setRate(tg); }   // (two decks don't follow each other)
+  d.base = (tg === 'tap' ? 60/TAP.P : mapOf(tg).bpm*tg.rate)/mapOf(d).bpm; setRate(d);
+  const now = actx.currentTime;
+  if (d.playing && now >= d.t0 && (tg === 'tap' || tg.playing)) {
+    let e = (tg === 'tap' ? mod(tapBeat(now), 4) : barBeat(tg)) - barBeat(d); e = mod(e + 2, 4) - 2;
     start(d, timeOfBeat(d, beatAt(d, pos(d)) + e));
   }
   changed(); return true;
+}
+// what a synced deck follows: the tap clock while it's the master by choice (Master: Tap), otherwise the other deck
+const target = d => DJ.mode === 'tap' && TAP.P ? 'tap' : mapOf(D[1 - d.i]) ? D[1 - d.i] : null;
+
+/* ---------- tap tempo, and the master clock ---------- */
+// the tap clock: taps in time with the beat (as heard), at least tapMin of them, a pause of tapGap starting a new run; the
+// tempo is the middle of the last gaps (one sloppy tap doesn't throw it), and the beats fall where the taps do (the line
+// through them at that spacing), the run's first tap the bar's 1
+export const TAP = {run: [], k0: 0, P: 0, a: 0, rev: 0};
+export function djTap(t = heardNow()){
+  mixer(); const T = TUNE.dj, R = TAP.run;
+  if (R.length && t - R[R.length - 1] > T.tapGap) { R.length = 0; TAP.k0 = 0; }
+  R.push(t); if (R.length > 32) { R.shift(); TAP.k0++; }
+  if (R.length < T.tapMin) { changed(); return R.length; }
+  const g = R.slice(1).map((x, k) => x - R[k]).slice(-8).sort((a, b) => a - b), P = g[g.length >> 1];
+  if (P < 60/T.tapMax || P > 60/T.tapMin_bpm) { changed(); return R.length; }
+  TAP.P = P; TAP.a = R.reduce((s, x, k) => s + x - (TAP.k0 + k)*P, 0)/R.length; TAP.rev++;
+  changed(); return R.length;
+}
+export const tapBeat = t => (t - TAP.a)/TAP.P;   // the tap clock's beat at audio-clock time t (0: the bar's 1)
+export function djMasterMode(m){
+  DJ.mode = m;
+  for (const d of D) if (d.sync) { d.sync = false; d.lock = 0; setRate(d); }   // (what a synced deck follows changes: synced again by hand)
+  changed();
+}
+// the master: what sets the tempo and the beat for everything else (the groovebox, a synced deck, the visuals' beat grid).
+// Auto: the music that's heard wins, the lead deck while it plays (with its beats read), else the taps (unless the main
+// player is playing); Tap: the taps, whatever plays
+export function djMaster(){
+  const L = DJ.lead && DJ.lead.playing && mapOf(DJ.lead) ? DJ.lead : null, tap = TAP.P > 0;
+  if (DJ.mode === 'tap' && tap) return {tap: true};
+  if (L) return {d: L};
+  return tap && !playerPlaying ? {tap: true} : null;
+}
+export const masterBeat = (m, t) => m.tap ? tapBeat(t) : beatAt(m.d, pos(m.d, t)) - mapOf(m.d).down;   // from its bar's 1
+export function masterPeriod(m, t){ if (m.tap) return TAP.P; const d = m.d, b = Math.floor(beatAt(d, pos(d, t))); return (timeOfBeat(d, b + 1) - timeOfBeat(d, b))/d.rate; }
+export const masterBpm = m => m.tap ? 60/TAP.P : bpm(m.d);
+// the taps as a beat map, for the beat grid (audio/beatgrid.js reads F.map against F.at: here the audio clock as heard)
+function tapMap(){
+  const n = 4000, B = Array.from({length: n}, (_, j) => TAP.a + (j - 8)*TAP.P);
+  return {bpm: 60/TAP.P, period: TAP.P, beats: B, kick: new Float32Array(n).fill(1), down: 8, dsure: 1, phrase: 0, changes: [], conf: 1};
 }
 export function djEq(i, band, db){ const d = D[i]; d.eq[band] = db; applyEq(d); }
 export function djFilter(i, v){ const d = D[i]; d.filt = v; applyFilter(d); }
@@ -206,30 +250,35 @@ export function djXf(v){ DJ.xf = v; applyGain(); }
 // the lead deck (the one the faders favour) gives the beat grid its map and its time (F: audio/foresee.js), and a synced
 // deck follows the other's tempo, nudged back into phase when it drifts
 export function djFrame(){
-  if (!D[0].buf && !D[1].buf) return;
-  const T = TUNE.dj;
+  if (!D[0].buf && !D[1].buf && !TAP.P) return;
+  const T = TUNE.dj, now = actx ? actx.currentTime : 0;
   for (const d of D) {
-    const o = D[1 - d.i];
-    if (!d.sync || !mapOf(d) || !mapOf(o)) continue;
-    d.base = mapOf(o).bpm*o.rate/mapOf(d).bpm;
-    if (d.playing && o.playing && !d.bend && actx.currentTime >= d.t0) {
-      let e = beatAt(o, pos(o)) - beatAt(d, pos(d)); e = mod(e + .5, 1) - .5;   // beats out of phase
+    const tg = target(d);
+    if (!d.sync || !mapOf(d) || !tg) continue;
+    d.base = (tg === 'tap' ? 60/TAP.P : mapOf(tg).bpm*tg.rate)/mapOf(d).bpm;
+    if (d.playing && (tg === 'tap' || tg.playing) && !d.bend && now >= d.t0) {
+      let e = (tg === 'tap' ? tapBeat(now) : beatAt(tg, pos(tg))) - beatAt(d, pos(d)); e = mod(e + .5, 1) - .5;   // beats out of phase
       d.lock = Math.max(-T.lockMax, Math.min(T.lockMax, e*T.lock*4));
     } else d.lock = 0;
     setRate(d);
   }
   const lv = D.map(level), L = lv[0] > .001 || lv[1] > .001 ? D[lv[1] > lv[0] + (DJ.lead === D[0] ? .05 : -.05) ? 1 : 0] : null;
-  if (L !== DJ.lead || (L && F.map !== (mapOf(L) || null))) {
-    DJ.lead = L;
-    if (L) { F.id++; Object.assign(F, {ready: !!L.ana, drops: L.ana ? L.ana.drops : [], brks: L.ana ? L.ana.brks : [], map: mapOf(L) || null, dur: L.buf.duration}); }
+  if (L !== DJ.lead) { DJ.lead = L; changed(); }
+  // the master gives the beat grid its beats, breakdowns and drops (F: audio/foresee.js), and its tempo
+  const m = djMaster(), key = m ? (m.tap ? 'tap' + TAP.rev : m.d) : null;
+  if (key !== DJ.mkey || (m && m.d && F.map !== mapOf(m.d))) {
+    DJ.mkey = key; DJ.master = m;
+    if (m && m.tap) { F.id++; Object.assign(F, {ready: true, drops: [], brks: [], map: tapMap(), dur: 1e9}); }
+    else if (m) { const a = m.d.ana; F.id++; Object.assign(F, {ready: true, drops: a.drops, brks: a.brks, map: mapOf(m.d), dur: m.d.buf.duration}); }
     changed();
   }
-  F.rate = L ? L.rate : 1;
+  DJ.master = m; F.rate = m && m.d ? m.d.rate : 1;
 }
-// while a deck leads, the grid keeps time from it: its track's time as heard, as the frame will reach the screen, by the
-// Sync slider (as the player does); otherwise the player's
+// while there's a master, the grid keeps time from it: a deck's track as heard (or the tap clock's audio clock as heard),
+// as the frame will reach the screen, by the Sync slider (as the player does); otherwise the player's
 const playerAt = F.at;
-F.at = () => DJ.lead ? heard(DJ.lead) + (TUNE.sync.displayMs - S.syncMs)/1000*DJ.lead.rate : playerAt ? playerAt() : null;
+F.at = () => { const m = DJ.master, ahead = (TUNE.sync.displayMs - S.syncMs)/1000;
+  return m ? (m.tap ? heardNow() + ahead : heard(m.d) + ahead*m.d.rate) : playerAt ? playerAt() : null; };
 
 // a waveform: the loudest sample in each 1/150 s, worked out in pieces so loading doesn't stall a frame
 export const PEAK_HZ = 150;

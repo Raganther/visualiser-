@@ -1,5 +1,5 @@
 // The groovebox: a 909-style drum machine and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
-import { DJ, beatAt, djBus, heardNow, pos, timeOfBeat } from './dj.js';
+import { djBus, djMaster, heardNow, masterBeat, masterBpm, masterPeriod } from './dj.js';
 import { actx } from './player.js';
 import { TUNE } from '../tuning.js';
 
@@ -85,12 +85,12 @@ function bass(i, t, dur){
 // lead deck it lands on that deck's own 16ths and bars (from its beat map), otherwise at its own tempo
 let timer = null, nextT = 0, nextI = 0, lastT = -1;
 export const LOG = [];   // the steps scheduled lately: {t, i} (for the playhead, and tests)
-export const tempo = () => { const L = locked(); return L ? L.ana.map.bpm*L.rate : GB.bpm; };
-export const locked = () => { const L = GB.sync && DJ.lead; return L && L.playing && L.ana && L.ana.map ? L : null; };
-function fromLead(L, now){
-  const M = L.ana.map, k = beatAt(L, pos(L, now)), b = Math.floor(k), P = (timeOfBeat(L, b + 1) - timeOfBeat(L, b))/L.rate;
-  const s = Math.floor(k*4 + 1e-6) + 1;   // the next 16th, counted from the map's first beat
-  return {t: now + (s/4 - k)*P, i: (((s - M.down*4) % 16) + 16) % 16, dur: P/4};
+// locked to the master (audio/dj.js: the lead deck, or the taps) while Sync is on and there is one
+export const locked = () => GB.sync ? djMaster() : null;
+export const tempo = () => { const m = locked(); return m ? masterBpm(m) : GB.bpm; };
+function fromLead(m, now){
+  const k = masterBeat(m, now), P = masterPeriod(m, now), s = Math.floor(k*4 + 1e-6) + 1;   // the next 16th, counted from the master's bar's 1
+  return {t: now + (s/4 - k)*P, i: ((s % 16) + 16) % 16, dur: P/4};
 }
 function play(i, t, dur){
   const sw = i % 2 ? GB.swing*dur*.5 : 0, at = t + sw;   // (swing: the off 16ths a little late)

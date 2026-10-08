@@ -1,5 +1,5 @@
 // The DJ panel under the picture (audio/dj.js): two decks and a mixer, for the mouse; it opens and collapses from the bar's DJ button.
-import { DJ, PEAK_HZ, barBeat, beatAt, bpm, djBend, djCue, djEq, djFader, djFilter, djLoad, djLoop, djPlay, djScrub, djSetCue, djSync, djTempo, djXf, heard, onDJ, timeOfBeat } from '../audio/dj.js';
+import { DJ, PEAK_HZ, TAP, barBeat, beatAt, bpm, djBend, djCue, djEq, djFader, djFilter, djLoad, djLoop, djMasterMode, djPlay, djScrub, djSetCue, djSync, djTap, djTempo, djXf, heard, heardNow, masterBeat, masterBpm, onDJ, timeOfBeat } from '../audio/dj.js';
 import { tracks } from '../audio/player.js';
 import { resize } from '../render/gl.js';
 import { S } from '../state.js';
@@ -20,7 +20,7 @@ const UI = DJ.decks.map(d => {
     <canvas class="zoom" height="64"></canvas><canvas class="over" height="18"></canvas>
     <div class="dc"><label class="btn small">Load<input type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac" hidden></label><select class="pl" aria-label="Load from the playlist" hidden></select>
     <button class="cue" title="Back to the cue point (the orange mark), stopped">Cue</button><button class="play" aria-label="Play">▶</button>
-    <button class="sync" aria-pressed="false" title="Match the other deck's tempo and line up the bars">Sync</button>
+    <button class="sync" aria-pressed="false" title="Match the other deck's tempo and line up the bars (with Master: Tap, your taps' tempo and bars)">Sync</button>
     <button class="nd" title="Hold: slow down a touch">−</button><button class="nu" title="Hold: speed up a touch">+</button>
     <span class="tl">Tempo</span></div>
     <div class="dl"><button class="set" title="Put the cue point here, on the nearest beat">Set cue</button><span class="tl">Loop</span>${LOOPS.map(n => `<button class="lp" data-n="${n}" aria-pressed="false" title="Loop ${n} beat${n > 1 ? 's' : ''} from here (again: out of the loop)">${n}</button>`).join('')}<span class="tl">beats</span></div>`;
@@ -71,7 +71,9 @@ for (const d of DJ.decks) {
 mix.append(chans, el('div', 'xfl', '<span>A</span><span>Crossfader</span><span>B</span>'), slider('xf', 0, 1, .005, .5, 'Crossfader', djXf));
 // the head: the sections' switches, and the sync strip (the beat, the bar, the tempo, and what's locked to what)
 const head = el('div', 'djh', `<b>DJ</b><span class="tabs"><button class="tab" data-t="decks">Decks</button><button class="tab" data-t="groove">Groovebox</button></span>
-  <span class="sync" aria-live="off"><span class="lamps">${'<i></i>'.repeat(4)}</span><span class="sbar">—</span><span class="sbpm">— BPM</span><span class="sgb"></span></span>
+  <span class="sync" aria-live="off"><button class="tapb" title="Tap in time with the beat (four taps or more; the first is the bar's 1). The tapped tempo leads when no deck plays, or always with Master: Tap">Tap</button>
+  <button class="mmode" aria-pressed="false" title="Auto: the music playing sets the beat (the lead deck), else your taps. Tap: your taps set it, and a synced deck follows them">Master: Auto</button>
+  <span class="lamps">${'<i></i>'.repeat(4)}</span><span class="sbar">—</span><span class="sbpm">— BPM</span><span class="sgb"></span></span>
   <button class="djx" aria-label="Collapse the DJ panel">▾ Hide</button>`);
 const body = el('div', 'djb'); body.append(UI[0].box, mix, UI[1].box);
 const gbx = el('div', 'gbx');
@@ -85,6 +87,13 @@ head.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   if (DJ.open) setOpen(true);
 }));
 head.querySelector('.djx').addEventListener('click', () => setOpen(false));
+// tap tempo (on the press, not the release: nearer the beat), and the master's mode
+let tapHint = -1e9;
+head.querySelector('.tapb').addEventListener('pointerdown', e => {
+  e.preventDefault(); djTap(); const b = e.currentTarget; b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90);
+  if (DJ.master && DJ.master.d && DJ.mode === 'auto') tapHint = performance.now();   // (a deck is the master: say why the taps don't lead)
+});
+head.querySelector('.mmode').addEventListener('click', () => { djMasterMode(DJ.mode === 'tap' ? 'auto' : 'tap'); if (DJ.mode === 'tap' && !TAP.P) toast('Tap four times or more to set the tempo'); });
 root.addEventListener('keydown', e => e.stopPropagation());   // (keys on a knob or slider don't reach the page's own)
 
 /* ---------- open and collapse ---------- */
@@ -108,7 +117,7 @@ function refresh(){
     q('.dn').textContent = d.reading ? `${d.name}: reading…` : d.name || 'Drop a track here, or Load';
     q('.play').textContent = d.playing ? '❚❚' : '▶'; q('.play').setAttribute('aria-label', d.playing ? 'Pause' : 'Play'); q('.play').disabled = !d.buf;
     q('.cue').disabled = q('.set').disabled = !d.buf; q('.sync').setAttribute('aria-pressed', d.sync);
-    u.box.querySelectorAll('.lp').forEach(b => { b.disabled = !(d.ana && d.ana.map); b.setAttribute('aria-pressed', !!d.loop && d.loop.n === +b.dataset.n); }); q('.lead').hidden = DJ.lead !== d;
+    u.box.querySelectorAll('.lp').forEach(b => { b.disabled = !(d.ana && d.ana.map); b.setAttribute('aria-pressed', !!d.loop && d.loop.n === +b.dataset.n); }); q('.lead').hidden = !(DJ.master && DJ.master.d === d);
     u.tempo.value = (d.base - 1)/T.tempoRange; u.tempo.disabled = d.sync;
     const pl = q('.pl'); pl.hidden = !tracks.length;
     if (tracks.length && pl.options.length !== tracks.length + 1) pl.innerHTML = '<option value="">Playlist…</option>' + tracks.map((t, k) => `<option value="${k}">${t.name.replace(/</g, '&lt;')}</option>`).join('');
@@ -173,13 +182,17 @@ function overView(u, x){
 // groovebox's own clock), and the groovebox: locked to which deck, or on its own, and its step
 let gBar = 0, gLast = -1;
 function syncStrip(){
-  const L = DJ.lead && DJ.lead.playing && DJ.lead.ana && DJ.lead.ana.map ? DJ.lead : null, g = grooveState(), q = c => head.querySelector(c);
+  const m = DJ.master, g = grooveState(), q = c => head.querySelector(c);
   let beat = -1, bar = '', tempo = '';
-  if (L) { const k = beatAt(L, heard(L)) - L.ana.map.down; beat = Math.floor(((k % 4) + 4) % 4); bar = `Bar ${Math.floor(k/4) + 1} · ${beat + 1}`; tempo = `${bpm(L).toFixed(1)} BPM · deck ${'AB'[L.i]}`; }
+  if (m) { const k = masterBeat(m, heardNow()); beat = Math.floor(((k % 4) + 4) % 4); bar = `Bar ${Math.floor(k/4) + 1} · ${beat + 1}`; tempo = `Master: ${m.tap ? 'taps' : 'deck ' + 'AB'[m.d.i]} · ${masterBpm(m).toFixed(1)} BPM`; }
   else if (g.step >= 0) { if (g.step < gLast) gBar++; gLast = g.step; beat = g.step >> 2; bar = `Bar ${gBar + 1} · ${beat + 1}`; tempo = `${g.bpm.toFixed(1)} BPM · groovebox`; }
   q('.lamps').querySelectorAll('i').forEach((e, k) => { e.classList.toggle('on', k === beat); e.classList.toggle('one', k === 0); });
   q('.sbar').textContent = bar || '—'; q('.sbpm').textContent = tempo || '— BPM';
-  q('.sgb').textContent = !g.playing ? 'Groovebox stopped' : `Groovebox ${g.locked !== null ? 'locked to deck ' + 'AB'[g.locked] : 'on its own tempo'} · ${g.step >= 0 ? `step ${g.step + 1}/16` : 'starting'}`;
+  const tb = q('.tapb'), n = TAP.run.length, mm = q('.mmode');
+  tb.textContent = TAP.P && n >= TUNE.dj.tapMin ? `Tap ${(60/TAP.P).toFixed(1)}` : n && n < TUNE.dj.tapMin ? `Tap ${n}…` : TAP.P ? `Tap ${(60/TAP.P).toFixed(1)}` : 'Tap';
+  mm.textContent = `Master: ${DJ.mode === 'tap' ? 'Tap' : 'Auto'}`; mm.setAttribute('aria-pressed', DJ.mode === 'tap');
+  q('.sgb').textContent = performance.now() - tapHint < 2500 ? `Deck ${'AB'[DJ.master && DJ.master.d ? DJ.master.d.i : 0]} is the master: your taps lead when no deck plays, or set Master: Tap`
+    : !g.playing ? 'Groovebox stopped' : `Groovebox ${g.locked !== null ? 'locked to ' + g.locked : 'on its own tempo'} · ${g.step >= 0 ? `step ${g.step + 1}/16` : 'starting'}`;
   q('.sgb').classList.toggle('lock', !!g.playing && g.locked !== null);
 }
 

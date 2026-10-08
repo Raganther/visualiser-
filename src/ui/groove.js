@@ -8,7 +8,7 @@ export function buildGroove(container){
   box = container;
   const top = el('div', 'gtop');
   top.innerHTML = `<button class="gplay" aria-label="Play">▶ Play</button>
-    <button class="gsync" aria-pressed="${GB.sync}" title="Lock to the deck the visuals follow: its tempo, its 16ths and bars">Sync to the decks</button>
+    <button class="gsync" aria-pressed="${GB.sync}" title="Lock to the master (the lead deck, or your taps): its tempo, its 16ths and bars">Sync to the master</button>
     <span class="tl">Tempo</span>`;
   const bpm = slider('gbpm', 90, 150, 1, 128, 'Tempo', v => { GB.bpm = v; save(); }, GB.bpm);
   const pre = el('select', 'gpre'); pre.setAttribute('aria-label', 'Starter pattern');
@@ -70,9 +70,9 @@ export function drawGroove(){
   if (s !== lastStep) { lastStep = s; for (const c of cells) c.classList.toggle('now', +c.dataset.i === s); for (const l of leds) l.classList.toggle('on', +l.dataset.i === s); }
   const L = locked(), p = box.querySelector('.gplay'), lab = GB.playing ? '❚❚ Stop' : '▶ Play';
   if (p.textContent !== lab) { p.textContent = lab; p.setAttribute('aria-label', GB.playing ? 'Stop' : 'Play'); }
-  box.querySelector('.gbv').textContent = `${tempo().toFixed(1)} BPM${L ? ', locked to deck ' + 'AB'[L.i] : ''}`;
+  box.querySelector('.gbv').textContent = `${tempo().toFixed(1)} BPM${L ? ', locked to ' + (L.tap ? 'your taps' : 'deck ' + 'AB'[L.d.i]) : ''}`;
   box.querySelector('.gbpm').disabled = !!L;
 }
-// for the sync strip (ui/dj.js): playing, the step heard, the tempo, and the deck it's locked to (or null)
-export function grooveState(){ const L = locked(); return {playing: GB.playing, step: heardStep(), bpm: tempo(), locked: L ? L.i : null}; }
+// for the sync strip (ui/dj.js): playing, the step heard, the tempo, and what it's locked to (or null)
+export function grooveState(){ const L = locked(); return {playing: GB.playing, step: heardStep(), bpm: tempo(), locked: L ? (L.tap ? 'your taps' : 'deck ' + 'AB'[L.d.i]) : null}; }
 

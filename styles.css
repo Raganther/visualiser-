@@ -303,3 +303,6 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gknobs{grid-template-columns:repeat(4,auto);gap:0 4px}
 #dj .gknobs .knob{width:40px}
 #dj .gknobs .knob svg{width:26px;height:26px}
+#dj .tapb{min-width:64px;font-variant-numeric:tabular-nums}
+#dj .tapb.hit{background:#7cff9a;color:#000;border-color:#7cff9a}
+#dj .mmode{white-space:nowrap}
