@@ -38,6 +38,7 @@ import './ui/dj.js';   // the DJ panel under the picture: two decks and a mixer
 import { djFrame, heardNow } from './audio/dj.js';
 import { RECENT } from './audio/engine/events.js';
 import { noteFrame } from './scene/notes.js';
+import './play/host.js';   // the play lab (opt-in: the bar's Play button)
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
 import { S, viewAsp } from './state.js';

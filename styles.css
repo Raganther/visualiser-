@@ -395,3 +395,15 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gpg .gc.tail{background:#6b4fa8}
 @media (max-width:700px){ #dj .gbx{overflow-y:auto} #dj .gbody{flex:none;grid-template-columns:minmax(0,1fr);grid-template-rows:300px 300px auto;overflow:visible} #dj .gknobs{grid-template-columns:repeat(6,auto)} }
 #dj .gbx>.gtop,#dj .gbx>.gpat,#dj .gbx>.gvoice,#dj .gbx>.gstep{flex:none}
+/* the play lab (src/play/host.js): a clear overlay over the picture, and its bar at the top */
+#playCv{position:fixed;left:0;top:0;width:100%;z-index:4;touch-action:none;cursor:crosshair}
+#playCv[hidden],#playBar[hidden]{display:none}
+#playBar{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:9;width:min(96vw,860px);padding:6px 10px;border-radius:10px;
+  background:rgba(0,0,0,.72);border:1px solid var(--line);backdrop-filter:blur(6px);font-size:13px}
+#playBar .plrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#playBar .plname{flex:1;min-width:140px;color:var(--accent)}
+#playBar button{padding:2px 9px}
+#playBar button[aria-pressed=true]{background:var(--accent);color:#000}
+#playBar select{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
+#playBar .plhow{color:var(--dim);font-size:12px;margin-top:3px}
+body.playlab #caption,body.playlab #keyHud{display:none}

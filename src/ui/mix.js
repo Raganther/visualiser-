@@ -4,8 +4,8 @@ import { EFFECTS, effect } from '../audio/engine/registry.js';
 import { OFF, STRIPS, addInsert, mixMaster, moveInsert, onMix, removeInsert, setParam, setStrip, toggleInsert } from '../audio/engine/mixer.js';
 import { el, knob } from './widgets.js';
 
-const ORDER = ['groove', 'synth', 'deckA', 'deckB', 'sendA', 'sendB', 'master'];
-const NAMES = {groove: 'Groovebox', synth: 'Synth', deckA: 'Deck A', deckB: 'Deck B', sendA: 'Send A', sendB: 'Send B', master: 'Master'};
+const ORDER = ['groove', 'synth', 'play', 'deckA', 'deckB', 'sendA', 'sendB', 'master'];
+const NAMES = {groove: 'Groovebox', synth: 'Synth', play: 'Play lab', deckA: 'Deck A', deckB: 'Deck B', sendA: 'Send A', sendB: 'Send B', master: 'Master'};
 const db = v => v <= OFF + .1 ? 'off' : (v > 0 ? '+' : '') + v.toFixed(1);
 // how a setting reads, by its unit
 const fmt = p => p.list ? v => p.list[Math.round(v)] || '' : {
