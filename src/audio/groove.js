@@ -1,5 +1,8 @@
 // The groovebox: a 909-style drum machine and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
-import { djBus, djMaster, heardNow, masterBeat, masterBpm, masterPeriod } from './dj.js';
+import { djBus, heardNow } from './dj.js';
+import { INT, internal, master, next16, setTempo, startAt } from './engine/clock.js';
+import { channel } from './engine/mixer.js';
+import { note } from './engine/events.js';
 import { actx } from './player.js';
 import { TUNE } from '../tuning.js';
 
@@ -36,7 +39,7 @@ let bus = null, dBus = null, sBus = null, noise = null, osc = null, filt = null,
 function chain(){
   if (bus) return;
   bus = actx.createGain(); dBus = actx.createGain(); sBus = actx.createGain();
-  dBus.connect(bus); sBus.connect(bus); bus.connect(djBus()); levels();
+  dBus.connect(bus); sBus.connect(bus); bus.connect(channel('groove', 'Groovebox').input); levels();
   noise = actx.createBuffer(1, actx.sampleRate, actx.sampleRate); const n = noise.getChannelData(0); for (let i = 0; i < n.length; i++) n[i] = Math.random()*2 - 1;
 }
 export function levels(){ if (!bus) return; bus.gain.value = GB.level*GB.level; dBus.gain.value = GB.drums; sBus.gain.value = GB.synth*.5; }
@@ -82,32 +85,36 @@ function bass(i, t, dur){
 
 /* ---------- the clock ---------- */
 // a step is scheduled a little ahead on the audio clock (so a frame that stalls can't knock it out of time); locked to the
-// lead deck it lands on that deck's own 16ths and bars (from its beat map), otherwise at its own tempo
-let timer = null, nextT = 0, nextI = 0, lastT = -1;
+// master (audio/engine/clock.js: the lead deck, or the taps) it lands on its 16ths and bars, otherwise on the internal clock
+// at its own tempo (the taps' clock too: one clock, so taps set its tempo and where its bar starts)
+let timer = null, nextT = 0, nextI = 0, lastT = -1, wasL = false;
 export const LOG = [];   // the steps scheduled lately: {t, i} (for the playhead, and tests)
-// locked to the master (audio/dj.js: the lead deck, or the taps) while Sync is on and there is one
-export const locked = () => GB.sync ? djMaster() : null;
-export const tempo = () => { const m = locked(); return m ? masterBpm(m) : GB.bpm; };
-function fromLead(m, now){
-  const k = masterBeat(m, now), P = masterPeriod(m, now), s = Math.floor(k*4 + 1e-6) + 1;   // the next 16th, counted from the master's bar's 1
-  return {t: now + (s/4 - k)*P, i: ((s % 16) + 16) % 16, dur: P/4};
-}
+// locked to the master while Sync is on and there is one
+export const locked = () => GB.sync ? master() : null;
+export const tempo = () => { const m = locked(); return m ? m.bpm() : INT.tapped ? 60/INT.P : GB.bpm; };
+// its own tempo (the panel's slider): the internal clock's, kept in phase
+// (in phase at the next step not yet scheduled, so nothing already scheduled is played twice)
+export function setBpm(v){ GB.bpm = v; if (INT.tapped && actx) setTempo(v, GB.playing ? Math.max(nextT, actx.currentTime) : actx.currentTime); save(); }
+// General MIDI's drum notes, for the note events
+const GM = {kick: 36, clap: 39, snare: 38, chh: 42, ohh: 46, rim: 37};
 function play(i, t, dur){
   const sw = i % 2 ? GB.swing*dur*.5 : 0, at = t + sw;   // (swing: the off 16ths a little late)
-  for (const [v] of VOICES) { const h = GB[v][i]; if (h && !GB.mute[v]) DRUM[v](at, h === 2 ? 1 : .72); }
-  if (!GB.mute.bass) bass(i, at, dur);
+  for (const [v] of VOICES) { const h = GB[v][i]; if (h && !GB.mute[v]) { const vel = h === 2 ? 1 : .72; DRUM[v](at, vel); note({t: at, src: 'groove', ch: v, note: GM[v], vel, len: dur}); } }
+  const st = GB.bass[i];
+  if (!GB.mute.bass) { bass(i, at, dur); if (st && st.on) note({t: at, src: 'groove', ch: 'bass', note: NOTES[st.n][1] + 12*GB.oct, vel: st.a ? 1 : .7, len: dur*(st.s ? 1 : .75)}); }
   LOG.push({t: at, i}); if (LOG.length > 64) LOG.shift();
 }
 function tick(){
   const now = actx.currentTime, L = locked();
-  if (L) {
-    let {t, i, dur} = fromLead(L, now);
-    for (; t < now + TUNE.groove.ahead; t += dur, i = (i + 1) % 16) if (t > lastT + dur*.5) { play(i, t, dur); lastT = t; nextT = t + dur; nextI = (i + 1) % 16; }
-    return;
+  if (!L && !INT.tapped) {
+    // on its own with no taps: the internal clock at the groovebox's tempo, its bar carrying on from the step it's on
+    // (starting, after a gap, or when the master it was locked to stops: no burst to catch up, no jump)
+    // (and when its tempo changes, from the next step not yet scheduled)
+    if (nextT < now || wasL || Math.abs(60/INT.P - GB.bpm) > 1e-6) { INT.P = 60/GB.bpm; startAt((nextT < now ? now + .02 : nextT) - nextI*INT.P/4); }
   }
-  const dur = 60/GB.bpm/4;
-  if (nextT < now) nextT = now + .02;   // (starting, or after a gap: no burst to catch up)
-  while (nextT < now + TUNE.groove.ahead) { play(nextI, nextT, dur); lastT = nextT; nextT += dur; nextI = (nextI + 1) % 16; }
+  wasL = !!L;
+  let {t, i, dur} = next16(L || internal, now);
+  for (; t < now + TUNE.groove.ahead; t += dur, i = (i + 1) % 16) if (t > lastT + dur*.5) { play(i, t, dur); lastT = t; nextT = t + dur; nextI = (i + 1) % 16; }
 }
 export function grooveToggle(){
   if (GB.playing) { clearInterval(timer); timer = null; GB.playing = false; if (vca) vca.gain.setTargetAtTime(0, actx.currentTime, .01); return false; }

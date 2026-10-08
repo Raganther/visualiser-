@@ -1,5 +1,5 @@
 // The groovebox's tab in the DJ panel (audio/groove.js): a drum grid, an acid bass line, and their knobs, for the mouse.
-import { GB, NOTES, PRESETS, VOICES, clearPattern, grooveToggle, heardStep, levels, loadPreset, locked, save, tempo } from '../audio/groove.js';
+import { GB, NOTES, PRESETS, VOICES, clearPattern, grooveToggle, heardStep, levels, loadPreset, locked, save, setBpm, tempo } from '../audio/groove.js';
 import { el, knob, slider } from './widgets.js';
 
 let box = null, lastStep = -2, cells = [], leds = [];
@@ -10,7 +10,7 @@ export function buildGroove(container){
   top.innerHTML = `<button class="gplay" aria-label="Play">▶ Play</button>
     <button class="gsync" aria-pressed="${GB.sync}" title="Lock to the master (the lead deck, or your taps): its tempo, its 16ths and bars">Sync to the master</button>
     <span class="tl">Tempo</span>`;
-  const bpm = slider('gbpm', 90, 150, 1, 128, 'Tempo', v => { GB.bpm = v; save(); }, GB.bpm);
+  const bpm = slider('gbpm', 90, 150, 1, 128, 'Tempo', v => setBpm(v), GB.bpm);
   const pre = el('select', 'gpre'); pre.setAttribute('aria-label', 'Starter pattern');
   pre.innerHTML = '<option value="">Pattern…</option>' + Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
   pre.addEventListener('change', () => { if (pre.value) { loadPreset(pre.value); paint(); } pre.value = ''; });
