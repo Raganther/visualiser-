@@ -460,5 +460,9 @@ export const TUNE = {
   groove: {
     ahead: .35,                // seconds of steps scheduled ahead on the audio clock, so a stalled frame can't knock them out of time (.12 dropped steps while the cosmos stalled the page)
     tickMs: 25,                // how often more are scheduled
+    // Journey following the sequencer while it leads (audio/groove.js: its plan, read as a track's read-ahead is)
+    brkBars: 2,                // bars without a kick before its return counts as a drop
+    planBars: 16,              // bars ahead the song's changes and drops are known
+    nov: 3,                    // how strong a planned change is (a section's start: twice its pendStrength)
   },
 };

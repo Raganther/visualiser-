@@ -7,12 +7,19 @@ import { TUNE } from '../../tuning.js';
 export const INT = {P: 60/128, a: 0, tapped: false, run: [], k0: 0, rev: 0};
 export const internal = {kind: 'internal', tap: true, label: 'taps', beat: t => (t - INT.a)/INT.P, period: () => INT.P, bpm: () => 60/INT.P};
 export const CLOCK = {mode: 'auto'};   // auto: the music heard leads; tap: the internal clock leads, whatever plays
-const sources = [], holds = [], subs = new Set();
+const sources = [], holds = [], follows = [], subs = new Set();
 // things that can be the master, in order (a playing deck: audio/dj.js), each () => a clock or null; and things that,
 // while true, keep the taps from leading in Auto (the main player playing a track: its beat map leads the visuals)
 export const addSource = fn => sources.push(fn);
 export const addHold = fn => holds.push(fn);
 export const onClock = fn => subs.add(fn);
+// what the visuals follow when nothing is the master: the sequencer playing on its own clock (audio/groove.js), unless a
+// hold says the main player's track leads them
+export const addFollow = fn => follows.push(fn);
+export function leader(){ const m = master(); if (m || holds.some(h => h())) return m; for (const f of follows) { const c = f(); if (c) return c; } return null; }
+// what the sequencer knows is coming, on the audio clock as heard: its section changes ({t, nov}) and its drops ({t, brk}:
+// the kick back after a breakdown that began at brk). Journey reads them as it reads a track's (audio/foresee.js)
+export const PLAN = {changes: [], drops: [], rev: 0};
 const changed = () => subs.forEach(fn => fn());
 
 export function master(){
@@ -49,6 +56,6 @@ export function next16(c, now){
 }
 // the clock as a beat map, for the beat grid (audio/beatgrid.js reads F.map against F.at: here the audio clock as heard)
 export function clockMap(){
-  const n = 4000, B = Array.from({length: n}, (_, j) => INT.a + (j - 8)*INT.P);
-  return {bpm: 60/INT.P, period: INT.P, beats: B, kick: new Float32Array(n).fill(1), down: 8, dsure: 1, phrase: 0, changes: [], conf: 1};
+  const n = 20000, B = Array.from({length: n}, (_, j) => INT.a + (j - 8)*INT.P);
+  return {bpm: 60/INT.P, period: INT.P, beats: B, kick: new Float32Array(n).fill(1), down: 8, dsure: 1, phrase: 0, changes: [], conf: 1, src: 'internal', a: INT.a, P: INT.P};
 }

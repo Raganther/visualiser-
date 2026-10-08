@@ -8,7 +8,9 @@ export const SIGNALS = [['drift', 'Slow drift'], ['bass', 'Follows bass', 1], ['
   ['pulse', 'Pulses on beat'], ['jump', 'Jumps on beat'],
   ['kick', 'Every kick', 1], ['stab', 'Stabs', 1], ['level', 'Loudness', 1], ['beatPhase', 'Beat ramp'], ['barPhase', 'Bar ramp'],
   ['tension', 'Energy'], ['section', 'Section change'],
-  ['hat', 'Hi-hats', 1], ['noise', 'Noisy against tonal'], ['full', 'Fullness'], ['width', 'Stereo width', 1], ['harm', 'The notes change'], ['fresh', 'Something new'], ['coming', 'The drop is coming']];
+  ['hat', 'Hi-hats', 1], ['noise', 'Noisy against tonal'], ['full', 'Fullness'], ['width', 'Stereo width', 1], ['harm', 'The notes change'], ['fresh', 'Something new'], ['coming', 'The drop is coming'],
+  ['nKick', 'Sequencer kick', 1], ['nSnare', 'Sequencer snare and clap', 1], ['nHat', 'Sequencer hats and cymbals', 1], ['nPerc', 'Sequencer percussion', 1],
+  ['nSynth', 'Synth and bass notes', 1], ['nPitch', 'How high the synth plays']];   // (scene/notes.js: the notes played, as heard)
 const MUSICAL = new Set(SIGNALS.filter(s => s[2]).map(s => s[0]));
 // a signal's value as a mover sees it; the band followers keep their original arithmetic ((band*react)*amount)
 export const sig = (k, react) => MUSICAL.has(k) ? SIG[k]*react : SIG[k];

@@ -39,7 +39,7 @@ function foreStep(dt, now){
   const beat = G.locked && G.period ? G.period : .47;
   let crossed = null, prev = -1e9;
   for (const d of F.drops) {
-    if (d.t - prev < Fo.gap || d.t < 8) continue;
+    if (d.t - prev < Fo.gap || d.t < 8 && !d.seq) continue;   // (a track's first seconds aren't a drop; the sequencer's drops are what it plays)
     prev = d.t;
     if (d.t <= last) continue;
     if (d.t <= t) { if (t - last < .5) crossed = d; continue; }
@@ -50,11 +50,13 @@ function foreStep(dt, now){
     break;
   }
   // the beat map's own section lines (audio/foresee.js): a change one beat off starts a section on its downbeat
+  // (any time in its last beat, once: a change the sequencer plans late, a pattern picked just before the bar line, still counts)
   const M = F.map; J.mapNear = false;
+  if (!J.chSeen || t < last - .5) J.chSeen = new Set();   // (a seek back: they can come again)
   if (M) { const P = M.period, near = TUNE.foresee.map.coverBars*4*P;
     for (const c of M.changes) {
       if (Math.abs(c.t - t) < near) J.mapNear = true;
-      if (!(c.t - P > last && c.t - P <= t)) continue;
+      const id = Math.round(c.t*100); if (c.t - P > t || c.t <= t || J.chSeen.has(id)) continue; J.chSeen.add(id);
       if (J.on && J.type && !J.pending && J.secAge > TUNE.sectionMinAge && !STEER.hold) { J.pending = true; J.pendingSince = now; J.pendStrength = Math.max(1, c.nov/2); J.novBar = J.bar + 1; }
     } }
   return crossed;

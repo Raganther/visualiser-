@@ -111,10 +111,10 @@ export function gridKick(t){
 function mapFrame(t){
   const M = F.map, x = M && F.at ? F.at() : null;
   if (x == null) { if (G.map) { G.map = false; G.locked = false; G.fit = 0; } return false; }
-  const B = M.beats, fresh = !G.map || Math.abs((x - G.mapX) - (t - G.mapT)) > .25;   // starting, or a seek: no burst of beats
+  const B = M.beats, fresh = !G.map || G.mapOf !== M || Math.abs((x - G.mapX) - (t - G.mapT)) > .25;   // starting, a seek, or another map (its beats counted afresh): no burst of beats
   if (fresh) {
     let lo = 0, hi = B.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (B[mid] <= x + .008) lo = mid + 1; else hi = mid; }
-    G.mi = lo; G.map = true; G.locked = true;
+    G.mi = lo; G.map = true; G.locked = true; G.mapOf = M;
     const bar = Math.floor((lo - M.down)/4);   // the bars counted as the map counts them, and phrases on its phrase lines
     J.bar = bar; J.mapPhrase = M.phrase; J.phraseAnchor = bar - (((bar - M.phrase) % 4) + 4) % 4;
   }

@@ -35,7 +35,9 @@ import { showNow } from './ui/panel.js';
 import { tasteFrame } from './ui/taste.js';
 import './ui/comment.js';
 import './ui/dj.js';   // the DJ panel under the picture: two decks and a mixer
-import { djFrame } from './audio/dj.js';
+import { djFrame, heardNow } from './audio/dj.js';
+import { RECENT } from './audio/engine/events.js';
+import { noteFrame } from './scene/notes.js';
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
 import { S, viewAsp } from './state.js';
@@ -46,7 +48,7 @@ import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
 const INSIDE = [{world: 'all'}, {trails: 'main'}, {objects: true}, {world: 'front'}, {hits: true}];   // an object inside a 3D world
 import { G } from './audio/beatgrid.js';
-import { comets, shocks, stepFX } from './fx/effects.js';
+import { comets, onHitFX, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
@@ -89,6 +91,8 @@ function frame(now){
   frame.due = now - frame.due > 1000/60 ? now + 1000/60 : frame.due + 1000/60;   // after a stall, no burst to catch up
   const t0 = performance.now();
   djFrame();   // the lead deck gives the beat grid its map and time (audio/dj.js)
+  // the notes played (the sequencer's, the synth's) as signals, as they're heard (scene/notes.js)
+  const ndt = Math.min(.1, (now - (frame.nt || now))/1000); frame.nt = now; noteFrame(RECENT.length ? heardNow() : null, ndt, onHitFX);
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
   fpsTick(now, performance.now() - t0, fpsInfo);
   tasteFrame();   // a like or dislike takes this frame's picture
@@ -194,7 +198,8 @@ function render(now){
     if (hr && $('#panel').classList.contains('open')) hr.textContent = `Hearing: hi-hats ${L.hat > .45 ? 'in' : 'out'}, bass ${L.brk ? 'out (a breakdown)' : L.bass > .5 ? 'in' : 'low'}, `
       + `${L.noise > .5 ? 'noisy' : 'tonal'}, filter ${Math.round(L.cut*100)}%${L.width > .15 ? ', wide' : ''}`
       + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`
-      + (J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
+      + (F.map && F.map.src === 'internal' ? ` Following the sequencer${J.fore && J.fore.left < 60 ? `: the drop in ${Math.max(1, Math.ceil(J.fore.bars))} bars${J.anticip > 0 ? ', building to it' : ''}` : ''}.`
+        : J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
         : F.ready ? ` Read ahead: ${F.drops.length ? F.drops.length + (F.drops.length === 1 ? ' drop' : ' drops') + ' in this track' : 'no drops in this track'}.` : '');
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {

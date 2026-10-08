@@ -1,6 +1,7 @@
 // The groovebox: the sequencer, playing the drum kit (audio/engine/inst/drums.js), a 303-style acid bass and the synth, in eight patterns and a song; at its own tempo, or locked to the master.
 import { djBus, heardNow } from './dj.js';
-import { INT, internal, master, next16, setTempo, startAt } from './engine/clock.js';
+import { INT, PLAN, addFollow, internal, leader, master, next16, setTempo, startAt } from './engine/clock.js';
+import { F } from './foresee.js';
 import { channel } from './engine/mixer.js';
 import { note } from './engine/events.js';
 import { actx, ensureAudio } from './player.js';
@@ -60,7 +61,7 @@ export function loadPreset(name){ const p = PRESETS[name]; if (!p) return; const
 export function clearPattern(){ GB.pats[GB.pat] = blank(); bind(); GB.preset = ''; save(); }
 // patterns: pick one (now when stopped, at the next bar while playing), copy one into another; the song: a chain of them, a bar each
 let clip = null;
-export function pickPattern(i){ if (GB.playing) GB.next = i; else { GB.pat = i; bind(); } save(); }
+export function pickPattern(i){ if (GB.playing) GB.next = i; else { GB.pat = i; bind(); } save(); plan(); }
 export function copyPattern(){ clip = JSON.parse(JSON.stringify(pat())); }
 export function pastePattern(){ if (!clip) return false; GB.pats[GB.pat] = fit(JSON.parse(JSON.stringify(clip))); bind(); save(); return true; }
 export function setLen(k, n){ pat().len[k] = Math.max(1, Math.min(MAX, Math.round(n))); save(); }
@@ -131,15 +132,45 @@ function passes(x, cycle){
   if (c === 'Fill') return GB.fill; if (c === 'Not fill') return !GB.fill; if (c === 'First') return cycle === 0;
   const [a, b] = c.split(':').map(Number); return cycle % b === a - 1;
 }
-let start = 0;   // the step count the pattern started at (its tracks' times round count from there)
+let kickAt = 0, start = 0;   // the kick on this step (its velocity); the step count the pattern started at (its tracks' times round count from there)
+/* ---------- Journey following it ---------- */
+// playing on its own, the sequencer leads the visuals (its clock gives the beat grid its beats), and what it knows is
+// coming goes into PLAN: the song's pattern changes and drops (a kick back after brkBars without one) planBars ahead, and
+// the live ones as they happen (a pattern picked, a mute, the kick coming back)
+addFollow(() => GB.playing ? internal : null);
+const live = {changes: [], drops: []};
+let lastKickS = null;   // the step count of the last kick played
+const leads = () => leader() === internal;
+const tOf = s => INT.a + s/4*INT.P;   // a step count's time on the internal clock (as heard)
+const kickIn = p => { const P = GB.pats[p], L = P.len.kick || 16; return !(GB.solo ? GB.solo !== 'kick' : GB.mute.kick) && P.kick.slice(0, L).some(Boolean); };
+const firstKick = p => Math.max(0, GB.pats[p].kick.findIndex(Boolean));
+// a change on the next bar line (a pattern picked, a mute): Journey starts a section there
+function liveChange(){ if (!GB.playing || !leads()) return; const nb = Math.ceil(nextS/16)*16; live.changes.push({t: tOf(nb), nov: TUNE.groove.nov}); plan(); }
+function plan(){
+  if (!GB.playing || !leads()) return;
+  const T = TUNE.groove, nb = Math.ceil(nextS/16)*16, now = actx.currentTime, changes = [], drops = [];
+  for (const k of ['changes', 'drops']) live[k] = live[k].filter(e => e.t > now - 30);
+  const seq = []; for (let k = 0; k < T.planBars; k++) seq.push(GB.songOn && GB.song.length ? GB.song[((GB.songPos ?? -1) + 1 + k) % GB.song.length] : GB.next ?? GB.pat);
+  let prev = GB.pat, gone = lastKickS != null && nextS - lastKickS > 8 ? lastKickS : kickIn(GB.pat) ? null : nextS;
+  seq.forEach((p, k) => { const s0 = nb + 16*k;
+    if (p !== prev) changes.push({t: tOf(s0), nov: T.nov}); prev = p;
+    if (kickIn(p)) { if (gone != null && s0 + firstKick(p) - gone >= T.brkBars*16) drops.push({t: tOf(s0 + firstKick(p)), brk: tOf(gone), seq: 1, plan: true}); gone = null; }
+    else if (gone == null) gone = s0; });
+  const merge = (a, b) => [...a, ...b.filter(x => !a.some(y => Math.abs(y.t - x.t) < .05))].sort((x, y) => x.t - y.t);
+  PLAN.changes = merge(live.changes, changes); PLAN.drops = merge(live.drops, drops); PLAN.rev++;
+}
+export function setMute(v, on){ GB.mute[v] = on; save(); liveChange(); }
+export function setSolo(v){ GB.solo = v; save(); liveChange(); }
 // one 16th: every track at its own place (its step count modulo its length), each hit as its step says
 function play(s, t, dur){
   const i = ((s % 16) + 16) % 16;
   if (i === 0) {   // the bar line: the next pattern, or the song's next
+    const was = GB.pat;
     if (GB.songOn && GB.song.length) { GB.songPos = (GB.songPos == null ? 0 : GB.songPos + 1) % GB.song.length; const n = GB.song[GB.songPos]; if (n !== GB.pat) { GB.pat = n; bind(); start = s; } }
     else if (GB.next != null) { if (GB.next !== GB.pat) start = s; GB.pat = GB.next; GB.next = null; bind(); }
+    if (GB.pat !== was && leads()) live.changes.push({t, nov: TUNE.groove.nov});   // (kept, so Journey still finds it once it's begun)
   }
-  const P = pat(), rel = s - start, sw = i % 2 ? GB.swing*dur*.5 : 0;
+  const P = pat(), rel = s - start, sw = i % 2 ? GB.swing*dur*.5 : 0; kickAt = 0;
   const heard = k => !(GB.solo ? GB.solo !== k : GB.mute[k]);
   for (const V of KV) {
     const v = V.key, L = P.len[v] || 16, j = ((rel % L) + L) % L, h = P[v][j];
@@ -148,6 +179,9 @@ function play(s, t, dur){
     const vel = x && x.vel != null ? x.vel : h === 2 ? 1 : .72, r = x && x.rat || 1, at = t + sw + (x && x.nudge || 0)*dur;
     const lock = x && (x.tune != null || x.decay != null || x.x != null) ? {...(x.tune != null && {tune: x.tune}), ...(x.decay != null && {decay: x.decay}), ...(x.x != null && {x: x.x})} : null;
     for (let k = 0; k < r; k++) { const tk = at + k*dur/r; kit.play(v, tk, vel*(k ? .8 : 1), lock); note({t: tk, src: 'groove', ch: v, note: V.note, vel, len: dur/r}); }
+    if (v === 'kick') {   // the kick back after a breakdown: a drop, landing on it
+      if (lastKickS != null && s - lastKickS >= TUNE.groove.brkBars*16 && leads()) live.drops.push({t: at, brk: tOf(lastKickS), seq: 1});
+      lastKickS = s; if (i % 4 === 0) kickAt = Math.max(kickAt, vel); }
   }
   // the bass line, at its own length
   { const L = P.len.bass || 16, j = ((rel % L) + L) % L, st = P.bass[j], x = P.x['bass:' + j], at = t + sw + (x && x.nudge || 0)*dur;
@@ -161,6 +195,8 @@ function play(s, t, dur){
     if (P.synth.length && heard('synth')) for (const o of P.synth) if (o.s === j) { const x = P.x['synth:' + j]; if (!passes(x, Math.floor(rel/L))) continue;
       const at = t + sw + (x && x.nudge || 0)*dur, len = o.l*dur*.92; synth().play(o.n, at, len, o.v); note({t: at, src: 'groove', ch: 'synth', note: o.n, vel: o.v, len}); } }
   LOG.push({t: t + sw, i, s, rel, p: GB.pat}); if (LOG.length > 64) LOG.shift();
+  // each beat's pulse as strong as the kick on it (soft where there's none: a breakdown), on the beat grid's map
+  const M = F.map; if (i % 4 === 0 && M && M.src === 'internal' && leads()) { const j = Math.round((t - M.beats[0])/M.P); if (j >= 0 && j < M.kick.length) M.kick[j] = kickAt; }
 }
 function tick(){
   const now = actx.currentTime, L = locked();
@@ -172,12 +208,13 @@ function tick(){
   }
   wasL = !!L;
   let {t, s, dur} = next16(L || internal, now);
+  plan();
   for (; t < now + TUNE.groove.ahead; t += dur, s++) if (t > lastT + dur*.5) { if (first) { start = s - ((s % 16) + 16) % 16; GB.songPos = null; first = false; } play(s, t, dur); lastT = t; nextT = t + dur; nextS = s + 1; }
 }
 export function grooveToggle(){
   if (GB.playing) { clearInterval(timer); timer = null; GB.playing = false; if (vca) vca.gain.setTargetAtTime(0, actx.currentTime, .01); return false; }
   djBus(); chain(); if (actx.state === 'suspended') actx.resume();
-  nextT = 0; nextS = 0; lastT = -1; LOG.length = 0; GB.playing = true; first = true;
+  nextT = 0; nextS = 0; lastT = -1; LOG.length = 0; GB.playing = true; first = true; lastKickS = null; live.changes = []; live.drops = [];
   tick(); timer = setInterval(tick, TUNE.groove.tickMs); return true;
 }
 // the step being heard now (for the playhead), or -1; heardAt: its log entry (each track's place is rel modulo its length)

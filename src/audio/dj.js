@@ -3,7 +3,7 @@ import { S } from '../state.js';
 import { TUNE } from '../tuning.js';
 import { F, readAhead } from './foresee.js';
 import { actx, ensureAudio, playing as playerPlaying, togglePlay } from './player.js';
-import { CLOCK, INT, addHold, addSource, clockMap, master, onClock, setMode, tap } from './engine/clock.js';
+import { CLOCK, INT, PLAN, addHold, addSource, clockMap, leader, master, onClock, setMode, tap } from './engine/clock.js';
 import { channel, mixMaster } from './engine/mixer.js';
 
 // a deck: its track (buf), what was read ahead of it (ana: beats, bars, phrases, drops), its waveform (peaks), and where it
@@ -233,7 +233,7 @@ export function djXf(v){ DJ.xf = v; applyGain(); }
 // the lead deck (the one the faders favour) gives the beat grid its map and its time (F: audio/foresee.js), and a synced
 // deck follows the other's tempo, nudged back into phase when it drifts
 export function djFrame(){
-  if (!D[0].buf && !D[1].buf && !INT.tapped) return;
+  if (!D[0].buf && !D[1].buf && !DJ.mkey && !leader()) return;
   const T = TUNE.dj, now = actx ? actx.currentTime : 0;
   for (const d of D) {
     const tg = target(d);
@@ -248,13 +248,18 @@ export function djFrame(){
   const lv = D.map(level), L = lv[0] > .001 || lv[1] > .001 ? D[lv[1] > lv[0] + (DJ.lead === D[0] ? .05 : -.05) ? 1 : 0] : null;
   if (L !== DJ.lead) { DJ.lead = L; changed(); }
   // the master gives the beat grid its beats, breakdowns and drops (F: audio/foresee.js), and its tempo
-  const m = master(), key = m ? (m.tap ? 'tap' + INT.rev : m.d) : null;
+  const m = leader(), key = m ? (m.tap ? 'tap' + INT.rev : m.d) : null;
   if (key !== DJ.mkey || (m && m.d && F.map !== mapOf(m.d))) {
+    // (the main player's own read-ahead is kept while a deck or the clock leads, and given back after)
+    if (!DJ.mkey && key) DJ.kept = {ready: F.ready, drops: F.drops, brks: F.brks, map: F.map, dur: F.dur};
     DJ.mkey = key; DJ.master = m;
-    if (m && m.tap) { F.id++; Object.assign(F, {ready: true, drops: [], brks: [], map: clockMap(), dur: 1e9}); }
+    if (m && m.tap) { F.id++; Object.assign(F, {ready: true, drops: PLAN.drops, brks: [], map: clockMap(), dur: 1e9}); }
     else if (m) { const a = m.d.ana; F.id++; Object.assign(F, {ready: true, drops: a.drops, brks: a.brks, map: mapOf(m.d), dur: m.d.buf.duration}); }
+    else if (DJ.kept) { F.id++; Object.assign(F, DJ.kept); DJ.kept = null; }
     changed();
   }
+  // the clock leading: the sequencer's known changes and drops, as it plans them (audio/groove.js)
+  if (m && m.tap && F.map && F.map.src === 'internal') { F.map.changes = PLAN.changes; F.drops = PLAN.drops; }
   DJ.master = m; F.rate = m && m.d ? m.d.rate : 1;
 }
 // while there's a master, the grid keeps time from it: a deck's track as heard (or the tap clock's audio clock as heard),

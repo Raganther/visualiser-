@@ -1,7 +1,7 @@
 // The groovebox's section in the DJ panel (audio/groove.js), the sequencer for the mouse: patterns and the song, the drum grid
 // (each row its own length, in pages of 16), a picked voice's knobs, a step's own settings, and the bass line or the synth's piano roll.
 import { CONDS, GB, MAX, NOTES, PRESETS, VOICES, audition, clearPattern, copyPattern, euclid, grooveToggle, heardAt, lenOf, levels, loadPreset, locked, pastePattern,
-  pat, pickPattern, recHit, save, setBpm, setKit, setLen, setStepX, setVoice, stepX, tempo, toggleNote, voiceParams, heardStep } from '../audio/groove.js';
+  pat, pickPattern, recHit, save, setMute, setSolo, setBpm, setKit, setLen, setStepX, setVoice, stepX, tempo, toggleNote, voiceParams, heardStep } from '../audio/groove.js';
 import { KIT_NAMES, PARAMS, VOICES as KV } from '../audio/engine/inst/drums.js';
 import { el, knob, slider } from './widgets.js';
 import { toast } from './toast.js';
@@ -53,7 +53,7 @@ export function buildGroove(container){
   for (const [v, name] of VOICES) {
     const lab = btn('glab', name, 'Shape this voice (its knobs are above) and hear it; with Rec on while playing, it records', () => { pick = v; audition(v); recHit(v); voiceBar(); paint(); });
     const mu = el('button', 'gmute', 'M'); mu.title = 'Mute (Shift: solo)';
-    mu.addEventListener('click', e => { if (e.shiftKey) GB.solo = GB.solo === v ? null : v; else GB.mute[v] = !GB.mute[v]; save(); paint(); });
+    mu.addEventListener('click', e => { if (e.shiftKey) setSolo(GB.solo === v ? null : v); else setMute(v, !GB.mute[v]); paint(); });
     lab.dataset.v = v; mu.dataset.v = v; drums.append(lab, mu);
     for (let c = 0; c < 16; c++) {
       const cell = el('button', 'gc' + (c % 4 === 0 ? ' g4' : '')); cell.setAttribute('aria-label', `${name}, step ${c + 1}`);

@@ -187,7 +187,7 @@ let gBar = 0, gLast = -1;
 function syncStrip(){
   const m = DJ.master, g = grooveState(), q = c => head.querySelector(c);
   let beat = -1, bar = '', tempo = '';
-  if (m) { const k = masterBeat(m, heardNow()); beat = Math.floor(((k % 4) + 4) % 4); bar = `Bar ${Math.floor(k/4) + 1} · ${beat + 1}`; tempo = `Master: ${m.tap ? 'taps' : 'deck ' + 'AB'[m.d.i]} · ${masterBpm(m).toFixed(1)} BPM`; }
+  if (m) { const k = masterBeat(m, heardNow()); beat = Math.floor(((k % 4) + 4) % 4); bar = `Bar ${Math.floor(k/4) + 1} · ${beat + 1}`; tempo = `Master: ${m.d ? 'deck ' + 'AB'[m.d.i] : TAP.P ? 'taps' : 'groovebox'} · ${masterBpm(m).toFixed(1)} BPM`; }
   else if (g.step >= 0) { if (g.step < gLast) gBar++; gLast = g.step; beat = g.step >> 2; bar = `Bar ${gBar + 1} · ${beat + 1}`; tempo = `${g.bpm.toFixed(1)} BPM · groovebox`; }
   q('.lamps').querySelectorAll('i').forEach((e, k) => { e.classList.toggle('on', k === beat); e.classList.toggle('one', k === 0); });
   q('.sbar').textContent = bar || '—'; q('.sbpm').textContent = tempo || '— BPM';
