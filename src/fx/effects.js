@@ -1,5 +1,5 @@
 // Comets and shockwaves, and what stabs do.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { sBass, sMid, sTreb } from '../audio/analysis.js';
 import { J, OPENING } from '../journey/core.js';
 import { PACE } from '../journey/pace.js';
@@ -18,7 +18,7 @@ export function onHitFX(){
   if (J.on && J.accTrig === 'hit') J.accEnv = 1;
   for (const h of HIT_VISUALS) if (h.trigger === 'stab' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   J.hr += .5;
-  const asp = innerWidth/innerHeight;
+  const asp = viewAsp();
   if (eff.shock > .2) {
     const sh = shocks[S.shockN++ % 8];
     sh.x = (Math.random() - .5)*asp*.85; sh.y = (Math.random() - .5)*.85; sh.r = .005; sh.s = .7;
@@ -30,7 +30,7 @@ export function stepFX(dt, react, now){
   const tt = now/1000, rdt = dt; dt *= PACE.ts;             // now is motion time; hits still age in real time
   for (const h of HIT_VISUALS) if (h.step) h.step(rdt);
   J.wipe *= Math.pow(.02, rdt); S.wipe *= Math.pow(.05, rdt);
-  const asp = innerWidth/innerHeight, xm = asp/2*.92, ym = .46, tc = TW.comets, bands = tc && tc.band !== null ? [tc.band*2, tc.band*2, tc.band*2] : [sBass*1.3, sMid*2, sTreb*4];
+  const asp = viewAsp(), xm = asp/2*.92, ym = .46, tc = TW.comets, bands = tc && tc.band !== null ? [tc.band*2, tc.band*2, tc.band*2] : [sBass*1.3, sMid*2, sTreb*4];
   const cdt = dt*speedOf('comets');   // the comets at their own speed
   comets.forEach((c, i) => {
     const e = bands[i]*react;

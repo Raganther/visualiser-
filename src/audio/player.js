@@ -15,7 +15,7 @@ import { F, foresee } from './foresee.js';
 /* ---------- audio ---------- */
 export let actx = null, analyser = null, source = null, buffer = null, stereo = null;
 export let playing = false, startedAt = 0, tracks = [], tIndex = -1, loadToken = 0;
-function ensureAudio(){
+export function ensureAudio(){
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .2;

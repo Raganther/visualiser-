@@ -9,7 +9,7 @@ import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { Q } from './quality.js';
-import { HIST, S, dataArr } from '../state.js';
+import { HIST, S, dataArr, viewH } from '../state.js';
 import { TW as TWEAK } from '../scene/tweaks.js';
 import { DANCE } from '../scene/dance.js';
 import { toast } from '../ui/toast.js';
@@ -469,7 +469,7 @@ export function initRenderer(){
 let lost = false;
 export function resize(){
   const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1)*Q.scale;   // Q.scale: drawn smaller while frames run slow
-  const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(innerHeight * dpr));
+  const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(viewH() * dpr));   // (viewH: less the DJ panel under the picture)
   if (w === W && h === H && (!gl || fbos.length)) return;
   W = w; H = h; canvas.width = W; canvas.height = H;
   if (gl) glResize(); else r2d.resize(W, H);

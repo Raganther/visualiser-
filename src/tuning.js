@@ -440,4 +440,23 @@ export const TUNE = {
     obj: {bang: .25, bounce: .03, squash: .08, look: .4, pulse: .12, float: .04, approach: .3, rise: .5,
       reach: .4, reachTip: .45, reachIn: .25, reachHold: 1, reachOut: 1.5},   // a reacher on a drop (the user loved the hand and tentacle "reaching out towards you"): how much closer, how far its top tips towards us, the lunge, the hold and the easing back (bars)
   },
+  // DJ mode (audio/dj.js, ui/dj.js): two decks and a mixer under the picture, the visualiser following the mix
+  dj: {
+    headH: 34, decksH: 262, grooveH: 236,   // px: the panel's head (its tabs and the sync strip), and the decks' and the groovebox's sections under it
+    maxShare: .68,             // the most of the window's height the panel takes (its sections share what's left)
+    tempoRange: .08,           // the tempo slider's reach either way (±8%, like a turntable)
+    bend: .04,                 // how much faster or slower a deck plays while a nudge button is held
+    eqLow: 250, eqMid: 1000, eqHigh: 4000,   // Hz: the EQ's three bands (shelf, peak, shelf)
+    eqMin: -26, eqMax: 6,      // dB: an EQ knob turned right down (a kill) and right up
+    filterLo: 80, filterHi: 8000,   // Hz: the filter knob turned fully left (low-pass) and fully right (high-pass)
+    filterQ: 1.2,              // the filter's resonance
+    lock: .015,                // how hard a synced deck is pulled back into phase, per beat out (its tempo nudged, at most lockMax)
+    lockMax: .006,
+    zoomSecs: 6,               // seconds of the track across the close waveform
+  },
+  // the groovebox (audio/groove.js): a drum machine and an acid bass on a 16-step sequencer
+  groove: {
+    ahead: .35,                // seconds of steps scheduled ahead on the audio clock, so a stalled frame can't knock them out of time (.12 dropped steps while the cosmos stalled the page)
+    tickMs: 25,                // how often more are scheduled
+  },
 };

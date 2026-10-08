@@ -34,9 +34,11 @@ import { fpsTick } from './ui/fps.js';
 import { showNow } from './ui/panel.js';
 import { tasteFrame } from './ui/taste.js';
 import './ui/comment.js';
+import './ui/dj.js';   // the DJ panel under the picture: two decks and a mixer
+import { djFrame } from './audio/dj.js';
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
-import { S } from './state.js';
+import { S, viewAsp } from './state.js';
 import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
 import { tIndex, tracks } from './audio/player.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
@@ -86,6 +88,7 @@ function frame(now){
   if (now < frame.due - 3) return;   // (a tick up to 3 ms early counts: the timestamps jitter)
   frame.due = now - frame.due > 1000/60 ? now + 1000/60 : frame.due + 1000/60;   // after a stall, no burst to catch up
   const t0 = performance.now();
+  djFrame();   // the lead deck gives the beat grid its map and time (audio/dj.js)
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
   fpsTick(now, performance.now() - t0, fpsInfo);
   tasteFrame();   // a like or dislike takes this frame's picture
@@ -133,7 +136,7 @@ function render(now){
   if (eff.flow > .01) stepParts(mdt*speedOf('flow'), react, S.MT*1000);
   if (S.hueSet != null) { hueAcc = S.hueSet; S.hueSet = null; }   // (a walk-through's clean slate starts every time in the same colours)
   hueAcc += mdt*eff.colorSpeed;
-  const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
+  const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = viewAsp();
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
   // (a world's camera flying in streams the trails outwards: CTX.fly.z)
   const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
