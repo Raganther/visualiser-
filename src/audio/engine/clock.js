@@ -41,10 +41,11 @@ export function tap(t){
   }
   changed(); return R.length;
 }
-// the next 16th after audio-clock time `now` on a clock: when, which step of the bar (0..15), and how long a 16th lasts there
+// the next 16th after audio-clock time `now` on a clock: when, which step of the bar (0..15), its count from the clock's
+// bar 1 (s), and how long a 16th lasts there
 export function next16(c, now){
   const k = c.beat(now), P = c.period(now), s = Math.floor(k*4 + 1e-6) + 1;
-  return {t: now + (s/4 - k)*P, i: ((s % 16) + 16) % 16, dur: P/4};
+  return {t: now + (s/4 - k)*P, i: ((s % 16) + 16) % 16, s, dur: P/4};
 }
 // the clock as a beat map, for the beat grid (audio/beatgrid.js reads F.map against F.at: here the audio clock as heard)
 export function clockMap(){

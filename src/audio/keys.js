@@ -16,8 +16,10 @@ export const SY = {...dflt(), ...(saved || {})};
 SY.p = {...DEF, ...SY.p};
 let saveT = 0;
 export const saveSynth = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('afterglow.synth', JSON.stringify(SY)); } catch (e) {} }, 300); };
-const subs = new Set();
+const subs = new Set(), hooks = new Set();
 export const onKeys = fn => subs.add(fn);
+// told of every key down and up as played, with the note it sounds (the sequencer records them: audio/groove.js)
+export const onKey = fn => hooks.add(fn);
 const changed = () => subs.forEach(fn => fn());
 
 let poly = null, timer = 0;
@@ -37,12 +39,12 @@ const on = new Map(), down = new Set();   // key → the note it sounds (as play
 export function keyDown(k, vel = .85){
   const s = synth(); if (actx.state === 'suspended') actx.resume();
   if (SY.latch && !down.size && held.length) { held.length = 0; s.allOff(); on.clear(); }   // (latch: a new chord, after letting go, replaces the held one)
-  if (!held.includes(k)) held.push(k); down.add(k);
+  if (!held.includes(k)) held.push(k); down.add(k); hooks.forEach(fn => fn(k, true, k + 12*SY.oct, vel));
   if (!SY.arp) { const n = k + 12*SY.oct, t = actx.currentTime; on.set(k, n); s.noteOn(n, vel, t); note({t, src: 'synth', ch: 'poly', note: n, vel, len: 0}); }
   changed();
 }
 export function keyUp(k){
-  down.delete(k);
+  down.delete(k); hooks.forEach(fn => fn(k, false, k + 12*SY.oct));
   if (!SY.latch) { const i = held.indexOf(k); if (i >= 0) held.splice(i, 1); if (!SY.arp && on.has(k)) { synth().noteOff(on.get(k)); on.delete(k); } }
   changed();
 }

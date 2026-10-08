@@ -129,8 +129,8 @@ export function makeDrums(ctx, out){
 
   const kit = {
     P, out: bout,
-    // a hit: the voice at its settings, a touch of variation in level each time (as a hand would)
-    play(key, t, vel = 1){ const f = VOICE[key]; if (!f) return; const p = P[key]; f(Math.max(t, ctx.currentTime), vel*(.97 + Math.random()*.06), p, ch[key].in); },
+    // a hit: the voice at its settings (or a step's own: lock), a touch of variation in level each time (as a hand would)
+    play(key, t, vel = 1, lock = null){ const f = VOICE[key]; if (!f) return; const p = lock ? {...P[key], ...lock} : P[key]; f(Math.max(t, ctx.currentTime), vel*(.97 + Math.random()*.06), p, ch[key].in); },
     set(key, k, v){ if (!P[key]) return; P[key][k] = v; applyVoice(key); },
     load(name, over = {}){ const K = KITS[name] || KITS['909'], kp = kitParams(name);
       for (const v of VOICES) { P[v.key] = {...kp[v.key], ...(over[v.key] || {})}; applyVoice(v.key); } bset(K.bus); },

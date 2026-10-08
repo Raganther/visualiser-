@@ -299,7 +299,7 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .djh .sync span{flex:none}
 #dj .djh .sync .sgb{flex:1}
 #dj .gbody{grid-template-rows:minmax(0,1fr);overflow:hidden}
-#dj .gdrums,#dj .groll{height:100%}
+#dj .gdrums{height:100%}
 #dj .gknobs{grid-template-columns:repeat(4,auto);gap:0 4px}
 #dj .gknobs .knob{width:40px}
 #dj .gknobs .knob svg{width:26px;height:26px}
@@ -353,3 +353,45 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .sk.b{flex:none;width:2.4%;margin:0 -1.2%;height:60%;background:#15161a;z-index:1;border-radius:0 0 3px 3px;border:1px solid #000}
 #dj .sk.on.w{background:#b48cff}
 #dj .sk.on.b{background:#7a52d6}
+/* the sequencer (ui/groove.js): the pattern bar, the step editor, the lanes and the piano roll */
+#dj .gpat{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+#dj .gpat button{padding:1px 8px;font-size:11px}
+#dj .gslot{min-width:24px;color:var(--dim)}
+#dj .gslot.has{color:var(--ink)}
+#dj .gslot[aria-pressed=true]{background:#5ad1ff;color:#000}
+#dj .gslot.queued{outline:1px dashed #5ad1ff;animation:gq .5s steps(2) infinite}
+@keyframes gq{50%{outline-color:transparent}}
+#dj .gpat button[aria-pressed=true]:not(.gslot){background:#ffb000;color:#000}
+#dj .gpat .grec[aria-pressed=true]{background:#ff5050}
+#dj .gchain{display:flex;gap:2px;flex-wrap:wrap;max-width:280px;overflow:hidden}
+#dj .gchip{padding:0 5px!important;font-size:10px!important;min-width:16px}
+#dj .gchip.now{background:#7cff9a;color:#000}
+#dj .gstep{display:flex;align-items:center;flex-wrap:wrap;gap:0 2px;padding:2px 6px;border:1px solid #ffb000;border-radius:8px}
+#dj .gstep[hidden]{display:none}
+#dj .gstep b{color:#ffb000;font-size:12px;min-width:110px}
+#dj .gstep select{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:11px;padding:1px}
+#dj .gstep .gsx{padding:1px 8px;font-size:11px;margin-left:4px}
+#dj .gsep{width:1px;align-self:stretch;background:var(--line);margin:0 6px}
+#dj .gc.out{opacity:.15;pointer-events:none}
+#dj .gc.fx{box-shadow:inset 0 -3px 0 #ffb000}
+#dj .gc.pk{outline:2px solid #ffb000;outline-offset:-1px}
+#dj .gmute.solo{background:#ffb000;color:#000}
+#dj .gright{display:flex;flex-direction:column;gap:2px;min-height:0;height:100%}
+#dj .glane{display:flex;align-items:center;gap:4px}
+#dj .glane button{padding:1px 8px;font-size:11px}
+#dj .glane button[aria-pressed=true]{background:#ff7ab8;color:#000}
+#dj .glopts{margin-left:auto}
+#dj .glopts .knob{width:40px}
+#dj .glopts .knob svg{width:22px;height:22px}
+#dj .groll{flex:1}
+#dj .groll[hidden],#dj .gpiano[hidden]{display:none}
+#dj .gpiano{flex:1;min-height:0;display:flex;flex-direction:column;gap:2px}
+#dj .gph{display:flex;align-items:center;gap:4px}
+#dj .gph button,#dj .gph select{padding:0 6px;font-size:10px;background:#111;color:var(--ink);border:1px solid var(--line);border-radius:5px}
+#dj .gpg{flex:1;min-height:0;display:grid;grid-template-columns:40px repeat(16,minmax(0,1fr));grid-template-rows:repeat(24,minmax(0,1fr));gap:1px}
+#dj .gc.tiny{min-height:4px;border-radius:2px}
+#dj .gpg .glab.bk,#dj .gc.tiny.bk{background:#101216}
+#dj .gpg .gc.on{background:#b48cff}
+#dj .gpg .gc.tail{background:#6b4fa8}
+@media (max-width:700px){ #dj .gbx{overflow-y:auto} #dj .gbody{flex:none;grid-template-columns:minmax(0,1fr);grid-template-rows:300px 300px auto;overflow:visible} #dj .gknobs{grid-template-columns:repeat(6,auto)} }
+#dj .gbx>.gtop,#dj .gbx>.gpat,#dj .gbx>.gvoice,#dj .gbx>.gstep{flex:none}

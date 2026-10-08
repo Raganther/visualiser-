@@ -107,7 +107,7 @@ check('the groovebox, locked to the lead deck, plays on its 16ths and bars', loc
 await run(() => { __g.grooveToggle(); Object.assign(__g.GB, {sync: false, bpm: 128}); __g.grooveToggle(); }); await wait(2000);
 const own = await run(() => { const L = __g.LOG.slice(-10); return L.slice(1).map((s, k) => s.t - L[k].t); });
 check('on its own it keeps its own tempo', own.length >= 8 && own.every(d => Math.abs(d - 60/128/4) < .001), `steps ${(own.reduce((a, b) => a + b, 0)/own.length*1000).toFixed(2)} ms apart (128 BPM: ${(60/128/4*1000).toFixed(2)})`);
-const ui = await run(() => { const c = document.querySelector('#dj .gdrums .gc[data-v=snare][data-i="5"]'), before = __g.GB.snare[5];
+const ui = await run(() => { const c = document.querySelector('#dj .gdrums .gc[data-v=snare][data-c="5"]'), before = __g.GB.snare[5];
   c.click(); const after = __g.GB.snare[5]; const sel = document.querySelector('#dj .gpre'); sel.value = 'Minimal'; sel.dispatchEvent(new Event('change')); __g.grooveToggle();
   return {before, after, preset: __g.GB.preset, rim: __g.GB.rim.join('')}; });
 await run(() => { __g.GB.sync = true; __g.grooveToggle(); }); await wait(800);

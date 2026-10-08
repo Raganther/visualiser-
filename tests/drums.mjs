@@ -67,7 +67,7 @@ const g = await page.evaluate(async () => {
   return {kit: g.GB.kit, knobs, heard: Math.max(...a.map(Math.abs)), saved: JSON.parse(localStorage.getItem('afterglow.groove')).vp, cow: g.GB.cow.join('')};
 });
 check('the groovebox plays the kit, and its menu changes kit', g.kit === '808' && g.heard > .01 && g.cow.includes('1'), `${g.kit}, heard ${g.heard.toFixed(3)}`);
-check('a picked voice shows its knobs, its own character among them', g.knobs === 'Tune,Decay,Tone,Drive,Level,Pan,Spread', g.knobs);
+check('a picked voice shows its knobs, its own character among them', g.knobs.startsWith('Tune,Decay,Tone,Drive,Level,Pan,Spread,'), g.knobs);
 check('a voice\'s setting is kept', g.saved && g.saved.kick && g.saved.kick.tune === -5, JSON.stringify(g.saved));
 
 const errors = await page.errors();

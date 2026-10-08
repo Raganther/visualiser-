@@ -1,17 +1,24 @@
-// The groovebox: a drum machine (the kit: audio/engine/inst/drums.js) and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
+// The groovebox: the sequencer, playing the drum kit (audio/engine/inst/drums.js), a 303-style acid bass and the synth, in eight patterns and a song; at its own tempo, or locked to the master.
 import { djBus, heardNow } from './dj.js';
 import { INT, internal, master, next16, setTempo, startAt } from './engine/clock.js';
 import { channel } from './engine/mixer.js';
 import { note } from './engine/events.js';
 import { actx, ensureAudio } from './player.js';
 import { KITS, VOICES as KV, kitParams, makeDrums } from './engine/inst/drums.js';
-import { synth } from './keys.js';
+import { onKey, synth } from './keys.js';
 import { TUNE } from '../tuning.js';
 
 export const VOICES = KV.map(v => [v.key, v.label]);   // the kit's voices, a row each
 // the bass's notes: A minor pentatonic over an octave and a half up from A1 (hard to play a wrong one), highest first on screen
 export const NOTES = [['D3', 50], ['C3', 48], ['A2', 45], ['G2', 43], ['E2', 40], ['D2', 38], ['C2', 36], ['A1', 33]];
-const off = () => Array(16).fill(0), rest = () => Array.from({length: 16}, () => ({on: 0, n: 7, a: 0, s: 0}));
+export const MAX = 64;   // a track's steps at most (each its own length: polymeter)
+const off = (n = MAX) => Array(n).fill(0), rest = (n = MAX) => Array.from({length: n}, () => ({on: 0, n: 7, a: 0, s: 0}));
+// a pattern: a row of steps a drum voice (0 off, 1 on, 2 accented), the bass line, the synth's notes ({s: its step, n: the
+// MIDI note, l: steps long, v: velocity}), each track's length (16 unless set), and each step's own settings (x, by
+// 'track:step': vel, chance, a condition, ratchets, a nudge, and locks of the voice's tune, decay and character)
+export const blank = () => ({...Object.fromEntries(KV.map(v => [v.key, off()])), bass: rest(), synth: [], len: {}, x: {}});
+const pad = (a, f) => { const r = a.slice(0, MAX); while (r.length < MAX) r.push(f()); return r; };
+const fit = p => { const q = {...blank(), ...p}; for (const v of KV) q[v.key] = pad(q[v.key] || [], () => 0); q.bass = pad(q.bass || [], () => ({on: 0, n: 7, a: 0, s: 0})); q.len = {...(p.len || {})}; q.x = {...(p.x || {})}; q.synth = [...(p.synth || [])]; return q; };
 const on = (str, a = 1) => [...str].map(c => c === 'x' ? a : c === 'X' ? 2 : 0);   // 'x' a hit, 'X' accented, '.' none
 const line = (notes, acc = '', sl = '') => [...notes].map((c, i) => c === '.' ? {on: 0, n: 7, a: 0, s: 0} : {on: 1, n: +c, a: acc[i] === 'x' ? 1 : 0, s: sl[i] === 'x' ? 1 : 0});
 // starter patterns, minimal techno and around it: each a kit, a drum grid (voices left out are silent) and a bass line
@@ -30,18 +37,39 @@ export const PRESETS = {
   'Breakdown': {kit: 'Lo-fi', snare: on('............xxxx'), chh: on('x.x.x.x.x.x.x.x.'), ohh: on('......x.......x.'), rim: on('x......x..x.....'), shaker: on('..x...x...x...x.'),
     crash: on('x...............'), bass: line('2.......5.......', 'x.......')},
 };
-const dflt = () => ({sync: true, kit: '909', vp: {}, bassEng: 'acid', bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
-  mute: {}, preset: 'Rolling acid', ...JSON.parse(JSON.stringify(PRESETS['Rolling acid']))});
+const dflt = () => ({sync: true, kit: '909', vp: {}, bassEng: 'acid', pat: 0, song: [], songOn: false, bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
+  mute: {}, solo: null, preset: 'Rolling acid', pats: [fit(JSON.parse(JSON.stringify(PRESETS['Rolling acid']))), ...Array.from({length: 7}, blank)]});
 let saved = null; try { saved = JSON.parse(localStorage.getItem('afterglow.groove') || 'null'); } catch (e) {}
 // the groovebox's state: playing, locked to the lead deck (sync), its own tempo, swing, the levels, the bass's sound,
 // muted voices, and the pattern (a drum grid per voice: 0 off, 1 on, 2 accented; the bass: a note, accent and slide a step)
-export const GB = {playing: false, step: -1, ...dflt(), ...(saved || {})};
-for (const [v] of VOICES) if (!Array.isArray(GB[v])) GB[v] = off();   // (voices added since a pattern was saved: silent)
+export const GB = {playing: false, step: -1, fill: false, rec: false, next: null, ...dflt(), ...(saved || {})};
+// a groovebox saved before patterns: its one pattern becomes the first
+if (saved && !saved.pats) GB.pats = [fit(Object.fromEntries([...KV.map(v => [v.key, saved[v.key] || []]), ['bass', saved.bass || []]])), ...Array.from({length: 7}, blank)];
+GB.pats = Array.from({length: 8}, (_, i) => fit(GB.pats[i] || {}));
+// the pattern being edited and played: its rows are GB[voice] and GB.bass (as before patterns, for the panel and tests)
+export const pat = () => GB.pats[GB.pat];
+export function bind(){ const p = pat(); for (const v of KV) GB[v.key] = p[v.key]; GB.bass = p.bass; }
+bind();
+export const lenOf = k => pat().len[k] || 16;
 let saveT = 0;
-export const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { const {playing, step, ...s} = GB; localStorage.setItem('afterglow.groove', JSON.stringify(s)); } catch (e) {} }, 300); };
-export function loadPreset(name){ const p = PRESETS[name]; if (!p) return;
-  for (const [v] of VOICES) GB[v] = off(); Object.assign(GB, JSON.parse(JSON.stringify(p)), {preset: name}); if (p.kit) setKit(p.kit); save(); }
-export function clearPattern(){ for (const [v] of VOICES) GB[v] = off(); GB.bass = rest(); GB.preset = ''; save(); }
+export const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { const {playing, step, fill, rec, next, ...s} = GB; for (const v of KV) delete s[v.key]; delete s.bass;
+  localStorage.setItem('afterglow.groove', JSON.stringify(s)); } catch (e) {} }, 300); };
+// a starter loaded into the pattern being edited (and its kit)
+export function loadPreset(name){ const p = PRESETS[name]; if (!p) return; const {kit: k, ...rows} = JSON.parse(JSON.stringify(p));
+  GB.pats[GB.pat] = fit(rows); bind(); GB.preset = name; if (k) setKit(k); save(); }
+export function clearPattern(){ GB.pats[GB.pat] = blank(); bind(); GB.preset = ''; save(); }
+// patterns: pick one (now when stopped, at the next bar while playing), copy one into another; the song: a chain of them, a bar each
+let clip = null;
+export function pickPattern(i){ if (GB.playing) GB.next = i; else { GB.pat = i; bind(); } save(); }
+export function copyPattern(){ clip = JSON.parse(JSON.stringify(pat())); }
+export function pastePattern(){ if (!clip) return false; GB.pats[GB.pat] = fit(JSON.parse(JSON.stringify(clip))); bind(); save(); return true; }
+export function setLen(k, n){ pat().len[k] = Math.max(1, Math.min(MAX, Math.round(n))); save(); }
+// a euclidean rhythm: k hits spread as evenly as they go over the track's length, turned by `rot` steps
+export function euclid(v, k, rot = 0){ const L = lenOf(v), row = GB[v]; for (let j = 0; j < L; j++) { const i = ((j - rot) % L + L) % L; row[j] = k > 0 && Math.floor(i*k/L) !== Math.floor((i - 1)*k/L) || (k > 0 && i === 0) ? 1 : 0; } save(); }
+// a step's own settings (the step editor), and the synth's notes (the piano roll)
+export const stepX = (k, j) => pat().x[k + ':' + j] || null;
+export function setStepX(k, j, key, v){ const id = k + ':' + j, x = pat().x[id] = pat().x[id] || {}; if (v == null) delete x[key]; else x[key] = v; if (!Object.keys(x).length) delete pat().x[id]; save(); }
+export function toggleNote(s, n, l = 1){ const N = pat().synth, i = N.findIndex(o => o.n === n && s >= o.s && s < o.s + o.l); if (i >= 0) N.splice(i, 1); else N.push({s, n, l, v: .8}); save(); }
 
 /* ---------- the sound ---------- */
 let bus = null, dBus = null, sBus = null, kit = null, osc = null, filt = null, vca = null;
@@ -68,8 +96,8 @@ function voice(){
   osc.connect(filt); filt.connect(vca); vca.connect(sBus); osc.start();
 }
 const hz = m => 440*Math.pow(2, (m - 69)/12), cutHz = c => 60*Math.pow(8000/60, c);
-function bass(i, t, dur){
-  const st = GB.bass[i], prev = GB.bass[(i + 15) % 16], next = GB.bass[(i + 1) % 16];
+function bass(i, t, dur, L = 16){
+  const st = GB.bass[i], prev = GB.bass[(i + L - 1) % L], next = GB.bass[(i + 1) % L];
   if (!st || !st.on) return;
   voice(); osc.type = GB.wave;
   const f = hz(NOTES[st.n][1] + 12*GB.oct), glide = prev.on && prev.s;
@@ -86,22 +114,53 @@ function bass(i, t, dur){
 // a step is scheduled a little ahead on the audio clock (so a frame that stalls can't knock it out of time); locked to the
 // master (audio/engine/clock.js: the lead deck, or the taps) it lands on its 16ths and bars, otherwise on the internal clock
 // at its own tempo (the taps' clock too: one clock, so taps set its tempo and where its bar starts)
-let timer = null, nextT = 0, nextI = 0, lastT = -1, wasL = false;
-export const LOG = [];   // the steps scheduled lately: {t, i} (for the playhead, and tests)
+let timer = null, nextT = 0, nextS = 0, lastT = -1, wasL = false, first = true;
+export const LOG = [];   // the steps scheduled lately: {t, i: the step in the bar, s: the clock's count, rel: from the pattern's start} (the playhead, recording, tests)
 // locked to the master while Sync is on and there is one
 export const locked = () => GB.sync ? master() : null;
 export const tempo = () => { const m = locked(); return m ? m.bpm() : INT.tapped ? 60/INT.P : GB.bpm; };
 // its own tempo (the panel's slider): the internal clock's, kept in phase
 // (in phase at the next step not yet scheduled, so nothing already scheduled is played twice)
 export function setBpm(v){ GB.bpm = v; if (INT.tapped && actx) setTempo(v, GB.playing ? Math.max(nextT, actx.currentTime) : actx.currentTime); save(); }
-function play(i, t, dur){
-  const sw = i % 2 ? GB.swing*dur*.5 : 0, at = t + sw;   // (swing: the off 16ths a little late)
-  for (const V of KV) { const v = V.key, h = GB[v][i]; if (h && !GB.mute[v]) { const vel = h === 2 ? 1 : .72; kit.play(v, at, vel); note({t: at, src: 'groove', ch: v, note: V.note, vel, len: dur}); } }
-  const st = GB.bass[i];
-  if (!GB.mute.bass && GB.bassEng === 'synth') { if (st && st.on) { const nx = GB.bass[(i + 1) % 16], n = NOTES[st.n][1] + 12*GB.oct, len = st.s && nx.on ? dur*1.15 : dur*.6;
-      synth().play(n, at, len, st.a ? 1 : .7); note({t: at, src: 'groove', ch: 'bass', note: n, vel: st.a ? 1 : .7, len}); } }
-  else if (!GB.mute.bass) { bass(i, at, dur); if (st && st.on) note({t: at, src: 'groove', ch: 'bass', note: NOTES[st.n][1] + 12*GB.oct, vel: st.a ? 1 : .7, len: dur*(st.s ? 1 : .75)}); }
-  LOG.push({t: at, i}); if (LOG.length > 64) LOG.shift();
+// a step's condition: always, a:b (the a-th time of every b the track goes round), on a fill or not, or the first time round
+export const CONDS = ['Always', '1:2', '2:2', '1:3', '2:3', '3:3', '1:4', '2:4', '3:4', '4:4', 'Fill', 'Not fill', 'First'];
+function passes(x, cycle){
+  if (!x) return true;
+  if (x.chance != null && Math.random() >= x.chance) return false;
+  const c = x.cond; if (!c || c === 'Always') return true;
+  if (c === 'Fill') return GB.fill; if (c === 'Not fill') return !GB.fill; if (c === 'First') return cycle === 0;
+  const [a, b] = c.split(':').map(Number); return cycle % b === a - 1;
+}
+let start = 0;   // the step count the pattern started at (its tracks' times round count from there)
+// one 16th: every track at its own place (its step count modulo its length), each hit as its step says
+function play(s, t, dur){
+  const i = ((s % 16) + 16) % 16;
+  if (i === 0) {   // the bar line: the next pattern, or the song's next
+    if (GB.songOn && GB.song.length) { GB.songPos = (GB.songPos == null ? 0 : GB.songPos + 1) % GB.song.length; const n = GB.song[GB.songPos]; if (n !== GB.pat) { GB.pat = n; bind(); start = s; } }
+    else if (GB.next != null) { if (GB.next !== GB.pat) start = s; GB.pat = GB.next; GB.next = null; bind(); }
+  }
+  const P = pat(), rel = s - start, sw = i % 2 ? GB.swing*dur*.5 : 0;
+  const heard = k => !(GB.solo ? GB.solo !== k : GB.mute[k]);
+  for (const V of KV) {
+    const v = V.key, L = P.len[v] || 16, j = ((rel % L) + L) % L, h = P[v][j];
+    if (!h || !heard(v)) continue;
+    const x = P.x[v + ':' + j], cyc = Math.floor(rel/L); if (!passes(x, cyc)) continue;
+    const vel = x && x.vel != null ? x.vel : h === 2 ? 1 : .72, r = x && x.rat || 1, at = t + sw + (x && x.nudge || 0)*dur;
+    const lock = x && (x.tune != null || x.decay != null || x.x != null) ? {...(x.tune != null && {tune: x.tune}), ...(x.decay != null && {decay: x.decay}), ...(x.x != null && {x: x.x})} : null;
+    for (let k = 0; k < r; k++) { const tk = at + k*dur/r; kit.play(v, tk, vel*(k ? .8 : 1), lock); note({t: tk, src: 'groove', ch: v, note: V.note, vel, len: dur/r}); }
+  }
+  // the bass line, at its own length
+  { const L = P.len.bass || 16, j = ((rel % L) + L) % L, st = P.bass[j], x = P.x['bass:' + j], at = t + sw + (x && x.nudge || 0)*dur;
+    if (st && st.on && heard('bass') && passes(x, Math.floor(rel/L))) {
+      const n = NOTES[st.n][1] + 12*GB.oct, vel = st.a ? 1 : .7;
+      if (GB.bassEng === 'synth') { const nx = P.bass[(j + 1) % L], len = st.s && nx.on ? dur*1.15 : dur*.6; synth().play(n, at, len, vel); note({t: at, src: 'groove', ch: 'bass', note: n, vel, len}); }
+      else { bass(j, at, dur, L); note({t: at, src: 'groove', ch: 'bass', note: n, vel, len: dur*(st.s ? 1 : .75)}); }
+    } }
+  // the synth's notes that start on this step of its track
+  { const L = P.len.synth || 16, j = ((rel % L) + L) % L;
+    if (P.synth.length && heard('synth')) for (const o of P.synth) if (o.s === j) { const x = P.x['synth:' + j]; if (!passes(x, Math.floor(rel/L))) continue;
+      const at = t + sw + (x && x.nudge || 0)*dur, len = o.l*dur*.92; synth().play(o.n, at, len, o.v); note({t: at, src: 'groove', ch: 'synth', note: o.n, vel: o.v, len}); } }
+  LOG.push({t: t + sw, i, s, rel, p: GB.pat}); if (LOG.length > 64) LOG.shift();
 }
 function tick(){
   const now = actx.currentTime, L = locked();
@@ -109,22 +168,28 @@ function tick(){
     // on its own with no taps: the internal clock at the groovebox's tempo, its bar carrying on from the step it's on
     // (starting, after a gap, or when the master it was locked to stops: no burst to catch up, no jump)
     // (and when its tempo changes, from the next step not yet scheduled)
-    if (nextT < now || wasL || Math.abs(60/INT.P - GB.bpm) > 1e-6) { INT.P = 60/GB.bpm; startAt((nextT < now ? now + .02 : nextT) - nextI*INT.P/4); }
+    if (nextT < now || wasL || Math.abs(60/INT.P - GB.bpm) > 1e-6) { INT.P = 60/GB.bpm; startAt((nextT < now ? now + .02 : nextT) - nextS*INT.P/4); }   // (the count carries on: each track keeps its place)
   }
   wasL = !!L;
-  let {t, i, dur} = next16(L || internal, now);
-  for (; t < now + TUNE.groove.ahead; t += dur, i = (i + 1) % 16) if (t > lastT + dur*.5) { play(i, t, dur); lastT = t; nextT = t + dur; nextI = (i + 1) % 16; }
+  let {t, s, dur} = next16(L || internal, now);
+  for (; t < now + TUNE.groove.ahead; t += dur, s++) if (t > lastT + dur*.5) { if (first) { start = s - ((s % 16) + 16) % 16; GB.songPos = null; first = false; } play(s, t, dur); lastT = t; nextT = t + dur; nextS = s + 1; }
 }
 export function grooveToggle(){
   if (GB.playing) { clearInterval(timer); timer = null; GB.playing = false; if (vca) vca.gain.setTargetAtTime(0, actx.currentTime, .01); return false; }
   djBus(); chain(); if (actx.state === 'suspended') actx.resume();
-  nextT = 0; nextI = 0; lastT = -1; LOG.length = 0; GB.playing = true;
+  nextT = 0; nextS = 0; lastT = -1; LOG.length = 0; GB.playing = true; first = true;
   tick(); timer = setInterval(tick, TUNE.groove.tickMs); return true;
 }
-// the step being heard now (for the playhead), or -1
-export function heardStep(){
-  if (!GB.playing || !actx) return -1;
-  const at = heardNow(); let i = -1;
-  for (const s of LOG) if (s.t <= at) i = s.i;
-  return i;
-}
+// the step being heard now (for the playhead), or -1; heardAt: its log entry (each track's place is rel modulo its length)
+export function heardAt(){ if (!GB.playing || !actx) return null; const at = heardNow(); let e = null; for (const s of LOG) if (s.t <= at) e = s; return e; }
+export function heardStep(){ const e = heardAt(); return e ? e.i : -1; }
+// recording: a voice played (or a synth key) lands on the step nearest to when it was heard
+export function nearest(){ if (!GB.playing || !actx) return null; const at = heardNow(); let e = null; for (const s of LOG) if (!e || Math.abs(s.t - at) < Math.abs(e.t - at)) e = s; return e; }
+// a synth key recorded into the piano roll: its note on the step heard, as long as it was held (whole steps, at least one)
+const recKeys = new Map();
+onKey((k, down, n, vel = .8) => {
+  if (down) { const e = GB.rec && nearest(); if (!e) return; const L = lenOf('synth'), j = ((e.rel % L) + L) % L, N = pat().synth;
+    let o = N.find(o => o.n === n && o.s === j); if (!o) N.push(o = {s: j, n, l: 1, v: Math.round(vel*100)/100}); recKeys.set(k, {o, t: heardNow()}); save(); }
+  else { const r = recKeys.get(k); if (!r) return; recKeys.delete(k); r.o.l = Math.max(1, Math.min(MAX, Math.round((heardNow() - r.t)/(15/tempo())))); save(); }
+});
+export function recHit(v){ const e = GB.rec && nearest(); if (!e) return false; const L = lenOf(v), j = ((e.rel % L) + L) % L; GB[v][j] = GB[v][j] || 1; save(); return true; }
