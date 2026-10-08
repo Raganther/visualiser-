@@ -21,7 +21,7 @@ export default {
     if (held) A.set('cut', 260*Math.pow(2, tone(e.y)*5.6)); },
   up(){ held = false; },
   wheel(e){ rate = Math.max(0, Math.min(RATES.length - 1, rate + e.d)); A.hint(`Notes in ${RATES[rate][1]} · hold the button and move · Shift: chords`); },
-  key(e, down){ if (e.key === 'Shift') { chord = down; return true; } return false; },
+  keys(e, down){ if (e.key === 'Shift') { chord = down; return true; } return false; },
   draw(g, W, H){
     // the scale's notes as faint columns, the roots brighter, so you can aim
     const n = A.scaleLen()*3;

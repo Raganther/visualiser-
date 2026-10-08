@@ -8,7 +8,6 @@ import { ENV, channel } from '../audio/engine/mixer.js';
 import { note as busNote } from '../audio/engine/events.js';
 import { makeDrums, VOICES as DRUMS } from '../audio/engine/inst/drums.js';
 import { DEF, PRESETS, makePoly } from '../audio/engine/inst/poly.js';
-import { viewH } from '../state.js';
 import { $ } from '../util.js';
 import { toast } from '../ui/toast.js';
 import mandala from './toys/mandala.js';
@@ -16,8 +15,17 @@ import paint from './toys/paint.js';
 import draw from './toys/draw.js';
 import orbits from './toys/orbits.js';
 import pads from './toys/pads.js';
+import waves from './toys/waves.js';
+import touch from './toys/touch.js';
+import fly from './toys/fly.js';
+import { S, viewAsp, viewH } from '../state.js';
+import { J } from '../journey/core.js';
+import { STEER } from '../journey/steer.js';
+import { applySteer } from '../journey/cast.js';
+import { OBJECT_VISUALS as OBJECTS } from '../visuals/registry.js';
 
-export const TOYS = [mandala, paint, draw, orbits, pads];
+// the toys in the picture itself first (the visuals are the instrument), then the ones drawn over it
+export const TOYS = [waves, touch, fly, mandala, paint, draw, orbits, pads];
 export const SCALES = {'Minor pentatonic': [0, 3, 5, 7, 10], 'Minor': [0, 2, 3, 5, 7, 8, 10], 'Dorian': [0, 2, 3, 5, 7, 9, 10], 'Major pentatonic': [0, 2, 4, 7, 9]};
 const ROOT = 45;   // A2: degree 0
 export const PLAY = {on: false, toy: 0, scale: 'Minor pentatonic'};
@@ -28,7 +36,8 @@ addFollow(() => PLAY.on ? internal : null);
 
 let kit = null, poly = null, cv = null, g = null, bar = null, timer = 0, lastT = -1, raf = 0;
 const clock = () => master() || internal;
-const sparks = [];   // what to light, when it's heard: {x, y, t, col, r}
+const sparks = [], later = [];   // what to light, when it's heard: {x, y, t, col, r}; what to do then: {t, fn}
+const pinned = new Set();   // what a toy brought into Journey's picture (a world, an object), let go when it stops
 const DRUM_NOTE = Object.fromEntries(DRUMS.map(v => [v.key, v.note]));
 // what a toy is given: sounds at audio-clock times, the scale, the clock, and sparks to light as they're heard
 export const api = {
@@ -48,6 +57,17 @@ export const api = {
   now: () => actx.currentTime,
   spark(x, y, t, col = '#fff', r = 1){ sparks.push({x, y, t, col, r}); if (sparks.length > 300) sparks.shift(); },
   W: () => cv.width/devicePixelRatio, H: () => cv.height/devicePixelRatio,
+  // something the picture does at the moment the note is heard (a shockwave, an object's part lifting)
+  at(t, fn){ later.push({t, fn}); },
+  // a point on the overlay in the picture's own coordinates (the trails': x across from -asp/2, y up from -.5)
+  toPic(x, y){ return {x: (x/api.W() - .5)*viewAsp(), y: .5 - y/api.H()}; },
+  P: () => S.lastP,
+  objects: () => OBJECTS.filter(o => o.pick && S.lastP && S.lastP.o && S.lastP.o[o.key] > .3),
+  // bring a world or an object into Journey's picture while the toy plays (pinned: Journey keeps it), and let it go after
+  bring(k){ if (!J.on || STEER.pin[k]) return; for (const p of pinned) delete STEER.pin[p];
+    STEER.pin[k] = true; pinned.add(k); try { applySteer(k, 'pin'); } catch (e) {} },
+  release(){ for (const p of pinned) delete STEER.pin[p]; pinned.clear(); },
+  journeyOn: () => J.on,
   hint(s){ const h = bar && bar.querySelector('.plhow'); if (h) h.textContent = s; },
 };
 const toy = () => TOYS[PLAY.toy] || TOYS[0];
@@ -78,12 +98,13 @@ export function setPlay(on){
     build(); cv.hidden = bar.hidden = false; start(PLAY.toy);
     lastT = -1; timer = setInterval(tick, 25); raf = requestAnimationFrame(frame);
   } else {
-    clearInterval(timer); cancelAnimationFrame(raf); const T = toy(); if (T.stop) T.stop(); if (poly) poly.allOff();
+    clearInterval(timer); cancelAnimationFrame(raf); const T = toy(); if (T.stop) T.stop(); if (poly) poly.allOff(); api.release(); later.length = 0;
     cv.hidden = bar.hidden = true;
   }
 }
+export const goTo = key => start(TOYS.findIndex(t => t.key === key));   // (for tests)
 function start(i){
-  const old = toy(); if (old.stop && PLAY.on) old.stop(); if (poly) poly.allOff();
+  const old = toy(); if (old.stop && PLAY.on) old.stop(); if (poly) poly.allOff(); api.release();
   PLAY.toy = (i + TOYS.length) % TOYS.length; keep();
   const T = toy(); loadPreset(); if (!T.ready) { T.init(api); T.ready = true; } if (T.start) T.start();
   bar.querySelector('.plname').textContent = `${PLAY.toy + 1}. ${T.label}`; api.hint(T.how); rated();
@@ -129,6 +150,7 @@ function frame(){
   if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)) { cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); cv.style.height = H + 'px'; }
   g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const h = heardNow(), T = toy();
+  for (let i = later.length - 1; i >= 0; i--) if (later[i].t <= h) { const f = later[i].fn; later.splice(i, 1); f(); }
   if (T.draw) T.draw(g, W, H, h);
   g.globalCompositeOperation = 'lighter';
   for (const s of sparks) { const a = h - s.t; if (a < 0 || a > .6) continue; const k = 1 - a/.6, r = (8 + 40*a)*s.r;
@@ -142,11 +164,11 @@ const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 addEventListener('keydown', e => {
   if (!PLAY.on || typing(e) || e.metaKey || e.ctrlKey) return;
   const T = toy();
-  if (T.key && T.key(e, true)) {}
+  if (T.keys && T.keys(e, true)) {}
   else if (e.key === 'Escape') setPlay(false);
   else if (e.key === 'ArrowLeft') start(PLAY.toy - 1);
   else if (e.key === 'ArrowRight') start(PLAY.toy + 1);
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
-addEventListener('keyup', e => { if (!PLAY.on || typing(e)) return; const T = toy(); if (T.key) T.key(e, false); e.stopImmediatePropagation(); }, true);
+addEventListener('keyup', e => { if (!PLAY.on || typing(e)) return; const T = toy(); if (T.keys) T.keys(e, false); e.stopImmediatePropagation(); }, true);
 $('#playLabBtn').addEventListener('click', () => setPlay(!PLAY.on));

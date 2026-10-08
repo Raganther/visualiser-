@@ -31,6 +31,19 @@ function outline(kind, w){
   return pts;
 }
 export const corridorAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)
+// played as a sequencer (the play lab, src/play/toys/corridor.js): frames(): how many frames have passed (the clock, as
+// heard), so one passes each step it gives; lit: which of every 16 frames burn, as a bit mask, and what plays on each
+export const CSEQ = {on: false, frames: null, lit: 0};
+// the frames ahead on screen (picture units: across and up from the centre, in screen heights): each frame's number, its
+// outline and its centre, near to far, n of them (for clicking one)
+export function corridorFrames(n = 16){
+  const z0 = st.z, cam = camFrame(z0), kind = Math.round(st.tr < .5 ? LOOK(st.D0)[0] : LOOK(st.D1)[0]), w = LOOK(st.D1)[1], pts = outline(kind, w), out = [];
+  for (let k = Math.floor(z0/SP) + 1; out.length < n; k++) {
+    const zc = k*SP, cx = path(zc)[0], c = onScreen(cam, [cx, 0, zc]); if (c.z < .3) continue;
+    out.push({k, z: c.z, c: [c.x, c.y], pts: pts.map(([qx, qy]) => { const q = onScreen(cam, [cx + qx, qy, zc]); return [q.x, q.y]; })});
+  }
+  return out;
+}
 export default {
   key: 'corridor', kind: 'world', lowRes: () => 1, heavy: () => true, label: 'The Corridor',   // (ray-marched: a slow device or a lower graphics level draws it smaller first, render/quality.js)
   light: {hue: .85, sat: .7, x: 0, y: -.3},
@@ -45,13 +58,15 @@ export default {
     const want = T.speed*(T.calm + (1 - T.calm)*ten)*(1 + T.surge*st.surge);
     st.sp += (want - st.sp)*Math.min(1, x.dt*.8);
     const mdt = st.lt == null ? 0 : Math.min(.1, Math.max(0, x.t - st.lt)); st.lt = x.t;   // (in motion time)
-    if (on) st.z += st.sp*mdt;
+    if (CSEQ.on && CSEQ.frames) st.z = CSEQ.frames()*SP;   // (as a sequencer: a frame passes on each step of the clock)
+    else if (on) st.z += st.sp*mdt;
     st.wave += x.dt;
     const A = LOOK(st.D0), B = LOOK(st.D1), m = st.tr*st.tr*(3 - 2*st.tr);
     const strobe = st.surge > .15 ? (Math.floor(x.t*T.strobeHz*2) % 2)*st.surge*x.dim : 0;   // a drop strobes the hall
     P.cr = [st.z, path(st.z)[0], path(st.z + 3)[0], st.surge];
     P.cr2 = [A[0], B[0], m, A[1] + (B[1] - A[1])*m];
     P.cr3 = [st.wave*T.waveSpeed, Math.exp(-st.wave*T.waveFade)*x.dim, strobe, (P.treb || 0)*x.react];
+    P.crS = CSEQ.on ? CSEQ.lit : -1;
     // the centrepiece stands in the hall every `gate` units, and is gone once the camera is past it
     if (P.w.corridor > .5) {
       const kc = Math.ceil((st.z + 1)/T.gate)*T.gate, C = [path(kc)[0], -.05, kc], cam = camFrame(st.z), s = onScreen(cam, C);
@@ -61,7 +76,7 @@ export default {
     P.crF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.5;   // its front plane: the frames nearer than the centrepiece, or the near ones
   },
   glsl: {
-    uniforms: `uniform vec4 uCr, uCr2, uCr3; uniform float uCrF, uCrG, uCrW;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow; the glowing layers in the floor`,
+    uniforms: `uniform vec4 uCr, uCr2, uCr3; uniform float uCrF, uCrG, uCrW, uCrS;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow; the glowing layers in the floor`,
     functions: `
 float crX(float z){ return sin(z*0.045)*2.2+sin(z*0.017)*1.5; }
 // a frame's outline (its distance in the frame's plane): 0 square, 1 arch, 2 hexagon, 3 ring
@@ -83,6 +98,7 @@ vec3 crRay(vec2 sp,out vec3 ro){ ro=vec3(uCr.y,-0.15,uCr.x); vec3 f=normalize(ve
 vec3 crCol(float id){
   float ahead=id*${SP.toFixed(1)}-uCr.x, wave=exp(-pow((ahead-uCr3.x)*0.35,2.0))*uCr3.y;
   float lit=0.35+0.4*step(mod(id,4.0),0.5)+2.2*wave+1.2*uCr.w+2.5*uCr3.z;
+  if(uCrS>=0.0) lit=lit*0.45+2.6*mod(floor(uCrS/exp2(mod(id,16.0))),2.0);   // (as a sequencer: the frames lit burn, the rest dim)
   float m=mod(id,3.0), h=m<1.0 ? uPal.x : m<2.0 ? uPal.y : uPal.z;
   return hsv(uHue+h,0.85-0.5*uCr3.z,1.0)*lit;
 }
@@ -110,7 +126,7 @@ vec3 corridor(vec2 sp){
 }`,
     fn: 'corridor',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); gl.uniform1f(u.uCrW, TUNE.corridor.wallGlow); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); gl.uniform1f(u.uCrW, TUNE.corridor.wallGlow); if (u.uCrS) gl.uniform1f(u.uCrS, P.crS ?? -1); },
   front: {
     fn: 'corridorFront',
     glsl: `
@@ -127,7 +143,8 @@ float corridorFront(vec2 sp){ vec3 ro, rd=crRay(sp,ro); float t=0.05, id;
     o.lineCap = 'round'; o.lineJoin = 'round';
     for (let k = Math.floor(z0/SP) + 22; k > z0/SP; k--) {
       const zc = k*SP, cx = path(zc)[0], c = onScreen(cam, [cx, 0, zc]); if (c.z < .3) continue;
-      const ahead = zc - z0, wave = Math.exp(-(((ahead - wf)*.35)**2))*wb, lit = Math.min(1.6, .35 + .4*(k % 4 === 0) + 2.2*wave + 1.2*surge + 2.5*strobe);
+      const ahead = zc - z0, wave = Math.exp(-(((ahead - wf)*.35)**2))*wb, l0 = .35 + .4*(k % 4 === 0) + 2.2*wave + 1.2*surge + 2.5*strobe;
+      const lit = Math.min(1.6, P.crS >= 0 ? l0*.45 + 2.6*((P.crS >> (((k % 16) + 16) % 16)) & 1) : l0);   // (as a sequencer: the frames lit burn)
       const fog = Math.exp(-c.z*.025), hue = P.hue + pal[((k % 3) + 3) % 3], px = Hh*.5/c.z/1.25;
       for (const mir of [1, 0]) {   // the reflection first, dimmer
         o.beginPath();

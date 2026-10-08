@@ -29,7 +29,7 @@ export default {
     let d = a - drag.a; d -= Math.round(d); const st = Math.round(d*r.n);   // (turning by whole steps)
     r.pat = drag.pat.map((_, j) => drag.pat[((j - st) % r.n + r.n) % r.n]); r.rot = ((drag.rot + st) % r.n + r.n) % r.n; },
   up(){ drag = null; },
-  key(e, down){ if (down && e.key === 'Backspace') { for (const r of rings) { r.k = 0; r.pat = euclid(r.n, 0, 0); } return true; } return false; },
+  keys(e, down){ if (down && e.key === 'Backspace') { for (const r of rings) { r.k = 0; r.pat = euclid(r.n, 0, 0); } return true; } return false; },
   draw(g, W, H, h){
     const G = geo(), sh = A.stepAt(h);
     g.lineCap = 'round';

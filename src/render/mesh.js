@@ -294,6 +294,14 @@ function project2d(o, panes, hinge, U){
   U.proj = {key, L};
   return L;
 }
+// which part of an object is under a point (in the same units as W and H): the nearest pane there, or null (the play lab)
+export function meshPick(panes, hinge, U, W, H, x, y){
+  const L = project2d({canvas: {width: W, height: H}}, panes, hinge, U);
+  const side = (a, b, c) => (b[0] - a[0])*(c[1] - a[1]) - (b[1] - a[1])*(c[0] - a[0]);
+  for (let i = L.length - 1; i >= 0; i--) { const [a, b, c] = L[i].s, p = [x, y], d1 = side(a, b, p), d2 = side(b, c, p), d3 = side(c, a, p);
+    if (!((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))) return L[i].q.part; }
+  return null;
+}
 const tri = (o, s) => { o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); };
 // the object's silhouette as a path (for masks): every visible pane, holes included
 export function meshPath2d(o, panes, hinge, U){ o.beginPath(); for (const {s} of project2d(o, panes, hinge, U)) tri(o, s); }

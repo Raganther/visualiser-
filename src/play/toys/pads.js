@@ -15,7 +15,7 @@ export default {
   init(api){ A = api; },
   stop(){ rec = false; },
   step({t, s, dur}){ const j = ((s % LOOP) + LOOP) % LOOP; for (const e of loop) if (e.j === j) sound(e.pad, t, e.l*dur); },
-  key(e, down){
+  keys(e, down){
     const k = e.key.toLowerCase();
     if (down && k === ' ') { rec = !rec; A.hint(rec ? 'Recording: play, and it loops every two bars (Space to stop)' : this.how); return true; }
     if (down && k === 'backspace') { loop = []; return true; }

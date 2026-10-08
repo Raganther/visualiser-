@@ -179,6 +179,7 @@ function render(now){
   // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
   // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
   if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);
+  S.lastP = P;   // (the play lab reads where things were drawn: src/play/)
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
 
   if (++frameN % 6 === 0) {

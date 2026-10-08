@@ -25,7 +25,7 @@ export default {
   down(e){ if (e.b === 2) { lines.pop(); return; } cur = {pts: [{x: e.x, y: e.y}], add: e.shift}; },
   move(e, held){ if (cur && held) cur.pts.push({x: e.x, y: e.y}); },
   up(){ if (!cur) return; if (cur.pts.length > 2) { if (!cur.add) lines = []; if (lines.length >= 3) lines.shift(); lines.push({pts: cur.pts, notes: notes(cur.pts)}); } cur = null; },
-  key(e, down){ if (down && e.key === 'Backspace') { lines = []; return true; } return false; },
+  keys(e, down){ if (down && e.key === 'Backspace') { lines = []; return true; } return false; },
   draw(g, W, H, h){
     const sh = A.stepAt(h), x = (((sh % 16) + 16) % 16)/16*W;
     // the bar's sixteen columns, each beat's line brighter

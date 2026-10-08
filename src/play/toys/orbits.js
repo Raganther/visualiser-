@@ -26,7 +26,7 @@ export default {
     const i = ringAt(e); if (i >= 0 && e.b !== 2) { const p = {ring: i, o: offsetFor(RINGS[i].n, turn(e))}; planets.push(p); drag = p; } },
   move(e, held){ hover = ringAt(e); if (!drag || !held) return; const i = ringAt(e); if (i >= 0) { drag.ring = i; drag.o = offsetFor(RINGS[i].n, turn(e)); drag.off = false; } else drag.off = true; },
   up(){ if (drag && drag.off) planets.splice(planets.indexOf(drag), 1); drag = null; },
-  key(e, down){ if (down && e.key === 'Backspace') { planets = []; return true; } return false; },
+  keys(e, down){ if (down && e.key === 'Backspace') { planets = []; return true; } return false; },
   draw(g, W, H, h){
     const G = geo(), sh = A.stepAt(h);
     // the line at the top where each planet plays
