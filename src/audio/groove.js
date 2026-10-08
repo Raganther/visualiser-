@@ -1,65 +1,63 @@
-// The groovebox: a 909-style drum machine and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
+// The groovebox: a drum machine (the kit: audio/engine/inst/drums.js) and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
 import { djBus, heardNow } from './dj.js';
 import { INT, internal, master, next16, setTempo, startAt } from './engine/clock.js';
 import { channel } from './engine/mixer.js';
 import { note } from './engine/events.js';
-import { actx } from './player.js';
+import { actx, ensureAudio } from './player.js';
+import { KITS, VOICES as KV, kitParams, makeDrums } from './engine/inst/drums.js';
 import { TUNE } from '../tuning.js';
 
-export const VOICES = [['kick', 'Kick'], ['clap', 'Clap'], ['snare', 'Snare'], ['chh', 'Closed hat'], ['ohh', 'Open hat'], ['rim', 'Rim']];
+export const VOICES = KV.map(v => [v.key, v.label]);   // the kit's voices, a row each
 // the bass's notes: A minor pentatonic over an octave and a half up from A1 (hard to play a wrong one), highest first on screen
 export const NOTES = [['D3', 50], ['C3', 48], ['A2', 45], ['G2', 43], ['E2', 40], ['D2', 38], ['C2', 36], ['A1', 33]];
 const off = () => Array(16).fill(0), rest = () => Array.from({length: 16}, () => ({on: 0, n: 7, a: 0, s: 0}));
 const on = (str, a = 1) => [...str].map(c => c === 'x' ? a : c === 'X' ? 2 : 0);   // 'x' a hit, 'X' accented, '.' none
 const line = (notes, acc = '', sl = '') => [...notes].map((c, i) => c === '.' ? {on: 0, n: 7, a: 0, s: 0} : {on: 1, n: +c, a: acc[i] === 'x' ? 1 : 0, s: sl[i] === 'x' ? 1 : 0});
-// starter patterns, minimal techno: each a drum grid and a bass line (the bass's digits index NOTES: 7 is A1, 2 is A2)
+// starter patterns, minimal techno and around it: each a kit, a drum grid (voices left out are silent) and a bass line
+// (the bass's digits index NOTES: 7 is A1, 2 is A2)
 export const PRESETS = {
-  'Four to the floor': {kick: on('x...x...x...x...'), clap: on('....x.......x...'), chh: on('..x...x...x...x.'), ohh: off(), snare: off(), rim: off(),
+  'Four to the floor': {kit: '909', kick: on('x...x...x...x...'), clap: on('....x.......x...'), chh: on('..x...x...x...x.'),
     bass: line('..7...7...7..67.')},
-  'Minimal': {kick: on('X...x...X...x...'), rim: on('...x..x...x..x..'), chh: on('xxXxxxXxxxXxxxXx'), clap: on('............x...'), ohh: on('..x.......x.....'), snare: off(),
-    bass: line('7..7..6.7..7.5..', 'x.....x.......x.')},
-  'Rolling acid': {kick: on('x...x...x...x...'), chh: on('..x...x...x...x.'), ohh: on('..x...x...x...x.'), clap: on('....x.......x...'), snare: off(), rim: off(),
-    bass: line('7727572767273727', 'x...x..x...x..x.', '..x....x....x...')},
-  'Breakdown': {kick: off(), clap: off(), snare: on('............xxxx'), chh: on('x.x.x.x.x.x.x.x.'), ohh: on('......x.......x.'), rim: on('x......x..x.....'),
-    bass: line('2.......5.......', 'x.......')},
+  'Minimal': {kit: 'Minimal', kick: on('X...x...X...x...'), rim: on('...x..x...x..x..'), chh: on('xxXxxxXxxxXxxxXx'), clap: on('............x...'), ohh: on('..x.......x.....'),
+    clave: on('.......x.....x..'), shaker: on('.x.x.x.x.x.x.x.x'), bass: line('7..7..6.7..7.5..', 'x.....x.......x.')},
+  'Rolling acid': {kit: '909', kick: on('x...x...x...x...'), chh: on('..x...x...x...x.'), ohh: on('..x...x...x...x.'), clap: on('....x.......x...'),
+    ride: on('x.x.x.x.x.x.x.x.'), bass: line('7727572767273727', 'x...x..x...x..x.', '..x....x....x...')},
+  '808 bounce': {kit: '808', kick: on('X......x..x.....'), clap: on('....x.......x...'), chh: on('xx.xxx.xxx.xxx.x'), ohh: on('..x.......x.....'), cow: on('...x......x...x.'),
+    clave: on('x..x..x...x..x..'), tomL: on('.............x..'), tomH: on('..............x.'), bass: line('7......7..5.....', 'x.........x.....')},
+  'Industrial': {kit: 'Industrial', kick: on('X..xX...X..xX.x.'), snare: on('....x.......x..x'), rim: on('..x...x...x...x.'), chh: on('xxxxxxxxxxxxxxxx'), crash: on('x...............'),
+    tomL: on('...........x..x.'), bass: line('7.7.7.7.6.6.5.5.', 'x...x...x...x...')},
+  'Breakdown': {kit: 'Lo-fi', snare: on('............xxxx'), chh: on('x.x.x.x.x.x.x.x.'), ohh: on('......x.......x.'), rim: on('x......x..x.....'), shaker: on('..x...x...x...x.'),
+    crash: on('x...............'), bass: line('2.......5.......', 'x.......')},
 };
-const dflt = () => ({sync: true, bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
+const dflt = () => ({sync: true, kit: '909', vp: {}, bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
   mute: {}, preset: 'Rolling acid', ...JSON.parse(JSON.stringify(PRESETS['Rolling acid']))});
 let saved = null; try { saved = JSON.parse(localStorage.getItem('afterglow.groove') || 'null'); } catch (e) {}
 // the groovebox's state: playing, locked to the lead deck (sync), its own tempo, swing, the levels, the bass's sound,
 // muted voices, and the pattern (a drum grid per voice: 0 off, 1 on, 2 accented; the bass: a note, accent and slide a step)
 export const GB = {playing: false, step: -1, ...dflt(), ...(saved || {})};
+for (const [v] of VOICES) if (!Array.isArray(GB[v])) GB[v] = off();   // (voices added since a pattern was saved: silent)
 let saveT = 0;
 export const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { const {playing, step, ...s} = GB; localStorage.setItem('afterglow.groove', JSON.stringify(s)); } catch (e) {} }, 300); };
-export function loadPreset(name){ const p = PRESETS[name]; if (!p) return; Object.assign(GB, JSON.parse(JSON.stringify(p)), {preset: name}); save(); }
+export function loadPreset(name){ const p = PRESETS[name]; if (!p) return;
+  for (const [v] of VOICES) GB[v] = off(); Object.assign(GB, JSON.parse(JSON.stringify(p)), {preset: name}); if (p.kit) setKit(p.kit); save(); }
 export function clearPattern(){ for (const [v] of VOICES) GB[v] = off(); GB.bass = rest(); GB.preset = ''; save(); }
 
 /* ---------- the sound ---------- */
-let bus = null, dBus = null, sBus = null, noise = null, osc = null, filt = null, vca = null, ohhG = null;
+let bus = null, dBus = null, sBus = null, kit = null, osc = null, filt = null, vca = null;
 function chain(){
   if (bus) return;
   bus = actx.createGain(); dBus = actx.createGain(); sBus = actx.createGain();
   dBus.connect(bus); sBus.connect(bus); bus.connect(channel('groove', 'Groovebox').input); levels();
-  noise = actx.createBuffer(1, actx.sampleRate, actx.sampleRate); const n = noise.getChannelData(0); for (let i = 0; i < n.length; i++) n[i] = Math.random()*2 - 1;
+  kit = makeDrums(actx, dBus); kit.load(GB.kit, GB.vp);
 }
 export function levels(){ if (!bus) return; bus.gain.value = GB.level*GB.level; dBus.gain.value = GB.drums; sBus.gain.value = GB.synth*.5; }
-const env = (t, peak, dec, g = actx.createGain()) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + .002); g.gain.exponentialRampToValueAtTime(.0005, t + dec); return g; };
-function noiseHit(t, dec, type, f, q, peak, out = dBus){
-  const s = actx.createBufferSource(), b = actx.createBiquadFilter(), g = env(t, peak, dec);
-  s.buffer = noise; b.type = type; b.frequency.value = f; if (q) b.Q.value = q;
-  s.connect(b); b.connect(g); g.connect(out); s.start(t, Math.random()*.5); s.stop(t + dec + .05); return g;
-}
-// the drums, made the way a 909 makes them: a falling sine for the kick, filtered noise for the rest
-const DRUM = {
-  kick(t, v){ const o = actx.createOscillator(), g = env(t, v, .45); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(48, t + .09);
-    o.connect(g); g.connect(dBus); o.start(t); o.stop(t + .5); noiseHit(t, .012, 'highpass', 3000, 0, v*.25); },
-  clap(t, v){ for (const d of [0, .011, .023]) noiseHit(t + d, .02, 'bandpass', 1200, 1.4, v*.7); noiseHit(t + .03, .18, 'bandpass', 1200, 1.2, v*.5); },
-  snare(t, v){ const o = actx.createOscillator(), g = env(t, v*.5, .1); o.type = 'triangle'; o.frequency.setValueAtTime(190, t); o.connect(g); g.connect(dBus); o.start(t); o.stop(t + .15);
-    noiseHit(t, .18, 'highpass', 1500, 0, v*.55); },
-  chh(t, v){ if (ohhG) { ohhG.gain.cancelScheduledValues(t); ohhG.gain.setTargetAtTime(0, t, .005); ohhG = null; } noiseHit(t, .045, 'highpass', 7500, 0, v*.45); },   // (a closed hat chokes an open one)
-  ohh(t, v){ ohhG = noiseHit(t, .32, 'highpass', 7000, 0, v*.35); },
-  rim(t, v){ const o = actx.createOscillator(), g = env(t, v*.5, .035); o.frequency.setValueAtTime(1700, t); o.connect(g); g.connect(dBus); o.start(t); o.stop(t + .06); noiseHit(t, .012, 'bandpass', 2500, 2, v*.3); },
-};
+// the kit (its voices' settings start from the kit's), and one voice's setting changed by hand (kept over the kit's)
+export function setKit(name){ if (!KITS[name]) return; GB.kit = name; GB.vp = {}; if (kit) kit.load(name); save(); }
+export function setVoice(key, k, v){ (GB.vp[key] = GB.vp[key] || {})[k] = v; if (kit) kit.set(key, k, v); save(); }
+export const voiceParams = key => kit ? kit.P[key] : {...kitParams(GB.kit)[key], ...(GB.vp[key] || {})};
+// a voice heard now (the panel's audition, when a voice is picked)
+export function audition(key){ ensureAudio(); chain(); if (actx.state === 'suspended') actx.resume(); kit.play(key, actx.currentTime + .01, .9); }
+
 // the bass: one oscillator held through a resonant low-pass and a gate, as a 303 is; each note opens the filter and lets
 // it fall back (an accent opens it further, and louder), and a slide glides into the next note without a new attack
 function voice(){
@@ -95,11 +93,9 @@ export const tempo = () => { const m = locked(); return m ? m.bpm() : INT.tapped
 // its own tempo (the panel's slider): the internal clock's, kept in phase
 // (in phase at the next step not yet scheduled, so nothing already scheduled is played twice)
 export function setBpm(v){ GB.bpm = v; if (INT.tapped && actx) setTempo(v, GB.playing ? Math.max(nextT, actx.currentTime) : actx.currentTime); save(); }
-// General MIDI's drum notes, for the note events
-const GM = {kick: 36, clap: 39, snare: 38, chh: 42, ohh: 46, rim: 37};
 function play(i, t, dur){
   const sw = i % 2 ? GB.swing*dur*.5 : 0, at = t + sw;   // (swing: the off 16ths a little late)
-  for (const [v] of VOICES) { const h = GB[v][i]; if (h && !GB.mute[v]) { const vel = h === 2 ? 1 : .72; DRUM[v](at, vel); note({t: at, src: 'groove', ch: v, note: GM[v], vel, len: dur}); } }
+  for (const V of KV) { const v = V.key, h = GB[v][i]; if (h && !GB.mute[v]) { const vel = h === 2 ? 1 : .72; kit.play(v, at, vel); note({t: at, src: 'groove', ch: v, note: V.note, vel, len: dur}); } }
   const st = GB.bass[i];
   if (!GB.mute.bass) { bass(i, at, dur); if (st && st.on) note({t: at, src: 'groove', ch: 'bass', note: NOTES[st.n][1] + 12*GB.oct, vel: st.a ? 1 : .7, len: dur*(st.s ? 1 : .75)}); }
   LOG.push({t: at, i}); if (LOG.length > 64) LOG.shift();

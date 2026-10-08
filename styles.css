@@ -264,7 +264,7 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gbody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px}
 #dj .gdrums,#dj .groll{display:grid;grid-template-columns:72px repeat(16,minmax(0,1fr));gap:2px;align-content:start;min-height:0}
 #dj .groll{grid-template-rows:10px repeat(10,minmax(0,1fr));align-content:stretch}
-#dj .gdrums{grid-template-rows:10px repeat(6,minmax(0,1fr));align-content:stretch}
+#dj .gdrums{grid-template-columns:64px 16px repeat(16,minmax(0,1fr));grid-template-rows:10px repeat(13,minmax(0,1fr));align-content:stretch}
 #dj .glab{padding:0 4px;font-size:11px;text-align:left;color:var(--dim);border:none;white-space:nowrap;overflow:hidden}
 #dj .glab.small{font-size:10px;display:flex;align-items:center}
 #dj .glab.muted{text-decoration:line-through;opacity:.5}
@@ -327,3 +327,11 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .mxadd{align-self:center;flex:none;background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:11px;padding:2px;max-width:150px}
 @media (max-width:700px){ #dj .mxrow{flex-direction:column} #dj .mxh{flex-wrap:wrap} }
 #dj .fxk .knob .kv,#dj .fxk .knob .kl{white-space:nowrap;max-width:46px;overflow:hidden;text-overflow:ellipsis}
+/* the groovebox's kit: the picked voice's knobs, and each row's mute */
+#dj .gvoice{display:flex;align-items:center;gap:0;flex-wrap:wrap;min-height:0}
+#dj .gvoice b{min-width:86px;font-size:12px;color:#5ad1ff}
+#dj .gvoice .ghear{margin-left:6px;padding:2px 8px;font-size:11px}
+#dj .gkit{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
+#dj .glab.sel{color:#5ad1ff;background:rgba(90,209,255,.1)}
+#dj .gmute{padding:0;font-size:9px;min-height:10px;border-radius:3px;color:var(--dim)}
+#dj .gmute[aria-pressed=true]{background:#ff5050;color:#000}

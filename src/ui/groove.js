@@ -1,8 +1,9 @@
 // The groovebox's tab in the DJ panel (audio/groove.js): a drum grid, an acid bass line, and their knobs, for the mouse.
-import { GB, NOTES, PRESETS, VOICES, clearPattern, grooveToggle, heardStep, levels, loadPreset, locked, save, setBpm, tempo } from '../audio/groove.js';
+import { GB, NOTES, PRESETS, VOICES, audition, clearPattern, grooveToggle, heardStep, levels, loadPreset, locked, save, setBpm, setKit, setVoice, tempo, voiceParams } from '../audio/groove.js';
+import { KIT_NAMES, PARAMS, VOICES as KV } from '../audio/engine/inst/drums.js';
 import { el, knob, slider } from './widgets.js';
 
-let box = null, lastStep = -2, cells = [], leds = [];
+let box = null, lastStep = -2, cells = [], leds = [], pick = 'kick';
 const pct = v => Math.round(v*100) + '';
 export function buildGroove(container){
   box = container;
@@ -13,20 +14,25 @@ export function buildGroove(container){
   const bpm = slider('gbpm', 90, 150, 1, 128, 'Tempo', v => setBpm(v), GB.bpm);
   const pre = el('select', 'gpre'); pre.setAttribute('aria-label', 'Starter pattern');
   pre.innerHTML = '<option value="">Pattern…</option>' + Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
-  pre.addEventListener('change', () => { if (pre.value) { loadPreset(pre.value); paint(); } pre.value = ''; });
+  pre.addEventListener('change', () => { if (pre.value) { loadPreset(pre.value); paint(); voiceBar(); } pre.value = ''; });
   const clr = el('button', 'gclr', 'Clear'); clr.addEventListener('click', () => { clearPattern(); paint(); });
-  top.append(bpm, el('span', 'gbv', ''), pre, clr);
+  const kitSel = el('select', 'gkit'); kitSel.setAttribute('aria-label', 'Drum kit');
+  kitSel.innerHTML = KIT_NAMES.map(k => `<option>${k}</option>`).join(''); kitSel.value = GB.kit;
+  kitSel.addEventListener('change', () => { setKit(kitSel.value); voiceBar(); });
+  top.append(bpm, el('span', 'gbv', ''), pre, clr, el('span', 'tl', 'Kit'), kitSel);
   top.querySelector('.gplay').addEventListener('click', () => { grooveToggle(); paint(); });
   top.querySelector('.gsync').addEventListener('click', e => { GB.sync = !GB.sync; e.target.setAttribute('aria-pressed', GB.sync); save(); });
 
   // the drums: a row a voice (its name mutes it), a cell a step: off, on, accented
   const drums = el('div', 'gdrums'); cells = []; leds = [];
   // a row of lights over each grid, the step being heard lit (the sync light), the 1 of each beat marked
-  const ledRow = g => { g.append(el('span', 'glab small', 'Step')); for (let i = 0; i < 16; i++) { const l = el('i', 'gled' + (i % 4 === 0 ? ' g4' : '')); l.dataset.i = i; g.append(l); leds.push(l); } };
-  ledRow(drums);
+  const ledRow = (g, mute) => { g.append(el('span', 'glab small', 'Step')); if (mute) g.append(el('span')); for (let i = 0; i < 16; i++) { const l = el('i', 'gled' + (i % 4 === 0 ? ' g4' : '')); l.dataset.i = i; g.append(l); leds.push(l); } };
+  ledRow(drums, true);
   for (const [v, name] of VOICES) {
-    const lab = el('button', 'glab', name); lab.title = 'Mute or unmute'; lab.addEventListener('click', () => { GB.mute[v] = !GB.mute[v]; save(); paint(); });
-    lab.dataset.v = v; drums.append(lab);
+    // the name picks the voice to shape (and plays it); M mutes it
+    const lab = el('button', 'glab', name); lab.title = 'Shape this voice (its knobs are above), and hear it'; lab.addEventListener('click', () => { pick = v; audition(v); voiceBar(); paint(); });
+    const mu = el('button', 'gmute', 'M'); mu.title = 'Mute or unmute'; mu.addEventListener('click', () => { GB.mute[v] = !GB.mute[v]; save(); paint(); });
+    lab.dataset.v = v; mu.dataset.v = v; drums.append(lab, mu);
     for (let i = 0; i < 16; i++) {
       const c = el('button', 'gc' + (i % 4 === 0 ? ' g4' : '')); c.setAttribute('aria-label', `${name}, step ${i + 1}`);
       c.addEventListener('click', () => { GB[v][i] = (GB[v][i] + 1) % 3; save(); paint(); });
@@ -47,7 +53,22 @@ export function buildGroove(container){
   knobs.append(K('Cutoff', 'cut'), K('Reso', 'res'), K('Env', 'env'), K('Decay', 'decay'), wave, oct,
     knob('Swing', 0, 1, 0, pct, v => { GB.swing = v; save(); }, GB.swing), K('Drums', 'drums'), K('Bass', 'synth'), K('Volume', 'level'));
   const body = el('div', 'gbody'); body.append(drums, roll, knobs);
-  box.append(top, body); paint();
+  box.append(top, el('div', 'gvoice'), body); voiceBar(); paint();
+}
+// the picked voice's knobs: tune, decay, tone, drive, level, pan and its own character (punch, snap, metal…)
+function voiceBar(){
+  const bar = box && box.querySelector('.gvoice'); if (!bar) return;
+  const V = KV.find(v => v.key === pick), p = voiceParams(pick); bar.textContent = '';
+  bar.append(el('b', '', V.label));
+  for (const P of PARAMS) {
+    const label = P.key === 'x' ? V.x : P.label, f = P.unit === 'st' ? v => (v > 0 ? '+' : '') + Math.round(v) : P.unit === 'pan' ? v => Math.abs(v) < .02 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100)
+      : P.unit === '×' ? v => v.toFixed(2) + '×' : v => Math.round(v*100) + '%';
+    const snap = P.unit === 'st' ? Math.round : x => x;
+    bar.append(P.log ? knob(label, 0, 1, Math.log(P.def/P.min)/Math.log(P.max/P.min), u => f(P.min*Math.pow(P.max/P.min, u)), u => setVoice(pick, P.key, P.min*Math.pow(P.max/P.min, u)), Math.log(p[P.key]/P.min)/Math.log(P.max/P.min))
+      : knob(label, P.min, P.max, P.def, f, v => setVoice(pick, P.key, snap(v)), p[P.key]));
+  }
+  const hear = el('button', 'ghear', '▶ Hear'); hear.addEventListener('click', () => audition(pick)); bar.append(hear);
+  const k = box.querySelector('.gkit'); if (k) k.value = GB.kit;
 }
 // what the grids and buttons show
 function paint(){
@@ -60,7 +81,8 @@ function paint(){
     else if (c.classList.contains('ga')) c.classList.toggle('on', !!s.a);
     else if (c.classList.contains('gs')) c.classList.toggle('on', !!s.s);
   }
-  box.querySelectorAll('.glab[data-v]').forEach(l => l.classList.toggle('muted', !!GB.mute[l.dataset.v]));
+  box.querySelectorAll('.glab[data-v]').forEach(l => { l.classList.toggle('muted', !!GB.mute[l.dataset.v]); l.classList.toggle('sel', l.dataset.v === pick); });
+  box.querySelectorAll('.gmute').forEach(m => m.setAttribute('aria-pressed', !!GB.mute[m.dataset.v]));
   const p = box.querySelector('.gplay'); p.textContent = GB.playing ? '❚❚ Stop' : '▶ Play'; p.setAttribute('aria-label', GB.playing ? 'Stop' : 'Play');
 }
 // each frame while the panel shows it: the playhead, and the tempo it's at (the lead deck's when locked to it)

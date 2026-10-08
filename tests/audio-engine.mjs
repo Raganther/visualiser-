@@ -25,7 +25,7 @@ const a = await run(() => {
   const L = __g.LOG.slice(), ev = __ev.slice(), byT = new Map();
   for (const e of ev) { const k = e.t.toFixed(5); byT.set(k, [...(byT.get(k) || []), e.ch]); }
   // each scheduled step's notes against the pattern
-  let ok = 0; for (const s of L) { const want = ['kick', 'clap', 'snare', 'chh', 'ohh', 'rim'].filter(v => __g.GB[v][s.i]); if (__g.GB.bass[s.i].on) want.push('bass');
+  let ok = 0; for (const s of L) { const want = __g.VOICES.map(v => v[0]).filter(v => __g.GB[v][s.i]); if (__g.GB.bass[s.i].on) want.push('bass');
     const got = (byT.get(s.t.toFixed(5)) || []).slice().sort().join(); if (got === want.sort().join()) ok++; }
   __dj.djBus();
   return {steps: L.length, ok, kicks: ev.filter(e => e.ch === 'kick' && e.note === 36).length, ch: [...__m.CHANNELS.keys()].sort().join(),
