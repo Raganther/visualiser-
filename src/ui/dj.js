@@ -9,6 +9,7 @@ import { $ } from '../util.js';
 import { el, knob, slider } from './widgets.js';
 import { buildGroove, drawGroove, grooveState } from './groove.js';
 import { buildMix, paint as paintMix } from './mix.js';
+import { buildSynth } from './synth.js';
 
 const root = $('#dj'), btn = $('#djBtn'), COL = ['#5ad1ff', '#ff7ab8'], LOOPS = [1, 2, 4, 8, 16];
 const mmss = t => { t = Math.max(0, t); return `${Math.floor(t/60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
@@ -71,16 +72,16 @@ for (const d of DJ.decks) {
 }
 mix.append(chans, el('div', 'xfl', '<span>A</span><span>Crossfader</span><span>B</span>'), slider('xf', 0, 1, .005, .5, 'Crossfader', djXf));
 // the head: the sections' switches, and the sync strip (the beat, the bar, the tempo, and what's locked to what)
-const head = el('div', 'djh', `<b>DJ</b><span class="tabs"><button class="tab" data-t="decks">Decks</button><button class="tab" data-t="groove">Groovebox</button><button class="tab" data-t="fx">Effects</button></span>
+const head = el('div', 'djh', `<b>DJ</b><span class="tabs"><button class="tab" data-t="decks">Decks</button><button class="tab" data-t="groove">Groovebox</button><button class="tab" data-t="syn">Synth</button><button class="tab" data-t="fx">Effects</button></span>
   <span class="sync" aria-live="off"><button class="tapb" title="Tap in time with the beat (four taps or more; the first is the bar's 1). The tapped tempo leads when no deck plays, or always with Master: Tap">Tap</button>
   <button class="mmode" aria-pressed="false" title="Auto: the music playing sets the beat (the lead deck), else your taps. Tap: your taps set it, and a synced deck follows them">Master: Auto</button>
   <span class="lamps">${'<i></i>'.repeat(4)}</span><span class="sbar">—</span><span class="sbpm">— BPM</span><span class="sgb"></span></span>
   <button class="djx" aria-label="Collapse the DJ panel">▾ Hide</button>`);
 const body = el('div', 'djb'); body.append(UI[0].box, mix, UI[1].box);
-const gbx = el('div', 'gbx'), fxb = el('div', 'fxb');
-root.append(head, body, gbx, fxb); buildGroove(gbx); buildMix(fxb);
-// the sections: the decks and mixer, the groovebox (a drum machine and an acid bass), and the effects, each on or off, one above the other
-let show = {decks: true, groove: true, fx: false};
+const gbx = el('div', 'gbx'), syb = el('div', 'syb'), fxb = el('div', 'fxb');
+root.append(head, body, gbx, syb, fxb); buildGroove(gbx); buildSynth(syb); buildMix(fxb);
+// the sections: the decks and mixer, the groovebox (a drum machine and an acid bass), the synth, and the effects, each on or off, one above the other
+let show = {decks: true, groove: true, syn: false, fx: false};
 try { Object.assign(show, JSON.parse(localStorage.getItem('afterglow.djShow') || '{}')); } catch (e) {}
 head.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   show[t.dataset.t] = !show[t.dataset.t];
@@ -100,9 +101,9 @@ root.addEventListener('keydown', e => e.stopPropagation());   // (keys on a knob
 /* ---------- open and collapse ---------- */
 export function setOpen(on){
   DJ.open = on; root.hidden = !on; btn.setAttribute('aria-pressed', on);
-  body.hidden = !show.decks; gbx.hidden = !show.groove; fxb.hidden = !show.fx; body.style.flex = `1 1 ${T.decksH}px`; gbx.style.flex = `1 1 ${T.grooveH}px`; fxb.style.flex = `1 1 ${T.fxH}px`;
+  body.hidden = !show.decks; gbx.hidden = !show.groove; syb.hidden = !show.syn; fxb.hidden = !show.fx; syb.style.flex = `1 1 ${T.synH}px`; body.style.flex = `1 1 ${T.decksH}px`; gbx.style.flex = `1 1 ${T.grooveH}px`; fxb.style.flex = `1 1 ${T.fxH}px`;
   head.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-pressed', !!show[t.dataset.t]));
-  const want = T.headH + (show.decks ? T.decksH : 0) + (show.groove ? T.grooveH : 0) + (show.fx ? T.fxH : 0);
+  const want = T.headH + (show.decks ? T.decksH : 0) + (show.groove ? T.grooveH : 0) + (show.syn ? T.synH : 0) + (show.fx ? T.fxH : 0);
   if (on && show.fx) paintMix();
   S.djH = on ? Math.round(Math.min(want, innerHeight*T.maxShare)) : 0;
   document.documentElement.style.setProperty('--djH', S.djH + 'px'); document.body.classList.toggle('djopen', on);

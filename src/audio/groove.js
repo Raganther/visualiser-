@@ -5,6 +5,7 @@ import { channel } from './engine/mixer.js';
 import { note } from './engine/events.js';
 import { actx, ensureAudio } from './player.js';
 import { KITS, VOICES as KV, kitParams, makeDrums } from './engine/inst/drums.js';
+import { synth } from './keys.js';
 import { TUNE } from '../tuning.js';
 
 export const VOICES = KV.map(v => [v.key, v.label]);   // the kit's voices, a row each
@@ -29,7 +30,7 @@ export const PRESETS = {
   'Breakdown': {kit: 'Lo-fi', snare: on('............xxxx'), chh: on('x.x.x.x.x.x.x.x.'), ohh: on('......x.......x.'), rim: on('x......x..x.....'), shaker: on('..x...x...x...x.'),
     crash: on('x...............'), bass: line('2.......5.......', 'x.......')},
 };
-const dflt = () => ({sync: true, kit: '909', vp: {}, bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
+const dflt = () => ({sync: true, kit: '909', vp: {}, bassEng: 'acid', bpm: 128, swing: 0, level: .8, drums: .9, synth: .6, cut: .3, res: .55, env: .55, decay: .3, wave: 'sawtooth', oct: 0,
   mute: {}, preset: 'Rolling acid', ...JSON.parse(JSON.stringify(PRESETS['Rolling acid']))});
 let saved = null; try { saved = JSON.parse(localStorage.getItem('afterglow.groove') || 'null'); } catch (e) {}
 // the groovebox's state: playing, locked to the lead deck (sync), its own tempo, swing, the levels, the bass's sound,
@@ -97,7 +98,9 @@ function play(i, t, dur){
   const sw = i % 2 ? GB.swing*dur*.5 : 0, at = t + sw;   // (swing: the off 16ths a little late)
   for (const V of KV) { const v = V.key, h = GB[v][i]; if (h && !GB.mute[v]) { const vel = h === 2 ? 1 : .72; kit.play(v, at, vel); note({t: at, src: 'groove', ch: v, note: V.note, vel, len: dur}); } }
   const st = GB.bass[i];
-  if (!GB.mute.bass) { bass(i, at, dur); if (st && st.on) note({t: at, src: 'groove', ch: 'bass', note: NOTES[st.n][1] + 12*GB.oct, vel: st.a ? 1 : .7, len: dur*(st.s ? 1 : .75)}); }
+  if (!GB.mute.bass && GB.bassEng === 'synth') { if (st && st.on) { const nx = GB.bass[(i + 1) % 16], n = NOTES[st.n][1] + 12*GB.oct, len = st.s && nx.on ? dur*1.15 : dur*.6;
+      synth().play(n, at, len, st.a ? 1 : .7); note({t: at, src: 'groove', ch: 'bass', note: n, vel: st.a ? 1 : .7, len}); } }
+  else if (!GB.mute.bass) { bass(i, at, dur); if (st && st.on) note({t: at, src: 'groove', ch: 'bass', note: NOTES[st.n][1] + 12*GB.oct, vel: st.a ? 1 : .7, len: dur*(st.s ? 1 : .75)}); }
   LOG.push({t: at, i}); if (LOG.length > 64) LOG.shift();
 }
 function tick(){

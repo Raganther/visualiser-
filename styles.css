@@ -335,3 +335,21 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .glab.sel{color:#5ad1ff;background:rgba(90,209,255,.1)}
 #dj .gmute{padding:0;font-size:9px;min-height:10px;border-radius:3px;color:var(--dim)}
 #dj .gmute[aria-pressed=true]{background:#ff5050;color:#000}
+/* the synth (ui/synth.js): its top bar, the knobs in their groups, a two-octave keyboard */
+#dj .syb{flex:1;min-height:0;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line);padding-top:6px}
+#dj .syb[hidden]{display:none}
+#dj .stop{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#dj .stop b{color:#b48cff;letter-spacing:.05em}
+#dj .stop select{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
+#dj .stop button[aria-pressed=true]{background:#b48cff;color:#000}
+#dj .shint{color:var(--dim);font-size:11px}
+#dj .sgroups{flex:1;min-height:0;display:flex;gap:6px;overflow:auto;align-items:flex-start}
+#dj .sgrp{flex:none;border:1px solid var(--line);border-radius:8px;padding:2px 4px;background:#0c0d10}
+#dj .sgl{display:block;font-size:10px;color:#b48cff;padding-left:3px}
+#dj .sgk{display:flex;flex-wrap:wrap;max-width:200px}
+#dj .sgk .kv,#dj .sgk .kl{white-space:nowrap;max-width:46px;overflow:hidden;text-overflow:ellipsis}
+#dj .skb{flex:none;position:relative;height:56px;display:flex;user-select:none;touch-action:none;border-radius:4px;overflow:hidden}
+#dj .sk.w{flex:1;background:#e8e8ee;border:1px solid #222;border-radius:0 0 4px 4px;color:#555;font-size:9px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px}
+#dj .sk.b{flex:none;width:2.4%;margin:0 -1.2%;height:60%;background:#15161a;z-index:1;border-radius:0 0 3px 3px;border:1px solid #000}
+#dj .sk.on.w{background:#b48cff}
+#dj .sk.on.b{background:#7a52d6}

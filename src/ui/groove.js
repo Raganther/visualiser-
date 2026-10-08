@@ -46,11 +46,13 @@ export function buildGroove(container){
   rowOf('Accent', i => { GB.bass[i].a ^= 1; }, 'ga');
   rowOf('Slide', i => { GB.bass[i].s ^= 1; }, 'gs');
   const knobs = el('div', 'gknobs'), K = (l, k, fmt = pct) => knob(l, 0, 1, .5, fmt, v => { GB[k] = v; levels(); save(); }, GB[k]);
-  const wave = el('button', 'gwave'), oct = el('button', 'goct');
-  const sw = () => { wave.textContent = GB.wave === 'square' ? 'Square' : 'Saw'; oct.textContent = `Oct ${GB.oct > 0 ? '+' : ''}${GB.oct}`; };
+  const wave = el('button', 'gwave'), oct = el('button', 'goct'), eng = el('button', 'geng');
+  eng.title = 'Play the bass line on the acid bass (303), or on the Synth (its sound: pick a bass preset there)';
+  eng.addEventListener('click', () => { GB.bassEng = GB.bassEng === 'synth' ? 'acid' : 'synth'; save(); sw(); });
+  const sw = () => { wave.textContent = GB.wave === 'square' ? 'Square' : 'Saw'; oct.textContent = `Oct ${GB.oct > 0 ? '+' : ''}${GB.oct}`; eng.textContent = GB.bassEng === 'synth' ? 'On: Synth' : 'On: 303'; };
   wave.addEventListener('click', () => { GB.wave = GB.wave === 'square' ? 'sawtooth' : 'square'; save(); sw(); });
   oct.addEventListener('click', () => { GB.oct = GB.oct >= 1 ? -1 : GB.oct + 1; save(); sw(); }); sw();
-  knobs.append(K('Cutoff', 'cut'), K('Reso', 'res'), K('Env', 'env'), K('Decay', 'decay'), wave, oct,
+  knobs.append(K('Cutoff', 'cut'), K('Reso', 'res'), K('Env', 'env'), K('Decay', 'decay'), wave, oct, eng,
     knob('Swing', 0, 1, 0, pct, v => { GB.swing = v; save(); }, GB.swing), K('Drums', 'drums'), K('Bass', 'synth'), K('Volume', 'level'));
   const body = el('div', 'gbody'); body.append(drums, roll, knobs);
   box.append(top, el('div', 'gvoice'), body); voiceBar(); paint();

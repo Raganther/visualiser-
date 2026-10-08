@@ -4,15 +4,16 @@ import { EFFECTS, effect } from '../audio/engine/registry.js';
 import { OFF, STRIPS, addInsert, mixMaster, moveInsert, onMix, removeInsert, setParam, setStrip, toggleInsert } from '../audio/engine/mixer.js';
 import { el, knob } from './widgets.js';
 
-const ORDER = ['groove', 'deckA', 'deckB', 'sendA', 'sendB', 'master'];
-const NAMES = {groove: 'Groovebox', deckA: 'Deck A', deckB: 'Deck B', sendA: 'Send A', sendB: 'Send B', master: 'Master'};
+const ORDER = ['groove', 'synth', 'deckA', 'deckB', 'sendA', 'sendB', 'master'];
+const NAMES = {groove: 'Groovebox', synth: 'Synth', deckA: 'Deck A', deckB: 'Deck B', sendA: 'Send A', sendB: 'Send B', master: 'Master'};
 const db = v => v <= OFF + .1 ? 'off' : (v > 0 ? '+' : '') + v.toFixed(1);
 // how a setting reads, by its unit
 const fmt = p => p.list ? v => p.list[Math.round(v)] || '' : {
   '%': v => Math.round(v*100) + '%', Hz: v => v >= 1000 ? (v/1000).toFixed(1) + 'k' : v < 10 ? v.toFixed(2) : Math.round(v) + '',
-  dB: v => (v > 0 ? '+' : '') + v.toFixed(1), ms: v => Math.round(v*1000) + 'ms', x: v => v.toFixed(2) + '×', ':1': v => v.toFixed(1) + ':1'}[p.unit] || (v => (p.step ? Math.round(v) : v.toFixed(2)) + '');
+  dB: v => (v > 0 ? '+' : '') + v.toFixed(1), ms: v => Math.round(v*1000) + 'ms', x: v => v.toFixed(2) + '×', '×': v => v.toFixed(2) + '×', ':1': v => v.toFixed(1) + ':1',
+  s: v => v < 1 ? Math.round(v*1000) + 'ms' : v.toFixed(2) + 's', st: v => (v > 0 ? '+' : '') + Math.round(v), ct: v => Math.round(v) + 'ct', oct: v => (v > 0 ? '+' : '') + Math.round(v)}[p.unit] || (v => (p.step ? Math.round(v) : v.toFixed(2)) + '');
 // a knob for a setting: a log setting turns evenly in octaves, a list steps through its names
-function paramKnob(p, v, on){
+export function paramKnob(p, v, on){
   if (p.log) { const L = Math.log(p.max/p.min), u = x => Math.log(x/p.min)/L, x = u => p.min*Math.exp(u*L), f = fmt(p);
     return knob(p.label, 0, 1, u(p.def), w => f(x(w)), w => on(x(w)), u(v)); }
   const snap = p.list || p.step ? Math.round : x => x;
