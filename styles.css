@@ -263,8 +263,8 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gpre{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
 #dj .gbody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px}
 #dj .gdrums,#dj .groll{display:grid;grid-template-columns:72px repeat(16,minmax(0,1fr));gap:2px;align-content:start;min-height:0}
-#dj .groll{grid-template-rows:repeat(10,minmax(0,1fr));align-content:stretch}
-#dj .gdrums{grid-template-rows:repeat(6,minmax(0,1fr));align-content:stretch}
+#dj .groll{grid-template-rows:10px repeat(10,minmax(0,1fr));align-content:stretch}
+#dj .gdrums{grid-template-rows:10px repeat(6,minmax(0,1fr));align-content:stretch}
 #dj .glab{padding:0 4px;font-size:11px;text-align:left;color:var(--dim);border:none;white-space:nowrap;overflow:hidden}
 #dj .glab.small{font-size:10px;display:flex;align-items:center}
 #dj .glab.muted{text-decoration:line-through;opacity:.5}
@@ -279,3 +279,27 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gc.now{border-color:rgba(255,255,255,.7)}
 #dj .gknobs{display:grid;grid-template-columns:repeat(3,auto);gap:2px 6px;align-content:start;justify-items:center}
 #dj .gknobs button{padding:2px 6px;font-size:11px;align-self:center}
+/* the sync strip in the panel's head, and the groovebox's step lights */
+#dj .sync{flex:1;display:flex;align-items:center;gap:12px;min-width:0;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums}
+#dj .lamps{display:flex;gap:4px}
+#dj .lamps i{width:14px;height:14px;border-radius:50%;background:#1d2027;border:1px solid var(--line)}
+#dj .lamps i.on{background:#7cff9a;box-shadow:0 0 10px #7cff9a}
+#dj .lamps i.one.on{background:#fff;box-shadow:0 0 12px #fff}
+#dj .sbar{color:var(--ink);min-width:86px}
+#dj .sbpm{color:var(--dim)}
+#dj .sgb{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+#dj .sgb.lock{color:#7cff9a}
+#dj .gled{display:block;height:8px;border-radius:4px;background:#1d2027;align-self:center}
+#dj .gled.g4{background:#2a2e37}
+#dj .gled.on{background:#7cff9a;box-shadow:0 0 10px #7cff9a}
+#dj .gc.now{border-color:#7cff9a;background-color:rgba(124,255,154,.18)}
+#dj .gc.now.on{filter:brightness(1.35);box-shadow:0 0 8px rgba(124,255,154,.8)}
+#dj .gbx{border-top:1px solid var(--line);padding-top:6px}
+#dj .djb{padding-bottom:4px}
+#dj .djh .sync span{flex:none}
+#dj .djh .sync .sgb{flex:1}
+#dj .gbody{grid-template-rows:minmax(0,1fr);overflow:hidden}
+#dj .gdrums,#dj .groll{height:100%}
+#dj .gknobs{grid-template-columns:repeat(4,auto);gap:0 4px}
+#dj .gknobs .knob{width:40px}
+#dj .gknobs .knob svg{width:26px;height:26px}

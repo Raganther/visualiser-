@@ -90,6 +90,11 @@ const out = await run(() => ({x: __dj.pos(__dj.DJ.decks[0]), loop: __dj.DJ.decks
 check('a 4-beat loop stays inside itself, going round, and leaving it plays on', Math.abs(lp.beats - 4) < .01 && inside && wraps >= 1 && !out.loop && out.x > lp.b,
   `loop ${lp.a.toFixed(2)}–${lp.b.toFixed(2)} s (${lp.beats.toFixed(2)} beats), round it ${wraps} times in 4 s, then on to ${out.x.toFixed(2)} s`);
 
+// scrubbing: quiet while dragged, playing on from where it's let go
+await run(() => { if (!__dj.DJ.decks[0].playing) __dj.djPlay(0); }); await wait(500);
+const sc = await run(() => { const d = __dj.DJ.decks[0]; __dj.djScrub(0, 'start'); const quiet = !d.playing; __dj.djScrub(0, 'move', 25); __dj.djScrub(0, 'move', 30); __dj.djScrub(0, 'end'); return {quiet, playing: d.playing, x: __dj.pos(d)}; });
+check('scrubbing goes quiet while dragged, and plays on from where it\'s let go', sc.quiet && sc.playing && Math.abs(sc.x - 30) < .2, `quiet ${sc.quiet}, then playing from ${sc.x.toFixed(2)} s`);
+
 // the groovebox: locked to the lead deck its steps land on that deck's 16ths, step 1 on its 1; on its own, at its own tempo
 await run(() => { const D = __dj.DJ.decks; if (D[1].playing) __dj.djPlay(1); if (!D[0].playing) __dj.djPlay(0); __dj.djXf(0); }); await step(3);
 await run(async () => { window.__g = await import('/src/audio/groove.js'); Object.assign(__g.GB, {sync: true, swing: 0}); __g.grooveToggle(); });
@@ -102,9 +107,13 @@ check('the groovebox, locked to the lead deck, plays on its 16ths and bars', loc
 await run(() => { __g.grooveToggle(); Object.assign(__g.GB, {sync: false, bpm: 128}); __g.grooveToggle(); }); await wait(2000);
 const own = await run(() => { const L = __g.LOG.slice(-10); return L.slice(1).map((s, k) => s.t - L[k].t); });
 check('on its own it keeps its own tempo', own.length >= 8 && own.every(d => Math.abs(d - 60/128/4) < .001), `steps ${(own.reduce((a, b) => a + b, 0)/own.length*1000).toFixed(2)} ms apart (128 BPM: ${(60/128/4*1000).toFixed(2)})`);
-const ui = await run(() => { document.querySelector('#dj .tab[data-t=groove]').click(); const c = document.querySelector('#dj .gdrums .gc[data-v=snare][data-i="5"]'), before = __g.GB.snare[5];
+const ui = await run(() => { const c = document.querySelector('#dj .gdrums .gc[data-v=snare][data-i="5"]'), before = __g.GB.snare[5];
   c.click(); const after = __g.GB.snare[5]; const sel = document.querySelector('#dj .gpre'); sel.value = 'Minimal'; sel.dispatchEvent(new Event('change')); __g.grooveToggle();
   return {before, after, preset: __g.GB.preset, rim: __g.GB.rim.join('')}; });
+await run(() => { __g.GB.sync = true; __g.grooveToggle(); }); await wait(800);
+const strip = await run(() => { for (let k = 0; k < 3; k++) __step(1); return document.querySelector('#dj .sync').textContent.replace(/\s+/g, ' ').trim(); });
+await run(() => { if (__g.GB.playing) __g.grooveToggle(); });
+check('the sync strip shows the bar, the tempo and the groovebox locked to the lead deck', /Bar \d+ · [1-4]/.test(strip) && /BPM · deck A/.test(strip) && /locked to deck A · step/.test(strip), strip);
 check('a click on the grid sets a step, and a starter pattern loads', ui.after === (ui.before + 1) % 3 && ui.preset === 'Minimal' && ui.rim.includes('1'), `snare step 6: ${ui.before} → ${ui.after}; pattern ${ui.preset}`);
 
 const errors = await page.errors();

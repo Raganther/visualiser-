@@ -1,13 +1,13 @@
 // The DJ panel under the picture (audio/dj.js): two decks and a mixer, for the mouse; it opens and collapses from the bar's DJ button.
-import { DJ, PEAK_HZ, barBeat, beatAt, bpm, djBend, djCue, djEq, djFader, djFilter, djLoad, djLoop, djPlay, djSeek, djSetCue, djSync, djTempo, djXf, onDJ, pos, timeOfBeat } from '../audio/dj.js';
-import { actx, tracks } from '../audio/player.js';
+import { DJ, PEAK_HZ, barBeat, beatAt, bpm, djBend, djCue, djEq, djFader, djFilter, djLoad, djLoop, djPlay, djScrub, djSetCue, djSync, djTempo, djXf, heard, onDJ, timeOfBeat } from '../audio/dj.js';
+import { tracks } from '../audio/player.js';
 import { resize } from '../render/gl.js';
 import { S } from '../state.js';
 import { TUNE } from '../tuning.js';
 import { toast } from './toast.js';
 import { $ } from '../util.js';
 import { el, knob, slider } from './widgets.js';
-import { buildGroove, drawGroove } from './groove.js';
+import { buildGroove, drawGroove, grooveState } from './groove.js';
 
 const root = $('#dj'), btn = $('#djBtn'), COL = ['#5ad1ff', '#ff7ab8'], LOOPS = [1, 2, 4, 8, 16];
 const mmss = t => { t = Math.max(0, t); return `${Math.floor(t/60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
@@ -42,11 +42,19 @@ const UI = DJ.decks.map(d => {
   box.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); box.classList.add('drag'); });
   box.addEventListener('dragleave', () => box.classList.remove('drag'));
   box.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); box.classList.remove('drag'); document.body.classList.remove('dragging'); load([...e.dataTransfer.files].find(f => /^audio\//.test(f.type) || /\.(mp3|m4a|wav|ogg|flac|aac)$/i.test(f.name))); });
-  // the overview: click or drag to move through the track
-  const over = q('.over'), seekAt = e => { const r = over.getBoundingClientRect(); if (d.buf) djSeek(i, (e.clientX - r.left)/r.width*d.buf.duration); };
-  over.addEventListener('pointerdown', e => { over.setPointerCapture(e.pointerId); seekAt(e); });
-  over.addEventListener('pointermove', e => { if (over.hasPointerCapture(e.pointerId)) seekAt(e); });
-  return {d, box, q, tempo, zoom: q('.zoom'), over, ov: null};
+  // scrubbing: the overview dragged moves through the whole track, the close waveform dragged moves it under the playhead;
+  // the deck is quiet while it's dragged and plays on from there when let go
+  const over = q('.over'), zoom = q('.zoom');
+  const drag = (c, at) => {
+    let x0 = 0, o0 = 0;
+    c.addEventListener('pointerdown', e => { if (!d.buf) return; c.setPointerCapture(e.pointerId); x0 = e.clientX; o0 = d.off; djScrub(i, 'start'); o0 = d.off; djScrub(i, 'move', at(e, x0, o0)); });
+    c.addEventListener('pointermove', e => { if (c.hasPointerCapture(e.pointerId)) djScrub(i, 'move', at(e, x0, o0)); });
+    const end = e => { if (c.hasPointerCapture(e.pointerId)) { c.releasePointerCapture(e.pointerId); djScrub(i, 'end'); } };
+    c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  };
+  drag(over, e => { const r = over.getBoundingClientRect(); return (e.clientX - r.left)/r.width*d.buf.duration; });
+  drag(zoom, (e, x0, o0) => o0 - (e.clientX - x0)/zoom.getBoundingClientRect().width*T.zoomSecs);
+  return {d, box, q, tempo, zoom, over, ov: null};
 });
 
 /* ---------- the mixer ---------- */
@@ -61,14 +69,20 @@ for (const d of DJ.decks) {
   chans.append(c);
 }
 mix.append(chans, el('div', 'xfl', '<span>A</span><span>Crossfader</span><span>B</span>'), slider('xf', 0, 1, .005, .5, 'Crossfader', djXf));
-const head = el('div', 'djh', '<b>DJ</b><span class="tabs"><button class="tab" data-t="decks" aria-pressed="true">Decks</button><button class="tab" data-t="groove" aria-pressed="false">Groovebox</button></span><span class="hint">The visuals follow the mix, and keep time with the deck the faders favour. Drag knobs up or down; double-click sets one back.</span><button class="djx" aria-label="Collapse the DJ panel">▾ Hide</button>');
+// the head: the sections' switches, and the sync strip (the beat, the bar, the tempo, and what's locked to what)
+const head = el('div', 'djh', `<b>DJ</b><span class="tabs"><button class="tab" data-t="decks">Decks</button><button class="tab" data-t="groove">Groovebox</button></span>
+  <span class="sync" aria-live="off"><span class="lamps">${'<i></i>'.repeat(4)}</span><span class="sbar">—</span><span class="sbpm">— BPM</span><span class="sgb"></span></span>
+  <button class="djx" aria-label="Collapse the DJ panel">▾ Hide</button>`);
 const body = el('div', 'djb'); body.append(UI[0].box, mix, UI[1].box);
-const gbx = el('div', 'gbx'); gbx.hidden = true;
+const gbx = el('div', 'gbx');
 root.append(head, body, gbx); buildGroove(gbx);
-// the tabs: the decks and mixer, or the groovebox (a drum machine and an acid bass), in the same place
+// the sections: the decks and mixer, and the groovebox (a drum machine and an acid bass), each on or off, one above the other
+let show = {decks: true, groove: true};
+try { Object.assign(show, JSON.parse(localStorage.getItem('afterglow.djShow') || '{}')); } catch (e) {}
 head.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  const g = t.dataset.t === 'groove'; body.hidden = g; gbx.hidden = !g;
-  head.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-pressed', x === t));
+  show[t.dataset.t] = !show[t.dataset.t];
+  try { localStorage.setItem('afterglow.djShow', JSON.stringify(show)); } catch (e) {}
+  if (DJ.open) setOpen(true);
 }));
 head.querySelector('.djx').addEventListener('click', () => setOpen(false));
 root.addEventListener('keydown', e => e.stopPropagation());   // (keys on a knob or slider don't reach the page's own)
@@ -76,7 +90,10 @@ root.addEventListener('keydown', e => e.stopPropagation());   // (keys on a knob
 /* ---------- open and collapse ---------- */
 export function setOpen(on){
   DJ.open = on; root.hidden = !on; btn.setAttribute('aria-pressed', on);
-  S.djH = on ? Math.round(Math.min(T.panelH, innerHeight*T.maxShare)) : 0;
+  body.hidden = !show.decks; gbx.hidden = !show.groove; body.style.flex = `1 1 ${T.decksH}px`; gbx.style.flex = `1 1 ${T.grooveH}px`;
+  head.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-pressed', !!show[t.dataset.t]));
+  const want = T.headH + (show.decks ? T.decksH : 0) + (show.groove ? T.grooveH : 0);
+  S.djH = on ? Math.round(Math.min(want, innerHeight*T.maxShare)) : 0;
   document.documentElement.style.setProperty('--djH', S.djH + 'px'); document.body.classList.toggle('djopen', on);
   resize();   // (the picture is drawn that much shorter: render/gl.js)
   if (on) { $('#welcome').classList.add('gone'); refresh(); requestAnimationFrame(draw); }
@@ -102,7 +119,7 @@ onDJ(() => { if (DJ.open) refresh(); });
 
 /* ---------- drawing, while the panel is open ---------- */
 function fit(c){ const w = Math.max(10, Math.round(c.clientWidth*devicePixelRatio)), h = Math.round(c.clientHeight*devicePixelRatio); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c.getContext('2d'); }
-const at = d => actx && d.buf ? pos(d, actx.currentTime - (actx.outputLatency || actx.baseLatency || 0)) : d.off;   // as heard
+const at = d => d.buf ? heard(d) : d.off;   // as heard (smooth: audio/dj.js)
 function draw(){
   if (!DJ.open) return;
   for (const u of UI) {
@@ -113,7 +130,7 @@ function draw(){
     const bb = M && d.buf ? Math.floor(barBeat(d, x)) : -1; q('.ph').querySelectorAll('i').forEach((e, k) => e.classList.toggle('on', k === bb));
     zoomView(u, x); overView(u, x);
   }
-  drawGroove();
+  drawGroove(); syncStrip();
   requestAnimationFrame(draw);
 }
 // the close waveform: the playhead in the middle, the beats, bars and phrases across it, the drops in red
@@ -152,3 +169,17 @@ function overView(u, x){
   if (d.loop) { g.fillStyle = 'rgba(255,176,0,.45)'; g.fillRect(d.loop.a/d.buf.duration*W, 0, Math.max(2, (d.loop.b - d.loop.a)/d.buf.duration*W), H); }
   g.fillStyle = '#ffb000'; g.fillRect(d.cue/d.buf.duration*W, 0, 2, H); g.fillStyle = '#fff'; g.fillRect(px, 0, 2, H);
 }
+// the sync strip: the beat (lamp 1 is the bar's 1), the bar, the tempo, from the lead deck while one plays (or else the
+// groovebox's own clock), and the groovebox: locked to which deck, or on its own, and its step
+let gBar = 0, gLast = -1;
+function syncStrip(){
+  const L = DJ.lead && DJ.lead.playing && DJ.lead.ana && DJ.lead.ana.map ? DJ.lead : null, g = grooveState(), q = c => head.querySelector(c);
+  let beat = -1, bar = '', tempo = '';
+  if (L) { const k = beatAt(L, heard(L)) - L.ana.map.down; beat = Math.floor(((k % 4) + 4) % 4); bar = `Bar ${Math.floor(k/4) + 1} · ${beat + 1}`; tempo = `${bpm(L).toFixed(1)} BPM · deck ${'AB'[L.i]}`; }
+  else if (g.step >= 0) { if (g.step < gLast) gBar++; gLast = g.step; beat = g.step >> 2; bar = `Bar ${gBar + 1} · ${beat + 1}`; tempo = `${g.bpm.toFixed(1)} BPM · groovebox`; }
+  q('.lamps').querySelectorAll('i').forEach((e, k) => { e.classList.toggle('on', k === beat); e.classList.toggle('one', k === 0); });
+  q('.sbar').textContent = bar || '—'; q('.sbpm').textContent = tempo || '— BPM';
+  q('.sgb').textContent = !g.playing ? 'Groovebox stopped' : `Groovebox ${g.locked !== null ? 'locked to deck ' + 'AB'[g.locked] : 'on its own tempo'} · ${g.step >= 0 ? `step ${g.step + 1}/16` : 'starting'}`;
+  q('.sgb').classList.toggle('lock', !!g.playing && g.locked !== null);
+}
+

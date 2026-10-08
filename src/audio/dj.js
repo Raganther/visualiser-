@@ -60,7 +60,19 @@ export function pos(d, at = actx ? actx.currentTime : 0){
   if (L && x >= L.b) return L.a + (x - L.a) % (L.b - L.a);   // (round the loop, as the source plays it)
   return Math.min(d.buf.duration, x);
 }
-const heard = d => pos(d, actx.currentTime - (actx.outputLatency || actx.baseLatency || 0));   // at the speakers now
+// the audio clock as heard at the speakers now, smooth: from its own timestamp of what the output is playing (counting the
+// output's delay) and the time since; the bare clock moves in steps (coarse on Windows: the user saw the waveforms jerk
+// and lag the music). Never backwards, and the bare clock less the delay where the timestamp is missing or far off
+let lastHeard = 0;
+export function heardNow(){
+  if (!actx) return 0;
+  const est = actx.currentTime - (actx.outputLatency || actx.baseLatency || 0), ts = actx.getOutputTimestamp && actx.getOutputTimestamp();
+  let h = est;
+  if (ts && ts.contextTime > 0 && ts.performanceTime > 0) { const x = ts.contextTime + (performance.now() - ts.performanceTime)/1000; if (Math.abs(x - est) < .3) h = x; }
+  if (h < lastHeard && lastHeard - h < .1) h = lastHeard;
+  return lastHeard = h;
+}
+export const heard = d => pos(d, heardNow());   // a deck's track as heard now
 const mapOf = d => d.ana && d.ana.map;
 export const bpm = d => mapOf(d) ? mapOf(d).bpm*d.rate : null;
 // the beat a track's time falls on, fractional (beyond the map's ends, on at its tempo), and back
@@ -161,6 +173,14 @@ export function djLoop(i, n){
   changed();
 }
 export function djSeek(i, x){ const d = D[i]; if (!d.buf) return; if (d.loop && (x < d.loop.a || x >= d.loop.b)) d.loop = null; if (d.playing) start(d, x); else { d.off = Math.max(0, Math.min(x, d.buf.duration)); changed(); } }
+// scrubbing (a waveform dragged): the deck goes quiet and follows the drag, and plays on from there when it's let go (a
+// restart at every move of the mouse stuttered)
+export function djScrub(i, phase, x){
+  const d = D[i]; if (!d.buf) return;
+  if (phase === 'start') { d.scrub = d.playing; if (d.playing) stop(d); return; }
+  if (x != null) { d.off = Math.max(0, Math.min(x, d.buf.duration - .01)); if (d.loop && (d.off < d.loop.a || d.off >= d.loop.b)) d.loop = null; }
+  if (phase === 'end') { if (d.scrub) start(d, d.off); d.scrub = false; changed(); }
+}
 export function djTempo(i, v){ const d = D[i]; d.sync = false; d.lock = 0; d.base = 1 + Math.max(-1, Math.min(1, v))*TUNE.dj.tempoRange; setRate(d); changed(); }
 export function djBend(i, dir){ const d = D[i]; d.bend = dir*TUNE.dj.bend; setRate(d); }
 // sync: this deck's tempo to the other's, and (both playing) its bars lined up with the other's; it then follows the

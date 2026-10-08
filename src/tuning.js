@@ -442,8 +442,8 @@ export const TUNE = {
   },
   // DJ mode (audio/dj.js, ui/dj.js): two decks and a mixer under the picture, the visualiser following the mix
   dj: {
-    panelH: 300,               // px: the panel's height under the picture when open (less on a short window: maxShare)
-    maxShare: .45,             // the most of the window's height it takes
+    headH: 34, decksH: 262, grooveH: 236,   // px: the panel's head (its tabs and the sync strip), and the decks' and the groovebox's sections under it
+    maxShare: .68,             // the most of the window's height the panel takes (its sections share what's left)
     tempoRange: .08,           // the tempo slider's reach either way (±8%, like a turntable)
     bend: .04,                 // how much faster or slower a deck plays while a nudge button is held
     eqLow: 250, eqMid: 1000, eqHigh: 4000,   // Hz: the EQ's three bands (shelf, peak, shelf)
@@ -456,7 +456,7 @@ export const TUNE = {
   },
   // the groovebox (audio/groove.js): a drum machine and an acid bass on a 16-step sequencer
   groove: {
-    ahead: .12,                // seconds of steps scheduled ahead on the audio clock (a stalled frame can't knock them out of time)
+    ahead: .35,                // seconds of steps scheduled ahead on the audio clock, so a stalled frame can't knock them out of time (.12 dropped steps while the cosmos stalled the page)
     tickMs: 25,                // how often more are scheduled
   },
 };

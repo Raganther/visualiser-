@@ -1,9 +1,8 @@
 // The groovebox's tab in the DJ panel (audio/groove.js): a drum grid, an acid bass line, and their knobs, for the mouse.
-import { GB, NOTES, PRESETS, VOICES, clearPattern, grooveToggle, heardStep, levels, loadPreset, save, tempo } from '../audio/groove.js';
-import { DJ } from '../audio/dj.js';
+import { GB, NOTES, PRESETS, VOICES, clearPattern, grooveToggle, heardStep, levels, loadPreset, locked, save, tempo } from '../audio/groove.js';
 import { el, knob, slider } from './widgets.js';
 
-let box = null, lastStep = -2, cells = [];
+let box = null, lastStep = -2, cells = [], leds = [];
 const pct = v => Math.round(v*100) + '';
 export function buildGroove(container){
   box = container;
@@ -21,7 +20,10 @@ export function buildGroove(container){
   top.querySelector('.gsync').addEventListener('click', e => { GB.sync = !GB.sync; e.target.setAttribute('aria-pressed', GB.sync); save(); });
 
   // the drums: a row a voice (its name mutes it), a cell a step: off, on, accented
-  const drums = el('div', 'gdrums'); cells = [];
+  const drums = el('div', 'gdrums'); cells = []; leds = [];
+  // a row of lights over each grid, the step being heard lit (the sync light), the 1 of each beat marked
+  const ledRow = g => { g.append(el('span', 'glab small', 'Step')); for (let i = 0; i < 16; i++) { const l = el('i', 'gled' + (i % 4 === 0 ? ' g4' : '')); l.dataset.i = i; g.append(l); leds.push(l); } };
+  ledRow(drums);
   for (const [v, name] of VOICES) {
     const lab = el('button', 'glab', name); lab.title = 'Mute or unmute'; lab.addEventListener('click', () => { GB.mute[v] = !GB.mute[v]; save(); paint(); });
     lab.dataset.v = v; drums.append(lab);
@@ -32,7 +34,7 @@ export function buildGroove(container){
     }
   }
   // the bass: a note a step (one at a time: click it again to rest), then a row each for accent and slide
-  const roll = el('div', 'groll');
+  const roll = el('div', 'groll'); ledRow(roll);
   const rowOf = (label, fn, cls) => { roll.append(el('span', 'glab small', label)); for (let i = 0; i < 16; i++) { const c = el('button', 'gc small ' + cls + (i % 4 === 0 ? ' g4' : '')); c.dataset.i = i; c.addEventListener('click', () => { fn(i); save(); paint(); }); roll.append(c); cells.push(c); } };
   NOTES.forEach(([name], n) => rowOf(name, i => { const s = GB.bass[i]; if (s.on && s.n === n) s.on = 0; else { s.on = 1; s.n = n; } }, 'gn n' + n));
   rowOf('Accent', i => { GB.bass[i].a ^= 1; }, 'ga');
@@ -65,8 +67,12 @@ function paint(){
 export function drawGroove(){
   if (!box || box.hidden) return;
   const s = heardStep();
-  if (s !== lastStep) { lastStep = s; for (const c of cells) c.classList.toggle('now', +c.dataset.i === s); }
-  const L = GB.sync && DJ.lead && DJ.lead.playing && DJ.lead.ana && DJ.lead.ana.map;
-  box.querySelector('.gbv').textContent = `${tempo().toFixed(1)} BPM${L ? ', locked to deck ' + 'AB'[DJ.lead.i] : ''}`;
+  if (s !== lastStep) { lastStep = s; for (const c of cells) c.classList.toggle('now', +c.dataset.i === s); for (const l of leds) l.classList.toggle('on', +l.dataset.i === s); }
+  const L = locked(), p = box.querySelector('.gplay'), lab = GB.playing ? '❚❚ Stop' : '▶ Play';
+  if (p.textContent !== lab) { p.textContent = lab; p.setAttribute('aria-label', GB.playing ? 'Stop' : 'Play'); }
+  box.querySelector('.gbv').textContent = `${tempo().toFixed(1)} BPM${L ? ', locked to deck ' + 'AB'[L.i] : ''}`;
   box.querySelector('.gbpm').disabled = !!L;
 }
+// for the sync strip (ui/dj.js): playing, the step heard, the tempo, and the deck it's locked to (or null)
+export function grooveState(){ const L = locked(); return {playing: GB.playing, step: heardStep(), bpm: tempo(), locked: L ? L.i : null}; }
+

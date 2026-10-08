@@ -1,5 +1,5 @@
 // The groovebox: a 909-style drum machine and a 303-style acid bass on a 16-step sequencer, into the DJ mix; at its own tempo, or locked to the lead deck.
-import { DJ, beatAt, djBus, pos, timeOfBeat } from './dj.js';
+import { DJ, beatAt, djBus, heardNow, pos, timeOfBeat } from './dj.js';
 import { actx } from './player.js';
 import { TUNE } from '../tuning.js';
 
@@ -86,7 +86,7 @@ function bass(i, t, dur){
 let timer = null, nextT = 0, nextI = 0, lastT = -1;
 export const LOG = [];   // the steps scheduled lately: {t, i} (for the playhead, and tests)
 export const tempo = () => { const L = locked(); return L ? L.ana.map.bpm*L.rate : GB.bpm; };
-const locked = () => { const L = GB.sync && DJ.lead; return L && L.playing && L.ana && L.ana.map ? L : null; };
+export const locked = () => { const L = GB.sync && DJ.lead; return L && L.playing && L.ana && L.ana.map ? L : null; };
 function fromLead(L, now){
   const M = L.ana.map, k = beatAt(L, pos(L, now)), b = Math.floor(k), P = (timeOfBeat(L, b + 1) - timeOfBeat(L, b))/L.rate;
   const s = Math.floor(k*4 + 1e-6) + 1;   // the next 16th, counted from the map's first beat
@@ -118,7 +118,7 @@ export function grooveToggle(){
 // the step being heard now (for the playhead), or -1
 export function heardStep(){
   if (!GB.playing || !actx) return -1;
-  const at = actx.currentTime - (actx.outputLatency || actx.baseLatency || 0); let i = -1;
+  const at = heardNow(); let i = -1;
   for (const s of LOG) if (s.t <= at) i = s.i;
   return i;
 }
