@@ -4,7 +4,7 @@ import { KAL, PREC } from './shaders.js';
 import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
-export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8};   // 3 (media) is free in a segment; low only where there are more than 8
+export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8, low2: 9};   // 3 (media) is free in a segment; low only where there are more than 8
 // one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
 // c holds the picture so far; each item lays itself over it
 // wk: the worlds whose code it holds (those drawing now; the cosmos alone is bigger than the rest together), or all of them
@@ -14,9 +14,12 @@ export function composeSegment(seg, plan, wk){
   // a heavy world drawn in its own pass ('cosmos~' in wk) is only read back here: its code (the cosmos's is 40 KB) isn't in
   // this shader at all, so a new run with it in is quick to build
   const RO = WORLD_VISUALS.filter(v => wk && wk.includes(v.key + '~'));
-  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`)
+  // every world drawn in its own pass ('@'): this shader reads the two pictures (uWtA, uWtB) and their weights, the front
+  // planes' coverage from their alpha, and holds no world's code, so it depends only on the scene's layout
+  const SL = !!wk && wk.includes('@');
+  const worlds = SL ? '  if(uWa>0.003) w+=texture2D(uWtA,wuv).rgb*uWa;\n  if(uWb>0.003) w+=texture2D(uWtB,wuv).rgb*uWb;' : WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`)
     .concat(RO.map(v => `  if(uW_${v.key}>0.003&&uLow>0.5) w+=texture2D(uLowT,wuv).rgb*uW_${v.key};`)).join('\n');
-  const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
+  const fronts = SL ? '  vec2 q=sp/vec2(ASP,1.0)+0.5;\n  if(uWa>0.003) fc=max(fc,texture2D(uWtA,q).a*min(uWa,1.0));\n  if(uWb>0.003) fc=max(fc,texture2D(uWtB,q).a*min(uWb,1.0));' : WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
   const groups = [...new Set([...seg.seg.filter(it => it.t === 'trails').map(it => it.g), ...(seg.only ? ['main'] : [])])];   // (a world drawn alone still reads the main trails, for the glow on its walls)
   const needW = seg.seg.some(it => it.t === 'world');
@@ -49,6 +52,7 @@ ${skip ? '    }\n' : ''}  }`;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
+${SL ? 'uniform sampler2D uWtA, uWtB; uniform float uWa, uWb;   // the worlds drawn in their own passes, and their weights' : ''}
 uniform vec4 uKal, uKal2; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
@@ -110,7 +114,7 @@ void main(){
 ${needW ? '  vec3 w=vec3(0.0);\n' + worlds : ''}
 ${body}
 ${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}${seg.fill ? '  c*=uGain;' : ''}
-  gl_FragColor=vec4(c,1.0);
+  gl_FragColor=vec4(c,${seg.only ? 'frontCov(wsp)' : '1.0'});   // (a world drawn alone keeps its front plane's coverage in the alpha)
 }`;
 }
 

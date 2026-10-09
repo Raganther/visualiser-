@@ -84,6 +84,7 @@ export const TUNE = {
       fastest: {scale: .55, world: .45, trail: .5}},
     freezeMs: 150,             // a frame this long after the last goes in the stall log (render/stalls.js)
     fbSlack: 6,                // a ready trails shader holding up to this many more visuals than are drawing serves, rather than building another
+    worldsOwn: 1,              // 1: every world is drawn in its own pass (two at once), its front plane's coverage in the alpha, and the scene's shaders only read those pictures: they hold no world's code, so each scene's are all built while the page loads (on a Mac each new shader froze the picture 0.2–6 s at its first draw)
     heavyOwn: 1,               // 1: a heavy world (the cosmos, the 3D worlds) is always drawn in its own pass, so other shaders only read its picture (quick to build)
     fbSerial: 0,               // 1: build a trails shader for each set of layers even where the driver can't do it in the background (it freezes while it builds; the tests use it)
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
