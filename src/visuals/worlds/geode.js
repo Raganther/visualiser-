@@ -8,8 +8,10 @@
 // cross-sections receding, each a ring of crystal points.
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { S } from '../../state.js';
+import { SIG } from '../../scene/signals.js';
 
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, grow: .5, age: 99};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, grow: .5, age: 99, sec: 0, secT: -9, lastHit: 0, bars: 0, secBars: 0, t: 0, typ: null};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 const GAP = 24, R0 = 2.8, RB = 3.2;   // a cavern every GAP units along the way; the fissure's radius, and how much wider a cavern is
 // a section's crystal: its kind (0 amethyst, 1 citrine, 2 quartz, 3 emerald), how thick the points grow
@@ -30,7 +32,7 @@ export default {
   light: {hue: .78, sat: .5, x: 0, y: 0},
   // bright, glittering music: the top end and some space
   suits: (rf, T) => rf.bright*.35 + (rf.hat || 0)*.2 - rf.low*.1 + T*.1,
-  onBeat(){ st.wave = 0; },   // each kick: a wave of light through the crystals
+  onBeat(pos){ st.wave = 0; if (pos === 0) { st.bars++; st.secBars++; } },   // each kick: a wave of light through the crystals
   params(P, x){
     const T = TUNE.geode, J = x.J, on = P.w.geode > .05, ten = (J && J.tension) || 0;
     sectionLayout(st, 'geoD', J, on, x.dt, T.morphSecs);
@@ -46,7 +48,13 @@ export default {
     st.grow += ((T.growCalm + (T.growHigh - T.growCalm)*ten + st.surge*.3) - st.grow)*Math.min(1, x.dt*.4);   // the crystals grow as it builds
     const A = LOOK(st.D0), B = LOOK(st.D1), m = st.tr*st.tr*(3 - 2*st.tr);
     P.gd = [st.z, Math.min(st.age, 99), x.dim, st.surge];   // (the drop's age: its white flash racing out through the crystals)
-    P.gd2 = [0, 0, 0, st.grow];
+    // sequenced patterns, joining as a section runs (TUNE.geode.layerBars): stabs light every nth row of crystals round the
+    // fissure, stepping on with each stab; the hats light a random few each 16th; a drop's run-up lights them from far off towards you
+    st.t += x.dt; if (J && J.type !== st.typ) { st.typ = J.type; st.secBars = 0; }
+    if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; } st.lastHit = x.hit;
+    const s16 = SIG.barPhase > 0 ? Math.floor(SIG.barPhase*16) : Math.floor(st.t/(Math.max(.25, S.beatPeriod)/4)) % 16, nth = [3, 4, 6][st.D1 % 3], anticip = (J && J.anticip) || 0;
+    P.gd2 = [(s16 + st.bars*16) % 256, anticip > .02 ? (1 - anticip)*T.anticipDist : 999, 0, st.grow];
+    P.gd5 = [st.sec % nth, st.secBars >= T.layerBars.stab ? (.4 + .6*Math.exp(-(st.t - st.secT)*2.5))*x.dim : 0, nth, st.secBars >= T.layerBars.hat ? Math.min(1, SIG.hat*1.4)*T.hatShare : 0];
     P.gd3 = [A[0], B[0], m, A[1] + (B[1] - A[1])*m];
     P.gd4 = [st.wave, x.dim, (P.treb || 0)*x.react, 0];
     // the centrepiece stands in the middle of the cavern ahead, and is gone once the camera is through it
@@ -58,7 +66,7 @@ export default {
     P.gdF = P.anchor && P.anchor.dist ? P.anchor.dist : 1.6;   // its front plane: the crystals nearer than the centrepiece, or the near ones
   },
   glsl: {
-    uniforms: `uniform vec4 uGd, uGd2, uGd3, uGd4; uniform float uGdF, uGdM, uGdG;   // the Geode: where along it, the surge; the crystals' growth; their kinds blended, thickness; the kick's wave, dim, the hats; the front plane's depth; the dust, the glow on the rock`,
+    uniforms: `uniform vec4 uGd, uGd2, uGd3, uGd4, uGd5; uniform float uGdF, uGdM, uGdG;   // the Geode: where along it, the surge; the crystals' growth; their kinds blended, thickness; the kick's wave, dim, the hats; the front plane's depth; the dust, the glow on the rock`,
     functions: `
 vec3 gdPath(float z){ return vec3(sin(z*0.09)*1.6+sin(z*0.043)*1.2,cos(z*0.07)*1.0+sin(z*0.037)*0.7,z); }
 float gdR(float z,float a){ return ${R0.toFixed(1)}+${RB.toFixed(1)}*pow(0.5+0.5*cos(6.2831853*z/${GAP}.0),4.0)+0.12*sin(a*3.0+z*0.7); }
@@ -109,6 +117,10 @@ vec3 geode(vec2 sp){
     float l2=max(dot(n,-rd),0.0), glint=pow(max(dot(n,hv),0.0),40.0)*(1.0+3.0*uGd4.z);
     vec3 body=mix(mix(tint,vec3(0.9),0.55)*0.5,tint*1.3,up);
     col=body*(0.15+0.5*l2)+tint*fres*1.4+vec3(1.0)*glint*0.9+tint*(0.12+0.35*up)*(1.0+5.0*kick+3.0*uGd.w)+mix(tint,vec3(1.0),0.7)*flash*(0.6+1.4*up);
+    // the crystal's own light: its row round the fissure (the stabs'), a random few (the hats'), the run-up from far off
+    vec3 cq=gdPath(p.z); vec2 q2=p.xy-cq.xy; float ia=floor((atan(q2.y,q2.x)+3.14159)/6.28318*36.0), iz=floor(p.z/0.55), cid=ia+iz*37.0;
+    float stab=abs(mod(ia,uGd5.z)-uGd5.x)<0.5 ? uGd5.y : 0.0, hat=uGd5.w>0.0&&fract(sin((cid*0.37+uGd2.x*17.1)*127.1+311.7)*43758.5453)<uGd5.w ? 1.0 : 0.0, run=t>uGd2.y ? 1.0 : 0.0;
+    col+=(hsv(uHue+uPal.y,0.6,1.0)*stab*1.6+vec3(1.0)*hat*1.2+tint*run*1.4)*(0.3+0.7*up);
   } else {
     vec3 cp=gdPath(p.z); vec2 q=p.xy-cp.xy; float band=sin(p.z*1.3+atan(q.y,q.x)*2.0+vnz(p.xz*2.0+p.y)*3.0);
     col=mix(vec3(0.22,0.2,0.19),mix(tint*0.6,vec3(0.85,0.8,0.75),0.5),0.5+0.5*band)*(0.2+0.7*lamp)+vec3(0.25)*flash;   // agate bands
@@ -119,7 +131,7 @@ vec3 geode(vec2 sp){
 }`,
     fn: 'geode',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uGd, P.gd); gl.uniform4fv(u.uGd2, P.gd2); gl.uniform4fv(u.uGd3, P.gd3); gl.uniform4fv(u.uGd4, P.gd4); gl.uniform1f(u.uGdF, P.gdF || 1.6); gl.uniform1f(u.uGdM, TUNE.geode.motes); gl.uniform1f(u.uGdG, TUNE.geode.wallGlow); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uGd, P.gd); gl.uniform4fv(u.uGd2, P.gd2); gl.uniform4fv(u.uGd3, P.gd3); gl.uniform4fv(u.uGd4, P.gd4); if (u.uGd5) gl.uniform4fv(u.uGd5, P.gd5 || [0, 0, 3, 0]); gl.uniform1f(u.uGdF, P.gdF || 1.6); gl.uniform1f(u.uGdM, TUNE.geode.motes); gl.uniform1f(u.uGdG, TUNE.geode.wallGlow); },
   front: {
     fn: 'geodeFront',
     glsl: `
@@ -141,7 +153,9 @@ float geodeFront(vec2 sp){ vec3 ro, rd=gdRay(sp,ro); float cry; float t=gdMarch(
       for (let i = 0; i < n; i++) {
         const an = (i + (j & 1)*.5)/n*Math.PI*2, h = hh(i + Math.round(zj/STEP)*7.1), L = (.25 + h*h*.95)*(.55 + .45*R/R0)*P.gd2[3];
         const x0 = cx + Math.cos(an)*R*px, y0 = cy + Math.sin(an)*R*px, wd = .12*(.55 + .45*R/R0)*px;
-        o.fillStyle = hc(hue, sat*(1 - .7*Math.min(1, flash)), (18 + 60*flash + 45*kick + 25*hats*hh(i*3 + j) + 30*surge)*(1 - fog*.85)*(.6 + .6*h), 1);
+        const G5 = P.gd5 || [0, 0, 3, 0], ia = Math.floor(i/n*36), stab = Math.abs((ia % G5[2]) - G5[0]) < .5 ? G5[1] : 0, hx = Math.sin(((ia + Math.round(zj/.55)*37)*.37 + P.gd2[0]*17.1)*127.1 + 311.7)*43758.5453;
+        const lit = 50*stab + (G5[3] > 0 && hx - Math.floor(hx) < G5[3] ? 40 : 0) + (s.z > P.gd2[1] ? 35 : 0);
+        o.fillStyle = hc(stab > 0 ? P.hue + P.pal[1] : hue, sat*(1 - .7*Math.min(1, flash)), (18 + 60*flash + 45*kick + 25*hats*hh(i*3 + j) + 30*surge + lit)*(1 - fog*.85)*(.6 + .6*h), 1);
         o.beginPath(); o.moveTo(x0 - Math.sin(an)*wd, y0 + Math.cos(an)*wd); o.lineTo(x0 - Math.cos(an)*L*px, y0 - Math.sin(an)*L*px); o.lineTo(x0 + Math.sin(an)*wd, y0 - Math.cos(an)*wd); o.closePath(); o.fill();
       }
     }

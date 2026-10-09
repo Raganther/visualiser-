@@ -1,32 +1,38 @@
 // Stargate: rings of light rushing towards you out of the centre, a new one on each kick, faster in a build: the feeling of
-// flying down a tunnel of the beat. Each ring is a rounded polygon, turning slowly, in the palette's hues.
-const N = 8, GA = new Float32Array(N*4);   // for the shader: radius, width, hue offset, brightness
+// flying down a tunnel of the beat. Each ring is a rounded polygon, turning slowly, in the palette's hues. Once a section has
+// run 8 bars and the music is intense, each kick's ring brings two echoes on the next 16ths: a cascade.
+import { S } from '../../state.js';
+const N = 12, GA = new Float32Array(N*4);   // for the shader: radius, width, hue offset, brightness
 const rings = Array.from({length: N}, () => ({z: 1, h: 0}));
-let next = 0;
+let next = 0, bars = 0, type = null, hot = false, echo = [];   // (echoes: rings waiting for their 16th)
 export default {
   key: 'stargate', kind: 'layer', label: 'Stargate',
   suits: {perc:.6, T:.5, low:.2},   // what music it suits (features centred on 0): driving, kick-led
   overWorld: -.3,   // how well it sits over a world: it's a place of its own
   paint: 2.2,   // paint order in the trails: after the horizon, before the lasers
   accent: 'bar',   // how it fires when it's the accent
-  onBeat(){ const r = rings[next++ % N]; r.z = 0; r.h = next % 3; },   // a new ring from the centre on every beat
+  onBeat(pos){ const r = rings[next++ % N]; r.z = 0; r.h = next % 3; if (pos === 0) bars++;   // a new ring from the centre on every beat
+    if (bars >= 8 && hot && echo.length < 6) { const s16 = Math.max(.06, S.beatPeriod/4); echo.push(s16, s16*2); } },
   params(P, x){
     const sp = .45 + x.J.tension*.9;   // how fast they rush out (faster as the music builds)
-    rings.forEach((r, i) => {
+    if (x.J.type !== type) { type = x.J.type; bars = 0; }
+    hot = x.J.tension > .55;
+    echo = echo.map(t => t - x.dt); while (echo.length && echo[0] <= 0) { echo.shift(); const r = rings[next++ % N]; r.z = 0; r.h = next % 3; r.e = 1; }
+    rings.forEach((r, i) => { if (r.z >= 1) r.e = 0;
       r.z = Math.min(1, r.z + x.dt*sp*.55);
       const R = .02 + .75*Math.pow(r.z, 2.2);   // slow far off, rushing past up close
-      GA[i*4] = R; GA[i*4+1] = .002 + R*.02; GA[i*4+2] = P.pal[r.h]; GA[i*4+3] = r.z >= 1 ? 0 : Math.min(1, r.z*8)*(1 - Math.pow(r.z, 3));
+      GA[i*4] = R; GA[i*4+1] = .002 + R*.02; GA[i*4+2] = P.pal[r.h]; GA[i*4+3] = r.z >= 1 ? 0 : Math.min(1, r.z*8)*(1 - Math.pow(r.z, 3))*(r.e ? .6 : 1);
     });
     P.gate = GA; P.gateTurn = x.t*.15;
   },
   feedback: {
-    uniforms: 'uniform vec4 uGate[8]; uniform float uGateTurn;',
+    uniforms: 'uniform vec4 uGate[12]; uniform float uGateTurn;',
     main: `
   {
     vec2 q=p; float a=atan(q.y,q.x)+uGateTurn, sides=6.0, seg=6.2831853/sides;
     float rr=length(q)*cos(mod(a,seg)-seg*0.5)/cos(seg*0.5*0.6);   // a rounded hexagon's radius in this direction
     rr=mix(length(q),rr,0.6);
-    for(int i=0;i<8;i++){
+    for(int i=0;i<12;i++){
       vec4 g=uGate[i]; if(g.w<0.01) continue;
       float d=abs(rr-g.x); if(d>g.y*4.0) continue;
       col+=hsv(uHue+g.z,0.7,1.0)*uL_stargate*g.w*(smoothstep(g.y,0.0,d)+0.3*smoothstep(g.y*4.0,0.0,d))*(0.5+uTreb*uReact*0.6);

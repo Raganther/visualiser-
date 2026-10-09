@@ -305,7 +305,9 @@ export const TUNE = {
     cavitySlow: .45,           // through a cavity's middle the flight slows to this share, to take it in
     growCalm: .55, growHigh: 1.15,   // how long the crystals grow, calm to intense (a drop adds a little)
     heartSize: .3,             // a centrepiece standing in a cavity: its size at one unit away
-    motes: 1.2, wallGlow: .6}, // glittering dust in the cavities; the glowing layers laid on the rock
+    motes: 1.2, wallGlow: .6,  // glittering dust in the cavities; the glowing layers laid on the rock
+    hatShare: .1, anticipDist: 26,   // the share of crystals the hats light each 16th; in a drop's run-up the crystals light from this far off towards you
+    layerBars: {stab: 4, hat: 8}},   // when the stabs' pattern (every nth row of crystals round the fissure, stepping on) and the hats' come in
   cathedral: {speed: 2.2, calm: .45, surge: 1.8, surgeSecs: 3, morphSecs: 5,   // the Cathedral (worlds/cathedral.js): its flight down the nave, a drop's surge, a new section's hall growing in
     low: .1, high: 2.2,        // the camera's height: low in the nave when calm, up in the vaults at the height of a build
     lookAside: .35,            // calm music: glancing along the side aisles (radians)
