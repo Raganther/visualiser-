@@ -96,6 +96,10 @@ function fbPick(P){
   }
   const keys = FB_VISUALS.filter(v => t - (FB.seen[v.key] ?? -1e9) < L).map(v => v.key), key = keys.join(',');
   let e = FB.progs.get(key);
+  if (!e) {   // a ready one that covers this set and isn't much bigger serves: each new one froze the picture 0.2-0.5 s at its first draw (a Mac's stall log)
+    let cov = null; for (const c of FB.progs.values()) if (c.prog && c.keys.size - keys.length <= TUNE.render.fbSlack && keys.every(k => c.keys.has(k)) && (!cov || c.keys.size < cov.keys.size)) cov = c;
+    if (cov) { cov.used = t; FB.key = [...cov.keys].join(', ') || 'none'; fbProg = cov.prog; return; }
+  }
   if (!e) {   // start it compiling; until it's ready a bigger one that covers it does
     if (FB.progs.size >= TUNE.render.fbCache) {   // forget the one used longest ago
       let old = null; for (const [k, c] of FB.progs) if (!c.job && (!old || c.used < old[1].used)) old = [k, c];
@@ -157,8 +161,14 @@ function segWorlds(seg, P){
   if (!segHasW(seg)) return [];
   const t = performance.now(); for (const v of WORLD_VISUALS) if (P && P.w[v.key] > .003) wSeen[v.key] = t;
   // only the worlds drawing (or lately): with every flat world in each segment its shader was 50 KB, and a Chromebook's
-  // graphics chip took seconds to build each one, the picture frozen meanwhile (the user's stall log, 2026-10-09)
-  return WORLD_VISUALS.filter(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
+  // graphics chip took seconds to build each one, the picture frozen meanwhile (the user's stall log, 2026-10-09). A heavy
+  // world drawn in its own pass (lowPass) is only read back ('~'), without its code: on a Mac the cosmos in a new run froze
+  // the picture for 5 s at its first draw. Its code goes in only where a front needs it, or where it isn't drawn on its own
+  const front = seg.fill || seg.seg.some(it => it.t === 'front' || (it.mask && it.mask.world));
+  return WORLD_VISUALS.flatMap(v => {
+    if (v.lowRes && !front) { if (lowKey === v.key) return [v.key + '~']; if (!(P && P.w[v.key] > .003)) return []; }
+    return t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger ? [v.key] : [];
+  });
 }
 const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length ? '*' : wk.join(','));
 // Each is started compiling and left to the driver (in the background, where it can: KHR_parallel_shader_compile), and
@@ -234,7 +244,7 @@ export function warmScenes(scenes){
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
 let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
 let kal = {on: false}, kalM = null, kalMT = null, fin = {gl: [0, 0], grain: 0, t: 0, hush: 0};   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
-let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
+let low = null, lowOn = false, lowOk = false, lowKey = null;   // (lowKey: the heavy world drawn in its own pass this frame)   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
   mark(`surface made: ${w}×${h}${depth ? ' with depth' : ''}`);
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
@@ -326,7 +336,7 @@ export function drawGL(now, P){
   fbPick(P);
   fbShared(now, P);
   for (const g in sc.groups) out[g] = trailPass(now, P, g);
-  lowPass(now, P);
+  lowPass(now, P, out);
   const u = fbProg.u;
   // the scene's fills: another image seen through an object's glass. A trail group is already a picture; layers are drawn
   // alone by the trails' own shader in fill mode; worlds by a display segment, shrunk
@@ -419,16 +429,18 @@ const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, k
 // it (lowRes(P) < 1). It's drawn once, alone, at that size, and every segment reads it back, stretched; the glow, hits and
 // objects over it stay at full size. It also saves the world being traced twice when an object sits between its planes
 const lowSegs = {}, lowSeg = k => lowSegs[k] || (lowSegs[k] = {seg: [{t: 'world'}], first: true, last: false, key: 'world-low:' + k, only: k});
-function lowPass(now, P){
+function lowPass(now, P, out){
   const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003);
   Q.heavy = !!(w && w.heavy && w.heavy(P));   // a slow device draws a heavy world smaller before the whole picture (render/quality.js)
   const s = w ? Math.min(1, w.lowRes(P), Q.heavy ? Q.world : 1) : 1;
-  lowOn = s < .999 && !!segProg(lowSeg(w.key), P.sc, P);   // (not built yet: the segment traces it at full size meanwhile)
+  // a heavy world always has its own pass, at full size too (TUNE.render.heavyOwn), so no other shader holds its code
+  lowOn = !!w && (s < .999 || (TUNE.render.heavyOwn && w.heavy)) && !!segProg(lowSeg(w.key), P.sc, P);   // (not built yet: the segment traces it meanwhile)
+  lowKey = lowOn ? w.key : null;
   if (!lowOn) return;
   const lw = Math.max(2, Math.round(W*s)), lh = Math.max(2, Math.round(H*s));
   if (!low || low.w !== lw || low.h !== lh) { drop(low); low = target(lw, lh, false, hdr); }
   gl.bindFramebuffer(gl.FRAMEBUFFER, low.fb); gl.viewport(0, 0, lw, lh);
-  drawSeg(now, P, lowSeg(w.key), null, 1);
+  drawSeg(now, P, lowSeg(w.key), null, 1, out);   // (with the trails, for the glow on its walls)
 }
 const trailFills = {}, trailFill = g => trailFills[g] || (trailFills[g] = {seg: [{t: 'trails', g}], first: true, last: false, fill: true, key: 'trail-fill:' + g});
 // one display segment over the picture so far (under), into whatever is bound

@@ -11,10 +11,14 @@ export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8};   
 export function composeSegment(seg, plan, wk){
   const WV = WORLD_VISUALS.filter(v => !wk || wk.includes(v.key));
   // a world that draws at its own lower resolution (lowRes: the cosmos's ground) is read from that picture instead (uLow)
-  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`).join('\n');
+  // a heavy world drawn in its own pass ('cosmos~' in wk) is only read back here: its code (the cosmos's is 40 KB) isn't in
+  // this shader at all, so a new run with it in is quick to build
+  const RO = WORLD_VISUALS.filter(v => wk && wk.includes(v.key + '~'));
+  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`)
+    .concat(RO.map(v => `  if(uW_${v.key}>0.003&&uLow>0.5) w+=texture2D(uLowT,wuv).rgb*uW_${v.key};`)).join('\n');
   const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
-  const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
+  const groups = [...new Set([...seg.seg.filter(it => it.t === 'trails').map(it => it.g), ...(seg.only ? ['main'] : [])])];   // (a world drawn alone still reads the main trails, for the glow on its walls)
   const needW = seg.seg.some(it => it.t === 'world');
   const body = seg.seg.map(it => {
     const k = it.drive ? `*uK${it.i}` : '';   // a weight that follows a signal
