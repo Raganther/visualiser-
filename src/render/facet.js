@@ -141,14 +141,15 @@ void main(){
   gl_FragColor=vec4(c,vF.a);
 }`;
 const NA = 15, PROGS = new WeakMap();
+export const FACET = {khr: null};   // (tests: stand in for the driver's background building, where the browser has none)
 function prog(gl){
-  let s = PROGS.get(gl); if (s && gl.isProgram(s.p)) return s.u ? s : null;
-  if (!s || !gl.isProgram(s.p)) {
+  let s = PROGS.get(gl); if (s && s.u && gl.isProgram(s.p)) return s;
+  if (!s || !gl.isProgram(s.p)) {   // (started once; while the driver builds it in the background, asked again each frame)
     const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
     ['aP', 'aD', 'aE', 'aL', 'aF'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
     gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null});
   }
-  const x = gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;   // (still building: shown once it is)
+  const x = FACET.khr || gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;   // (still building: shown once it is)
   if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
   s.u = {}; for (const k of ['uWH', 'uLw', 'uCover', 'uFillAmt', 'uFillTex']) s.u[k] = gl.getUniformLocation(s.p, k);
   return s;

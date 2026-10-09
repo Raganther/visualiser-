@@ -29,10 +29,21 @@ const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0)/a.length
 
 const {srv, url} = await serve();
 for (const mode of ['2d', 'gl']) {
-  const browser = await launch(mode), page = await openPage(browser, url, {width: 320, height: 180});
+  const browser = await launch(mode), ctx = await browser.newContext();
+  // as on a real graphics card, shaders build in the background: each program reports itself unfinished the first few
+  // times it's asked (the prism once never drew there, though it did here, where they finish at once)
+  await ctx.addInitScript(() => { for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) { if (!C) continue;
+    const gp = C.prototype.getProgramParameter, seen = new WeakMap();
+    
+    const ss = C.prototype.shaderSource, at = C.prototype.attachShader, mine = new WeakSet();   // (only the facet engine's program: its fragment shader has uLw)
+    C.prototype.shaderSource = function(sh, src){ if (/uLw/.test(src)) mine.add(sh); return ss.call(this, sh, src); };
+    C.prototype.attachShader = function(p, sh){ if (mine.has(sh)) mine.add(p); return at.call(this, p, sh); };
+    C.prototype.getProgramParameter = function(p, n){ if (n === 0x91B1 && mine.has(p)) { const k = (seen.get(p) || 0) + 1; seen.set(p, k); return k > 3; } return gp.call(this, p, n); }; } });
+  const page = await openPage({newPage: o => ctx.newPage(o)}, url, {width: 320, height: 180});
   const r = await page.evaluate(`(async () => {
     const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {J} = await import('/src/journey/core.js');
     const {prismState, prismProgram} = await import('/src/visuals/objects/prism.js'), {TUNE} = await import('/src/tuning.js');
+    (await import('/src/render/facet.js')).FACET.khr = {COMPLETION_STATUS_KHR: 0x91B1};
     document.querySelector('#autoBtn').click();
     const set = (k, v) => { S.active[k] = v; curP[k] = v; };
     for (const s of document.querySelectorAll('input[id^=s_]')) if (!/decay|zoom|colorSpeed/.test(s.id)) set(s.id.slice(2), 0);
