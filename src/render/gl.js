@@ -165,10 +165,8 @@ function segWorlds(seg, P){
   // world drawn in its own pass (lowPass) is only read back ('~'), without its code: on a Mac the cosmos in a new run froze
   // the picture for 5 s at its first draw. Its code goes in only where a front needs it, or where it isn't drawn on its own
   const front = seg.fill || seg.seg.some(it => it.t === 'front' || (it.mask && it.mask.world));
-  return WORLD_VISUALS.flatMap(v => {
-    if (v.lowRes && !front) { if (lowKey === v.key) return [v.key + '~']; if (!(P && P.w[v.key] > .003)) return []; }
-    return t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger ? [v.key] : [];
-  });
+  const own = lowOk && TUNE.render.heavyOwn;   // (heavy worlds always in their own pass: never their code here, even before that pass is ready)
+  return WORLD_VISUALS.flatMap(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger ? [v.key + (own && v.heavy && !front ? '~' : '')] : []);
 }
 const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length ? '*' : wk.join(','));
 // Each is started compiling and left to the driver (in the background, where it can: KHR_parallel_shader_compile), and
@@ -244,7 +242,7 @@ export function warmScenes(scenes){
 // and full-size compose surfaces (with depth, for objects) when an object sits between two segments
 let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2;   // TW, TH: the trails' size
 let kal = {on: false}, kalM = null, kalMT = null, fin = {gl: [0, 0], grain: 0, t: 0, hush: 0};   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
-let low = null, lowOn = false, lowOk = false, lowKey = null;   // (lowKey: the heavy world drawn in its own pass this frame)   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
+let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
   mark(`surface made: ${w}×${h}${depth ? ' with depth' : ''}`);
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
@@ -430,12 +428,11 @@ const WORLD_FILL = {seg: [{t: 'world'}], first: true, last: false, fill: true, k
 // objects over it stay at full size. It also saves the world being traced twice when an object sits between its planes
 const lowSegs = {}, lowSeg = k => lowSegs[k] || (lowSegs[k] = {seg: [{t: 'world'}], first: true, last: false, key: 'world-low:' + k, only: k});
 function lowPass(now, P, out){
-  const w = lowOk && WORLD_VISUALS.find(v => v.lowRes && P.w[v.key] > .003);
+  const w = lowOk && WORLD_VISUALS.filter(v => v.lowRes && P.w[v.key] > .003).sort((a, b) => P.w[b.key] - P.w[a.key])[0];   // (two crossing: the stronger)
   Q.heavy = !!(w && w.heavy && w.heavy(P));   // a slow device draws a heavy world smaller before the whole picture (render/quality.js)
   const s = w ? Math.min(1, w.lowRes(P), Q.heavy ? Q.world : 1) : 1;
   // a heavy world always has its own pass, at full size too (TUNE.render.heavyOwn), so no other shader holds its code
   lowOn = !!w && (s < .999 || (TUNE.render.heavyOwn && w.heavy)) && !!segProg(lowSeg(w.key), P.sc, P);   // (not built yet: the segment traces it meanwhile)
-  lowKey = lowOn ? w.key : null;
   if (!lowOn) return;
   const lw = Math.max(2, Math.round(W*s)), lh = Math.max(2, Math.round(H*s));
   if (!low || low.w !== lw || low.h !== lh) { drop(low); low = target(lw, lh, false, hdr); }
