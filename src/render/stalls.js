@@ -4,7 +4,7 @@
 // surfaces made, Journey's changes, how long the script and the drawing took). Kept on the device (afterglow.stalls, the last
 // 40) and copied from the panel ("Copy the stall log") to paste to Claude. A leaf module: anything can mark.
 const KEY = 'afterglow.stalls';
-export const STALL = {ev: [], log: (() => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } })(), visit: 0, worst: 0, last: 0};
+export const STALL = {ev: [], log: (() => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } })(), visit: 0, worst: 0, last: 0, gpu: ''};
 // something that happened now (kept a couple of seconds, so a stall can show what came just before it)
 export function mark(what){ const t = performance.now(); STALL.ev.push([t, what]); while (STALL.ev.length && t - STALL.ev[0][0] > 2500) STALL.ev.shift(); }
 // once a frame, at its start: was the gap since the last one a stall? (script: how long the last frame's own work took)
@@ -18,6 +18,6 @@ export function stallCheck(now, script, draw, info, limit){
   try { localStorage.setItem(KEY, JSON.stringify(STALL.log)); } catch (e) {}
 }
 // the log as text, for pasting
-export const stallText = ua => `Afterglow stall log (${STALL.log.length} stalls kept; ${STALL.visit} this visit, worst ${Math.round(STALL.worst)} ms)\n${ua}\n\n` +
+export const stallText = ua => `Afterglow stall log (${STALL.log.length} stalls kept; ${STALL.visit} this visit, worst ${Math.round(STALL.worst)} ms)\n${ua}\n${STALL.gpu}\n\n` +
   STALL.log.map(s => `${s.when}  froze ${s.gap} ms (script ${s.script} ms, drawing ${s.draw} ms)\n  on screen: ${s.what}\n` + s.ev.map(e => '  ' + e).join('\n')).join('\n\n');
 export function stallClear(){ STALL.log = []; STALL.visit = 0; STALL.worst = 0; try { localStorage.removeItem(KEY); } catch (e) {} }

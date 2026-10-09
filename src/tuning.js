@@ -83,6 +83,7 @@ export const TUNE = {
     gfx: {best: {scale: 1, world: 1, trail: .75}, balanced: {scale: .85, world: .7, trail: .7}, fast: {scale: .7, world: .55, trail: .6},
       fastest: {scale: .55, world: .45, trail: .5}},
     freezeMs: 150,             // a frame this long after the last goes in the stall log (render/stalls.js)
+    fbSerial: 0,               // 1: build a trails shader for each set of layers even where the driver can't do it in the background (it freezes while it builds; the tests use it)
     fbWait: 400,               // ms to leave a trails shader compiling before using it, where the browser can't say when it's done
     fbCache: 24,               // how many trail shaders (one per set of visuals drawing) are kept at most (0: always the full one)
   },

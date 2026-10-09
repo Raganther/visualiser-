@@ -6,7 +6,7 @@ import { resolveScene } from '../scene/graph.js';
 import { meshData, meshWarm } from './mesh.js';
 import { litWarm } from './lit.js';
 import { facetWarm } from './facet.js';
-import { mark } from './stalls.js';
+import { STALL, mark } from './stalls.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -84,7 +84,9 @@ function makeTex(w, h, f){
 // that comes and goes doesn't swap programs each time
 const FB = {all: null, progs: new Map(), seen: {}, par: null, key: '*'};
 function fbPick(P){
-  if (!TUNE.render.fbCache) { fbProg = FB.all; FB.key = '*'; return; }   // 0: always the full shader
+  // 0: always the full shader. And where the driver can't build in the background, too: each new combination of layers
+  // froze the picture while it built (0.2-0.7 s each, on the user's Chromebook)
+  if (!TUNE.render.fbCache || (!FB.par && !TUNE.render.fbSerial)) { fbProg = FB.all; FB.key = '*'; return; }
   const t = performance.now(), sc = P.sc, L = TUNE.render.fbLinger;
   for (const v of FB_VISUALS) {
     const w = v.kind === 'layer' ? P.l[v.key] : P[v.trailWeight];
@@ -120,6 +122,7 @@ export const fbInfo = () => FB.key === '*' ? `all ${FB_VISUALS.length} visuals` 
 function setupGL(){
   for (const e of FB.progs.values()) if (e.prog) gl.deleteProgram(e.prog.p);
   FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile'); lastSc = null; canWait = true; primeT = null;
+  try { const d = gl.getExtension('WEBGL_debug_renderer_info'); STALL.gpu = `${d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}; shaders built in the background: ${FB.par ? 'yes' : 'no'}`; } catch (e) {}
   fbProg = FB.all = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
   post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
   low = null; lowOk = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) > UNIT.low;
@@ -153,7 +156,9 @@ function segWorlds(seg, P){
   if (seg.only) return [seg.only];   // one world alone (drawn at its own resolution)
   if (!segHasW(seg)) return [];
   const t = performance.now(); for (const v of WORLD_VISUALS) if (P && P.w[v.key] > .003) wSeen[v.key] = t;
-  return WORLD_VISUALS.filter(v => !v.lowRes || t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
+  // only the worlds drawing (or lately): with every flat world in each segment its shader was 50 KB, and a Chromebook's
+  // graphics chip took seconds to build each one, the picture frozen meanwhile (the user's stall log, 2026-10-09)
+  return WORLD_VISUALS.filter(v => t - (wSeen[v.key] ?? -1e9) < TUNE.render.fbLinger).map(v => v.key);
 }
 const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length ? '*' : wk.join(','));
 // Each is started compiling and left to the driver (in the background, where it can: KHR_parallel_shader_compile), and
@@ -203,12 +208,12 @@ export const segInfo = () => [...segProgs].map(([k, e]) => k + (e.p ? '' : e.fai
 export function warmScenes(scenes){
   if (!gl) return;
   const todo = [], seen = new Set(), add = (st, plan, wk) => { const k = segKey(st, wk); if (!seen.has(k)) { seen.add(k); todo.push([k, st, plan, wk]); } };
-  // each run without the big worlds only: one coming in is built when it's first drawn, and the run stands in meanwhile
-  // (warming every run with all of them too queued dozens of huge shaders, built one at a time, ahead of what was needed)
-  const small = WORLD_VISUALS.filter(v => !v.lowRes).map(v => v.key);
-  const both = (st, plan) => add(st, plan, segHasW(st) ? small : []);
+  // each run without any world: a world coming in is built when it's first drawn (small: that world alone), and the run
+  // stands in meanwhile. (Warming each with every flat world queued dozens of 50 KB shaders; where the driver can't build
+  // in the background, the picture froze for seconds at a time while it did)
+  const both = (st, plan) => add(st, plan, []);
   for (const sc of scenes) { const plan = resolveScene(sc); for (const st of plan.steps) if (st.seg) both(st, plan); }
-  if (todo.length) { const plan = todo[0][2]; for (const v of WORLD_VISUALS) if (v.lowRes) add(lowSeg(v.key), plan, [v.key]);   // a world drawn at its own size has its own
+  if (todo.length) { const plan = todo[0][2]; for (const v of WORLD_VISUALS) if (v.lowRes && !S.skipW.has(v.key)) add(lowSeg(v.key), plan, [v.key]);   // a world drawn at its own size has its own (not one Journey leaves out)
     both(WORLD_FILL, plan); }
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50)), started = [];
   try { meshWarm(gl); } catch (e) {}   // the objects' program, and each one's vertex data, one a turn
