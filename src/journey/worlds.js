@@ -1,4 +1,5 @@
 // Journey: choosing a world for each section.
+import { S } from '../state.js';
 import { FEATS, J, WORLDS } from './core.js';
 import { WORLD_VISUALS } from '../visuals/registry.js';
 import { relFeat } from './sections.js';
@@ -18,5 +19,6 @@ export function chooseWorld(random){
   // tired worlds (and a long black) step back, so a steady track doesn't get the same world turn after turn
   for (const k in sc) sc[k] -= (J.wFat[k] || 0)*TUNE.worldFatigueWeight;
   for (const k in sc) sc[k] += (STEER.pin[k] ? 99 : 0) - (STEER.ban[k] ? 99 : 0);   // steered by hand (journey/steer.js)
+  for (const k in sc) if (S.skipW.has(k) && !STEER.pin[k]) sc[k] -= 99;   // left out on this device (the panel's "3D worlds in Journey": for speed)
   J.world = Object.keys(sc).sort((a, b) => sc[b] - sc[a])[0]; J.worldTime = 0;
 }

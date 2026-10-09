@@ -11,6 +11,7 @@
 // lights: [{p: [x,y,z], c: [r,g,b]} x3] (in the object's space before its turn: the camera looks down -z from z 3.2;
 // the object fits a sphere of about .6), amb [r,g,b], glow (the eyes), trans (light through the thin parts), trail, look,
 // neon [[r,g,b] x2], and bend: {z: [9 angles], x: [9 angles]} (radians, at each joint, about z and about x).
+import { mark } from './stalls.js';
 
 const CAM = 3.2, FOCAL = 2.6, SHADOW = 1024, EXT = .78, NJ = 9;   // (the camera as in render/mesh.js); the shadow map's size and reach; the spine's joints
 
@@ -158,14 +159,14 @@ function prog(gl){
     const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => {
       const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
     ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
-    gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null});
+    gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); mark('shader started: lit objects');
   }
   if (!s.u) {
     const x = gl.getExtension('KHR_parallel_shader_compile');
     if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;
     if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
     const u = {}; for (let i = 0, n = gl.getProgramParameter(s.p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(s.p, i); u[a.name.replace('[0]', '')] = gl.getUniformLocation(s.p, a.name); }
-    s.u = u;
+    s.u = u; mark('shader linked: lit objects');
   }
   return s;
 }

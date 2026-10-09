@@ -8,6 +8,7 @@
 // shows only once the detail reaches that level, fading in.
 // It's drawn one frame at a time from what the brain hands over: per vertex its radius (the shape) and detail; per fine
 // face (sorted far to near here) its fill colour and alpha, its edge colour, and how far it's pushed out.
+import { mark } from './stalls.js';
 
 const CAM = 3.2, FOCAL = 2.6;   // the same camera as render/mesh.js, so facets and wire objects stand in one space
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
@@ -147,12 +148,12 @@ function prog(gl){
   if (!s || !gl.isProgram(s.p)) {   // (started once; while the driver builds it in the background, asked again each frame)
     const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
     ['aP', 'aD', 'aE', 'aL', 'aF'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
-    gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null});
+    gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); mark('shader started: facets');
   }
   if (FACET.wait > 0) { FACET.wait--; return null; }
   const x = gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;   // (still building: shown once it is)
   if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
-  s.u = {}; for (const k of ['uWH', 'uLw', 'uCover', 'uFillAmt', 'uFillTex']) s.u[k] = gl.getUniformLocation(s.p, k);
+  mark('shader linked: facets'); s.u = {}; for (const k of ['uWH', 'uLw', 'uCover', 'uFillAmt', 'uFillTex']) s.u[k] = gl.getUniformLocation(s.p, k);
   return s;
 }
 export const facetWarm = gl => { try { prog(gl); } catch (e) {} };

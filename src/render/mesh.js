@@ -8,6 +8,7 @@
 // and its dance (scene/dance.js): roll (a lean), sq (squash and stretch), lift and liftPart (one part lifting off); and
 // style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points, 5 shaded
 // (smooth, lit like skin: each corner's normal averaged over the panes round it, lit per pixel, the wire faint over it).
+import { mark } from './stalls.js';
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // facet light switched off (an object without U.fx), and its default colours
@@ -160,7 +161,7 @@ function meshStart(gl){
   const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => {
     const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
   ATT.forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
-  gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); return s;
+  gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); mark('shader started: wire objects'); return s;
 }
 // null until the driver has built it, where it can say (KHR_parallel_shader_compile): waiting froze the picture
 const built = (gl, p) => { const x = gl.getExtension('KHR_parallel_shader_compile'); return !x || gl.getProgramParameter(p, x.COMPLETION_STATUS_KHR); };
@@ -170,7 +171,7 @@ function meshProg(gl){
     if (!built(gl, s.p)) return null;
     if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
     const u = {}; for (let i = 0, n = gl.getProgramParameter(s.p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(s.p, i); u[a.name] = gl.getUniformLocation(s.p, a.name); }
-    s.u = u;
+    s.u = u; mark('shader linked: wire objects');
   }
   return s;
 }

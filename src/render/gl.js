@@ -5,6 +5,8 @@ import { FB_VISUALS, UNIT, composeFeedback, composeSegment } from './compose.js'
 import { resolveScene } from '../scene/graph.js';
 import { meshData, meshWarm } from './mesh.js';
 import { litWarm } from './lit.js';
+import { facetWarm } from './facet.js';
+import { mark } from './stalls.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -24,13 +26,21 @@ function compile(type, src){
 }
 // start compiling and linking a program; linked() waits for it (and reads its uniforms), so a driver that compiles in the
 // background (KHR_parallel_shader_compile) can be left to finish while frames go on
-function startProgram(fs, vs){
+function startProgram(fs, vs, label){   // (label: what it's for, in the stall log)
   const p = gl.createProgram(), sh = [gl.createShader(gl.VERTEX_SHADER), gl.createShader(gl.FRAGMENT_SHADER)];
   [vs || VERT, fs].forEach((src, i) => { gl.shaderSource(sh[i], src); gl.compileShader(sh[i]); gl.attachShader(p, sh[i]); });
   gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
-  return {p, sh};
+  if (label) mark(`shader started: ${label} (${Math.round(fs.length/1024)} KB)`);
+  return {p, sh, label};
 }
-function linked({p, sh}){
+function linked(job){
+  const t0 = performance.now(), r = linkedNow(job);
+  if (job.label) { r.label = job.label; mark(`shader linked: ${job.label} (${Math.round(performance.now() - t0)} ms)`); }
+  return r;
+}
+// the first time a program draws, for the stall log (a driver may still build part of it then)
+const firstUse = pr => { if (pr && !pr.used) { pr.used = 1; if (pr.label) mark('first draw: ' + pr.label); } };
+function linkedNow({p, sh}){
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
     const log = sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(p);
     sh.forEach(x => gl.deleteShader(x)); gl.deleteProgram(p); throw new Error(log);
@@ -90,7 +100,7 @@ function fbPick(P){
       if (old) { if (old[1].prog) gl.deleteProgram(old[1].prog.p); FB.progs.delete(old[0]); }
     }
     e = {keys: new Set(keys), job: null, prog: null, used: t, at: t};
-    try { e.job = startProgram(composeFeedback(e.keys)); } catch (err) { e.failed = true; }
+    try { e.job = startProgram(composeFeedback(e.keys), null, 'trails: ' + (keys.join(', ') || 'none')); } catch (err) { e.failed = true; }
     FB.progs.set(key, e);
   }
   // ready: the driver says so, or (without that extension) a moment has passed, since browsers mostly compile off the page's thread
@@ -109,7 +119,7 @@ function fbPick(P){
 export const fbInfo = () => FB.key === '*' ? `all ${FB_VISUALS.length} visuals` : FB.key;
 function setupGL(){
   for (const e of FB.progs.values()) if (e.prog) gl.deleteProgram(e.prog.p);
-  FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile'); lastSc = null; canWait = true;
+  FB.progs.clear(); FB.par = gl.getExtension('KHR_parallel_shader_compile'); lastSc = null; canWait = true; primeT = null;
   fbProg = FB.all = program(composeFeedback()); segProgs.clear(); pProg = program(PFRAG, PVERT);
   post = {bright: program(BRIGHT), blur: program(BLUR), finish: program(FINISH)}; hdr = detectHdr();
   low = null; lowOk = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) > UNIT.low;
@@ -149,7 +159,7 @@ const segKey = (seg, wk) => seg.key + '|' + (wk.length === WORLD_VISUALS.length 
 // Each is started compiling and left to the driver (in the background, where it can: KHR_parallel_shader_compile), and
 // linked once it's done. Until then the run with every world in it ('*', drawing exactly the same picture: a world without
 // weight draws nothing) stands in if it's ready, so a world leaving doesn't stall a frame
-const segJob = (key, seg, plan, wk) => { const e = {job: startProgram(composeSegment(seg, plan, wk)), at: performance.now(), p: null}; segProgs.set(key, e); return e; };
+const segJob = (key, seg, plan, wk) => { const e = {job: startProgram(composeSegment(seg, plan, wk), null, 'segment ' + key.slice(0, 90)), at: performance.now(), p: null}; segProgs.set(key, e); return e; };
 const segDone = e => !!e.job && (FB.par ? gl.getProgramParameter(e.job.p, FB.par.COMPLETION_STATUS_KHR) : performance.now() - e.at > TUNE.render.fbWait);
 function segLink(e){ const j = e.job; e.job = null; try { e.p = linked(j); } catch (err) { e.failed = err; } if (e.failed) throw e.failed; return e.p; }
 // Never waited for once a scene has drawn: on some drivers (Direct3D's compiler, under Chrome on Windows) a big shader
@@ -173,6 +183,20 @@ function segProg(seg, plan, P){
   }
   return best ? best.p : canWait ? segLink(e) : null;
 }
+// A program drawn once, a pixel into each kind of surface it draws into, while the page is idle: a driver may build part of a
+// shader only when it first draws (Direct3D under Chrome: for each kind of surface), and that build froze the picture at
+// the transition that first needed it. (Its uniforms are left as they are: the pixel is thrown away.)
+let primeT = null;
+function prime(pr){
+  try {
+    if (!primeT) primeT = [target(1, 1, false, null), ...(hdr ? [target(1, 1, false, hdr)] : [])];
+    const fb0 = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT);
+    gl.useProgram(pr.p); gl.disable(gl.BLEND);
+    for (const t of primeT) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, 1, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb0); gl.viewport(vp[0], vp[1], vp[2], vp[3]);
+    if (pr.label) mark('drawn once while idle: ' + pr.label);
+  } catch (e) {}
+}
 export const segInfo = () => [...segProgs].map(([k, e]) => k + (e.p ? '' : e.failed ? ' (failed)' : ' (compiling)'));   // for tests and tools
 // compile the segment shaders these scenes will need while the page is idle, so a scene's first bar line has them ready:
 // each run without the big worlds, and the big worlds drawn at their own size
@@ -189,12 +213,13 @@ export function warmScenes(scenes){
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50)), started = [];
   try { meshWarm(gl); } catch (e) {}   // the objects' program, and each one's vertex data, one a turn
   for (const o of OBJECT_VISUALS) if (o.mesh) todo.push(['mesh', o.mesh]);
-  todo.push(['lit']);   // the lit objects' program (render/lit.js)
+  todo.push(['lit'], ['facet']);   // the lit objects' program (render/lit.js), the faceted objects' (render/facet.js)
   const next = () => {
     if (lost) return;
     if (todo.length && todo[0][0] === 'lit') { todo.shift(); litWarm(gl); idle(next); return; }
+    if (todo.length && todo[0][0] === 'facet') { todo.shift(); facetWarm(gl); idle(next); return; }
     if (todo.length && todo[0][0] === 'mesh') { try { meshData(todo.shift()[1]); } catch (e) {} idle(next); return; }
-    for (const e of started) if (!e.p && !e.failed && segDone(e)) try { segLink(e); } catch (err) {}   // link what's finished
+    for (const e of started) if (!e.p && !e.failed && segDone(e)) try { segLink(e); prime(e.p); } catch (err) {}   // link what's finished, and draw it once out of sight
     if (todo.length) { const [k, st, plan, wk] = todo.shift(); if (!segProgs.has(k)) try { started.push(segJob(k, st, plan, wk)); } catch (err) {} }
     if (todo.length || started.some(e => !e.p && !e.failed)) idle(next);
   };
@@ -206,6 +231,7 @@ let fills = {}, masks = [], groups = {}, surfs = [], blooms = [], TW = 2, TH = 2
 let kal = {on: false}, kalM = null, kalMT = null, fin = {gl: [0, 0], grain: 0, t: 0, hush: 0};   // the kaleidoscope this frame, and its objects' silhouettes (kalPrep)
 let low = null, lowOn = false, lowOk = false;   // a world drawn at its own lower resolution (lowRes), whether it's in use this frame, and whether there's a texture unit for it
 function target(w, h, depth, f){
+  mark(`surface made: ${w}×${h}${depth ? ' with depth' : ''}`);
   const tex = makeTex(w, h, f), fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
   let rb = null;
@@ -235,7 +261,7 @@ const pairOf = g => g === 'main' ? {fbos, get cur(){ return cur; }, set cur(v){ 
 // one feedback pass for a trail group: the last frame moved and faded, and the group's own layers drawn on top
 // the trails' shader settings every pass shares (trail groups and fills), and this frame's audio data: once a frame
 function fbShared(now, P){
-  gl.useProgram(fbProg.p); const u = fbProg.u;
+  gl.useProgram(fbProg.p); firstUse(fbProg); const u = fbProg.u;
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dataTex);
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArr);
   gl.uniform1i(u.uData, 1);
@@ -260,7 +286,7 @@ function fbShared(now, P){
 function trailPass(now, P, g){
   const sc = P.sc, pr = pairOf(g), src = pr.fbos[pr.cur], dst = pr.fbos[1 - pr.cur], inG = k => sc.groupOf(k) === g;
   gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb); gl.viewport(0,0,TW,TH);
-  gl.useProgram(fbProg.p); const u = fbProg.u;
+  gl.useProgram(fbProg.p); firstUse(fbProg); const u = fbProg.u;
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrev, 0);
   gl.uniform1f(u.uSym, P.sym); gl.uniform1f(u.uMirror, P.mirror);
   // only this group's layers (and hits drawn in the trails) show in it
@@ -308,7 +334,7 @@ export function drawGL(now, P){
       drawSeg(now, P, f.src === 'world' ? WORLD_FILL : trailFill(f.g), null, f.zoom, out, [], f.src === 'world' ? TUNE.scene.worldFillGain : 1);
       P.m[key].fillTex = t.tex; continue;
     }
-    gl.useProgram(fbProg.p);
+    gl.useProgram(fbProg.p); firstUse(fbProg);
     const Pf = {...P, l: {}};
     for (const k in P.l) Pf.l[k] = f.layers.includes(k) ? 1 : 0;
     for (const h of HIT_VISUALS) if (h.inTrails && !f.layers.includes(h.key)) Pf[h.trailWeight] = 0;
@@ -405,7 +431,7 @@ function drawSeg(now, P, st, under, zoom, out = {}, maskOn = [], gain = 1, useLo
   const sc = P.sc, pr = segProg(st, sc, P);
   if (!pr) return;   // (a fill whose shader isn't built yet: it shows next time)
   const v = pr.u;
-  gl.useProgram(pr.p);
+  gl.useProgram(pr.p); firstUse(pr);
   if (v.uLow) { gl.uniform1f(v.uLow, useLow ? 1 : 0);   // read the world drawn smaller (lowPass), or trace it here
     if (useLow) { gl.activeTexture(gl.TEXTURE0 + UNIT.low); gl.bindTexture(gl.TEXTURE_2D, low.tex); gl.uniform1i(v.uLowT, UNIT.low); } }
   gl.uniform2f(v.uRes, W, H);

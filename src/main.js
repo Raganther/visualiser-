@@ -41,6 +41,7 @@ import { noteFrame } from './scene/notes.js';
 import './play/host.js';   // the play lab (opt-in: the bar's Play button)
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
+import { mark, stallCheck } from './render/stalls.js';
 import { S, viewAsp } from './state.js';
 import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
 import { tIndex, tracks } from './audio/player.js';
@@ -90,15 +91,28 @@ function frame(now){
   if (frame.due === undefined) frame.due = now;
   if (now < frame.due - 3) return;   // (a tick up to 3 ms early counts: the timestamps jitter)
   frame.due = now - frame.due > 1000/60 ? now + 1000/60 : frame.due + 1000/60;   // after a stall, no burst to catch up
+  stallCheck(now, frame.ms || 0, frame.draw || 0, stallInfo, TUNE.render.freezeMs);   // (render/stalls.js: what happened in a frame that froze)
+  journeyMarks();
   const t0 = performance.now();
   djFrame();   // the lead deck gives the beat grid its map and time (audio/dj.js)
   // the notes played (the sequencer's, the synth's) as signals, as they're heard (scene/notes.js)
   const ndt = Math.min(.1, (now - (frame.nt || now))/1000); frame.nt = now; noteFrame(RECENT.length ? heardNow() : null, ndt, onHitFX);
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
-  fpsTick(now, performance.now() - t0, fpsInfo);
+  frame.ms = performance.now() - t0;
+  fpsTick(now, frame.ms, fpsInfo);
   tasteFrame();   // a like or dislike takes this frame's picture
   if (now - (frame.now || 0) > 500) { frame.now = now; showNow(eff); }   // the panel's "On screen" line
   if (!window.__noDraw && qualityTick(performance.now())) resize();   // slow frames: draw smaller (render/quality.js)
+}
+// Journey's changes, for the stall log: a freeze usually comes with something new on screen
+const JM = {};
+function journeyMarks(){
+  const now = {world: J.on ? J.world : null, lead: J.lead, accent: J.accent, hit: J.hit, centre: J.centre, scene: J.on ? (J.sceneLive ? J.sceneKey : 'plain') : null, kal: J.kal ? J.kal.n : 0, type: J.type && J.type.label};
+  for (const k in now) { if (JM[k] !== undefined && JM[k] !== now[k]) mark(`${k === 'type' ? 'section' : k}: ${JM[k] ?? 'none'} → ${now[k] ?? 'none'}`); JM[k] = now[k]; }
+}
+function stallInfo(){
+  const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
+  return `${gl ? 'WebGL' : 'simple'} ${c.width}×${c.height}, graphics ${gfxLevel()}; ` + ([...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(HIT_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing');
 }
 // the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene
 function fpsInfo(){
@@ -180,7 +194,9 @@ function render(now){
   // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
   if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);
   S.lastP = P;   // (the play lab reads where things were drawn: src/play/)
+  const d0 = performance.now();
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
+  frame.draw = performance.now() - d0;
 
   if (++frameN % 6 === 0) {
     // (the page's styles are written only when they change: each write restyles the whole document)

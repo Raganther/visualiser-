@@ -102,7 +102,10 @@
   <div class="row"><button id="tapSync" class="btn" type="button">Tap on the kick</button><output id="tapOut">tap along to set the sync (Bluetooth speakers)</output></div>
   <div class="row"><label for="gfx">Graphics (Q; remembered on this device)</label><select id="gfx"></select></div>
   <p class="note" id="gfxNote"></p>
+  <div class="row"><label for="heavyW">3D worlds in Journey (remembered on this device)</label><select id="heavyW">
+    <option value="all">All of them</option><option value="cosmos">All but the cosmos (the heaviest)</option><option value="none">None (only the flat worlds: lightest)</option></select></div>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
+  <div class="row"><button id="stallCopy" class="btn" type="button">Copy the stall log</button><output id="stallOut">no freezes recorded</output></div>
   <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey, and no other world, until this tab closes (to keep it for a while, W then its number while Journey runs). Whenever the cosmos is on screen, C then a key flies it (? lists them)</label>
   <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
   <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
