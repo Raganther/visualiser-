@@ -7,8 +7,10 @@
 // distance). Its front plane is the near frames. Simple mode draws the frames as outlines receding, mirrored in the floor.
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { S } from '../../state.js';
+import { SIG } from '../../scene/signals.js';
 
-const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null};
+const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, sec: 0, secT: -9, lastHit: 0, bars: 0, secBars: 0, t: 0, typ: null};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 const SP = 2.4, FLOOR = -1.1, H = 1.1;   // a frame every SP units; the floor; the frames' top
 // a section's hall: its frame (0 square, 1 arch, 2 hexagon, 3 ring), how wide
@@ -49,7 +51,7 @@ export default {
   light: {hue: .85, sat: .7, x: 0, y: -.3},
   // driving, percussive music: the kick and the build
   suits: (rf, T) => rf.perc*.35 + rf.busy*.1 + T*.25 - rf.mid*.05,
-  onBeat(){ st.wave = 0; },   // each kick: a wave of light rushing away down the frames
+  onBeat(pos){ st.wave = 0; if (pos === 0) { st.bars++; st.secBars++; } },   // each kick: a wave of light rushing away down the frames
   params(P, x){
     const T = TUNE.corridor, J = x.J, on = P.w.corridor > .05, ten = (J && J.tension) || 0;
     sectionLayout(st, 'crD', J, on, x.dt, T.morphSecs);
@@ -67,6 +69,13 @@ export default {
     P.cr2 = [A[0], B[0], m, A[1] + (B[1] - A[1])*m];
     P.cr3 = [st.wave*T.waveSpeed, Math.exp(-st.wave*T.waveFade)*x.dim, strobe, (P.treb || 0)*x.react];
     P.crS = CSEQ.on ? CSEQ.lit : -1;
+    // sequenced patterns, joining as a section runs (TUNE.corridor.layerBars): stabs light every nth frame, stepping on down the
+    // hall with each stab; the hats flicker a random few each 16th; a drop's run-up lights the frames from far off towards you
+    st.t += x.dt; if (J && J.type !== st.typ) { st.typ = J.type; st.secBars = 0; }
+    if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; } st.lastHit = x.hit;
+    const s16 = SIG.barPhase > 0 ? Math.floor(SIG.barPhase*16) : Math.floor(st.t/(Math.max(.25, S.beatPeriod)/4)) % 16, nth = 3 + (st.D1 % 3), anticip = (J && J.anticip) || 0;
+    P.crP = [st.sec % nth, st.secBars >= T.layerBars.stab ? (.4 + .6*Math.exp(-(st.t - st.secT)*2.5))*x.dim : 0, (s16 + st.bars*16) % 256, st.secBars >= T.layerBars.hat ? Math.min(1, SIG.hat*1.4)*T.hatShare : 0];
+    P.crQ = [nth, anticip > .02 ? (1 - anticip)*T.anticipDist : 999, 0, 0];
     // the centrepiece stands in the hall every `gate` units, and is gone once the camera is past it
     if (P.w.corridor > .5) {
       const kc = Math.ceil((st.z + 1)/T.gate)*T.gate, C = [path(kc)[0], -.05, kc], cam = camFrame(st.z), s = onScreen(cam, C);
@@ -76,7 +85,7 @@ export default {
     P.crF = P.anchor && P.anchor.dist ? P.anchor.dist : 2.5;   // its front plane: the frames nearer than the centrepiece, or the near ones
   },
   glsl: {
-    uniforms: `uniform vec4 uCr, uCr2, uCr3; uniform float uCrF, uCrG, uCrW, uCrS;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow; the glowing layers in the floor`,
+    uniforms: `uniform vec4 uCr, uCr2, uCr3, uCrP, uCrQ; uniform float uCrF, uCrG, uCrW, uCrS;   // the Corridor: where along it, the hall's line here and ahead, the surge; its frames blended, width; the kick's wave (how far, how bright), the strobe, the hats; the front plane's depth; the glow; the glowing layers in the floor`,
     functions: `
 float crX(float z){ return sin(z*0.045)*2.2+sin(z*0.017)*1.5; }
 // a frame's outline (its distance in the frame's plane): 0 square, 1 arch, 2 hexagon, 3 ring
@@ -98,9 +107,11 @@ vec3 crRay(vec2 sp,out vec3 ro){ ro=vec3(uCr.y,-0.15,uCr.x); vec3 f=normalize(ve
 vec3 crCol(float id){
   float ahead=id*${SP.toFixed(1)}-uCr.x, wave=exp(-pow((ahead-uCr3.x)*0.35,2.0))*uCr3.y;
   float lit=0.35+0.4*step(mod(id,4.0),0.5)+2.2*wave+1.2*uCr.w+2.5*uCr3.z;
+  float stab=abs(mod(id,uCrQ.x)-uCrP.x)<0.5 ? uCrP.y : 0.0, hat=uCrP.w>0.0&&fract(sin((id*0.37+uCrP.z*17.1)*127.1+311.7)*43758.5453)<uCrP.w ? 1.0 : 0.0, run=ahead>uCrQ.y ? 1.0 : 0.0;
+  lit+=1.6*stab+1.4*hat+1.2*run;
   if(uCrS>=0.0) lit=lit*0.45+2.6*mod(floor(uCrS/exp2(mod(id,16.0))),2.0);   // (as a sequencer: the frames lit burn, the rest dim)
   float m=mod(id,3.0), h=m<1.0 ? uPal.x : m<2.0 ? uPal.y : uPal.z;
-  return hsv(uHue+h,0.85-0.5*uCr3.z,1.0)*lit;
+  return hsv(uHue+(stab>0.0 ? uPal.y : h),0.85-0.5*uCr3.z-0.5*hat,1.0)*lit;
 }
 // the frames' glow gathered along a ray up to tmax (a hit on a tube adds its core)
 vec3 crGlow(vec3 ro,vec3 rd,float tmax,int n){
@@ -126,7 +137,7 @@ vec3 corridor(vec2 sp){
 }`,
     fn: 'corridor',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); gl.uniform1f(u.uCrW, TUNE.corridor.wallGlow); if (u.uCrS) gl.uniform1f(u.uCrS, P.crS ?? -1); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uCr, P.cr); gl.uniform4fv(u.uCr2, P.cr2); gl.uniform4fv(u.uCr3, P.cr3); if (u.uCrP) { gl.uniform4fv(u.uCrP, P.crP || [0, 0, 0, 0]); gl.uniform4fv(u.uCrQ, P.crQ || [3, 999, 0, 0]); } gl.uniform1f(u.uCrF, P.crF || 2.5); gl.uniform1f(u.uCrG, TUNE.corridor.glow); gl.uniform1f(u.uCrW, TUNE.corridor.wallGlow); if (u.uCrS) gl.uniform1f(u.uCrS, P.crS ?? -1); },
   front: {
     fn: 'corridorFront',
     glsl: `
@@ -143,9 +154,11 @@ float corridorFront(vec2 sp){ vec3 ro, rd=crRay(sp,ro); float t=0.05, id;
     o.lineCap = 'round'; o.lineJoin = 'round';
     for (let k = Math.floor(z0/SP) + 22; k > z0/SP; k--) {
       const zc = k*SP, cx = path(zc)[0], c = onScreen(cam, [cx, 0, zc]); if (c.z < .3) continue;
-      const ahead = zc - z0, wave = Math.exp(-(((ahead - wf)*.35)**2))*wb, l0 = .35 + .4*(k % 4 === 0) + 2.2*wave + 1.2*surge + 2.5*strobe;
+      const ahead = zc - z0, wave = Math.exp(-(((ahead - wf)*.35)**2))*wb, Pp = P.crP || [0, 0, 0, 0], Qq = P.crQ || [3, 999];
+      const stab = Math.abs((((k % Qq[0]) + Qq[0]) % Qq[0]) - Pp[0]) < .5 ? Pp[1] : 0, hx = Math.sin((k*.37 + Pp[2]*17.1)*127.1 + 311.7)*43758.5453, hat = Pp[3] > 0 && hx - Math.floor(hx) < Pp[3] ? 1 : 0;
+      const l0 = .35 + .4*(k % 4 === 0) + 2.2*wave + 1.2*surge + 2.5*strobe + 1.6*stab + 1.4*hat + (ahead > Qq[1] ? 1.2 : 0);
       const lit = Math.min(1.6, P.crS >= 0 ? l0*.45 + 2.6*((P.crS >> (((k % 16) + 16) % 16)) & 1) : l0);   // (as a sequencer: the frames lit burn)
-      const fog = Math.exp(-c.z*.025), hue = P.hue + pal[((k % 3) + 3) % 3], px = Hh*.5/c.z/1.25;
+      const fog = Math.exp(-c.z*.025), hue = P.hue + (stab > 0 ? pal[1] : pal[((k % 3) + 3) % 3]), px = Hh*.5/c.z/1.25;
       for (const mir of [1, 0]) {   // the reflection first, dimmer
         o.beginPath();
         pts.forEach(([qx, qy], i) => { const y = mir ? qy : 2*FLOOR - qy, s = onScreen(cam, [cx + qx, y, zc]);

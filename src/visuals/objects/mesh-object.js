@@ -8,15 +8,19 @@ import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { meshDraw2d, meshGL, meshPath2d, meshPick, panesOf } from '../../render/mesh.js';
 import { DANCE } from '../../scene/dance.js';
+import { makeFx } from '../../scene/facets.js';
+import { hsv2rgb } from '../../util.js';
 
 // motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight).
 // dance: its character as a dancer (scene/dance.js): {moves: {move: weight}, sym (its snap turns: a full turn over sym), liftPart}
 export function meshObject({key, label, words, mesh, motion, dance}){
   let drawGL = null, glGen = -1, panes2d = null;
+  const fx = makeFx(key.length*7.3 + key.charCodeAt(0));   // its panes' facet light, each part of the music its pattern
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
     key, kind: 'object', label, words, optIn: true, mesh, dance,   // (the mesh, so its vertex data can be worked out while the page is idle)
     onBeat(pos){
+      fx.beat(pos);
       if (pos !== 0) return;
       st.glow = 1; st.sw = 0;                           // the edges flare and a band of light starts down it
       if (!st.jOn && ++st.bars % 16 === 0) st.exT = 1;   // by hand (no Journey), it shatters every 16 bars
@@ -54,6 +58,8 @@ export function meshObject({key, label, words, mesh, motion, dance}){
         sweep: st.sw, sweepAmt: st.sw < 1 ? 1 : 0, spark: st.spark*x.dim, sparkSeed: st.sparkSeed, glow: st.glow*x.dim,
         trail: M.trail, w: Math.min(1, w*1.2), style: Math.round((x.eff && x.eff.objStyle) || 0),
       };
+      if (w > .003 && TUNE.mesh.fx.amount > 0) { fx.step(x); const h = P.hue + st.hue, pal = P.pal || [0, .33, .67];
+        P.m[key].fx = fx.U; P.m[key].fxC = [hsv2rgb(h + pal[0], .75, 1), hsv2rgb(h + pal[1], .8, 1), hsv2rgb(h + pal[2], .25, 1)].map(c => c.map(v => v*x.dim)); }
       if (motion) motion(P.m[key], P, x);
       const U = P.m[key], d = DANCE.obj[key];   // its dance, on top: a turn, a nod, a lean, a step, a lunge, a squash, a part lifting
       if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; U.lift = d.lift; U.liftPart = d.part; }

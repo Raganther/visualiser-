@@ -177,6 +177,10 @@ export const TUNE = {
     fill: .12,                 // how much light the glass panes hold
     dark: .75,                 // how much the glass darkens what's behind it (so it reads as a solid)
     xray: .22,                 // how brightly the far side's edges show through
+    fx: {amount: 1,            // facet light (scene/facets.js): how bright the panes light in patterns with the music (0: none)
+      ripSpeed: 2.2, ripSecs: 1.5,   // the kick's ring: how fast it runs across (radians a second) and how long it lasts
+      hatShare: .1,            // the share of panes the hats light each 16th, at full hats
+      layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
     trail: 0,                  // how bright the ghosts they leave in the trails are (0: none, and no pass for them; the user found the streaks
                                // they smear into, out from the object, distracting: .15 before)
   },
@@ -239,6 +243,26 @@ export const TUNE = {
     release: 7,                // how fast the grip lets go (a second)
     spread: 1,                 // a drop flinging it open
   },
+  gems: {chance: 0, size: .42, journey: 1.3,   // the gem orbit (objects/gems.js): five gems, each played by one part of the music
+    ring: .38, gem: .38,       // how wide their ring is, how big each gem is (both as shares of the size)
+    orbit: .35,                // how fast they circle (faster as the music builds; a drop flings them round)
+    joinBars: 2},              // a section brings them in one at a time, this many bars apart
+  rosette: {rings: 6, grow: 3,   // the rose window (layers/rosette.js): its rings, and how many more it gains as a section runs (one every 8 bars)
+    span: .62,                 // how far out it reaches (screen heights from the centre)
+    turn: .05,                 // how fast its rings turn (each the other way from the last)
+    hatShare: .1,              // the share of cells the hats light each 16th, at full hats
+    layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
+  prism: {chance: 0, size: .5, spin: .25, journey: 1.6,   // (journey: favoured as a centrepiece, as the user loves it) the prism (objects/prism.js): a faceted gem that grows and sheds facets, morphs and lights its facets
+    explode: 1, explodeSecs: 1.2,                   // how far its facets fly when it shatters, and how long it takes to pull together
+    detTension: 1.2,                                // how many more levels of facets an intense section has (0..3 levels in all)
+    wipeBeats: 4, morphSecs: 3,                     // how long a front of new facets takes to sweep across it; a new shape blending in
+    breath: .08,                                    // how much the bass swells it
+    ripSpeed: 2.2, ripLift: .1, ripSecs: 1.6,       // the kick's ring: how fast it runs out (radians a second), how much it lifts the surface, how long it lasts
+    layerBars: {kick: 0, stab: 4, hat: 8, life: 12, extrude: 16},   // when each part's pattern comes in, in bars from the section's start
+    hatShare: .12,                                  // the share of facets the hats light each 16th, at full hats
+    fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
+    gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
+    extrude: .25},                                  // how far lit facets push out
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
@@ -260,13 +284,23 @@ export const TUNE = {
     wallGlow: .6,              // the glowing layers laid on its walls (WebGL)
     gate: 40, heartSize: .7,   // a centrepiece floats in the vessel this often (units), and its size at one unit away
   },
+  lattice: {speed: 3, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Lattice (worlds/lattice.js): its flight, a drop's surge, a new section's tunnel
+    turn: .12,                 // how fast it turns (faster as the music builds and on a drop)
+    breath: .05,               // how much the bass swells it
+    waveSpeed: 18, waveFade: .8,   // the kick's ring of light: how fast it rushes away down the tunnel (units a second), how fast it fades
+    hatShare: .07,             // the share of facets the hats light each 16th, at full hats
+    anticipDist: 45,           // in a drop's run-up the light comes back from this far down the tunnel to the camera
+    gate: 30, heartSize: .35,  // a centrepiece floats in the tunnel this often (units); its size at one unit away
+    glow: 1},                  // how bright it is overall
   corridor: {speed: 3.2, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Corridor (worlds/corridor.js): its flight, a drop's surge, a new section's frames growing in
     waveSpeed: 26, waveFade: .7,   // the kick's wave of light: how fast it rushes away down the frames (units a second), how fast it fades
     strobeHz: 6,               // a drop's strobe (flashes a second, while the surge lasts; halved with reduce motion)
     gate: 36,                  // a centrepiece stands in the hall this often (units)
     heartSize: .35,            // its size at one unit away
     glow: 1,                   // the frames' glow
-    wallGlow: .45},            // the glowing layers reflected in its floor (WebGL)
+    wallGlow: .45,             // the glowing layers reflected in its floor (WebGL)
+    hatShare: .15, anticipDist: 60,   // the share of frames the hats flicker each 16th; in a drop's run-up the frames light from this far off towards you
+    layerBars: {stab: 4, hat: 8}},   // when the stabs' pattern (every nth frame, stepping on) and the hats' come in, in bars from the section's start
   geode: {speed: 2.2, calm: .35, surge: 2.2, surgeSecs: 2.5, morphSecs: 5,   // the Geode (worlds/geode.js): its flight, a drop's surge, a new section's crystal growing in
     cavitySlow: .45,           // through a cavity's middle the flight slows to this share, to take it in
     growCalm: .55, growHigh: 1.15,   // how long the crystals grow, calm to intense (a drop adds a little)
