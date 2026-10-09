@@ -98,7 +98,7 @@ export const BASE = [
   {name:'Night rain', decay:.9, zoom:1.001, rot:0, warp:.05, sym:1, rain:1, lightning:.6, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Star map', decay:.95, zoom:1.001, rot:.0005, warp:.05, sym:1, constellation:1, star:.5, colorSpeed:.01, hueDrift:.003, mods:{}},
   // the rose window: stained glass in rings, its cells lit by the kick's cascades, the stabs' wedges and the hats
-  {name:'Rose window', decay:.9, zoom:1.003, rot:.001, warp:0, sym:1, rosette:1, sparkle:.4, colorSpeed:.02, hueDrift:.005, mods:{}},
+  {name:'Rose window', decay:.9, zoom:1.003, rot:.001, warp:0, sym:1, rosette:1, cascade:.6, colorSpeed:.02, hueDrift:.005, mods:{}},
   // the Lattice: a tunnel of glass facets lighting with the music, a stargate rushing down it
   {name:'The Lattice', decay:.9, zoom:1.006, rot:0, warp:0, sym:1, lattice:1, stargate:.6, colorSpeed:.03, hueDrift:.006, mods:{}},
   {name:'Pleasures', decay:.85, zoom:1.0, rot:0, warp:0, sym:1, lines:1, colorSpeed:.01, hueDrift:.002, mods:{}},

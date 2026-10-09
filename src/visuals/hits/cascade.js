@@ -11,7 +11,7 @@ export default {
   key: 'cascade', kind: 'hit', label: 'Cascades', trigger: 'downbeat', level: .8,
   words: 'Chains of light run out on the downbeat, a link each 16th',
   // driving music with things going on: the chain follows the 16ths
-  suits: (rf, wOn, seed) => rf.perc*.4 + rf.busy*.25 + rf.bright*.1 + seed - (wOn ? .05 : 0),
+  suits: (rf, wOn, seed) => rf.perc*.25 + (rf.hat || 0)*.55 + rf.busy*.2 + seed + .05,   // (the hats' busy 16ths: a link each 16th)
   fire(){ ch.age = 0; ch.kind = Math.floor(Math.random()*3); ch.arms = [3, 4, 5, 6][Math.floor(Math.random()*4)]; ch.turn = Math.random()*Math.PI*2; ch.dir = Math.random() < .5 ? 1 : -1; },
   step(dt){ ch.age += dt; },
   params(P, x){
