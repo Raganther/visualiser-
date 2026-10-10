@@ -127,10 +127,11 @@ function programFor(type, T){
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, g: st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
 export const prismProgram = (type, T) => programFor(type, T);
 export const prismForm = (k, now) => { st.hold = k; if (k) { const g = fromForm(k, st.g); goGenome(g, now); if (now) { snapTo(g); } } };
 export const prismImprovise = (size = .5) => improvise(size, 0);   // (tests: one step of the improviser now)
+export const prismSection = ty => { st.testType = ty; };   // (tests: play as if Journey were in this section; undefined lets Journey say again)
 
 export default {
   key: 'prism', kind: 'object', label: 'Prism', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
@@ -147,7 +148,7 @@ export default {
     const T = TUNE.prism, J = x.J, dt = x.dt, w = P.o.prism || 0, ten = J ? J.tension || 0 : .5;
     st.t += dt;
     // the section: a new program, its layers sequenced in again
-    const type = J && J.on ? J.type : null;
+    const type = st.testType !== undefined ? st.testType : J && J.on ? J.type : null;
     if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0;
       if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); }
     const pr = st.prog;
@@ -161,11 +162,11 @@ export default {
     // climb through a section, the tension rising above its own recent level, the run-up to a drop and the drop
     const TA = T.act, anticip = (J && J.anticip) || 0, dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT;
     st.tFast = (st.tFast ?? ten) + (ten - (st.tFast ?? ten))*Math.min(1, dt/TA.fastSecs); st.tSlow = (st.tSlow ?? ten) + (ten - (st.tSlow ?? ten))*Math.min(1, dt/TA.slowSecs);
-    let want = Math.min(TA.cap, TA.base + TA.climb*smooth(st.secBars/TA.climbBars)*(.4 + .6*ten) + TA.rising*Math.max(0, st.tFast - st.tSlow));
-    if (anticip > .02) want = Math.max(want, TA.runUp + (1 - TA.runUp)*anticip);
-    if (since < dropLen) want = Math.max(want, 1 - since/dropLen);
-    if (L.brk) want *= TA.brk;
-    st.act += (want - st.act)*Math.min(1, dt/(want > st.act ? TA.rise : TA.fall));
+    let goal = Math.min(TA.cap, TA.base + TA.climb*smooth(st.secBars/TA.climbBars)*(.4 + .6*ten) + TA.rising*Math.max(0, st.tFast - st.tSlow));
+    if (anticip > .02) goal = Math.max(goal, TA.runUp + (1 - TA.runUp)*anticip);
+    if (since < dropLen) goal = Math.max(goal, 1 - since/dropLen);
+    if (L.brk) goal *= TA.brk;
+    st.act += (goal - st.act)*Math.min(1, dt/(goal > st.act ? TA.rise : TA.fall));
     if (w < .003) { st.off = true; return; }
     if (st.off) { st.off = false; st.ex = st.exT = 1; if (st.swap) { const g = st.swap.g; st.swap = null; setBody(g.body); goGenome(g); } }   // arriving: it gathers out of its facets
     st.exT *= Math.exp(-dt/T.explodeSecs); st.ex += (st.exT - st.ex)*Math.min(1, dt*(st.exT > st.ex ? 10 : 2.5));
@@ -308,7 +309,7 @@ function dist(a, b){
 // one step of the improviser: a handful of candidates, the best by novelty, step size and the music's sharpness; a leap may
 // change form (to the square, or open, as seldom as their chances say); now and then it comes home to the section's theme
 function improvise(s, leapP){
-  const T = TUNE.prism.imp, g = st.g, sh = want();
+  const T = TUNE.prism.imp, g = st.swap ? st.swap.g : st.g, sh = want();   // (from the shape it's heading to, if it's flying across to the other body)
   if (st.prog && rnd() < T.home) { goGenome(mutate(st.prog.theme, T.vary, sh)); return; }
   if (g.body === 's') leapP = Math.max(leapP, T.squareStay);   // (the square is an excursion: it soon folds back into the gem)
   if (g.body === 'g' && g.k < .9) leapP = Math.max(leapP, T.openStay);   // (and so is the open star: it soon closes up again)

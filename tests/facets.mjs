@@ -64,6 +64,8 @@ for (const mode of ['2d', 'gl']) {
     // a section's program: its own, and the same again when it returns
     const A = {}, B = {}, pa = prismProgram(A, .3), pb = prismProgram(B, .8);
     out.prog = {same: prismProgram(A, .3) === pa, differ: JSON.stringify(pa) !== JSON.stringify(pb)};
+    // a section coming back brings a variation of its theme (this once threw: a local name hid the function it called)
+    { const pm = await import('/src/visuals/objects/prism.js'), A = {}, B = {}; for (const ty of [A, B, A, B, A]) { pm.prismSection(ty); __step(4); } out.back = prismProgram(A, .3).visits; pm.prismSection(undefined); }
     set('prism', 0); __step(40);
     // the gem orbit: all five
     set('gems', 1); __step(${mode === 'gl' ? 60 : 120}); out.gems = {pic: ${THUMB}, on: S.lastP.m.gems.gems.filter(u => u.w > .5).length};
@@ -104,6 +106,7 @@ for (const mode of ['2d', 'gl']) {
   const p = r.out.prism, sh = diff(r.off, p.a), mv = diff(p.a, p.b);
   check(`${mode}: the prism draws and changes as the music plays`, sh > .6 && mv > .2, `shown ${sh.toFixed(1)}, moving ${mv.toFixed(1)}`);
   check(`${mode}: a drop gives it every facet`, p.det1 === p.F && p.det0 < p.F, `${p.det0.toFixed(1)} → ${p.det1} of ${p.F}`);
+  check(`${mode}: a returning section brings back its theme, varied`, r.out.back >= 2, `visited ${r.out.back} times`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);
   check(`${mode}: the wire sphere's panes light with the kick, and not with facet light off`, r.out.fx.rings > 5 && r.out.fx.none && diff(r.out.fx.lit, r.out.fx.plain) > .05, `rings in ${r.out.fx.rings} of 40 frames, off: ${r.out.fx.none}, change ${diff(r.out.fx.lit, r.out.fx.plain).toFixed(2)}`);
