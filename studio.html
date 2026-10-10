@@ -1,1 +1,68 @@
-<!doctype html><title>Studio</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Afterglow Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>Afterglow</b> Studio</div>
+  <nav class="songs" id="songs" aria-label="Songs"></nav>
+  <div class="transport">
+    <button id="play" class="big" aria-label="Play the arrangement">▶ Play</button>
+    <button id="stop" aria-label="Stop">■</button>
+    <span class="pos" id="pos" aria-live="off">1.1.1</span>
+    <span class="tempo" id="tempo"></span>
+  </div>
+</header>
+
+<main>
+  <section class="about" id="about"></section>
+
+  <section aria-labelledby="h-arr">
+    <h2 id="h-arr">Arrangement <small>click a part to play from it</small></h2>
+    <div class="arr" id="arr"><div class="head" id="head"></div></div>
+  </section>
+
+  <section aria-labelledby="h-ses">
+    <h2 id="h-ses">Session <small>launch a scene or one clip; it starts on the next bar</small></h2>
+    <div class="scroll"><table class="ses" id="ses"></table></div>
+  </section>
+
+  <section aria-labelledby="h-mix">
+    <h2 id="h-mix">Mixer <small>meters, gain reduction (violet: the sidechain ducking), fader, pan, mute and solo; pick a strip to open it</small></h2>
+    <div class="scroll"><div class="mixer" id="mixer"></div></div>
+  </section>
+
+  <section class="detail" id="detail" aria-live="polite"></section>
+
+  <section aria-labelledby="h-out" class="out">
+    <h2 id="h-out">The mix <small>live spectrum; render to measure loudness and save the WAV</small></h2>
+    <div class="outgrid">
+      <canvas id="spec" width="900" height="200" aria-label="Spectrum of the master"></canvas>
+      <div class="render">
+        <button id="render" class="big">Render and measure</button>
+        <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+        <div id="rep" class="rep"></div>
+        <button id="save" hidden>Save WAV</button>
+      </div>
+    </div>
+    <canvas id="gram" width="1400" height="360" hidden aria-label="Spectrogram of the rendered song"></canvas>
+  </section>
+
+  <section aria-labelledby="h-data">
+    <h2 id="h-data">Song data <small>the whole song as plain data: what a model writes and reads</small></h2>
+    <div class="data">
+      <div class="dbar"><button id="copy">Copy</button><button id="paste">Load pasted song</button><span id="dmsg" class="dmsg"></span></div>
+      <textarea id="json" spellcheck="false" aria-label="The song as JSON"></textarea>
+    </div>
+  </section>
+</main>
+<script type="module" src="src/studio/ui.js"></script>
+</body>
+</html>

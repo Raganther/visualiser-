@@ -91,7 +91,7 @@ export function makeFm(ctx, out, env = {period: () => .5, t0: 0}){
     if (v.end <= t) return; if (v.end < Infinity) unrelease(v);
     v.end = t; const r = fast ? .008 : P.ar;
     hold(v.vca.gain, t); v.vca.gain.setTargetAtTime(0, t, r/4);
-    const stop = t + r*2.2 + .03; for (const {o} of v.osc) o.stop(stop); for (const s of v.srcs) s.stop(stop);
+    const stop = t + r*1.6 + .03; for (const {o} of v.osc) o.stop(stop); for (const s of v.srcs) s.stop(stop);
     v.osc[0].o.onended = () => { for (const [a, b] of v.links) try { a.disconnect(b); } catch (e) {} v.vca.disconnect(); const i = voices.indexOf(v); if (i >= 0) voices.splice(i, 1); };
   }
   function unrelease(v){ v.vca.gain.cancelScheduledValues(v.end); v.end = Infinity; for (const {o} of v.osc) o.stop(v.t0 + 3600); for (const s of v.srcs) s.stop(v.t0 + 3600); }

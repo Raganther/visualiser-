@@ -82,6 +82,9 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
     let j = i; while (j > 0 && (((scene(song, A.parts[j - 1].scene) || {}).clips || {})[tr.t.id]) === c) j--;
     return {id: c, at: A.parts[j].at*16};
   }
+  // the clip a track plays at sixteenth n (for the page's grid)
+  E.clipRun = (id, n) => { const tr = T(id); return (tr && clipAt(tr, n)) || null; };
+  E.clipOf = (id, n) => { const c = E.clipRun(id, n); return c ? c.id : null; };
   E.sceneAt = n => E.mode === 'session' ? E.session.scene : ((A.parts.find(p => Math.floor(n/16) >= p.at && Math.floor(n/16) < p.at + p.bars) || {}).scene || null);
   // one sixteenth: launch what's queued on the bar, then every track's notes in it, then the automation
   E.window = n => {
@@ -122,14 +125,14 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
 
 /* ---------- offline: the song rendered to an AudioBuffer ---------- */
 // opts: bars (default: the whole arrangement), solo (track ids: everything else muted, for stems), sr
-export async function renderSong(song, {bars, solo, sr = TUNE.studio.sr, tail = TUNE.studio.tail, onProgress, onNote, chunk = 4} = {}){
+export async function renderSong(song, {bars, from = 0, solo, sr = TUNE.studio.sr, tail = TUNE.studio.tail, onProgress, onNote, chunk = 4} = {}){
   song = structuredClone(song);
   if (solo) for (const t of song.tracks) { t.mix = t.mix || {}; t.mix.solo = [].concat(solo).includes(t.id); }
-  const S16 = 60/song.bpm/4, N = (bars || arrangement(song).bars)*16, ctx = new OfflineAudioContext(2, Math.ceil((N*S16 + tail)*sr), sr);
+  const S16 = 60/song.bpm/4, n0 = from*16, N = (bars || arrangement(song).bars - from)*16, ctx = new OfflineAudioContext(2, Math.ceil((N*S16 + tail)*sr), sr);
   const E = buildSong(ctx, song, {onNote});
   // (the windows a beat at a time, a beat ahead: suspending every sixteenth cost more than the music)
-  const C = chunk; E.startAt(0, 0); for (let n = 0; n < Math.min(N, 2*C); n++) E.window(n);
-  for (let k = 1; k*C < N; k++) ctx.suspend(k*C*S16).then(() => { for (let n = (k + 1)*C; n < Math.min(N, (k + 2)*C); n++) E.window(n); if (onProgress) onProgress(k*C/N); ctx.resume(); });
+  const C = chunk; E.startAt(0, n0); for (let n = 0; n < Math.min(N, 2*C); n++) E.window(n0 + n);
+  for (let k = 1; k*C < N; k++) ctx.suspend(k*C*S16).then(() => { for (let n = (k + 1)*C; n < Math.min(N, (k + 2)*C); n++) E.window(n0 + n); if (onProgress) onProgress(k*C/N); ctx.resume(); });
   const buf = await ctx.startRendering();
   E.desk.dispose();
   return buf;

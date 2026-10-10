@@ -40,9 +40,11 @@ export function makeDesk(ctx, song, {out = ctx.destination, env, meters = false}
   // mute and solo: a soloed track (or group) leaves only what's soloed, and the groups and returns it needs
   function mutes(){
     const solo = [...S.values()].filter(s => s.def.solo && (s.kind === 'track' || s.kind === 'group'));
+    // (kept: what's soloed, the groups it goes through, and what goes into a soloed group)
     const keep = new Set(); for (const s of solo) { keep.add(s.id); let t = s.def.to; while (t && S.has(t)) { keep.add(t); t = S.get(t).def.to; } }
+    const inSolo = s => { let t = s.def.to; while (t && S.has(t)) { if (S.get(t).def.solo) return true; t = S.get(t).def.to; } return false; };
     for (const s of S.values()) {
-      const off = s.def.mute || (solo.length && (s.kind === 'track' || s.kind === 'group') && !keep.has(s.id) && !(s.kind === 'track' && keep.has(s.def.to)));
+      const off = s.def.mute || (solo.length && (s.kind === 'track' || s.kind === 'group') && !keep.has(s.id) && !inSolo(s));
       s.mute.gain.setTargetAtTime(off ? 0 : 1, ctx.currentTime, .005);
     }
   }
@@ -61,7 +63,7 @@ export function makeDesk(ctx, song, {out = ctx.destination, env, meters = false}
     const native = !!DEVICES[dv.d.type], [bi, bf] = k.split('.');
     const get = () => dv.d.bands && bf ? (dv.d.bands[+bi] || {})[bf] : native ? dv.d[k] : (dv.d.p || {})[k];
     const put = v => { if (dv.d.bands && bf) { if (dv.d.bands[+bi]) dv.d.bands[+bi][bf] = v; } else if (native) dv.d[k] = v; else (dv.d.p = dv.d.p || {})[k] = v; };
-    return {...(dv.param(k) || {}), dev: dv, k, get, put};
+    return {...(dv.param(k) || {}), set: v => dv.set(k, v), dev: dv, k, get, put};
   };
   // a change by hand (or the UI): heard at once, and written into the song
   desk.set = (id, path, v) => {

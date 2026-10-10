@@ -1,7 +1,7 @@
 // Renders Studio songs offline in headless Chromium (the same graph as the page plays) to WAV, and measures each mix:
 // loudness, true peak, the spectrum's balance and tilt, stereo, and with --stems each track alone through the master
 // (its loudness and peak), how far the sidechained tracks duck under the kick, and how much the kick and bass overlap.
-// Usage: node tools/studio-render.mjs [song.js …] [--out dir] [--stems] [--bars N] [--json]
+// Usage: node tools/studio-render.mjs [song.js …] [--out dir] [--stems] [--from bar] [--bars N] [--png] [--no-wav] [--json]
 // (no songs: every song in src/studio/songs/; WAVs go to out/studio/, which git ignores)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { serve, launch, ROOT } from '../tests/lib.mjs';
 
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : null; }, flag = k => { const i = args.indexOf(k); if (i >= 0) args.splice(i, 1); return i >= 0; };
-const out = path.resolve(opt('--out') || path.join(ROOT, 'out/studio')), bars = +opt('--bars') || 0, stems = flag('--stems'), json = flag('--json'), noWav = flag('--no-wav'), png = flag('--png');
+const out = path.resolve(opt('--out') || path.join(ROOT, 'out/studio')), bars = +opt('--bars') || 0, from = +opt('--from') || 0, stems = flag('--stems'), json = flag('--json'), noWav = flag('--no-wav'), png = flag('--png');
 const files = args.length ? args : fs.readdirSync(path.join(ROOT, 'src/studio/songs')).filter(f => f.endsWith('.js') && f !== 'index.js').map(f => path.join(ROOT, 'src/studio/songs', f));
 fs.mkdirSync(out, {recursive: true});
 const {srv, url} = await serve();
@@ -23,10 +23,10 @@ const f1 = (v, d = 1) => (v >= 0 ? ' ' : '') + v.toFixed(d);
 for (const f of files) {
   const song = (await import(pathToFileURL(path.resolve(f)).href + '?' + Date.now())).default, name = path.basename(f, '.js');
   const t0 = Date.now();
-  const r = await page.evaluate(async ({song, bars, stems, noWav, png}) => {
+  const r = await page.evaluate(async ({song, bars, from, stems, noWav, png}) => {
     const {renderSong} = await import('/src/studio/engine.js'), M = await import('/src/studio/measure.js'), {wav} = await import('/src/studio/wav.js'), {check} = await import('/src/studio/song.js');
     const problems = check(song); if (problems.length) return {problems};
-    const notes = [], t0 = performance.now(), buf = await renderSong(song, {bars, onNote: e => notes.push(e)}), secs = (performance.now() - t0)/1000;
+    const notes = [], t0 = performance.now(), buf = await renderSong(song, {bars, from, onNote: e => notes.push(e)}), secs = (performance.now() - t0)/1000;
     const L = buf.getChannelData(0), R = buf.getChannelData(1), sr = buf.sampleRate, rep = M.report(L, R, sr); delete rep.shortTerm;
     const o = {secs, dur: buf.duration, rep, notes: notes.length};
     if (png) { const cv = document.createElement('canvas'); cv.width = 1400; cv.height = 520; M.paint(cv, L, R, sr, {bar: 240/song.bpm}); o.png = cv.toDataURL('image/png').split(',')[1];
@@ -39,7 +39,7 @@ for (const f of files) {
       const env = x => { const w = Math.round(sr*.01), e = []; for (let a = 0; a + w <= x.length; a += w) { let s = 0; for (let i = a; i < a + w; i++) s += x[i]*x[i]; e.push(s/w); } return e; };
       let kLow = null;
       for (const t of song.tracks) {
-        const b = await renderSong(song, {bars, solo: [t.id]}), l = b.getChannelData(0), rr = b.getChannelData(1), lu = M.loudness(l, rr, sr), pk = M.samplePeak([l, rr]);
+        const b = await renderSong(song, {bars, from, solo: [t.id]}), l = b.getChannelData(0), rr = b.getChannelData(1), lu = M.loudness(l, rr, sr), pk = M.samplePeak([l, rr]);
         const mono = new Float32Array(l.length); for (let i = 0; i < l.length; i++) mono[i] = (l[i] + rr[i])/2;
         const s = {lufs: lu.I, peak: pk.peak};
         const sc = ((t.mix || {}).chain || []).find(d => d.type === 'sc');
@@ -50,7 +50,7 @@ for (const f of files) {
       }
     }
     return o;
-  }, {song, bars, stems, noWav, png});
+  }, {song, bars, from, stems, noWav, png});
   if (r.problems) { console.log(`${name}: the song has problems:\n  ${r.problems.join('\n  ')}`); continue; }
   if (r.wav) fs.writeFileSync(path.join(out, name + '.wav'), Buffer.from(r.wav, 'base64'));
   if (r.png) { fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(r.png, 'base64')); fs.writeFileSync(path.join(out, name + '-zoom.png'), Buffer.from(r.zoom, 'base64')); delete r.png; delete r.zoom; }

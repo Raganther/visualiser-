@@ -1,0 +1,119 @@
+/* Afterglow Studio: a mixing desk at night. One dark look, as the visualiser's (a deliberate single theme): blue-black
+   panels, Afterglow's cyan for what's live, violet for gain reduction, the meters' green-amber-red for level.
+   Layout: a transport bar on top, then arrangement → session → mixer → the open strip → the mix → the song's data. */
+:root{
+  --bg:#06080b; --panel:#0c1016; --panel2:#121821; --line:#1e2733; --ink:#e8eef5; --dim:#8794a6; --faint:#4a5566;
+  --accent:#5cf; --duck:#b48cff; --ok:#3fd68a; --warn:#f2b33d; --hot:#ff5a5a;
+  --display:"Chakra Petch",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark; box-sizing:border-box;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--display)}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--faint)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,.knob:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.big{background:var(--accent);color:#03141b;border-color:var(--accent);font-weight:600}
+button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+small{color:var(--dim);font-weight:400;font-size:12px;letter-spacing:0;text-transform:none}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 16px;background:rgba(6,8,11,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+.brand{font-size:18px;letter-spacing:.02em;color:var(--dim)} .brand b{color:var(--ink);font-weight:600}
+.songs{display:flex;gap:6px;flex-wrap:wrap}
+.songs button{background:none}
+.songs button[aria-current="true"]{border-color:var(--accent);color:var(--accent)}
+.transport{display:flex;align-items:center;gap:8px;margin-left:auto}
+.pos,.tempo{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
+.pos{color:var(--ink);min-width:6ch}
+
+main{padding:4px 16px 48px;display:flex;flex-direction:column;gap:22px;max-width:1500px;margin:0 auto}
+h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:14px 0 8px;color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.about{color:var(--dim);max-width:75ch;margin-top:14px} .about b{color:var(--ink);font-weight:500}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+
+/* arrangement: a part per scene, its width its bars */
+.arr{position:relative;display:flex;height:46px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel);cursor:pointer}
+.arr .part{flex:none;border-right:1px solid var(--bg);padding:4px 6px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:var(--panel2);color:var(--dim)}
+.arr .part b{display:block;color:var(--ink);font-weight:500}
+.arr .part.now{background:#123041;color:var(--accent)}
+.arr .head{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);left:0;pointer-events:none;box-shadow:0 0 8px var(--accent)}
+
+/* session: scenes down, tracks across */
+.ses{border-collapse:collapse;font-size:12px;min-width:100%}
+.ses th,.ses td{border:1px solid var(--line);padding:0;height:30px}
+.ses th{font-weight:500;padding:4px 8px;text-align:left;white-space:nowrap;color:var(--dim)}
+.ses thead th{color:var(--ink);border-bottom:2px solid var(--tc,var(--line))}
+.ses td button,.ses th button{width:100%;height:100%;border:0;border-radius:0;background:none;text-align:left;padding:4px 8px;color:var(--dim)}
+.ses td button.clip{background:color-mix(in srgb,var(--tc) 14%,transparent);color:var(--ink)}
+.ses td button.clip.sel{outline:1px solid var(--tc);outline-offset:-2px}
+.ses td button.clip.live{background:color-mix(in srgb,var(--tc) 45%,transparent);color:#fff;font-weight:500}
+.ses td button.clip.queued{animation:blink .5s steps(2) infinite}
+.ses th.scene button{color:var(--ink)} .ses th.scene button.live{color:var(--accent)}
+@keyframes blink{50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.ses td button.clip.queued{animation:none;text-decoration:underline}}
+
+/* mixer */
+.mixer{display:flex;gap:1px;background:var(--line);min-width:max-content}
+.strip{display:grid;grid-template-rows:auto auto 150px auto auto auto;justify-items:center;gap:6px;width:84px;padding:8px 6px;background:var(--panel)}
+.strip.sel{background:var(--panel2);box-shadow:inset 0 2px 0 var(--tc,var(--accent))}
+.strip.kind-return{background:#0d0f17} .strip.kind-group{background:#0f1114} .strip.kind-master{background:#0e1614;width:100px}
+.strip .nm{font-size:12px;width:100%;padding:3px 4px;background:none;border-color:transparent;overflow:hidden;text-overflow:ellipsis;color:var(--ink);border-bottom:2px solid var(--tc,var(--line));border-radius:0}
+.strip .chips{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;min-height:16px}
+.chip{font:10px/1 var(--mono);padding:2px 3px;border-radius:3px;background:var(--panel2);color:var(--dim)}
+.chip.gr{color:var(--duck)}
+.strip .ff{display:flex;gap:6px;align-items:stretch;height:150px}
+.strip canvas.met{width:14px;height:150px;background:#05070a;border-radius:2px}
+.strip input.fader{writing-mode:vertical-lr;direction:rtl;height:150px;width:22px;accent-color:var(--accent)}
+.strip .db{font:11px var(--mono);color:var(--dim);font-variant-numeric:tabular-nums}
+.strip .ms{display:flex;gap:3px} .strip .ms button{padding:1px 6px;font-size:11px}
+.strip .ms button.m[aria-pressed="true"]{color:var(--warn);border-color:var(--warn)}
+
+/* knobs (the visualiser's own widget) */
+.knob{display:flex;flex-direction:column;align-items:center;width:52px;cursor:ns-resize;user-select:none;touch-action:none}
+.knob svg{width:32px;height:32px}
+.knob .kt{fill:#151b24;stroke:var(--line);stroke-width:2}
+.knob .ka{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round}
+.knob .kp{stroke:#fff;stroke-width:2;stroke-linecap:round}
+.knob.on .kt{stroke:var(--accent)}
+.knob .kv{font:10px/1.2 var(--mono);color:var(--ink)}
+.knob .kl{font-size:10px;line-height:1.2;color:var(--dim);text-align:center}
+
+/* the open strip */
+.detail:empty{display:none}
+.detail{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:12px 14px}
+.detail h3{margin:0 0 10px;font-size:16px;font-weight:600;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap} .detail h3 small{font-size:12px}
+.cards{display:flex;flex-wrap:wrap;gap:10px}
+.card{border:1px solid var(--line);border-radius:5px;background:var(--panel2);padding:8px 10px;min-width:0}
+.card h4{margin:0 0 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.card .gr{color:var(--duck);font-family:var(--mono);letter-spacing:0}
+.knobs{display:flex;flex-wrap:wrap;gap:4px}
+.card canvas.eqc{display:block;width:260px;max-width:100%;height:80px;background:#05070a;border-radius:3px;margin-bottom:6px}
+
+/* a clip: drum steps, or notes on a roll */
+.clipv{margin-top:12px}
+.steps{display:grid;grid-template-columns:70px 1fr;gap:3px 8px;align-items:center;font-size:12px;overflow-x:auto}
+.steps .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(14px,1fr);gap:2px}
+.steps .row button{height:20px;padding:0;border-radius:2px;background:#151b24;border-color:transparent}
+.steps .row button.b{background:#1b2330}
+.steps .row button.on{background:color-mix(in srgb,var(--tc) calc(var(--v)*100%),#151b24)}
+.steps .row button.ph{box-shadow:inset 0 -2px 0 var(--accent)}
+canvas.roll{width:100%;height:160px;background:#05070a;border-radius:4px;display:block}
+
+/* the mix */
+.outgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:12px}
+@media (max-width:760px){.outgrid{grid-template-columns:minmax(0,1fr)}}
+#spec,#gram{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block}
+#gram{margin-top:10px}
+.render{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.prog{width:100%;height:6px;background:var(--panel2);border-radius:3px;overflow:hidden} .prog i{display:block;height:100%;width:0;background:var(--accent)}
+.rep{font:12px/1.6 var(--mono);color:var(--dim);font-variant-numeric:tabular-nums;width:100%}
+.rep b{color:var(--ink);font-weight:500}
+.rep .bands{display:grid;grid-template-columns:7ch 1fr 6ch;gap:2px 8px;align-items:center;margin-top:6px}
+.rep .bands i{display:block;height:6px;background:var(--accent);border-radius:2px;opacity:.8}
+
+/* the song's data */
+.data{display:flex;flex-direction:column;gap:6px}
+.dbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dmsg{color:var(--dim);font-size:12px} .dmsg.bad{color:var(--hot)}
+textarea#json{width:100%;min-height:260px;resize:vertical;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.5 var(--mono);tab-size:2}
+@media (max-width:600px){ .transport{margin-left:0} .strip{width:76px} }

@@ -1,5 +1,5 @@
 // The analog synth: the Studio's virtual-analogue instrument for basses, plucks, stabs, leads and moving pads. Two oscillators
-// (saw, square, pulse, triangle, sine), each up to seven unison voices detuned and spread across the stereo, a sub and noise;
+// (saw, square, pulse, triangle, sine), the first up to seven unison voices detuned and spread across the stereo, a sub and noise;
 // a driven 12 or 24 dB filter (low, high or band) with its own envelope, key tracking and velocity; an amp envelope; a third
 // envelope and two LFOs (six shapes, free or in time) routed through a modulation matrix to cutoff, resonance, pitch, osc 2,
 // pulse width, volume, pan or the filter envelope's depth. Poly, mono or legato (sliding without a new attack).
@@ -29,17 +29,18 @@ export const GROUPS = [
     S('mr', 'Release', .005, 10, .3, 's', {log: true})]],
   ['LFO 1', [L('l1', 'Shape', SHAPES, 0), L('l1t', 'Time', RATES, 0), S('l1r', 'Rate', .02, 30, 1, 'Hz', {log: true})]],
   ['LFO 2', [L('l2', 'Shape', SHAPES, 1), L('l2t', 'Time', RATES, 0), S('l2r', 'Rate', .02, 30, .3, 'Hz', {log: true})]],
-  ['Play', [L('mode', 'Voices', ['Poly', 'Mono', 'Legato'], 0), S('voices', 'Polyphony', 1, 12, 8, '', {step: 1}), S('glide', 'Glide', 0, 1, .05, 's'),
+  ['Play', [L('mode', 'Voices', ['Poly', 'Mono', 'Legato'], 0), L('para', 'Filter', ['Each voice', 'Shared'], 0), S('voices', 'Polyphony', 1, 12, 8, '', {step: 1}), S('glide', 'Glide', 0, 1, .05, 's'),
     S('oct', 'Octave', -3, 3, 0, 'oct', {step: 1})]],
   ['Output', [S('level', 'Level', 0, 2, .8, '×'), S('pan', 'Pan', -1, 1, 0, 'pan')]]];
 export const PARAMS = GROUPS.flatMap(g => g[1]);
 
 // the presets: a few settings over the defaults, and a matrix of [source, destination, amount]
 export const PRESETS = {
-  // minimal techno's bass: a short saw and sub, the filter snapping shut, a touch of drive
-  'Rolling bass': {w1: 'Saw', sub: .7, cut: 260, res: .25, fenv: .38, fd: .14, fs: 0, track: .4, drive: .35, aa: .002, ad: .22, as: .55, ar: .06, mode: 'Mono', glide: 0, level: 1.2},
+  // minimal techno's bass: a short saw over a sine at the same pitch (a sub an octave under A1 would sit at 27 Hz, below
+  // hearing, spending headroom), the filter snapping shut, a touch of drive
+  'Rolling bass': {w1: 'Saw', w2: 'Sine', mix2: .7, semi: 0, fine: 0, cut: 260, res: .25, fenv: .38, fd: .14, fs: 0, track: .4, drive: .35, aa: .002, ad: .22, as: .55, ar: .06, mode: 'Mono', glide: 0, level: 1.2},
   // a round, deep sub with a little growl on top
-  'Sub bass': {w1: 'Sine', w2: 'Triangle', mix2: .25, semi: 12, sub: .3, cut: 900, fenv: 0, aa: .003, as: 1, ar: .08, mode: 'Mono', drive: .15, level: 1.2},
+  'Sub bass': {w1: 'Sine', w2: 'Triangle', mix2: .25, semi: 12, cut: 900, fenv: 0, aa: .003, as: 1, ar: .08, mode: 'Mono', drive: .15, level: 1.2},
   // two detuned saws beating against each other, the filter breathing on an LFO in time
   'Reese': {w1: 'Saw', w2: 'Saw', mix2: 1, fine: 26, uni: 2, det: 9, spread: .25, sub: .5, cut: 520, res: .2, fenv: .1, drive: .3, mode: 'Legato', glide: .06,
     l1: 'Sine', l1t: '2 bars', matrix: [['lfo1', 'cut', .18]], level: .9},
@@ -55,16 +56,16 @@ export const PRESETS = {
   // a stab: brighter and punchier, with velocity opening it
   'Stab': {w1: 'Saw', w2: 'Saw', mix2: .8, fine: 12, uni: 3, det: 12, cut: 1100, res: .25, fenv: .45, fd: .14, fs: .05, fvel: .8, aa: .002, ad: .2, as: .1, ar: .15, drive: .2, level: .85},
   // the supersaw pad: seven saws a side, slow in and out, the filter swelling over two bars and the PWM'd osc 2 shimmering
-  'Supersaw pad': {w1: 'Saw', w2: 'Pulse', mix2: .35, semi: 12, uni: 7, det: 22, spread: 1, cut: 1400, res: .1, fenv: .12, fa: 1.5, fd: 2, fs: .6, fr: 2,
-    aa: 1.2, ad: 1.5, as: .85, ar: 2.5, l1: 'Sine', l1t: '2 bars', l2: 'Triangle', l2r: .21, matrix: [['lfo1', 'cut', .14], ['lfo2', 'pw', .6]], level: .55},
+  'Supersaw pad': {para: 'Shared', w1: 'Saw', w2: 'Triangle', mix2: .4, semi: 12, uni: 5, det: 20, spread: 1, cut: 1400, res: .1, fenv: .12, fa: 1.5, fd: 2, fs: .6, fr: 2,
+    aa: 1.2, ad: 1.5, as: .85, ar: 1.8, l1: 'Sine', l1t: '2 bars', l2: 'Triangle', l2r: .13, matrix: [['lfo1', 'cut', .14], ['lfo2', 'pan', .25]], level: .95},
   // a warm, darker pad: triangle and saw, slow sweep, gentle drift
-  'Warm pad': {w1: 'Saw', w2: 'Triangle', mix2: .7, semi: -12, uni: 4, det: 16, spread: .9, cut: 800, res: .12, fenv: .15, fa: 2, fd: 3, fs: .5, fr: 3,
+  'Warm pad': {para: 'Shared', w1: 'Saw', w2: 'Triangle', mix2: .7, semi: -12, uni: 4, det: 16, spread: .9, cut: 800, res: .12, fenv: .15, fa: 2, fd: 3, fs: .5, fr: 3,
     aa: 1.8, ad: 2, as: .9, ar: 3, drift: .6, l1: 'Triangle', l1t: '4 bars', matrix: [['lfo1', 'cut', .2], ['lfo1', 'pan', .2]], level: .6},
   // a lead: saw and a fifth above, mono with glide, vibrato coming in from the mod envelope
   'Lead': {w1: 'Saw', w2: 'Square', mix2: .4, semi: 7, uni: 3, det: 12, cut: 2600, res: .2, fenv: .3, fd: .4, fs: .5, aa: .005, as: .9, ar: .3, mode: 'Legato', glide: .08,
     l1: 'Sine', l1r: 5.5, ma: .6, md: .5, ms: 1, matrix: [['lfo1', 'pitch', .012]], level: .7},
   // an arp's voice: square and saw, plucky, stereo
-  'Arp': {w1: 'Pulse', w2: 'Saw', mix2: .5, pw: .35, fine: 10, uni: 2, det: 9, spread: .7, cut: 1200, res: .3, fenv: .45, fd: .12, fs: .1, fvel: .6, aa: .002, ad: .2, as: .2, ar: .2, level: 2},
+  'Arp': {w1: 'Square', w2: 'Saw', mix2: .5, fine: 10, uni: 2, det: 9, spread: .7, cut: 1200, res: .3, fenv: .45, fd: .12, fs: .1, fvel: .6, aa: .002, ad: .2, as: .2, ar: .2, level: 2},
   // noise swept up through a band: the riser before a drop (automate its cutoff)
   'Noise riser': {w1: 'Saw', noise: 1, sub: 0, mix2: 0, ft: 'Band', cut: 400, res: .2, fenv: 0, aa: .5, as: 1, ar: 1, level: 2},
 };
@@ -98,53 +99,85 @@ export function makeAnalog(ctx, out, env = {period: () => .5, t0: 0}){
       const g = gain(ctx, a*DESTS[d][1]); lfos[i].out.connect(g); g.connect(B[d].offset); routes.push(g); }
   }
 
+  // a voice's (or the shared) filter: one or two stages, the resonance a shared bus on the first (low and high pass read Q as dB)
+  function filters(){
+    const ft = Math.round(P.ft), type = ['lowpass', 'highpass', 'bandpass'][ft], two = Math.round(P.slope) === 1, fl = [ctx.createBiquadFilter()];
+    if (two) { fl.push(ctx.createBiquadFilter()); fl[0].connect(fl[1]); }
+    fl.forEach((b, i) => { b.type = type; if (ft === 2) b.Q.value = .7 + P.res*(i ? 2 : 8); else if (i === 0) { b.Q.value = two ? 0 : 2.3; b.resBus = true; } else b.Q.value = 2.3; });
+    return fl;
+  }
+  // paraphonic: every voice into one filter (a pad's chord through one filter, as on the old paraphonic synths: far
+  // cheaper than a filter a voice, and a pad's filter moves as one anyway), its envelope struck again by each note
+  let PF = null;
+  const para = () => Math.round(P.para) === 1;
+  function paraIn(){
+    if (PF) return PF.in;
+    const inp = gain(ctx, 1), fl = filters(), pe = ctx.createConstantSource(), pg = gain(ctx, 0), cut = gain(ctx, 1);
+    pe.offset.value = 0; pe.start(); B.fenv.connect(pg.gain); pe.connect(pg); pg.connect(cut); B.cut.connect(cut);
+    fl.forEach(b => { b.frequency.value = 1000; cut.connect(b.detune); if (b.resBus) B.res.connect(b.Q); });
+    let pre = inp; if (P.drive > .01) { const ws = ctx.createWaveShaper(); ws.curve = satCurve(P.drive); ws.oversample = '2x'; inp.connect(ws); pre = ws; }
+    pre.connect(fl[0]); fl[fl.length - 1].connect(sum);
+    PF = {in: inp, pe}; return inp;
+  }
+  function paraEnv(t, kf){ paraIn(); const p = PF.pe.offset; hold(p, t); p.linearRampToValueAtTime(kf, t + P.fa); p.setTargetAtTime(kf*P.fs, t + P.fa, Math.max(.001, P.fd/3)); }
+
   // one voice: oscillators → (drive) → filter → amp → the shared output
   function voice(note, vel, t){
     const f = hz(note), T = 1/f, k = 1 - P.vel + P.vel*vel, kf = 1 - P.fvel + P.fvel*vel, links = [], srcs = [];
     const link = (a, b) => { a.connect(b); links.push([a, b]); };
     const v = {note, t0: t, end: Infinity, osc: [], links, srcs};
-    const mix = ctx.createGain(), pitchIn = gain(ctx, 1), det2 = gain(ctx, 1), pwIn = gain(ctx, T), m2In = gain(ctx, 1), cutIn = gain(ctx, 1);
-    link(B.pitch, pitchIn); pitchIn.connect(det2); link(B.p2, det2); link(B.pw, pwIn); link(B.mix2, m2In);
+    // (pitch is wired to the oscillators only when the matrix moves it: a connected detune makes Chromium work out the
+    // frequency every sample, which cost more than the oscillators; otherwise tune and osc 2's pitch are set per note)
+    const mp = P.matrix.some(m => m[1] === 'pitch'), m2p = P.matrix.some(m => m[1] === 'p2'), tn = mp ? 0 : P.tune*100;
+    const mix = ctx.createGain(), pitchIn = mp ? gain(ctx, 1) : null, det2 = mp || m2p ? gain(ctx, 1) : null, pwIn = gain(ctx, T), m2In = gain(ctx, 1), cutIn = gain(ctx, 1);
+    if (mp) { link(B.pitch, pitchIn); pitchIn.connect(det2); } if (m2p) link(B.p2, det2);
+    link(B.pw, pwIn); link(B.mix2, m2In);
     const early = () => Math.max(now(), t - R()*T);   // (each oscillator starts a random part of a cycle early: unison saws don't line up)
-    const group = (w, dest, detIn, x0) => {
-      const n = Math.max(1, Math.round(P.uni)), lv = .5/Math.sqrt(n);
+    // (unison on oscillator 1 only: osc 2 is one voice, a colour under it; seven saws on each cost twice and blurred it.
+    // The unison voices go to a left and a right sum, each side bleeding into the other as the spread narrows: no panner each)
+    const group = (w, dest, detIn, x0, one) => {
+      const n = one ? 1 : Math.max(1, Math.round(P.uni)), lv = .5/Math.sqrt(n), wide = n > 1 && P.spread > 0;
+      let sL, sR;
+      if (wide) { sL = gain(ctx, lv); sR = gain(ctx, lv); const mg = ctx.createChannelMerger(2), c = 1 - P.spread, xl = gain(ctx, c), xr = gain(ctx, c);
+        sL.connect(mg, 0, 0); sR.connect(mg, 0, 1); sL.connect(xr); xr.connect(mg, 0, 1); sR.connect(xl); xl.connect(mg, 0, 0); mg.connect(dest); }
+      const one_ = wide ? null : gain(ctx, lv); if (one_) one_.connect(dest);
       for (let i = 0; i < n; i++) {
         const x = n > 1 ? i/(n - 1)*2 - 1 : 0, o = ctx.createOscillator(); o.type = OT[w]; o.frequency.value = f;
-        o.detune.value = x0 + x*P.det + (R() - .5)*P.drift*10; detIn.connect(o.detune);
+        o.detune.value = x0 + x*P.det + (R() - .5)*P.drift*10; if (detIn) detIn.connect(o.detune);
         let src = o;
         if (w === 2) {   // pulse: the saw less itself a pulse-width later (the width a share of the cycle, so it can move)
           const d = ctx.createDelay(.2), inv = gain(ctx, -.5), s = gain(ctx, .5); pwIn.connect(d.delayTime); o.connect(d); d.connect(inv); o.connect(s); inv.connect(s); src = s; }
-        const g = gain(ctx, lv); src.connect(g);
-        const pn = n > 1 && P.spread > 0 ? ctx.createStereoPanner() : null;
-        if (pn) { pn.pan.value = (i % 2 ? -1 : 1)*Math.abs(x)*P.spread; g.connect(pn); pn.connect(dest); } else g.connect(dest);
+        if (!wide) src.connect(one_);
+        else if (Math.abs(x) < 1e-6) { const c = gain(ctx, .7071); src.connect(c); c.connect(sL); c.connect(sR); }
+        else src.connect(i % 2 ? sL : sR);
         o.start(early()); v.osc.push({o, mul: 1});
       }
     };
-    group(Math.round(P.w1), mix, pitchIn, P.mix2 > 0 ? -P.fine/2 : 0);
-    if (P.mix2 > 0 || P.matrix.some(m => m[1] === 'mix2')) { const g2 = gain(ctx, 0); m2In.connect(g2.gain); group(Math.round(P.w2), g2, det2, 0); g2.connect(mix); }
-    if (P.sub > 0) { const mul = Math.round(P.subo) ? .25 : .5, o = ctx.createOscillator(); o.type = Math.round(P.subw) ? 'square' : 'sine'; o.frequency.value = f*mul;
-      pitchIn.connect(o.detune); const g = gain(ctx, P.sub*(Math.round(P.subw) ? .35 : .6)); o.connect(g); g.connect(mix); o.start(early()); v.osc.push({o, mul}); }
+    group(Math.round(P.w1), mix, pitchIn, (P.mix2 > 0 ? -P.fine/2 : 0) + tn);
+    if (P.mix2 > 0 || P.matrix.some(m => m[1] === 'mix2')) { const g2 = gain(ctx, 0); m2In.connect(g2.gain); group(Math.round(P.w2), g2, det2, (m2p ? 0 : P.semi*100 + P.fine/2) + tn, true); g2.connect(mix); }
+    if (P.sub > 0) { const mul = Math.round(P.subo) ? .25 : .5, o = ctx.createOscillator(); o.type = Math.round(P.subw) ? 'square' : 'sine'; o.frequency.value = f*mul; o.detune.value = tn;
+      if (pitchIn) pitchIn.connect(o.detune); const g = gain(ctx, P.sub*(Math.round(P.subw) ? .35 : .6)); o.connect(g); g.connect(mix); o.start(early()); v.osc.push({o, mul}); }
     if (P.noise > 0) { const n = ctx.createBufferSource(); n.buffer = NB; n.loop = true; const g = gain(ctx, P.noise*.35); n.connect(g); g.connect(mix); n.start(t, R()*.9); v.osc.push({o: n}); }
     // glide: from the last note's pitch
     if (P.glide > 0 && last != null && last !== note) for (const {o, mul} of v.osc) if (mul) { o.frequency.setValueAtTime(hz(last)*mul, t); o.frequency.setTargetAtTime(f*mul, t, P.glide/3); }
-    // drive into the filter
-    let pre = mix;
-    if (P.drive > .01) { const ws = ctx.createWaveShaper(), g = gain(ctx, 1 - P.drive*.4); ws.curve = satCurve(P.drive); ws.oversample = '2x'; mix.connect(ws); ws.connect(g); pre = g; }
-    const ft = Math.round(P.ft), type = ['lowpass', 'highpass', 'bandpass'][ft], two = Math.round(P.slope) === 1, fl = [ctx.createBiquadFilter()];
-    if (two) fl.push(ctx.createBiquadFilter());
-    const kt = Math.pow(2, P.track*(note - 60)/12);
-    fl.forEach((b, i) => { b.type = type; b.frequency.value = 1000*kt; cutIn.connect(b.detune);
-      if (ft === 2) b.Q.value = .7 + P.res*(i ? 2 : 8); else if (i === 0) { b.Q.value = two ? 0 : 2.3; link(B.res, b.Q); } else b.Q.value = 2.3; });
-    link(B.cut, cutIn);
-    pre.connect(fl[0]); if (two) fl[0].connect(fl[1]);
-    // the filter's envelope, its depth a shared bus (so automating the envelope works on held notes)
-    const fe = ctx.createConstantSource(), fg = gain(ctx, 0); fe.offset.value = 0; adsr(fe.offset, t, P.fa, P.fd, P.fs, kf); fe.start(t); srcs.push(fe);
-    link(B.fenv, fg.gain); fe.connect(fg); fg.connect(cutIn);
-    const vca = gain(ctx, 0), pk = (.25 + .75*k)*.35; fl[fl.length - 1].connect(vca); adsr(vca.gain, t, P.aa, P.ad, P.as, pk);
+    // drive into the filter (each voice's own; in paraphonic mode one filter for all, after them)
+    let pre = mix, fl = [], fe = null, fg = null, kt = 1;
+    if (para()) paraEnv(t, kf);
+    else {
+      if (P.drive > .01) { const ws = ctx.createWaveShaper(), g = gain(ctx, 1 - P.drive*.4); ws.curve = satCurve(P.drive); ws.oversample = '2x'; mix.connect(ws); ws.connect(g); pre = g; }
+      fl = filters(); kt = Math.pow(2, P.track*(note - 60)/12);
+      fl.forEach(b => { b.frequency.value = 1000*kt; cutIn.connect(b.detune); if (b.resBus) link(B.res, b.Q); });
+      link(B.cut, cutIn);
+      pre.connect(fl[0]);
+      // the filter's envelope, its depth a shared bus (so automating the envelope works on held notes)
+      fe = ctx.createConstantSource(); fg = gain(ctx, 0); fe.offset.value = 0; adsr(fe.offset, t, P.fa, P.fd, P.fs, kf); fe.start(t); srcs.push(fe);
+      link(B.fenv, fg.gain); fe.connect(fg); fg.connect(cutIn);
+    }
+    const vca = gain(ctx, 0), pk = (.25 + .75*k)*.35; (fl.length ? fl[fl.length - 1] : mix).connect(vca); adsr(vca.gain, t, P.aa, P.ad, P.as, pk);
     let tail = vca;
     // the matrix's per-voice sources: the mod envelope, velocity and key
-    const dest = {cut: cutIn, res: fl[0].Q, pitch: pitchIn, p2: det2, pw: pwIn, mix2: m2In, fenv: fg.gain};
-    const per = P.matrix.filter(m => (m[0] === 'menv' || m[0] === 'vel' || m[0] === 'key') && DESTS[m[1]]);
+    const dest = {cut: fl.length ? cutIn : null, res: fl.length ? fl[0].Q : null, pitch: pitchIn, p2: det2, pw: pwIn, mix2: m2In, fenv: fg && fg.gain};
+    const per = P.matrix.filter(m => (m[0] === 'menv' || m[0] === 'vel' || m[0] === 'key') && DESTS[m[1]] && (dest[m[1]] || m[1] === 'amp' || m[1] === 'pan'));
     if (per.some(m => m[1] === 'amp')) { const g = gain(ctx, 1); tail.connect(g); tail = g; dest.amp = g.gain; }
     if (per.some(m => m[1] === 'pan')) { const p = ctx.createStereoPanner(); tail.connect(p); tail = p; dest.pan = p.pan; }
     let me = null;
@@ -154,7 +187,7 @@ export function makeAnalog(ctx, out, env = {period: () => .5, t0: 0}){
       else { s = ctx.createConstantSource(); s.offset.value = src === 'vel' ? vel : (note - 60)/24; s.start(t); srcs.push(s); }
       const g = gain(ctx, a*DESTS[d][1]); s.connect(g); g.connect(dest[d]);
     }
-    tail.connect(sum);
+    tail.connect(para() ? paraIn() : sum);
     Object.assign(v, {vca, fe, me, fl, kt, tail});
     v.retune = (n, at) => { for (const {o, mul} of v.osc) if (mul) P.glide > 0 ? o.frequency.setTargetAtTime(hz(n)*mul, at, P.glide/3) : o.frequency.setValueAtTime(hz(n)*mul, at); v.note = n; };
     return v;
@@ -164,12 +197,12 @@ export function makeAnalog(ctx, out, env = {period: () => .5, t0: 0}){
     if (v.end <= t) return; if (v.end < Infinity) unrelease(v);
     v.end = t; const r = fast ? .008 : P.ar;
     hold(v.vca.gain, t); v.vca.gain.setTargetAtTime(0, t, r/4);
-    hold(v.fe.offset, t); v.fe.offset.setTargetAtTime(0, t, (fast ? .008 : P.fr)/4);
+    if (v.fe) { hold(v.fe.offset, t); v.fe.offset.setTargetAtTime(0, t, (fast ? .008 : P.fr)/4); }
     if (v.me) { hold(v.me.offset, t); v.me.offset.setTargetAtTime(0, t, (fast ? .008 : P.mr)/4); }
-    const stop = t + r*2.2 + .03; for (const {o} of v.osc) o.stop(stop); for (const s of v.srcs) s.stop(stop);
+    const stop = t + r*1.6 + .03; for (const {o} of v.osc) o.stop(stop); for (const s of v.srcs) s.stop(stop);
     v.osc[0].o.onended = () => { for (const [a, b] of v.links) try { a.disconnect(b); } catch (e) {} v.tail.disconnect(); const i = voices.indexOf(v); if (i >= 0) voices.splice(i, 1); };
   }
-  function unrelease(v){ const at = v.end; for (const p of [v.vca.gain, v.fe.offset, v.me && v.me.offset]) if (p) p.cancelScheduledValues(at); v.end = Infinity; for (const {o} of v.osc) o.stop(at + 3600); for (const s of v.srcs) s.stop(at + 3600); }
+  function unrelease(v){ const at = v.end; for (const p of [v.vca.gain, v.fe && v.fe.offset, v.me && v.me.offset]) if (p) p.cancelScheduledValues(at); v.end = Infinity; for (const {o} of v.osc) o.stop(at + 3600); for (const s of v.srcs) s.stop(at + 3600); }
   const synth = {
     P, voices,
     noteOn(n, vel = .8, t = now()){

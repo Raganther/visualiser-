@@ -95,8 +95,9 @@ function scDevice(ctx, d, desk){
 function limDevice(ctx, d){
   const P = {gain: 0, ceil: -.3, rel: .06, ...d};
   const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = ctx.createDynamicsCompressor(), clip = ctx.createWaveShaper(), output = gainNode(ctx);
-  // the clipper: straight up to 80% of the ceiling, then bending smoothly into it (never past)
-  const curve = () => { const n = 8192, cv = new Float32Array(n), C = db(P.ceil), k = .8*C;
+  // the clipper: straight up to 80% of the ceiling, then bending smoothly into it (never past). It aims a little under:
+  // oversampling's filters ring past a clipped drum's edge, so the true peak lands at the ceiling, not over it
+  const curve = () => { const n = 8192, cv = new Float32Array(n), C = db(P.ceil - TUNE.studio.tpMargin), k = .8*C;
     for (let i = 0; i < n; i++) { const x = (i/(n - 1)*2 - 1)*2, a = Math.abs(x), y = a <= k ? a : k + (C - k)*Math.tanh((a - k)/(C - k)); cv[i] = Math.sign(x)*y; } return cv; };
   // (a wave shaper reads -1..1: halved first, the curve covers ±2, so a peak up to +6 dB over full scale is still shaped, not cut flat)
   const pre = gainNode(ctx, .5), post = gainNode(ctx, 1);
