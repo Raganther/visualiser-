@@ -5,7 +5,7 @@
 // The wire objects' panes light with the kick (scene/facets.js), and not with facet light off. The rose window and the
 // Lattice draw in both renderers. Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
-import { facetGeo, facetPlace } from '../src/render/facet.js';
+import { facetGeo, facetPlace, sheetGeo, facetPlaceP } from '../src/render/facet.js';
 
 if (!ENTRY.endsWith('index.html')) { console.log('facets: skipped for', ENTRY); process.exit(0); }
 let failed = false;
@@ -25,6 +25,14 @@ const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0)/a.length
   check('each edge knows its level (the icosahedron\'s edges split into eighths, and so on)', lv[0] === 480 && lv.every(n => n > 0), lv.join(', '));
   D.fill(1.5); facetPlace(G, R, D, X); const fl = new Set(X.fl);
   check('between two levels the panes part along the new edges', fl.size >= 1 && worst < 1e-3, [...fl].join());
+}
+
+// the sheet (the Fold's): 8 to 2,048 facets on a square, every vertex on its grid, lying flat it all faces one way
+{
+  const G = sheetGeo(4), S3 = new Float32Array(G.nv*3), D = new Float32Array(G.nv).fill(4), X = {};
+  for (let v = 0; v < G.nv; v++) { S3[v*3] = G.UV[v*2]; S3[v*3 + 1] = G.UV[v*2 + 1]; }
+  facetPlaceP(G, S3, D, X); let nz = 1; for (let f = 0; f < G.nf; f++) nz = Math.min(nz, X.fn[f*3 + 2]);
+  check('the sheet: 8, 32, 128, 512 and 2,048 facets on a 33 × 33 grid, flat and facing one way', G.NF.join() === '8,32,128,512,2048' && G.nv === 33*33 && [...G.VI].every(i => i >= 0) && nz > .999, `${G.NF.join()}, ${G.nv} corners, least facing ${nz.toFixed(3)}`);
 }
 
 const {srv, url} = await serve();
@@ -56,8 +64,20 @@ for (const mode of ['2d', 'gl']) {
     let rings = 0; for (let i = 0; i < 40; i++) { __step(1); const F = S.lastP.m.geosphere.fx; if (F && [3, 7, 11, 15].some(k => F.rip[k] >= 0)) rings++; }
     const lit = ${THUMB}; TUNE.mesh.fx.amount = 0; __step(${mode === 'gl' ? 10 : 20}); const plain = ${THUMB}; const none = !S.lastP.m.geosphere.fx; TUNE.mesh.fx.amount = 1;
     out.fx = {rings, none, lit, plain}; set('geosphere', 0); __step(30);
+    // the Fold: each form closes where it should (the tube's sides meet, the ring's ends too, the ball's corners behind), it
+    // draws, and with the music it changes; a drop opens a closed form out
+    set('fold', 1); const fm = await import('/src/visuals/objects/fold.js'), {sheetGeo} = await import('/src/render/facet.js'), SG = sheetGeo(4);
+    const at = (x, y) => SG.VI[Math.round((x + 1)*16)*33 + Math.round((y + 1)*16)], gap = (p, a, b) => Math.hypot(p[a*3] - p[b*3], p[a*3 + 1] - p[b*3 + 1], p[a*3 + 2] - p[b*3 + 2]);
+    const seams = {};
+    for (const f of ['tube', 'ring', 'ball']) { fm.foldForm(f, true); TUNE.fold.mtn = 0; __step(2); const p = fm.foldState().X.pos;
+      seams[f] = f === 'tube' ? gap(p, at(1, .5), at(-1, .5)) : f === 'ring' ? Math.max(gap(p, at(1, .5), at(-1, .5)), gap(p, at(.5, 1), at(.5, -1))) : Math.max(gap(p, at(1, 1), at(-1, -1)), gap(p, at(1, .5), at(1, -.5))); }
+    TUNE.fold.mtn = .3; fm.foldForm('peaks', true); __step(${mode === 'gl' ? 40 : 80}); const fa = ${THUMB};
+    fm.foldForm('ring', true); __step(${mode === 'gl' ? 40 : 80}); const fb = ${THUMB};
+    fm.foldForm(null); fm.foldForm('ball', true); fm.foldForm(null); J.lastDrop = performance.now() + 2; __step(5);
+    out.fold = {seams, fa, fb, opened: fm.foldState().form};
+    set('fold', 0); __step(30);
     // the rose window and the Lattice
-    for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
+  for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
     return {off, out};
   })()`);
   const errors = await page.errors();
@@ -67,6 +87,10 @@ for (const mode of ['2d', 'gl']) {
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);
   check(`${mode}: the wire sphere's panes light with the kick, and not with facet light off`, r.out.fx.rings > 5 && r.out.fx.none && diff(r.out.fx.lit, r.out.fx.plain) > .05, `rings in ${r.out.fx.rings} of 40 frames, off: ${r.out.fx.none}, change ${diff(r.out.fx.lit, r.out.fx.plain).toFixed(2)}`);
+    const fo = r.out.fold, fsh = diff(r.off, fo.fa), fmv = diff(fo.fa, fo.fb), worst = Math.max(...Object.values(fo.seams));
+  check(`${mode}: the Fold's forms close (the tube's sides, the ring's ends, the ball's corners meet)`, worst < 1e-3, Object.entries(fo.seams).map(([k, v]) => `${k} ${v.toExponential(1)}`).join(', '));
+  check(`${mode}: the Fold draws, and a ring isn't mountains`, fsh > .5 && fmv > .3, `shown ${fsh.toFixed(1)}, changed ${fmv.toFixed(1)}`);
+  check(`${mode}: a drop opens a closed form out`, fo.opened === 'peaks', fo.opened);
   for (const k of ['rosette', 'lattice']) { const d = diff(r.off, r.out[k]); check(`${mode}: the ${k === 'rosette' ? 'rose window' : 'Lattice'} draws`, d > .4, `change ${d.toFixed(1)}`); }
   check(`${mode}: no page errors`, !errors.length, errors.join('; '));
   await browser.close();

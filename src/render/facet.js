@@ -84,6 +84,12 @@ export function facetPlace(G, R, D, out){
     }
     P[v*3] = x; P[v*3 + 1] = y; P[v*3 + 2] = z;
   }
+  return faceFrame(G, D, out);
+}
+
+// each face's normal, centre and visible level, from the placed corners
+function faceFrame(G, D, out){
+  const {nf, F, TRI} = G, P = out.pos;
   for (let f = 0; f < nf; f++) {
     const a = TRI[f*3]*3, b = TRI[f*3 + 1]*3, c = TRI[f*3 + 2]*3;
     const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], wx = P[c] - P[a], wy = P[c + 1] - P[a + 1], wz = P[c + 2] - P[a + 2];
@@ -94,6 +100,75 @@ export function facetPlace(G, R, D, out){
     out.fl[f] = Math.max(0, Math.min(F, Math.floor(dd + .5)));
   }
   return out;
+}
+
+// ---- a sheet: the same, from a flat square instead of a ball (visuals/objects/fold.js lays it out as any surface) ----
+// The square [-1,1]² cut into the octahedron's eight faces (its inner diamond and four corner triangles), so it folds into
+// an even ball with no pinched poles, like folding an octahedron from paper, and lies flat, rolls into a tube or a ring
+// just as well. Split F times (8, 32, 128, 512, 2,048 facets at F = 4); every vertex sits on a grid of 2^F a unit (GI: its
+// place in the grid, UV: its place on the sheet), and knows its coarse facets and weights at every level, as the ball does
+export function sheetGeo(F = 4){
+  const key = 's' + F; if (GEOS[key]) return GEOS[key];
+  const V = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]];
+  let faces = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1], [1, 5, 2], [2, 6, 3], [3, 7, 4], [4, 8, 1]];
+  const ek = (a, b) => a < b ? a*65536 + b : b*65536 + a, elev = new Map();
+  for (const [a, b, c] of faces) for (const [p, q] of [[a, b], [b, c], [c, a]]) elev.set(ek(p, q), 0);
+  const LV = [faces], PAR = [null], CH = [new Uint8Array(8).fill(3)];
+  for (let L = 0; L < F; L++) {
+    const mid = new Map(), nf = [], par = [], ch = [];
+    const m = (a, b) => { const k = ek(a, b); let i = mid.get(k); if (i === undefined) { i = V.length; V.push([(V[a][0] + V[b][0])/2, (V[a][1] + V[b][1])/2]); mid.set(k, i);
+      const l = elev.get(k); elev.set(ek(a, i), l); elev.set(ek(i, b), l); } return i; };
+    faces.forEach(([a, b, c], f) => {
+      const ab = m(a, b), bc = m(b, c), ca = m(c, a);
+      for (const [p, q] of [[ab, bc], [bc, ca], [ca, ab]]) elev.set(ek(p, q), L + 1);
+      nf.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]); par.push(f, f, f, f); ch.push(0, 1, 2, 3);
+    });
+    faces = nf; LV.push(nf); PAR.push(Int32Array.from(par)); CH.push(Uint8Array.from(ch));
+  }
+  const nv = V.length, nf = faces.length;
+  const FA = []; for (let L = 0; L <= F; L++) FA.push(new Int32Array(nf));
+  for (let f = 0; f < nf; f++) { let g = f; for (let L = F; L >= 0; L--) { FA[L][f] = g; if (L) g = PAR[L][g]; } }
+  const AI = new Int32Array(nv*(F + 1)*3), AW = new Float32Array(nv*(F + 1)*3);
+  for (let L = 0; L <= F; L++) {
+    const fl = LV[L], done = new Uint8Array(nv);
+    for (let f = 0; f < nf; f++) for (const v of faces[f]) {
+      if (done[v]) continue; done[v] = 1;
+      const [a, b, c] = fl[FA[L][f]], [px, py] = V[v];
+      const ar = (p, q, r) => (V[q][0] - V[p][0])*(r[1] - V[p][1]) - (V[q][1] - V[p][1])*(r[0] - V[p][0]), tot = ar(a, b, V[c]);
+      const wa = ar(b, c, [px, py])/tot, wb = ar(c, a, [px, py])/tot, o = (v*(F + 1) + L)*3;
+      AI[o] = a; AI[o + 1] = b; AI[o + 2] = c; AW[o] = wa; AW[o + 1] = wb; AW[o + 2] = 1 - wa - wb;
+    }
+  }
+  const EL = new Uint8Array(nf*3), TRI = new Uint16Array(nf*3);
+  faces.forEach(([a, b, c], f) => { TRI.set([a, b, c], f*3); EL[f*3] = elev.get(ek(b, c)); EL[f*3 + 1] = elev.get(ek(c, a)); EL[f*3 + 2] = elev.get(ek(a, b)); });
+  const CEN = [], ADJ = [];
+  for (let L = 0; L <= F; L++) {
+    const fl = LV[L], cen = new Float32Array(fl.length*3), adj = new Int32Array(fl.length*3).fill(-1), byEdge = new Map();
+    fl.forEach(([a, b, c], f) => { cen.set([(V[a][0] + V[b][0] + V[c][0])/3, (V[a][1] + V[b][1] + V[c][1])/3, 0], f*3);
+      [[a, b], [b, c], [c, a]].forEach(([p, q], j) => { const k = ek(p, q), o = byEdge.get(k); if (o) { adj[f*3 + j] = o[0]; adj[o[0]*3 + o[1]] = f; } else byEdge.set(k, [f, j]); }); });
+    CEN.push(cen); ADJ.push(adj);
+  }
+  const n = 1 << F, UV = new Float32Array(nv*2), GI = new Int32Array(nv), VI = new Int32Array((2*n + 1)**2).fill(-1);
+  V.forEach(([x, y], i) => { UV[i*2] = x; UV[i*2 + 1] = y; const g = Math.round((x + 1)*n)*(2*n + 1) + Math.round((y + 1)*n); GI[i] = g; VI[g] = i; });
+  return GEOS[key] = {F, nv, nf, NF: LV.map(l => l.length), TRI, EL, FA, CH, CEN, ADJ, AI, AW, UV, GI, VI, side: 2*n + 1};
+}
+// a frame of a sheet (or any of these geometries): every vertex placed from its corners' places (S3: xyz per vertex, worked
+// out at the finest level) blended at its detail, so at a coarse detail the fine panes lie flat on the coarse facets
+export function facetPlaceP(G, S3, D, out){
+  const {nv, F, AI, AW} = G;
+  out.pos = out.pos || new Float32Array(nv*3); out.fn = out.fn || new Float32Array(G.nf*3); out.fc = out.fc || new Float32Array(G.nf*3); out.fl = out.fl || new Uint8Array(G.nf); out.fd = out.fd || new Float32Array(G.nf);
+  const P = out.pos;
+  for (let v = 0; v < nv; v++) {
+    const d = Math.max(0, Math.min(F, D[v])), L0 = Math.min(F - 1, Math.floor(d)), fr = d - L0;
+    let x = 0, y = 0, z = 0;
+    for (let s = 0; s < 2; s++) {
+      const L = L0 + s, k = s ? fr : 1 - fr; if (k < 1e-4) continue;
+      const o = (v*(F + 1) + L)*3;
+      for (let j = 0; j < 3; j++) { const i = AI[o + j]*3, w = AW[o + j]*k; x += S3[i]*w; y += S3[i + 1]*w; z += S3[i + 2]*w; }
+    }
+    P[v*3] = x; P[v*3 + 1] = y; P[v*3 + 2] = z;
+  }
+  return faceFrame(G, D, out);
 }
 
 // ---- projection, shared by both renderers ----

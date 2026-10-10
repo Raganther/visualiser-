@@ -60,12 +60,13 @@ import tentacle from './objects/tentacle.js';
 import hand from './objects/hand.js';
 import heart from './objects/heart.js';
 import prism from './objects/prism.js';
+import fold from './objects/fold.js';
 import gems from './objects/gems.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch, cascade];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, rosette, tunnel];
-export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, prism, gems];   // 3D centrepieces, drawn crisp over the picture
+export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, prism, gems, fold];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);
