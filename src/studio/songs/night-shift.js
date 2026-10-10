@@ -1,0 +1,77 @@
+// Night Shift: minimal techno, 127 BPM in A minor. A rolling offbeat bass ducking under a dry, deep kick; shuffled hats;
+// a wooden FM blip and a dub chord thrown into a dotted-eighth echo; a filtered build, a break with a pad and a riser, and
+// a drop with everything.
+const Am9 = ['A3', 'C4', 'E4', 'G4', 'B4'], Am7 = ['A3', 'C4', 'E4', 'G4'];
+export default {
+  title: 'Night Shift', bpm: 127, swing: .06, seed: 7, key: 'A minor',
+  tracks: [
+    {id: 'kick', name: 'Kick', inst: {type: 'drums', kit: '909', voices: {kick: {tune: -2, decay: .78, x: .55, drive: .3, tone: .5}}},
+      clips: {four: {hits: {kick: 'x...|x...|x...|x...'}}, last: {hits: {kick: 'x...|x...|x...|x.x.'}}},
+      mix: {vol: -1, chain: [{type: 'eq', bands: [{type: 'hp', f: 28, slope: 24}, {type: 'bell', f: 58, g: 1.5, q: 1}, {type: 'bell', f: 330, g: -4, q: 1.4}, {type: 'hs', f: 7000, g: -2}]}]}},
+    {id: 'bass', name: 'Bass', inst: {type: 'analog', preset: 'Rolling bass', p: {cut: 240}},
+      clips: {
+        a: {notes: [[2, 'A1', 1.2, .95], [3, 'A1', .7, .6], [6, 'A1', 1.2, .95], [7, 'A1', .7, .6], [10, 'A1', 1.2, .95], [11, 'C2', .7, .7], [14, 'A1', 1.2, .95], [15, 'G1', .7, .6]]},
+        b: {bars: 2, notes: [[2, 'A1', 1.2, .95], [3, 'A1', .7, .6], [6, 'A1', 1.2, .95], [7, 'C2', .7, .7], [10, 'A1', 1.2, .95], [11, 'A1', .7, .6], [14, 'E2', 1.2, .9], [15, 'D2', .7, .6],
+          [18, 'A1', 1.2, .95], [19, 'A1', .7, .6], [22, 'A1', 1.2, .95], [23, 'G1', .7, .7], [26, 'A1', 1.2, .95], [27, 'C2', .7, .6], [30, 'G1', 1.2, .9], [31, 'E1', .7, .7]]}},
+      mix: {vol: -5, chain: [{type: 'eq', bands: [{type: 'hp', f: 36, slope: 24}, {type: 'bell', f: 220, g: -2.5, q: 1.2}, {type: 'lp', f: 4500, slope: 12}]},
+        {type: 'sc', src: 'kick', depth: 8, att: .003, hold: .025, rel: .14}, {type: 'comp', thr: -16, ratio: 3, att: .005, rel: .08, gain: 2}]}},
+    {id: 'hats', name: 'Hats', inst: {type: 'drums', kit: 'Minimal', voices: {chh: {tone: .85, decay: .7}, ohh: {decay: .55, x: .25}}}, swing: .14,
+      clips: {
+        thin: {hits: {ohh: '..x.|..x.|..x.|..x.'}},
+        full: {hits: {chh: '6..4|6..4|6..4|6.43', ohh: '..x.|..x.|..x.|..x.'}},
+        busy: {hits: {chh: '6343|6343|6343|6353', ohh: '..x.|..x.|..x.|..X.'}}},
+      mix: {vol: -9, pan: .08, to: 'drums', chain: [{type: 'eq', bands: [{type: 'hp', f: 400, slope: 24}, {type: 'hs', f: 9000, g: -1.5}]}], sends: {verb: -24}}},
+    {id: 'clap', name: 'Clap', inst: {type: 'drums', kit: '909', voices: {clap: {decay: .9, x: .6, tone: .85}, snare: {tune: 2, decay: .6, x: .8}}},
+      clips: {two: {hits: {clap: '....|x...|....|x...'}}, ghost: {hits: {clap: '....|x...|....|x..?'}},
+        roll: {hits: {snare: '3.4.|5.5.|6767|889X'}}},
+      mix: {vol: -8, to: 'drums', chain: [{type: 'eq', bands: [{type: 'hp', f: 180, slope: 24}, {type: 'bell', f: 1100, g: 2, q: .9}]}], sends: {verb: -11}}},
+    {id: 'perc', name: 'Perc', inst: {type: 'drums', kit: 'Minimal', voices: {rim: {tune: 1, pan: -.3}, clave: {pan: .35, level: .7}, tomL: {tune: -2, pan: -.15}}},
+      clips: {a: {steps: 12, hits: {rim: '...x..x..x..'}}, b: {bars: 2, hits: {rim: {p: '...x..x....x..x....x..x..x.?..x.', prob: .9}, clave: '......x...............x.........', tomL: '..............x...............x.'}}},
+      mix: {vol: -14, pan: -.1, to: 'drums', chain: [{type: 'eq', bands: [{type: 'hp', f: 250, slope: 12}]}], sends: {echo: -16, verb: -22}}},
+    {id: 'blip', name: 'Blip', inst: {type: 'fm', preset: 'Wood blip', p: {i2: 3.4}},
+      clips: {a: {bars: 2, notes: [[3, 'E4', 1, .8], [7, 'A4', 1, .55, {p: .5}], [10, 'E4', 1, .7], [19, 'G4', 1, .8], [22, 'E4', 1, .6, {p: .6}], [26, 'C5', 1, .7], [29, 'A4', 1, .5, {p: .5}]]}},
+      mix: {vol: -16, pan: .25, chain: [{type: 'eq', bands: [{type: 'hp', f: 300, slope: 24}]}], sends: {echo: -7, verb: -18}}},
+    {id: 'chord', name: 'Dub chord', inst: {type: 'analog', preset: 'Dub chord'},
+      clips: {a: {bars: 2, notes: [[3, Am9, 1, .8], [14, Am7, .75, .6, {p: .7}], [22, Am9, 1, .75]]}, b: {notes: [[3, Am9, 1, .8], [10, Am7, .75, .6], [14, Am9, .75, .55, {p: .5}]]}},
+      mix: {vol: -15, chain: [{type: 'eq', bands: [{type: 'hp', f: 220, slope: 24}, {type: 'bell', f: 700, g: -2, q: 1}]}, {type: 'sc', src: 'kick', depth: 4, rel: .2}],
+        sends: {echo: -5, verb: -12}}},
+    {id: 'pad', name: 'Pad', inst: {type: 'analog', preset: 'Warm pad', p: {cut: 650}},
+      clips: {a: {bars: 4, notes: [[0, ['A2', 'E3', 'G3', 'B3', 'C4'], 62, .6]]}},
+      mix: {vol: -14, chain: [{type: 'eq', bands: [{type: 'hp', f: 150, slope: 24}]}, {type: 'sc', src: 'kick', depth: 6, rel: .3}], sends: {verb: -8}}},
+    {id: 'riser', name: 'Riser', inst: {type: 'analog', preset: 'Noise riser'},
+      clips: {a: {bars: 8, notes: [[0, 'A3', 126, .8]]}},
+      mix: {vol: -18, chain: [{type: 'eq', bands: [{type: 'hp', f: 200, slope: 12}]}], sends: {verb: -6, echo: -12}}},
+    {id: 'crash', name: 'Crash', inst: {type: 'drums', kit: '909', voices: {crash: {decay: 1.2, tone: .8}}},
+      clips: {a: {bars: 8, hits: {crash: 'X'}}},
+      mix: {vol: -15, to: 'drums', chain: [{type: 'eq', bands: [{type: 'hp', f: 500, slope: 24}]}], sends: {verb: -14}}},
+  ],
+  groups: [{id: 'drums', name: 'Drums', chain: [{type: 'comp', thr: -20, ratio: 2.5, knee: 6, att: .008, rel: .12, gain: 1}]}],
+  returns: [
+    {id: 'verb', name: 'Hall', chain: [{type: 'reverb', p: {kind: 'Hall', size: .55, damp: .6, pre: .025, low: 380, mix: 1}}, {type: 'eq', bands: [{type: 'lp', f: 7000, slope: 12}]}]},
+    {id: 'echo', name: 'Echo', chain: [{type: 'delay', p: {div: '1/8·', fb: .45, tone: 2600, ping: 1, mix: 1}}, {type: 'eq', bands: [{type: 'hp', f: 300, slope: 12}]}], vol: -2}],
+  master: {chain: [{type: 'eq', bands: [{type: 'hp', f: 24, slope: 24}]}, {type: 'comp', id: 'glue', thr: -12, ratio: 2, knee: 6, att: .02, rel: .15},
+    {type: 'limiter', gain: 4, ceil: -.5}]},
+  scenes: [
+    {id: 'intro', clips: {kick: 'four', hats: 'thin', perc: 'a'}},
+    {id: 'groove', clips: {kick: 'four', bass: 'a', hats: 'full', clap: 'two', perc: 'a'}},
+    {id: 'dub', clips: {kick: 'four', bass: 'a', hats: 'full', clap: 'two', perc: 'b', blip: 'a', chord: 'a'}},
+    {id: 'build', clips: {kick: 'four', bass: 'b', hats: 'busy', clap: 'ghost', perc: 'b', blip: 'a', chord: 'b', riser: 'a'}},
+    {id: 'roll', clips: {kick: 'last', bass: 'b', hats: 'busy', clap: 'roll', perc: 'b', blip: 'a', chord: 'b', riser: 'a'}},
+    {id: 'break', clips: {hats: 'thin', blip: 'a', chord: 'a', pad: 'a', riser: 'a'}},
+    {id: 'drop', clips: {kick: 'four', bass: 'b', hats: 'busy', clap: 'ghost', perc: 'b', blip: 'a', chord: 'a', crash: 'a'}},
+    {id: 'outro', clips: {kick: 'four', bass: 'a', hats: 'thin', perc: 'a'}},
+  ],
+  arrange: [['intro', 8], ['groove', 8], ['dub', 8], ['build', 7], ['roll', 1], ['break', 8], ['drop', 16], ['outro', 8]],
+  auto: [
+    // the bass opening through the groove and build, closing for the drop's first bars, then opening again
+    {target: 'bass.inst.cut', points: [[8, 170], [16, 240], [24, 300], [32, 620], [40, 260], [44, 380], [52, 520], [56, 300], [64, 160]]},
+    {target: 'bass.inst.fenv', points: [[24, .38], [32, .55], [40, .4], [52, .5], [56, .38]]},
+    // the chord's filter: dark in the dub, opening through the break, bright in the drop
+    {target: 'chord.inst.cut', points: [[16, 380], [24, 520], [32, 300], [40, 900], [48, 650], [56, 1100], [64, 700]]},
+    {target: 'riser.inst.cut', points: [[24, 250], [31.9, 9000], [32, 250], [34, 250], [39.9, 7000]]},
+    {target: 'riser.vol', points: [[24, -30], [31.9, -14], [32, -40], [34, -40], [39.9, -16], [40, -60]]},
+    {target: 'pad.vol', points: [[32, -26], [36, -14], [40, -14]]},
+    {target: 'bass.vol', points: [[56, -5], [64, -16]]},
+  ],
+  mods: [{target: 'blip.pan', shape: 'Sine', rate: '4 bars', depth: .45, center: .1}, {target: 'chord.inst.pan', shape: 'Triangle', rate: '2 bars', depth: .3}],
+};

@@ -34,6 +34,8 @@ export const kitParams = name => { const K = KITS[name] || KITS['909']; return O
 const st = n => Math.pow(2, n/12);
 // a saturation curve: soft (tanh), normalised so a full-scale peak stays full scale
 const sat = a => { const n = 1024, c = new Float32Array(n), K = 1 + a*12, m = Math.tanh(K); for (let i = 0; i < n; i++) { const x = i/(n - 1)*2 - 1; c[i] = Math.tanh(x*K)/m; } return c; };
+// how long each voice can ring, at decay 1 (seconds)
+const LIFE = {kick: .6, snare: .4, clap: .5, rim: .15, clave: .15, chh: .1, ohh: .6, ride: 1.7, crash: 2.1, tomL: .5, tomH: .5, cow: .4, shaker: .2};
 const toneHz = t => 1000*Math.pow(22, t);   // (the tone knob: a low-pass from 1 kHz up to open, 22 kHz)
 
 // the kit, made on an audio context (the page's, or an offline one for the tests): each voice's chain into the bus into `out`
@@ -44,12 +46,14 @@ export function makeDrums(ctx, out){
   // the tone before the drive, so nothing after the saturation can ring past full scale
   btone.type = 'lowpass'; btone.Q.value = .5; bus.connect(btone); btone.connect(bdrive); bdrive.connect(bout); bout.connect(out);
   const P = {}, ch = {}, chokes = {};
-  for (const v of VOICES) {
-    const c = ch[v.key] = {in: ctx.createGain(), sh: ctx.createWaveShaper(), lp: ctx.createBiquadFilter(), lv: ctx.createGain(), pan: ctx.createStereoPanner()};
+  // each voice's chain, made the first time it plays (a kit's thirteen chains processing silence cost as much as a busy pattern)
+  const chan = k => { if (ch[k]) return ch[k];
+    const c = ch[k] = {in: ctx.createGain(), sh: ctx.createWaveShaper(), lp: ctx.createBiquadFilter(), lv: ctx.createGain(), pan: ctx.createStereoPanner()};
     c.lp.type = 'lowpass'; c.lp.Q.value = .5;   // (no oversampling: on noise its filters overshoot past full scale, and a drum's aliasing is lost in it)
     c.in.connect(c.lp); c.lp.connect(c.sh); c.sh.connect(c.lv); c.lv.connect(c.pan); c.pan.connect(bus);
-  }
-  const applyVoice = k => { const p = P[k], c = ch[k], t = ctx.currentTime;
+    const p = P[k]; c.sh.curve = p.drive > .01 ? sat(p.drive) : null; c.lp.frequency.value = toneHz(p.tone); c.lv.gain.value = p.level*(1 - p.drive*.5); c.pan.pan.value = p.pan;
+    return c; };
+  const applyVoice = k => { const p = P[k], c = ch[k], t = ctx.currentTime; if (!c) return;
     c.sh.curve = p.drive > .01 ? sat(p.drive) : null; c.lp.frequency.setTargetAtTime(toneHz(p.tone), t, .01);
     c.lv.gain.setTargetAtTime(p.level*(1 - p.drive*.5), t, .01); c.pan.pan.setTargetAtTime(p.pan, t, .01); };
   const bset = b => { bdrive.curve = b.drive > .01 ? sat(b.drive*.6) : null; btone.frequency.value = toneHz(b.tone); bout.gain.value = 1 - b.drive*.25; };
@@ -63,8 +67,15 @@ export function makeDrums(ctx, out){
   const hiss = (t, end) => { const n = ctx.createBufferSource(); n.buffer = noise; n.loop = true; n.start(t, Math.random()*1.5); n.stop(end); return n; };
   const chain = (...ns) => { for (let i = 0; i < ns.length - 1; i++) ns[i].connect(ns[i + 1]); return ns[ns.length - 1]; };
   // the 808's metal: six square waves at clashing, unrelated pitches, a cymbal's inharmonic shimmer
+  // (made once for each tuning as two seconds of sound, band-limited squares summed, and looped: one node a hit, not six)
+  const metals = new Map();
+  const metalBuf = mul => { const key = mul.toFixed(4); if (metals.has(key)) return metals.get(key);
+    const sr = ctx.sampleRate, n = sr*2, b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0);
+    for (const f0 of [205.3, 304.4, 369.6, 522.7, 540, 800]) { const f = f0*mul, ph = Math.random()*2*Math.PI;
+      for (let h = 1; h*f < sr*.45; h += 2) { const w = 2*Math.PI*h*f/sr, a = 4/Math.PI/h; for (let i = 0; i < n; i++) d[i] += a*Math.sin(w*i + ph*h); } }
+    metals.set(key, b); return b; };
   const metal = (t, end, mul, dest) => { const g = ctx.createGain(); g.gain.value = .16;
-    for (const f of [205.3, 304.4, 369.6, 522.7, 540, 800]) osc('square', f*mul, t, end).connect(g); g.connect(dest); return g; };
+    const src = ctx.createBufferSource(); src.buffer = metalBuf(mul); src.loop = true; src.connect(g); src.start(t, Math.random()*1.9); src.stop(end); g.connect(dest); return g; };
 
   /* ---------- the voices ---------- */
   const VOICE = {
@@ -130,7 +141,12 @@ export function makeDrums(ctx, out){
   const kit = {
     P, out: bout,
     // a hit: the voice at its settings (or a step's own: lock), a touch of variation in level each time (as a hand would)
-    play(key, t, vel = 1, lock = null){ const f = VOICE[key]; if (!f) return; const p = lock ? {...P[key], ...lock} : P[key]; f(Math.max(t, ctx.currentTime), vel*(.97 + Math.random()*.06), p, ch[key].in); },
+    // (each hit through its own gain, cut from the kit once it has surely died away: a finished hit's nodes left wired in
+    // were still processed, and a long pattern slowed rendering to below real time)
+    play(key, t, vel = 1, lock = null){ const f = VOICE[key]; if (!f) return; const p = lock ? {...P[key], ...lock} : P[key]; t = Math.max(t, ctx.currentTime);
+      const o = ctx.createGain(), life = ctx.createConstantSource(); o.connect(chan(key).in); life.offset.value = 0; life.connect(o); life.start(t); life.stop(t + 2.6*p.decay*LIFE[key] + .3);
+      life.onended = () => o.disconnect();
+      f(t, vel*(.97 + Math.random()*.06), p, o); },
     set(key, k, v){ if (!P[key]) return; P[key][k] = v; applyVoice(key); },
     load(name, over = {}){ const K = KITS[name] || KITS['909'], kp = kitParams(name);
       for (const v of VOICES) { P[v.key] = {...kp[v.key], ...(over[v.key] || {})}; applyVoice(v.key); } bset(K.bus); },

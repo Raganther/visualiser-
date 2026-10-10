@@ -516,4 +516,13 @@ export const TUNE = {
     planBars: 16,              // bars ahead the song's changes and drops are known
     nov: 3,                    // how strong a planned change is (a section's start: twice its pendStrength)
   },
+  // the Studio (src/studio/): its scheduler, mixer and meters
+  studio: {
+    ahead: .2,                 // seconds the live scheduler looks ahead (a stalled frame can't knock the music out of time)
+    tickMs: 25,                // how often it looks
+    compLook: .006,            // Chromium's compressor looks ahead this long: a parallel compressor's dry path is delayed to match
+    tail: 3,                   // seconds rendered after the last bar (reverb and delay tails)
+    meterFall: 18,             // dB a second a meter's peak falls back
+    sr: 44100,                 // the sample rate songs render at
+  },
 };
