@@ -108,22 +108,25 @@ const BODY = {g: makeBody('g', gemSheetGeo(3), 2), s: makeBody('s', sheetGeo(4),
 const st = {body: 'g', form: 'gem', f: {...FORMS.gem}, sA: 'ball', sB: 'octa', mix: 0, mixT: 0, sfA: SF.round, sfB: SF.round, sfMx: [1, 1], sfMix: 1, sfSecs: 1,
   dFrom: 1, dTo: 1, wipe: 1, ex: 0, exT: 0, off: true, hue: 0, swap: null, hold: null,
   rip: [], sec: 0, secT: -9, chk: 0, chkT: -9, s16: -1, t: 0, bars: 0, secBars: 0, type: null, prog: null, progs: {}, fi: 0, phr: -1,
-  run: 0, kicks: 0, lastBeatT: 0, stabs: [], spinT: -9, hatWas: 0, burstT: -9, waveT: -9, dropT: -9, lastDrop: null, lastHit: 0, glow: 0, kickT: -9, spin: 0, brk: false};
+  run: 0, kicks: 0, lastBeatT: 0, stabs: [], spinT: -9, hatWas: 0, burstT: -9, waveT: -9, dropT: -9, lastDrop: null, lastHit: 0, glow: 0, kickT: -9, spin: 0, brk: false, act: .2};
 // a section's program: its forms in turn, its shapes, its symmetry, which pattern each part of the music plays
 function programFor(type, T){
   const id = tid(type); if (id && st.progs[id]) return st.progs[id];
   seed = 1 + Math.floor(hashStr('p' + id)*2147483000);
   const live = T > .5;
-  const forms = [pick(live ? ['gem', 'gem', 'peaks', 'tube', 'ring', 'twist'] : ['gem', 'gem', 'bloom', 'star', 'waves']), pick(['star', 'peaks', 'waves', 'bloom', 'halo']), pick(['gem', 'gem', 'gem', 'tube', 'ring', 'twist'])];
+  // the closed gem most of the time (a new shape each time it comes round), now and then a tube, a ring or a twist; laid open
+  // only sometimes (the flat star is a moment, not home: docs/prism-plan.md)
+  const forms = [pick(['gem', 'gem', 'gem', live ? 'twist' : 'bloom']), rnd() < TUNE.prism.openChance ? pick(['star', 'peaks', 'waves', 'bloom', 'halo']) : pick(['gem', 'gem', 'tube', 'ring', 'twist']), 'gem'];
   const p = {forms, shapes: [pick(live ? SHARP : CALM), pick(NAMES)], sf: pick(live ? ['star', 'urchin', 'gem', 'shell'] : ['round', 'flower', 'cushion', 'gem']),
     det: live ? 1.6 + rnd()*1.2 : .6 + rnd()*1.3, n: {g: pick([5, 5, 10]), s: pick([4, 6, 8])},
     kick: pick(['ripple', 'ripple', 'cascade', 'pulse']), stab: pick(['sectors', 'checker', 'rings']), spiral: [pick([1, 2, 3, 5]), pick([2, 3, 5])],
-    figure: rnd() < .5 ? 'life' : 'improv', brk: pick(['star', 'gem']), extrude: .5 + rnd()*.8, seed: rnd()*1000};
+    figure: rnd() < .5 ? 'life' : 'improv', brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
+    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in'])};   // (rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
   if (id) st.progs[id] = p;
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {form: st.form, body: st.body, f: st.f, det: st.dTo, shapes: [st.sA, st.sB], mix: st.mix, X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, det: st.dTo, shapes: [st.sA, st.sB], mix: st.mix, X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap}; };
 export const prismProgram = (type, T) => programFor(type, T);
 export const prismForm = (k, now) => { st.hold = k; if (k) { goForm(k, now); if (now) Object.assign(st.f, FORMS[k]); } };
 
@@ -135,7 +138,7 @@ export default {
   stats: '20 to 2,048 facets: a gem in ten shapes that opens into a star, mountains, waves, a tube, a ring, a twist',
   onBeat(pos){
     st.run++;
-    if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; if (st.prog && st.prog.figure === 'life' && st.secBars >= TUNE.prism.layerBars.life) stepLife(BODY[st.body]); }
+    if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; if (st.prog && st.prog.figure === 'life' && (st.secBars >= TUNE.prism.layerBars.life || st.prog.rest === 'figure')) stepLife(BODY[st.body]); }
   },
   breakApart(){ st.exT = 1; },
   params(P, x){
@@ -150,6 +153,14 @@ export default {
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
       if (!st.hold) { if (closed() > .5) goForm('peaks'); else { goForm('gem'); flipTo('star'); } } }
     st.lastDrop = J ? J.lastDrop : null;
+    // how much may move (docs/prism-plan.md, stage 3): the tension, lifted through a drop's run-up and by the drop itself, held
+    // low in a breakdown, eased (quicker down than up). Calm, it holds its shape, turns slowly and glints, with one quiet pattern
+    const TA = T.act, anticip = (J && J.anticip) || 0, dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT;
+    let want = smooth((ten - TA.calm)/(TA.full - TA.calm));
+    if (anticip > .02) want = Math.max(want, TA.runUp + (1 - TA.runUp)*anticip);
+    if (since < dropLen) want = Math.max(want, 1 - since/dropLen);
+    if (L.brk) want *= TA.brk;
+    st.act += (want - st.act)*Math.min(1, dt/(want > st.act ? TA.rise : TA.fall));
     if (w < .003) { st.off = true; return; }
     if (st.off) { st.off = false; st.ex = st.exT = 1; if (st.swap) { setBody(FORMS[st.swap.to].body); st.form = st.swap.to; st.swap = null; } }   // arriving: it gathers out of its facets
     st.exT *= Math.exp(-dt/T.explodeSecs); st.ex += (st.exT - st.ex)*Math.min(1, dt*(st.exT > st.ex ? 10 : 2.5));
@@ -165,10 +176,10 @@ export default {
       st.stabs = st.stabs.filter(t => st.t - t < 4*S.beatPeriod); st.stabs.push(st.t); if (st.stabs.length >= 3) st.spinT = st.t; }
     st.lastHit = x.hit;
     // the hats coming in scatter sparks and add a level of facets
-    if (SIG.hat > .45 && st.hatWas < .2 && st.secBars >= 2) { st.burstT = st.t; setDetail(st.dTo + 1); }
+    if (SIG.hat > .45 && st.hatWas < .2 && st.secBars >= 2 && at('grow') > .5) { st.burstT = st.t; setDetail(st.dTo + 1); }
     st.hatWas = SIG.hat > .45 ? SIG.hat : Math.min(st.hatWas, SIG.hat);
-    // a phrase line: the next form of the section's program (the gem coming round again in a new shape)
-    if (st.secBars > 0 && st.secBars % 4 === 0 && st.phr !== st.bars) { st.phr = st.bars;
+    // a phrase line: the next form of the section's program (the gem coming round again in a new shape); every other one when calm
+    if (st.secBars > 0 && st.secBars % (st.act < TA.at.form ? 8 : 4) === 0 && st.phr !== st.bars) { st.phr = st.bars;
       if (!L.brk && !st.hold && st.t - st.dropT > 8*S.beatPeriod) { st.fi = (st.fi + 1) % pr.forms.length; const k = pr.forms[st.fi]; if (k === st.form && k === 'gem') newShape(ten); else goForm(k); } }
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
     if (L.brk && !st.brk) { if (!st.hold) goForm(pr.brk); if (pr.brk === 'gem') flipTo(pick(CALM)); setDetail(1 + rnd()*.8); }
@@ -176,24 +187,25 @@ export default {
     st.brk = L.brk;
     if (st.t - st.dropT > 8*S.beatPeriod && st.t - st.dropT < 8*S.beatPeriod + dt*1.5) setDetail(detFor(ten));
     // the form eases towards its own; the shapes blend; the detail's front blooms out from the middle
-    const tg = FORMS[st.form], k = Math.min(1, dt/T.morphSecs*2.2);
+    const slow = 1.6 - .6*st.act, tg = FORMS[st.form], k = Math.min(1, dt/(T.morphSecs*slow)*2.2);   // (calm: slower)
     for (const p of PARAMS) st.f[p] += (tg[p] - st.f[p])*k;
-    st.mix += (st.mixT - st.mix)*Math.min(1, dt/T.morphSecs*2.5);
+    st.mix += (st.mixT - st.mix)*Math.min(1, dt/(T.morphSecs*slow)*2.5);
     st.sfMix = Math.min(1, st.sfMix + dt/st.sfSecs);
     st.wipe = Math.min(1, st.wipe + dt/(T.wipeBeats*S.beatPeriod));
     st.glow *= Math.exp(-dt*3);
-    st.spin += dt*T.spin*(1 - .6*TUNE.dance.amount)*(.5 + ten);
+    st.spin += dt*T.spin*(1 - .6*TUNE.dance.amount)*(TA.spinCalm + (1 - TA.spinCalm)*st.act);
     const b = BODY[st.body];
     if (b.kind === 'g') shapeGem(b, P, x); else shapeSheet(b, P, x);
     light(b, P, x);
     // where it stands and how it turns (its dance on top): a flat form turns about its face, never edge-on
-    const An = P.anchor, d = DANCE.obj.prism, f = st.f, burst = st.t - st.spinT < 4*S.beatPeriod ? (st.t - st.spinT)*2 : 0;
+    const An = P.anchor, d = DANCE.obj.prism, f = st.f, burst = st.t - st.spinT < 4*S.beatPeriod ? (st.t - st.spinT)*2*at('spin') : 0, sway = .4 + .6*st.act;
     const U = P.m = P.m || {};
-    const u = U.prism = {rot: st.spin*f.yw + burst + Math.sin(x.t*.11)*.15*(1 - f.yw), pitch: f.pitch + Math.sin(x.t*.19)*.08, roll: st.spin*(1 - f.yw)*.5,
-      size: (An && An.size || T.size)*(1 + (P.bass || 0)*x.react*.03), pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject],
+    const u = U.prism = {rot: st.spin*f.yw + burst + Math.sin(x.t*.11)*.15*(1 - f.yw)*sway, pitch: f.pitch + Math.sin(x.t*.19)*.08*sway, roll: st.spin*(1 - f.yw)*.5,
+      size: (An && An.size || T.size)*(1 + (P.bass || 0)*x.react*.03*st.act), pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject],
       line: TUNE.mesh.line, w: An && An.hide ? 0 : Math.min(1, w*1.2), X: b.X, body: st.body};
-    if (d) { u.rot += d.yaw*f.yw; u.roll += d.yaw*(1 - f.yw);
-      u.pitch += d.pitch*(f.pitch < 0 ? .3 : 1); u.roll += d.roll; u.pos = [u.pos[0] + d.dx, u.pos[1] + d.dy]; u.size *= d.s; u.sq = d.sq*(f.pitch < 0 ? .3 : 1); }
+    if (d) { const dm = TA.danceCalm + (1 - TA.danceCalm)*at('dance');   // (its dance, small when calm)
+      u.rot += d.yaw*f.yw*dm; u.roll += d.yaw*(1 - f.yw)*dm;
+      u.pitch += d.pitch*(f.pitch < 0 ? .3 : 1)*dm; u.roll += d.roll*dm; u.pos = [u.pos[0] + d.dx*dm, u.pos[1] + d.dy*dm]; u.size *= 1 + (d.s - 1)*dm; u.sq = d.sq*(f.pitch < 0 ? .3 : 1)*dm; }
     const Vw = S.view; if (Vw && Vw.key === 'prism') { u.rot = Vw.yaw + (d ? d.yaw : 0); u.pitch += Vw.pitch; u.size *= Vw.zoom; }
     colour(b, P, x, u, w);
   },
@@ -204,6 +216,8 @@ export default {
   path2d(o, P){ const u = P.m.prism; facetPath2d(o, BODY[u.body].G, BODY[u.body].X, u); },
 };
 
+// how far the activity has let something in (TUNE.prism.act.at: each its own level, eased over .15)
+const at = k => smooth((st.act - TUNE.prism.act.at[k])/.15 + .5);
 // how closed it is: 1 the gem, a tube or a ring; 0 laid open
 const closed = () => st.body === 'g' ? st.f.k : Math.max(st.f.a, st.f.b);
 const detFor = ten => Math.max(FORMS[st.form].det, st.prog.det + ten*TUNE.prism.detTension + (st.body === 's' ? 1 : 0));
@@ -239,12 +253,12 @@ function height(b, v, t, bass, f){
     const u = r*Math.cos(a)*T.mtnScale, w = r*Math.sin(a)*T.mtnScale, s = st.prog ? st.prog.seed : 0;
     let amp = 1, fr = 1;
     for (let i = 0; i < 3; i++) { const q = 1 - Math.abs(2*vn(u*fr + s, w*fr + s*.7) - 1); hgt += q*q*amp; amp *= .5; fr *= 2.1; }
-    hgt = (hgt - .45)*f.h*(1 + bass*T.mtnBreath) + f.wv*Math.sin(r*T.waveK - t*T.waveSpeed)*.6;
+    hgt = (hgt - .45)*f.h*(1 + bass*T.mtnBreath*st.act) + f.wv*Math.sin(r*T.waveK - t*T.waveSpeed)*.6;
     hgt *= T.mtn*(1 - .85*smooth((b.ED[v] - .7)/.3));   // (an island of ranges)
   }
   // the kick's rings, from where each landed (on the ball: the middle, or on the closed gem a new point)
-  const lift = T.ripLift + (T.ripLiftClosed - T.ripLift)*closed(), dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
-  for (const q of st.rip) { const g = st.t - q.t, rr = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI;
+  const lift = (T.ripLift + (T.ripLiftClosed - T.ripLift)*closed())*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift')), dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
+  for (const q of st.rip) { const g = st.t - q.t, r0 = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI, rr = q.inv ? 1 - r0 : r0;
     hgt += lift*q.k*Math.exp(-(((rr - g*T.ripSpeed)/.08)**2))*Math.max(0, 1 - g/T.ripSecs); }
   return hgt;
 }
@@ -254,7 +268,7 @@ function detail(b){ const wf = st.wipe*1.25; for (let v = 0; v < b.nv; v++) b.D[
 // the petals narrow as they flatten, as an orange peel's do. Closed, each corner is on the ball, then given its shape's radius
 function shapeGem(b, P, x){
   const T = TUNE.prism, G = b.G, f = st.f, kk = Math.max(f.k, 1e-3), kc = f.k*f.k*f.k, m = smooth(st.mix), t = x.t, bass = (P.bass || 0)*x.react;
-  const mid = (1 - Math.cos(kk*Math.PI))/(2*kk), sc0 = T.r*(T.star + (1 - T.star)*f.k)*(1 + bass*T.breath*f.k);
+  const mid = (1 - Math.cos(kk*Math.PI))/(2*kk), sc0 = T.r*(T.star + (1 - T.star)*f.k)*(1 + bass*T.breath*f.k*st.act);
   const anticip = (x.J && x.J.anticip) || 0, fh = {...f, h: f.h*(1 + anticip*.8)}, S3 = b.S3;
   for (let v = 0; v < b.nv; v++) {
     const th = G.TH[v], s = Math.sin(kk*th), c = Math.cos(kk*th), sc = th < 1e-4 || s < 1e-6 ? 1 : Math.sin(th)*kk/s, ps = G.GC[v] + G.PS[v]*sc;
@@ -310,7 +324,7 @@ function kick(ten){
   const pr = st.prog; if (!pr) return;
   // its ring: from the middle, or on the closed gem from a new point each time
   const o = st.body === 'g' && st.f.k > .6 ? dirAt(Math.acos(1 - 2*hash(st.run*.37))/Math.PI, hash(st.run*.91)*Math.PI*2) : [0, 0, 1];
-  st.rip.push({o, t: st.t, k: .6 + ten*.6}); if (st.rip.length > 4) st.rip.shift();
+  st.rip.push({o, t: st.t, k: .6 + ten*.6, inv: pr.rings === 'in'}); if (st.rip.length > 4) st.rip.shift();
   if (pr.kick === 'cascade') {   // seeded at n points round the middle, so its rings run out symmetric
     const b = BODY[st.body], n = pr.n[b.kind], r = .15 + .45*hash(st.run*.71), a0 = hash(st.run*1.3)*Math.PI*2;
     for (let i = 0; i < n; i++) b.age[nearestCell(b, dirAt(r, a0 + i/n*Math.PI*2))] = 0;
@@ -318,7 +332,7 @@ function kick(ten){
   // a run of kicks: every 16 in a row adds facets and sends a wave of light out from the middle
   if (st.t - st.lastBeatT > 2.5*S.beatPeriod + .2) st.kicks = 0;
   st.kicks++; st.lastBeatT = st.t;
-  if (st.kicks % 16 === 0) { st.waveT = st.t; setDetail(st.dTo + .7); }
+  if (st.kicks % 16 === 0 && at('grow') > .5) { st.waveT = st.t; setDetail(st.dTo + .7); }
 }
 function step16(b){
   const {age, casc, ADJ, NA} = b;
@@ -349,31 +363,33 @@ function light(b, P, x){
   const hats = Math.min(1, SIG.hat*1.4), on = k => sb >= T.layerBars[k], anticip = (x.J && x.J.anticip) || 0, kc = closed();
   const fade = Math.exp(-(st.t - st.secT)*2.5), cfade = Math.exp(-(st.t - st.chkT)*2.5), mel = Math.min(1, (SIG.harm || 0)*1.2 + (P.mid || 0)*x.react*.6);
   const spinning = st.t - st.spinT < 4*bp, wave = Math.max(0, 1 - (st.t - st.waveT)/(4*bp)), burst = Math.max(0, 1 - (st.t - st.burstT)/(2*bp));
-  const fig = on(pr.figure) ? pr.figure : null, bar = st.bars, ph = SIG.barPhase || 0, e = smooth(ph*4), meter = st.body === 'g' && kc > .5;
+  const rest = pr.rest, gate = k => rest === k ? 1 : at(k);   // (the section's calm pattern plays whatever the activity; the rest come in as it rises)
+  const gK = rest === 'ripple' ? 1 : T.act.kickCalm + (1 - T.act.kickCalm)*at('kick'), gS = gate('sectors'), gM = gate('spiral'), gF = gate('figure'), gH = at('hat'), gW = at('grow');
+  const fig = rest === 'figure' || on(pr.figure) ? pr.figure : null, bar = st.bars, ph = SIG.barPhase || 0, e = smooth(ph*4), meter = st.body === 'g' && kc > .5;
   for (let f = 0; f < b.nf; f++) {
     const L0 = fl[f], g = FA[L0][f], D = b.FD[L0], dx = D[g*3], dy = D[g*3 + 1], dz = D[g*3 + 2], r = b.FR[L0][g], an = b.FZ[L0][g], key = L0*100000 + g;
     // the kick: rings out from where it landed, a cascade, or everything pulsing
     let k = pr.kick === 'pulse' ? SIG.kick*(.5 + .5*hash(key + st.run)) : 0;
-    for (const q of st.rip) { const a = st.t - q.t, rr = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI;
+    for (const q of st.rip) { const a = st.t - q.t, r0 = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI, rr = q.inv ? 1 - r0 : r0;
       k = Math.max(k, q.k*Math.exp(-(((rr - a*T.ripSpeed)/.075)**2))*Math.max(0, 1 - a/T.ripSecs)*(pr.kick === 'cascade' ? .4 : 1)); }
     if (pr.kick === 'cascade') k = Math.max(k, b.lv[L0][g]);
-    LK[f] = k;
+    LK[f] = k*gK;
     // stabs: a wedge stepping round (spinning after three in a bar), a checker flipping, or a ring stepping out
     let s = 0;
-    if (on('stab') || spinning) {
+    if ((on('stab') || rest === 'sectors') && gS > .01 || spinning && at('spin') > .01) {
       if (pr.stab === 'sectors' || spinning) { const i = Math.floor(((an/wedge + (spinning ? (st.t - st.spinT)*6 : 0)) % n + n) % n); s = i === st.sec % n ? .4 + .6*fade : 0; }
       else if (pr.stab === 'checker') s = (G.CH[L0][g] === 3) === !!st.chk ? .25 + .75*cfade : 0;
       else s = Math.floor(r*6) === st.sec % 6 ? .5 + .5*fade : 0;
     }
-    LS[f] = s;
+    LS[f] = s*Math.max(gS, spinning ? at('spin') : 0);
     // the hats: a new random handful each 16th, and a burst of sparks as they come in
-    LH[f] = on('hat') || burst ? (hash(key*1.37 + st.s16*17.1 + bar*3.3) < hats*T.hatShare + burst*.4 ? 1 : 0) : 0;
+    LH[f] = (on('hat') || burst) && gH > .01 ? gH* (hash(key*1.37 + st.s16*17.1 + bar*3.3) < hats*T.hatShare + burst*.4 ? 1 : 0) : 0;
     // the melody: a spiral turning with the mids; and after a run of kicks, a wave out from the middle
-    LM[f] = Math.max(0, Math.cos(an*pr.spiral[0] + r*pr.spiral[1]*4 - x.t*(.5 + (P.mid || 0)*2)))**10*mel + wave*Math.exp(-(((r - (1 - wave))/.1)**2));
+    LM[f] = Math.max(0, Math.cos(an*pr.spiral[0] + r*pr.spiral[1]*4 - x.t*(.5 + (P.mid || 0)*2)))**10*mel*gM + wave*gW*Math.exp(-(((r - (1 - wave))/.1)**2));
     // once the section's run a while: life on the facets, or a symmetric figure (folded into the n wedges, mirrored) that improvises a new shape each bar
-    if (fig === 'life') LI[f] = b.lv2[L0][g]*.8;
+    if (fig === 'life') LI[f] = b.lv2[L0][g]*.8*gF;
     else if (fig === 'improv') { const a = Math.abs(((an % wedge) + wedge) % wedge - wedge/2), u = r*Math.cos(a)*4, w = r*Math.sin(a)*4;
-      const va = vn(u + bar*7.31, w + pr.seed), vb = vn(u + (bar - 1)*7.31, w + pr.seed); LI[f] = smooth(((va*e + vb*(1 - e)) - .62)/.08); }
+      const va = vn(u + bar*7.31, w + pr.seed), vb = vn(u + (bar - 1)*7.31, w + pr.seed); LI[f] = smooth(((va*e + vb*(1 - e)) - .62)/.08)*gF; }
     else LI[f] = 0;
     // a drop's run-up: the closed gem fills from the bottom up, an open one from its rim in
     LP[f] = anticip > .02 ? (meter ? smooth((anticip*2.2 - (dy + 1))/.15) : smooth((r - (1 - anticip)*1.1)/.12)) : 0;
@@ -387,7 +403,7 @@ function colour(b, P, x, u, w){
   const Hx = -.25, Hy = .35, Hz = 1.5, hl = Math.hypot(Hx, Hy, Hz);   // the highlight's half-way vector (a light up and to the left, towards us)
   const ext = sty === 2 ? .5 : 1, ex = st.ex*st.ex*T.explode, gone = Math.max(0, 1 - w/.6), dim = x.dim, fill = T.fill*(.6 + (P.beat || 0)*.8);
   const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed();
-  const extr = T.extrude*(st.secBars >= T.layerBars.extrude ? pr.extrude : .5);
+  const extr = T.extrude*(st.secBars >= T.layerBars.extrude ? pr.extrude : .5)*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift'));
   for (let f = 0; f < b.nf; f++) {
     const L0 = X.fl[f], g = G.FA[L0][f], key = L0*100000 + g, sd = hash(key*.731);
     const nx = X.fn[f*3], ny = X.fn[f*3 + 1], nz = X.fn[f*3 + 2], x1 = cr*nx + sr*nz, z1 = -sr*nx + cr*nz, vy0 = cp*ny - sp*z1, vz = sp*ny + cp*z1;

@@ -272,7 +272,13 @@ export const TUNE = {
     hatShare: .1,                                   // the share of facets the hats light each 16th, at full hats
     fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
-    extrude: .2, lit: .8},                          // how far lit facets push out; how bright the patterns light it
+    extrude: .2, lit: .8,                           // how far lit facets push out; how bright the patterns light it
+    openChance: .3,                                 // how often a section's program lays it open (the star, mountains, waves, the flat ring): a moment, not home
+    act: {calm: .2, full: .85,                      // its activity (how much may move) from the tension: none below calm, all above full
+      runUp: .45, dropBars: 8, brk: .35,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown
+      rise: 5, fall: 2.5,                           // how quickly it rises and falls (seconds)
+      spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .3,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern)
+      at: {form: .35, kick: .3, sectors: .25, spiral: .35, hat: .4, figure: .45, grow: .5, lift: .5, dance: .4, spin: .6}}},   // the activity at which each comes in (form: a new form every phrase, not every other)
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
