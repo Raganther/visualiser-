@@ -114,12 +114,10 @@ export const BASE = [
   {name:'Lotus', journey:false, decay:.9, zoom:1.004, rot:.001, warp:0, sym:1, unfold:.8, lotus:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Jellyfish', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, jelly:1, fireflies:.35, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Crystals', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, aurora:1, crystal:1, colorSpeed:.02, hueDrift:.004, mods:{}},
-  // the prism: a faceted gem that grows facets, morphs and lights them with the music (alone, and in the Cathedral)
+  // the Prism: a gem of facets that opens into a star, mountains, a tube or a ring and lights its facets with the music (alone, and in the Cathedral)
   {name:'Prism', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, prism:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Gem orbit', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, gems:1, constellation:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Prism in the cathedral', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cathedral:1, prism:1, colorSpeed:.02, hueDrift:.004, mods:{}},
-  // the Fold: a sheet of facets folding into mountains, rings and shapes with the music
-  {name:'The Fold', journey:false, decay:.9, zoom:1.003, rot:0, warp:0, sym:1, fold:1, fireflies:.25, colorSpeed:.02, hueDrift:.004, mods:{}},
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
     mods:{ring:{src:'kick', amt:.3}},

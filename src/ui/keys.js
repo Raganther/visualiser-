@@ -46,7 +46,7 @@ const GROUPS = {
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
 const WMORE = ['H', 'N', 'V', 'G', 'D', 'I'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall, the lattIce), none a group's letter, T, R, A or X
-const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R', 'F'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), prism, the gem oRbit, the Fold); Y is the style, M the lit look
+const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), the Prism, the gem oRbit); Y is the style, M the lit look
 const LOOKS = ['real', 'toon', 'neon', 'chrome', 'marble'];   // the lit objects' looks (litLook), M in the objects group
 const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X', 'N', 'H', 'P', 'F'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal, guilloché (eNgraving), string art (Harp), spiral galaxy (sPiral), the rose window (F: its flower)); the mirror tunnel (media) stays on its slider
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';

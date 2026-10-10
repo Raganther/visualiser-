@@ -257,27 +257,22 @@ export const TUNE = {
     turn: .05,                 // how fast its rings turn (each the other way from the last)
     hatShare: .1,              // the share of cells the hats light each 16th, at full hats
     layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
-  prism: {chance: 0, size: .5, spin: .25, journey: 1.6,   // (journey: favoured as a centrepiece, as the user loves it) the prism (objects/prism.js): a faceted gem that grows and sheds facets, morphs and lights its facets
-    explode: 1, explodeSecs: 1.2,                   // how far its facets fly when it shatters, and how long it takes to pull together
-    detTension: 1.2,                                // how many more levels of facets an intense section has (0..3 levels in all)
-    wipeBeats: 4, morphSecs: 3,                     // how long a front of new facets takes to sweep across it; a new shape blending in
-    breath: .08,                                    // how much the bass swells it
-    ripSpeed: 2.2, ripLift: .1, ripSecs: 1.6,       // the kick's ring: how fast it runs out (radians a second), how much it lifts the surface, how long it lasts
-    layerBars: {kick: 0, stab: 4, hat: 8, life: 12, extrude: 16},   // when each part's pattern comes in, in bars from the section's start
-    hatShare: .12,                                  // the share of facets the hats light each 16th, at full hats
+  prism: {chance: 0, size: .5, spin: .22, journey: 1.6,   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
+    r: .45, star: .9,                               // the closed gem's radius; the open star's size against it (its points reach π × r × star)
+    half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
+    morphSecs: 2.8, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
+    swapSecs: .5, swapEx: .8,                       // flying from the gem to the square (or back): how long its facets are out, and how far they fly
+    detTension: 1.1, wipeBeats: 4,                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
+    breath: .08,                                    // how much the bass swells the closed gem
+    mtn: .3, mtnScale: 2.2, mtnBreath: .5,          // the mountains: how high, how wide their ranges (smaller: broader), how much the bass lifts them
+    waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
+    ripSpeed: .75, ripLift: .2, ripLiftClosed: .045, ripSecs: 1.6,   // the kick's ring: how fast it runs out (the ball's front to back a second), how much it lifts an open sheet and the closed gem, how long it lasts
+    explode: .9, explodeSecs: 1.2,                  // how far its facets fly when it shatters, and how long it takes to pull together
+    layerBars: {stab: 4, hat: 8, improv: 8, life: 12, extrude: 16},   // when each part's pattern comes in, in bars from the section's start (improv: the symmetric figure; life: on the facets; extrude: lit facets lifting further)
+    hatShare: .1,                                   // the share of facets the hats light each 16th, at full hats
     fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
-    extrude: .25},                                  // how far lit facets push out
-  fold: {chance: 0, size: .5, spin: .18, journey: 1.3,   // the Fold (objects/fold.js): a sheet of facets folding into mountains, rings and shapes (journey: favoured a little as a centrepiece)
-    half: .85, ballR: .62, ringR: .38,               // the sheet's half-width; the ball's radius; how far out a ring's centre line runs past its tube
-    morphSecs: 2.5, stabSfSecs: .35,                // how long a new form takes to ease in; the ball gaining points on a stab
-    detTension: 1, wipeBeats: 4,                    // how many more levels of facets an intense section has; how long new facets take to bloom out from the centre
-    mtn: .3, mtnScale: 2.2, breath: .5,            // the mountains: how high, how wide their ranges (smaller: broader), how much the bass lifts them
-    waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
-    ripSpeed: 1.1, ripLift: .7, ripSecs: 1.5,       // the kick's ring: how fast it runs out (sheet half-widths a second), how much it lifts, how long it lasts
-    explode: .8, explodeSecs: 1.2,                  // how far its facets fly when it shatters, and how long it takes to pull together
-    layerBars: {stab: 4, hat: 8, improv: 8},        // when each part's pattern comes in, in bars from the section's start (improv: the symmetric figure, a new one each bar)
-    hatShare: .08, fill: .14, dark: .7, gloss: 90, glint: .6, extrude: .14, lit: .75},   // the hats' share of facets; the glass's light and darkening; its highlight; how far lit facets lift; how bright the patterns light it
+    extrude: .2, lit: .8},                          // how far lit facets push out; how bright the patterns light it
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after

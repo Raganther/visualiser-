@@ -1,5 +1,6 @@
 // Facets: a polyhedron that gains and loses facets, morphs between shapes, and lights each facet on its own. A leaf module
 // (no engine imports), drawn in both renderers; the musical brain is visuals/objects/prism.js.
+// Three geometries: the ball (facetGeo), the gem cut open into five gores (gemSheetGeo), and the square sheet (sheetGeo).
 // Geometry: an icosahedron subdivided F times (20, 80, 320, 1280 facets). Every vertex of the finest mesh knows, for each
 // level, the coarser facet it lies in and where in it (barycentric weights), so its place at any level of detail is that
 // facet's corners blended: at a whole level the fine panes lie flat on the coarse facets, between two levels they part
@@ -65,7 +66,7 @@ export function facetGeo(F = 3){
     CEN.push(cen); ADJ.push(adj);
   }
   const DIR = new Float32Array(nv*3); V.forEach((d, i) => DIR.set(d, i*3));
-  return GEOS[F] = {F, nv, nf, NV, NF: LV.map(l => l.length), DIR, TRI, EL, FA, CH, CEN, ADJ, AI, AW};
+  return GEOS[F] = {F, nv, nf, NV, NF: LV.map(l => l.length), DIR, TRI, EL, FA, CH, CEN, ADJ, AI, AW, V, LV};
 }
 
 // ---- a frame: every vertex placed (its shape's radius and its detail), the faces' normals and visible levels ----
@@ -102,7 +103,55 @@ function faceFrame(G, D, out){
   return out;
 }
 
-// ---- a sheet: the same, from a flat square instead of a ball (visuals/objects/fold.js lays it out as any surface) ----
+// ---- the gem cut open: the ball, turned so one of the icosahedron's corners faces us (+z), and cut along its edges into
+// five gores from that corner to the one behind, each a strip of four of its faces (one round the front corner, two round
+// its middle, one round the back). Closed, it's the ball exactly; opened, each gore lies flat as a petal, so the ball
+// unrolls into a five-pointed star like peeling an orange (visuals/objects/prism.js does the opening). A corner on a cut is
+// one corner per gore that holds it, so the petals part; each knows its polar angle from the front (TH), its azimuth
+// from its gore's middle (PS) and that middle (GC) ----
+export function gemSheetGeo(F = 3){
+  const key = 'g' + F; if (GEOS[key]) return GEOS[key];
+  const B = facetGeo(F), {V, LV, FA, TRI, EL, CH, ADJ, NF} = B, nf = B.nf;
+  // the turn that brings corner 0 to the front
+  const p = V[0], ax = norm(cross(p, [0, 0, 1])), an = Math.acos(Math.max(-1, Math.min(1, p[2])));
+  const rot = d => { const c = Math.cos(an), s = Math.sin(an), k = dot(ax, d), x = cross(ax, d); return [d[0]*c + x[0]*s + ax[0]*k*(1 - c), d[1]*c + x[1]*s + ax[1]*k*(1 - c), d[2]*c + x[2]*s + ax[2]*k*(1 - c)]; };
+  const RV = V.map(rot), az = d => Math.atan2(d[1], d[0]), cen0 = f => norm(LV[0][f].reduce((a, i) => [a[0] + RV[i][0], a[1] + RV[i][1], a[2] + RV[i][2]], [0, 0, 0]));
+  // the gores: round the front corner (T), across from it (D), its neighbour turning anticlockwise (U), then the back (B)
+  const gore = new Int8Array(20).fill(-1), A0 = ADJ[0], has0 = f => LV[0][f].includes(0);
+  const T = [...Array(20).keys()].filter(has0).sort((a, b) => az(cen0(a)) - az(cen0(b)));
+  const wrap = a => Math.atan2(Math.sin(a), Math.cos(a)), GCs = [];
+  T.forEach((t, i) => {
+    const D = [0, 1, 2].map(j => A0[t*3 + j]).find(f => !has0(f));
+    const Us = [0, 1, 2].map(j => A0[D*3 + j]).filter(f => f !== t), U = wrap(az(cen0(Us[0])) - az(cen0(D))) > 0 ? Us[0] : Us[1];
+    const Bk = [0, 1, 2].map(j => A0[U*3 + j]).find(f => ![0, 1, 2].some(k => T.includes(A0[f*3 + k])));   // (both its other neighbours sit next to the front)
+    for (const f of [t, D, U, Bk]) gore[f] = i;
+    const c = [t, D, U, Bk].reduce((a, f) => { const d = cen0(f); return [a[0] + d[0], a[1] + d[1]]; }, [0, 0]); GCs.push(Math.atan2(c[1], c[0]));
+  });
+  if ([...gore].some(g => g < 0)) throw new Error('gemSheetGeo: a face in no gore');
+  // a corner per gore that holds it
+  const copy = new Map(), SRC = [], GO = [], fg = f => gore[FA[0][f]];
+  const id = (v, g) => { const k = v*8 + g; let i = copy.get(k); if (i === undefined) { i = SRC.length; copy.set(k, i); SRC.push(v); GO.push(g); } return i; };
+  const NT = new Uint16Array(nf*3); for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) NT[f*3 + j] = id(TRI[f*3 + j], fg(f));
+  const nv = SRC.length, DIR = new Float32Array(nv*3), TH = new Float32Array(nv), PS = new Float32Array(nv), GC = new Float32Array(nv), GO8 = Uint8Array.from(GO);
+  for (let i = 0; i < nv; i++) { const d = RV[SRC[i]]; DIR.set(d, i*3); TH[i] = Math.acos(Math.max(-1, Math.min(1, d[2]))); GC[i] = GCs[GO[i]];
+    PS[i] = Math.hypot(d[0], d[1]) < 1e-6 ? 0 : wrap(az(d) - GC[i]); }
+  // each corner at every level: the coarse facet it lies in (in its own gore, so a petal's corners stay its own) and its weights
+  const AI = new Int32Array(nv*(F + 1)*3), AW = new Float32Array(nv*(F + 1)*3);
+  for (let L = 0; L <= F; L++) {
+    const done = new Uint8Array(nv);
+    for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) {
+      const v = NT[f*3 + j]; if (done[v]) continue; done[v] = 1;
+      const [a, b, c] = LV[L][FA[L][f]], d = V[SRC[v]], n = cross(sub(V[b], V[a]), sub(V[c], V[a])), k = dot(n, V[a])/dot(n, d), X = [d[0]*k, d[1]*k, d[2]*k];
+      const ar = (q, r) => dot(n, cross(sub(V[r], V[q]), sub(X, V[q]))), tot = dot(n, n), wa = ar(b, c)/tot, wb = ar(c, a)/tot, o = (v*(F + 1) + L)*3, g = GO[v];
+      AI[o] = id(a, g); AI[o + 1] = id(b, g); AI[o + 2] = id(c, g); AW[o] = wa; AW[o + 1] = wb; AW[o + 2] = 1 - wa - wb;
+    }
+  }
+  if (SRC.length !== nv) throw new Error('gemSheetGeo: a coarse corner missing from its gore');
+  const CEN = B.CEN.map(c => { const o = new Float32Array(c.length); for (let i = 0; i < c.length; i += 3) o.set(rot([c[i], c[i + 1], c[i + 2]]), i); return o; });
+  return GEOS[key] = {F, nv, nf, NF, TRI: NT, EL, FA, CH, CEN, ADJ, AI, AW, DIR, TH, PS, GC, GO: GO8, gore: Int8Array.from({length: nf}, (_, f) => fg(f))};
+}
+
+// ---- a sheet: the same, from a flat square instead of a ball (visuals/objects/prism.js lays it out as a tube, a ring or a twist) ----
 // The square [-1,1]² cut into the octahedron's eight faces (its inner diamond and four corner triangles), so it folds into
 // an even ball with no pinched poles, like folding an octahedron from paper, and lies flat, rolls into a tube or a ring
 // just as well. Split F times (8, 32, 128, 512, 2,048 facets at F = 4); every vertex sits on a grid of 2^F a unit (GI: its

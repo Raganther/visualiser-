@@ -79,13 +79,14 @@ const withLook = m => m.look ? m : m.settings ? {...m, name: m.name || [m.world 
 function show(list){
   liked = list.map(withLook).filter(m => m.look).slice(0, SHOWN);
   LIKED.length = 0;
-  for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre || null});
+  for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre === 'fold' ? 'prism' : m.look.centre || null});
   render();
 }
 // a like's look as a preset: its settings (a setting added since reads as off, or as it is now for the motion and colour)
 function lookOf(m){
   const L = m.look, p = {name: m.name || 'Liked', mods: clone(L.mods || {}), tw: clone(L.tw || {})};
   for (const s of SPEC) p[s.k] = typeof L.settings[s.k] === 'number' ? L.settings[s.k] : PICTURE.includes(s.g) ? 0 : curP[s.k];
+  if (L.settings.fold > (p.prism || 0)) p.prism = L.settings.fold;   // (the Fold became the Prism)
   if (L.scene) p.scene = clone(L.scene);
   return p;
 }
