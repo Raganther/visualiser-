@@ -38,6 +38,7 @@ src/scene/                 dance.js (the choreographer: every layer and object d
 src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments), dj (the DJ panel under the picture), groove (its Groovebox tab), synth (its Synth section), mix (its Effects section), widgets (knobs and sliders for both)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, foresee, beatmap, visuals, journey, quality, cosmos, dance, steer, dj, audio-engine, effects, drums, synth, sequencer, seq-journey, playlab, facets, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
+docs/prism-plan.md         the plan for the prism: one sheet of facets becoming any shape, in a 3D room with lamps and lasers (stage 1, the Fold, built)
 tools/build.mjs            the bundler for dist/afterglow.html
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 tools/blender/*.py         objects modelled in Blender (the manta), exported as .glb; the lit assets (lit_kit.py, goblin_hd.py, tentacle.py, hand.py, heart.py) and lit_export.py
