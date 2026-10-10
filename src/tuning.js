@@ -278,7 +278,8 @@ export const TUNE = {
       vary: .25, home: .15,                         // how far a returning section's theme is varied; the chance a phrase line comes home to the theme
       cands: 6, memory: 40,                         // how many shapes it weighs each step; how many it remembers having made
       novelty: .6, stepScale: 2.5, suit: 1.5,       // how much it prefers shapes unlike those it's made, a step of the size wanted, and sharpness that suits the music
-      openTheme: .2, squareChance: .12, squareStay: .6},   // ... and the chance each phrase line on the square folds back into the gem            // the chance a section's theme is laid open, and that a fresh shape is on the square (a tube, a ring, a twist, the flat ring)
+      openTheme: .2, squareChance: .12, squareStay: .6, openStay: .5,   // ... and the chance each phrase line on the square folds back into the gem, or the open star closes up
+      noBarSecs: 6},                                // with no bars from the beat grid (pads, a beatless stretch), it counts a bar every this many seconds   // ... and the chance each phrase line on the square folds back into the gem            // the chance a section's theme is laid open, and that a fresh shape is on the square (a tube, a ring, a twist, the flat ring)
     act: {base: .1, climb: .25, climbBars: 32, cap: .55,   // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
       rising: 2.5, fastSecs: 4, slowSecs: 30,      // and lifted while the tension rises above its own level of the last half minute (its quick average against its slow one)
       runUp: .45, dropBars: 8, brk: .35,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown

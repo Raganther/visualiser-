@@ -140,7 +140,7 @@ export default {
   stats: '20 to 2,048 facets: a gem in ten shapes that opens into a star, mountains, waves, a tube, a ring, a twist',
   onBeat(pos){
     st.run++; st.beat = pos;
-    if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; if (st.prog && st.prog.figure === 'life' && (st.secBars >= TUNE.prism.layerBars.life || st.prog.rest === 'figure')) stepLife(BODY[st.body]); }
+    if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; st.barT = st.t; if (st.prog && st.prog.figure === 'life' && (st.secBars >= TUNE.prism.layerBars.life || st.prog.rest === 'figure')) stepLife(BODY[st.body]); }
   },
   breakApart(){ st.exT = 1; },
   params(P, x){
@@ -183,9 +183,12 @@ export default {
     // the hats coming in scatter sparks and add a level of facets
     if (SIG.hat > .45 && st.hatWas < .2 && st.secBars >= 2 && at('grow') > .5) { st.burstT = st.t; setDetail(st.dTo + 1); }
     st.hatWas = SIG.hat > .45 ? SIG.hat : Math.min(st.hatWas, SIG.hat);
+    // no bars coming (nothing for the beat grid to lock to: pads, a beatless intro, paused): it keeps its own slow time
+    if (st.t - (st.barT ?? st.t) > T.imp.noBarSecs) { st.barT = st.t; st.bars++; st.secBars++; }
+    st.barT ??= st.t;
     // a phrase line: the improviser takes a step from where it is (bigger as the music builds, now and then a leap); every other one when calm
     if (st.secBars > 0 && st.secBars % (st.act < TA.at.form ? 8 : 4) === 0 && st.phr !== st.bars) { st.phr = st.bars;
-      if (!L.brk && !st.hold && st.t - st.dropT > 8*S.beatPeriod) improvise(T.imp.step + st.act*T.imp.stepAct, T.imp.leap + st.act*T.imp.leapAct); }
+      if (!st.hold && st.t - st.dropT > 8*S.beatPeriod) improvise(L.brk ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct, L.brk ? 0 : T.imp.leap + st.act*T.imp.leapAct); }   // (a breakdown: small, calm steps)
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
     if (L.brk && !st.brk) { if (!st.hold) goGenome(pr.brk === 'star' ? fromForm('star', st.g) : calmer(st.g)); setDetail(1 + rnd()*.8); }
     if (!L.brk && st.brk) setDetail(detFor());
@@ -232,6 +235,7 @@ function goGenome(g, now){
     if (now || st.off) setBody(g.body);
     else { if (!st.swap) { st.swap = {g, t: st.t}; st.exT = Math.max(st.exT, TUNE.prism.swapEx); } else st.swap.g = g; return; }
   }
+  st.swap = null;   // (a newer shape on this body replaces one waiting to fly across)
   st.g = g; st.form = g.name; if (g.sf !== (st.sfName || '')) { st.sfName = g.sf; setSf(SF[g.sf]); }
   if (g.det > st.dTo) setDetail(g.det);
   st.arch.push(g); if (st.arch.length > TUNE.prism.imp.memory) st.arch.shift();
@@ -307,9 +311,11 @@ function improvise(s, leapP){
   const T = TUNE.prism.imp, g = st.g, sh = want();
   if (st.prog && rnd() < T.home) { goGenome(mutate(st.prog.theme, T.vary, sh)); return; }
   if (g.body === 's') leapP = Math.max(leapP, T.squareStay);   // (the square is an excursion: it soon folds back into the gem)
+  if (g.body === 'g' && g.k < .9) leapP = Math.max(leapP, T.openStay);   // (and so is the open star: it soon closes up again)
+  const away = leapP > .3 && (g.body === 's' || g.k < .9);
   const leap = rnd() < leapP, step = leap ? 1 : s, cands = [];
   for (let i = 0; i < T.cands; i++) {
-    let c = leap && (rnd() < .6 || g.body === 's') ? born(sh, false, g.body === 's') : mutate(g, step, sh);
+    let c = leap && (rnd() < .6 || away) ? born(sh, false, away) : mutate(g, step, sh);
     if (leap && c.name === g.name && rnd() < .5) c = mutate(c, 1, sh);
     cands.push(c);
   }

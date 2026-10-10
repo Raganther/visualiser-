@@ -92,9 +92,9 @@ for (const mode of ['2d', 'gl']) {
     pm.prismForm('star'); const sw = [pm.prismState().body, pm.prismState().swapping]; __step(${mode === 'gl' ? 60 : 90}); sw.push(pm.prismState().body, pm.prismState().form);
     pm.prismForm(null); pm.prismForm('gem', true); pm.prismForm(null); J.lastDrop = performance.now() + 2; __step(5);
     // the improviser: twelve steps make (nearly) twelve different shapes, not a loop
-    pm.prismForm(null); const sig = g => g.name + ':' + Object.keys(g.w).sort().join('+') + ':' + g.sf + ':' + [g.sqx, g.sqy, g.twy, g.la].map(v => v.toFixed(1)).join(',');
+    const opened = pm.prismState().form; pm.prismForm(null); const sig = g => g.name + ':' + Object.keys(g.w).sort().join('+') + ':' + g.sf + ':' + [g.sqx, g.sqy, g.twy, g.la].map(v => v.toFixed(1)).join(',');
     const seen = new Set(); for (let i = 0; i < 12; i++) { pm.prismImprovise(.5); __step(3); seen.add(sig(pm.prismState().g)); }
-    out.fold = {open, seams, fa, fb, sw, opened: pm.prismState().form, kinds: seen.size};
+    out.fold = {open, seams, fa, fb, sw, opened, kinds: seen.size};
     set('prism', 0); __step(30);
     // the rose window and the Lattice
   for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
