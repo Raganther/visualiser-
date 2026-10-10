@@ -60,7 +60,7 @@ for (const mode of ['2d', 'gl']) {
     set('prism', 1); __step(${mode === 'gl' ? 60 : 120});
     const a = ${THUMB}; __step(${mode === 'gl' ? 40 : 80}); const b = ${THUMB};
     const det0 = prismState().det; J.lastDrop = performance.now() + 1; __step(10);
-    out.prism = {shown: 0, moving: 0, det0, det1: prismState().det, a, b};
+    out.prism = {shown: 0, moving: 0, det0, det1: prismState().det, F: prismState().G.F, a, b};
     // a section's program: its own, and the same again when it returns
     const A = {}, B = {}, pa = prismProgram(A, .3), pb = prismProgram(B, .8);
     out.prog = {same: prismProgram(A, .3) === pa, differ: JSON.stringify(pa) !== JSON.stringify(pb)};
@@ -91,7 +91,10 @@ for (const mode of ['2d', 'gl']) {
     // flying across: from the ring (the square) to the star (the gem), its facets out a moment, then the other body
     pm.prismForm('star'); const sw = [pm.prismState().body, pm.prismState().swapping]; __step(${mode === 'gl' ? 60 : 90}); sw.push(pm.prismState().body, pm.prismState().form);
     pm.prismForm(null); pm.prismForm('gem', true); pm.prismForm(null); J.lastDrop = performance.now() + 2; __step(5);
-    out.fold = {open, seams, fa, fb, sw, opened: pm.prismState().form};
+    // the improviser: twelve steps make (nearly) twelve different shapes, not a loop
+    pm.prismForm(null); const sig = g => g.name + ':' + Object.keys(g.w).sort().join('+') + ':' + g.sf + ':' + [g.sqx, g.sqy, g.twy, g.la].map(v => v.toFixed(1)).join(',');
+    const seen = new Set(); for (let i = 0; i < 12; i++) { pm.prismImprovise(.5); __step(3); seen.add(sig(pm.prismState().g)); }
+    out.fold = {open, seams, fa, fb, sw, opened: pm.prismState().form, kinds: seen.size};
     set('prism', 0); __step(30);
     // the rose window and the Lattice
   for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
@@ -100,7 +103,7 @@ for (const mode of ['2d', 'gl']) {
   const errors = await page.errors();
   const p = r.out.prism, sh = diff(r.off, p.a), mv = diff(p.a, p.b);
   check(`${mode}: the prism draws and changes as the music plays`, sh > .6 && mv > .2, `shown ${sh.toFixed(1)}, moving ${mv.toFixed(1)}`);
-  check(`${mode}: a drop gives it every facet`, p.det1 === 3 && p.det0 < 3, `${p.det0.toFixed(1)} → ${p.det1}`);
+  check(`${mode}: a drop gives it every facet`, p.det1 === p.F && p.det0 < p.F, `${p.det0.toFixed(1)} → ${p.det1} of ${p.F}`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);
   check(`${mode}: the wire sphere's panes light with the kick, and not with facet light off`, r.out.fx.rings > 5 && r.out.fx.none && diff(r.out.fx.lit, r.out.fx.plain) > .05, `rings in ${r.out.fx.rings} of 40 frames, off: ${r.out.fx.none}, change ${diff(r.out.fx.lit, r.out.fx.plain).toFixed(2)}`);
@@ -110,6 +113,7 @@ for (const mode of ['2d', 'gl']) {
   check(`${mode}: its mountains draw, and a ring isn't mountains`, fsh > .5 && fmv > .3, `shown ${fsh.toFixed(1)}, changed ${fmv.toFixed(1)}`);
   check(`${mode}: it flies from the square to the gem (apart first, then gathered as the other)`, fo.sw.join() === 's,true,g,star', fo.sw.join());
   check(`${mode}: a drop opens a closed form out`, fo.opened === 'peaks', fo.opened);
+  check(`${mode}: the improviser makes new shapes rather than looping`, fo.kinds >= 9, `${fo.kinds} different in 12 steps`);
   for (const k of ['rosette', 'lattice']) { const d = diff(r.off, r.out[k]); check(`${mode}: the ${k === 'rosette' ? 'rose window' : 'Lattice'} draws`, d > .4, `change ${d.toFixed(1)}`); }
   check(`${mode}: no page errors`, !errors.length, errors.join('; '));
   await browser.close();

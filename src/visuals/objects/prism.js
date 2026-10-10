@@ -60,8 +60,10 @@ function superR(th, ph){ const m = smooth(st.sfMix), a = sfr(th, st.sfA)/st.sfMx
 
 // the forms. On the gem (g): k how closed (1 the gem, 0 the flat star). On the square (s): a rolled (1 a closed tube), b bent
 // round (1 the ends meet: a ring), tw twist, wd its width. Both: h mountains, wv waves, pitch how it's tipped (negative: its
-// face up, seen from above), yw how much it turns about its upright (the rest round its face), det its least detail.
-const DEF = {body: 'g', k: 0, wd: 1, a: 0, b: 0, tw: 0, h: 0, wv: 0, pitch: 0, yw: 0, det: 0};
+// face up, seen from above), yw how much it turns about its upright (the rest round its face), det its least detail. The
+// closed gem's own genes (stage 4): sqx, sqy, sqz squash and stretch it, twy twists it about its upright, la and lf turn it
+// like a lathe (rings of bulges, la how deep, lf how many); its shape's weights and superformula are kept beside them (w, sf).
+const DEF = {body: 'g', k: 0, wd: 1, a: 0, b: 0, tw: 0, h: 0, wv: 0, pitch: 0, yw: 0, det: 0, sqx: 1, sqy: 1, sqz: 1, twy: 0, la: 0, lf: 4};
 export const FORMS = Object.fromEntries(Object.entries({
   gem: {k: 1, pitch: .25, yw: 1},
   bloom: {k: .45, h: .06, pitch: -.2, yw: .3, det: 1},
@@ -74,7 +76,7 @@ export const FORMS = Object.fromEntries(Object.entries({
   halo: {body: 's', wd: .45, b: 1, h: .25, pitch: -.3, det: 2},
   twist: {body: 's', a: .3, tw: 2.4, h: .08, pitch: .1, yw: 1, det: 2},
 }).map(([k, v]) => [k, {...DEF, ...v}]));
-const PARAMS = ['k', 'wd', 'a', 'b', 'tw', 'h', 'wv', 'pitch', 'yw'];
+const PARAMS = ['k', 'wd', 'a', 'b', 'tw', 'h', 'wv', 'pitch', 'yw', 'sqx', 'sqy', 'sqz', 'twy', 'la', 'lf'];
 
 // ---- the two bodies: each its geometry, its own frame of facets, and where every corner and facet sits on its ball ----
 function octa(x, y){ let nx = x, ny = y; const nz = 1 - Math.abs(x) - Math.abs(y);
@@ -105,19 +107,18 @@ function makeBody(kind, G, AL){
 }
 const BODY = {g: makeBody('g', gemSheetGeo(3), 2), s: makeBody('s', sheetGeo(4), 3)};   // the automata: 320 facets on the gem, 512 on the square
 
-const st = {body: 'g', form: 'gem', f: {...FORMS.gem}, sA: 'ball', sB: 'octa', mix: 0, mixT: 0, sfA: SF.round, sfB: SF.round, sfMx: [1, 1], sfMix: 1, sfSecs: 1,
+const st = {body: 'g', form: 'gem', f: {...FORMS.gem}, g: fromForm('gem'), w: Object.fromEntries(NAMES.map(k => [k, k === 'ball' ? 1 : 0])), arch: [], sfA: SF.round, sfB: SF.round, sfMx: [1, 1], sfMix: 1, sfSecs: 1,
   dFrom: 1, dTo: 1, wipe: 1, ex: 0, exT: 0, off: true, hue: 0, swap: null, hold: null,
-  rip: [], sec: 0, secT: -9, chk: 0, chkT: -9, s16: -1, t: 0, bars: 0, secBars: 0, type: null, prog: null, progs: {}, fi: 0, phr: -1,
+  rip: [], sec: 0, secT: -9, chk: 0, chkT: -9, s16: -1, t: 0, bars: 0, secBars: 0, type: null, prog: null, progs: {}, phr: -1,
   run: 0, kicks: 0, lastBeatT: 0, stabs: [], spinT: -9, hatWas: 0, burstT: -9, waveT: -9, dropT: -9, lastDrop: null, lastHit: 0, glow: 0, kickT: -9, spin: 0, brk: false, act: .2};
-// a section's program: its forms in turn, its shapes, its symmetry, which pattern each part of the music plays
+// a section's program: its theme (a shape), its symmetry, which pattern each part of the music plays
 function programFor(type, T){
   const id = tid(type); if (id && st.progs[id]) return st.progs[id];
   seed = 1 + Math.floor(hashStr('p' + id)*2147483000);
   const live = T > .5;
-  // the closed gem most of the time (a new shape each time it comes round), now and then a tube, a ring or a twist; laid open
-  // only sometimes (the flat star is a moment, not home: docs/prism-plan.md)
-  const forms = [pick(['gem', 'gem', 'gem', live ? 'twist' : 'bloom']), rnd() < TUNE.prism.openChance ? pick(['star', 'peaks', 'waves', 'bloom', 'halo']) : pick(['gem', 'gem', 'tube', 'ring', 'twist']), 'gem'];
-  const p = {forms, shapes: [pick(live ? SHARP : CALM), pick(NAMES)], sf: pick(live ? ['star', 'urchin', 'gem', 'shell'] : ['round', 'flower', 'cushion', 'gem']),
+  // its theme: the shape it starts from and comes back to with variations (the closed gem most of the time: the flat star is a
+  // moment, not home)
+  const p = {theme: born(live ? .65 : .25, true), visits: 0,
     det: live ? 1.6 + rnd()*1.2 : .6 + rnd()*1.3, n: {g: pick([5, 5, 10]), s: pick([4, 6, 8])},
     kick: pick(['ripple', 'ripple', 'cascade', 'pulse']), stab: pick(['sectors', 'checker', 'rings']), spiral: [pick([1, 2, 3, 5]), pick([2, 3, 5])],
     figure: rnd() < .5 ? 'life' : 'improv', brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
@@ -126,9 +127,10 @@ function programFor(type, T){
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, det: st.dTo, shapes: [st.sA, st.sB], mix: st.mix, X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, g: st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
 export const prismProgram = (type, T) => programFor(type, T);
-export const prismForm = (k, now) => { st.hold = k; if (k) { goForm(k, now); if (now) Object.assign(st.f, FORMS[k]); } };
+export const prismForm = (k, now) => { st.hold = k; if (k) { const g = fromForm(k, st.g); goGenome(g, now); if (now) { snapTo(g); } } };
+export const prismImprovise = (size = .5) => improvise(size, 0);   // (tests: one step of the improviser now)
 
 export default {
   key: 'prism', kind: 'object', label: 'Prism', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
@@ -137,7 +139,7 @@ export default {
   get mesh(){ const G = BODY.g.G, pos = Array.from(G.DIR, x => x*.45); return this._m || (this._m = {pieces: [{pos, tri: Array.from(G.TRI), part: Array.from({length: G.nf}, (_, f) => 1 + G.FA[0][f] % 6)}], hinge: [0, 0, 0]}); },
   stats: '20 to 2,048 facets: a gem in ten shapes that opens into a star, mountains, waves, a tube, a ring, a twist',
   onBeat(pos){
-    st.run++;
+    st.run++; st.beat = pos;
     if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; if (st.prog && st.prog.figure === 'life' && (st.secBars >= TUNE.prism.layerBars.life || st.prog.rest === 'figure')) stepLife(BODY[st.body]); }
   },
   breakApart(){ st.exT = 1; },
@@ -146,50 +148,53 @@ export default {
     st.t += dt;
     // the section: a new program, its layers sequenced in again
     const type = J && J.on ? J.type : null;
-    if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0; st.fi = 0;
-      if (!st.hold) goForm(st.prog.forms[0]); setSf(SF[st.prog.sf]); setDetail(detFor(ten)); }
+    if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0;
+      if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); }
     const pr = st.prog;
     // a drop: it shatters, gains every facet, and a closed form opens out into mountains or an open one snaps shut into a star
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
-      if (!st.hold) { if (closed() > .5) goForm('peaks'); else { goForm('gem'); flipTo('star'); } } }
+      if (!st.hold) { if (closed() > .5) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }
     st.lastDrop = J ? J.lastDrop : null;
     // how much may move (docs/prism-plan.md, stage 3): the tension, lifted through a drop's run-up and by the drop itself, held
     // low in a breakdown, eased (quicker down than up). Calm, it holds its shape, turns slowly and glints, with one quiet pattern
+    // Not the tension's level (steady full-on techno sits high all the time, and kept it busy), but the music moving: a slow
+    // climb through a section, the tension rising above its own recent level, the run-up to a drop and the drop
     const TA = T.act, anticip = (J && J.anticip) || 0, dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT;
-    let want = smooth((ten - TA.calm)/(TA.full - TA.calm));
+    st.tFast = (st.tFast ?? ten) + (ten - (st.tFast ?? ten))*Math.min(1, dt/TA.fastSecs); st.tSlow = (st.tSlow ?? ten) + (ten - (st.tSlow ?? ten))*Math.min(1, dt/TA.slowSecs);
+    let want = Math.min(TA.cap, TA.base + TA.climb*smooth(st.secBars/TA.climbBars)*(.4 + .6*ten) + TA.rising*Math.max(0, st.tFast - st.tSlow));
     if (anticip > .02) want = Math.max(want, TA.runUp + (1 - TA.runUp)*anticip);
     if (since < dropLen) want = Math.max(want, 1 - since/dropLen);
     if (L.brk) want *= TA.brk;
     st.act += (want - st.act)*Math.min(1, dt/(want > st.act ? TA.rise : TA.fall));
     if (w < .003) { st.off = true; return; }
-    if (st.off) { st.off = false; st.ex = st.exT = 1; if (st.swap) { setBody(FORMS[st.swap.to].body); st.form = st.swap.to; st.swap = null; } }   // arriving: it gathers out of its facets
+    if (st.off) { st.off = false; st.ex = st.exT = 1; if (st.swap) { const g = st.swap.g; st.swap = null; setBody(g.body); goGenome(g); } }   // arriving: it gathers out of its facets
     st.exT *= Math.exp(-dt/T.explodeSecs); st.ex += (st.exT - st.ex)*Math.min(1, dt*(st.exT > st.ex ? 10 : 2.5));
     // flying from one body to the other: once its facets are out, it gathers again as the other
-    if (st.swap && st.t - st.swap.t > T.swapSecs) { const to = st.swap.to; st.swap = null; setBody(FORMS[to].body); goForm(to); }
+    if (st.swap && st.t - st.swap.t > T.swapSecs) { const g = st.swap.g; st.swap = null; setBody(g.body); goGenome(g); }
     // the 16ths (on the beat grid's bar ramp; without a lock, the beats alone)
     const s16 = SIG.barPhase > 0 ? Math.floor(SIG.barPhase*16) : (st.run*4) % 16;
     if (s16 !== st.s16) { st.s16 = s16; step16(BODY[st.body]); }
-    if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; kick(ten); }
+    if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; if (st.act >= TA.at.everyKick || st.beat === 0) kick(ten); }   // (calm: the kick's light only on the 1)
     // stabs: the wedges step on, the checker flips, the superformula gains points; three in a bar spin the wedges for a bar
     if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; st.chk ^= 1; st.chkT = st.t; st.hue += .1;
-      const b = SF[pr.sf]; setSf([b[0] + 2*(st.sec % 3), b[1], b[2], b[3]], T.stabSfSecs);
+      const b = SF[st.g.sf]; setSf([b[0] + 2*(st.sec % 3), b[1], b[2], b[3]], T.stabSfSecs);
       st.stabs = st.stabs.filter(t => st.t - t < 4*S.beatPeriod); st.stabs.push(st.t); if (st.stabs.length >= 3) st.spinT = st.t; }
     st.lastHit = x.hit;
     // the hats coming in scatter sparks and add a level of facets
     if (SIG.hat > .45 && st.hatWas < .2 && st.secBars >= 2 && at('grow') > .5) { st.burstT = st.t; setDetail(st.dTo + 1); }
     st.hatWas = SIG.hat > .45 ? SIG.hat : Math.min(st.hatWas, SIG.hat);
-    // a phrase line: the next form of the section's program (the gem coming round again in a new shape); every other one when calm
+    // a phrase line: the improviser takes a step from where it is (bigger as the music builds, now and then a leap); every other one when calm
     if (st.secBars > 0 && st.secBars % (st.act < TA.at.form ? 8 : 4) === 0 && st.phr !== st.bars) { st.phr = st.bars;
-      if (!L.brk && !st.hold && st.t - st.dropT > 8*S.beatPeriod) { st.fi = (st.fi + 1) % pr.forms.length; const k = pr.forms[st.fi]; if (k === st.form && k === 'gem') newShape(ten); else goForm(k); } }
+      if (!L.brk && !st.hold && st.t - st.dropT > 8*S.beatPeriod) improvise(T.imp.step + st.act*T.imp.stepAct, T.imp.leap + st.act*T.imp.leapAct); }
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
-    if (L.brk && !st.brk) { if (!st.hold) goForm(pr.brk); if (pr.brk === 'gem') flipTo(pick(CALM)); setDetail(1 + rnd()*.8); }
-    if (!L.brk && st.brk) setDetail(detFor(ten));
+    if (L.brk && !st.brk) { if (!st.hold) goGenome(pr.brk === 'star' ? fromForm('star', st.g) : calmer(st.g)); setDetail(1 + rnd()*.8); }
+    if (!L.brk && st.brk) setDetail(detFor());
     st.brk = L.brk;
-    if (st.t - st.dropT > 8*S.beatPeriod && st.t - st.dropT < 8*S.beatPeriod + dt*1.5) setDetail(detFor(ten));
+    if (st.t - st.dropT > 8*S.beatPeriod && st.t - st.dropT < 8*S.beatPeriod + dt*1.5) setDetail(detFor());
     // the form eases towards its own; the shapes blend; the detail's front blooms out from the middle
-    const slow = 1.6 - .6*st.act, tg = FORMS[st.form], k = Math.min(1, dt/(T.morphSecs*slow)*2.2);   // (calm: slower)
+    const slow = 1.6 - .6*st.act, tg = st.g, k = Math.min(1, dt/(T.morphSecs*slow)*2.2), kw = Math.min(1, dt/(T.morphSecs*slow)*2.5);   // (calm: slower)
     for (const p of PARAMS) st.f[p] += (tg[p] - st.f[p])*k;
-    st.mix += (st.mixT - st.mix)*Math.min(1, dt/(T.morphSecs*slow)*2.5);
+    for (const n of NAMES) st.w[n] += ((tg.w[n] || 0) - st.w[n])*kw;
     st.sfMix = Math.min(1, st.sfMix + dt/st.sfSecs);
     st.wipe = Math.min(1, st.wipe + dt/(T.wipeBeats*S.beatPeriod));
     st.glow *= Math.exp(-dt*3);
@@ -220,27 +225,106 @@ export default {
 const at = k => smooth((st.act - TUNE.prism.act.at[k])/.15 + .5);
 // how closed it is: 1 the gem, a tube or a ring; 0 laid open
 const closed = () => st.body === 'g' ? st.f.k : Math.max(st.f.a, st.f.b);
-const detFor = ten => Math.max(FORMS[st.form].det, st.prog.det + ten*TUNE.prism.detTension + (st.body === 's' ? 1 : 0));
-function goForm(k, now){
-  const F = FORMS[k]; if (!F) return;
-  if (F.body !== st.body) {   // the other body: fly apart first (or at once, while it's off screen)
-    if (now || st.off) setBody(F.body);
-    else { if (!st.swap) { st.swap = {to: k, t: st.t}; st.exT = Math.max(st.exT, TUNE.prism.swapEx); } else st.swap.to = k; return; }
+const detFor = () => Math.max(st.g.det, Math.min(st.prog.det, TUNE.prism.detCalm) + st.act*TUNE.prism.detTension + (st.body === 's' ? 1 : 0));   // (calm: fewer, bigger facets; the finest only as it builds)
+// to a new shape: on the other body, fly apart first (or at once, while it's off screen)
+function goGenome(g, now){
+  if (g.body !== st.body) {
+    if (now || st.off) setBody(g.body);
+    else { if (!st.swap) { st.swap = {g, t: st.t}; st.exT = Math.max(st.exT, TUNE.prism.swapEx); } else st.swap.g = g; return; }
   }
-  if (k === 'gem' && st.form !== 'gem') newShape();
-  st.form = k; if (F.det > st.dTo) setDetail(F.det);
+  st.g = g; st.form = g.name; if (g.sf !== (st.sfName || '')) { st.sfName = g.sf; setSf(SF[g.sf]); }
+  if (g.det > st.dTo) setDetail(g.det);
+  st.arch.push(g); if (st.arch.length > TUNE.prism.imp.memory) st.arch.shift();
 }
+function snapTo(g){ for (const p of PARAMS) st.f[p] = g[p]; for (const n of NAMES) st.w[n] = g.w[n] || 0; }
 // to the other body: it gathers laid flat (the star, or the square), then folds into its form
 function setBody(k){
   if (st.body === k) return; st.body = k;
   Object.assign(st.f, k === 'g' ? {k: 0} : {a: 0, b: 0, tw: 0, wd: 1});
   const d = Math.max(0, Math.min(BODY[k].F, st.dTo + (k === 's' ? 1 : -1))); st.dFrom = st.dTo = d; st.wipe = 1;
 }
-function newShape(ten){ const pr = st.prog; flipTo(pr && rnd() < .5 ? pick(pr.shapes) : pick((ten ?? .5) > .5 ? SHARP.concat(NAMES) : CALM.concat(NAMES))); }
-function flipTo(k){ if (st.mixT > .5) { st.sA = k; st.mixT = 0; } else { st.sB = k; st.mixT = 1; } }
 function setSf(p, secs){ st.sfA = st.sfMix >= 1 ? st.sfB : st.sfA; st.sfMx[0] = st.sfMx[1]; st.sfB = p; st.sfMx[1] = sfMax(p); st.sfMix = 0; st.sfSecs = secs || TUNE.prism.morphSecs; }
 function setDetail(d, now){ d = Math.max(0, Math.min(BODY[st.body].F, d)); if (Math.abs(d - st.dTo) < .05) return;
   st.dFrom = now ? d : st.dFrom + (st.dTo - st.dFrom)*Math.min(1, st.wipe); st.dTo = d; st.wipe = now ? 1 : 0; }
+
+// ---- shape genes and the improviser (docs/prism-plan.md, stage 4) ----
+// A shape is a short recipe: which form it takes (the gem, opened, or the square rolled into a tube, a ring, a twist), the
+// weights of the ten closed shapes it blends, its superformula, how it's squashed, twisted and turned on a lathe. The improviser
+// walks from the shape it has: a handful of mutations, scored by how far each is from every shape it's made lately (so it
+// doesn't loop), how close the step is to the size the music wants, and how sharp it is against how intense the music is
+const SHARP_OF = {ball: 0, pill: .1, disc: .2, blob: .25, flower: .4, super: .5, gem: .7, octa: .8, cube: .8, star: 1};
+const SF_CALM = ['round', 'flower', 'cushion', 'gem'], SF_SHARP = ['star', 'urchin', 'gem', 'shell'];
+const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2)*1.2;
+const want = () => .2 + .6*st.act;   // how sharp a shape suits the music now
+const sharpOf = g => { let s = 0, t = 0; for (const n in g.w) { s += g.w[n]*SHARP_OF[n]; t += g.w[n]; } return t ? s/t : 0; };
+const topShapes = w => Object.keys(w).filter(n => w[n] > .05).sort((a, b) => w[b] - w[a]).slice(0, 3);
+// a shape from one of the named forms (its numbers), keeping the closed shape's genes of g (or fresh ones)
+function fromForm(name, g){ const F = FORMS[name], o = {...F, name, w: g ? {...g.w} : {ball: 1}, sf: g ? g.sf : 'round'};
+  if (g) for (const k of ['sqx', 'sqy', 'sqz', 'twy', 'la', 'lf']) o[k] = g[k]; return o; }
+// weights for a fresh shape: one or two shapes near the sharpness wanted
+function freshW(sh){ const ranked = NAMES.filter(n => n !== 'blob' || rnd() < .15).sort((a, b) => Math.abs(SHARP_OF[a] - sh) - Math.abs(SHARP_OF[b] - sh) + (rnd() - .5)*.5);
+  const w = {[ranked[0]]: 1}; if (rnd() < .4) w[ranked[1 + Math.floor(rnd()*2)]] = .15 + rnd()*.25; return w; }
+// one clear shape with at most a hint of another (three averaged together read as a lumpy blob)
+function crisp(w){ const top = topShapes(w).slice(0, 2), o = {}; let t = 0; for (const n of top) t += (o[n] = Math.pow(w[n], 2));
+  for (const n of top) o[n] /= t || 1; if (top.length > 1 && o[top[1]] > .35) { o[top[1]] = .35; o[top[0]] = .65; } return o; }
+// a new shape: mostly the closed gem; sometimes laid open, rolled on the square
+function born(sh, theme, gem){
+  const T = TUNE.prism.imp, r = rnd(), op = theme ? T.openTheme : TUNE.prism.openChance;
+  const kind = gem ? 'gem' : r < op ? pick(['star', 'peaks', 'waves', 'bloom']) : r < op + T.squareChance ? pick(['tube', 'ring', 'twist', 'halo']) : 'gem';
+  const g = fromForm(kind); g.w = freshW(sh); g.sf = pick(sh > .5 ? SF_SHARP : SF_CALM);
+  if (rnd() < .4) { const a = .75 + rnd()*.5; g.sqy = a; g.sqx = g.sqz = 1/Math.sqrt(a); }
+  if (rnd() < .3) g.twy = (rnd() - .5)*1.2;
+  if (rnd() < .3) { g.la = .05 + rnd()*.12; g.lf = pick([2, 3, 4, 5]); }
+  return g;
+}
+// a step from g: its weights drift (a shape now and then joining), its squash, twist and lathe wander back towards plain, its
+// mountains and waves change if it's open; s from 0 (the same) to 1 (far)
+function mutate(g, s, sh){
+  const o = {...g, w: {}};
+  for (const n in g.w) { const v = g.w[n]*Math.exp(gauss()*s*1.4); if (v > .04) o.w[n] = v; }
+  if (rnd() < s*.8 || !Object.keys(o.w).length) { const n = freshW(sh + gauss()*.15); for (const k in n) o.w[k] = (o.w[k] || 0) + n[k]*s*1.5; }   // (a new shape coming in, sometimes taking over)
+  o.w = crisp(o.w);
+  const toward = (v, home, lo, hi, amt) => Math.max(lo, Math.min(hi, v + (home - v)*.15 + gauss()*amt*s));
+  o.sqy = toward(g.sqy, 1, .65, 1.4, .25); o.sqx = toward(g.sqx, 1, .7, 1.35, .15); o.sqz = toward(g.sqz, 1, .7, 1.35, .15);
+  o.twy = toward(g.twy, 0, -1.2, 1.2, .6); o.la = toward(g.la, 0, 0, .22, .1); if (rnd() < s*.4) o.lf = pick([2, 3, 4, 5, 6]);
+  if (rnd() < s*.5) o.sf = pick(sh > .5 ? SF_SHARP : SF_CALM);
+  if (g.body === 'g' && g.k < .9) { o.h = toward(g.h, g.h, 0, 1.2, .4); o.wv = toward(g.wv, g.wv, 0, 1, .3); if (g.name === 'bloom') o.k = toward(g.k, .45, .25, .7, .2); }
+  if (g.name === 'twist') o.tw = toward(g.tw, 2.4, 1, 3.5, .8);
+  if (g.body === 's') { o.h = toward(g.h, g.h, 0, .5, .3); if (g.name !== 'ring' && g.name !== 'tube') o.wd = toward(g.wd, g.wd, .4, 1, .3); }
+  return o;
+}
+// how far apart two shapes are
+function dist(a, b){
+  let d = a.name === b.name ? 0 : a.body === b.body ? 1 : 1.6;
+  if (a.body === 'g' && b.body === 'g') { const ns = new Set([...Object.keys(a.w), ...Object.keys(b.w)]); for (const n of ns) d += Math.abs((a.w[n] || 0) - (b.w[n] || 0))*.8; }   // (the closed shape's genes show only on the gem)
+  else d += Math.abs(a.tw - b.tw)*.4 + Math.abs(a.wd - b.wd);
+  d += (Math.abs(a.sqx - b.sqx) + Math.abs(a.sqy - b.sqy) + Math.abs(a.sqz - b.sqz))*1.5 + Math.abs(a.twy - b.twy)*.5 + Math.abs(a.la - b.la)*3 + (a.sf !== b.sf ? .25 : 0) + Math.abs(a.h - b.h)*.4 + Math.abs(a.wv - b.wv)*.3;
+  return d;
+}
+// one step of the improviser: a handful of candidates, the best by novelty, step size and the music's sharpness; a leap may
+// change form (to the square, or open, as seldom as their chances say); now and then it comes home to the section's theme
+function improvise(s, leapP){
+  const T = TUNE.prism.imp, g = st.g, sh = want();
+  if (st.prog && rnd() < T.home) { goGenome(mutate(st.prog.theme, T.vary, sh)); return; }
+  if (g.body === 's') leapP = Math.max(leapP, T.squareStay);   // (the square is an excursion: it soon folds back into the gem)
+  const leap = rnd() < leapP, step = leap ? 1 : s, cands = [];
+  for (let i = 0; i < T.cands; i++) {
+    let c = leap && (rnd() < .6 || g.body === 's') ? born(sh, false, g.body === 's') : mutate(g, step, sh);
+    if (leap && c.name === g.name && rnd() < .5) c = mutate(c, 1, sh);
+    cands.push(c);
+  }
+  let best = null, bs = -1e9;
+  for (const c of cands) {
+    const nov = st.arch.length ? Math.min(...st.arch.map(a => dist(a, c))) : 1;
+    const sc = nov*T.novelty - Math.abs(dist(g, c) - step*T.stepScale) - Math.abs(sharpOf(c) - sh)*T.suit;
+    if (sc > bs) { bs = sc; best = c; }
+  }
+  goGenome(best);
+}
+// the drop's snap shut: closed, spiky, sharp
+function spiky(g){ const o = fromForm('gem', g); o.w = {star: .6, ...Object.fromEntries(topShapes(g.w).slice(0, 1).map(n => [n, .4]))}; o.sf = 'urchin'; return o; }
+// a breakdown's calm: closed and rounder, plainer
+function calmer(g){ const o = mutate(fromForm('gem', g), .5, .1); o.w = freshW(.1); o.twy *= .3; o.la *= .3; return o; }
 
 // ---- the surface ----
 // the mountains, waves and the kick's rings: a height along each point's normal. The ranges are symmetric round the middle
@@ -267,15 +351,21 @@ function detail(b){ const wf = st.wipe*1.25; for (let v = 0; v < b.nv; v++) b.D[
 // the gem: each gore bent on a sphere of curvature k (its arc lengths kept), so the ball opens like a flower into a flat star;
 // the petals narrow as they flatten, as an orange peel's do. Closed, each corner is on the ball, then given its shape's radius
 function shapeGem(b, P, x){
-  const T = TUNE.prism, G = b.G, f = st.f, kk = Math.max(f.k, 1e-3), kc = f.k*f.k*f.k, m = smooth(st.mix), t = x.t, bass = (P.bass || 0)*x.react;
+  const T = TUNE.prism, G = b.G, f = st.f, kk = Math.max(f.k, 1e-3), kc = f.k*f.k*f.k, t = x.t, bass = (P.bass || 0)*x.react;
+  const WS = NAMES.filter(n => st.w[n] > .01), ws = WS.reduce((a, n) => a + st.w[n], 0) || 1, la = f.la*kc, tw = f.twy*kc;
+  const sx = 1 + (f.sqx - 1)*kc, sy = 1 + (f.sqy - 1)*kc, sz = 1 + (f.sqz - 1)*kc;
   const mid = (1 - Math.cos(kk*Math.PI))/(2*kk), sc0 = T.r*(T.star + (1 - T.star)*f.k)*(1 + bass*T.breath*f.k*st.act);
   const anticip = (x.J && x.J.anticip) || 0, fh = {...f, h: f.h*(1 + anticip*.8)}, S3 = b.S3;
   for (let v = 0; v < b.nv; v++) {
     const th = G.TH[v], s = Math.sin(kk*th), c = Math.cos(kk*th), sc = th < 1e-4 || s < 1e-6 ? 1 : Math.sin(th)*kk/s, ps = G.GC[v] + G.PS[v]*sc;
     const cp = Math.cos(ps), sp = Math.sin(ps);
     let px = s/kk*cp, py = s/kk*sp, pz = (c - 1)/kk + mid;
-    if (kc > .001) { const dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2], R = SHAPES[st.sA](dx, dy, dz, t)*(1 - m) + SHAPES[st.sB](dx, dy, dz, t)*m, q = 1 + (R - 1)*kc;
-      px *= q; py *= q; pz *= q; }
+    if (kc > .001) {   // closing: its shapes' radii blended by their weights, turned on a lathe, squashed or stretched, twisted
+      const dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
+      let R = 0; for (const n of WS) R += SHAPES[n](dx, dy, dz, t)*st.w[n]; R /= ws;
+      if (la > .001) R *= 1 + la*Math.sin(f.lf*Math.asin(Math.max(-1, Math.min(1, dy)))*2);
+      const q = 1 + (R - 1)*kc; px *= q*sx; py *= q*sy; pz *= q*sz;
+      if (Math.abs(tw) > .001) { const a = tw*py, c = Math.cos(a), s2 = Math.sin(a), x2 = c*px - s2*pz; pz = s2*px + c*pz; px = x2; } }
     const hh = height(b, v, t, bass, fh)/sc0;   // (heights in the object's own units, whatever the star's size)
     const nx = s*cp, ny = s*sp, nz = c;
     S3[v*3] = (px + nx*hh)*sc0; S3[v*3 + 1] = (py + ny*hh)*sc0; S3[v*3 + 2] = (pz + nz*hh)*sc0;
@@ -402,7 +492,7 @@ function colour(b, P, x, u, w){
   const cr = Math.cos(u.rot), sr = Math.sin(u.rot), cp = Math.cos(u.pitch), sp = Math.sin(u.pitch), co = Math.cos(u.roll), so = Math.sin(u.roll);
   const Hx = -.25, Hy = .35, Hz = 1.5, hl = Math.hypot(Hx, Hy, Hz);   // the highlight's half-way vector (a light up and to the left, towards us)
   const ext = sty === 2 ? .5 : 1, ex = st.ex*st.ex*T.explode, gone = Math.max(0, 1 - w/.6), dim = x.dim, fill = T.fill*(.6 + (P.beat || 0)*.8);
-  const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed();
+  const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed(), litAmt = T.lit*(T.act.litCalm + (1 - T.act.litCalm)*st.act);   // (calm: the patterns glow softer)
   const extr = T.extrude*(st.secBars >= T.layerBars.extrude ? pr.extrude : .5)*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift'));
   for (let f = 0; f < b.nf; f++) {
     const L0 = X.fl[f], g = G.FA[L0][f], key = L0*100000 + g, sd = hash(key*.731);
@@ -411,8 +501,8 @@ function colour(b, P, x, u, w){
     const face = .5 + .5*(sg*vz), spec = Math.pow(Math.max(0, sg*(vx*Hx + vy*Hy + vz*Hz)/hl), T.gloss)*T.glint, lam = Math.max(0, sg*(vx*-.4 + vy*.6 + vz*.7));
     const k = LK[f], s = LS[f], hh = LH[f]*dim, m = LM[f], im = LI[f], p = LP[f];
     const tn = tints[b.tint(f)];
-    const lit = [0, 1, 2].map(i => (cK[i]*k + cS[i]*s + cH[i]*hh + cM[i]*m*.7 + cI[i]*im*.5 + cP[i]*p)*T.lit);
-    const lsum = (k + s + hh + m*.7 + im*.5 + p)*T.lit, alpha = (sd < gone ? 0 : 1)*u.w;
+    const lit = [0, 1, 2].map(i => (cK[i]*k + cS[i]*s + cH[i]*hh + cM[i]*m*.7 + cI[i]*im*.5 + cP[i]*p)*litAmt);
+    const lsum = (k + s + hh + m*.7 + im*.5 + p)*litAmt, alpha = (sd < gone ? 0 : 1)*u.w;
     let fr, fa;
     if (solid) { fa = 1; fr = [0, 1, 2].map(i => tn[i]*(.12 + .55*lam)*(.6 + st.glow*.3) + lit[i]*.75 + spec + lc[i]*(Lt.amt || 0)*lam*.15); }
     else if (outline) { fa = 1; fr = lit.map(c => c*.18); }

@@ -262,7 +262,7 @@ export const TUNE = {
     half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
     morphSecs: 2.8, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
     swapSecs: .5, swapEx: .8,                       // flying from the gem to the square (or back): how long its facets are out, and how far they fly
-    detTension: 1.1, wipeBeats: 4,                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
+    detCalm: 1.5, detTension: 1.1, wipeBeats: 4,   // (detCalm: the most levels of facets when calm)                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
     breath: .08,                                    // how much the bass swells the closed gem
     mtn: .3, mtnScale: 2.2, mtnBreath: .5,          // the mountains: how high, how wide their ranges (smaller: broader), how much the bass lifts them
     waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
@@ -273,12 +273,18 @@ export const TUNE = {
     fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
     extrude: .2, lit: .8,                           // how far lit facets push out; how bright the patterns light it
-    openChance: .3,                                 // how often a section's program lays it open (the star, mountains, waves, the flat ring): a moment, not home
-    act: {calm: .2, full: .85,                      // its activity (how much may move) from the tension: none below calm, all above full
+    openChance: .15,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
+    imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a step's size, more as the music builds; the chance of a leap each phrase line, more as it builds
+      vary: .25, home: .15,                         // how far a returning section's theme is varied; the chance a phrase line comes home to the theme
+      cands: 6, memory: 40,                         // how many shapes it weighs each step; how many it remembers having made
+      novelty: .6, stepScale: 2.5, suit: 1.5,       // how much it prefers shapes unlike those it's made, a step of the size wanted, and sharpness that suits the music
+      openTheme: .2, squareChance: .12, squareStay: .6},   // ... and the chance each phrase line on the square folds back into the gem            // the chance a section's theme is laid open, and that a fresh shape is on the square (a tube, a ring, a twist, the flat ring)
+    act: {base: .1, climb: .25, climbBars: 32, cap: .55,   // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
+      rising: 2.5, fastSecs: 4, slowSecs: 30,      // and lifted while the tension rises above its own level of the last half minute (its quick average against its slow one)
       runUp: .45, dropBars: 8, brk: .35,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown
       rise: 5, fall: 2.5,                           // how quickly it rises and falls (seconds)
-      spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .3,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern)
-      at: {form: .35, kick: .3, sectors: .25, spiral: .35, hat: .4, figure: .45, grow: .5, lift: .5, dance: .4, spin: .6}}},   // the activity at which each comes in (form: a new form every phrase, not every other)
+      spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .3, litCalm: .5,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern), how bright its patterns glow
+      at: {everyKick: .35, form: .35, kick: .3, sectors: .25, spiral: .35, hat: .4, figure: .45, grow: .5, lift: .5, dance: .4, spin: .6}}},   // the activity at which each comes in (form: a new form every phrase, not every other)
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after
