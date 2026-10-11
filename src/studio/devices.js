@@ -128,7 +128,7 @@ function scDevice(ctx, d, desk){
 /* ---------- limiter: drive in, a fast compressor, then a soft clipper at the ceiling, oversampled ---------- */
 function limDevice(ctx, d){
   const P = {gain: 0, ceil: -.3, rel: .06, ...d};
-  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = makeComp(ctx, {thr: P.ceil - 1.5, knee: 1, ratio: 20, att: .001, rel: P.rel}), clip = ctx.createWaveShaper(), output = gainNode(ctx);
+  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = makeComp(ctx, {thr: P.ceil - 1.5, knee: 1, ratio: 20, att: 0, rel: P.rel}), clip = ctx.createWaveShaper(), output = gainNode(ctx);
   // the clipper: straight up to 80% of the ceiling, then bending smoothly into it (never past). It aims a little under:
   // oversampling's filters ring past a clipped drum's edge, so the true peak lands at the ceiling, not over it
   const curve = () => { const n = 8192, cv = new Float32Array(n), C = db(P.ceil - TUNE.studio.tpMargin), k = .8*C;
@@ -136,7 +136,7 @@ function limDevice(ctx, d){
   // (a wave shaper reads -1..1: halved first, the curve covers ±2, so a peak up to +6 dB over full scale is still shaped, not cut flat)
   const pre = gainNode(ctx, .5), post = gainNode(ctx, 1);
   const apply = () => { c.set({thr: P.ceil - 1.5, rel: P.rel}); clip.curve = curve(); };
-  clip.oversample = '2x'; apply();
+  clip.oversample = '4x'; apply();
   input.connect(drive); drive.connect(c.input); c.output.connect(pre); pre.connect(clip); clip.connect(post); post.connect(output);
   return {input, output,
     param(k){ return k === 'gain' ? {ps: [drive.gain], map: db} : null; },
