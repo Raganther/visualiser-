@@ -17,6 +17,7 @@ import { blankSong } from './songs/blank.js';
 import { mountPlay } from './play.js';
 import * as LIB from './library.js';
 import * as SAVE from './saved.js';
+import { STYLES, makeDrums, makeBass, makeChords, makeHook, grooveOf, vary } from './improv.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -356,7 +357,7 @@ function drawEq(cv, d, k){
 
 /* ---------- editing a clip: a step sequencer, or a piano roll ---------- */
 let clipBox = null, clipFor = null;
-const edited = clip => { forget(clip); dataStale = true; if (clipFor) { const [T, id, ti] = clipFor, old = clipBox, nb = clipView(T, id, ti); if (old && old.isConnected) old.replaceWith(nb); } if (pv && !$('pv').hidden) pv.steps(); };
+const edited = clip => { forget(clip); dataStale = true; jamFollow(clip); if (clipFor) { const [T, id, ti] = clipFor, old = clipBox, nb = clipView(T, id, ti); if (old && old.isConnected) old.replaceWith(nb); } if (pv && !$('pv').hidden) pv.steps(); };
 function clipView(T, id, ti){
   const clip = T.clips[id], drums = !!clip.hits || T.inst.type === 'drums', key = drums ? 'd' : 'n', wrap = h('div', 'clipv');
   clipBox = wrap; clipFor = [T, id, ti]; wrap.style.setProperty('--tc', HUE(ti));
@@ -584,7 +585,7 @@ function frame(t){
       const ph = document.querySelector('.rollbox .ph'); if (ph) { ph.style.display = 'block'; ph.style.transform = `translateX(${(pos + .5)/r.len*ph.parentNode.clientWidth}px)`; } }
     else { const ph = document.querySelector('.rollbox .ph'); if (ph) ph.style.display = 'none'; }
   } else { $('pos').textContent = '  –'; }
-  pv.frame(n);
+  pv.frame(n); jamEvolve();
   // meters: peak and level, with how far each device is turning it down
   for (const s of document.querySelectorAll('.strip')) {
     const m = E.desk.meter(s.dataset.id, dt, TUNE.studio.meterFall); if (!m) continue;
@@ -767,6 +768,109 @@ function drawLib(items){
 LIB.onLibrary(drawLib);
 LIB.start().then(() => { $('libWhere').textContent = 'saved in ' + LIB.where(); });
 
+/* ---------- jam: parts made on the spot, to start a track from nothing or play along with the user's ---------- */
+// (each part it made: the track, what part, its first take and seed, so Evolve varies round it and Follow can remake it)
+const JAM = {style: 'minimal', energy: .55, expr: .65, follow: true, evolve: false, seed: Math.floor(Math.random()*1e5), parts: {}, phrase: -1};
+const TEMPO = {minimal: 124, driving: 128, hypnotic: 126, broken: 122, dub: 118, acid: 130}, KEYS = ['A minor', 'D minor', 'F minor', 'G minor', 'C minor', 'E minor', 'D dorian', 'A dorian'];
+// which track plays what: the song's own, or one like the blank song's added for it
+const ROLE = {drums: T => T.inst.type === 'drums', bass: T => /bass|sub/i.test(T.id + ' ' + (T.name || '')) && T.inst.type !== 'drums',
+  chords: T => /pad|chord|stab|drone/i.test(T.id + ' ' + (T.name || '')), hook: T => /pluck|arp|seq|blip|lead|bell|hook/i.test(T.id + ' ' + (T.name || ''))};
+const FROM = {drums: 'drums', bass: 'bass', chords: 'pad', hook: 'pluck'};
+function roleTrack(role){
+  const T = song.tracks.find(ROLE[role]); if (T) return T;
+  const N = structuredClone(blankSong(1).tracks.find(t => t.id === FROM[role])); let id = N.id; while (song.tracks.some(t => t.id === id)) id += '2'; N.id = id; N.clips = {};
+  // (its sidechain on the song's kick, if it has one; its sends only to returns the song has)
+  const rack = song.tracks.find(t => t.pads && t.pads.kick), m = N.mix || {};
+  m.chain = (m.chain || []).filter(d => d.type !== 'sc' || rack).map(d => d.type === 'sc' ? {...d, src: rack.id + ':kick'} : d);
+  for (const r in m.sends || {}) if (!(song.returns || []).some(x => x.id === r)) delete m.sends[r];
+  song.tracks.push(N); return N;
+}
+// the drum clip the music is playing (or the one open, or the jam's): what the bass listens to and new hats go over
+function grooveClip(){
+  const D = song.tracks.find(ROLE.drums); if (!D) return null;
+  const n = player && player.playing ? Math.floor(player.pos()) : -1, id = n >= 0 && player.E.clipOf(D.id, n) || (sel === D.id && selClip) || (D.clips.jam ? 'jam' : Object.keys(D.clips)[0]);
+  return D.clips[id] || null;
+}
+const beats = set => [...set].sort((a, b) => a - b).map(i => i % 4 ? `${Math.floor(i/4) + 1}${['', 'e', '&', 'a'][i % 4]}` : `${i/4 + 1}`).join(' ');
+const jamSay = html => { $('jamSay').innerHTML = html; };
+// make one part (a new take each time: a new seed) into its track's "jam" clip, in the session's jam row; launched on
+// the next bar if it's playing. quiet: don't move the page's attention (Follow remaking the bass while the drums are edited)
+function jamMake(part, {seed = ++JAM.seed, launch = true, quiet = false} = {}){
+  const role = ['drums', 'hats', 'perc'].includes(part) ? 'drums' : part, had = song.tracks.length, T = roleTrack(role), key = song.key || 'A minor';
+  const o = {style: JAM.style, energy: JAM.energy, expr: JAM.expr, seed, key};
+  let clip, said;
+  if (role === 'drums') {
+    const base = part === 'drums' ? null : grooveClip();
+    clip = makeDrums({...o, part, bars: JAM.style === 'hypnotic' ? 4 : 2, base: base ? base.hits : null});
+    said = part === 'hats' ? `<b>Hats</b>: ${(clip.hits.chh || '').replace(/[^1-9?]/g, '').length} hits on a ${(clip.hits.chh || '').length}-step row${clip.hits.ohh ? ', open hats on the off-beats' : ''}, over the drums playing`
+      : part === 'perc' ? `<b>Percussion</b>: ${Object.keys(clip.hits).filter(k => ['rim', 'clave', 'shaker'].includes(k)).join(', ')} round the kick` : `<b>Drums</b> (${STYLES[JAM.style].label.toLowerCase()}): kick on ${beats(grooveOf(clip).kick)}`;
+  } else if (part === 'bass') {
+    const g = grooveOf(grooveClip()); clip = makeBass({...o, groove: g});
+    said = `<b>Bass</b>: ${clip.notes.length} notes in ${key}${clip.steps ? `, a ${clip.steps}-step loop` : ''}, round the kick on ${beats(g.kick) || 'nothing yet'}`;
+  } else if (part === 'chords') {
+    const B = song.tracks.find(ROLE.bass), bn = B && B.clips.jam ? B.clips.jam.notes : null; clip = makeChords({...o, bass: bn});
+    said = `<b>Chords</b>: ${clip.notes.length} ${JAM.style === 'hypnotic' && JAM.energy < .5 ? 'held' : 'stabs'} in the gaps the bass leaves`;
+  } else { clip = makeHook(o); said = `<b>Hook</b>: ${clip.notes.length} notes${clip.steps ? `, a ${clip.steps}-step loop against the bar` : ''}`; }
+  T.clips.jam = clip; JAM.parts[T.id] = {part, base: structuredClone(clip), seed};
+  let sc = song.scenes.find(x => x.id === 'jam'); if (!sc) song.scenes.push(sc = {id: 'jam', clips: {}}); sc.clips[T.id] = 'jam';
+  forget(clip); dataStale = true;
+  if (song.tracks.length !== had && player) { const was = player.playing; player.rebuild(); if (!was) player.stop(); }
+  if (launch && player && player.playing) player.launchClip(T.id, 'jam', 'jam');
+  drawSession();
+  if (!quiet) { if (song.tracks.length !== had) drawMixer(); sel = T.id; selClip = 'jam'; drawDetail(); markSel(); jamSay(said + `. <span class="dim">Again for another take.</span>`); }
+  // (new drums: the bass it made fits itself to them, as when they're changed by hand)
+  if (role === 'drums' && !quiet) { const B = song.tracks.find(ROLE.bass); if (JAM.follow && B && JAM.parts[B.id]) { jamMake('bass', {seed: JAM.parts[B.id].seed, launch: false, quiet: true}); $('jamSay').insertAdjacentHTML('beforeend', ' The bass refitted itself.'); } }
+  return T;
+}
+$('jamStyle').innerHTML = Object.entries(STYLES).map(([k, v]) => `<option value="${k}" title="${esc(v.words)}">${esc(v.label)}</option>`).join('');
+$('jamStyle').onchange = () => { JAM.style = $('jamStyle').value; jamSay(`<b>${STYLES[JAM.style].label}</b>: ${esc(STYLES[JAM.style].words)}.`); };
+$('jamEnergy').oninput = () => { JAM.energy = +$('jamEnergy').value; };
+$('jamExpr').oninput = () => { JAM.expr = +$('jamExpr').value; };
+$('jamFollow').onchange = () => { JAM.follow = $('jamFollow').checked; };
+$('jamEvolve').onchange = () => { JAM.evolve = $('jamEvolve').checked; JAM.phrase = -1; };
+document.querySelectorAll('[data-jam]').forEach(b => b.onclick = () => {
+  const p = b.dataset.jam;
+  if (p === 'all') { for (const q of ['drums', 'bass', 'chords', 'hook']) jamMake(q); jamSay(`<b>Everything</b> (${STYLES[JAM.style].label.toLowerCase()}): drums, a bass round the kick, chords in its gaps and a hook, in ${esc(song.key || 'A minor')}.`); }
+  else jamMake(p);
+  if (!(player && player.playing)) build().then(pl => { pl.play({scene: 'jam'}); setPlay(); });
+});
+// a new song, made to jam in: its tempo and key from the style, drums and a bass made for each other, playing
+$('jamStart').onclick = () => {
+  if (player) player.stop();
+  const s0 = blankSong(mine.filter(Boolean).length + 1, {bpm: TEMPO[JAM.style], key: KEYS[Math.floor(Math.random()*KEYS.length)]});
+  s0.title = `${STYLES[JAM.style].label} jam ${mine.filter(Boolean).length + 1}`; load(addMine(s0)); JAM.parts = {};
+  jamMake('drums', {launch: false}); jamMake('bass', {launch: false});
+  build().then(pl => { pl.play({scene: 'jam'}); setPlay(); });
+  jamSay(`<b>${esc(song.title)}</b>, ${song.bpm} BPM in ${esc(song.key)}: drums and a bass round their kick. Add hats, chords or a hook; change the drums and the bass follows; Evolve keeps it moving.`);
+};
+$('jamKeep').onclick = async () => {
+  const {T} = ownerOf(sel); if (!T || !T.clips.jam) return jamSay('Open a track with a jam clip first (its name in the mixer).');
+  const P = JAM.parts[T.id] || {part: 'part', seed: 0};
+  await LIB.save({name: `${STYLES[JAM.style].label} ${P.part} ${P.seed}`, kind: 'clip', song: song.title, bpm: song.bpm, key: song.key || '', data: {track: {...T, clips: {jam: T.clips.jam}}, clip: 'jam'}});
+  jamSay(`Kept in the library as <b>${STYLES[JAM.style].label} ${P.part} ${P.seed}</b>.`);
+};
+// Follow: the drums changed (by hand, or a new take), so the bass it made fits itself to the kick again
+function jamFollow(clip){
+  if (!JAM.follow) return; const D = song.tracks.find(ROLE.drums), B = song.tracks.find(ROLE.bass);
+  if (!D || !B || !JAM.parts[B.id] || !Object.values(D.clips).includes(clip)) return;
+  jamMake('bass', {seed: JAM.parts[B.id].seed, launch: false, quiet: true});
+  jamSay(`The bass fitted itself to your kick on ${beats(grooveOf(clip).kick)}.`);
+}
+// Evolve: on each four-bar line the scheduler reaches, each part it made becomes a new variation of its first take; every
+// sixteen bars the hats are made again a little busier or calmer, building and settling
+function jamEvolve(){
+  if (!JAM.evolve || !player || !player.playing) return;
+  const ph = Math.floor((player.E.n + 1)/64); if (ph === JAM.phrase) return; JAM.phrase = ph; if (ph < 1) return;
+  for (const [id, P] of Object.entries(JAM.parts)) {
+    const T = trackOf(id); if (!T || !T.clips.jam) continue;
+    let v = vary(P.base, {seed: P.seed + ph, amount: .25 + .35*JAM.energy, key: song.key || 'A minor'});
+    if (P.part === 'drums' && ph % 4 === 0) v = makeDrums({style: JAM.style, part: 'hats', seed: P.seed + ph, expr: JAM.expr, energy: Math.max(0, Math.min(1, JAM.energy + .3*Math.sin(ph*Math.PI/8))), bars: v.bars, base: v.hits});
+    T.clips.jam = v; forget(v);
+  }
+  dataStale = true;
+  if (clipFor && clipFor[1] === 'jam') { const [T, id, ti] = clipFor, old = clipBox, nb = clipView(T, id, ti); if (old && old.isConnected) old.replaceWith(nb); }
+}
+
 /* ---------- the play view (touch first, for the iPad) ---------- */
 const pv = mountPlay({song: () => song, player: () => player, ctx: () => audio(), build, edited, setVal, newClip: T => newClip(T),
   select: (track, clip) => { sel = track; selClip = clip; drawDetail(); markSel(); }, sel: () => ({track: ownerOf(sel).T ? ownerOf(sel).T.id : null, clip: selClip}),
@@ -827,4 +931,4 @@ SAVE.start().then(() => {
 SONGS.forEach((s, i) => addSongTab(i));
 load(0);
 // (for tests: the player, the song, a reset to the song as written, and saving now)
-window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, setRef, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};
+window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, setRef, jam: JAM, jamMake, jamEvolve, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};

@@ -38,6 +38,31 @@
     <div class="scroll"><table class="ses" id="ses"></table></div>
   </section>
 
+  <section aria-labelledby="h-jam">
+    <h2 id="h-jam">Jam <small>parts made on the spot: start a track from nothing, or let it play along with what you make</small></h2>
+    <div class="jam">
+      <div class="jrow">
+        <label class="jsel">Style <select id="jamStyle" aria-label="Jam style"></select></label>
+        <label class="jsl">Energy <input type="range" id="jamEnergy" min="0" max="1" step=".01" value=".55"></label>
+        <label class="jsl">Expression <input type="range" id="jamExpr" min="0" max="1" step=".01" value=".65"></label>
+        <label class="jtg" title="When you change the drums, the bass it made fits itself to your kick again"><input type="checkbox" id="jamFollow" checked> Follow my drums</label>
+        <label class="jtg" title="While it plays, each part it made varies a little every four bars, and the hats build and settle over sixteen"><input type="checkbox" id="jamEvolve"> Evolve</label>
+      </div>
+      <div class="jrow jbtns">
+        <button id="jamStart" class="big" title="A new song: drums, hats and a bass line made for each other, playing">Start a jam</button>
+        <span class="jgrp">
+          <button data-jam="drums" title="A whole drum pattern">Drums</button><button data-jam="hats" title="New hats over the drums playing (yours too)">Hats</button><button data-jam="perc" title="Rim, clave and shaker round the kick">Percussion</button>
+        </span>
+        <span class="jgrp">
+          <button data-jam="bass" title="A bass line that plays round the kick">Bass</button><button data-jam="chords" title="Chord stabs in the spaces the bass leaves">Chords</button><button data-jam="hook" title="A short melodic figure">Hook</button>
+        </span>
+        <button data-jam="all" title="All six parts at once">Everything</button>
+        <button id="jamKeep" title="Save the open track's jam clip to the library">Keep this take</button>
+      </div>
+      <p id="jamSay" class="jsay" aria-live="polite">Pick a style and press a part. Each press is a new take; Follow and Evolve keep it playing along.</p>
+    </div>
+  </section>
+
   <section aria-labelledby="h-mix">
     <h2 id="h-mix">Mixer <small>meters, gain reduction (violet: the sidechain ducking), fader, pan, mute and solo; pick a strip to open it</small></h2>
     <div class="scroll"><div class="mixer" id="mixer"></div></div>

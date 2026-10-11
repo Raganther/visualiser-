@@ -246,3 +246,14 @@ select.radd,select.groove,select.clen{font-size:11px;justify-self:start}
 .steps.envbox{margin-top:6px}
 .steps.envbox .envtg,.steps.envbox > button{justify-self:start;font-size:11px}
 .steps.rollvel{margin-top:4px;grid-template-columns:84px minmax(0,1fr)}
+
+/* the jam panel */
+.jam{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.jrow{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.jsel,.jsl,.jtg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+.jsl input{width:120px}
+.jgrp{display:inline-flex}
+.jgrp button{border-radius:0} .jgrp button:first-child{border-radius:5px 0 0 5px} .jgrp button:last-child{border-radius:0 5px 5px 0} .jgrp button + button{margin-left:-1px}
+.jsay{margin:0;font-size:12px;color:var(--dim);min-height:2.4em}
+.jsay b{color:var(--ink);font-weight:500}
+.jbtns button.made{box-shadow:inset 0 -2px 0 var(--accent)}

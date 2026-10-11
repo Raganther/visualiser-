@@ -314,6 +314,57 @@ check('the velocity lane drawn rising sets rising velocities; a groove shape app
 check('a row added and the clip set to 3 bars', !!ed.added && ed.bars === 3, f2([ed.added, ed.bars]));
 check('a volume envelope drawn into the clip, falling', ed.env && ed.env.length >= 2 && ed.env[0][1] > ed.env[ed.env.length - 1][1], f2(ed.env));
 check('a note\'s velocity set from its lane, and the song still plays', Math.abs(ed.noteVel - .5) < .06 && ed.playing, f2([ed.noteVel, ed.playing]));
+// the improviser, by itself: the same seed makes the same part; every style's bass stays off the kick and in the key; the
+// expression widens the hats' dynamics; the hypnotic style loops at odd lengths; chords leave the bass's steps free; a
+// hook walks rather than leaps; a variation moves the hats and keeps the kick
+{
+  const I = await import('../src/studio/improv.js'), K = I.keyOf('D minor'), inKey = n => K.scale.includes(((n - K.root) % 12 + 12) % 12), o = {bad: []};
+  o.same = JSON.stringify(I.makeDrums({style: 'driving', seed: 4})) === JSON.stringify(I.makeDrums({style: 'driving', seed: 4})) && JSON.stringify(I.makeDrums({style: 'driving', seed: 4})) !== JSON.stringify(I.makeDrums({style: 'driving', seed: 5}));
+  for (const style of Object.keys(I.STYLES)) for (const seed of [1, 2, 3, 4, 5]) {
+    const d = I.makeDrums({style, seed, energy: .6}), g = I.grooveOf(d), b = I.makeBass({style, seed, key: 'D minor', groove: g, energy: .6});
+    if (!g.kick.size) o.bad.push(`${style}/${seed}: no kick`);
+    const on = b.notes.filter(n => g.kick.has(Math.floor(n[0]) % 16)).length;
+    if (style !== 'acid' && on) o.bad.push(`${style}/${seed}: ${on} bass notes on the kick`);
+    if (b.notes.length < (style === 'dub' ? 1 : 3)) o.bad.push(`${style}/${seed}: ${b.notes.length} bass notes`);
+    if (!b.notes.every(n => inKey(n[1]))) o.bad.push(`${style}/${seed}: a bass note out of key`);
+    const c = I.makeChords({style, seed, key: 'D minor', bass: b.notes, energy: .6}), bs = new Set(b.notes.map(n => Math.floor(n[0]) % 16));
+    if (style !== 'hypnotic' && c.notes.some(n => n[2] < 4 && bs.has(n[0] % 16))) o.bad.push(`${style}/${seed}: a stab on a bass note`);
+    const h = I.makeHook({style, seed, key: 'D minor'}).notes; if (!h.every(n => inKey(n[1])) || h.some((n, i) => i && Math.abs(n[1] - h[i - 1][1]) > 9)) o.bad.push(`${style}/${seed}: the hook leaps or leaves the key`);
+  }
+  const spread = x => new Set(I.makeDrums({style: 'driving', seed: 2, expr: x}).hits.chh.replace(/[^1-9]/g, '')).size;
+  o.dyn = [spread(0), spread(1)];
+  const hy = I.makeDrums({style: 'hypnotic', seed: 3}), hb = I.makeBass({style: 'hypnotic', seed: 3, groove: I.grooveOf(hy)});
+  o.hyp = [hy.hits.chh.length, hb.steps];
+  const d0 = I.makeDrums({style: 'driving', seed: 6}), v = I.vary(d0, {seed: 9, amount: .5}); o.vary = [v.hits.kick === d0.hits.kick, v.hits.chh !== d0.hits.chh];
+  check('the improviser: the same seed makes the same part, another seed another', o.same, '');
+  check('every style\'s bass stays off the kick and in the key; chords leave its steps free; hooks walk in the key', !o.bad.length, o.bad.slice(0, 6).join('; '));
+  check('the expression widens the hats\' dynamics', o.dyn[1] > o.dyn[0] && o.dyn[1] >= 4, f2(o.dyn));
+  check('the hypnotic style loops its hats and bass at odd lengths against the bar', o.hyp[0] !== 16 && o.hyp[0] < 32 && [7, 10, 12].includes(o.hyp[1]), f2(o.hyp));
+  check('a variation keeps the kick and moves the hats', o.vary[0] && o.vary[1], f2(o.vary));
+}
+// jamming in the page: Start a jam makes a song and plays its drums and bass; new hats keep the kick; a kick moved by hand
+// and the bass refits round it; chords and a hook join; Evolve changes the parts on the next four-bar line
+const jm = await page.evaluate(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {}, {onNote} = await import('/src/audio/engine/events.js');
+  const heard = []; onNote(e => { if (e.src === 'studio') heard.push(e.ch); });
+  document.querySelector('#jamStyle').value = 'driving'; document.querySelector('#jamStyle').dispatchEvent(new Event('change'));
+  document.querySelector('#jamStart').click(); await wait(2500);
+  const S = st.song, D = S.tracks.find(t => t.id === 'drums'), B = S.tracks.find(t => t.id === 'bass');
+  const kicks = () => new Set([...D.clips.jam.hits.kick.replace(/[|\s]/g, '')].map((c, i) => c !== '.' ? i % 16 : -1).filter(i => i >= 0));
+  o.start = {title: S.title, bpm: S.bpm, playing: st.player.playing, bass: B.clips.jam.notes.length, onKick: B.clips.jam.notes.filter(n => kicks().has(Math.floor(n[0]) % 16)).length, heard: heard.length};
+  const chh = D.clips.jam.hits.chh; document.querySelector('[data-jam=hats]').click(); await wait(100); o.hats = D.clips.jam.hits.chh !== chh && /9/.test(D.clips.jam.hits.kick);
+  const b0 = JSON.stringify(B.clips.jam.notes); [...document.querySelectorAll('.steps .row')][0].querySelector('button[data-i="6"]').click(); await wait(100);
+  o.follow = JSON.stringify(B.clips.jam.notes) !== b0 && B.clips.jam.notes.filter(n => kicks().has(Math.floor(n[0]) % 16)).length === 0;
+  document.querySelector('[data-jam=chords]').click(); document.querySelector('[data-jam=hook]').click(); await wait(100);
+  o.parts = Object.values(st.jam.parts).map(p => p.part).sort();
+  document.querySelector('#jamEvolve').click(); const before = JSON.stringify(S.tracks.map(t => t.clips.jam)); await wait(8500);
+  o.evolved = JSON.stringify(S.tracks.map(t => t.clips.jam)) !== before;
+  document.querySelector('#jamEvolve').click(); document.querySelector('#stop').click();
+  return o;
+});
+check('Start a jam: a new song, its drums and bass playing, the bass off the kick', /jam/.test(jm.start.title) && jm.start.playing && jm.start.bass > 3 && jm.start.onKick === 0 && jm.start.heard > 10, f2(jm.start));
+check('new hats over the drums keep the kick; a kick moved by hand and the bass refits round it', jm.hats && jm.follow, f2([jm.hats, jm.follow]));
+check('chords and a hook join the jam, and Evolve varies the parts on the four-bar line', f2(jm.parts) === '["bass","chords","hats","hook"]' && jm.evolved, f2([jm.parts, jm.evolved]));
 // the user's changes to a song are kept: an edit, saved, is there after a reload, with their own new song as a tab; Revert
 // goes back to the song as written
 const sv = await page.evaluate(async () => {
