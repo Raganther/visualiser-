@@ -357,7 +357,10 @@ const jm = await page.evaluate(async () => {
   o.follow = JSON.stringify(B.clips.jam.notes) !== b0 && B.clips.jam.notes.filter(n => kicks().has(Math.floor(n[0]) % 16)).length === 0;
   document.querySelector('[data-jam=chords]').click(); document.querySelector('[data-jam=hook]').click(); await wait(100);
   o.parts = Object.values(st.jam.parts).map(p => p.part).sort();
+  const LOG = []; for (const k of ['play', 'stop']) { const f = st.player[k].bind(st.player); st.player[k] = (...a) => { LOG.push(k + ' ' + (new Error().stack.split('\n').slice(2, 5).map(x => x.trim()).join(' < '))); return f(...a); }; }
+  const ns = []; const iv = setInterval(() => ns.push(st.player.E.n), 500);
   document.querySelector('#jamEvolve').click(); const before = JSON.stringify(S.tracks.map(t => t.clips.jam)); await wait(9500);
+  clearInterval(iv); o.log = LOG; o.ns = ns.join(',');
   o.evolved = JSON.stringify(S.tracks.map(t => t.clips.jam)) !== before;
   o.diag = {evolve: st.jam.evolve, phrase: st.jam.phrase, n: st.player.E.n, playing: st.player.playing, checked: document.querySelector('#jamEvolve').checked, same: st.song === S};
   document.querySelector('#jamEvolve').click(); document.querySelector('#stop').click();
@@ -365,7 +368,7 @@ const jm = await page.evaluate(async () => {
 });
 check('Start a jam: a new song, its drums and bass playing, the bass off the kick', /jam/.test(jm.start.title) && jm.start.playing && jm.start.bass > 3 && jm.start.onKick === 0 && jm.start.heard > 10, f2(jm.start));
 check('new hats over the drums keep the kick; a kick moved by hand and the bass refits round it', jm.hats && jm.follow, f2([jm.hats, jm.follow]));
-check('chords and a hook join the jam, and Evolve varies the parts on the four-bar line', f2(jm.parts) === '["bass","chords","hats","hook"]' && jm.evolved, f2([jm.parts, jm.evolved, jm.diag]));
+check('chords and a hook join the jam, and Evolve varies the parts on the four-bar line', f2(jm.parts) === '["bass","chords","hats","hook"]' && jm.evolved, f2([jm.parts, jm.evolved, jm.diag, jm.log, jm.ns]));
 // the user's changes to a song are kept: an edit, saved, is there after a reload, with their own new song as a tab; Revert
 // goes back to the song as written
 const sv = await page.evaluate(async () => {
