@@ -192,3 +192,15 @@ body.pvon{overflow:hidden}
 .pvsteps{max-height:34vh;overflow:auto}
 .pvsteps .steps .row button{height:30px} .pvsteps .steps.notes .row button{height:18px} .pvsteps .steps .rn{height:30px;font-size:13px}
 @media (max-width:760px){ .pvmain{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 180px} .pvplay.pads{grid-template-columns:repeat(3,minmax(0,1fr))} .pvrow{grid-template-columns:repeat(4,minmax(0,1fr))} .pvplay.keys{grid-template-rows:none;grid-auto-rows:1fr} }
+
+/* a synth's face: the whole width, its sections side by side like the hardware's panels */
+.card.synth{flex:1 1 100%;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 7%,var(--panel2)),var(--panel2));border-color:color-mix(in srgb,var(--tc) 35%,var(--line))}
+.synhead{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px}
+.synhead h4{margin:0;font-size:13px;color:var(--ink)}
+.synhead .synwords{font-size:12px;color:var(--faint)}
+select.preset,.sw select{font:inherit;font-size:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+.synbody{display:flex;flex-wrap:wrap;gap:8px}
+.syngroup{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:rgba(0,0,0,.18);min-width:0}
+.syngroup h5{margin:0 0 4px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--tc) 70%,var(--dim))}
+.sw{display:flex;flex-direction:column;align-items:center;gap:3px;width:84px;font-size:10px;color:var(--dim);text-align:center}
+.sw select{width:100%}

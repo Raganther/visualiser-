@@ -144,13 +144,12 @@ function setVal(path, v){
 }
 
 /* ---------- the open strip: its instrument (or the rack's pads), its devices, its sends, and a clip ---------- */
-const PICK = {analog: ['cut', 'res', 'fenv', 'drive', 'fd', 'det', 'uni', 'glide', 'aa', 'ar', 'level'], fm: ['i2', 'i3', 'r2', 'r3', 'm2d', 'index', 'ad', 'cut', 'drive', 'level'],
-  poly: ['cut', 'res', 'fenv', 'drive', 'level']};
 const fmtOf = p => p.unit === 'Hz' ? fmtHz : p.unit === 's' ? (v => v < 1 ? Math.round(v*1000) + 'ms' : v.toFixed(2) + 's') : p.unit === 'st' || p.step ? (v => Math.round(v) + (p.unit || '')) : p.unit === '%' ? (v => Math.round(v*100) + '%') : p.unit === 'pan' ? (v => Math.abs(v) < .02 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100)) : (v => v.toFixed(2));
-function kn(label, min, max, def, cur, fmt, path, log){
-  // a log knob turns evenly in octaves
+function kn(label, min, max, def, cur, fmt, path, log, step){
+  // a log knob turns evenly in octaves; a stepped one lands on its steps (the Moog's footage in octaves)
   if (log) { const L = x => Math.log(x), E = x => Math.exp(x); return knob(label, L(min), L(max), L(def), x => fmt(E(x)), x => setVal(path, E(x)), L(Math.max(min, cur))); }
-  return knob(label, min, max, def, fmt, v => setVal(path, v), cur);
+  const snap = v => step ? Math.round(v/step)*step : v;
+  return knob(label, min, max, def, v => fmt(snap(v)), v => setVal(path, snap(v)), cur);
 }
 const card = (title, extra = '') => h('div', 'card', `<h4><span>${title}</span>${extra}</h4>`);
 function drawDetail(){
@@ -197,13 +196,38 @@ function instCard(T){
       const cur = P ? P[v.key][p.key] : ((T.inst.voices || {})[v.key] || {})[p.key] ?? p.def;
       ks.appendChild(kn(`${v.label} ${p.label.toLowerCase()}`, p.min, p.max, p.def, cur, fmtOf(p), `${T.id}.inst.${v.key}.${p.key}`, p.log));
     }
-  } else {
-    const preset = (I.presets || {})[T.inst.preset] || {}, live = player && player.E.tracks.find(x => x.t.id === T.id);
-    for (const k of PICK[I.key] || []) { const p = I.params.find(q => q.key === k); if (!p) continue;
-      const cur = live ? live.inst.P[k] : (T.inst.p || {})[k] ?? preset[k] ?? p.def;
-      ks.appendChild(kn(p.label, p.min, p.max, p.def, typeof cur === 'number' ? cur : p.def, fmtOf(p), `${T.id}.inst.${k}`, p.log)); }
+    c.appendChild(ks); return c;
   }
-  c.appendChild(ks); return c;
+  return synthFace(T, I);
+}
+// a synth's own face, like the hardware's: its preset, then every control in its sections (Oscillators, Filter, the
+// envelopes, the LFOs …), knobs for amounts and switches for wave shapes and modes; built from the instrument's own groups
+function synthFace(T, I){
+  const c = h('div', 'card synth'), live = () => player && player.E.tracks.find(x => x.t.id === T.id), preset = (I.presets || {})[T.inst.preset] || {};
+  const head = h('div', 'synhead'); head.innerHTML = `<h4><span>${esc(I.label)}</span></h4>`;
+  if (I.presets) { const sel = h('select', 'preset'); sel.setAttribute('aria-label', `${I.label} preset`);
+    sel.innerHTML = `<option value="">Preset…</option>` + Object.keys(I.presets).map(n => `<option${n === T.inst.preset ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    // (a preset replaces the sound: its settings over the defaults, the track's own changes cleared)
+    sel.onchange = () => { if (!sel.value) return; T.inst.preset = sel.value; T.inst.p = {}; const tr = live(); if (tr) tr.inst.load({...I.presets[sel.value]}); dataStale = true; drawDetail(); };
+    head.appendChild(sel); }
+  if (I.words) head.appendChild(h('span', 'synwords', esc(I.words)));
+  c.appendChild(head);
+  const body = h('div', 'synbody');
+  for (const [gname, params] of I.groups || [['Settings', I.params]]) {
+    const g = h('div', 'syngroup', `<h5>${esc(gname)}</h5>`), ks = h('div', 'knobs');
+    for (const p of params) {
+      const tr = live(), raw = tr ? tr.inst.P[p.key] : (T.inst.p || {})[p.key] ?? preset[p.key] ?? p.def;
+      if (p.list) {
+        const cur = typeof raw === 'string' ? Math.max(0, p.list.indexOf(raw)) : Math.round(raw || 0), w = h('label', 'sw'), s2 = h('select');
+        s2.innerHTML = p.list.map((x, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(x)}</option>`).join('');
+        s2.onchange = () => setVal(`${T.id}.inst.${p.key}`, +s2.value);
+        w.append(s2, h('span', null, esc(p.label))); ks.appendChild(w);
+      } else ks.appendChild(kn(p.label, p.min, p.max, p.def, typeof raw === 'number' ? raw : p.def, fmtOf(p), `${T.id}.inst.${p.key}`, p.log, p.step));
+    }
+    g.appendChild(ks); body.appendChild(g);
+  }
+  c.appendChild(body);
+  return c;
 }
 function devCard(d, x, k){
   const c = card(`${DEV[x.type] && x.type !== 'sc' ? {eq: 'EQ', comp: 'Compressor', limiter: 'Limiter'}[x.type] || x.type : x.type === 'sc' ? 'Sidechain from ' + esc(x.src || 'kick') : x.type}`, `<span class="gr" data-k="${k}"></span>`), path = `${d.id}.${k}`, ks = h('div', 'knobs');
