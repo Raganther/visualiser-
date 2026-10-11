@@ -11,7 +11,7 @@
 // face (sorted far to near here) its fill colour and alpha, its edge colour, and how far it's pushed out.
 import { mark } from './stalls.js';
 
-const CAM = 3.2, FOCAL = 2.6;   // the same camera as render/mesh.js, so facets and wire objects stand in one space
+export const CAM = 3.2, FOCAL = 2.6;   // the same camera as render/mesh.js, so facets and wire objects stand in one space
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 const cross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
 const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
@@ -227,16 +227,17 @@ export function facetPlaceP(G, S3, D, out){
 function project(G, X, U, W, H){
   const {nv, nf, TRI} = G, P = X.pos;
   const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), sp = Math.sin(U.pitch), co = Math.cos(U.roll || 0), so = Math.sin(U.roll || 0);
-  const sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, sc = H*U.size*FOCAL, ox = W/2 + U.pos[0]*H, oy = H/2 - U.pos[1]*H;
+  const sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, sc = H*U.size*FOCAL, ox = W/2 + U.pos[0]*H, oy = H/2 - U.pos[1]*H, cam = U.cam || CAM;   // (cam: how far off the camera stands; inside the shape below its radius)
   const turn = (x, y, z, o, k) => { x *= sqx; y *= sqy; z *= sqx; const x1 = cr*x + sr*z, z1 = -sr*x + cr*z, y2 = cp*y - sp*z1, z2 = sp*y + cp*z1; o[k] = co*x1 - so*y2; o[k + 1] = so*x1 + co*y2; o[k + 2] = z2; };
   const S = X.scr = X.scr || new Float32Array(nf*9), Z = X.z = X.z || new Float32Array(nf), FZ = X.face = X.face || new Float32Array(nf), T = X.tmp = X.tmp || new Float32Array(3);
-  const off = X.off;
+  const off = X.off, VIS = X.vis = X.vis || new Uint8Array(nf), near = U.near || .06;
   for (let f = 0; f < nf; f++) {
     const ex = off ? off[f*3] : 0, ey = off ? off[f*3 + 1] : 0, ez = off ? off[f*3 + 2] : 0;
-    let zs = 0;
+    let zs = 0; VIS[f] = 1;
     for (let k = 0; k < 3; k++) {
       const v = TRI[f*3 + k]*3; turn(P[v] + ex, P[v + 1] + ey, P[v + 2] + ez, T, 0);
-      const w = sc/(CAM - T[2]); S[f*9 + k*3] = ox + T[0]*w; S[f*9 + k*3 + 1] = oy - T[1]*w; S[f*9 + k*3 + 2] = T[2]; zs += T[2];
+      const dz = cam - T[2]; if (dz < near) VIS[f] = 0;   // (behind the camera, or touching it: left out, so the camera can pass through a facet)
+      const w = sc/Math.max(near, dz); S[f*9 + k*3] = ox + T[0]*w; S[f*9 + k*3 + 1] = oy - T[1]*w; S[f*9 + k*3 + 2] = T[2]; zs += T[2];
     }
     turn(X.fn[f*3], X.fn[f*3 + 1], X.fn[f*3 + 2], T, 0); FZ[f] = T[2]/(sqx || 1);
     Z[f] = zs/3;
@@ -253,25 +254,33 @@ function project(G, X, U, W, H){
 
 // ---- WebGL: one pass of the faces far to near, each its glass and its own glowing edges (worked out in pixels per vertex, so
 // no derivatives are needed); the edges of the far side show through the near glass, dimmed by it ----
-const VS = `attribute vec2 aP; attribute vec3 aD, aE, aL; attribute vec4 aF; uniform vec2 uWH;
-varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS;
-void main(){ vD=aD; vE=aE; vL=aL; vF=aF; vS=aP/uWH; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
-const FS = `precision mediump float; varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS; uniform float uLw, uCover, uFillAmt; uniform sampler2D uFillTex;
+const VS = `attribute vec2 aP, aT; attribute vec3 aD, aE, aL; attribute vec4 aF; uniform vec2 uWH;
+varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS, vT;
+void main(){ vD=aD; vE=aE; vL=aL; vF=aF; vT=aT; vS=aP/uWH; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
+// the facets' textures (TEX: 1 stained glass's lead, 2 LED panels' dots, 3 brushed metal's streaks, 4 frosted ice's grain), drawn
+// in each face's own frame (its distances from its edges, in pixels), so they move with it
+const FS = `precision mediump float; varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS, vT; uniform float uLw, uCover, uFillAmt; uniform sampler2D uFillTex;
+float fH(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 void main(){
   if(uCover>0.5){ gl_FragColor=vec4(1.0); return; }
   vec3 core=vec3(1.0)-smoothstep(vec3(uLw*0.35),vec3(uLw*1.1),vD), glow=exp(-vD/(uLw*2.5))*0.3;
   float e=max(max(vE.x*(core.x+glow.x),vE.y*(core.y+glow.y)),vE.z*(core.z+glow.z));
-  vec3 c=vF.rgb+vL*e;
+  vec3 f=vF.rgb; float k=vT.x, md=min(min(vD.x,vD.y),vD.z);
+  if(k>0.5&&k<1.5) f*=mix(0.04,1.0,smoothstep(uLw*1.2,uLw*3.0,md));   // lead between the panes
+  else if(k>1.5&&k<2.5){ vec2 g=fract(vD.xy/(uLw*4.5))-0.5; f*=0.15+1.7*smoothstep(0.32,0.12,length(g)); }   // a grid of LEDs
+  else if(k>2.5&&k<3.5) f*=0.75+0.5*fH(vec2(floor(vD.x/(uLw*0.5)),floor(vD.y/(uLw*14.0))));   // brushed streaks
+  else if(k>3.5&&k<4.5) f+=vec3(0.06,0.08,0.1)*step(0.86,fH(floor(vD.xy/(uLw*0.8))))*vF.a;   // frost's grain
+  vec3 c=f+vL*e;
   if(uFillAmt>0.0) c+=texture2D(uFillTex,vec2(vS.x,1.0-vS.y)).rgb*uFillAmt*vF.a;   // a fill seen through the glass
   gl_FragColor=vec4(c,vF.a);
 }`;
-const NA = 15, PROGS = new WeakMap();
+const NA = 17, PROGS = new WeakMap();
 export const FACET = {wait: 0};   // (tests: report the program still building this many more times, as a real driver building it in the background does)
 function prog(gl){
   let s = PROGS.get(gl); if (s && s.u && gl.isProgram(s.p)) return s;
   if (!s || !gl.isProgram(s.p)) {   // (started once; while the driver builds it in the background, asked again each frame)
     const p = gl.createProgram(), sh = [[gl.VERTEX_SHADER, 'precision highp float;' + VS], [gl.FRAGMENT_SHADER, FS]].map(([t, src]) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); return x; });
-    ['aP', 'aD', 'aE', 'aL', 'aF'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
+    ['aP', 'aD', 'aE', 'aL', 'aF', 'aT'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a));   // attribute 0 stays the engine's full-screen quad
     gl.linkProgram(p); PROGS.set(gl, s = {p, sh, u: null}); mark('shader started: facets');
   }
   if (FACET.wait > 0) { FACET.wait--; return null; }
@@ -291,6 +300,7 @@ export function facetGL(gl, G){
     let o = 0;
     for (let n = 0; n < O.length; n++) {
       const f = O[n];
+      if (!X.vis[f]) { arr.fill(0, o, o + NA*3); o += NA*3; continue; }   // (left out: a point, drawn as nothing)
       const ax = Sc[f*9], ay = Sc[f*9 + 1], bx = Sc[f*9 + 3], by = Sc[f*9 + 4], cx = Sc[f*9 + 6], cy = Sc[f*9 + 7];
       const a2 = Math.abs((bx - ax)*(cy - ay) - (by - ay)*(cx - ax));
       const h = [a2/(Math.hypot(cx - bx, cy - by) || 1), a2/(Math.hypot(ax - cx, ay - cy) || 1), a2/(Math.hypot(bx - ax, by - ay) || 1)];   // each corner's height over the edge opposite
@@ -300,6 +310,7 @@ export function facetGL(gl, G){
         arr[o + 5] = X.eA[f*3]; arr[o + 6] = X.eA[f*3 + 1]; arr[o + 7] = X.eA[f*3 + 2];
         arr[o + 8] = X.edge[f*3]; arr[o + 9] = X.edge[f*3 + 1]; arr[o + 10] = X.edge[f*3 + 2];
         arr[o + 11] = X.fill[f*4]; arr[o + 12] = X.fill[f*4 + 1]; arr[o + 13] = X.fill[f*4 + 2]; arr[o + 14] = X.fill[f*4 + 3];
+        arr[o + 15] = X.tex ? X.tex[f] : 0; arr[o + 16] = 0;
         o += NA;
       }
     }
@@ -310,10 +321,10 @@ export function facetGL(gl, G){
     gl.uniform1f(u.uFillAmt, stage === 'screen' && U.fillTex ? U.fillAmt || 0 : 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
     gl.disableVertexAttribArray(0);
-    [[2, 0], [3, 2], [3, 5], [3, 8], [4, 11]].forEach(([n, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, NA*4, at*4); });
+    [[2, 0], [3, 2], [3, 5], [3, 8], [4, 11], [2, 15]].forEach(([n, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, NA*4, at*4); });
     gl.enable(gl.BLEND); if (stage === 'cover') gl.blendFunc(gl.ONE, gl.ZERO); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLES, 0, G.nf*3);
-    for (let i = 1; i <= 5; i++) gl.disableVertexAttribArray(i); gl.enableVertexAttribArray(0);
+    for (let i = 1; i <= 6; i++) gl.disableVertexAttribArray(i); gl.enableVertexAttribArray(0);
     gl.disable(gl.BLEND);
   };
 }
@@ -331,6 +342,7 @@ export function facet2d(o, G, X, U){
   const edges = new Map();
   for (let n = 0; n < O.length; n++) {
     const f = O[n], k = X.gk[f];
+    if (!X.vis[f]) continue;
     if (k !== key) { flush(); key = k; f0 = f; path = new Path2D(); }
     path.moveTo(Sc[f*9], Sc[f*9 + 1]); path.lineTo(Sc[f*9 + 3], Sc[f*9 + 4]); path.lineTo(Sc[f*9 + 6], Sc[f*9 + 7]); path.closePath();
     // its edges (opposite each corner), by colour and brightness
@@ -349,5 +361,47 @@ export function facet2d(o, G, X, U){
 }
 export function facetPath2d(o, G, X, U, add){   // (add: onto the path already begun)
   const W = o.canvas.width, H = o.canvas.height; project(G, X, U, W, H); const Sc = X.scr;
-  if (!add) o.beginPath(); for (let f = 0; f < G.nf; f++) { o.moveTo(Sc[f*9], Sc[f*9 + 1]); o.lineTo(Sc[f*9 + 3], Sc[f*9 + 4]); o.lineTo(Sc[f*9 + 6], Sc[f*9 + 7]); o.closePath(); }
+  if (!add) o.beginPath(); for (let f = 0; f < G.nf; f++) { if (!X.vis[f]) continue; o.moveTo(Sc[f*9], Sc[f*9 + 1]); o.lineTo(Sc[f*9 + 3], Sc[f*9 + 4]); o.lineTo(Sc[f*9 + 6], Sc[f*9 + 7]); o.closePath(); }
+}
+
+// ---- lasers drawn over the facets (stage 9): soft additive quads, a beam's across its width, a flare's round its point ----
+const BVS = `attribute vec2 aP, aQ; attribute vec3 aC; uniform vec2 uWH; varying vec2 vQ; varying vec3 vC;
+void main(){ vQ=aQ; vC=aC; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
+const BFS = `precision mediump float; varying vec2 vQ; varying vec3 vC;
+void main(){ float r=dot(vQ,vQ); gl_FragColor=vec4(vC*(exp(-r*14.0)+0.3*exp(-r*3.0))*(1.0-smoothstep(0.8,1.0,r)),0.0); }`;
+const BPROGS = new WeakMap();
+export function beamsGL(gl){
+  const buf = gl.createBuffer(); let arr = new Float32Array(7*6*64);
+  return function draw(list, n, W, H){   // list: per quad x0 y0 x1 y1 width r g b kind (0 a beam, 1 a flare), in pixels
+    if (!n) return;
+    let s = BPROGS.get(gl); if (!s || !gl.isProgram(s.p)) { const p = gl.createProgram(); for (const [t, src] of [[gl.VERTEX_SHADER, 'precision highp float;' + BVS], [gl.FRAGMENT_SHADER, BFS]]) { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); }
+      ['aP', 'aQ', 'aC'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a)); gl.linkProgram(p); BPROGS.set(gl, s = {p, u: null}); }
+    if (!s.u) { const x = gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return; if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) return; s.u = {uWH: gl.getUniformLocation(s.p, 'uWH')}; }
+    if (arr.length < n*42) arr = new Float32Array(n*42);
+    let o = 0; const put = (x, y, qx, qy, r, g, b) => { arr[o++] = x; arr[o++] = y; arr[o++] = qx; arr[o++] = qy; arr[o++] = r; arr[o++] = g; arr[o++] = b; };
+    for (let i = 0; i < n; i++) { const k = i*9, x0 = list[k], y0 = list[k + 1], x1 = list[k + 2], y1 = list[k + 3], w = list[k + 4], r = list[k + 5], g = list[k + 6], b = list[k + 7];
+      let ax, ay, bx, by;
+      if (list[k + 8] > .5) { ax = w; ay = 0; bx = 0; by = w;   // a flare: a square round its point
+        put(x0 - ax - bx, y0 - ay - by, -1, -1, r, g, b); put(x0 + ax - bx, y0 + ay - by, 1, -1, r, g, b); put(x0 + ax + bx, y0 + ay + by, 1, 1, r, g, b);
+        put(x0 - ax - bx, y0 - ay - by, -1, -1, r, g, b); put(x0 + ax + bx, y0 + ay + by, 1, 1, r, g, b); put(x0 - ax + bx, y0 - ay + by, -1, 1, r, g, b); }
+      else { const l = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0)/l*w, ny = (x1 - x0)/l*w;
+        put(x0 - nx, y0 - ny, -1, 0, r, g, b); put(x0 + nx, y0 + ny, 1, 0, r, g, b); put(x1 + nx, y1 + ny, 1, 0, r, g, b);
+        put(x0 - nx, y0 - ny, -1, 0, r, g, b); put(x1 + nx, y1 + ny, 1, 0, r, g, b); put(x1 - nx, y1 - ny, -1, 0, r, g, b); }
+    }
+    gl.useProgram(s.p); gl.uniform2f(s.u.uWH, W, H);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr.subarray(0, o), gl.DYNAMIC_DRAW);
+    gl.disableVertexAttribArray(0);
+    [[2, 0], [2, 2], [3, 4]].forEach(([m, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, m, gl.FLOAT, false, 28, at*4); });
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, 0, o/7);
+    for (let i = 1; i <= 3; i++) gl.disableVertexAttribArray(i); gl.enableVertexAttribArray(0); gl.disable(gl.BLEND);
+  };
+}
+// the same in simple mode
+export function beams2d(o, list, n){
+  if (!n) return; o.save(); o.globalCompositeOperation = 'lighter'; o.lineCap = 'round';
+  for (let i = 0; i < n; i++) { const k = i*9, c = `${Math.min(255, list[k + 5]*255|0)},${Math.min(255, list[k + 6]*255|0)},${Math.min(255, list[k + 7]*255|0)}`;
+    if (list[k + 8] > .5) { const g = o.createRadialGradient(list[k], list[k + 1], 0, list[k], list[k + 1], list[k + 4]); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(1, `rgba(${c},0)`); o.fillStyle = g; o.fillRect(list[k] - list[k + 4], list[k + 1] - list[k + 4], list[k + 4]*2, list[k + 4]*2); }
+    else { o.strokeStyle = `rgba(${c},.35)`; o.lineWidth = list[k + 4]*1.6; o.beginPath(); o.moveTo(list[k], list[k + 1]); o.lineTo(list[k + 2], list[k + 3]); o.stroke();
+      o.strokeStyle = `rgba(${c},1)`; o.lineWidth = Math.max(1, list[k + 4]*.35); o.stroke(); } }
+  o.restore();
 }

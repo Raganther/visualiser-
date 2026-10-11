@@ -16,6 +16,7 @@ import geode from './worlds/geode.js';
 import corridor from './worlds/corridor.js';
 import forest from './worlds/forest.js';
 import lattice from './worlds/lattice.js';
+import room from './worlds/room.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
 import shock from './hits/shock.js';
@@ -62,7 +63,7 @@ import heart from './objects/heart.js';
 import prism from './objects/prism.js';
 import gems from './objects/gems.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice, room];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch, cascade];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, rosette, tunnel];
 export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, prism, gems];   // 3D centrepieces, drawn crisp over the picture

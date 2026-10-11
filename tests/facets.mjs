@@ -57,7 +57,7 @@ const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0)/a.length
 }
 
 const {srv, url} = await serve();
-for (const mode of ['2d', 'gl']) {
+for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACET_MODES=2d: one renderer only)
   const browser = await launch(mode), page = await openPage(browser, url, {width: 320, height: 180});
   const r = await page.evaluate(`(async () => {
     const {S} = await import('/src/state.js'), {curP} = await import('/src/presets.js'), {J} = await import('/src/journey/core.js');
@@ -122,6 +122,25 @@ for (const mode of ['2d', 'gl']) {
     set('prism', 0); __step(30);
     // the rose window and the Lattice
   for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
+    // the room (stage 7): the camera far off when calm, drawn in through a run-up, inside on the drop and out again; the lamps' spots on the walls
+    { const pm = await import('/src/visuals/objects/prism.js'), {STAGE} = await import('/src/scene/stage.js');
+      set('prism', 1); pm.prismForm('gem', true); __step(${mode === 'gl' ? 60 : 120}); const bare = ${THUMB};
+      set('room', 1); __step(${mode === 'gl' ? 120 : 240}); for (let i = 0; i < 40 && (STAGE.cam < 1.5 || !STAGE.nSpots); i++) __step(20);   // (out of the last drop's release first)
+      const rm = {bare, pic: ${THUMB}, far: STAGE.cam, spots: STAGE.nSpots};
+      for (let i = 1; i <= 10; i++) { pm.prismRunUp(i/10); __step(20); } rm.near = STAGE.cam; pm.prismRunUp(undefined);
+      J.lastDrop = performance.now() + 11; __step(60); rm.inside = STAGE.cam; rm.form = pm.prismState().form; rm.in = ${THUMB};
+      __step(1000); rm.after = STAGE.cam; out.room = rm;
+      // the lasers (stage 9): traced through the gem in a run-up, some inside the glass; the light show's orbits as lights (stage 10)
+      pm.prismForm('gem', true); for (let i = 1; i <= 6; i++) { pm.prismRunUp(.5 + i/12); __step(10); } const ls = pm.prismState(); rm.beams = ls.beams; rm.inGlass = ls.inGlass; rm.lasers = ${THUMB}; pm.prismRunUp(undefined);
+      set('orbit', 1); __step(20); rm.orb = STAGE.lamps[3].k; set('orbit', 0);
+      set('room', 0); set('prism', 0); pm.prismForm(null); __step(30); }
+    // textures (stage 8): stained glass and LED panels sweep across it; the swarm and wrapping onto objects (stage 11)
+    { const pm = await import('/src/visuals/objects/prism.js'); set('prism', 1); pm.prismForm('gem', true); __step(${mode === 'gl' ? 60 : 120}); const tx = {glass: ${THUMB}};
+      for (const k of ['stained', 'led']) { pm.prismTex(k); __step(${mode === 'gl' ? 300 : 300}); tx[k] = ${THUMB}; tx[k + 'Is'] = pm.prismState().tex; }
+      pm.prismTex('glass'); __step(300);
+      pm.prismShape('skullWrap'); __step(200); tx.wrap = ${THUMB}; tx.wrapFin = [...pm.prismState().X.pos].every(Number.isFinite);
+      pm.prismShape('skullSwarm'); __step(300); const sx = pm.prismState(); tx.sw = sx.sw; tx.swarm = ${THUMB}; tx.off = Math.max(...sx.X.off.map(Math.abs));
+      pm.prismForm(null); pm.prismForm('gem', true); __step(300); tx.back = pm.prismState().sw; out.tex = tx; pm.prismForm(null); set('prism', 0); __step(30); }
     return {off, out};
   })()`);
   const errors = await page.errors();
@@ -143,6 +162,14 @@ for (const mode of ['2d', 'gl']) {
   check(`${mode}: a drop opens a closed form out`, fo.opened === 'peaks', fo.opened);
   check(`${mode}: the improviser makes new shapes rather than looping`, fo.kinds >= 9, `${fo.kinds} different in 12 steps`);
   for (const k of ['rosette', 'lattice']) { const d = diff(r.off, r.out[k]); check(`${mode}: the ${k === 'rosette' ? 'rose window' : 'Lattice'} draws`, d > .4, `change ${d.toFixed(1)}`); }
+  { const m = r.out.room; check(`${mode}: the room draws round the Prism, the lamps throw spots off its facets`, diff(m.bare, m.pic) > .3 && m.spots >= 3, `change ${diff(m.bare, m.pic).toFixed(2)}, ${m.spots} spots`);
+    check(`${mode}: the room's camera: drawn in through a run-up, inside on the drop, back out far off once calm`, m.near < 2 && m.inside < .4 && m.after > 3.5 && m.form !== 'peaks' && diff(r.off, m.in) > .5,
+      `${m.far.toFixed(2)} → ${m.near.toFixed(2)} → ${m.inside.toFixed(2)} (${m.form}) → ${m.after.toFixed(2)}`); }
+  { const m = r.out.room; check(`${mode}: the lasers trace through the Prism, bending into the glass`, m.beams >= 4 && m.inGlass >= 1 && diff(m.pic, m.lasers) > .2, `${m.beams} drawn over it, ${m.inGlass} inside the glass`);
+    check(`${mode}: in the room the orbits are lights circling it`, m.orb > .3, `${m.orb.toFixed(2)}`); }
+  { const t = r.out.tex; check(`${mode}: textures sweep across it (stained glass, LED panels)`, t.stainedIs === 'stained' && t.ledIs === 'led' && diff(t.glass, t.stained) > .3 && diff(t.stained, t.led) > .3, `glass → stained ${diff(t.glass, t.stained).toFixed(2)}, → led ${diff(t.stained, t.led).toFixed(2)}`);
+    check(`${mode}: it wraps onto the skull, and its facets swarm into the skull's shape and back`, t.wrapFin && diff(t.glass, t.wrap) > .3 && t.sw > .9 && t.off > .05 && diff(t.wrap, t.swarm) > .2 && t.back < .1,
+      `wrapped ${diff(t.glass, t.wrap).toFixed(2)}, swarm ${t.sw.toFixed(2)} (shards out to ${t.off.toFixed(2)}), back ${t.back.toFixed(2)}`); }
   check(`${mode}: no page errors`, !errors.length, errors.join('; '));
   await browser.close();
 }

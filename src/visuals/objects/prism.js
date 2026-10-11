@@ -24,7 +24,12 @@ import { hsv2rgb } from '../../util.js';
 import { DANCE } from '../../scene/dance.js';
 import { SIG } from '../../scene/signals.js';
 import { L } from '../../audio/listen.js';
-import { gemSheetGeo, sheetGeo, facetPlaceP, facetGL, facet2d, facetPath2d } from '../../render/facet.js';
+import { gemSheetGeo, sheetGeo, facetPlaceP, facetGL, facet2d, facetPath2d, FOCAL, CAM, beamsGL, beams2d } from '../../render/facet.js';
+import { traceBeams, beamOut } from './beams.js';
+import { STAGE, MAXSPOTS } from '../../scene/stage.js';
+import SKULL from './meshes/skull.js';
+import UNICORN from './meshes/unicorn.js';
+import MANTA from './meshes/manta.js';
 import { RULES, makeCells, stepCells, touch, clear, syncAll, scatter } from './cells.js';
 
 const hash = n => { const x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
@@ -51,8 +56,33 @@ export const SHAPES = {
   pill: (x, y, z) => .8/Math.hypot(x, z, y*.55),
   blob: (x, y, z, t) => 1 + .2*Math.sin(3*x + t)*Math.sin(3*y + t*1.3)*Math.sin(3*z + t*.7),
   super: (x, y, z) => superR(Math.atan2(y, x), Math.asin(Math.max(-1, Math.min(1, z)))),
+  // wrapped onto the other objects (stage 11): the closed sheet shrunk onto the skull, the unicorn or the manta
+  skull: (x, y, z) => radial('skull')(x, y, z), unicorn: (x, y, z) => radial('unicorn')(x, y, z), manta: (x, y, z) => radial('manta')(x, y, z),
 };
-const NAMES = Object.keys(SHAPES), CALM = ['ball', 'pill', 'disc', 'blob', 'flower', 'super'], SHARP = ['octa', 'cube', 'gem', 'star', 'super'];
+// ---- the other objects as shapes (docs/prism-plan.md, stage 11): each mesh's distance from its middle in every direction
+// (a grid of directions, the farthest of its corners and panes in each, gaps filled from their neighbours), so the closed
+// sheet can wrap onto it; and its panes' middles, where the swarm's shards fly to ----
+const MESHES = {skull: [SKULL.skull, SKULL.jaw], unicorn: [UNICORN.body, UNICORN.head], manta: [MANTA]}, WRAP = Object.keys(MESHES);
+const RAD = {}, PANES = {}, NT = 24, NP = 48;
+function meshPts(k){ const pts = []; for (const pc of MESHES[k]) { const P = pc.pos, T = pc.tri;
+  for (let i = 0; i < P.length; i += 3) pts.push([P[i], P[i + 1], P[i + 2]]);
+  for (let i = 0; i < T.length; i += 3) { const a = T[i]*3, b = T[i + 1]*3, c = T[i + 2]*3; pts.push([(P[a] + P[b] + P[c])/3, (P[a + 1] + P[b + 1] + P[c + 1])/3, (P[a + 2] + P[b + 2] + P[c + 2])/3, 1]); } }
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (const p of pts) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); }
+  const c = lo.map((v, i) => (v + hi[i])/2); return pts.map(p => [p[0] - c[0], p[1] - c[1], p[2] - c[2], p[3] || 0]); }
+function radial(k){
+  if (RAD[k]) return RAD[k];
+  const g = new Float32Array(NT*NP), pts = meshPts(k), r0 = TUNE.prism.r;
+  for (const [x, y, z] of pts) { const d = Math.hypot(x, y, z) || 1e-6, i = Math.min(NT - 1, Math.floor(Math.acos(Math.max(-1, Math.min(1, y/d)))/Math.PI*NT)), j = Math.floor(((Math.atan2(z, x)/(Math.PI*2)) + 1) % 1*NP) % NP;
+    g[i*NP + j] = Math.max(g[i*NP + j], d/r0); }
+  for (let it = 0; it < 30; it++) for (let i = 0; i < NT; i++) for (let j = 0; j < NP; j++) if (!g[i*NP + j]) { let s = 0, n = 0;
+    for (const [a, b] of [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]) { if (a < 0 || a >= NT) continue; const v = g[a*NP + (b + NP) % NP]; if (v) { s += v; n++; } } if (n) g[i*NP + j] = s/n; }
+  const m = g.slice(); for (let i = 0; i < NT; i++) for (let j = 0; j < NP; j++) m[i*NP + j] = (2*g[i*NP + j] + g[i*NP + (j + 1) % NP] + g[i*NP + (j + NP - 1) % NP] + g[Math.max(0, i - 1)*NP + j] + g[Math.min(NT - 1, i + 1)*NP + j])/6;   // (softened a little)
+  return RAD[k] = (x, y, z) => { const a = Math.acos(Math.max(-1, Math.min(1, y)))/Math.PI*NT - .5, b = ((Math.atan2(z, x)/(Math.PI*2)) + 1) % 1*NP - .5, i = Math.floor(a), j = Math.floor(b), fa = a - i, fb = b - j;
+    const at = (ii, jj) => m[Math.max(0, Math.min(NT - 1, ii))*NP + ((jj % NP) + NP) % NP];
+    return (at(i, j)*(1 - fb) + at(i, j + 1)*fb)*(1 - fa) + (at(i + 1, j)*(1 - fb) + at(i + 1, j + 1)*fb)*fa; };
+}
+const panes = k => PANES[k] || (PANES[k] = meshPts(k).filter(p => p[3]));
+const NAMES = Object.keys(SHAPES), FREE = NAMES.filter(n => !WRAP.includes(n)), CALM = ['ball', 'pill', 'disc', 'blob', 'flower', 'super'], SHARP = ['octa', 'cube', 'gem', 'star', 'super'];
 // the superformula (Gielis'): m points, then its three exponents; two blended
 const SF = {round: [0, 1, 2, 2], star: [5, .3, .3, .3], flower: [5, 1, 1, 8], cushion: [4, 12, 15, 15], gem: [5, 2, 4, 4], urchin: [10, .4, .6, .6], shell: [3, 4.5, 10, 10]};
 const sfr = (t, p) => { const m = p[0]/4; return Math.pow(Math.pow(Math.abs(Math.cos(m*t)), p[2]) + Math.pow(Math.abs(Math.sin(m*t)), p[3]), -1/p[1]); };
@@ -125,12 +155,14 @@ function programFor(type, T){
     det: live ? 1.6 + rnd()*1.2 : .6 + rnd()*1.3, n: {g: pick([5, 5, 10]), s: pick([4, 6, 8])},
     kick: pick(['ripple', 'ripple', 'cascade', 'pulse']), stab: pick(['sectors', 'checker', 'rings']), spiral: [pick([1, 2, 3, 5]), pick([2, 3, 5])],
     figure: pick(live ? ['improv', 'life', 'swell', 'fireflies', 'fireflies', 'frost'] : ['spots', 'stripes', 'frost', 'spots', 'improv', 'life']), brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
-    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in'])};   // (figure: life, the improvised one, or the facets as cells; rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
+    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in']), tex: pickTex(live)};   // (figure: life, the improvised one, or the facets as cells; rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
   if (id) st.progs[id] = p;
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {act: st.act, asym: st.asym, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, asym: st.asym, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length, tex: st.tex ? st.tex.to : 'glass', beams: OVER.n, inGlass: Array.from({length: BO.n}, (_, i) => BO.segs[i*10 + 9]).filter(v => v > .5).length, split: BO.n, sw: st.sw || 0, flat: st.flat || 0}; };
+export const prismTex = k => { setTex(k); };
+export const prismShape = name => { st.hold = name; const g = archetype(name); goGenome(g, true); };   // (tests and stills: one of the named shapes, held; prismForm(null) lets go)   // (tests and stills: sweep to this texture)
 export const prismProgram = (type, T) => programFor(type, T);
 export const prismForm = (k, now) => { st.hold = k; if (k) { const g = fromForm(k, st.g); goGenome(g, now); if (now) { snapTo(g); } } };
 export const prismImprovise = (size = .5) => improvise(size, 0);   // (tests: one step of the improviser now)
@@ -155,12 +187,12 @@ export default {
     // the section: a new program, its layers sequenced in again
     const type = st.testType !== undefined ? st.testType : J && J.on ? J.type : null;
     if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0; st.climb0 = 0;
-      if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); }
+      if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); setTex(st.prog.tex); }
     const pr = st.prog;
     // a drop: it shatters, gains every facet, and a closed form opens out into mountains or an open one snaps shut into a star
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop && st.prog) { const C = BODY[st.body].C; if (st.prog.figure === 'fireflies') syncAll(C); else if (st.prog.figure === 'frost') C.f.fill(1); else if (st.prog.figure === 'swell') touch(C, 'swell', [...C.out.keys()].filter((_, i) => i % 7 === 0), 1); }
-    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.asymT = st.t; st.asymAx = dirAt(.35 + .3*hash(st.run*.3), hash(st.run*.9)*Math.PI*2); st.climb0 = st.secBars + T.act.dropBars; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
-      if (!st.hold) { if (closed() > .5) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }
+    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.asymT = st.t; st.asymAx = dirAt(.35 + .3*hash(st.run*.3), hash(st.run*.9)*Math.PI*2); st.climb0 = st.secBars + T.act.dropBars; setTex(pick(['iris', 'stained', 'led', 'mirror'])); st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
+      if (!st.hold) { if (closed() > .5 && !(P.w.room > .5)) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }   // (in the room it always snaps shut, round the camera diving in)
     st.lastDrop = J ? J.lastDrop : null;
     // how much may move (docs/prism-plan.md, stage 3): the tension, lifted through a drop's run-up and by the drop itself, held
     // low in a breakdown, eased (quicker down than up). Calm, it holds its shape, turns slowly and glints, with one quiet pattern
@@ -202,7 +234,7 @@ export default {
       if (!st.hold && st.t - st.dropT > 8*S.beatPeriod) { const an = runUp(J);   // (a drop's run-up: bigger steps and leaps as it nears)
         improvise(L.brk && an < .05 ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct + an*T.arc.stepBuild, L.brk && an < .05 ? 0 : T.imp.leap + st.act*T.imp.leapAct + an*T.arc.leapBuild); } }   // (a breakdown: small, calm steps)
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
-    if (L.brk && !st.brk) { if (!st.hold) goGenome(pr.brk === 'star' ? fromForm('star', st.g) : calmer()); setDetail(1 + rnd()*.8); }
+    if (L.brk && !st.brk) { if (!st.hold) goGenome(P.w.room > .5 ? fromForm('peaks', st.g) : pr.brk === 'star' ? fromForm('star', st.g) : calmer()); setDetail(1 + rnd()*.8); }   // (in the room: unrolled into land, ranges rising out of it)
     if (!L.brk && st.brk) setDetail(detFor());
     st.brk = L.brk;
     // a drop's run-up climbs in facets as it nears (whole levels: the front blooms out at each)
@@ -216,6 +248,8 @@ export default {
     st.sfMix = Math.min(1, st.sfMix + dt/st.sfSecs);
     st.wipe = Math.min(1, st.wipe + dt/(T.wipeBeats*S.beatPeriod));
     st.glow *= Math.exp(-dt*3);
+    { const SW = T.swarm; st.sw = (st.sw || 0) + ((st.g.swarm ? 1 : 0) - (st.sw || 0))*Math.min(1, dt/SW.secs); if (st.g.swarm) st.swK = st.g.swarm;   // the swarm: shards flying to another object's panes
+      st.flat = (st.flat || 0) + ((st.swap ? 1 : 0) - (st.flat || 0))*Math.min(1, dt/(st.swap ? T.swapSecs*.6 : SW.gather)); }   // changing body: its facets swirl into a disc, and out of it as the other
     st.spin += dt*T.spin*(1 - .6*TUNE.dance.amount)*(TA.spinCalm + (1 - TA.spinCalm)*st.act);
     const b = BODY[st.body];
     if (b.kind === 'g') shapeGem(b, P, x); else shapeSheet(b, P, x);
@@ -231,14 +265,144 @@ export default {
       u.rot += d.yaw*f.yw*dm; u.roll += d.yaw*(1 - f.yw)*dm;
       u.pitch += d.pitch*(f.pitch < 0 ? .3 : 1)*dm; u.roll += d.roll*dm; u.pos = [u.pos[0] + d.dx*dm, u.pos[1] + d.dy*dm]; u.size *= 1 + (d.s - 1)*dm; u.sq = d.sq*(f.pitch < 0 ? .3 : 1)*dm; }
     const Vw = S.view; if (Vw && Vw.key === 'prism') { u.rot = Vw.yaw + (d ? d.yaw : 0); u.pitch += Vw.pitch; u.size *= Vw.zoom; }
+    const rw = Math.min(1, P.w.room || 0); if (rw > .01) room(u, P, x, rw); else STAGE.on = 0;
     colour(b, P, x, u, w);
+    lasers(b, u, P, x, rw); show3d(u, P, x, rw);
   },
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
     const u = P.m.prism, b = BODY[u.body]; if (this._gen !== S.glGen) { this._gl = {}; this._gen = S.glGen; }
-    (this._gl[u.body] = this._gl[u.body] || facetGL(gl, b.G))(b.X, u, W, H, stage); },
-  draw2d(o, P){ const u = P.m.prism; facet2d(o, BODY[u.body].G, BODY[u.body].X, u); },
+    (this._gl[u.body] = this._gl[u.body] || facetGL(gl, b.G))(b.X, u, W, H, stage);
+    if (stage === 'screen' && OVER.n) (this._gl.beams = this._gl.beams || beamsGL(gl))(overPx(W, H), OVER.n, W, H); },
+  draw2d(o, P){ const u = P.m.prism; facet2d(o, BODY[u.body].G, BODY[u.body].X, u); if (OVER.n) beams2d(o, overPx(o.canvas.width, o.canvas.height), OVER.n); },
   path2d(o, P){ const u = P.m.prism; facetPath2d(o, BODY[u.body].G, BODY[u.body].X, u); },
 };
+
+// ---- 3D lasers (docs/prism-plan.md, stage 9): the 2D lasers' shows (a fan, a crossing, a star, a scan) aimed at the Prism from
+// the room's walls, traced through it (objects/beams.js): bouncing off, bending in, split into a rainbow or trapped inside, flaring
+// where they touch and leaving a fading trace on the facets they meet. One beam when calm, more as it builds, all through it on
+// the drop. Those inside the glass or in front of it are drawn over it; the rest the room draws behind it ----
+const BO = beamOut(96), VV = new Float32Array(3000*3), FNV = new Float32Array(2048*3), OVER = {list: new Float32Array(130*9), n: 0}, PX = new Float32Array(130*9);
+const SHOWS = ['fan', 'cross', 'star', 'scan'];
+function lasers(b, u, P, x, rw){
+  OVER.n = 0; STAGE.nBeams = 0; const LT = TUNE.prism.lasers;
+  const lz = b.lz || (b.lz = new Float32Array(b.nf)); for (let f = 0; f < b.nf; f++) lz[f] *= Math.exp(-x.dt/LT.traceSecs);
+  if (rw < .01 || u.inside) return;
+  const an = runUp(x.J), dropLen = LT.dropBars*4*S.beatPeriod, since = st.t - st.dropT, drop = since < dropLen;
+  const lv = Math.min(1, Math.max(st.act/TUNE.prism.act.cap*LT.calmShare, an, drop ? 1 : 0)), nOn = drop ? LT.max : Math.min(LT.max, 1 + Math.round(lv*(LT.max - 2)));
+  const show = drop ? 'star' : SHOWS[Math.floor(hash(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0))*SHOWS.length)];
+  const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], t = st.t, br = (LT.calm + (1 - LT.calm)*lv)*rw, emit = [];
+  const aim = (p, q, i) => { const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], l = Math.hypot(...d) || 1; emit.push({p, d: d.map(v => v/l), c: hsv2rgb(h + pal[i % 3], .85, 1).map(v => v*br)}); };
+  for (let i = 0; i < nOn; i++) { const s = nOn > 1 ? i/(nOn - 1) - .5 : 0;
+    if (show === 'fan') aim([0, 2.2, -2.4], [s*.9 + .3*Math.sin(t*.6), -.1, 0], i);
+    else if (show === 'cross') { const sd = i % 2 ? 1 : -1; aim([2.6*sd, .4, -1.2], [-.3*sd + .25*Math.sin(t*.8 + i), .15*Math.cos(t*1.1 + i), 0], i); }
+    else if (show === 'star') { const a = i/nOn*Math.PI*2 + t*.2; aim([2.8*Math.cos(a), 1.7*Math.sin(a), -1.4], [.08*Math.sin(t + i), .08*Math.cos(t*1.3 + i), 0], i); }
+    else aim([0, -.4, -2.9], [.4*Math.sin(t*.9 + i*1.7), .3*Math.sin(t*1.3 + i*2.1), 0], i); }
+  // the Prism in view space (as the facet engine turns it)
+  const X = b.X, Pp = X.pos, cr = Math.cos(u.rot), sr = Math.sin(u.rot), cp = Math.cos(u.pitch), sp = Math.sin(u.pitch), co = Math.cos(u.roll || 0), so = Math.sin(u.roll || 0);
+  const turn = (x0, y0, z0, o, k) => { const x1 = cr*x0 + sr*z0, z1 = -sr*x0 + cr*z0, y2 = cp*y0 - sp*z1; o[k + 2] = sp*y0 + cp*z1; o[k] = co*x1 - so*y2; o[k + 1] = so*x1 + co*y2; };
+  let rmax = 0; for (let v = 0; v < b.nv; v++) { turn(Pp[v*3], Pp[v*3 + 1], Pp[v*3 + 2], VV, v*3); rmax = Math.max(rmax, Math.hypot(VV[v*3], VV[v*3 + 1], VV[v*3 + 2])); }
+  const cl = closed() > .5, TRI = b.G.TRI;
+  for (let f = 0; f < b.nf; f++) { turn(X.fn[f*3], X.fn[f*3 + 1], X.fn[f*3 + 2], FNV, f*3);
+    if (cl) { const a = TRI[f*3]*3, cx = VV[a], cy = VV[a + 1], cz = VV[a + 2]; if (cx*FNV[f*3] + cy*FNV[f*3 + 1] + cz*FNV[f*3 + 2] < 0) for (let i = 0; i < 3; i++) FNV[f*3 + i] *= -1; } }
+  traceBeams(VV, TRI, FNV, b.nf, emit, {closed: cl, rmax: rmax + .02, walls: TUNE.prism.room.walls, n: LT.index, maxSegs: 96, maxDepth: LT.depth, splits: LT.splits}, BO);
+  for (const [f, v] of BO.lit) lz[f] = Math.max(lz[f], v);
+  // to the screen (in screen heights from the middle), each segment cut at the camera's near plane
+  const cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, zc = cam - .15, L = OVER.list, Z = STAGE.beams; let nb = 0;
+  const pr = (x0, y0, z0) => { const dz = cam - z0; return [pos[0] + x0*fo/dz, pos[1] + y0*fo/dz]; };
+  for (let i = 0; i < BO.n; i++) { const g = BO.segs.subarray(i*10, i*10 + 10); let a = [g[0], g[1], g[2]], c = [g[3], g[4], g[5]];
+    if (a[2] > zc && c[2] > zc) continue;
+    if (a[2] > zc || c[2] > zc) { const k = (zc - a[2])/(c[2] - a[2]), m = [a[0] + (c[0] - a[0])*k, a[1] + (c[1] - a[1])*k, zc]; if (a[2] > zc) a = m; else c = m; }
+    const A = pr(...a), B = pr(...c), over = g[9] > .5 || (a[2] + c[2])/2 > -.1;
+    if (over) { if (OVER.n < 128) { L.set([A[0], A[1], B[0], B[1], LT.width, g[6], g[7], g[8], 0], OVER.n*9); OVER.n++; } }
+    else if (nb < STAGE.MAXB) { Z.set([A[0], A[1], B[0], B[1]], nb*4); STAGE.beamC.set([g[6], g[7], g[8], LT.width], nb*4); nb++; } }
+  for (let i = 0; i < BO.nFl && OVER.n < 128; i++) { const q = BO.flares.subarray(i*4, i*4 + 4), dz = cam - q[2]; if (dz < .2) continue; const A = pr(q[0], q[1], q[2]);
+    L.set([A[0], A[1], 0, 0, LT.flare*(.5 + q[3])*fo/dz, q[3], q[3]*.9, q[3]*.8, 1], OVER.n*9); OVER.n++; }
+  STAGE.nBeams = nb; Z.fill(0, nb*4);
+}
+// the beams over it, in pixels
+function overPx(W, H){ for (let i = 0; i < OVER.n; i++) { const k = i*9, L = OVER.list;
+  PX[k] = W/2 + L[k]*H; PX[k + 1] = H/2 - L[k + 1]*H; PX[k + 2] = W/2 + L[k + 2]*H; PX[k + 3] = H/2 - L[k + 3]*H; PX[k + 4] = L[k + 4]*H; for (let j = 5; j < 9; j++) PX[k + j] = L[k + j]; }
+  return PX; }
+
+// ---- textures (docs/prism-plan.md, stage 8): glass, frosted ice, mirror, stained glass, iridescent, LED panels, brushed metal;
+// a new one sweeps across from a point, facet by facet. The shader draws their detail (render/facet.js: TEXCODE) ----
+const TEXCODE = {glass: 0, stained: 1, led: 2, metal: 3, ice: 4, mirror: 0, iris: 0};
+function pickTex(live){ const w = TUNE.prism.tex[live ? 'live' : 'calm'], ks = Object.keys(w), t = ks.reduce((a, k) => a + w[k], 0); let r = rnd()*t;
+  for (const k of ks) if ((r -= w[k]) < 0) return k; return 'glass'; }
+function setTex(k){ const cur = st.tex ? st.tex.to : 'glass'; if (k === cur) return;
+  st.tex = {from: st.tex && st.t - st.tex.t0 < texSecs() ? st.tex.from : cur, to: k, t0: st.t, o: dirAt(Math.acos(1 - 2*rnd())/Math.PI, rnd()*Math.PI*2)}; }
+const texSecs = () => TUNE.prism.tex.sweepBeats*Math.max(.25, S.beatPeriod);
+// a facet's texture: the new one once the sweep's front has passed it
+function texAt(dx, dy, dz){ const x = st.tex; if (!x) return 'glass'; const p = (st.t - x.t0)/texSecs(); if (p >= 1.2) return x.to;
+  return Math.acos(Math.max(-1, Math.min(1, dx*x.o[0] + dy*x.o[1] + dz*x.o[2])))/Math.PI < p ? x.to : x.from; }
+// the environment a mirror facet reflects: a floor, a bright band at the horizon in the palette's colour, a dim sky
+function envAt(rx, ry, h, pal, out){ const band = Math.exp(-(((ry - .05)/.18)**2)), c = hsv2rgb(h + pal[1] + rx*.15, .6, 1), sky = ry > 0 ? .05 + .1*ry : .015;
+  for (let i = 0; i < 3; i++) out[i] = c[i]*band*.55 + sky; return out; }
+const ENV = [0, 0, 0];
+
+// ---- the room (docs/prism-plan.md, stage 7): the camera's arc, the lamps, the shadow, for worlds/room.js to draw ----
+// The camera follows the arc: far off a jewel when calm, drawn in through a build until facets fill the screen, diving through
+// a facet on the drop to look round from inside, pulling out again; low over the land in a breakdown (the Prism unrolled into
+// mountains). The lamps sweep round it: a key light, a rim light from behind, a low one the kick flashes once things build
+function room(u, P, x, rw){
+  const R = TUNE.prism.room, TA = TUNE.prism.act, dt = x.dt, an = runUp(x.J), dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT, kc = closed();
+  let goal = R.far - (R.far - R.mid)*smooth(st.act/TA.cap), tilt = R.tilt, dive = false;
+  if (an > .02) goal += (R.near - goal)*smooth(an);
+  if (since < dropLen) { const q = since/dropLen; if (q < R.insideFrac) { goal = R.inside; dive = true; } else goal = R.near + (goal - R.near)*smooth((q - R.insideFrac)/(1 - R.insideFrac)); }
+  else if (L.brk && an < .05) { goal = R.brk; tilt = R.tiltLow; }
+  else if (kc < .5) { goal = Math.min(goal, R.low + .8); tilt = R.tiltLow + (R.tilt - R.tiltLow)*.3; }   // (open land: low over it)
+  st.cam ??= goal; st.tilt ??= tilt;
+  st.cam += (goal - st.cam)*Math.min(1, dt/(dive || goal < st.cam - 1.5 ? R.dive : R.ease)); st.tilt += (tilt - st.tilt)*Math.min(1, dt/R.ease);
+  const cam = CAM + (st.cam - CAM)*rw, e = st.tilt*rw, near = smooth((2.6 - cam)/1.4);
+  u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw; u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
+  // the lamps (view space, the Prism round the origin)
+  const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;
+  const lift = Math.min(1, Math.max(st.act/TA.cap*.6, an, since < dropLen ? 1 - since/dropLen : 0)), k = (R.lampCalm + (1 - R.lampCalm)*lift)*rw;
+  const f = u.size*FOCAL, Ls = STAGE.lamps, LS = TUNE.prism.show;
+  // the light show (stage 10): the kick strobes the lamps once things build, stabs swing the key light round, a build turns every
+  // lamp onto it (their cones narrowing), a breakdown leaves one soft light
+  if (SIG.kick > .99 && st.t - (st.strobeT ?? -9) > .12) { st.strobeT = st.t; if (at('kick') > .5 || since < dropLen) st.strobe = 1; }
+  st.strobe = (st.strobe || 0)*Math.exp(-dt*LS.strobeDecay); st.swing = (st.swing || 0) + (st.sec*LS.swing - (st.swing || 0))*Math.min(1, dt*4);
+  const brk = L.brk && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, wob = 1 - an;
+  const set = (i, p, c, kk, cone, ai) => { const l = Ls[i], ax = .22*wob*Math.sin(st.t*.7 + ai) - p[0], ay = .18*wob*Math.cos(st.t*.5 + ai*1.3) - p[1], az = -p[2], al = Math.hypot(ax, ay, az) || 1, dz = cam - p[2];
+    l.p = p; l.c = c; l.k = kk; l.a = [ax/al, ay/al, az/al]; l.cone = cone; l.s = dz > .05 ? [u.pos[0] + p[0]*f/dz, u.pos[1] + p[1]*f/dz] : [0, 0]; l.vis = smooth((dz - .2)/.5); };
+  const narrow = 1 - LS.narrow*an, ka = ph*.5 + st.swing;
+  set(0, [2.2*Math.sin(ka), 1.5 + .4*Math.sin(st.bars*1.7), .6 + 1.2*Math.cos(ka)], hsv2rgb(h + pal[0], .35, 1), k*flash*(brk ? LS.brkKey : 1), R.cone*narrow*(brk ? LS.brkCone : 1), 0);
+  set(1, [-1.6*Math.sin(ph*.3 + 1 - st.swing*.5), 1.1, -2.4], hsv2rgb(h + pal[1], .7, 1), brk ? 0 : k*.8*flash, R.rimCone*narrow, 2);
+  set(2, [1.9*Math.cos(ph*.7), -.5, .4], hsv2rgb(h + pal[2], .75, 1), brk ? 0 : k*(.25 + .75*SIG.kick*at('kick'))*flash, .4*narrow, 4);
+  // the layers in 3D: orbits and comets as lights circling it (lighting it as they pass)
+  const wO = w3(P, 'orbit', 'comets');
+  for (let i = 0; i < 3; i++) { const a = st.t*LS.orbSpeed*(1 + i*.3) + i*2.1, tl = .5 + i*.6, r = LS.orbR*(1 + .15*i), p = [r*Math.cos(a), r*Math.sin(a)*Math.sin(tl), r*Math.sin(a)*Math.cos(tl)];
+    set(3 + i, p, hsv2rgb(h + pal[i], .8, 1), wO*LS.orb*rw, 9, 0); Ls[3 + i].orb = [a, tl, r]; }
+  // the shadow: the key lamp's, through the middle onto the floor
+  const n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)], Lp = Ls[0].p, ll = Math.hypot(...Lp), d = Lp.map(v => -v/ll), dn = n[1]*d[1] + n[2]*d[2];
+  if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7), .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
+  Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5), hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
+}
+// a layer's 3D version in the room: as strong as the layer (Journey turns the flat one down while the room is on: TUNE.prism.show.flat)
+const w3 = (P, ...ks) => Math.min(1, Math.max(...ks.map(k => P.l[k] || 0))/(P.w.room > .5 ? TUNE.prism.show.flat*.8 : .8));
+// the layers drawn in 3D over the room: the orbiting lights and their tails, fireflies as motes in the haze, the stargate's rings
+// rushing past the camera
+function show3d(u, P, x, rw){
+  if (rw < .01) return;
+  const LS = TUNE.prism.show, cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, L = OVER.list, h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67];
+  const pr = (p) => { const dz = cam - p[2]; return dz > .15 ? [pos[0] + p[0]*fo/dz, pos[1] + p[1]*fo/dz, dz] : null; };
+  const add = (a) => { if (OVER.n < 128) { L.set(a, OVER.n*9); OVER.n++; } };
+  const behind = p => p[2] < 0 && Math.hypot(p[0], p[1]) < .5 ? .25 : 1;   // (behind the glass: dimmed by it)
+  for (let i = 3; i < 6; i++) { const l = STAGE.lamps[i]; if (!l.orb || l.k < .01) continue; const [a, tl, r] = l.orb, A = pr(l.p); if (!A) continue; const b = l.k*behind(l.p)/LS.orb;
+    add([A[0], A[1], 0, 0, .02*fo/A[2], l.c[0]*b, l.c[1]*b, l.c[2]*b, 1]);
+    let q = A; for (let j = 1; j <= 6; j++) { const aa = a - j*.12, p = [r*Math.cos(aa), r*Math.sin(aa)*Math.sin(tl), r*Math.sin(aa)*Math.cos(tl)], B = pr(p); if (!B) break; const fade = b*(1 - j/7)*.6;
+      add([q[0], q[1], B[0], B[1], .004, l.c[0]*fade, l.c[1]*fade, l.c[2]*fade, 0]); q = B; } }
+  const wF = w3(P, 'fireflies')*rw;
+  if (wF > .01) for (let i = 0; i < LS.motes; i++) { const t = st.t*.15, p = [Math.sin(i*2.3 + t*(.5 + hash(i)))*1.6, Math.sin(i*1.7 + t*.7)*.9 + .1, Math.cos(i*3.1 + t*.4)*1.6], A = pr(p); if (!A) continue;
+    const blink = .3 + .7*Math.max(0, Math.sin(st.t*(1.5 + hash(i*.7)*2) + i))**4*(.5 + SIG.hat), b = wF*blink*behind(p)*.8, c = hsv2rgb(h + pal[i % 3] + .1, .5, 1);
+    add([A[0], A[1], 0, 0, .012*fo/A[2], c[0]*b, c[1]*b, c[2]*b, 1]); }
+  const wG = w3(P, 'stargate')*rw;
+  if (wG > .01) { const bp = Math.max(.25, S.beatPeriod), tr = st.t/bp*LS.ringStep, n = LS.rings;
+    for (let i = 0; i < n; i++) { const z = -3 + ((i*LS.ringStep + tr) % (n*LS.ringStep)), R = LS.ringR, rot = z*.4, c = hsv2rgb(h + pal[i % 3], .7, 1), b = wG*smooth((z + 3)/1.5)*smooth((cam - .3 - z)/.6)*.7;
+      if (b < .01) continue; let q = null;
+      for (let j = 0; j <= 6; j++) { const a = j/6*Math.PI*2 + rot, A = pr([R*Math.cos(a), R*Math.sin(a), z]); if (!A) { q = null; continue; } if (q) add([q[0], q[1], A[0], A[1], .004, c[0]*b, c[1]*b, c[2]*b, 0]); q = A; } } }
+}
 
 // how far the activity has let something in (TUNE.prism.act.at: each its own level, eased over .15)
 const at = k => smooth((st.act - TUNE.prism.act.at[k])/.15 + .5);
@@ -249,10 +413,10 @@ const detFor = () => Math.max(st.g.det, Math.min(st.prog.det, TUNE.prism.detCalm
 function goGenome(g, now){
   if (g.body !== st.body) {
     if (now || st.off) setBody(g.body);
-    else { if (!st.swap) { st.swap = {g, t: st.t}; st.exT = Math.max(st.exT, TUNE.prism.swapEx); } else st.swap.g = g; return; }
+    else { if (!st.swap) { st.swap = {g, t: st.t}; st.exT = Math.max(st.exT, TUNE.prism.swapEx*TUNE.prism.swarm.swapEx); } else st.swap.g = g; return; }   // (the swarm carries its facets across: a little shatter only)
   }
   st.swap = null;   // (a newer shape on this body replaces one waiting to fly across)
-  st.g = g; st.form = g.name; if (g.sf !== (st.sfName || '')) { st.sfName = g.sf; setSf(SF[g.sf]); }
+  st.g = g; st.form = g.name; if (g.swarm && st.dTo < 2) setDetail(2); if (g.sf !== (st.sfName || '')) { st.sfName = g.sf; setSf(SF[g.sf]); }
   if (g.det > st.dTo) setDetail(g.det);
   st.arch.push(g); if (st.arch.length > TUNE.prism.imp.memory) st.arch.shift();
 }
@@ -272,7 +436,7 @@ function setDetail(d, now){ d = Math.max(0, Math.min(BODY[st.body].F, Math.round
 // weights of the ten closed shapes it blends, its superformula, how it's squashed, twisted and turned on a lathe. The improviser
 // walks from the shape it has: a handful of mutations, scored by how far each is from every shape it's made lately (so it
 // doesn't loop), how close the step is to the size the music wants, and how sharp it is against how intense the music is
-const SHARP_OF = {ball: 0, pill: .1, disc: .2, blob: .25, flower: .4, super: .5, gem: .7, octa: .8, cube: .8, star: 1};
+const SHARP_OF = {ball: 0, pill: .1, disc: .2, blob: .25, flower: .4, super: .5, gem: .7, octa: .8, cube: .8, star: 1, skull: .7, unicorn: .6, manta: .5};
 const SF_CALM = ['round', 'flower', 'cushion', 'gem'], SF_SHARP = ['star', 'urchin', 'gem', 'shell'];
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2)*1.2;
 const want = () => .2 + .6*st.act;   // how sharp a shape suits the music now
@@ -282,7 +446,7 @@ const topShapes = w => Object.keys(w).filter(n => w[n] > .05).sort((a, b) => w[b
 function fromForm(name, g){ const F = FORMS[name], o = {...F, name, w: g ? {...g.w} : {ball: 1}, sf: g ? g.sf : 'round'};
   if (g) for (const k of ['sqx', 'sqy', 'sqz', 'twy', 'la', 'lf']) o[k] = g[k]; return o; }
 // weights for a fresh shape: one or two shapes near the sharpness wanted
-function freshW(sh){ const ranked = NAMES.filter(n => n !== 'blob' || rnd() < .15).sort((a, b) => Math.abs(SHARP_OF[a] - sh) - Math.abs(SHARP_OF[b] - sh) + (rnd() - .5)*.5);
+function freshW(sh){ const ranked = FREE.filter(n => n !== 'blob' || rnd() < .15).sort((a, b) => Math.abs(SHARP_OF[a] - sh) - Math.abs(SHARP_OF[b] - sh) + (rnd() - .5)*.5);
   const w = {[ranked[0]]: 1}; if (rnd() < .4) w[ranked[1 + Math.floor(rnd()*2)]] = .15 + rnd()*.25; return w; }
 // one clear shape with at most a hint of another (three averaged together read as a lumpy blob)
 function crisp(w){ const top = topShapes(w).slice(0, 2), o = {}; let t = 0; for (const n of top) t += (o[n] = Math.pow(w[n], 2));
@@ -324,12 +488,14 @@ const ARCH = {
   cushion: {w: {super: 1}, sf: 'cushion', sh: .3}, jewel: {w: {super: 1}, sf: 'gem', sh: .6},
   lantern: {w: {ball: 1}, la: .16, lf: 4, sh: .3}, spindle: {w: {octa: .7, pill: .3}, sqy: 1.35, sqx: .8, sqz: .8, sh: .7}, twisted: {w: {cube: 1}, twy: 1, sh: .8},
   donut: {form: 'ring', sh: .3}, tube: {form: 'tube', sh: .4}, ribbon: {form: 'twist', sh: .5}, halo: {form: 'halo', sh: .3},
+  skullWrap: {w: {skull: 1}, sh: .7}, unicornWrap: {w: {unicorn: 1}, sh: .6}, mantaWrap: {w: {manta: 1}, sh: .5},
+  skullSwarm: {swarm: 'skull', w: {ball: 1}, sh: .8}, unicornSwarm: {swarm: 'unicorn', w: {ball: 1}, sh: .7}, mantaSwarm: {swarm: 'manta', w: {ball: 1}, sh: .6},
   bloom: {form: 'bloom', w: {flower: 1}, sh: .4}, open: {form: 'star', sh: .5}, mountains: {form: 'peaks', sh: .8}, waves: {form: 'waves', sh: .3},
 };
-const kindOf = a => { const f = ARCH[a].form; return !f ? 'closed' : FORMS[f].body === 's' ? 'square' : 'open'; };
+const kindOf = a => { const f = ARCH[a].form; if (ARCH[a].swarm) return 'swarm'; return !f ? 'closed' : FORMS[f].body === 's' ? 'square' : 'open'; };
 function archetype(name){
   const A = ARCH[name], g = fromForm(A.form || 'gem');
-  Object.assign(g, {w: {...(A.w || {ball: 1})}, sf: A.sf || 'round', sqx: A.sqx || 1, sqy: A.sqy || 1, sqz: A.sqz || 1, twy: A.twy || 0, la: A.la || 0, lf: A.lf || 4, arch: name});
+  Object.assign(g, {w: {...(A.w || {ball: 1})}, sf: A.sf || 'round', sqx: A.sqx || 1, sqy: A.sqy || 1, sqz: A.sqz || 1, twy: A.twy || 0, la: A.la || 0, lf: A.lf || 4, arch: name, swarm: A.swarm || null});
   return g;
 }
 // the next shape to visit: the least seen lately, not one of the last few, its kind as often as its weight says, a little
@@ -356,7 +522,8 @@ function improvise(s, leapP){
   if (st.prog && rnd() < T.home) { goGenome(mutate(st.prog.theme, T.vary, sh)); return; }
   let pNew = T.next + leapP;
   if (g.body === 's') pNew = Math.max(pNew, T.squareStay); else if (g.k < .9) pNew = Math.max(pNew, T.openStay);
-  if (rnd() < pNew) { const a = pickArch(sh); visit(a); goGenome(mutate(archetype(a), T.fresh, sh)); return; }
+  if (g.swarm) pNew = Math.max(pNew, T.squareStay);   // (the swarm too is an excursion)
+  if (rnd() < pNew) { const a = pickArch(sh); visit(a); goGenome(mutate(archetype(a), T.fresh, sh)); if (rnd() < TUNE.prism.tex.change) setTex(pickTex(st.act > .3)); return; }
   const cands = []; for (let i = 0; i < T.cands; i++) cands.push(mutate(g, s, sh));
   let best = null, bs = -1e9;
   for (const c of cands) { const nov = st.arch.length ? Math.min(...st.arch.map(a => dist(a, c))) : 1, sc = nov*T.novelty - Math.abs(dist(g, c) - s*T.stepScale); if (sc > bs) { bs = sc; best = c; } }
@@ -549,28 +716,77 @@ function colour(b, P, x, u, w){
   const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed(), litAmt = T.lit*(T.act.litCalm + (1 - T.act.litCalm)*st.act);   // (calm: the patterns glow softer)
   const extr = T.extrude*(st.secBars >= T.layerBars.extrude ? pr.extrude : .5)*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift'));
   const hop = at('spin');
+  const room = STAGE.on > .01, R = TUNE.prism.room, Ls = STAGE.lamps, cam = u.cam || CAM, Pp = X.pos, stride = Math.max(1, Math.ceil(b.nf/120)), fo = STAGE.f;
+  const cones = Ls.map(l => l.cone > 3 ? [-2, -1] : [Math.cos(l.cone*1.3), Math.cos(l.cone*.5)]); let nc = 0;
   for (let f = 0; f < b.nf; f++) {
     const L0 = X.fl[f], g = G.FA[L0][f], key = L0*100000 + g, sd = hash(key*.731);
     const nx = X.fn[f*3], ny = X.fn[f*3 + 1], nz = X.fn[f*3 + 2], x1 = cr*nx + sr*nz, z1 = -sr*nx + cr*nz, vy0 = cp*ny - sp*z1, vz = sp*ny + cp*z1;
-    const vx = co*x1 - so*vy0, vy = so*x1 + co*vy0, sg = vz < 0 && kc < .5 ? -1 : 1;   // (an open sheet has two faces: lit as whichever faces us)
+    const vx = co*x1 - so*vy0, vy = so*x1 + co*vy0, sg = u.inside ? -1 : vz < 0 && kc < .5 ? -1 : 1;   // (an open sheet has two faces: lit as whichever faces us; from inside, the inner faces)
     const face = .5 + .5*(sg*vz), spec = Math.pow(Math.max(0, sg*(vx*Hx + vy*Hy + vz*Hz)/hl), T.gloss)*T.glint, lam = Math.max(0, sg*(vx*-.4 + vy*.6 + vz*.7));
     const k = LK[f], s = LS[f], hh = LH[f]*dim, m = LM[f], im = LI[f], p = LP[f];
     const tn = tints[b.tint(f)];
     const lit = [0, 1, 2].map(i => (cK[i]*k + cS[i]*s + cH[i]*hh + cM[i]*m*.7 + cI[i]*im*.5 + cP[i]*p)*litAmt);
-    const lsum = (k + s + hh + m*.7 + im*.5 + p)*litAmt, alpha = (sd < gone ? 0 : 1)*u.w;
+    const zl = b.lz ? b.lz[f]*TUNE.prism.lasers.trace : 0; if (zl > .01) for (let i = 0; i < 3; i++) lit[i] += (cS[i]*.5 + .5)*zl;   // a laser's trace
+    const lsum = (k + s + hh + m*.7 + im*.5 + p)*litAmt + zl, alpha = (sd < gone ? 0 : 1)*u.w;
     let fr, fa;
     if (solid) { fa = 1; fr = [0, 1, 2].map(i => tn[i]*(.12 + .55*lam)*(.6 + st.glow*.3) + lit[i]*.75 + spec + lc[i]*(Lt.amt || 0)*lam*.15); }
     else if (outline) { fa = 1; fr = lit.map(c => c*.18); }
     else if (holo) { fa = 0; fr = [0, 1, 2].map(i => (tn[i]*.03 + lit[i]*.25)); }
     else { fa = T.dark; fr = [0, 1, 2].map(i => tn[i]*fill*(.3 + .7*face) + lit[i]*.6*fa + spec*.8 + lc[i]*(Lt.amt || 0)*lam*.08); }
+    // its texture (stage 8; glass and solid only) and the fire: the white glint split into a rainbow
+    const tx = sty <= 1 || sty === 5 ? texAt(b.FD[L0][g*3], b.FD[L0][g*3 + 1], b.FD[L0][g*3 + 2]) : 'glass'; let ef = 1;
+    if (tx !== 'glass') {
+      if (tx === 'ice') { fa = .88; fr = [0, 1, 2].map(i => [.3, .4, .5][i]*(.2 + .5*face) + tn[i]*.05 + lit[i]*.5 + spec); ef = .7; }
+      else if (tx === 'mirror') { const rz = 2*sg*vz, ex2 = envAt(rz*vx, rz*vy, h, pal, ENV); fa = .95; fr = [0, 1, 2].map(i => ex2[i]*(.6 + .4*face) + lit[i]*.4 + spec*1.3); ef = .45; }
+      else if (tx === 'stained') { const c = hsv2rgb(h + pal[b.tint(f)] + (sd - .5)*.12, .95, 1); fa = .93; fr = [0, 1, 2].map(i => c[i]*(.12 + .4*face) + lit[i]*.7 + spec*.5); ef = .25; }
+      else if (tx === 'iris') { const c = hsv2rgb(h + face*1.6 + vx*.6 + vy*.3, .75, 1); fa = .8; fr = [0, 1, 2].map(i => c[i]*(.08 + .3*face) + lit[i]*.5 + spec); }
+      else if (tx === 'led') { fa = 1; fr = [0, 1, 2].map(i => .015 + tn[i]*.02 + lit[i]*1.3); ef = .5; }
+      else if (tx === 'metal') { const sh = Math.pow(Math.max(0, sg*(vx*Hx + vy*Hy + vz*Hz)/hl), T.gloss*.08); fa = 1; fr = [0, 1, 2].map(i => (.08 + .25*lam)*(.7 + .3*tn[i]) + sh*.35 + lit[i]*.45 + spec*.6); ef = .55; }
+    }
+    if (tx === 'glass' || tx === 'ice' || tx === 'iris' || tx === 'mirror') { const FT = T.tex, fs = FT.fireSpread, gl2 = T.gloss*FT.fireGloss;
+      for (let i = 0; i < 3; i++) { const ox = (i - 1)*fs, oy = (1 - i)*fs*.6, hx = Hx + ox, hy = Hy + oy, hn = Math.hypot(hx, hy, Hz);
+        fr[i] += Math.pow(Math.max(0, sg*(vx*hx + vy*hy + vz*Hz)/hn), gl2)*T.glint*FT.fire; } }
+    if (!X.tex) X.tex = new Float32Array(b.nf); X.tex[f] = TEXCODE[tx];
+    let gw = 0;
+    if (room) {   // the lamps: each lights the facets turned to it inside its cone, and glints off those turned between it and the camera
+      const a0 = G.TRI[f*3]*3, a1 = G.TRI[f*3 + 1]*3, a2 = G.TRI[f*3 + 2]*3, px = (Pp[a0] + Pp[a1] + Pp[a2])/3, py = (Pp[a0 + 1] + Pp[a1 + 1] + Pp[a2 + 1])/3, pz = (Pp[a0 + 2] + Pp[a1 + 2] + Pp[a2 + 2])/3;
+      const c1 = cr*px + sr*pz, cz1 = -sr*px + cr*pz, cy0 = cp*py - sp*cz1, Cz = sp*py + cp*cz1, Cx = co*c1 - so*cy0, Cy = so*c1 + co*cy0;
+      const vl = Math.hypot(Cx, Cy, cam - Cz) || 1, Vx = -Cx/vl, Vy = -Cy/vl, Vz = (cam - Cz)/vl, nX = sg*vx, nY = sg*vy, nZ = sg*vz;
+      for (let i = 0; i < Ls.length; i++) { const l = Ls[i]; if (l.k < .01) continue;
+        let lx = l.p[0] - Cx, ly = l.p[1] - Cy, lz = l.p[2] - Cz; const ld = Math.hypot(lx, ly, lz) || 1; lx /= ld; ly /= ld; lz /= ld;
+        const nd = nX*lx + nY*ly + nZ*lz; if (nd <= 0) continue;
+        const ca = -(lx*l.a[0] + ly*l.a[1] + lz*l.a[2]), spot = smooth((ca - cones[i][0])/(cones[i][1] - cones[i][0])); if (spot < .01) continue;
+        let hx = lx + Vx, hy = ly + Vy, hz = lz + Vz; const hn = Math.hypot(hx, hy, hz) || 1, gl = Math.pow(Math.max(0, (nX*hx + nY*hy + nZ*hz)/hn), R.gloss);
+        const amt = l.k*spot, dfa = nd*amt*R.diff*(solid ? 1.6 : 1), gla = gl*amt*R.glint; gw += gla;
+        for (let j = 0; j < 3; j++) fr[j] += l.c[j]*(dfa*(.4 + .6*tn[j]) + gla);
+        // a mirror ball: the key lamp thrown off every few facets onto the floor or the walls
+        if (i === 0 && f % stride === 0 && !u.inside && nc < SPC) { const rx = 2*nd*nX - lx, ry = 2*nd*nY - ly, rz = 2*nd*nZ - lz, n = STAGE.n;
+          const dn = n[1]*ry + n[2]*rz, tf = dn < -1e-3 ? (-STAGE.floor - (n[1]*Cy + n[2]*Cz))/dn : 1e9, bb = Cx*rx + Cy*ry + Cz*rz, cc = Cx*Cx + Cy*Cy + Cz*Cz - STAGE.walls**2, tw = -bb + Math.sqrt(Math.max(0, bb*bb - cc));
+          const t = tf > 0 && tf < tw ? tf : tw, Qx = Cx + rx*t, Qy = Cy + ry*t, Qz = Cz + rz*t, dz = cam - Qz;
+          if (dz > .3) { SPX[nc*4] = STAGE.pos[0] + Qx*fo/dz; SPX[nc*4 + 1] = STAGE.pos[1] + Qy*fo/dz; SPX[nc*4 + 2] = (.05 + t*.035)*fo/dz; SPX[nc*4 + 3] = amt*nd*R.spotBright*alpha; nc++; } }
+      }
+    }
     for (let i = 0; i < 3; i++) X.fill[f*4 + i] = fr[i]*alpha; X.fill[f*4 + 3] = fa*alpha;
-    const eb = ((outline ? 1 - Math.min(1, Math.abs(vz)*2.5) : .35 + .65*face)*(.75 + st.glow*.6) + lsum*.9)*(solid ? .35 : holo ? 1.2 : 1);
-    for (let i = 0; i < 3; i++) X.edge[f*3 + i] = (tn[i]*.9 + lit[i]*.6 + .05)*eb*alpha;
+    const eb = ((outline ? 1 - Math.min(1, Math.abs(vz)*2.5) : .35 + .65*face)*(.75 + st.glow*.6) + lsum*.9)*(solid ? .35 : holo ? 1.2 : 1)*ef;
+    for (let i = 0; i < 3; i++) X.edge[f*3 + i] = (tn[i]*.9 + lit[i]*.6 + .05)*eb*alpha + gw*.5*alpha;
     // each edge fades in as the detail reaches its level
     const a0 = G.TRI[f*3], a1 = G.TRI[f*3 + 1], a2 = G.TRI[f*3 + 2];
     for (let j = 0; j < 3; j++) { const p0 = j === 0 ? a1 : a0, p1 = j === 2 ? a1 : a2, dd = (D[p0] + D[p1])/2; X.eA[f*3 + j] = Math.max(0, Math.min(1, dd - G.EL[f*3 + j] + 1)); }
     // facets pushed out: the kick's ring and the hats lift them (the stabs' too on a closed form: an open sheet looked cracked), and all fly apart when it shatters
     const push = (extr*(k*.8 + (hh*.3 + s*.3*kc)*hop) + ex*(.4 + sd))*.45*ext;   // (the hats and stabs only light it until things build: their pushing read as shattered fuzz)
-    X.off[f*3] = nx*push; X.off[f*3 + 1] = ny*push; X.off[f*3 + 2] = nz*push;
+    let ox = 0, oy = 0, oz = 0;
+    if (st.sw > .002 || st.flat > .002) {   // the swarm (stage 11): each facet a shard, flying on a curve to its place
+      const a0 = G.TRI[f*3]*3, a1 = G.TRI[f*3 + 1]*3, a2 = G.TRI[f*3 + 2]*3, Pq = X.pos, cx = (Pq[a0] + Pq[a1] + Pq[a2])/3, cy = (Pq[a0 + 1] + Pq[a1 + 1] + Pq[a2 + 1])/3, cz = (Pq[a0 + 2] + Pq[a1 + 2] + Pq[a2 + 2])/3;
+      if (st.sw > .002 && st.swK) { const pn = panes(st.swK), q = pn[(f*7919 + 13) % pn.length], p = smooth(st.sw), sw = Math.sin(Math.PI*p)*TUNE.prism.swarm.swirl, fl = Math.sin(st.t*1.3 + sd*9)*.015*p;
+        ox += (q[0] - cx)*p - cz*sw; oy += (q[1] - cy)*p + fl; oz += (q[2] - cz)*p + cx*sw; }
+      if (st.flat > .002) { const d = b.FD[L0], dx = d[g*3], dy = d[g*3 + 1], p = smooth(st.flat), a = p*1.6 + Math.atan2(dy, dx), r = .55*Math.hypot(dx, dy) + .05*sd;
+        ox += (r*Math.cos(a) - cx)*p; oy += (r*Math.sin(a) - cy)*p; oz += (-cz + (sd - .5)*.06)*p; } }
+    X.off[f*3] = nx*push + ox; X.off[f*3 + 1] = ny*push + oy; X.off[f*3 + 2] = nz*push + oz;
+  }
+  if (room) {   // the brightest spots, for the room to draw (in the key lamp's colour)
+    const ix = Array.from({length: nc}, (_, i) => i).sort((a, b) => SPX[b*4 + 3] - SPX[a*4 + 3]), m = Math.min(MAXSPOTS, nc), c = Ls[0].c;
+    for (let j = 0; j < m; j++) { STAGE.spots.set(SPX.subarray(ix[j]*4, ix[j]*4 + 4), j*4); STAGE.spotC.set(c, j*3); }
+    STAGE.spots.fill(0, m*4); STAGE.nSpots = m;
   }
 }
+const SPC = 160, SPX = new Float32Array(SPC*4);
