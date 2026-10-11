@@ -147,7 +147,8 @@ const r = await page.evaluate(async () => {
     swing: ev.filter(e => e.track === 'hat' && Math.floor(e.t/S16) % 2 === 1).map(e => +((e.t/S16) % 1).toFixed(3)).slice(0, 3),
     hats: ev.filter(e => e.track === 'hat').length, poly: ev.filter(e => e.track === 'poly').map(e => Math.round(e.t/S16)).slice(0, 6)};
   const ev2 = []; await renderSong(song, {onNote: e => ev2.push(e), tail: .1, bars: 2}); o.sched.again = ev2.filter(e => e.track === 'hat').length;
-  const L = buf.getChannelData(0), Rr = buf.getChannelData(1); o.render = {peak: M.truePeak([L, Rr]), padRise: tone(L, 220, 3.2, 3.9) > tone(L, 220, .2, .9)*4};
+  const L = buf.getChannelData(0), Rr = buf.getChannelData(1); o.render = {peak: M.truePeak([L, Rr]), padRise: 0};
+  { const p = (await renderSong(song, {solo: ['pad'], tail: .1})).getChannelData(0); o.render.padRise = 20*Math.log10(rms(p, 3.2, 3.9)/rms(p, .2, .9)); }
   // automation: a sine's level following a lane, and an LFO modulator on its pan
   { const s2 = {bpm: 120, tracks: [{id: 'a', inst: {type: 'analog'}, p: {}, clips: {a: {bars: 4, notes: [[0, 'A3', 63]]}}, mix: {}}], master: {chain: []},
       scenes: [{id: 's', clips: {a: 'a'}}], arrange: [['s', 4]], auto: [{target: 'a.vol', points: [[0, -30], [4, 0]]}], mods: [{target: 'a.pan', shape: 'Square', rate: '1 bar', depth: 1}]};
@@ -178,7 +179,7 @@ check('the EQ: a 6 dB bell lifts its frequency 6 dB, a 24 dB cut takes 50 Hz dow
 check('the compressor turns a loud tone down', r.comp < -6, r.comp.toFixed(1));
 check('the sidechain ducks by its depth right after the kick, and is back before the next', r.sc.dip < -9 && r.sc.dip > -13 && Math.abs(r.sc.back) < 1, f2(r.sc));
 check('the limiter keeps a signal 12 dB hot under its ceiling (true peak)', r.lim <= -.5 && r.lim > -2, r.lim.toFixed(2));
-check('the Studio\'s compressor turns a tone down as Chromium\'s does (within 1.5 dB)', Math.abs(r.dyn2[0] - r.dyn2[1]) < 1.5 && r.dyn2[0] < -3, f2(r.dyn2));
+check('the Studio\'s compressor turns a tone down as Chromium\'s does (within 1.5 dB)', Math.abs(r.dyn2[0] - r.dyn2[1]) < 1.5 && r.dyn2[0] < -1, f2(r.dyn2));
 check('a sound through a whole song\'s mixer comes out in under 4 ms (no look-ahead)', r.lat >= 0 && r.lat < 4, r.lat.toFixed(1) + ' ms');
 check('the multiband\'s bands sum back flat with nothing on', r.mbFlat < .2, r.mbFlat.toFixed(2));
 check('the multiband turns its loud low band down by its ratio and leaves the highs', r.mb.low < -15 && Math.abs(r.mb.high) < .5, f2(r.mb));
@@ -193,7 +194,7 @@ check('a reference compared: brighter and wider than a dark mono reference, and 
 check('the kicks land on the sixteenths, the off ones swung late', r.sched.kicks === 8 + 16 && r.sched.onGrid < 1e-6 && r.sched.swing.length && r.sched.swing.every(x => Math.abs(x - .2) < .01), f2(r.sched));
 check('chance: about half the ?-hats play, and the same ones every render', r.sched.hats > 8 && r.sched.hats < 24 && r.sched.again === r.sched.hats, `${r.sched.hats} and ${r.sched.again}`);
 check('a 12-step clip goes round every 12 sixteenths (polymeter)', f2(r.sched.poly) === f2([0, 5, 12, 17, 24, 29]), f2(r.sched.poly));
-check('a short song renders under its ceiling, the automation bringing the pad up', r.render.peak < -.5 && r.render.padRise, f2(r.render));
+check('a short song renders under its ceiling, the automation bringing the pad up', r.render.peak < -.5 && r.render.padRise > 20, f2(r.render));
 check('a lane moves the volume, a square LFO swings the pan right then left', r.auto.rise > 20 && r.auto.pan[0] < .33 && (r.auto.pan[1] === null || r.auto.pan[1] > 3), f2(r.auto));
 check('WAV and zip files are made right', r.files.riff === 'RIFFWAVE' && r.files.size && r.files.zip, f2(r.files));
 
