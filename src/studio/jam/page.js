@@ -92,13 +92,14 @@ export async function mountJam({root, getCtx, toStudio, latency = () => 'balance
     if (unsub) unsub();
     unsub = core.on(w => {
       if (w === 'transport' || w === 'rec' || w === 'settings') paintTop();
-      if (w === 'takes' || w === 'mute' || w === 'notes') { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => face.refresh()); }
+      if (w === 'takes' || w === 'mute' || w === 'notes' || w === 'loop') { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => face.refresh()); }
       if (w === 'sound' && deckMacros) deckMacros.refresh();
       if (typeof w === 'string' && w !== 'transport') keep();
     });
   }
   hook(); mountFace(); drawDeck(); paintTop();
-  const loop = () => { if (root.offsetParent !== null && face) face.frame(); requestAnimationFrame(loop); }; loop();
-  document.addEventListener('keydown', e => { if (root.offsetParent === null || e.target.closest('input,select,textarea')) return; if (e.code === 'Space') { e.preventDefault(); core.toggle(); } });
+  // (whether it's shown by `hidden`, not offsetParent: a fixed page has none, and the playheads never moved)
+  const loop = () => { if (!root.hidden && face) face.frame(); requestAnimationFrame(loop); }; loop();
+  document.addEventListener('keydown', e => { if (root.hidden || e.target.closest('input,select,textarea')) return; if (e.code === 'Space') { e.preventDefault(); core.toggle(); } });
   return {get core(){ return core; }, ctl, stop: () => core.stop(), face: () => face, select: k => ctl.select(k), setFace: v => fSeg.querySelector(`[data-v="${v}"]`).click()};
 }

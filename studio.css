@@ -282,18 +282,18 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .jseg button{border:0;border-radius:0;background:none;color:var(--dim);padding:0 12px}
 .jseg button.cur{background:var(--panel2);color:var(--accent)}
 .jstudio{color:var(--dim)}
-.mbar{position:relative;height:48px;min-width:120px;flex:1;border:1px solid var(--line);border-radius:8px;background:var(--panel2);overflow:hidden;touch-action:none;cursor:ew-resize}
+.mbar{position:relative;height:34px;min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:var(--panel2);overflow:hidden;touch-action:none;cursor:ew-resize}
 .mbar.small{flex:0 0 150px;height:44px}
 .mbar i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--c,var(--accent)) 35%,transparent)}
 .mbar.on i{background:color-mix(in srgb,var(--c,var(--accent)) 55%,transparent)}
-.mbar span,.mbar b{position:absolute;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
-.mbar span{left:10px;color:var(--ink)} .mbar b{right:10px;font-family:var(--mono);font-weight:400;color:var(--dim);font-size:12px}
+.mbar span,.mbar b{position:absolute;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none;white-space:nowrap}
+.mbar span{left:8px;color:var(--ink)} .mbar b{right:6px;font-family:var(--mono);font-weight:400;color:var(--dim);font-size:12px}
 
 .jmid{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 12px}
-.jdeck{flex:0 0 auto;height:min(42vh,350px);display:grid;grid-template-columns:minmax(260px,32%) 1fr;gap:12px;padding:10px 12px;border-top:2px solid var(--c);background:var(--panel)}
+.jdeck{flex:0 0 auto;height:min(40vh,320px);display:grid;grid-template-columns:minmax(420px,56%) 1fr;gap:12px;padding:10px 12px;border-top:2px solid var(--c);background:var(--panel)}
 .dside{display:flex;flex-direction:column;gap:8px;overflow:auto;min-height:0}
 .dname b{display:block;font-size:18px;color:var(--c)} .dname small{font-size:12px}
-.macros{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.macros{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .doct{display:flex;align-items:center;gap:6px} .doct span{min-width:2.5ch;text-align:center;font-family:var(--mono)}
 .doct button.on{border-color:var(--c);color:var(--c)}
 .more summary{cursor:pointer;color:var(--dim);padding:10px 0;min-height:44px}
@@ -302,11 +302,11 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .grp summary{color:var(--ink);padding:8px 0;cursor:pointer}
 .grp .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .grp .sw{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim)} .grp .sw select{flex:1;min-height:44px}
-.jpads{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;min-height:0}
-.jpads.big{grid-template-columns:repeat(4,1fr)}
-.jpad{height:100%;min-height:90px;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 30%,var(--panel2)),var(--panel2));border-color:color-mix(in srgb,var(--c) 40%,var(--line));font-size:16px;touch-action:none}
+.jpads{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;min-height:0}
+.jpads.big{grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr}
+.jpad{height:100%;min-height:52px;border-radius:10px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 30%,var(--panel2)),var(--panel2));border-color:color-mix(in srgb,var(--c) 40%,var(--line));font-size:14px;touch-action:none}
 .jpad.hit{background:var(--c);color:#000}
-.keys{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:6px;min-height:0;touch-action:none}
+.keys{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:4px;min-height:0;touch-action:none}
 .key{min-height:0;height:100%;border-radius:8px;padding:0;font-size:12px;color:var(--dim);touch-action:none}
 .key.root{background:color-mix(in srgb,var(--c) 28%,var(--panel2));color:var(--ink)}
 .key.hit{background:var(--c);color:#000}
@@ -345,7 +345,7 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .takes .tk button.cur{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 15%,var(--panel2))}
 .takes .none{color:var(--faint);font-size:12px;align-self:center;padding:0 6px}
 .takes .undo,.takes .redo{width:44px;padding:0}
-.jstrip .macros{grid-template-columns:1fr}
+.jstrip .macros{grid-template-columns:1fr 1fr}
 
 /* the focus face: one part, big */
 .face-focus{display:flex;flex-direction:column;gap:8px}
@@ -365,3 +365,32 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .fst.held{background:color-mix(in srgb,var(--c) 30%,var(--panel2))}
 .fst.ph{outline:2px solid var(--ink);outline-offset:-2px}
 @media (max-width:820px){ .jdeck{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:50vh} .jdeck .macros{grid-template-columns:repeat(4,1fr)} .dside{overflow:visible} .dname small{display:none} .grow{grid-template-columns:52px 110px 1fr} .gcells{grid-template-columns:repeat(4,1fr)} }
+
+/* the sequencer (jam/seq.js): the loop bar, the modes, the rings */
+.fseq{display:flex;flex-direction:column;gap:6px}
+.sqloop{display:flex;flex-direction:column;gap:4px}
+.sqlc{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.jam-view .sqn{min-width:40px;padding:0 8px}
+.jam-view .sqn.wide{min-width:auto}
+.sqbars button.cur{color:var(--c)}
+.sqmeter{font-family:var(--mono);font-size:12px;color:var(--ink);min-width:15ch}
+.sqfollow.on{border-color:var(--c);color:var(--c)}
+.sqstrip{width:100%;height:40px;display:block;touch-action:none;cursor:ew-resize}
+.sqmodes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sqmodes .jseg button.cur{color:var(--c)}
+.sqhint{font-size:12px;color:var(--dim)}
+.fst.out{opacity:.35}
+.fsteps.drawing{touch-action:none}
+.frow .flab small{color:var(--faint)}
+.eu{display:flex;flex-direction:column;gap:6px}
+.eurow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0;border-bottom:1px solid var(--line)}
+.eunm{width:64px;color:var(--c);font-weight:500}
+.euring{flex:none}
+.eust{display:flex;align-items:center;gap:4px} .eust b{min-width:2.5ch;text-align:center;font-family:var(--mono)}
+.eudeg{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.eudeg button{min-width:52px;padding:0 6px;font-size:12px}
+.eudeg button.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--panel2))}
+.eudeg button.root{font-weight:600}
+.eudeg small{margin-left:4px;color:var(--c)}
+.euopts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.euopts .jseg button.cur{color:var(--c)}

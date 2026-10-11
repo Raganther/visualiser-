@@ -5,9 +5,7 @@
 //  - focus: one part big. Its loop as a grid of steps to tap, its pads or keys, its sound, its takes; the parts as tabs.
 import { h, btn, hue, macroRow, takes, ideaButtons, mini, vname } from './kit.js';
 import { VOICES, part } from './song.js';
-import { keyOf } from '../improv.js';
-import { noteName, readClip } from '../song.js';
-import { baseOf, degNote } from './kit.js';
+import { mountSeq } from './seq.js';
 
 /* ---------- grid ---------- */
 const COLS = 8;
@@ -54,7 +52,7 @@ export function strips(root, core, ctl){
       const ms = h('div', 'ideas'); ms.append(btn(l.mute ? 'Muted' : 'Playing', 'smute' + (l.mute ? '' : ' on'), () => core.mute(k)), btn('Solo', 'ssolo', () => core.solo(k))); s.appendChild(ms);
       s.appendChild(ideaButtons(core, k));
       s.appendChild(takes(core, k));
-      s.appendChild(macroRow(core, k));
+      s.appendChild(macroRow(core, k, 6));
       box.appendChild(s);
     }
   }
@@ -65,62 +63,24 @@ export function strips(root, core, ctl){
 }
 
 /* ---------- focus ---------- */
+// one part big: its tabs, its takes and ideas, then its loop in the sequencer (jam/seq.js: the loop bar, steps, draw, euclid)
 export function focus(root, core, ctl){
   const box = h('div', 'face-focus'); root.appendChild(box);
-  let page = 0;
+  const head = h('div'), body = h('div', 'fseq'); box.append(head, body);
+  const seq = mountSeq(body, core, ctl);
   function draw(){
-    box.innerHTML = '';
+    head.innerHTML = '';
     const tabs = h('div', 'ftabs');
-    for (const p of core.PARTS) { const l = core.lane(p.key), b = btn(`${p.label}${l.mute ? ' <small>muted</small>' : ''}`, 'ftab' + (p.key === ctl.lane ? ' cur' : '') + (l.mute ? ' muted' : ''), () => { ctl.select(p.key); page = 0; });
+    for (const p of core.PARTS) { const l = core.lane(p.key), b = btn(`${p.label}${l.mute ? ' <small>muted</small>' : ''}`, 'ftab' + (p.key === ctl.lane ? ' cur' : '') + (l.mute ? ' muted' : ''), () => ctl.select(p.key));
       b.style.setProperty('--c', hue(p.key)); tabs.appendChild(b); }
-    box.appendChild(tabs);
     const k = ctl.lane, l = core.lane(k); box.style.setProperty('--c', hue(k));
     const top = h('div', 'ftop');
     top.append(btn(l.mute ? 'Muted' : 'Playing', 'smute' + (l.mute ? '' : ' on'), () => core.mute(k)), btn('Solo', 'ssolo', () => core.solo(k)), ideaButtons(core, k), takes(core, k));
-    box.appendChild(top);
-    box.appendChild(stepGrid(k));
-  }
-  // the loop as steps: a row a drum (tap: on, louder, off), or a row a note of the scale (tap: on or off); 32 at a time
-  function stepGrid(k){
-    const c = core.clip(k), len = c ? readClip(c).len : 32, pages = Math.ceil(len/32); page = Math.min(page, pages - 1);
-    const from = page*32, n = Math.min(32, len - from), wrap = h('div', 'fsteps'); wrap.style.setProperty('--n', n);
-    if (pages > 1) { const pg = h('div', 'fpage'); for (let i = 0; i < pages; i++) pg.appendChild(btn(`${i*32 + 1}–${Math.min(len, i*32 + 32)}`, i === page ? 'cur' : '', () => { page = i; draw(); })); wrap.appendChild(pg); }
-    const drums = part(k).kind === 'drums';
-    if (drums) for (const v of VOICES[k]) {
-      const r = c && c.hits && c.hits[v], s = r ? (typeof r === 'string' ? r : r.p).replace(/[\s|]/g, '') : '', row = h('div', 'frow');
-      row.appendChild(h('span', 'flab', vname(v)));
-      for (let i = from; i < from + n; i++) { const ch = s ? s[i % s.length] : '.', on = ch && ch !== '.' && ch !== '-', vv = /[1-9]/.test(ch) ? +ch/9 : ch === 'X' ? 1 : .8;
-        const b = h('button', 'fst' + (on ? ' on' : '') + (i % 4 === 0 ? ' beat' : '')); if (on) b.style.setProperty('--v', vv); b.dataset.s = i;
-        b.onclick = () => { core.toggleStep(k, i, v); draw(); }; row.appendChild(b); }
-      wrap.appendChild(row);
-    }
-    else {
-      const K = keyOf(core.song.key), base = baseOf(core, k, ctl.oct), notes = (c && c.notes) || [];
-      // (the rows: the scale's notes round the ones the loop plays, ten at least, the root of the keys at the bottom)
-      const degOf = p => { for (let d = -14; d < 28; d++) if (degNote(K, base, d) === p) return d; return null; };
-      const ds = notes.flatMap(e => [].concat(e[1])).map(degOf).filter(d => d != null), lo = Math.min(0, ...ds.map(d => d - 1)), hi = Math.max(lo + 9, ...ds.map(d => d + 1));
-      for (let d = hi; d >= lo; d--) {
-        const p = degNote(K, base, d), row = h('div', 'frow' + (((d % 7) + 7) % 7 === 0 ? ' root' : ''));
-        row.appendChild(h('span', 'flab', noteName(p)));
-        for (let i = from; i < from + n; i++) {
-          const e = notes.find(x => [].concat(x[1]).includes(p) && i >= Math.floor(x[0]) && i < x[0] + Math.max(1, x[2] || 1)), start = e && Math.floor(e[0]) === i;
-          const b = h('button', 'fst' + (e ? start ? ' on' : ' held' : '') + (i % 4 === 0 ? ' beat' : '')); if (e) b.style.setProperty('--v', e[3] ?? .8); b.dataset.s = i;
-          b.onclick = () => { core.toggleNote(k, e ? Math.floor(e[0]) : i, p); draw(); }; row.appendChild(b);
-        }
-        wrap.appendChild(row);
-      }
-    }
-    wrap.dataset.from = from;
-    return wrap;
+    head.append(tabs, top);
+    seq.refresh();
   }
   draw();
-  let last = -1;
-  return {refresh: draw, frame(){
-    const x = core.lanePos(ctl.lane), g = box.querySelector('.fsteps'); if (!g) return;
-    const s = x ? x.s - +g.dataset.from : -1; if (s === last) return; last = s;
-    g.querySelectorAll('.fst.ph').forEach(b => b.classList.remove('ph'));
-    if (s >= 0) g.querySelectorAll(`.fst[data-s="${x.s}"]`).forEach(b => b.classList.add('ph'));
-  }};
+  return {refresh: draw, frame: seq.frame};
 }
 
 export const FACES = {grid: {label: 'Grid', words: 'a launchpad: a row a part, a cell an idea', mount: grid},

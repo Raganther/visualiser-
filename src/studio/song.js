@@ -30,6 +30,11 @@ export function hitRow(str){
 
 // a clip read into {len (sixteenths), ev: [{s, n, l, v, p, slide}] sorted, auto: {target: [[step, value], …]}}
 const CACHE = new WeakMap();
+const keep = (c, r) => (CACHE.set(c, r), r);
+// a clip read from `start`: read as if it ran from its top to start + len, then the span cut out and moved to 0
+function startAt(c, len){ const st = Math.round(c.start), w = readClip({...c, start: 0, steps: st + len, bars: undefined});
+  const ev = w.ev.filter(e => e.s >= st && e.s < st + len).map(e => ({...e, s: e.s - st}));
+  return {len, ev, auto: c.auto || {}}; }
 export function readClip(c){
   if (!c) return null; if (CACHE.has(c)) return CACHE.get(c);
   const ev = []; let len = c.steps || (c.bars ? c.bars*16 : 0), rowLen = 0;
@@ -43,6 +48,8 @@ export function readClip(c){
   }
   if (!len) len = rowLen || Math.max(16, Math.ceil(Math.max(0, ...ev.map(e => e.s + 1))/16)*16);
   ev.sort((a, b) => a.s - b.s);
+  // (a loop starting part way into its clip: `start` steps in, `len` long; what's outside it stays in the clip, unplayed)
+  if (c.start > 0) return keep(c, startAt(c, len));
   // a slide holds the note until the next one starts (and a hair past it), so a legato synth glides there
   for (let i = 0; i < ev.length; i++) if (ev[i].slide) { const nx = ev.slice(i + 1).find(e => e.s > ev[i].s) || (ev[0] && {s: ev[0].s + len}); if (nx) ev[i].l = nx.s - ev[i].s + .15; }
   const out = {len, ev, auto: c.auto || {}};

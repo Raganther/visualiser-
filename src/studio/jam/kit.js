@@ -27,9 +27,10 @@ export function bar(label, get, set, {fmt = x => Math.round(x*100) + '%', cls = 
 }
 
 // the macros of a lane: its few knobs, as bars
-export function macroRow(core, k){
+// (max: only the first few, where there's little room: a strip)
+export function macroRow(core, k, max = Infinity){
   const row = h('div', 'macros');
-  core.macros(k).forEach((m, i) => { const b = bar(m.label, () => core.macro(k, i), x => core.setMacro(k, i, x)); b.title = m.words; row.appendChild(b); });
+  core.macros(k).slice(0, max).forEach((m, i) => { const b = bar(m.label, () => core.macro(k, i), x => core.setMacro(k, i, x)); b.title = m.words; row.appendChild(b); });
   row.refresh = () => row.querySelectorAll('.mbar').forEach(b => b.show());
   return row;
 }

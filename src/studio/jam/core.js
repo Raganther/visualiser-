@@ -150,7 +150,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   // a step in the loop by hand (the focus face's grid): a drum's hit on, then louder, then off
   function toggleStep(k, s, voice){
     if (!clipOf(k)) clear(k);
-    const c = clipOf(k), len = readClip(c).len; c.hits = c.hits || {};
+    const c = clipOf(k), len = (c.start || 0) + readClip(c).len; c.hits = c.hits || {};
     const a = [...(rowStr(c.hits[voice]) || '.'.repeat(len))], i = s % a.length, v = a[i];
     a[i] = v === '.' || v === '-' ? '6' : /[1-7]/.test(v) || v === 'o' || v === '?' ? '9' : '.'; c.hits[voice] = a.join('');
     forget(c); emit('notes');
@@ -162,13 +162,37 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
     forget(c); emit('notes');
   }
 
+  /* ---------- the loop's span, and whole rows and lines (the focus face's editors), changed as it plays ---------- */
+  // the loop: where it starts in its clip and how long it is, in sixteenths; what the clip holds may run past it
+  function loopOf(k){ const c = clipOf(k); if (!c) return {start: 0, len: J.recBars*16, total: J.recBars*16};
+    const len = readClip(c).len, start = c.start || 0, rows = Object.values(c.hits || {}).map(r => rowStr(r).length), ends = (c.notes || []).map(e => Math.floor(e[0]) + 1);
+    return {start, len, total: Math.max(start + len, Math.ceil(Math.max(0, ...rows, ...ends)/16)*16)}; }
+  // a new span, in place (the same take: the groove carries on, the playhead finding its place in the new length)
+  function setLoop(k, start, len){
+    if (!clipOf(k)) clear(k);
+    const c = clipOf(k); start = Math.max(0, Math.round(start)); len = Math.max(1, Math.min(256, Math.round(len)));
+    delete c.bars; c.steps = len; if (start) c.start = start; else delete c.start; forget(c); emit('loop');
+  }
+  // a drum row as a whole (its own length: a row shorter than the loop goes round inside it), or every note at once
+  function setRow(k, voice, str){ if (!clipOf(k)) clear(k); const c = clipOf(k); c.hits = c.hits || {}; if (str && /[^.]/.test(str)) c.hits[voice] = str; else delete c.hits[voice]; forget(c); emit('notes'); }
+  function setNotes(k, notes, len = null){ if (!clipOf(k)) clear(k); const c = clipOf(k); c.notes = notes.sort((a, b) => a[0] - b[0]); if (len) { delete c.bars; delete c.start; c.steps = len; } forget(c); emit('notes'); }
+  // the editors' own settings kept with the take (a Euclid row's hits, length and turn), so it opens as it was left
+  const meta = k => { const c = clipOf(k); return c ? (c.ed = c.ed || {}) : {}; };
+
   /* ---------- the sound: macros up front, everything behind More ---------- */
   const typeOf = k => T(k).inst.type;
   const macros = k => macrosOf(typeOf(k));
   // a setting's path in the engine: 'inst.cut' → 'bass.inst.cut'; 'pads.tone' → every voice the lane owns
   const paths = (k, p) => p.startsWith('pads.') ? (VOICES[k] || []).map(v => `${k}.inst.${v}.${p.slice(5)}`) : [`${k}.${p}`];
-  function macro(k, i){ if (!pl) return .5; const m = macros(k)[i], tg = m.set[0], q = pl.E.target(paths(k, tg[0])[0]); const v = q && q.get(); return v == null ? .5 : back(tg, v); }
-  function setMacro(k, i, x){ if (!pl) return; for (const tg of macros(k)[i].set) for (const p of paths(k, tg[0])) pl.E.set(p, macroAt(tg, x)); emit('sound'); }
+  // (a route macro: an amount in the instrument's modulation matrix, [source, destination, amount], made if it isn't there)
+  const matrix = k => { const q = pl.E.target(`${k}.inst.matrix`), m = q && q.get(); return Array.isArray(m) ? m : []; };
+  function macro(k, i){ if (!pl) return .5; const m = macros(k)[i];
+    if (m.route) { const [src, d, most] = m.route, e = matrix(k).find(r => r[0] === src && r[1] === d); return e ? Math.max(0, Math.min(1, e[2]/most)) : 0; }
+    const tg = m.set[0], q = pl.E.target(paths(k, tg[0])[0]); const v = q && q.get(); return v == null ? .5 : back(tg, v); }
+  function setMacro(k, i, x){ if (!pl) return; const m = macros(k)[i];
+    if (m.route) { const [src, d, most] = m.route, mx = matrix(k).filter(r => !(r[0] === src && r[1] === d)).map(r => [...r]); if (x > .001) mx.push([src, d, Math.round(x*most*1e4)/1e4]); pl.E.set(`${k}.inst.matrix`, mx); }
+    else for (const tg of m.set) for (const p of paths(k, tg[0])) pl.E.set(p, macroAt(tg, x));
+    emit('sound'); }
   // the instrument's own settings, in its groups (for More), and setting one
   const groups = k => { const I = instrument(typeOf(k)); return I.key === 'drums' ? [] : (I.groups || I.params || []); };
   const get = (k, key) => { if (!pl) return null; const q = pl.E.target(`${k}.inst.${key}`); return q && q.get(); };
@@ -192,7 +216,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
 
   return {song, J, PARTS, ready, start, stop, toggle, playing, rebuild, pos: () => pl ? pl.pos() : -1, lanePos,
     lane: L, clip: clipOf, empty: k => empty(clipOf(k)), takes: k => L(k).takes, pick, step, mute, solo, fresh, vary, all, clear, length, quantise,
-    hit, noteOn, noteOff, rec, setRec, toggleStep, toggleNote,
+    hit, noteOn, noteOff, rec, setRec, toggleStep, toggleNote, loopOf, setLoop, setRow, setNotes, meta,
     macros, macro, setMacro, groups, get, set, presets, presetOf, preset, vol, setVol,
     setTempo, setKey, setSwing, setting, on: f => (subs.add(f), () => subs.delete(f)), get player(){ return pl; }, get ctx(){ return ctx; }};
 }

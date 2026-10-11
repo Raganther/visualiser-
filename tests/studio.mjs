@@ -419,7 +419,7 @@ check('the jam: New groove gives every lane an idea', jj.all, f2(jj));
 check('the jam: a hit played into an empty lane while recording starts a two-bar loop there', jj.hats, f2(jj));
 check('the jam: a held note is written as long as it was held (on the 16ths)', jj.held >= 1.5 && jj.held <= 3, f2(jj.held));
 check('the jam: a pass over a loop is a new take, and Undo goes back to the one before', jj.pass && jj.undo, f2(jj));
-check('the jam: a mute is heard at once with Launch: Now; a macro turns its settings', jj.muteNow && jj.cut === 90, f2(jj));
+check('the jam: a mute is heard at once with Launch: Now; a macro turns its settings', jj.muteNow && jj.cut === 60, f2(jj));
 check('the jam: grid, strips and focus each show the six lanes; a step tapped in Focus lands in the loop; Vary adds a take',
   jj.grid === 6 && jj.strips === 6 && jj.focus === 6 && jj.step && jj.vary, f2(jj));
 check('the jam\'s song checks clean', jj.song === 'clean', f2(jj.song));
@@ -434,6 +434,28 @@ const jk = await page.evaluate(async () => {
 });
 check('the jam is kept across a reload, every take', JSON.stringify(jk.takes) === JSON.stringify(jj.takes), f2([jk.takes, jj.takes]));
 check('Open in Studio makes the jam a song of the user\'s, its scene what was playing', jk.tabs === 1 && /^Jam/.test(jk.title) && jk.studio && Object.keys(jk.clips).length === 6, f2(jk));
+// the jam's sequencer (jam/seq.js): the loop's span moved while it plays (7 steps from the third: the kick where it falls
+// in it), the step being heard lit, an LFO macro writing its route into the synth's matrix, Euclid rings and Draw
+await page.goto(url + 'studio.html?view=jam'); await page.waitForFunction(() => window.__studio && window.__studio.jamPage);
+const sq = await page.evaluate(async () => {
+  const pg = __studio.jamPage, c = pg.core, wait = ms => new Promise(r => setTimeout(r, ms)), {readClip} = await import('/src/studio/song.js'), o = {};
+  c.all(); c.setRow('drums', 'kick', 'x...x...x...x...'); await c.start(); pg.setFace('focus'); pg.select('drums'); await wait(300);
+  const n0 = c.player.E.n; c.setLoop('drums', 2, 7); await wait(500);
+  o.span = [readClip(c.clip('drums')).len, readClip(c.clip('drums')).ev.filter(e => e.n === 'kick').map(e => e.s).join()]; o.going = c.player.E.n > n0;
+  for (let i = 0; i < 20 && !document.querySelector('.fst.ph'); i++) await wait(100); o.lit = !!document.querySelector('.fst.ph');
+  const i = c.macros('chords').findIndex(m => m.route && m.route[1] === 'cut'); c.setMacro('chords', i, .6);
+  o.route = JSON.stringify(c.player.E.target('chords.inst.matrix').get().find(r => r[0] === 'lfo1' && r[1] === 'cut')); o.macro = +c.macro('chords', i).toFixed(2);
+  o.many = ['drums', 'bass', 'chords', 'hook'].map(k => c.macros(k).length);
+  document.querySelectorAll('.sqmodes .jseg button')[2].click(); pg.select('hats'); await wait(100);
+  const hits = () => document.querySelectorAll('.eurow')[0].querySelectorAll('.eust')[0];
+  const k0 = +hits().querySelector('b').textContent; hits().querySelectorAll('button')[1].click(); await wait(20);
+  o.eu = [k0, [...c.clip('hats').hits.chh].filter(x => x !== '.').length, document.querySelectorAll('.euring').length];
+  document.querySelectorAll('.sqmodes .jseg button')[0].click(); c.stop();
+  return o;
+});
+check('the jam\'s loop: moved to 7 steps from the third while it plays, the kick where it falls in it, the step heard lit', sq.span[0] === 7 && sq.span[1] === '2,6' && sq.going && sq.lit, f2(sq));
+check('the jam\'s macros: a dozen or more a synth, an LFO macro writing its route into the matrix', sq.many.slice(1).every(n => n >= 12) && /lfo1","cut",0.3/.test(sq.route) && sq.macro === .6, f2(sq));
+check('the jam\'s Euclid: a ring a drum, one more hit spread into the row', sq.eu[1] === sq.eu[0] + 1 && sq.eu[2] === 4, f2(sq.eu));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
