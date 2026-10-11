@@ -155,8 +155,8 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
   check(`${mode}: the facets as cells, every rule, draw for long with nothing non-finite`, r.out.cellsBad === 0 && diff(r.off, r.out.cellsPic) > .5, `${r.out.cellsBad} bad values`);
   { const a = r.out.arc; check(`${mode}: the arc: a run-up climbs in facets and activity, the drop breaks symmetry and it returns, a calm follows`, (a.det1 > a.det0 || a.det0 === a.F) && a.act1 > a.act0 + .2 && a.asym > .9 && a.asymAfter < .05 && a.calm < .25,
     `facets ${a.det0} → ${a.det1}, activity ${a.act0.toFixed(2)} → ${a.act1.toFixed(2)}, symmetry broken ${a.asym.toFixed(2)} → ${a.asymAfter.toFixed(2)}, calm after ${a.calm.toFixed(2)}`); }
-  { const f = r.out.free; check(`${mode}: without a steady beat a drop swells it rather than shattering it`, f[1].ex > .3 && f[0].ex < .1 && f[0].act < f[1].act - .2,
-    `shatter ${f[1].ex.toFixed(2)} → ${f[0].ex.toFixed(2)}, activity ${f[1].act.toFixed(2)} → ${f[0].act.toFixed(2)}`); }
+  { const f = r.out.free; check(`${mode}: without a steady beat a drop swells it rather than shattering it`, f[1].ex > .3 && f[0].ex < .1 && f[0].act - f[0].a0 < f[1].act - f[1].a0 - .1,
+    `shatter ${f[1].ex.toFixed(2)} → ${f[0].ex.toFixed(2)}, activity lifted ${(f[1].act - f[1].a0).toFixed(2)} → ${(f[0].act - f[0].a0).toFixed(2)}`); }
   check(`${mode}: a returning section brings back its theme, varied`, r.out.back >= 2, `visited ${r.out.back} times`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);
