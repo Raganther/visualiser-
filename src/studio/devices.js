@@ -128,7 +128,7 @@ function scDevice(ctx, d, desk){
 /* ---------- limiter: drive in, a fast compressor, then a soft clipper at the ceiling, oversampled ---------- */
 function limDevice(ctx, d){
   const P = {gain: 0, ceil: -.3, rel: .06, ...d};
-  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = makeComp(ctx, {thr: P.ceil - 1.5, knee: 1, ratio: 20, att: 0, rel: P.rel}), clip = ctx.createWaveShaper(), output = gainNode(ctx);
+  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = makeComp(ctx, {thr: P.ceil - 1.5, knee: 1, ratio: 20, att: 0, rel: P.rel}, true, TUNE.studio.limitLook), clip = ctx.createWaveShaper(), output = gainNode(ctx);
   // the clipper: straight up to 80% of the ceiling, then bending smoothly into it (never past). It aims a little under:
   // oversampling's filters ring past a clipped drum's edge, so the true peak lands at the ceiling, not over it
   const curve = () => { const n = 8192, cv = new Float32Array(n), C = db(P.ceil - TUNE.studio.tpMargin), k = .8*C;

@@ -10,7 +10,10 @@ class Dyn extends AudioWorkletProcessor {
     {name: 'thr', defaultValue: -24, automationRate: 'k-rate'}, {name: 'ratio', defaultValue: 4, minValue: 1, automationRate: 'k-rate'},
     {name: 'knee', defaultValue: 6, minValue: 0, automationRate: 'k-rate'}, {name: 'att', defaultValue: .003, minValue: 0, automationRate: 'k-rate'},
     {name: 'rel', defaultValue: .25, minValue: .001, automationRate: 'k-rate'}, {name: 'auto', defaultValue: 1, automationRate: 'k-rate'}]; }
-  constructor(){ super(); this.gr = 0; this.n = 0; }
+  // look (seconds, set once): the sound held back that long while the gain eases down ahead of each peak (the limiter's
+  // 1.5 ms: a gain dropped on one sample makes an edge that rings past the ceiling between the samples)
+  constructor(o){ super(); this.gr = 0; this.n = 0; const L = Math.round(((o.processorOptions || {}).look || 0)*sampleRate);
+    this.L = L; if (L) { this.buf = [new Float32Array(L), new Float32Array(L)]; this.want = new Float32Array(L); this.w = 0; } }
   process(ins, outs, P){
     const inp = ins[0], out = outs[0]; if (!inp || !inp.length) { this.gr = 0; return true; }
     const T = P.thr[0], R = Math.max(1, P.ratio[0]), W = P.knee[0], aA = P.att[0] > 0 ? Math.exp(-1/(P.att[0]*sampleRate)) : 0, aR = Math.exp(-1/(P.rel[0]*sampleRate));
@@ -18,11 +21,24 @@ class Dyn extends AudioWorkletProcessor {
     const curve = x => { const d = x - T; if (2*d < -W) return x; if (2*Math.abs(d) <= W && W > 0) { const q = d + W/2; return x + (1/R - 1)*q*q/(2*W); } return T + d/R; };
     const mk = P.auto[0] > .5 ? -.6*(curve(0) - 0) : 0, L = inp[0], Rr = inp[1] || inp[0], n = L.length;
     let gr = this.gr, top = 0;
+    const LA = this.L, la = LA ? Math.exp(-3/LA) : 0;
     for (let i = 0; i < n; i++) {
-      const a = Math.max(Math.abs(L[i]), Math.abs(Rr[i])), x = a > 1e-6 ? 20*Math.log10(a) : -120, want = x - curve(x);
-      gr = want > gr ? aA*gr + (1 - aA)*want : aR*gr + (1 - aR)*want; if (gr > top) top = gr;
-      const g = Math.pow(10, (mk - gr)/20);
-      for (let c = 0; c < out.length; c++) out[c][i] = (inp[c] || inp[0])[i]*g;
+      const a = Math.max(Math.abs(L[i]), Math.abs(Rr[i])), x = a > 1e-6 ? 20*Math.log10(a) : -120;
+      let want = x - curve(x);
+      if (LA) {
+        // (the most any sample in the window ahead needs, reached by the time it comes out: the gain eases down over the window)
+        // (the window holds what's coming; the sample leaving it now gets at least the reduction it needs itself)
+        const w = this.w, leaving = this.want[w]; this.want[w] = want; let m = 0; for (let k = 0; k < LA; k++) if (this.want[k] > m) m = this.want[k];
+        gr = m > gr ? la*gr + (1 - la)*m : aR*gr + (1 - aR)*m; if (gr < leaving) gr = leaving;
+        const g = Math.pow(10, (mk - gr)/20), o0 = this.buf[0][w], o1 = this.buf[1][w];
+        this.buf[0][w] = L[i]; this.buf[1][w] = Rr[i]; this.w = (w + 1) % LA;
+        out[0][i] = o0*g; if (out[1]) out[1][i] = o1*g;
+      } else {
+        gr = want > gr ? aA*gr + (1 - aA)*want : aR*gr + (1 - aR)*want;
+        const g = Math.pow(10, (mk - gr)/20);
+        for (let c = 0; c < out.length; c++) out[c][i] = (inp[c] || inp[0])[i]*g;
+      }
+      if (gr > top) top = gr;
     }
     this.gr = gr;
     // (how far it's turning down, for the meters: a few times a second is plenty)
@@ -45,18 +61,19 @@ export function prepare(ctx){
 export const ready = ctx => !!OK.get(ctx);
 
 // a compressor: {input, output, set({thr, ratio, knee, att, rel}), reduction() → dB it's turning down, look: the seconds it
-// holds the sound back (0, or Chromium's 6 ms when it falls back to that)}. auto: Chromium's own make-up (false: none)
-export function makeComp(ctx, P, auto = true, look = .006){
+// holds the sound back (ahead: 0 for a compressor, the limiter's 1.5 ms; Chromium's 6 ms when it falls back to that)}.
+// auto: Chromium's own make-up (false: none)
+export function makeComp(ctx, P, auto = true, ahead = 0){
   if (OK.get(ctx)) {
-    const n = new AudioWorkletNode(ctx, 'ag-dyn', {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]}); let red = 0;
+    const n = new AudioWorkletNode(ctx, 'ag-dyn', {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: {look: ahead}}); let red = 0;
     n.port.onmessage = e => { red = e.data; };
     const set = Q => { for (const k of ['thr', 'ratio', 'knee', 'att', 'rel']) if (Q[k] != null) n.parameters.get(k).value = Q[k]; n.parameters.get('auto').value = auto ? 1 : 0; };
-    set(P); return {input: n, output: n, set, reduction: () => red, look: 0, param: k => k === 'thr' ? n.parameters.get('thr') : null};
+    set(P); return {input: n, output: n, set, reduction: () => red, look: ahead, param: k => k === 'thr' ? n.parameters.get('thr') : null};
   }
   const c = ctx.createDynamicsCompressor(), mk = ctx.createGain(); c.connect(mk);
   const set = Q => { if (Q.thr != null) c.threshold.value = Q.thr; if (Q.ratio != null) c.ratio.value = Math.max(1, Q.ratio); if (Q.knee != null) c.knee.value = Q.knee;
     if (Q.att != null) c.attack.value = Q.att; if (Q.rel != null) c.release.value = Q.rel;
     // (without auto, Chromium's make-up taken back out)
     mk.gain.value = auto ? 1 : Math.pow(10, (c.ratio.value > 1 ? .6*c.threshold.value*(1 - 1/c.ratio.value) : 0)/20); };
-  set(P); return {input: c, output: mk, set, reduction: () => -c.reduction, look, param: k => k === 'thr' ? c.threshold : null};
+  set(P); return {input: c, output: mk, set, reduction: () => -c.reduction, look: .006, param: k => k === 'thr' ? c.threshold : null};
 }
