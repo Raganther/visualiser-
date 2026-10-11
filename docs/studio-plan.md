@@ -56,3 +56,4 @@ The user found the sounds "a very good attempt at full" and the mixing good, and
 - **Low Orbit**, the fourth song, built round it: −9.9 LUFS, −0.8 dBTP, the bass ducking 7.8 dB under the kick.
 - **The library** (`library.js`): clips, tracks and songs saved by name; on the published page in the Artifact's database (`loops`), which Claude reads to hear what the user made and can add parts to.
 - **The Play view** (`play.js`): touch first, for the iPad: the tracks, a track's clips, pads or keys in the song's key, an XY pad, Rec into the playing clip on the sixteenths, the steps.
+- **Saved songs** (`saved.js`): the user asked to keep their changes to the songs. Every edit is saved a second after it settles, into the Artifact's database (`songs`, a doc a song, the song as JSON text), so the songs open as they were left and Claude can read the changed versions; the user's own songs come back as tabs; Revert to original goes back to the song as written.

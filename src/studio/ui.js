@@ -15,6 +15,7 @@ import { TUNE } from '../tuning.js';
 import { blankSong } from './songs/blank.js';
 import { mountPlay } from './play.js';
 import * as LIB from './library.js';
+import * as SAVE from './saved.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -30,6 +31,10 @@ const view = {d: 'steps', n: 'roll'};   // how clips are edited: drums and notes
 const range = {};              // each note clip's pitch range in the editors (kept while editing, so the grid doesn't jump)
 const pristine = SONGS.map(s => structuredClone(s));
 const songs = SONGS.map(s => structuredClone(s));
+// each song's id in the store of saved songs (a built-in's from its title; one the user started, its own), and which are theirs
+const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const ids = SONGS.map(s => slug(s.title)), mine = SONGS.map(() => false);
+const myId = () => 'my-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const audio = () => { if (!ctx) ctx = new AudioContext({latencyHint: 'playback'}); if (ctx.state === 'suspended') ctx.resume(); return ctx; };
 const trackOf = id => song.tracks.find(t => t.id === id);
 // a strip's track (a pad's is its rack) and, for a pad, which
@@ -45,6 +50,7 @@ function load(i){
   $('about').innerHTML = `<b>${esc(song.title)}</b>: ${song.tracks.length} tracks, ${song.scenes.length} scenes, ${A.bars} bars (${Math.floor(secs/60)}:${String(Math.round(secs % 60)).padStart(2, '0')}). ` +
     `Press Play for the arrangement, or click clips and scenes in the session to launch them on the next bar.`;
   $('rep').innerHTML = ''; $('save').hidden = true; $('gram').hidden = true;
+  showSaved();
   drawArr(); drawSession(); if (ctx) build(); drawMixer(); drawDetail(); showData();
 }
 // the graph, on the page's audio context (made on the first click: browsers start sound only from one)
@@ -491,9 +497,10 @@ function newClip(T){
   let sc = song.scenes.find(x => x.id === 'new'); if (!sc) { sc = {id: 'new', clips: {}}; song.scenes.push(sc); }
   sc.clips[T.id] = id; sel = T.id; selClip = id; dataStale = true; drawSession(); return id;
 }
-let made = 0;
-$('newSong').onclick = () => { const was = player && player.playing; if (player) player.stop();
-  songs.push(blankSong(++made)); pristine.push(structuredClone(songs[songs.length - 1])); addSongTab(songs.length - 1); load(songs.length - 1); setPlay(); };
+// a song of the user's own, as a new tab (saved straight away, so it comes back)
+function addMine(s, id = myId()){ songs.push(s); pristine.push(structuredClone(s)); ids.push(id); mine.push(true); addSongTab(songs.length - 1); return songs.length - 1; }
+$('newSong').onclick = () => { if (player) player.stop();
+  const i = addMine(blankSong(mine.filter(Boolean).length + 1)); load(i); setPlay(); };
 function addSongTab(i){ const b = h('button', null, esc(songs[i].title)); b.onclick = () => { const was = player && player.playing; load(i); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); }; $('songs').appendChild(b); }
 
 /* ---------- the library: save what you made, load it back (and Claude can read it) ---------- */
@@ -509,7 +516,7 @@ $('saveSong').onclick = async () => { await LIB.save({name: nameOr(song.title), 
 // on a drum track, notes on a synth), else comes in with its own track
 function loadItem(it){
   const d = structuredClone(it.data);
-  if (it.kind === 'song') { d.song.title = it.name; songs.push(d.song); pristine.push(structuredClone(d.song)); addSongTab(songs.length - 1); load(songs.length - 1); return libMsg(`Opened ${it.name}.`); }
+  if (it.kind === 'song') { d.song.title = it.name; load(addMine(d.song)); return libMsg(`Opened ${it.name}.`); }
   const {T} = ownerOf(sel), clip = d.track.clips[d.clip], fits = it.kind === 'clip' && T && (!!clip.hits === (T.inst.type === 'drums'));
   if (fits) { let id = d.clip; while (T.clips[id]) id += "'"; T.clips[id] = clip; let sc = song.scenes.find(x => x.id === 'new'); if (!sc) song.scenes.push(sc = {id: 'new', clips: {}}); sc.clips[T.id] = id;
     selClip = id; dataStale = true; drawSession(); drawDetail(); markSel(); if (player && player.playing) player.launchClip(T.id, id, 'new'); return libMsg(`Added ${it.name} to ${T.name || T.id} as clip ${id}.`); }
@@ -546,8 +553,58 @@ const pv = mountPlay({song: () => song, player: () => player, ctx: () => audio()
   stepsOf: (T, clip) => clip.hits || T.inst.type === 'drums' ? drumSteps(T, clip) : noteSteps(T, Object.keys(T.clips).find(k => T.clips[k] === clip), clip), hue: HUE, padLabel});
 $('playView').onclick = () => pv.open();
 
+/* ---------- your changes, kept: every edit to a song is saved a moment after it settles ---------- */
+// what was last saved of each song (by id), and what was seen at the last look (a song saves once it holds still a second)
+const savedJson = {}, seen = {};
+let saving = 0, saveErr = '', storeReady = false;
+const jsonOf = i => JSON.stringify(songs[i]);
+const changedFrom = i => savedJson[ids[i]] != null ? savedJson[ids[i]] !== jsonOf(i) : jsonOf(i) !== JSON.stringify(pristine[i]) || mine[i];
+function showSaved(){
+  const e = $('saved'), i = idx, dirty = changedFrom(i), edited = !mine[i] && jsonOf(i) !== JSON.stringify(pristine[i]);
+  e.textContent = saveErr ? 'Not saved: ' + saveErr : !storeReady ? '' : saving ? 'Saving…' : dirty ? 'Unsaved changes…' : edited || mine[i] ? 'Saved in ' + SAVE.where() : 'As written';
+  e.className = 'saved' + (dirty || saveErr ? ' dirty' : '');
+  $('revert').hidden = mine[i] || !edited;
+}
+let looking = false;
+async function autosave(){
+  if (!storeReady || looking) return;
+  looking = true;
+  for (let i = 0; i < songs.length; i++) {
+    const j = jsonOf(i), id = ids[i], was = seen[id]; seen[id] = j;
+    if (!changedFrom(i) || j !== was) continue;
+    saving++; showSaved();
+    try { await SAVE.put(id, songs[i], mine[i]); savedJson[id] = j; saveErr = ''; } catch (e) { saveErr = e.code || e.message || 'error'; }
+    saving--;
+  }
+  looking = false; showSaved();
+}
+setInterval(autosave, 1000);
+$('revert').onclick = async () => {
+  const b = $('revert'); if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Sure? Your changes go'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Revert to original'; }, 3000); return; }
+  delete b.dataset.sure; b.textContent = 'Revert to original'; revert();
+};
+async function revert(){
+  const was = player && player.playing, id = ids[idx];
+  songs[idx] = structuredClone(pristine[idx]); delete savedJson[id]; seen[id] = jsonOf(idx);
+  load(idx); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); });
+  try { await SAVE.drop(id); } catch (e) {}
+  showSaved();
+}
+// the saved versions come in once the store answers: a built-in song as the user left it, and their own songs as tabs
+SAVE.start().then(() => {
+  for (const d of SAVE.all()) {
+    if (check(d.song).length) continue;
+    const i = ids.indexOf(d.id);
+    if (i < 0) { addMine(d.song, d.id); savedJson[d.id] = JSON.stringify(d.song); continue; }
+    const untouched = jsonOf(i) === JSON.stringify(pristine[i]);
+    savedJson[d.id] = JSON.stringify(d.song);
+    if (untouched) { songs[i] = d.song; if (i === idx && !(player && player.playing)) load(i); }
+  }
+  storeReady = true; showSaved();
+});
+
 /* ---------- start ---------- */
 SONGS.forEach((s, i) => addSongTab(i));
 load(0);
-// (for tests: the player, the song, and a reset to the song as written)
-window.__studio = {get player(){ return player; }, get song(){ return song; }, reset(){ songs[idx] = structuredClone(pristine[idx]); load(idx); }, load, view};
+// (for tests: the player, the song, a reset to the song as written, and saving now)
+window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};

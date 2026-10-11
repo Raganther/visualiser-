@@ -206,6 +206,27 @@ check('a click launches one clip on the next bar, and only its cell lights', q.l
 check('a step clicked on edits the drum clip; a click and drag on the roll adds a note', q.stepEdit && q.rollAdd === 1, f2([q.stepEdit, q.rollAdd]));
 check('the play view records pads and keys into the clips while it plays', q.rec.clap >= 2 && q.rec.bass === 2, f2(q.rec));
 check('a clip saved to the library comes back as a new clip', f2(q.lib) === '["test loop"]' && q.added === 1, f2([q.lib, q.added]));
+// the user's changes to a song are kept: an edit, saved, is there after a reload, with their own new song as a tab; Revert
+// goes back to the song as written
+const sv = await page.evaluate(async () => {
+  const st = window.__studio, o = {};
+  st.load(0); st.song.tracks[1].mix.vol = -7.5; await st.saveNow();
+  o.status = document.querySelector('#saved').textContent; o.revert = !document.querySelector('#revert').hidden;
+  return o;
+});
+await page.reload(); await page.waitForFunction(() => window.__studio && /Saved|As written/.test(document.querySelector('#saved').textContent));
+const sv2 = await page.evaluate(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {};
+  o.vol = st.song.tracks[1].mix.vol; o.tabs = [...document.querySelectorAll('#songs button')].map(b => b.textContent);
+  const b = document.querySelector('#revert'); b.click(); b.click(); await wait(100);
+  o.after = st.song.tracks[1].mix.vol; o.stored = Object.keys(JSON.parse(localStorage.getItem('afterglow.studio.songs') || '{}'));
+  o.status = document.querySelector('#saved').textContent;
+  localStorage.removeItem('afterglow.studio.songs');
+  return o;
+});
+check('an edit to a song is saved, and is there after a reload', /Saved/.test(sv.status) && sv.revert && sv2.vol === -7.5, f2([sv, sv2.vol]));
+check('a new song comes back as a tab after a reload', sv2.tabs.length === 5 && /New song|Song/i.test(sv2.tabs[4]), f2(sv2.tabs));
+check('Revert goes back to the song as written and forgets the saved one', sv2.after !== -7.5 && !sv2.stored.includes('night-shift') && sv2.status === 'As written', f2(sv2));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();

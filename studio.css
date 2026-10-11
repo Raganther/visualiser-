@@ -23,6 +23,8 @@ small{color:var(--dim);font-weight:400;font-size:12px;letter-spacing:0;text-tran
 .songs button{background:none}
 .songs button[aria-current="true"]{border-color:var(--accent);color:var(--accent)}
 .transport{display:flex;align-items:center;gap:8px;margin-left:auto}
+.saved{display:inline-block;min-width:9.5em;font-size:12px;color:var(--dim)}
+.saved.dirty{color:#e8b04a}
 .pos,.tempo{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
 .pos{color:var(--ink);width:9ch;white-space:pre;display:inline-block}
 
