@@ -285,6 +285,35 @@ check('a multiband knob is written into the song; a device removed', mx.mbThr ==
 check('the goniometer draws the master', mx.gonio > 10, '' + mx.gonio);
 check('a reference is measured and kept with the song', mx.ref[0] === 'noise' && mx.ref[1], f2(mx.ref));
 check('the clash finder finds two tones in the same band', f2(mx.clash) === '["a/b:mid"]' || f2(mx.clash) === '["a/b:low-mid"]', f2(mx.clash));
+// the clip editor: a row's length (a polyrhythm), its velocity lane drawn rising, a groove shape, a row added, the clip's
+// length, a volume envelope drawn, a note's velocity; and everything still plays
+const ed = await page.evaluate(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {};
+  st.load(0); document.querySelector('.strip[data-id=drums] .nm').click(); await wait(100);
+  const id = document.querySelector('.clipbar .ct').textContent.match(/Clip (\S+)/)[1], C = () => st.song.tracks[0].clips[id];
+  const head = [...document.querySelectorAll('.rhead')].find(x => /Closed/.test(x.textContent)), ln = head.querySelector('.rlen'); ln.value = '5'; ln.dispatchEvent(new Event('change')); await wait(30);
+  o.len5 = C().hits.chh.replace(/[|\s]/g, '').length;
+  [...document.querySelectorAll('.rhead .rn')].find(b => /Open/.test(b.textContent)).click(); await wait(30);
+  const drag = (el, pts, pid) => { const b = el.getBoundingClientRect(), ev = (t, [x, y]) => el.dispatchEvent(new PointerEvent(t, {bubbles: true, clientX: b.left + x*b.width, clientY: b.top + y*b.height, pointerId: pid}));
+    ev('pointerdown', pts[0]); for (const p of pts.slice(1)) ev('pointermove', p); ev('pointerup', pts[pts.length - 1]); };
+  drag(document.querySelector('.row.lane:not(.env)'), Array.from({length: 21}, (_, i) => [Math.min(.99, .01 + i/20), Math.max(.01, .99 - i/20)]), 5); await wait(30);
+  const v = C().hits.ohh.replace(/[|\s]/g, '').split('').filter(c => /[1-9]/.test(c)).map(Number); o.rising = v.length > 1 && v.every((x, i) => !i || x >= v[i - 1]) && v[v.length - 1] > v[0];
+  const gs = document.querySelector('select.groove'); gs.value = 'Ghosts between'; gs.dispatchEvent(new Event('change')); await wait(30); o.groove = C().hits.ohh;
+  const add = document.querySelector('select.radd'); add.value = add.options[1].value; add.dispatchEvent(new Event('change')); await wait(30); o.added = C().hits[add.options[1] ? add.value : ''] != null || Object.keys(C().hits).length;
+  const cl = document.querySelector('select.clen'); cl.value = '48'; cl.dispatchEvent(new Event('change')); await wait(30); o.bars = C().bars;
+  document.querySelector('.envtg').click(); await wait(30); drag(document.querySelector('.row.lane.env'), [[.01, .05], [.5, .95]], 6); await wait(30); o.env = (C().auto || {}).vol;
+  document.querySelector('.strip[data-id=bass] .nm').click(); await wait(100);
+  const nl = document.querySelector('.row.lane:not(.env)'), bc = st.song.tracks.find(t => t.id === 'bass').clips.a, first = Math.floor((Array.isArray(bc.notes[0]) ? bc.notes[0][0] : bc.notes[0].t));
+  drag(nl, [[(first + .5)/nl.children.length, .5]], 7); await wait(30); o.noteVel = (Array.isArray(bc.notes[0]) ? bc.notes[0][3] : bc.notes[0].v);
+  document.querySelector('#play').click(); await wait(1500); o.playing = st.player.playing; document.querySelector('#stop').click();
+  st.reset(); await wait(50);
+  return o;
+});
+check('a drum row set to 5 steps (a polyrhythm against the 16)', ed.len5 === 5, '' + ed.len5);
+check('the velocity lane drawn rising sets rising velocities; a groove shape applies to the hits', ed.rising && /[1-9]/.test(ed.groove), f2([ed.rising, ed.groove]));
+check('a row added and the clip set to 3 bars', !!ed.added && ed.bars === 3, f2([ed.added, ed.bars]));
+check('a volume envelope drawn into the clip, falling', ed.env && ed.env.length >= 2 && ed.env[0][1] > ed.env[ed.env.length - 1][1], f2(ed.env));
+check('a note\'s velocity set from its lane, and the song still plays', Math.abs(ed.noteVel - .5) < .06 && ed.playing, f2([ed.noteVel, ed.playing]));
 // the user's changes to a song are kept: an edit, saved, is there after a reload, with their own new song as a tab; Revert
 // goes back to the song as written
 const sv = await page.evaluate(async () => {
@@ -296,7 +325,7 @@ const sv = await page.evaluate(async () => {
 await page.reload(); await page.waitForFunction(() => window.__studio && /Saved|As written/.test(document.querySelector('#saved').textContent));
 const sv2 = await page.evaluate(async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {};
-  o.vol = st.song.tracks[1].mix.vol; o.tabs = [...document.querySelectorAll('#songs button')].map(b => b.textContent);
+  o.vol = st.song.tracks[1].mix.vol; o.tabs = [...document.querySelectorAll('#songs button')].map(b => b.textContent); o.builtIn = (await import('/src/studio/songs/index.js')).SONGS.length;
   const b = document.querySelector('#revert'); b.click(); b.click(); await wait(100);
   o.after = st.song.tracks[1].mix.vol; o.stored = Object.keys(JSON.parse(localStorage.getItem('afterglow.studio.songs') || '{}'));
   o.status = document.querySelector('#saved').textContent;
@@ -304,7 +333,7 @@ const sv2 = await page.evaluate(async () => {
   return o;
 });
 check('an edit to a song is saved, and is there after a reload', /Saved/.test(sv.status) && sv.revert && sv2.vol === -7.5, f2([sv, sv2.vol]));
-check('a new song comes back as a tab after a reload', sv2.tabs.length === 5 && /New song|Song/i.test(sv2.tabs[4]), f2(sv2.tabs));
+check('a new song comes back as a tab after a reload', sv2.tabs.length === sv2.builtIn + 1 && /My song/.test(sv2.tabs[sv2.tabs.length - 1]), f2(sv2.tabs));
 check('Revert goes back to the song as written and forgets the saved one', sv2.after !== -7.5 && !sv2.stored.includes('night-shift') && sv2.status === 'As written', f2(sv2));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));

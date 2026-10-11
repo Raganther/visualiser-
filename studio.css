@@ -225,3 +225,24 @@ select.preset,.sw select{font:inherit;font-size:12px;color:var(--ink);background
 .devtools{display:inline-flex;gap:2px;margin-left:auto}
 .devtools button{font-size:10px;padding:0 5px;line-height:16px;min-height:0}
 select.adddev{align-self:flex-start}
+
+/* the step editor's rows: a length each (polyrhythms), cleared or added; the drawn lanes: velocity and a volume envelope */
+.steps{grid-template-columns:150px minmax(0,1fr)}
+.steps.notes{grid-template-columns:84px minmax(0,1fr)}
+.rhead{display:flex;align-items:center;gap:3px;min-width:0}
+.rhead .rn{flex:1 1 auto;min-width:0}
+.rhead.vel .rn{color:var(--tc);font-weight:600}
+.rhead .rlen{width:46px;font-size:11px;padding:1px 2px;height:20px}
+.rhead .rrm{font-size:10px;padding:0 5px;height:20px;min-height:0;background:none;border-color:transparent;color:var(--faint)}
+.rhead .rrm:hover{color:var(--ink)}
+.steps .row button.wrap{box-shadow:inset 2px 0 0 color-mix(in srgb,var(--tc) 60%,transparent)}
+select.radd,select.groove,select.clen{font-size:11px;justify-self:start}
+.steps .lanen{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);align-self:end;padding-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps .row.lane{height:56px;align-items:end;background:#0a0d12;border-radius:3px;cursor:ns-resize;touch-action:none;margin-top:4px}
+.steps .row.lane i{display:block;height:calc(var(--h,0)*100%);min-height:2px;background:color-mix(in srgb,var(--tc) 75%,#fff 0%);border-radius:2px 2px 0 0;opacity:.85}
+.steps .row.lane i.b{opacity:1}
+.steps .row.lane i.none{background:transparent;height:2px;opacity:.3}
+.steps .row.lane.env i{background:#b48cff}
+.steps.envbox{margin-top:6px}
+.steps.envbox .envtg,.steps.envbox > button{justify-self:start;font-size:11px}
+.steps.rollvel{margin-top:4px;grid-template-columns:84px minmax(0,1fr)}

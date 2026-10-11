@@ -356,7 +356,7 @@ function drawEq(cv, d, k){
 
 /* ---------- editing a clip: a step sequencer, or a piano roll ---------- */
 let clipBox = null, clipFor = null;
-const edited = clip => { forget(clip); dataStale = true; if (clipFor) { const [T, id, ti] = clipFor, nb = clipView(T, id, ti); clipBox.replaceWith(nb); } if (pv && !$('pv').hidden) pv.steps(); };
+const edited = clip => { forget(clip); dataStale = true; if (clipFor) { const [T, id, ti] = clipFor, old = clipBox, nb = clipView(T, id, ti); if (old && old.isConnected) old.replaceWith(nb); } if (pv && !$('pv').hidden) pv.steps(); };
 function clipView(T, id, ti){
   const clip = T.clips[id], drums = !!clip.hits || T.inst.type === 'drums', key = drums ? 'd' : 'n', wrap = h('div', 'clipv');
   clipBox = wrap; clipFor = [T, id, ti]; wrap.style.setProperty('--tc', HUE(ti));
@@ -365,11 +365,56 @@ function clipView(T, id, ti){
   const tg = h('div', 'seg'); for (const [v, label] of [['steps', 'Steps'], ['roll', 'Piano roll']]) { const b = h('button', null, label); b.setAttribute('aria-pressed', view[key] === v);
     b.onclick = () => { view[key] = v; edited(clip); }; tg.appendChild(b); }
   bar.appendChild(tg);
+  // its length: the steps before it starts again (rows can be shorter, going round inside it)
+  const cl = h('select', 'clen'); cl.setAttribute('aria-label', 'Clip length');
+  cl.innerHTML = [...new Set([4, 8, 12, 16, 24, 32, 48, 64, 96, 128, r.len])].sort((a, b) => a - b).map(n => `<option value="${n}"${n === r.len ? ' selected' : ''}>${n % 16 ? n + ' steps' : n/16 + (n > 16 ? ' bars' : ' bar')}</option>`).join('');
+  cl.onchange = () => { const n = +cl.value; if (n % 16) { clip.steps = n; delete clip.bars; } else { clip.bars = n/16; delete clip.steps; } edited(clip); };
+  bar.appendChild(cl);
   const nc = h('button', null, '+ New clip'); nc.title = 'An empty clip for this track (in the session\'s "new" row)'; nc.onclick = () => { newClip(T); drawDetail(); markSel(); }; bar.appendChild(nc);
-  bar.appendChild(h('span', 'hint', drums ? (view.d === 'steps' ? 'Click a step: on, accent, off.' : 'Click to add a hit, click a hit to remove it.') : (view.n === 'steps' ? 'Click a step to add a note there, click a note to remove it.' : 'Click to add a note, drag right for longer; click a note to remove it.')));
+  bar.appendChild(h('span', 'hint', drums ? (view.d === 'steps' ? 'Click a step: on, accent, off. Set a row\'s length for polyrhythms; drag the velocity lane for its groove.' : 'Click to add a hit, click a hit to remove it.') : (view.n === 'steps' ? 'Click a step to add a note there, click a note to remove it.' : 'Click to add a note, drag right for longer; click a note to remove it.')));
   wrap.appendChild(bar);
   wrap.appendChild(drums ? (view.d === 'steps' ? drumSteps(T, clip) : drumRoll(T, clip)) : (view.n === 'steps' ? noteSteps(T, id, clip) : noteRoll(T, id, clip)));
   return wrap;
+}
+// velocity shapes for a drum row (j: the step, n: the row's length, r: a random number), applied to its hits only
+const GROOVES = {
+  'Even': () => .75, 'Beats loud': j => j % 4 === 0 ? 1 : .6, 'Offbeats loud': j => j % 4 === 2 ? 1 : .5,
+  'Ghosts between': j => j % 2 ? .3 : .85, 'Push and pull': j => [.95, .45, .7, .55][j % 4], 'Rise': (j, n) => .3 + .7*j/Math.max(1, n - 1),
+  'Fall': (j, n) => 1 - .7*j/Math.max(1, n - 1), 'Breathing': (j, n) => .55 + .4*Math.sin(j/n*Math.PI*2), 'Human': (j, n, r) => .55 + .4*r()};
+// (the same "human" every time for the same clip and row)
+const rng = (clip, k) => { let x = [...k].reduce((a, c) => a*31 + c.charCodeAt(0), 7) >>> 0; return () => ((x = (x*1664525 + 1013904223) >>> 0)/4294967296); };
+const LENS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 24, 28, 32, 48, 64];
+const velSel = {};   // the drum row whose velocity lane shows, per track
+// (the row picked, or the first with hits: the hats first)
+const velOf = (T, clip) => { const hits = clip.hits || {}, has = k => hits[k] && /[^.\-\s|]/.test(typeof hits[k] === 'string' ? hits[k] : hits[k].p);
+  return velSel[T.id] && hits[velSel[T.id]] != null ? velSel[T.id] : ['chh', 'ohh', 'shaker', 'ride'].find(has) || Object.keys(hits).find(has) || null; };
+// a lane of values drawn by dragging across it, a bar a step: a row's velocity, a clip's notes', or a volume envelope
+function lane(label, cols, from, get, set, {min = 0, max = 1, fmt = v => Math.round(v*100) + '%', done, cls = ''} = {}){
+  const name = h('span', 'rn lanen', esc(label)), rw = h('div', 'row lane ' + cls), cells = [];
+  rw.style.gridTemplateColumns = `repeat(${cols}, minmax(12px, 1fr))`;
+  const show = (c, v) => { const b = cells[c]; b.classList.toggle('none', v == null); if (v != null) { b.style.setProperty('--h', Math.max(0, Math.min(1, (v - min)/(max - min)))); b.title = fmt(v); } };
+  for (let c = 0; c < cols; c++) { const b = h('i', (from + c) % 4 === 0 ? 'b' : ''); cells.push(b); rw.appendChild(b); show(c, get(from + c)); }
+  let on = false;
+  const paint = e => { const r = rw.getBoundingClientRect(), c = Math.floor((e.clientX - r.left)/r.width*cols); if (c < 0 || c >= cols || get(from + c) == null) return;
+    set(from + c, min + (max - min)*Math.max(0, Math.min(1, 1 - (e.clientY - r.top)/r.height))); for (let k = 0; k < cols; k++) show(k, get(from + k)); };
+  rw.addEventListener('pointerdown', e => { on = true; e.preventDefault(); try { rw.setPointerCapture(e.pointerId); } catch (x) {} paint(e); });
+  rw.addEventListener('pointermove', e => { if (on) paint(e); });
+  rw.addEventListener('pointerup', () => { if (on) { on = false; if (done) done(); } });
+  return [name, rw];
+}
+// a clip's volume envelope (its `auto.vol`, dB a step, going round with the clip): shown on demand, drawn like the lanes
+const envOn = new WeakSet();
+function envLane(T, clip, cols, from){
+  const box = h('div', 'steps envbox'), pts = () => (clip.auto || {}).vol, fader = () => (T.mix || {}).vol || 0;
+  const tg = h('button', 'envtg', envOn.has(clip) ? 'Volume envelope ▾' : 'Volume envelope ▸'); tg.setAttribute('aria-pressed', envOn.has(clip));
+  tg.title = 'Draw the track’s volume over the clip (it goes round with the clip)'; tg.onclick = () => { envOn.has(clip) ? envOn.delete(clip) : envOn.add(clip); edited(clip); };
+  if (!envOn.has(clip)) { box.append(tg, h('span', 'hint', pts() ? 'drawn' : '')); return box; }
+  // (straight between its points; before the first and after the last, held; with none, the fader)
+  const at = i => { const P = pts(); if (!P || !P.length) return fader(); if (i <= P[0][0]) return P[0][1]; for (let k = 1; k < P.length; k++) if (i <= P[k][0]) { const [a, va] = P[k - 1], [b, vb] = P[k]; return va + (vb - va)*(i - a)/Math.max(1e-9, b - a); } return P[P.length - 1][1]; };
+  const [ln, lr] = lane('Volume', cols, from, at, (i, v) => { clip.auto = clip.auto || {}; const P = (clip.auto.vol || []).filter(q => q[0] !== i); P.push([i, Math.round(v*2)/2]); P.sort((a, b) => a[0] - b[0]); clip.auto.vol = P; forget(clip); dataStale = true; },
+    {min: -30, max: 6, fmt: v => fmtDb(v) + ' dB', cls: 'env', done: () => edited(clip)});
+  const clr = h('button', null, 'Clear'); clr.title = 'Take the envelope away (the fader again)'; clr.onclick = () => { if (clip.auto) { delete clip.auto.vol; if (!Object.keys(clip.auto).length) delete clip.auto; } edited(clip); };
+  box.append(tg, clr, ln, lr); return box;
 }
 // a clip's drum rows: every pad of the rack (or voice in the clip), each its own length (a row shorter than the clip goes round)
 function drumRows(T, clip){
@@ -389,19 +434,46 @@ function pager(key, len, redraw){
 function drumSteps(T, clip){
   const len = readClip(clip).len, box = h('div'), st = h('div', 'steps'), [pg, pgr] = pager(clip, len, () => edited(clip)), from = pg*64, cols = Math.min(64, len - from);
   if (pgr) box.appendChild(pgr);
-  for (const {k, row, steps} of drumRows(T, clip)) {
-    const name = h('button', 'rn', esc(padLabel(T, k))); name.title = 'Hear it'; name.onclick = () => audition(T, k);
+  const rows = drumRows(T, clip);
+  for (const {k, row, steps} of rows) {
+    // (its name plays it and picks it for the velocity lane; its length makes polyrhythms: a 3 against the 16 goes round on its own)
+    const head = h('div', 'rhead' + (velOf(T, clip) === k ? ' vel' : '')), name = h('button', 'rn', esc(padLabel(T, k))); name.title = 'Hear it, and shape its velocity below';
+    name.onclick = () => { velSel[T.id] = k; audition(T, k); edited(clip); };
+    const ln = h('select', 'rlen'); ln.title = `${padLabel(T, k)}: steps before it repeats`; ln.setAttribute('aria-label', ln.title);
+    ln.innerHTML = [...new Set([...LENS, steps.length])].sort((a, b) => a - b).map(n => `<option${n === steps.length ? ' selected' : ''}>${n}</option>`).join('');
+    ln.onchange = () => { const n = +ln.value, s2 = steps.slice(0, n); while (s2.length < n) s2.push('.'); setRow(clip, k, row, s2); edited(clip); };
+    const rm = h('button', 'rrm', '✕'); rm.title = `Clear the ${padLabel(T, k)} row`; rm.onclick = () => { delete clip.hits[k]; if (velSel[T.id] === k) delete velSel[T.id]; edited(clip); };
+    head.append(name, ln, rm);
     const rw = h('div', 'row'); rw.dataset.len = len; rw.dataset.from = from; rw.style.gridTemplateColumns = `repeat(${cols}, minmax(14px, 1fr))`;
     // (a row shorter than the clip goes round: its repeats are drawn dimmer, and a click on one edits the row)
-    for (let c = 0; c < cols; c++) { const i = from + c, j = i % steps.length, ch = steps[j], b = h('button', (i % 4 === 0 ? 'b' : '') + (i >= steps.length ? ' rep' : '')), e = hitRow(ch).ev[0];
+    for (let c = 0; c < cols; c++) { const i = from + c, j = i % steps.length, ch = steps[j], b = h('button', (i % 4 === 0 ? 'b' : '') + (i >= steps.length ? ' rep' : '') + (j === 0 && i ? ' wrap' : '')), e = hitRow(ch).ev[0];
       if (e) { b.classList.add('on'); b.style.setProperty('--v', e.v); if (ch === 'X') b.classList.add('acc'); b.title = ch === '?' ? 'half the time' : `velocity ${Math.round(e.v*100)}%`; }
       b.setAttribute('aria-label', `${padLabel(T, k)} step ${i + 1}${e ? ' on' : ''}`); b.dataset.i = i;
       // (a step goes off → on → accent → off)
       b.onclick = () => { const s = [...steps]; s[j] = s[j] === '.' || s[j] === '-' ? 'x' : s[j] === 'X' ? '.' : 'X'; if (s[j] !== '.') audition(T, k); setRow(clip, k, row, s); edited(clip); };
       rw.appendChild(b); }
-    st.append(name, rw);
+    st.append(head, rw);
   }
-  box.appendChild(st); return box;
+  // + a row: any drum voice not in the clip yet (a rack plays it on its own kit if it has no pad)
+  const D = instrument('drums'), have = new Set(rows.map(x => x.k)), add = h('select', 'radd'); add.setAttribute('aria-label', 'Add a drum row');
+  add.innerHTML = '<option value="">+ Row…</option>' + D.voices.filter(v => !have.has(v.key)).map(v => `<option value="${v.key}">${esc(v.label)}</option>`).join('');
+  add.onchange = () => { if (!add.value) return; clip.hits = clip.hits || {}; clip.hits[add.value] = '.'.repeat(16); velSel[T.id] = add.value; edited(clip); };
+  st.append(h('span'), add);
+  // the velocity lane of the row picked: drag across to shape its dynamics (a hat's groove), or a shape from the menu
+  const vk = velOf(T, clip);
+  if (vk) {
+    // (over the row's own length, a bar a step of it: a short row's lane is short too)
+    const cur = () => drumRows(T, clip).find(x => x.k === vk), ev = i => { const R = cur(); if (!R || i >= R.steps.length) return null; const e = hitRow(R.steps[i]).ev[0]; return e ? e.v : null; };
+    const vlen = Math.min(64, (cur() || {steps: []}).steps.length || 16);
+    const [ln, lr] = lane(`${padLabel(T, vk)} velocity`, vlen, 0, ev, (i, v) => { const R = cur(), s2 = [...R.steps]; s2[i % s2.length] = String(Math.max(1, Math.min(9, Math.round(v*9)))); setRow(clip, vk, R.row, s2); forget(clip); dataStale = true; }, {done: () => edited(clip)});
+    st.append(ln, lr);
+    const gs = h('select', 'groove'); gs.setAttribute('aria-label', 'A velocity shape for the row');
+    gs.innerHTML = '<option value="">Groove…</option>' + Object.keys(GROOVES).map(g => `<option>${g}</option>`).join('');
+    gs.onchange = () => { const R = cur(); if (!R || !GROOVES[gs.value]) return; const n = R.steps.length, rnd = rng(clip, vk);
+      setRow(clip, vk, R.row, R.steps.map((c, j) => hitRow(c).ev[0] ? String(Math.max(1, Math.min(9, Math.round(GROOVES[gs.value](j, n, rnd)*9)))) : c)); edited(clip); };
+    st.append(h('span'), gs);
+  }
+  box.appendChild(st); box.appendChild(envLane(T, clip, cols, from)); return box;
 }
 // the roll for drums: a lane a pad, the clip's whole length, hits as blocks
 function drumRoll(T, clip){
@@ -449,7 +521,13 @@ function noteSteps(T, id, clip){
     }
     st.append(name, rw);
   }
-  box.appendChild(st); return box;
+  st.append(...noteVel(clip, cols, from));
+  box.appendChild(st); box.appendChild(envLane(T, clip, cols, from)); return box;
+}
+// the velocity lane under a note clip: a bar for the notes starting on each step (a chord's together)
+function noteVel(clip, cols, from){
+  const get = i => { const v = flatNotes(clip).filter(x => Math.floor(x[0]) === i).map(x => x[3]); return v.length ? Math.max(...v) : null; };
+  return lane('Velocity', cols, from, get, (i, v) => { clip.notes = flatNotes(clip).map(x => Math.floor(x[0]) === i ? [x[0], x[1], x[2], Math.round(v*100)/100, ...(x[4] ? [x[4]] : [])] : x); forget(clip); dataStale = true; }, {done: () => edited(clip)});
 }
 function noteRoll(T, id, clip){
   const r = readClip(clip), [lo, hi] = pitchRange(T, id, clip), rows = hi - lo + 1, RH = 14, W = 1200, H = rows*RH, box = h('div', 'rollbox'), cv = h('canvas', 'roll');
@@ -471,7 +549,8 @@ function noteRoll(T, id, clip){
     drag = {s: Math.floor(x), n, l: 1}; try { cv.setPointerCapture(e.pointerId); } catch (x) {} audition(T, null, n); draw([drag.s, n, 1, .8]); });
   cv.addEventListener('pointermove', e => { if (!drag) return; const [x] = at(e); drag.l = Math.max(1, Math.ceil(x) - drag.s); draw([drag.s, drag.n, drag.l, .8]); });
   cv.addEventListener('pointerup', () => { if (!drag) return; const N = flatNotes(clip); N.push([drag.s, drag.n, drag.l, .8]); N.sort((a, b) => a[0] - b[0] || a[1] - b[1]); clip.notes = N; drag = null; edited(clip); });
-  return box;
+  // (velocity and the volume envelope under it, a bar a step over the whole clip)
+  const out = h('div'), vs = h('div', 'steps rollvel'); vs.append(...noteVel(clip, r.len, 0)); out.append(box, vs, envLane(T, clip, r.len, 0)); return out;
 }
 
 /* ---------- transport and the live view ---------- */

@@ -53,7 +53,7 @@ export default {
 
 A clip loops for as long as its scene plays (from the scene's start). Its length is `bars` (×16 sixteenths) or `steps`, or the length of its longest drum row; clips of different lengths drift against each other (polymeter).
 
-**Drum rows**, one character a sixteenth: `.` or `-` rest, `x` a hit, `X` an accent, `o` a soft hit, `1`–`9` a velocity in ninths, `?` a soft hit half the time, `r` a ratchet (two quick hits). Spaces and `|` are ignored, for reading.
+**Drum rows**, one character a sixteenth: `.` or `-` rest, `x` a hit, `X` an accent, `o` a soft hit, `1`–`9` a velocity in ninths, `?` a soft hit half the time, `r` a ratchet (two quick hits). Spaces and `|` are ignored, for reading. A row shorter than its clip goes round inside it, so rows of different lengths make polyrhythms (a 12-step hat, a 7-step shaker and a 5-step rim over a 16-step kick, in an 8-bar clip, meet again only at its top). The velocity digits are a row's dynamics: a hat's groove is `'x6x9|4x7x|3x8x'`.
 
 ```js
 {hits: {kick: 'x...|x...|x...|x...', chh: 'x.x.|x.xx|x.x.|x.x?', ohh: '..x.|..x.|..x.|..x.'}}
@@ -66,7 +66,9 @@ A clip loops for as long as its scene plays (from the scene's start). Its length
 {bars: 2, notes: [[0, 'A1', 1.5, .9], [3, 'A1', 1], [6, 'C2', 1, .7, {slide: true}], [8, ['A3', 'C4', 'E4'], 2, .6, {p: .5}]]}
 ```
 
-**Clip envelopes**: `auto: {'<path inside the track>': [[step, value], …]}`, going round with the clip: `{auto: {'inst.cut': [[0, 300], [32, 1800]]}}`.
+**Clip envelopes**: `auto: {'<path inside the track>': [[step, value], …]}`, going round with the clip: `{auto: {'inst.cut': [[0, 300], [32, 1800]]}}`. A volume envelope is `{auto: {vol: [[0, -18], [64, -12]]}}` (dB; it moves the track's fader while the clip plays).
+
+**In the page**, the step editor sets each drum row's length (polyrhythms), adds and clears rows, sets the clip's length, and draws the dynamics: a velocity lane under the steps (a drum row's, picked by its name; a groove shape from the menu: even, beats loud, offbeats loud, ghosts between, push and pull, rise, fall, breathing, human) and under the notes, and a clip's volume envelope.
 
 Chance is rolled from the song's `seed`, the track, the clip and how many times round it is: the same song renders the same way every time.
 
