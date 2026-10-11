@@ -262,7 +262,7 @@ export const TUNE = {
     half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
     morphSecs: 2.8, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
     swapSecs: .5, swapEx: .8,                       // flying from the gem to the square (or back): how long its facets are out, and how far they fly
-    detCalm: 1.5, detTension: 1.1, wipeBeats: 4,   // (detCalm: the most levels of facets when calm)                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
+    detCalm: 2, detTension: 1.1, wipeBeats: 4,   // (detCalm: the most levels of facets when calm)                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
     breath: .08,                                    // how much the bass swells the closed gem
     mtn: .3, mtnScale: 2.2, mtnBreath: .5,          // the mountains: how high, how wide their ranges (smaller: broader), how much the bass lifts them
     waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
@@ -274,13 +274,16 @@ export const TUNE = {
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
     extrude: .2, lit: .8,                           // how far lit facets push out; how bright the patterns light it
     openChance: .15,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
-    imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a step's size, more as the music builds; the chance of a leap each phrase line, more as it builds
-      vary: .25, home: .15,                         // how far a returning section's theme is varied; the chance a phrase line comes home to the theme
+    imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a variation's size, more as the music builds; added to the chance of moving on, more as it builds
+      next: .55, fresh: .05, recent: 6,              // the chance each step moves on to the next shape on its tour (ARCH), how much that shape is varied, how many recent ones it won't revisit
+      kinds: {closed: .6, square: .25, open: .15},   // how often each kind is visited: the closed gem's shapes, the square's (donut, tube, ribbon, flat ring), the open ones
+      seenWeight: 1, chance: 1.2,                   // how strongly it prefers shapes it hasn't shown lately, and how much chance there is in the order
+      vary: .2, home: .08,                         // how far a returning section's theme is varied; the chance a phrase line comes home to the theme
       cands: 6, memory: 40,                         // how many shapes it weighs each step; how many it remembers having made
-      novelty: .6, stepScale: 2.5, suit: 1.5,       // how much it prefers shapes unlike those it's made, a step of the size wanted, and sharpness that suits the music
+      novelty: .6, stepScale: 2.5, suit: .4,        // how much a variation prefers shapes unlike those it's made and a step of the size wanted; how much the music's sharpness leans the tour
       openTheme: .2, squareChance: .12, squareStay: .6, openStay: .5,   // ... and the chance each phrase line on the square folds back into the gem, or the open star closes up
       noBarSecs: 6},                                // with no bars from the beat grid (pads, a beatless stretch), it counts a bar every this many seconds   // ... and the chance each phrase line on the square folds back into the gem            // the chance a section's theme is laid open, and that a fresh shape is on the square (a tube, a ring, a twist, the flat ring)
-    act: {base: .1, climb: .25, climbBars: 32, cap: .55,   // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
+    act: {base: .1, climb: .25, climbBars: 32, cap: .4,    // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
       rising: 2.5, fastSecs: 4, slowSecs: 30,      // and lifted while the tension rises above its own level of the last half minute (its quick average against its slow one)
       runUp: .45, dropBars: 8, brk: .35,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown
       rise: 5, fall: 2.5,                           // how quickly it rises and falls (seconds)
