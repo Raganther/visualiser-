@@ -257,7 +257,7 @@ export const TUNE = {
     turn: .05,                 // how fast its rings turn (each the other way from the last)
     hatShare: .1,              // the share of cells the hats light each 16th, at full hats
     layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
-  prism: {chance: 0, size: .5, spin: .22, journey: 1.6,   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
+  prism: {chance: 0, size: .5, spin: .22, journey: 1.6, spinBurst: 1.4, spinBurstSecs: 1.2,   // (spinBurst: three stabs in a bar spin it this much faster, easing out over spinBurstSecs)   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
     r: .45, star: .9,                               // the closed gem's radius; the open star's size against it (its points reach π × r × star)
     half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
     morphSecs: 2.8, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
@@ -296,6 +296,7 @@ export const TUNE = {
       rise: 5, fall: 2.5,                           // how quickly it rises and falls (seconds)
       spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .3, litCalm: .5,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern), how bright its patterns glow
       at: {everyKick: .35, form: .35, kick: .3, sectors: .25, spiral: .35, hat: .4, figure: .45, grow: .5, lift: .5, dance: .4, spin: .6}},
+    free: {dropFloor: .25, actCut: .4, slower: 1.5, spinCut: .5, phraseSecs: 16, stepCut: .5},   // music without a steady beat (Journey's beatClear 0; Us and Them): a drop lifts it to only this, its activity cut by this share, rising, settling and morphing this much slower, turning this much slower, a phrase every this many seconds, the improviser's steps this much smaller
     room: {chance: .3,                             // the room (stage 7, worlds/room.js): the share of sections with the Prism as centrepiece that put it in the room
       far: 4.4, mid: 3.3, near: 1.25, low: 1.05, brk: 1.8, inside: .04,   // the camera's distance: calm (a jewel far off), as it builds, at the end of a run-up (facets filling the screen), low over open land, in a breakdown, inside it on the drop
       insideFrac: .45, ease: 1.8, dive: .35,       // the share of the drop's release spent inside; how quickly the camera moves (s), and how quickly it dives in

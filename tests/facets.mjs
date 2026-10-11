@@ -84,6 +84,11 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
       for (const rule of ['spots', 'stripes', 'swell', 'frost', 'fireflies']) { const pr = pm.prismState().prog; pr.figure = rule; pr.rest = 'figure';
         for (let i = 0; i < 5; i++) { __step(${mode === 'gl' ? 60 : 120}); const X = pm.prismState().X; for (const a of [X.pos, X.fill, X.edge, X.eA, X.off]) for (const v of a) if (!Number.isFinite(v)) bad++; } }
       out.cellsBad = bad; out.cellsPic = ${THUMB}; }
+    // music without a steady beat (Us and Them): a drop swells it instead of shattering it, and it rises slowly
+    { const pm = await import('/src/visuals/objects/prism.js'), s = () => pm.prismState(), fr = {};
+      for (const c of [1, 0]) { pm.prismClear(c); pm.prismForm('gem', true); __step(${mode === 'gl' ? 200 : 400}); const a0 = s().act; J.lastDrop = performance.now() + 20 + c; let ex = 0, act = 0;
+        for (let i = 0; i < 12; i++) { __step(25); ex = Math.max(ex, s().ex); act = Math.max(act, s().act); } fr[c] = {ex, act, a0}; }
+      pm.prismClear(undefined); pm.prismForm(null); out.free = fr; }
     // the arc (stage 6): a drop's run-up climbs in facets and activity; the drop breaks its symmetry, which comes back; a calm follows
     { const pm = await import('/src/visuals/objects/prism.js'); pm.prismForm('gem', true); __step(${mode === 'gl' ? 120 : 300}); const s = () => pm.prismState(), a = {det0: s().det, act0: s().act};
       for (let i = 1; i <= 10; i++) { pm.prismRunUp(i/10); __step(30); } a.det1 = s().det; a.act1 = s().act; pm.prismRunUp(undefined);
@@ -150,6 +155,8 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
   check(`${mode}: the facets as cells, every rule, draw for long with nothing non-finite`, r.out.cellsBad === 0 && diff(r.off, r.out.cellsPic) > .5, `${r.out.cellsBad} bad values`);
   { const a = r.out.arc; check(`${mode}: the arc: a run-up climbs in facets and activity, the drop breaks symmetry and it returns, a calm follows`, (a.det1 > a.det0 || a.det0 === a.F) && a.act1 > a.act0 + .2 && a.asym > .9 && a.asymAfter < .05 && a.calm < .25,
     `facets ${a.det0} → ${a.det1}, activity ${a.act0.toFixed(2)} → ${a.act1.toFixed(2)}, symmetry broken ${a.asym.toFixed(2)} → ${a.asymAfter.toFixed(2)}, calm after ${a.calm.toFixed(2)}`); }
+  { const f = r.out.free; check(`${mode}: without a steady beat a drop swells it rather than shattering it`, f[1].ex > .3 && f[0].ex < .1 && f[0].act < f[1].act - .2,
+    `shatter ${f[1].ex.toFixed(2)} → ${f[0].ex.toFixed(2)}, activity ${f[1].act.toFixed(2)} → ${f[0].act.toFixed(2)}`); }
   check(`${mode}: a returning section brings back its theme, varied`, r.out.back >= 2, `visited ${r.out.back} times`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);

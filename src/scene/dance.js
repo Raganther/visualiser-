@@ -59,6 +59,9 @@ const C = {shape: 'free', t: 0, amt: 0, from: 'free', k: 3, a: 3, b: 2, turn: 0,
 let bar = 0, drops = -1, lastType = null, mood = {c: 1, i: 0, b: 0}, energy = 0;
 
 // the music's mood now: how calm, how intense, how much a breakdown
+// how steady the beat is (Journey's: the low end's pulse, eased): a song played freely (Us and Them) has none to dance to
+const clearOf = J => J && J.beatClear != null ? J.beatClear : 1;
+const BEATY = new Set(['bang', 'groove', 'pulse', 'face', 'spin', 'turns', 'push']);
 function moodNow(J){
   const T = Math.min(1, Math.max(0, SIG.tension || (J ? J.tension : .4))), brk = L.brk ? 1 : 0;
   return {c: (1 - T)*(1 - brk), i: T*(1 - brk), b: brk};
@@ -69,7 +72,8 @@ function choose(d, key, menu, J, character){
   const ty = J && J.type, mem = ty && (ty.dance || (ty.dance = {}));
   if (mem && mem[key] && rnd() < TUNE.dance.remember && mem[key] !== d.move) return mem[key];   // the section's own move comes back
   const w = {};
-  for (const k in menu) w[k] = score(menu[k], mood)*((character && character[k]) ?? 1)*(k === d.move ? .25 : 1);
+  const cl = clearOf(J);   // (without a steady beat, the moves tied to it give way to the flowing ones)
+  for (const k in menu) w[k] = score(menu[k], mood)*((character && character[k]) ?? 1)*(k === d.move ? .25 : 1)*(BEATY.has(k) ? .05 + cl*cl : 1);
   const m = pick(w);
   if (mem && !mem[key]) mem[key] = m;
   return m;
@@ -87,7 +91,7 @@ export function danceBeat(pos, J){
   for (const k in D) {
     const d = D[k];
     d.turn += d.move === 'face' ? d.sign*TAU/(d.n || 4) : d.move === 'turns' ? d.sign*TAU/12 : 0;   // snap turns step round on the bar (a layer by a notch)
-    if (drop) { wrap(d); d.bar = bar; if (d.reach) d.move = 'reach'; else { d.burst = 1; d.move = 'spin'; } continue; }   // a reacher reaches out at us instead of spinning
+    if (drop && clearOf(J) > .5) { wrap(d); d.bar = bar; if (d.reach) d.move = 'reach'; else { d.burst = clearOf(J); d.move = 'spin'; } continue; }   // a reacher reaches out at us instead of spinning (no spin without a steady beat: a band swelling isn't a drop)
     if ((phrase || section || d.move === 'still' && mood.b < .5) && !(d.move === 'reach' && bar - d.bar < 3)) {   // (a reach plays out)
       wrap(d);
       d.move = choose(d, k, k.startsWith('o:') ? OBJ_MOVES : LAYER_MOVES, J, d.character); d.bar = bar;
