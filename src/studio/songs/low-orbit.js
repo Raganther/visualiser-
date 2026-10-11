@@ -52,7 +52,7 @@ export default {
     {id: 'verb', name: 'Hall', chain: [{type: 'reverb', p: {kind: 'Hall', size: .7, damp: .55, pre: .03, low: 300, mix: 1}}, {type: 'eq', bands: [{type: 'lp', f: 7500, slope: 12}]}]},
     {id: 'echo', name: 'Echo', chain: [{type: 'delay', p: {div: '1/8·', fb: .45, tone: 2600, ping: 1, mix: 1}}, {type: 'eq', bands: [{type: 'hp', f: 300, slope: 12}]}, {type: 'width', p: {w: 1.5}}], vol: -1}],
   master: {chain: [{type: 'eq', bands: [{type: 'hp', f: 24, slope: 24}]}, {type: 'comp', id: 'glue', thr: -12, ratio: 2, knee: 6, att: .02, rel: .15},
-    {type: 'limiter', gain: 3.5, ceil: -1}]},
+    {type: 'limiter', gain: 4.3, ceil: -1}]},
   scenes: [
     {id: 'intro', clips: {drums: 'hats', pad: 'a', drone: 'a'}},
     {id: 'groove', clips: {drums: 'groove', bass: 'a', pad: 'a', drone: 'a'}},

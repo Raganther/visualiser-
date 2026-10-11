@@ -44,7 +44,7 @@ export default {
       {type: 'eq', bands: [{type: 'hp', f: 220, slope: 24}]}, {type: 'width', p: {w: 1.7}}], sends: {verb: -10}, vol: -1},
     {id: 'verb', name: 'Hall', chain: [{type: 'reverb', p: {kind: 'Hall', size: .85, damp: .7, pre: .04, low: 250, mix: 1}}, {type: 'eq', bands: [{type: 'lp', f: 6000, slope: 12}]}], vol: -2}],
   master: {chain: [{type: 'eq', bands: [{type: 'hp', f: 24, slope: 24}, {type: 'hs', f: 12000, g: -1}]}, {type: 'comp', id: 'glue', thr: -14, ratio: 2, knee: 8, att: .03, rel: .2},
-    {type: 'limiter', gain: 4, ceil: -1}]},
+    {type: 'limiter', gain: 5.2, ceil: -1}]},
   scenes: [
     {id: 'intro', clips: {chord: 'sparse', hiss: 'a', drone: 'a'}},
     {id: 'pulse', clips: {drums: 'pulse', chord: 'a', hiss: 'a', drone: 'a'}},
