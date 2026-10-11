@@ -130,11 +130,12 @@ function programFor(type, T){
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {act: st.act, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, asym: st.asym, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length}; };
 export const prismProgram = (type, T) => programFor(type, T);
 export const prismForm = (k, now) => { st.hold = k; if (k) { const g = fromForm(k, st.g); goGenome(g, now); if (now) { snapTo(g); } } };
 export const prismImprovise = (size = .5) => improvise(size, 0);   // (tests: one step of the improviser now)
-export const prismSection = ty => { st.testType = ty; };   // (tests: play as if Journey were in this section; undefined lets Journey say again)
+export const prismSection = ty => { st.testType = ty; };
+export const prismRunUp = a => { st.testRunUp = a; };   // (tests: hold the run-up to a drop at a; undefined lets Journey say)   // (tests: play as if Journey were in this section; undefined lets Journey say again)
 
 export default {
   key: 'prism', kind: 'object', label: 'Prism', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
@@ -153,21 +154,24 @@ export default {
     st.t += dt;
     // the section: a new program, its layers sequenced in again
     const type = st.testType !== undefined ? st.testType : J && J.on ? J.type : null;
-    if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0;
+    if (type !== st.type || !st.prog) { st.type = type; st.prog = programFor(type, ten); st.secBars = 0; st.climb0 = 0;
       if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); }
     const pr = st.prog;
     // a drop: it shatters, gains every facet, and a closed form opens out into mountains or an open one snaps shut into a star
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop && st.prog) { const C = BODY[st.body].C; if (st.prog.figure === 'fireflies') syncAll(C); else if (st.prog.figure === 'frost') C.f.fill(1); else if (st.prog.figure === 'swell') touch(C, 'swell', [...C.out.keys()].filter((_, i) => i % 7 === 0), 1); }
-    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
+    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.asymT = st.t; st.asymAx = dirAt(.35 + .3*hash(st.run*.3), hash(st.run*.9)*Math.PI*2); st.climb0 = st.secBars + T.act.dropBars; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
       if (!st.hold) { if (closed() > .5) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }
     st.lastDrop = J ? J.lastDrop : null;
     // how much may move (docs/prism-plan.md, stage 3): the tension, lifted through a drop's run-up and by the drop itself, held
     // low in a breakdown, eased (quicker down than up). Calm, it holds its shape, turns slowly and glints, with one quiet pattern
     // Not the tension's level (steady full-on techno sits high all the time, and kept it busy), but the music moving: a slow
     // climb through a section, the tension rising above its own recent level, the run-up to a drop and the drop
-    const TA = T.act, anticip = (J && J.anticip) || 0, dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT;
+    const TA = T.act, anticip = runUp(J), dropLen = TA.dropBars*4*S.beatPeriod, since = st.t - st.dropT;
     st.tFast = (st.tFast ?? ten) + (ten - (st.tFast ?? ten))*Math.min(1, dt/TA.fastSecs); st.tSlow = (st.tSlow ?? ten) + (ten - (st.tSlow ?? ten))*Math.min(1, dt/TA.slowSecs);
-    let goal = Math.min(TA.cap, TA.base + TA.climb*smooth(st.secBars/TA.climbBars)*(.4 + .6*ten) + TA.rising*Math.max(0, st.tFast - st.tSlow));
+    // the arc (stage 6): the climb starts again after a drop's release, so a long calm follows each drop
+    const climbBars = Math.max(0, st.secBars - Math.max(0, st.climb0 || 0));
+    const afterDrop = since < dropLen + T.arc.calmBars*4*S.beatPeriod;   // (the drop's release and the calm after it: high tension then isn't a build)
+    let goal = Math.min(TA.cap, TA.base + TA.climb*smooth(climbBars/TA.climbBars)*(.4 + .6*ten) + (afterDrop ? 0 : TA.rising*Math.max(0, st.tFast - st.tSlow)));
     if (anticip > .02) goal = Math.max(goal, TA.runUp + (1 - TA.runUp)*anticip);
     if (since < dropLen) goal = Math.max(goal, 1 - since/dropLen);
     if (L.brk) goal *= TA.brk;
@@ -195,11 +199,15 @@ export default {
     st.barT ??= st.t;
     // a phrase line: the improviser takes a step from where it is (bigger as the music builds, now and then a leap); every other one when calm
     if (st.secBars > 0 && st.secBars % (st.act < TA.at.form ? 8 : 4) === 0 && st.phr !== st.bars) { st.phr = st.bars;
-      if (!st.hold && st.t - st.dropT > 8*S.beatPeriod) improvise(L.brk ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct, L.brk ? 0 : T.imp.leap + st.act*T.imp.leapAct); }   // (a breakdown: small, calm steps)
+      if (!st.hold && st.t - st.dropT > 8*S.beatPeriod) { const an = runUp(J);   // (a drop's run-up: bigger steps and leaps as it nears)
+        improvise(L.brk && an < .05 ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct + an*T.arc.stepBuild, L.brk && an < .05 ? 0 : T.imp.leap + st.act*T.imp.leapAct + an*T.arc.leapBuild); } }   // (a breakdown: small, calm steps)
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
     if (L.brk && !st.brk) { if (!st.hold) goGenome(pr.brk === 'star' ? fromForm('star', st.g) : calmer()); setDetail(1 + rnd()*.8); }
     if (!L.brk && st.brk) setDetail(detFor());
     st.brk = L.brk;
+    // a drop's run-up climbs in facets as it nears (whole levels: the front blooms out at each)
+    { const an = runUp(J); if (an > .05 && st.t - st.dropT > 2) { const want = Math.round(detFor() + an*T.arc.detBuild); if (want > st.dTo) setDetail(want); } }
+    st.asym = st.asymT ? Math.max(0, 1 - (st.t - st.asymT)/(T.arc.asymBars*4*S.beatPeriod)) : 0;   // (symmetry broken at the drop, found again over these bars)
     if (st.t - st.dropT > 8*S.beatPeriod && st.t - st.dropT < 8*S.beatPeriod + dt*1.5) setDetail(detFor());
     // the form eases towards its own; the shapes blend; the detail's front blooms out from the middle
     const slow = 1.6 - .6*st.act, tg = st.g, k = Math.min(1, dt/(T.morphSecs*slow)*2.2), kw = Math.min(1, dt/(T.morphSecs*slow)*2.5);   // (calm: slower)
@@ -363,6 +371,7 @@ function calmer(){ const a = pickArch(.2); visit(a); return archetype(kindOf(a) 
 // the mountains, waves and the kick's rings: a height along each point's normal. The ranges are symmetric round the middle
 // (folded into the section's n wedges: even on the square, so its tube's, ring's seams meet), lower towards the edges
 function height(b, v, t, bass, f){
+  const asy = st.asym > .001 ? st.asym*st.asym*TUNE.prism.arc.asymAmt*.4*Math.max(0, b.VD[v*3]*st.asymAx[0] + b.VD[v*3 + 1]*st.asymAx[1] + b.VD[v*3 + 2]*st.asymAx[2]) : 0;
   const T = TUNE.prism, n = st.prog ? st.prog.n[b.kind] : 6, x = b.SX[v], y = b.SY[v], r = Math.hypot(x, y), wedge = Math.PI*2/n;
   let hgt = 0;
   if (f.h > .005 || f.wv > .005) {
@@ -377,7 +386,7 @@ function height(b, v, t, bass, f){
   const lift = (T.ripLift + (T.ripLiftClosed - T.ripLift)*closed())*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift')), dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
   for (const q of st.rip) { const g = st.t - q.t, r0 = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI, rr = q.inv ? 1 - r0 : r0;
     hgt += lift*q.k*Math.exp(-(((rr - g*T.ripSpeed)/.08)**2))*Math.max(0, 1 - g/T.ripSecs); }
-  return hgt;
+  return hgt + asy;
 }
 // the detail: a front of new facets blooming out from the middle
 function detail(b){ const wf = st.wipe*1.25; for (let v = 0; v < b.nv; v++) b.D[v] = st.dTo + (st.dFrom - st.dTo)*smooth((b.VR[v] - wf)/.12 + .5); }
@@ -388,7 +397,7 @@ function shapeGem(b, P, x){
   const WS = NAMES.filter(n => st.w[n] > .01), ws = WS.reduce((a, n) => a + st.w[n], 0) || 1, la = f.la*kc, tw = f.twy*kc;
   const sx = 1 + (f.sqx - 1)*kc, sy = 1 + (f.sqy - 1)*kc, sz = 1 + (f.sqz - 1)*kc;
   const mid = (1 - Math.cos(kk*Math.PI))/(2*kk), sc0 = T.r*(T.star + (1 - T.star)*f.k)*(1 + bass*T.breath*f.k*st.act);
-  const anticip = (x.J && x.J.anticip) || 0, fh = {...f, h: f.h*(1 + anticip*.8)}, S3 = b.S3;
+  const anticip = runUp(x.J), fh = {...f, h: f.h*(1 + anticip*.8)}, S3 = b.S3;
   for (let v = 0; v < b.nv; v++) {
     const th = G.TH[v], s = Math.sin(kk*th), c = Math.cos(kk*th), sc = th < 1e-4 || s < 1e-6 ? 1 : Math.sin(th)*kk/s, ps = G.GC[v] + G.PS[v]*sc;
     const cp = Math.cos(ps), sp = Math.sin(ps);
@@ -397,6 +406,7 @@ function shapeGem(b, P, x){
       const dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
       let R = 0; for (const n of WS) R += SHAPES[n](dx, dy, dz, t)*st.w[n]; R /= ws;
       if (la > .001) R *= 1 + la*Math.sin(f.lf*Math.asin(Math.max(-1, Math.min(1, dy)))*2);
+      if (st.asym > .001) { const a = st.asymAx, d = dx*a[0] + dy*a[1] + dz*a[2]; R *= 1 + st.asym*st.asym*TUNE.prism.arc.asymAmt*Math.max(0, d)**2; }   // (one side swollen out after the drop)
       const q = 1 + (R - 1)*kc; px *= q*sx; py *= q*sy; pz *= q*sz;
       if (Math.abs(tw) > .001) { const a = tw*py, c = Math.cos(a), s2 = Math.sin(a), x2 = c*px - s2*pz; pz = s2*px + c*pz; px = x2; } }
     const hh = height(b, v, t, bass, fh)/sc0;   // (heights in the object's own units, whatever the star's size)
@@ -419,7 +429,7 @@ function surf(x, y, f, o){
 }
 function shapeSheet(b, P, x){
   const G = b.G, f = st.f, UV = G.UV, side = G.side, VI = G.VI, P3 = b.S3, NR = b.NR, e = 2/(side - 1), bass = (P.bass || 0)*x.react;
-  const anticip = (x.J && x.J.anticip) || 0, fh = {...f, h: f.h*(1 + anticip*.8)};
+  const anticip = runUp(x.J), fh = {...f, h: f.h*(1 + anticip*.8)};
   for (let v = 0; v < b.nv; v++) { surf(UV[v*2], UV[v*2 + 1], f, tmp); P3[v*3] = tmp[0]; P3[v*3 + 1] = tmp[1]; P3[v*3 + 2] = tmp[2]; }
   // each point's normal (from its neighbours on the grid; at the edges, from the surface just past them, so seams meet)
   for (let v = 0; v < b.nv; v++) {
@@ -449,7 +459,9 @@ function symCells(b, k){ const n = st.prog.n[b.kind], r = .12 + .55*hash(k*.71 +
 function wedgeCells(b, k){ const n = st.prog.n[b.kind], w = Math.PI*2/n, i0 = k % n, Z = b.FZ[b.AL], out = [];
   for (let c = 0; c < b.NA; c++) if (Math.floor(((Z[c]/w) % n + n) % n) === i0) out.push(c); return out; }
 // how strongly the fireflies are coupled: loose when calm, in step through a drop's run-up (stage 6 plans it)
-const flyK = J => { const T = TUNE.prism.cells, a = (J && J.anticip) || 0; return T.flyK + (T.flyKBuild - T.flyK)*Math.max(a, (st.act - .4)/.6); };
+// how far into a drop's run-up the music is (Journey's read-ahead; a test can hold it)
+const runUp = J => st.testRunUp ?? ((J && J.anticip) || 0);
+const flyK = J => { const T = TUNE.prism.cells, a = runUp(J); return T.flyK + (T.flyKBuild - T.flyK)*Math.max(a, (st.act - .4)/.6); };
 function kick(ten){
   const pr = st.prog; if (!pr) return;
   // its ring: from the middle, or on the closed gem from a new point each time
@@ -492,7 +504,7 @@ function light(b, P, x){
   levels(b, b.casc, b.lv);
   if (pr.figure === 'life') { const lf = new Float32Array(b.NA); for (let c = 0; c < b.NA; c++) lf[c] = b.life[c]; levels(b, lf, b.lv2); }
   else if (RULES.includes(pr.figure)) levels(b, b.C.out, b.lv2);
-  const hats = Math.min(1, SIG.hat*1.4), on = k => sb >= (T.layerBars[k] ?? T.layerBars.cells), anticip = (x.J && x.J.anticip) || 0, kc = closed();
+  const hats = Math.min(1, SIG.hat*1.4), on = k => sb >= (T.layerBars[k] ?? T.layerBars.cells), anticip = runUp(x.J), kc = closed();
   const fade = Math.exp(-(st.t - st.secT)*2.5), cfade = Math.exp(-(st.t - st.chkT)*2.5), mel = Math.min(1, (SIG.harm || 0)*1.2 + (P.mid || 0)*x.react*.6);
   const spinning = st.t - st.spinT < 4*bp, wave = Math.max(0, 1 - (st.t - st.waveT)/(4*bp)), burst = Math.max(0, 1 - (st.t - st.burstT)/(2*bp));
   const rest = pr.rest, gate = k => rest === k ? 1 : at(k);   // (the section's calm pattern plays whatever the activity; the rest come in as it rises)

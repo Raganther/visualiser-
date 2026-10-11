@@ -84,6 +84,10 @@ for (const mode of ['2d', 'gl']) {
       for (const rule of ['spots', 'stripes', 'swell', 'frost', 'fireflies']) { const pr = pm.prismState().prog; pr.figure = rule; pr.rest = 'figure';
         for (let i = 0; i < 5; i++) { __step(${mode === 'gl' ? 60 : 120}); const X = pm.prismState().X; for (const a of [X.pos, X.fill, X.edge, X.eA, X.off]) for (const v of a) if (!Number.isFinite(v)) bad++; } }
       out.cellsBad = bad; out.cellsPic = ${THUMB}; }
+    // the arc (stage 6): a drop's run-up climbs in facets and activity; the drop breaks its symmetry, which comes back; a calm follows
+    { const pm = await import('/src/visuals/objects/prism.js'); pm.prismForm('gem', true); __step(${mode === 'gl' ? 120 : 300}); const s = () => pm.prismState(), a = {det0: s().det, act0: s().act};
+      for (let i = 1; i <= 10; i++) { pm.prismRunUp(i/10); __step(30); } a.det1 = s().det; a.act1 = s().act; pm.prismRunUp(undefined);
+      J.lastDrop = performance.now() + 7; __step(3); a.asym = s().asym; __step(1100); a.asymAfter = s().asym; a.calm = s().act; a.F = s().G.F; out.arc = a; pm.prismForm(null); }
     set('prism', 0); __step(40);
     // the gem orbit: all five
     set('gems', 1); __step(${mode === 'gl' ? 60 : 120}); out.gems = {pic: ${THUMB}, on: S.lastP.m.gems.gems.filter(u => u.w > .5).length};
@@ -125,6 +129,8 @@ for (const mode of ['2d', 'gl']) {
   check(`${mode}: the prism draws and changes as the music plays`, sh > .6 && mv > .2, `shown ${sh.toFixed(1)}, moving ${mv.toFixed(1)}`);
   check(`${mode}: a drop gives it every facet`, p.det1 === p.F && p.det0 < p.F, `${p.det0.toFixed(1)} → ${p.det1} of ${p.F}`);
   check(`${mode}: the facets as cells, every rule, draw for long with nothing non-finite`, r.out.cellsBad === 0 && diff(r.off, r.out.cellsPic) > .5, `${r.out.cellsBad} bad values`);
+  { const a = r.out.arc; check(`${mode}: the arc: a run-up climbs in facets and activity, the drop breaks symmetry and it returns, a calm follows`, (a.det1 > a.det0 || a.det0 === a.F) && a.act1 > a.act0 + .2 && a.asym > .9 && a.asymAfter < .05 && a.calm < .25,
+    `facets ${a.det0} → ${a.det1}, activity ${a.act0.toFixed(2)} → ${a.act1.toFixed(2)}, symmetry broken ${a.asym.toFixed(2)} → ${a.asymAfter.toFixed(2)}, calm after ${a.calm.toFixed(2)}`); }
   check(`${mode}: a returning section brings back its theme, varied`, r.out.back >= 2, `visited ${r.out.back} times`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);

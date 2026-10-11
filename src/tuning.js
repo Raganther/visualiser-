@@ -278,6 +278,8 @@ export const TUNE = {
       frostRate: 4, frostGrow: .35, frostMelt: 8,   // frost: growth steps a second, the chance a facet frosts from one frosted neighbour, how long it takes to melt (s)
       flyBeats: 2, flySpread: .3, flyWidth: .35,    // the fireflies: their cycle in beats, how far apart their clocks run, how long a flash lasts (radians)
       flyK: .05, flyKBuild: .45},                   // how strongly they're pulled into step: calm (apart), and through a build (all in step by the drop)
+    arc: {detBuild: 1.5, stepBuild: .4, leapBuild: .5,   // the arc (stage 6): in a drop's run-up, how many more levels of facets, how much bigger the improviser's steps and how likely its leaps, at the drop
+      asymAmt: .5, asymBars: 6, calmBars: 8},       // ... and after the drop's release, this many bars of calm (rising tension then doesn't count as a build)                    // at the drop its symmetry breaks (one side swollen out) and is found again over these bars
     openChance: .15,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
     imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a variation's size, more as the music builds; added to the chance of moving on, more as it builds
       next: .55, fresh: .05, recent: 6,              // the chance each step moves on to the next shape on its tour (ARCH), how much that shape is varied, how many recent ones it won't revisit
