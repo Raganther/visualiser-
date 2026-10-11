@@ -13,7 +13,7 @@ class Dyn extends AudioWorkletProcessor {
   // look (seconds, set once): the sound held back that long while the gain eases down ahead of each peak (the limiter's
   // 1.5 ms: a gain dropped on one sample makes an edge that rings past the ceiling between the samples)
   constructor(o){ super(); this.gr = 0; this.n = 0; const L = Math.round(((o.processorOptions || {}).look || 0)*sampleRate);
-    this.L = L; if (L) { this.buf = [new Float32Array(L), new Float32Array(L)]; this.want = new Float32Array(L); this.w = 0; } }
+    this.L = L; if (L) { this.buf = [new Float32Array(L), new Float32Array(L)]; this.want = new Float32Array(L); this.w = 0; this.qi = new Float64Array(L + 2); this.qv = new Float32Array(L + 2); this.qh = this.qt = 0; this.n2 = 0; } }
   process(ins, outs, P){
     const inp = ins[0], out = outs[0]; if (!inp || !inp.length) { this.gr = 0; return true; }
     const T = P.thr[0], R = Math.max(1, P.ratio[0]), W = P.knee[0], aA = P.att[0] > 0 ? Math.exp(-1/(P.att[0]*sampleRate)) : 0, aR = Math.exp(-1/(P.rel[0]*sampleRate));
@@ -22,20 +22,28 @@ class Dyn extends AudioWorkletProcessor {
     const mk = P.auto[0] > .5 ? -.6*(curve(0) - 0) : 0, L = inp[0], Rr = inp[1] || inp[0], n = L.length;
     let gr = this.gr, top = 0;
     const LA = this.L, la = LA ? Math.exp(-3/LA) : 0;
+    // (cheap where nothing happens: under the knee a sample needs no logarithm, and with no reduction the gain is the
+    // make-up alone; an iPad's audio thread crackled with a logarithm and a power every sample in every compressor)
+    const quietA = Math.pow(10, (T - W/2)/20), g0 = Math.pow(10, mk/20), gain = gr => gr < 1e-6 ? g0 : Math.pow(10, (mk - gr)/20);
     for (let i = 0; i < n; i++) {
-      const a = Math.max(Math.abs(L[i]), Math.abs(Rr[i])), x = a > 1e-6 ? 20*Math.log10(a) : -120;
-      let want = x - curve(x);
+      const a = Math.max(Math.abs(L[i]), Math.abs(Rr[i]));
+      let want = 0; if (a > quietA) { const x = 20*Math.log10(a); want = x - curve(x); }
       if (LA) {
         // (the most any sample in the window ahead needs, reached by the time it comes out: the gain eases down over the window)
         // (the window holds what's coming; the sample leaving it now gets at least the reduction it needs itself)
-        const w = this.w, leaving = this.want[w]; this.want[w] = want; let m = 0; for (let k = 0; k < LA; k++) if (this.want[k] > m) m = this.want[k];
+        // (the window's most, kept as a falling queue of the samples that could still be it: no search of the window)
+        const w = this.w, leaving = this.want[w], c = this.n2++, Q = this.qi, QV = this.qv, M = LA + 2; this.want[w] = want;
+        while (this.qh !== this.qt && QV[(this.qt - 1 + M) % M] <= want) this.qt = (this.qt - 1 + M) % M;
+        QV[this.qt] = want; Q[this.qt] = c; this.qt = (this.qt + 1) % M;
+        while (Q[this.qh] <= c - LA) this.qh = (this.qh + 1) % M;
+        const m = Math.max(0, QV[this.qh]);
         gr = m > gr ? la*gr + (1 - la)*m : aR*gr + (1 - aR)*m; if (gr < leaving) gr = leaving;
-        const g = Math.pow(10, (mk - gr)/20), o0 = this.buf[0][w], o1 = this.buf[1][w];
+        const g = gain(gr), o0 = this.buf[0][w], o1 = this.buf[1][w];
         this.buf[0][w] = L[i]; this.buf[1][w] = Rr[i]; this.w = (w + 1) % LA;
         out[0][i] = o0*g; if (out[1]) out[1][i] = o1*g;
       } else {
         gr = want > gr ? aA*gr + (1 - aA)*want : aR*gr + (1 - aR)*want;
-        const g = Math.pow(10, (mk - gr)/20);
+        const g = gain(gr);
         for (let c = 0; c < out.length; c++) out[c][i] = (inp[c] || inp[0])[i]*g;
       }
       if (gr > top) top = gr;

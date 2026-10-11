@@ -38,7 +38,9 @@ const songs = SONGS.map(s => structuredClone(s));
 const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const ids = SONGS.map(s => slug(s.title)), mine = SONGS.map(() => false);
 const myId = () => 'my-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-const audio = () => { if (!ctx) ctx = new AudioContext({latencyHint: TUNE.studio.latency}); if (ctx.state === 'suspended') ctx.resume(); return ctx; };
+// (the buffer: the user's choice from the jam's Sound menu, kept on the device, else the tuning's)
+const LAT = 'afterglow.studio.latency', latency = () => { try { return localStorage.getItem(LAT) || TUNE.studio.latency; } catch (e) { return TUNE.studio.latency; } };
+const audio = () => { if (!ctx) ctx = new AudioContext({latencyHint: latency()}); if (ctx.state === 'suspended') ctx.resume(); return ctx; };
 const trackOf = id => song.tracks.find(t => t.id === id);
 // a strip's track (a pad's is its rack) and, for a pad, which
 const ownerOf = id => { const [t, k] = String(id).split(':'); const T = trackOf(t); return {T, k: k && T && T.pads && T.pads[k] ? k : null}; };
@@ -940,7 +942,7 @@ function showView(v){
   try { localStorage.setItem(VIEW, v); } catch (e) {}
 }
 let jamPage = null;
-const jamReady = mountJam({root: $('jamView'), getCtx: audio, toStudio: s => {
+const jamReady = mountJam({root: $('jamView'), getCtx: audio, latency, setLatency: v => { try { localStorage.setItem(LAT, v); } catch (e) {} }, toStudio: s => {
   s.title = `Jam ${mine.filter(Boolean).length + 1}`; load(addMine(s)); showView('studio'); }}).then(p => jamPage = p);
 $('toJam').onclick = () => showView('jam');
 // (?view=studio or ?view=jam picks one; otherwise the one last used, the jam the first time)

@@ -16,7 +16,7 @@ const seg = (list, cur, fn, cls = '') => { const s = h('div', 'jseg ' + cls); fo
 const setSeg = (s, v) => s.querySelectorAll('button').forEach(b => b.classList.toggle('cur', b.dataset.v === String(v)));
 
 // root: the page's element; getCtx: the AudioContext; toStudio(song): open it in the Studio
-export async function mountJam({root, getCtx, toStudio}){
+export async function mountJam({root, getCtx, toStudio, latency = () => 'balanced', setLatency = () => {}}){
   root.innerHTML = '<div class="jload">Getting the jam ready…</div>';
   await SAVE.start();
   const kept = SAVE.all().find(d => d.id === 'jam');
@@ -41,14 +41,22 @@ export async function mountJam({root, getCtx, toStudio}){
   const qSeg = seg(Q.map(([v, l]) => [v, l, v ? `Recorded notes land on the nearest ${l}` : 'Recorded notes stay where you played them']), core.J.q, v => { core.setting('q', v); setSeg(qSeg, v); }, 'jq');
   const lSeg = seg([['bar', 'Bar', 'Changes start on the next bar'], ['now', 'Now', 'Mutes and changes heard at once, in step with the bar']], core.J.launch, v => { core.setting('launch', v); setSeg(lSeg, v); }, 'jl');
   const fSeg = seg(Object.entries(FACES).map(([k, f]) => [k, f.label, f.words]), ctl.face, v => { ctl.face = v; try { localStorage.setItem(LS, v); } catch (e) {} setSeg(fSeg, v); mountFace(); }, 'jf');
+  // the sound's buffer: smaller answers sooner, larger never crackles; a new one needs a new audio context, so the page
+  // keeps the jam and reloads (the delay it gives is shown, once the audio runs)
+  const LATS = [['interactive', 'Quick', 'The least delay; may crackle on an iPad'], ['balanced', 'Smooth', 'A little more delay, no crackle'], ['playback', 'Safest', 'The most delay, for a busy device']];
+  const latSel = h('select', 'jlat'); latSel.title = 'The sound’s buffer: a smaller one answers sooner, a larger one never crackles';
+  for (const [v, l, w] of LATS) { const o = h('option', null, l); o.value = v; o.title = w; latSel.appendChild(o); } latSel.value = latency();
+  latSel.onchange = async () => { setLatency(latSel.value); core.stop(); try { await SAVE.put('jam', core.song, false); } catch (e) {} location.reload(); };
+  const latMs = h('span', 'jlab');
   const studio = btn('Open in Studio ▸', 'jstudio', () => { core.stop(); toStudio(structuredClone(core.song)); }, 'Arrange and mix this jam in the Studio');
   const fresh = btn('New jam', 'jnew', () => { if (!fresh.dataset.sure) { fresh.dataset.sure = 1; fresh.textContent = 'Sure?'; setTimeout(() => { delete fresh.dataset.sure; fresh.textContent = 'New jam'; }, 2500); return; }
     delete fresh.dataset.sure; fresh.textContent = 'New jam'; core.stop(); if (core.player) core.player.dispose(); core = makeJam({getCtx, song: jamSong({bpm: core.song.bpm, key: core.song.key})}); hook(); mountFace(); drawDeck(); paintTop(); }, 'Start again with nothing (the jam you had is replaced)');
   const lab = t => { const s = h('span', 'jlab', t); return s; };
   // (a label stays with its control when the bar wraps)
   const grp = (...els) => { const g = h('span', 'jgrp'); g.append(...els); return g; };
-  top.append(playB, recB, click, groove, grp(lab('Tempo'), tempo), keySel, styleSel, energy, grp(lab('Quantise'), qSeg), grp(lab('Launch'), lSeg), h('span', 'jgap'), grp(lab('Layout'), fSeg), fresh, studio);
+  top.append(playB, recB, click, groove, grp(lab('Tempo'), tempo), keySel, styleSel, energy, grp(lab('Quantise'), qSeg), grp(lab('Launch'), lSeg), h('span', 'jgap'), grp(lab('Layout'), fSeg), grp(lab('Sound'), latSel, latMs), fresh, studio);
   function paintTop(){
+    const c = core.ctx; latMs.textContent = c && c.state === 'running' ? Math.round(((c.baseLatency || 0) + (c.outputLatency || 0))*1000) + ' ms' : '';
     playB.textContent = core.playing() ? '■' : '▶'; playB.classList.toggle('on', core.playing());
     recB.classList.toggle('on', core.rec.on); click.classList.toggle('on', !!core.J.click); tv.textContent = core.song.bpm; keySel.value = core.song.key; styleSel.value = core.J.style; energy.show();
     setSeg(qSeg, core.J.q); setSeg(lSeg, core.J.launch);

@@ -30,7 +30,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   // the player, built once the page has its audio (prepare loads the worklets)
   function ready(){
     if (pl) return Promise.resolve(pl);
-    return building = building || (async () => { ctx = getCtx(); await prepare(ctx); pl = makePlayer(ctx, song, {onNote}); building = null; return pl; })();
+    return building = building || (async () => { ctx = getCtx(); await prepare(ctx); pl = makePlayer(ctx, song, {onNote, meters: false}); building = null; return pl; })();   // (no meters: the jam shows none, and an analyser a strip is work the audio thread needn't do)
   }
   const playing = () => !!(pl && pl.playing);
   const clipsNow = () => Object.fromEntries(PARTS.filter(p => L(p.key).take && !L(p.key).mute).map(p => [p.key, [L(p.key).take, null]]));

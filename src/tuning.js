@@ -522,7 +522,7 @@ export const TUNE = {
     tickMs: 25,                // how often it looks
     limitLook: .0015,          // seconds the limiter looks ahead: the gain eases down before a peak (dropped on one sample, its edge rang past the ceiling); the only delay in the mixer
     tpMargin: 1,               // dB the limiter's clipper aims under its ceiling (drums' true peaks rang ~.6 dB past it; .7 dB with the look-ahead-free compressors)
-    latency: 'interactive',    // the page's audio buffer: 'interactive' (the smallest: a pad sounds as it's hit) or 'playback' (larger, safer on a slow device; 23 ms against 10 here, more on Windows)
+    latency: 'balanced',       // the page's audio buffer unless the user picks one (the jam's Sound): 'interactive' the smallest (a pad sounds as it's hit, but an iPad crackled), 'balanced', 'playback' the largest and safest
     tail: 3,                   // seconds rendered after the last bar (reverb and delay tails)
     meterFall: 18,             // dB a second a meter's peak falls back
     sr: 44100,                 // the sample rate songs render at

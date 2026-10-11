@@ -50,7 +50,7 @@ export function jamSong({bpm = 126, key = 'A minor', title = 'Jam'} = {}){
       {id: 'hook', name: 'Hook', inst: {type: 'fm', preset: 'Wood blip'}, clips: {},
         mix: {vol: -12, pan: .15, chain: [{type: 'eq', bands: [{type: 'hp', f: 250, slope: 24}]}], sends: sends(-16, -8)}}],
     returns: [
-      {id: 'verb', name: 'Hall', chain: [{type: 'reverb', p: {kind: 'Hall', size: .6, damp: .55, pre: .025, low: 300, mix: 1}}]},
+      {id: 'verb', name: 'Hall', chain: [{type: 'reverb', p: {kind: 'Hall', size: .45, damp: .55, pre: .025, low: 300, mix: 1}}]},
       {id: 'echo', name: 'Echo', chain: [{type: 'delay', p: {div: '1/8·', fb: .45, tone: 2600, ping: 1, mix: 1}}, {type: 'eq', bands: [{type: 'hp', f: 300, slope: 12}]}]}],
     master: {chain: [{type: 'eq', bands: [{type: 'hp', f: 24, slope: 24}]}, {type: 'comp', id: 'glue', thr: -12, ratio: 2, knee: 6, att: .02, rel: .15}, {type: 'limiter', gain: 3, ceil: -1}]},
     scenes: [{id: 'jam', clips: {}}],

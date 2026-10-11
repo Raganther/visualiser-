@@ -76,6 +76,11 @@ class Moog extends AudioWorkletProcessor {
     const dm = v('drift')*7; for (let j = 0; j < 3; j++) this.dr[j] = this.dr[j]*.995 + this.rnd()*dm*.06;
     const quiet = this.ae < 1e-5 && P.gate.length === 1 && P.gate[0] < .5 && P.trig.length === 1 && P.trig[0] === this.lt;
     if (quiet) { out.fill(0); this.lg = P.gate[0]; return true; }   // (a voice at rest costs nothing)
+    // (each oscillator's ratio to the played pitch, once a block: the drift moves only here; the pitch's power of two is
+    // then worked out only when the pitch moves, and the filter's only when its cutoff does: an iPad's audio thread crackled)
+    const RT = this.rt || (this.rt = new Float64Array(3)); for (let j = 0; j < 3; j++) RT[j] = Math.pow(2, (O[j] + (D[j] + this.dr[j])/100)/12);
+    const lfoOn = vib !== 0 || lcut !== 0;
+    let G = this.cG, B = this.cB, G2 = G*G, G3 = G2*G, G4 = G3*G;
     for (let i = 0; i < n; i++) {
       const g = a('gate', i), tr = a('trig', i), note = a('note', i), vel = a('vel', i);
       // the contours: struck again on a new trigger or a rising gate (from where they are, so no click), let go on a falling gate
@@ -87,12 +92,13 @@ class Moog extends AudioWorkletProcessor {
       if (this.st === 1 && this.fe > 1) this.fe = 1;
       // the pitch, gliding in semitones; the LFO
       if (this.pc < 0) this.pc = note; this.pc += (note - this.pc)*gc;
-      this.lp = (this.lp + lr/fs) % 1; const lfo = tri ? 1 - 4*Math.abs(this.lp - .5) : Math.sin(2*Math.PI*this.lp);
+      this.lp = (this.lp + lr/fs) % 1; const lfo = !lfoOn ? 0 : tri ? 1 - 4*Math.abs(this.lp - .5) : Math.sin(2*Math.PI*this.lp);
       const semi = this.pc + tune + vib*lfo/100 - 69, fsx = this.fx;
-      for (let j = 0; j < 3; j++) fsx[j] = (440*Math.pow(2, (semi + O[j] + (D[j] + this.dr[j])/100)/12));
-      // the cutoff: the knob, the key, the contour (by velocity), the LFO; its coefficients once a sample
-      const vf = 1 - v('vfilt') + v('vfilt')*vel, fc = Math.min(F*.45, Math.max(15, a('cut', i)*Math.pow(2, kbd*(this.pc - 60)/12 + cenv*this.fe*vf + lcut*lfo)));
-      const gg = Math.tan(Math.PI*fc/F), G = gg/(1 + gg), B = 1/(1 + gg), G2 = G*G, G3 = G2*G, G4 = G3*G;
+      if (semi !== this.lsemi || RT[0] !== this.lrt0 || RT[1] !== this.lrt1 || RT[2] !== this.lrt2) { const f0 = 440*Math.pow(2, semi/12); for (let j = 0; j < 3; j++) fsx[j] = f0*RT[j]; this.lsemi = semi; this.lrt0 = RT[0]; this.lrt1 = RT[1]; this.lrt2 = RT[2]; }
+      // the cutoff: the knob, the key, the contour (by velocity), the LFO; its coefficients when it moves
+      const vf = 1 - v('vfilt') + v('vfilt')*vel, ce = a('cut', i), ex = kbd*(this.pc - 60)/12 + cenv*this.fe*vf + lcut*lfo;
+      if (ce !== this.lce || ex !== this.lex || G === undefined) { const fc = Math.min(F*.45, Math.max(15, ce*Math.pow(2, ex)));
+        const gg = Math.tan(Math.PI*fc/F); G = this.cG = gg/(1 + gg); B = this.cB = 1/(1 + gg); G2 = G*G; G3 = G2*G; G4 = G3*G; this.lce = ce; this.lex = ex; }
       let o = 0;
       for (let ov = 0; ov < 2; ov++) {
         // three band-limited oscillators and noise, mixed hot
