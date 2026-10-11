@@ -526,5 +526,41 @@ export const TUNE = {
     tail: 3,                   // seconds rendered after the last bar (reverb and delay tails)
     meterFall: 18,             // dB a second a meter's peak falls back
     sr: 44100,                 // the sample rate songs render at
+    // the automatic mix (studio/automix.js): it listens to the parts as they play, then sets levels, EQ, ducking and compression
+    mix: {
+      listenBars: 4,           // bars it listens to the parts for (each part's loudness and its energy band by band)
+      masterBars: 2,           // bars it listens to the master for, each pass that brings it to its loudness
+      passes: 3,               // at most this many checking passes after the changes (the levels and the limiter nudged until near)
+      near: 1,                 // LU from the target that's close enough to stop
+      // each part's loudness against the kick and snare's (LU): the middle of the Studio's own five songs, measured part by
+      // part (bass -1.9, hats -12.7, percussion -13.2, chords -16.3, hook -14.7: it ranged -10 to -32)
+      targets: {drums: 0, bass: -2, chords: -16, hook: -13, hats: -13, perc: -14},
+      // the high-pass each part gets (Hz): only the kick and bass keep the lowest octave
+      hp: {drums: 25, bass: 30, chords: 160, hook: 220, hats: 350, perc: 220},
+      // which part keeps a band when two fight there (first keeps it, the other is cut): by the band's place in the spectrum
+      keep: {low: ['drums', 'bass', 'chords', 'hook', 'perc', 'hats'], mid: ['hook', 'chords', 'drums', 'bass', 'perc', 'hats'], high: ['hats', 'perc', 'hook', 'chords', 'drums', 'bass']},
+      cutMax: 5,               // dB at most a clash cuts
+      duckBass: [6, 12],       // dB the bass ducks under the kick: least (whenever both play) and most (where they fight most)
+      duckPad: [3, 5],         // the chords and hook, when they carry low end
+      lowShare: .25,           // how much of a part's energy below 300 Hz makes it carry low end
+      comp: {bass: {ratio: 3, att: .01, rel: .12, over: 3}, chords: {ratio: 2, att: .02, rel: .15, over: 4}, hook: {ratio: 2.5, att: .008, rel: .1, over: 3}},
+      maxStep: 12,             // dB at most a level moves in one step
+      volMax: 12,              // dB at most a fader is raised to (a part quieter than that at its source stays under its place)
+      autoBars: 8,             // Auto: every this many bars, the levels and the master's loudness nudged back
+      autoStep: 1,             // dB at most a nudge
+    },
+    // the mastering presets: a loudness, a ceiling, the glue compressor, and a tonal balance to lean towards (each band's
+    // level per octave against the mids, dB: sub, bass, low-mid, mid, high-mid, presence, high, air; pink noise is flat. First
+    // guesses near the Studio's own songs, which measure sub and bass 11–17 dB over the mids and the presence 4–15 under)
+    masters: {
+      off: {label: 'Off', words: 'the limiter only, as a safety', lufs: null, ceil: -1, ratio: 1, tone: null},
+      club: {label: 'Club', words: 'loud and full for a club system', lufs: -8, ceil: -.8, ratio: 2, att: .02, tone: [9, 11, 5, 0, -4, -8, -8, -12]},
+      punchy: {label: 'Punchy', words: 'loud, the kick and snare snapping through (a slower glue)', lufs: -9, ceil: -.8, ratio: 3, att: .035, tone: [8, 10, 4, 0, -3, -6, -7, -11]},
+      warm: {label: 'Warm', words: 'darker and rounder, a little less loud', lufs: -10, ceil: -1, ratio: 2, att: .025, tone: [10, 12, 6, 0, -5, -10, -11, -15]},
+      open: {label: 'Open', words: 'more dynamic: the hits keep their peaks', lufs: -12, ceil: -1, ratio: 1.5, att: .03, tone: [7, 9, 4, 0, -3, -6, -7, -11]},
+      stream: {label: 'Streaming', words: 'the level streaming services play at', lufs: -14, ceil: -1, ratio: 1.5, att: .03, tone: [7, 9, 4, 0, -3, -6, -7, -11]},
+    },
+    toneAmount: .4,            // how far the master's tone moves towards its preset's balance
+    toneMax: 3,                // dB at most each of its three bands moves
   },
 };

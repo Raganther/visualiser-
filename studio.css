@@ -394,3 +394,26 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .eudeg small{margin-left:4px;color:var(--c)}
 .euopts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .euopts .jseg button.cur{color:var(--c)}
+
+/* the Mix panel (jam/mixpanel.js): over the middle, on the right */
+.jmixb{border-color:var(--duck);color:var(--duck)}
+.jmix{position:absolute;right:12px;top:118px;width:min(400px,calc(100% - 24px));max-height:calc(100% - 140px);overflow:auto;z-index:20;padding:12px 14px;display:flex;flex-direction:column;gap:8px;
+  background:color-mix(in srgb,var(--panel) 96%,transparent);border:1px solid var(--duck);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.mxhead{display:flex;justify-content:space-between;align-items:center} .mxhead b{font-size:18px;color:var(--duck)}
+.jam-view .mxclose{min-height:36px;width:40px;padding:0}
+.mxwords{margin:0;font-size:12px;color:var(--dim)}
+.jam-view .mxgo{min-height:52px;font-size:17px;background:var(--duck);color:#120a20;border-color:var(--duck);font-weight:600}
+.mxgo.busy{opacity:.6}
+.mxsay{position:relative;font-size:13px;min-height:1.4em;padding-bottom:4px}
+.mxsay i{position:absolute;left:0;bottom:0;height:3px;background:var(--duck);border-radius:2px}
+.mxab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mxab .jseg button.cur{color:var(--duck)}
+.mxmatch,.mxauto{font-size:13px;color:var(--dim);display:flex;gap:6px;align-items:center}
+.mxauto input,.mxmatch input{width:20px;height:20px}
+.mxlab{margin-top:4px}
+.mxmasters{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mxmasters button{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2;padding:6px 8px}
+.mxmasters button.cur{border-color:var(--duck);color:var(--duck)}
+.mxmasters small{font-size:11px}
+.mxlevel{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.mxlog{margin:0;padding-left:18px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;gap:3px}

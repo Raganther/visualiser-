@@ -3,6 +3,7 @@
 // hats or the percussion is most of what makes a groove move. Every lane sends to a hall and an echo (off until a
 // Space macro opens them), and the bass and chords duck under the kick.
 const HATS_EQ = {type: 'eq', bands: [{type: 'hp', f: 400, slope: 24}]};
+// (the hats' and percussion's pads 8 dB up from where they started: they sat 28 dB under the kick, the Studio's songs 13)
 const sends = (verb = -40, echo = -40) => ({verb, echo});
 
 // the parts in the order the faces show them: key, label, the instrument to make its ideas with, its colour
@@ -31,17 +32,17 @@ export function jamSong({bpm = 126, key = 'A minor', title = 'Jam'} = {}){
         clips: {}, mix: {sends: sends()}},
       {id: 'hats', name: 'Hats', inst: {type: 'drums', kit: 'Minimal'},
         pads: {
-          chh: pad({vol: -10, chain: [HATS_EQ], sends: sends(-26)}, {name: 'Closed hat', swing: .12, voice: {pan: -.2}}),
-          ohh: pad({vol: -11, chain: [HATS_EQ], sends: sends(-26)}, {name: 'Open hat', swing: .12, voice: {pan: .2}}),
-          ride: pad({vol: -16, chain: [HATS_EQ], sends: sends(-22)}, {kit: '909', voice: {pan: -.3}}),
-          crash: pad({vol: -16, chain: [HATS_EQ], sends: sends(-18)}, {kit: '909'})},
+          chh: pad({vol: -2, chain: [HATS_EQ], sends: sends(-26)}, {name: 'Closed hat', swing: .12, voice: {pan: -.2}}),
+          ohh: pad({vol: -3, chain: [HATS_EQ], sends: sends(-26)}, {name: 'Open hat', swing: .12, voice: {pan: .2}}),
+          ride: pad({vol: -8, chain: [HATS_EQ], sends: sends(-22)}, {kit: '909', voice: {pan: -.3}}),
+          crash: pad({vol: -8, chain: [HATS_EQ], sends: sends(-18)}, {kit: '909'})},
         clips: {}, mix: {sends: sends()}},
       {id: 'perc', name: 'Percussion', inst: {type: 'drums', kit: 'Minimal'},
         pads: {
-          rim: pad({vol: -13, sends: sends(-20, -14)}, {voice: {pan: .3}}),
-          clave: pad({vol: -14, sends: sends(-40, -14)}, {voice: {pan: -.35}}),
-          shaker: pad({vol: -16, chain: [HATS_EQ]}, {kit: '909', voice: {pan: .4}}),
-          cow: pad({vol: -17, sends: sends(-22, -16)}, {voice: {pan: -.15}})},
+          rim: pad({vol: -5, sends: sends(-20, -14)}, {voice: {pan: .3}}),
+          clave: pad({vol: -6, sends: sends(-40, -14)}, {voice: {pan: -.35}}),
+          shaker: pad({vol: -8, chain: [HATS_EQ]}, {kit: '909', voice: {pan: .4}}),
+          cow: pad({vol: -9, sends: sends(-22, -16)}, {voice: {pan: -.15}})},
         clips: {}, mix: {sends: sends()}},
       {id: 'bass', name: 'Bass', inst: {type: 'moog', preset: 'Rubber bass'}, clips: {},
         mix: {vol: -7, chain: [{type: 'eq', bands: [{type: 'hp', f: 32, slope: 24}, {type: 'bell', f: 240, g: -2, q: 1.2}]}, {type: 'sc', src: 'drums:kick', depth: 9, rel: .15}], sends: sends()}},

@@ -456,6 +456,50 @@ const sq = await page.evaluate(async () => {
 check('the jam\'s loop: moved to 7 steps from the third while it plays, the kick where it falls in it, the step heard lit', sq.span[0] === 7 && sq.span[1] === '2,6' && sq.going && sq.lit, f2(sq));
 check('the jam\'s macros: a dozen or more a synth, an LFO macro writing its route into the matrix', sq.many.slice(1).every(n => n >= 12) && /lfo1","cut",0.3/.test(sq.route) && sq.macro === .6, f2(sq));
 check('the jam\'s Euclid: a ring a drum, one more hit spread into the row', sq.eu[1] === sq.eu[0] + 1 && sq.eu[2] === 4, f2(sq.eu));
+// the automatic mix (studio/automix.js, jam/mixer.js): its rules on made-up measurements (levels to their places, the bass
+// ducking under a kick it fights, a clash cut on the part that matters less there, a level set by hand left alone, the
+// master's tone towards its preset, a quieter preset turning the limiter down), then a whole Mix in the page: each part
+// within reach of its place against the kick, the master near its loudness, Streaming near -14, Before / After
+const am = await page.evaluate(async () => {
+  const A = await import('/src/studio/automix.js'), {TUNE} = await import('/src/tuning.js'), o = {};
+  // (frames: 8 bands a frame; the kick and bass both loud in 'bass' together, the chords and hook both in 'mid')
+  const fr = (b, n = 40) => Array.from({length: n}, (_, i) => { const f = new Array(8).fill(1e-6); for (const [k, v] of Object.entries(b)) f[k] = v*(1 + .1*Math.sin(i)); return f; });
+  const part = (lufs, bands, share) => ({lufs, rms: lufs - 3, peak: lufs + 8, share, frames: fr(bands), heard: true});
+  const a = {parts: {drums: part(-10, {1: 1, 4: .2}, [.3, .5, .1, .05, .05, 0, 0, 0]), bass: part(-20, {1: .9}, [.2, .7, .1, 0, 0, 0, 0, 0]),
+    chords: part(-30, {3: .5}, [0, 0, .1, .8, .1, 0, 0, 0]), hook: part(-25, {3: .6}, [0, 0, 0, .8, .2, 0, 0, 0]), hats: part(-15, {6: 1}, [0, 0, 0, 0, 0, .2, .7, .1])}};
+  const roles = {drums: 'drums', bass: 'bass', chords: 'chords', hook: 'hook', hats: 'hats'};
+  const p = A.plan(a, {roles, vols: {drums: 0, bass: 0, chords: 0, hook: 0, hats: 0}, bpm: 125, locks: {hats: true}});
+  const v = path => (p.find(c => c.path === path) || {}).v;
+  o.levels = [v('bass.vol'), v('chords.vol'), v('hook.vol'), v('hats.vol')]; o.duck = v('bass.duck.depth'); o.hp = v('hats.aeq.0.f');
+  o.cut = p.filter(c => /aeq\.[12]\.g/.test(c.path)).map(c => c.path.split('.')[0] + c.v);
+  o.why = p.filter(c => c.why).length;
+  const m = A.masterPlan({lufs: -12, peak: -3, bands: [60, 60, 2, 1, .3, .1, .05, .01]}, TUNE.studio.masters.club), mv = path => (m.find(c => c.path === path) || {}).v;
+  o.tone = [mv('master.tone.0.g'), mv('master.tone.2.g')]; o.gainDown = A.loudGain(4, -8, -14); o.gainUp = A.loudGain(0, -12, -8);
+  return o;
+});
+check('the mix\'s rules: each part to its place against the kick (bass +8, chords +4, hook +2), a level set by hand left alone', f2(am.levels) === '[8,4,2,null]', f2(am));
+check('the mix\'s rules: the bass ducks under a kick it fights, hats high-passed, the hook or chords cut where they fight', am.duck >= 10 && am.hp === 350 && am.cut.length >= 1 && am.why > 5, f2(am));
+check('the mix\'s rules: the master\'s tone leans towards its preset; the limiter turned down for a quieter one, up for a louder', am.tone[0] < 0 && am.gainDown < 0 && am.gainUp > 4, f2(am));
+await page.goto(url + 'studio.html?view=jam'); await page.waitForFunction(() => window.__studio && window.__studio.jamPage);
+const amx = await page.evaluate(async () => {
+  const {TUNE} = await import('/src/tuning.js'), {listen} = await import('/src/studio/automix.js'); TUNE.studio.mix.listenBars = 2; TUNE.studio.mix.masterBars = 2;
+  const pg = __studio.jamPage, c = pg.core, wait = ms => new Promise(r => setTimeout(r, ms)), o = {};
+  c.all(); await c.start(); await wait(300);
+  c.player.E.set('bass.vol', -18); c.player.E.set('chords.vol', 6);
+  document.querySelector('.jmixb').click(); document.querySelector('.mxgo').click(); await wait(100);
+  for (let i = 0; i < 300 && pg.mixer.state.busy; i++) await wait(100);
+  o.log = document.querySelectorAll('.mxlog li').length;
+  const ids = ['drums', 'hats', 'perc', 'bass', 'chords', 'hook'], vol = k => c.player.E.target(k + '.vol').get() || 0;
+  const a = await listen(c.player.E, {ids, secs: 4 * 60/c.song.bpm*4});
+  o.rel = Object.fromEntries(ids.map(k => [k, +(a.parts[k].lufs + vol(k) - a.parts.drums.lufs - vol('drums') - TUNE.studio.mix.targets[k]).toFixed(1)]));
+  o.club = +a.master.lufs.toFixed(1);
+  const h0 = vol('hats'); [...document.querySelectorAll('.mxab button')].find(b => b.textContent === 'Before').click(); o.ab = [h0, vol('hats')];
+  [...document.querySelectorAll('.mxab button')].find(b => b.textContent === 'After').click();
+  await pg.mixer.setPreset('stream'); o.stream = +pg.mixer.state.lufs.toFixed(1);
+  c.stop(); return o;
+});
+check('a Mix in the jam: every part within 3 dB of its place against the kick (the bass buried and the chords too loud to start)', Object.values(amx.rel).every(d => Math.abs(d) <= 3) && amx.log > 8, f2(amx));
+check('a Mix in the jam: the master near Club\'s -8 LUFS, Streaming near -14; Before brings the old levels back', Math.abs(amx.club + 8) <= 2 && Math.abs(amx.stream + 14) <= 1.5 && amx.ab[0] !== amx.ab[1], f2(amx));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();

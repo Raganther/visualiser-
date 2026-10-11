@@ -11,6 +11,7 @@ import { makeDrums, makeBass, makeChords, makeHook, vary as varyClip, grooveOf }
 import { instrument } from '../../audio/engine/registry.js';
 import { PARTS, VOICES, part, jamSong } from './song.js';
 import { macrosOf, at as macroAt, back } from './macros.js';
+import { prepareMix } from '../automix.js';
 
 const BARS = {drums: 2, hats: 2, perc: 2, bass: 4, chords: 4, hook: 2};
 const hasHits = c => c && Object.values(c.hits || {}).some(r => /[^.\-\s|]/.test(typeof r === 'string' ? r : r.p));
@@ -21,6 +22,8 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   song = song || jamSong();
   const J = song.jam = {style: 'minimal', energy: .5, expr: .6, q: 1, launch: 'bar', recBars: 2, click: false, seed: 1, lanes: {}, ...(song.jam || {})};
   for (const p of PARTS) J.lanes[p.key] = {takes: [], take: null, mute: false, ...(J.lanes[p.key] || {})};
+  // (every part's mixing slots ready, so the automatic mix only turns knobs: a jam kept from before gets them too)
+  prepareMix(song, Object.fromEntries(PARTS.map(p => [p.key, p.key])));
   const L = k => J.lanes[k], T = k => song.tracks.find(t => t.id === k), clipOf = k => L(k).take ? T(k).clips[L(k).take] : null;
   const subs = new Set(), emit = what => { for (const f of subs) f(what); };
   let pl = null, building = null, ctx = null;
@@ -202,7 +205,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   async function preset(k, name){ const t = T(k); if (typeOf(k) === 'drums') t.inst.kit = name; else { t.inst.preset = name; t.inst.p = {}; } await rebuild(); emit('sound'); }
   // a lane's volume (dB)
   const vol = k => (T(k).mix || {}).vol || 0;
-  const setVol = (k, v) => { if (pl) pl.E.set(`${k}.vol`, v); else (T(k).mix = T(k).mix || {}).vol = v; emit('sound'); };
+  const setVol = (k, v) => { (J.locks = J.locks || {})[k] = true; if (pl) pl.E.set(`${k}.vol`, v); else (T(k).mix = T(k).mix || {}).vol = v; emit('sound'); };   // (a level set by hand is the user's: the mix leaves it)
 
   /* ---------- the jam's settings ---------- */
   async function setTempo(bpm){ song.bpm = Math.max(60, Math.min(200, Math.round(bpm))); await rebuild(); emit('settings'); }

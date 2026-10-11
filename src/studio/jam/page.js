@@ -8,6 +8,8 @@ import { FACES } from './faces.js';
 import { h, btn, bar, hue, macroRow, pads, keys, more } from './kit.js';
 import { STYLES } from '../improv.js';
 import * as SAVE from '../saved.js';
+import { makeMixer } from './mixer.js';
+import { mountMixPanel } from './mixpanel.js';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(r => ['minor', 'dorian', 'phrygian', 'major'].map(m => `${r} ${m}`));
 const Q = [[1, '1/16'], [2, '1/8'], [4, '1/4'], [0, 'Off']];
@@ -20,7 +22,7 @@ export async function mountJam({root, getCtx, toStudio, latency = () => 'balance
   root.innerHTML = '<div class="jload">Getting the jam ready…</div>';
   await SAVE.start();
   const kept = SAVE.all().find(d => d.id === 'jam');
-  let core = makeJam({getCtx, song: kept ? kept.song : jamSong()});
+  let core = makeJam({getCtx, song: kept ? kept.song : jamSong()}), mixer = makeMixer(core);
   const ctl = {lane: 'drums', oct: 0, chord: false, face: (() => { try { return localStorage.getItem(LS) || 'grid'; } catch (e) { return 'grid'; } })(),
     select(k){ if (ctl.lane === k) return; ctl.lane = k; ctl.chord = k === 'chords'; ctl.oct = 0; face.refresh(); drawDeck(); }};
   root.innerHTML = '';
@@ -48,13 +50,14 @@ export async function mountJam({root, getCtx, toStudio, latency = () => 'balance
   for (const [v, l, w] of LATS) { const o = h('option', null, l); o.value = v; o.title = w; latSel.appendChild(o); } latSel.value = latency();
   latSel.onchange = async () => { setLatency(latSel.value); core.stop(); try { await SAVE.put('jam', core.song, false); } catch (e) {} location.reload(); };
   const latMs = h('span', 'jlab');
+  const mixB = btn('Mix', 'jmixb', () => panel.toggle(), 'Mix and master it automatically');
   const studio = btn('Open in Studio ▸', 'jstudio', () => { core.stop(); toStudio(structuredClone(core.song)); }, 'Arrange and mix this jam in the Studio');
   const fresh = btn('New jam', 'jnew', () => { if (!fresh.dataset.sure) { fresh.dataset.sure = 1; fresh.textContent = 'Sure?'; setTimeout(() => { delete fresh.dataset.sure; fresh.textContent = 'New jam'; }, 2500); return; }
-    delete fresh.dataset.sure; fresh.textContent = 'New jam'; core.stop(); if (core.player) core.player.dispose(); core = makeJam({getCtx, song: jamSong({bpm: core.song.bpm, key: core.song.key})}); hook(); mountFace(); drawDeck(); paintTop(); }, 'Start again with nothing (the jam you had is replaced)');
+    delete fresh.dataset.sure; fresh.textContent = 'New jam'; core.stop(); if (core.player) core.player.dispose(); core = makeJam({getCtx, song: jamSong({bpm: core.song.bpm, key: core.song.key})}); mixer.dispose(); mixer = makeMixer(core); panel.rebind(); hook(); mountFace(); drawDeck(); paintTop(); }, 'Start again with nothing (the jam you had is replaced)');
   const lab = t => { const s = h('span', 'jlab', t); return s; };
   // (a label stays with its control when the bar wraps)
   const grp = (...els) => { const g = h('span', 'jgrp'); g.append(...els); return g; };
-  top.append(playB, recB, click, groove, grp(lab('Tempo'), tempo), keySel, styleSel, energy, grp(lab('Quantise'), qSeg), grp(lab('Launch'), lSeg), h('span', 'jgap'), grp(lab('Layout'), fSeg), grp(lab('Sound'), latSel, latMs), fresh, studio);
+  top.append(playB, recB, click, groove, grp(lab('Tempo'), tempo), keySel, styleSel, energy, grp(lab('Quantise'), qSeg), grp(lab('Launch'), lSeg), h('span', 'jgap'), grp(lab('Layout'), fSeg), grp(lab('Sound'), latSel, latMs), mixB, fresh, studio);
   function paintTop(){
     const c = core.ctx; latMs.textContent = c && c.state === 'running' ? Math.round(((c.baseLatency || 0) + (c.outputLatency || 0))*1000) + ' ms' : '';
     playB.textContent = core.playing() ? '■' : '▶'; playB.classList.toggle('on', core.playing());
@@ -88,8 +91,10 @@ export async function mountJam({root, getCtx, toStudio, latency = () => 'balance
   let saveT = 0, raf = 0;
   const keep = () => { clearTimeout(saveT); saveT = setTimeout(() => SAVE.put('jam', core.song, false).catch(() => {}), 1200); };
   let unsub = null;
+  let unmix = null;
   function hook(){
-    if (unsub) unsub();
+    if (unsub) unsub(); if (unmix) unmix();
+    unmix = mixer.on(st => { if (!st.busy) { keep(); if (deckMacros) deckMacros.refresh(); } });
     unsub = core.on(w => {
       if (w === 'transport' || w === 'rec' || w === 'settings') paintTop();
       if (w === 'takes' || w === 'mute' || w === 'notes' || w === 'loop') { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => face.refresh()); }
@@ -97,9 +102,11 @@ export async function mountJam({root, getCtx, toStudio, latency = () => 'balance
       if (typeof w === 'string' && w !== 'transport') keep();
     });
   }
+  // the Mix panel, over the middle (its changes are the song's: kept like any other)
+  const panel = mountMixPanel(root, () => mixer);
   hook(); mountFace(); drawDeck(); paintTop();
   // (whether it's shown by `hidden`, not offsetParent: a fixed page has none, and the playheads never moved)
   const loop = () => { if (!root.hidden && face) face.frame(); requestAnimationFrame(loop); }; loop();
   document.addEventListener('keydown', e => { if (root.hidden || e.target.closest('input,select,textarea')) return; if (e.code === 'Space') { e.preventDefault(); core.toggle(); } });
-  return {get core(){ return core; }, ctl, stop: () => core.stop(), face: () => face, select: k => ctl.select(k), setFace: v => fSeg.querySelector(`[data-v="${v}"]`).click()};
+  return {get core(){ return core; }, get mixer(){ return mixer; }, panel, ctl, stop: () => core.stop(), face: () => face, select: k => ctl.select(k), setFace: v => fSeg.querySelector(`[data-v="${v}"]`).click()};
 }
