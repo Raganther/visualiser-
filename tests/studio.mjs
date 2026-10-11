@@ -500,6 +500,34 @@ const amx = await page.evaluate(async () => {
 });
 check('a Mix in the jam: every part within 3 dB of its place against the kick (the bass buried and the chords too loud to start)', Object.values(amx.rel).every(d => Math.abs(d) <= 3) && amx.log > 8, f2(amx));
 check('a Mix in the jam: the master near Club\'s -8 LUFS, Streaming near -14; Before brings the old levels back', Math.abs(amx.club + 8) <= 2 && Math.abs(amx.stream + 14) <= 1.5 && amx.ab[0] !== amx.ab[1], f2(amx));
+// the band (jam/hear.js, jam/band.js): it hears the key (the jam's own over its relative, which shares every note) and
+// the chords bar by bar; a part edited by hand becomes the user's; its chords follow the user's bass bar by bar; its hook
+// answers a phrase played live on the keys in the bars after, in the key; the user's bass changed while it plays, it
+// fits again on the next phrase line
+await page.goto(url + 'studio.html?view=jam'); await page.waitForFunction(() => window.__studio && window.__studio.jamPage);
+const bd = await page.evaluate(async () => {
+  const H = await import('/src/studio/jam/hear.js'), wait = ms => new Promise(r => setTimeout(r, ms)), o = {};
+  const pcs = new Array(12).fill(0); for (const [pc, w] of [[2, 5], [4, 2], [5, 3], [7, 2], [9, 4], [10, 2], [0, 2]]) pcs[pc] = w;
+  o.key = H.keyFrom(pcs).name; const c4 = new Array(12).fill(0); for (const pc of [0, 4, 7, 9, 5, 2, 11]) c4[pc] = 1; o.rel = H.keyFrom(c4, {root: 9, mode: 'minor'}).name;
+  const pg = __studio.jamPage, c = pg.core, b = pg.band; await c.ready(); c.setKey('A minor');
+  const roots = [33, 29, 36, 31], bass = []; roots.forEach((p, i) => { for (const s of [0, 3, 8, 11]) bass.push([i*16 + s, p, 2, .9]); });
+  c.setNotes('bass', bass, 64); c.setRow('drums', 'kick', 'x...x...x...x...');
+  o.mine = b.B.roles.bass;
+  b.setOn(true); await wait(300);
+  o.heard = [b.state.heard.K.name, b.state.heard.chords.join()];
+  const ch = c.clip('chords'); o.follow = [0, 1, 2, 3].every(bar => ch.notes.filter(n => Math.floor(n[0]/16) === bar).flatMap(n => [].concat(n[1])).some(p => p % 12 === roots[bar] % 12));
+  for (const p of [64, 67, 69, 72]) { await c.noteOn('chords', p, .8, 'x' + p); await wait(100); c.noteOff('chords', 'x' + p); }
+  b.decide(); await wait(50);
+  const hk = c.clip('hook'); o.answer = [[...new Set(hk.notes.map(n => Math.floor(n[0]/16)))].join(), hk.notes.every(n => [0, 2, 3, 5, 7, 8, 10].includes(((n[1] - 9) % 12 + 12) % 12)), hk.by];
+  const n0 = c.lane('chords').takes.length; c.toggleNote('bass', 6, 40);
+  for (let i = 0; i < 150 && c.lane('chords').takes.length === n0; i++) await wait(100);
+  o.refit = [c.lane('chords').takes.length > n0, (b.state.log[0] || {}).s];
+  b.setOn(false); c.stop(); return o;
+});
+check('the band hears the key (D minor from its notes; A minor kept over C major, its relative) and the chords bar by bar (i VI III VII)', bd.key === 'D minor' && bd.rel === 'A minor' && bd.heard[0] === 'A minor' && bd.heard[1] === '0,5,2,6', f2(bd));
+check('the band: a bass edited by hand is yours; its chords follow your bass bar by bar', bd.mine === 'mine' && bd.follow, f2(bd));
+check('the band: the hook answers a phrase played live, in the bars after (2 and 4), in the key', bd.answer[0] === '1,3' && bd.answer[1] && bd.answer[2] === 'band', f2(bd.answer));
+check('the band: your bass changed while it plays, it fits again on the next phrase line, and says so', bd.refit[0] && /your bass/.test(bd.refit[1]), f2(bd.refit));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();

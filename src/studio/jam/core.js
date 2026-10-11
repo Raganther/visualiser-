@@ -56,9 +56,9 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
     for (let b = Math.max(clicked.b + 1, Math.ceil((ctx.currentTime - E.t0)/B)); E.t0 + b*B < ctx.currentTime + .2; b++) { blip(E.t0 + b*B, b % 4 === 0); clicked.b = b; } }, 25);
 
   /* ---------- takes ---------- */
-  function addTake(k, clip, {go = true} = {}){
+  function addTake(k, clip, {go = true, bar = false} = {}){
     const t = T(k), n = Math.max(0, ...Object.keys(t.clips).map(x => +x.slice(1) || 0)) + 1, id = 't' + n;
-    t.clips[id] = clip; L(k).takes.push(id); if (go) { L(k).take = id; launch(k); }
+    t.clips[id] = clip; L(k).takes.push(id); if (go) { L(k).take = id; launch(k, bar ? false : undefined); }
     sceneNow(); emit('takes'); return id;
   }
   function pick(k, id){ if (!T(k).clips[id] || L(k).take === id) return; L(k).take = id; launch(k); sceneNow(); emit('takes'); }
@@ -70,6 +70,15 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
     for (const p of others) { L(p.key).mute = !all; launch(p.key); } if (!all) { L(k).mute = false; launch(k); } sceneNow(); emit('mute'); }
   // the jam's scene: what plays now, so the song opened in the Studio starts as you left it
   function sceneNow(){ song.scenes[0].clips = Object.fromEntries(PARTS.filter(p => L(p.key).take && !L(p.key).mute).map(p => [p.key, L(p.key).take])); }
+
+  // (what's played or edited by hand is the user's: the band leaves it and plays round it; New and Vary are the band's to develop)
+  const mark = c => { if (c) c.by = 'you'; return c; };
+  // a take from the band: always on the bar line, and the band's oldest takes let go so a long jam doesn't pile them up
+  function put(k, clip, by = 'band'){
+    clip.by = by; const id = addTake(k, clip, {bar: true}), l = L(k), t = T(k);
+    while (l.takes.length > 30) { const old = l.takes.find(x => x !== l.take && (t.clips[x] || {}).by !== 'you'); if (!old) break; l.takes.splice(l.takes.indexOf(old), 1); delete t.clips[old]; }
+    return id;
+  }
 
   /* ---------- ideas ---------- */
   const opts = () => ({style: J.style, energy: J.energy, expr: J.expr, key: song.key, seed: J.seed++});
@@ -110,7 +119,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
     const E = pl.E, x = (t - E.t0)/E.S16; let run = E.clipRun(k, Math.floor(x));
     // (nothing playing in the lane: a new empty loop from this bar, so the first note played starts it)
     if (!run || L(k).mute || run.id !== L(k).take) {
-      if (!L(k).take || empty(clipOf(k))) { const len = J.recBars*16; L(k).mute = false; const id = addTake(k, part(k).kind === 'drums' ? {steps: len, hits: {}} : {steps: len, notes: []}, {go: false});
+      if (!L(k).take || empty(clipOf(k))) { const len = J.recBars*16; L(k).mute = false; const id = addTake(k, mark(part(k).kind === 'drums' ? {steps: len, hits: {}} : {steps: len, notes: []}), {go: false});
         L(k).take = id; rec.pass[k] = id; E.over[k] = {clip: id, at: Math.floor(x/16)*16}; sceneNow(); emit('takes'); run = {id, at: E.over[k].at}; }
       else { L(k).mute = false; E.over[k] = {clip: L(k).take, at: Math.floor(x/16)*16}; sceneNow(); emit('mute'); run = {id: L(k).take, at: E.over[k].at}; }
     }
@@ -120,8 +129,8 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   }
   // the first thing recorded in a pass makes a new take (a copy of the loop), so Undo takes the whole pass back
   function passTake(k){
-    if (rec.pass[k] === L(k).take) return clipOf(k);
-    const id = addTake(k, JSON.parse(JSON.stringify(clipOf(k))), {go: false}); pl.swapClip(k, id); L(k).take = id; rec.pass[k] = id; sceneNow(); emit('takes');
+    if (rec.pass[k] === L(k).take) return mark(clipOf(k));
+    const id = addTake(k, mark(JSON.parse(JSON.stringify(clipOf(k)))), {go: false}); pl.swapClip(k, id); L(k).take = id; rec.pass[k] = id; sceneNow(); emit('takes');
     return clipOf(k);
   }
   // (a hit or note recorded just ahead of the scheduler would play again a moment later: that one sixteenth is skipped)
@@ -153,14 +162,14 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
   // a step in the loop by hand (the focus face's grid): a drum's hit on, then louder, then off
   function toggleStep(k, s, voice){
     if (!clipOf(k)) clear(k);
-    const c = clipOf(k), len = (c.start || 0) + readClip(c).len; c.hits = c.hits || {};
+    const c = mark(clipOf(k)), len = (c.start || 0) + readClip(c).len; c.hits = c.hits || {};
     const a = [...(rowStr(c.hits[voice]) || '.'.repeat(len))], i = s % a.length, v = a[i];
     a[i] = v === '.' || v === '-' ? '6' : /[1-7]/.test(v) || v === 'o' || v === '?' ? '9' : '.'; c.hits[voice] = a.join('');
     forget(c); emit('notes');
   }
   function toggleNote(k, s, pitch){
     if (!clipOf(k)) clear(k);
-    const c = clipOf(k), i = (c.notes || []).findIndex(e => Math.floor(e[0]) === s && [].concat(e[1]).includes(pitch));
+    const c = mark(clipOf(k)), i = (c.notes || []).findIndex(e => Math.floor(e[0]) === s && [].concat(e[1]).includes(pitch));
     if (i >= 0) c.notes.splice(i, 1); else c.notes = [...(c.notes || []), [s, pitch, 1, .8]].sort((a, b) => a[0] - b[0]);
     forget(c); emit('notes');
   }
@@ -177,8 +186,8 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
     delete c.bars; c.steps = len; if (start) c.start = start; else delete c.start; forget(c); emit('loop');
   }
   // a drum row as a whole (its own length: a row shorter than the loop goes round inside it), or every note at once
-  function setRow(k, voice, str){ if (!clipOf(k)) clear(k); const c = clipOf(k); c.hits = c.hits || {}; if (str && /[^.]/.test(str)) c.hits[voice] = str; else delete c.hits[voice]; forget(c); emit('notes'); }
-  function setNotes(k, notes, len = null){ if (!clipOf(k)) clear(k); const c = clipOf(k); c.notes = notes.sort((a, b) => a[0] - b[0]); if (len) { delete c.bars; delete c.start; c.steps = len; } forget(c); emit('notes'); }
+  function setRow(k, voice, str){ if (!clipOf(k)) clear(k); const c = mark(clipOf(k)); c.hits = c.hits || {}; if (str && /[^.]/.test(str)) c.hits[voice] = str; else delete c.hits[voice]; forget(c); emit('notes'); }
+  function setNotes(k, notes, len = null){ if (!clipOf(k)) clear(k); const c = mark(clipOf(k)); c.notes = notes.sort((a, b) => a[0] - b[0]); if (len) { delete c.bars; delete c.start; c.steps = len; } forget(c); emit('notes'); }
   // the editors' own settings kept with the take (a Euclid row's hits, length and turn), so it opens as it was left
   const meta = k => { const c = clipOf(k); return c ? (c.ed = c.ed || {}) : {}; };
 
@@ -219,7 +228,7 @@ export function makeJam({getCtx, song = null, onNote = null} = {}){
 
   return {song, J, PARTS, ready, start, stop, toggle, playing, rebuild, pos: () => pl ? pl.pos() : -1, lanePos,
     lane: L, clip: clipOf, empty: k => empty(clipOf(k)), takes: k => L(k).takes, pick, step, mute, solo, fresh, vary, all, clear, length, quantise,
-    hit, noteOn, noteOff, rec, setRec, toggleStep, toggleNote, loopOf, setLoop, setRow, setNotes, meta,
+    hit, noteOn, noteOff, rec, setRec, toggleStep, toggleNote, loopOf, setLoop, setRow, setNotes, meta, put,
     macros, macro, setMacro, groups, get, set, presets, presetOf, preset, vol, setVol,
     setTempo, setKey, setSwing, setting, on: f => (subs.add(f), () => subs.delete(f)), get player(){ return pl; }, get ctx(){ return ctx; }};
 }
