@@ -2,7 +2,8 @@
 // The scheduler walks the song a sixteenth at a time ("windows"): the clips each track plays there (from the arrangement,
 // or the scenes launched by hand), their notes with swing and chance, the automation lanes and modulators. Live, the page's
 // clock drives it a little ahead of time; offline, it runs between the context's suspends, so a render is the song as played.
-import { instrument } from '../audio/engine/registry.js';
+import { instrument, prepare } from '../audio/engine/registry.js';
+export { prepare };
 import { SHAPES, lfoHz } from '../audio/engine/inst/vkit.js';
 import { makeDesk } from './desk.js';
 import { arrangement, readClip, scene } from './song.js';
@@ -52,7 +53,7 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
       const k = r.slice(1).join('.'), q = tr.inst.param(k), ip = tr.t.inst, pad = tr.t.pads && tr.t.pads[r[1]];
       const get = () => tr.I.key === 'drums' ? (tr.inst.P[r[1]] || {})[r[2]] : tr.inst.P[k];
       const put = v => { if (pad) (pad.voice = pad.voice || {})[r[2]] = v; else if (tr.I.key === 'drums') { const vo = ip.voices = ip.voices || {}; (vo[r[1]] = vo[r[1]] || {})[r[2]] = v; } else (ip.p = ip.p || {})[k] = v; };
-      return q ? {ps: [q.p], map: q.map, get, put, inst: tr.inst, k} : {set: v => tr.inst.set(k, v), get, put, inst: tr.inst, k};
+      return q ? {ps: q.ps || [q.p], map: q.map, get, put, inst: tr.inst, k} : {set: v => tr.inst.set(k, v), get, put, inst: tr.inst, k};
     }
     return desk.target(id, rest);
   };
@@ -141,6 +142,7 @@ export async function renderSong(song, {bars, from = 0, solo, sr = TUNE.studio.s
   // (soloing a track, or a rack's pad: 'drums:kick')
   if (solo) for (const t of song.tracks) { t.mix = t.mix || {}; t.mix.solo = [].concat(solo).includes(t.id); for (const [k, p] of Object.entries(t.pads || {})) { p.mix = p.mix || {}; p.mix.solo = [].concat(solo).includes(t.id + ':' + k); } }
   const S16 = 60/song.bpm/4, n0 = from*16, N = (bars || arrangement(song).bars - from)*16, ctx = new OfflineAudioContext(2, Math.ceil((N*S16 + tail)*sr), sr);
+  await prepare(ctx);
   const E = buildSong(ctx, song, {onNote});
   // (the windows a beat at a time, a beat ahead: suspending every sixteenth cost more than the music)
   const C = chunk; E.startAt(0, n0); for (let n = 0; n < Math.min(N, 2*C); n++) E.window(n0 + n);

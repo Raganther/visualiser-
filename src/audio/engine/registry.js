@@ -19,8 +19,11 @@ import autopan from './fx/autopan.js';
 import analog from './inst/analog.js';
 import fm from './inst/fm.js';
 import { drums, poly } from './inst/kits.js';
+import moog from './inst/moog.js';
 
-export const INSTRUMENTS = [drums, analog, fm, poly];
+export const INSTRUMENTS = [drums, analog, fm, moog, poly];
+// what instruments need loaded on a context before they're made (the Moog's worklet)
+export const prepare = ctx => Promise.all(INSTRUMENTS.filter(i => i.prepare).map(i => i.prepare(ctx)));
 export const EFFECTS = [delay, reverb, chorus, flanger, phaser, drive, crush, filter, eq, comp, pump, width, autopan];
 export const instrument = key => INSTRUMENTS.find(i => i.key === key);
 export const effect = key => EFFECTS.find(e => e.key === key);

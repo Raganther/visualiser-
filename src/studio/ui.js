@@ -3,7 +3,7 @@
 // roll), render it offline to measure and save it, and read or paste the song as data. Every tweak and edit is written
 // into the song, so what's heard is what's copied out.
 import { SONGS } from './songs/index.js';
-import { makePlayer, renderSong } from './engine.js';
+import { makePlayer, renderSong, prepare } from './engine.js';
 import { arrangement, check, forget, hitRow, noteName, noteNum, readClip, stripsOf } from './song.js';
 import { instrument, EFFECTS } from '../audio/engine/registry.js';
 import { note as busNote } from '../audio/engine/events.js';
@@ -45,12 +45,21 @@ function load(i){
   drawArr(); drawSession(); if (ctx) build(); drawMixer(); drawDetail(); showData();
 }
 // the graph, on the page's audio context (made on the first click: browsers start sound only from one)
+// (async: the Moog's worklet is loaded onto the context first; a second call while it loads gets the same player)
+let building = null;
 function build(){
-  if (player) return player;
-  player = makePlayer(audio(), song, {onNote: e => busNote({t: e.t, src: 'studio', ch: e.voice || e.track, note: typeof e.note === 'number' ? e.note : 36, vel: e.vel, len: e.len})});
-  specAn = ctx.createAnalyser(); specAn.fftSize = 4096; specAn.smoothingTimeConstant = .8;
-  player.E.desk.strips.get('master').out.connect(specAn);
-  return player;
+  if (player) return Promise.resolve(player);
+  return building = building || (async () => {
+    const c = audio(); await prepare(c);
+    const s0 = song;
+    if (!player && s0 === song) {
+      player = makePlayer(c, song, {onNote: e => busNote({t: e.t, src: 'studio', ch: e.voice || e.track, note: typeof e.note === 'number' ? e.note : 36, vel: e.vel, len: e.len})});
+      specAn = ctx.createAnalyser(); specAn.fftSize = 4096; specAn.smoothingTimeConstant = .8;
+      player.E.desk.strips.get('master').out.connect(specAn);
+      drawDetail();
+    }
+    building = null; return player;
+  })();
 }
 
 /* ---------- arrangement ---------- */
@@ -60,7 +69,7 @@ function drawArr(){
 }
 $('arr').addEventListener('click', e => {
   const A = arrangement(song), r = $('arr').getBoundingClientRect(), bar = Math.floor((e.clientX - r.left)/r.width*A.bars);
-  const p = A.parts.find(x => bar >= x.at && bar < x.at + x.bars); build().play({bar: e.target.closest('.part') ? p.at : bar}); setPlay();
+  const p = A.parts.find(x => bar >= x.at && bar < x.at + x.bars); build().then(pl => { pl.play({bar: e.target.closest('.part') ? p.at : bar}); setPlay(); });
 });
 
 /* ---------- session: a click launches a clip (or a scene) on the next bar ---------- */
@@ -71,12 +80,12 @@ function drawSession(){
   const tb = h('tbody');
   for (const sc of song.scenes) {
     const r = h('tr'), th = h('th', 'scene'), b = h('button', null, '▶ ' + esc(sc.id)); b.dataset.scene = sc.id; b.title = `Launch the scene ${sc.id} on the next bar`;
-    b.onclick = () => { build().launch(sc.id); setPlay(); };
+    b.onclick = () => build().then(pl => { pl.launch(sc.id); setPlay(); });
     th.appendChild(b); r.appendChild(th);
     song.tracks.forEach((x, i) => { const td = h('td'), c = (sc.clips || {})[x.id];
       if (c) { const cb = h('button', 'clip', `<span class="tri">▶</span>${esc(c)}`); cb.style.setProperty('--tc', HUE(i)); cb.dataset.track = x.id; cb.dataset.clip = c; cb.dataset.row = sc.id;
         cb.title = `${x.name || x.id}: launch clip ${c} on the next bar (and edit it below)`;
-        cb.onclick = () => { sel = x.id; selClip = c; drawDetail(); markSel(); build().launchClip(x.id, c, sc.id); setPlay(); };
+        cb.onclick = () => { sel = x.id; selClip = c; drawDetail(); markSel(); build().then(pl => { pl.launchClip(x.id, c, sc.id); setPlay(); }); };
         td.appendChild(cb); }
       r.appendChild(td); });
     tb.appendChild(r);
@@ -166,7 +175,7 @@ function padsCard(T){
     b.onclick = () => audition(T, k); b.ondblclick = () => { sel = T.id + ':' + k; drawDetail(); markSel(); }; g.appendChild(b); }
   c.appendChild(g); return c;
 }
-const audition = (T, k, n) => { const pl = build(), tr = pl.E.tracks.find(x => x.t.id === T.id); if (tr) tr.inst.play(n == null ? k : n, ctx.currentTime + .02, .25, .9); };
+const audition = (T, k, n) => build().then(pl => { const tr = pl.E.tracks.find(x => x.t.id === T.id); if (tr) tr.inst.play(n == null ? k : n, ctx.currentTime + .02, .25, .9); });
 // one pad: its voice's knobs
 function voiceCard(T, k){
   const I = instrument('drums'), v = I.voices.find(x => x.key === k), c = card(`${v ? v.label : k} <small>${esc(T.pads[k].kit || T.inst.kit)} kit</small>`), ks = h('div', 'knobs');
@@ -350,7 +359,7 @@ function noteRoll(T, id, clip){
 
 /* ---------- transport and the live view ---------- */
 const setPlay = () => { $('play').textContent = player && player.playing ? '↺ Restart' : '▶ Play'; };
-$('play').onclick = () => { build().play({bar: 0}); setPlay(); };
+$('play').onclick = () => build().then(pl => { pl.play({bar: 0}); setPlay(); });
 $('stop').onclick = () => { if (player) player.stop(); setPlay(); };
 document.addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)) { e.preventDefault(); if (player && player.playing) $('stop').onclick(); else $('play').onclick(); } });
 
@@ -439,11 +448,11 @@ $('copy').onclick = async () => { const t = $('json'); try { await navigator.cli
 $('paste').onclick = () => {
   let s; try { s = JSON.parse($('json').value); } catch (e) { $('dmsg').textContent = 'That isn’t valid JSON: ' + e.message; $('dmsg').className = 'dmsg bad'; return; }
   const bad = check(s); if (bad.length) { $('dmsg').textContent = bad.slice(0, 4).join(' · '); $('dmsg').className = 'dmsg bad'; return; }
-  const was = player && player.playing; songs[idx] = s; load(idx); if (was) { build().play({bar: 0}); setPlay(); } $('dmsg').textContent = 'Loaded.';
+  const was = player && player.playing; songs[idx] = s; load(idx); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); $('dmsg').textContent = 'Loaded.';
 };
 
 /* ---------- start ---------- */
-SONGS.forEach((s, i) => { const b = h('button', null, esc(s.title)); b.onclick = () => { const was = player && player.playing; load(i); if (was) { build().play({bar: 0}); setPlay(); } }; $('songs').appendChild(b); });
+SONGS.forEach((s, i) => { const b = h('button', null, esc(s.title)); b.onclick = () => { const was = player && player.playing; load(i); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); }; $('songs').appendChild(b); });
 load(0);
 // (for tests: the player, the song, and a reset to the song as written)
 window.__studio = {get player(){ return player; }, get song(){ return song; }, reset(){ songs[idx] = structuredClone(pristine[idx]); load(idx); }, load, view};

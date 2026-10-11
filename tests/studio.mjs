@@ -64,6 +64,19 @@ const r = await page.evaluate(async () => {
     if (!(pk > .01 && pk < 1 && rms(L, 4.5, 5) < pk*.003)) o.fm.push(`${name}: peak ${pk.toFixed(3)}`); }
   { const b = []; for (const idx of [.2, 2]) { const [L] = await off(.6, ctx => { const s = makeFm(ctx, ctx.destination); s.load({...FP['E-piano'], index: idx}); s.play(60, .05, .5); }); b.push(bright(L, .1, .3)); } o.fmIndex = b[1]/b[0]; }
 
+  // the Moog: its worklet loads, every preset sounds and dies away without DC, the emphasis rings at the cutoff, a slide glides
+  { const M = await import('/src/audio/engine/inst/moog.js'); o.moog = {bad: []};
+    for (const [name, p] of Object.entries(M.PRESETS)) {
+      const ctx = new OfflineAudioContext(2, SR*6, SR); o.moog.ok = await M.prepare(ctx); const s = M.makeMoog(ctx, ctx.destination); s.load(p); s.play(/bass|sub|Squelch/i.test(name) ? 36 : 57, .05, .8, .8);
+      const b = await ctx.startRendering(), d = b.getChannelData(0), pk = peak(d); let dc = 0; for (let i = SR*.2; i < SR*.8; i++) dc += d[i]; dc /= SR*.6;
+      if (!(pk > .01 && pk < 1 && rms(d, 5.5, 6) < pk*.003 && Math.abs(dc) < rms(d, .2, .8)*.03)) o.moog.bad.push(`${name}: peak ${pk.toFixed(3)}, dc ${dc.toFixed(4)}`);
+    }
+    // a 220 Hz cutoff with the emphasis up rings there over a saw at 55 Hz (its 4th harmonic, against the 2nd)
+    const ring = async res => { const ctx = new OfflineAudioContext(2, SR, SR); await M.prepare(ctx); const s = M.makeMoog(ctx, ctx.destination); s.load({w1: 'Saw', l2: 0, l3: 0, cut: 220, res, cenv: 0, kbd: 0, drive: .2, as: 1}); s.play(33, .05, .9); const b = await ctx.startRendering(), d = b.getChannelData(0); return tone(d, 220, .4, .9)/tone(d, 110, .4, .9); };
+    o.moog.ring = [await ring(0), await ring(.9)];
+    const ctx = new OfflineAudioContext(2, SR*1.2, SR); await M.prepare(ctx); const s = M.makeMoog(ctx, ctx.destination); s.load({w1: 'Saw', l2: 0, l3: 0, cut: 6000, cenv: 0, glide: .05, as: 1}); s.play(48, .1, .55); s.play(55, .5, .5);
+    const b = await ctx.startRendering(), d = b.getChannelData(0); o.moog.glide = tone(d, 196, .8, 1)/tone(d, 130.8, .8, 1); }
+
   /* the devices */
   const through = async (dev, src, secs = 1, desk) => off(secs, ctx => { const d = makeDevice(ctx, dev, desk || {onNote: () => () => {}, tap: () => null}, {period: () => .5, clock: {}, onNote: () => () => {}}); src(ctx, d.input); d.output.connect(ctx.destination); });
   const sine = f => (ctx, dest) => { const s = ctx.createOscillator(); s.frequency.value = f; const g = ctx.createGain(); g.gain.value = .25; s.connect(g); g.connect(dest); s.start(); };
@@ -120,6 +133,9 @@ check('an LFO in time swings the cutoff', r.lfo > 1.3, r.lfo.toFixed(2));
 check('legato glides to the next note without a new attack', r.legato.to > 5 && r.legato.dip > .8, f2(r.legato));
 check('every FM preset sounds and dies away', !r.fm.length, r.fm.join('; '));
 check('the FM\'s depth makes it brighter', r.fmIndex > 1.3, r.fmIndex.toFixed(2));
+check('the Moog\'s worklet loads, and every preset sounds, dies away and carries no DC', r.moog.ok && !r.moog.bad.length, r.moog.bad.join('; '));
+check('the Moog\'s emphasis rings at the cutoff', r.moog.ring[1] > r.moog.ring[0]*3, f2(r.moog.ring));
+check('the Moog glides to an overlapping note', r.moog.glide > 5, r.moog.glide.toFixed(1));
 check('the EQ: a 6 dB bell lifts its frequency 6 dB, a 24 dB cut takes 50 Hz down by far more', Math.abs(r.eq.bell - 6) < .5 && r.eq.cut < -40, f2(r.eq));
 check('the compressor turns a loud tone down', r.comp < -6, r.comp.toFixed(1));
 check('the sidechain ducks by its depth right after the kick, and is back before the next', r.sc.dip < -9 && r.sc.dip > -13 && Math.abs(r.sc.back) < 1, f2(r.sc));
