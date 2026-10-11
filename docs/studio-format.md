@@ -79,8 +79,15 @@ Devices (`src/studio/devices.js`), each `{type, …settings}`, with an optional 
 - `comp`: `thr` (dB), `ratio`, `knee` (dB), `att`, `rel` (s), `gain` (make-up dB), `mix` (below 1: parallel compression). The browser's compressor also adds a little make-up of its own as it compresses.
 - `sc`, the sidechain: `src` (a track), `voice` (only its drum voice, say `kick`), `depth` (dB), `att`, `hold`, `rel` (s). It ducks on the source's notes, known ahead, so it lands on the kick's first sample. `mode: 'audio'` follows the source's sound instead, with `thr`, `ratio`, `range`.
 - `limiter`: `gain` (dB in), `ceil` (dB, the most out; a soft clipper after a fast compressor), `rel`.
+- `mseq`, the mid/side EQ: `bands` as the EQ's, each with `ch: 'mid'` or `'side'`, and `side` (dB, the sides' level). A side low cut keeps the bass mono; a side high shelf opens the air without touching the middle.
+- `dyneq`, the dynamic EQ: `bands: [{type: 'bell' | 'ls' | 'hs', f, q, thr, range, ratio, g}]`. Each band listens to its own frequencies and moves only past its threshold (dB), by up to `range` dB (below 0 a cut, above a lift), by the ratio; `g` is a static gain; `speed` (s) for all. For low-mids that build up only when two parts play together.
+- `multiband`: `lo`, `hi` (the crossovers, Hz), `bands: [{thr, ratio, gain, drive}]` low, mid, high (three of them; `drive` dB of saturation in that band before its compressor), `att`, `rel`, `knee`, `mix`. With every ratio 1 and no drive it sums back flat. Unlike `comp`, its compressors add no make-up of their own: `gain` is all there is.
+- `transient`: `attack`, `sustain` (dB, ±12): the hit's front and its ring, whatever the level.
+- `tape`: `drive` (dB), `bump` (dB at 70 Hz, the head bump), `hf` (Hz, the highs rolled off), `bias` (0–.5, the lopsided curve's warmth: even harmonics). `console`: `drive` (dB, an even curve: odd harmonics). Both keep quiet sounds at their level.
 - `gain`: `db`. `mono`: `f` (sums the lows below f to mono).
 - Every effect in the audio registry, its settings in `p`: `delay` (`div`: '1/16' … '4 bars', `fb`, `tone`, `ping`, `mix`), `reverb` (`kind`: Hall, Room, Plate; `size`, `damp`, `pre`, `low`, `mix`), `chorus`, `flanger`, `phaser`, `drive` (`kind`: Warm, Hard, Valve, Fold; `amt`, `tone`, `out`, `mix`), `crush`, `filter`, `width`, `autopan`, `pump`, and the groovebox's `eq` and `comp` (named `eq`/`comp` in the registry: inside a Studio chain those names mean the Studio's own, above).
+
+A song can carry `ref`: a reference track's measurements (`name`, `lufs`, `truePeak`, `lra`, `tilt`, `side`, `lowSide`, `corr`, `bands`, `thirds`, `width`; the numbers only, not the audio), set by the page's Reference panel, so it comes back with the song and the mix can be compared with it.
 
 On a return, set the effect's `mix` to 1 (the return is all effect; the dry sound is the track's own).
 

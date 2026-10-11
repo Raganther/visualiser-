@@ -7,7 +7,8 @@ import { makePlayer, renderSong, prepare } from './engine.js';
 import { arrangement, check, forget, hitRow, noteName, noteNum, readClip, stripsOf } from './song.js';
 import { instrument, EFFECTS } from '../audio/engine/registry.js';
 import { note as busNote } from '../audio/engine/events.js';
-import { report, paint } from './measure.js';
+import { report, paint, gonio, compare, matchEq, advise } from './measure.js';
+import { clashes } from './clash.js';
 import { wav } from './wav.js';
 import { zip } from './zip.js';
 import { knob } from '../ui/widgets.js';
@@ -49,7 +50,7 @@ function load(i){
   const A = arrangement(song), secs = A.bars*240/song.bpm;
   $('about').innerHTML = `<b>${esc(song.title)}</b>: ${song.tracks.length} tracks, ${song.scenes.length} scenes, ${A.bars} bars (${Math.floor(secs/60)}:${String(Math.round(secs % 60)).padStart(2, '0')}). ` +
     `Press Play for the arrangement, or click clips and scenes in the session to launch them on the next bar.`;
-  $('rep').innerHTML = ''; $('save').hidden = true; $('gram').hidden = true;
+  $('rep').innerHTML = ''; $('save').hidden = true; $('gram').hidden = true; $('clashRep').innerHTML = ''; showRef();
   showSaved();
   drawArr(); drawSession(); if (ctx) build(); drawMixer(); drawDetail(); showData();
 }
@@ -62,13 +63,19 @@ function build(){
     const c = audio(); await prepare(c);
     const s0 = song;
     if (!player && s0 === song) {
-      player = makePlayer(c, song, {onNote: e => busNote({t: e.t, src: 'studio', ch: e.voice || e.track, note: typeof e.note === 'number' ? e.note : 36, vel: e.vel, len: e.len})});
-      specAn = ctx.createAnalyser(); specAn.fftSize = 4096; specAn.smoothingTimeConstant = .8;
-      player.E.desk.strips.get('master').out.connect(specAn);
+      player = makePlayer(c, song, {onNote: e => busNote({t: e.t, src: 'studio', ch: e.voice || e.track, note: typeof e.note === 'number' ? e.note : 36, vel: e.vel, len: e.len}), onBuild: hook});
       drawDetail();
     }
     building = null; return player;
   })();
+}
+
+// the spectrum and the goniometer listen to the master; hung on again each time the graph is built
+let gonA = null, gonSp = null;
+function hook(E){
+  if (!specAn) { specAn = ctx.createAnalyser(); specAn.fftSize = 4096; specAn.smoothingTimeConstant = .8;
+    gonSp = ctx.createChannelSplitter(2); gonA = [0, 1].map(i => { const a = ctx.createAnalyser(); a.fftSize = 2048; gonSp.connect(a, i); a.buf = new Float32Array(2048); return a; }); }
+  const out = E.desk.strips.get('master').out; out.connect(specAn); out.connect(gonSp);
 }
 
 /* ---------- arrangement ---------- */
@@ -108,7 +115,28 @@ function drawSession(){
 }
 
 /* ---------- the mixer ---------- */
-const DEV = {eq: 'EQ', comp: 'Comp', sc: 'SC', limiter: 'Lim', gain: 'Gain', mono: 'Mono', reverb: 'Verb', delay: 'Delay', width: 'Width', filter: 'Filt', drive: 'Drive', autopan: 'Pan'};
+const DEV = {eq: 'EQ', comp: 'Comp', sc: 'SC', limiter: 'Lim', gain: 'Gain', mono: 'Mono', multiband: 'MB', dyneq: 'DynEQ', transient: 'Trans', mseq: 'M/S', tape: 'Tape', console: 'Cons',
+  reverb: 'Verb', delay: 'Delay', width: 'Width', filter: 'Filt', drive: 'Drive', autopan: 'Pan'};
+// the mixer's own devices as the page adds them (a registry effect comes in at its defaults)
+const NEW_DEV = {
+  eq: {type: 'eq', bands: [{type: 'hp', f: 30, slope: 24}, {type: 'bell', f: 300, q: 1, g: 0}, {type: 'bell', f: 2500, q: 1, g: 0}, {type: 'hs', f: 9000, g: 0}]},
+  dyneq: {type: 'dyneq', bands: [{type: 'bell', f: 250, q: 1.4, thr: -30, range: -6, ratio: 3}, {type: 'bell', f: 3500, q: 2, thr: -30, range: -4, ratio: 3}]},
+  mseq: {type: 'mseq', side: 0, bands: [{type: 'hp', f: 150, slope: 24, ch: 'side'}, {type: 'hs', f: 8000, g: 0, ch: 'side'}, {type: 'bell', f: 300, q: 1, g: 0, ch: 'mid'}]},
+  comp: {type: 'comp', thr: -18, ratio: 3, att: .01, rel: .15, gain: 0, mix: 1},
+  multiband: {type: 'multiband', lo: 200, hi: 2500, att: .01, rel: .15, mix: 1, bands: [0, 1, 2].map(() => ({thr: -18, ratio: 2, gain: 0, drive: 0}))},
+  transient: {type: 'transient', attack: 0, sustain: 0},
+  tape: {type: 'tape', drive: 6, bump: 1.5, hf: 15000, bias: .2},
+  console: {type: 'console', drive: 3},
+  limiter: {type: 'limiter', gain: 0, ceil: -.3}, mono: {type: 'mono', f: 120}, gain: {type: 'gain', db: 0}};
+const TITLE = {eq: 'EQ', comp: 'Compressor', limiter: 'Limiter', multiband: 'Multiband', dyneq: 'Dynamic EQ', transient: 'Transient shaper', mseq: 'Mid/side EQ', tape: 'Tape', console: 'Console', mono: 'Mono bass', gain: 'Gain'};
+const ADD = [['eq', 'EQ'], ['dyneq', 'Dynamic EQ'], ['mseq', 'Mid/side EQ'], ['comp', 'Compressor'], ['multiband', 'Multiband compressor'], ['transient', 'Transient shaper'],
+  ['tape', 'Tape'], ['console', 'Console'], ['limiter', 'Limiter'], ['mono', 'Mono bass']];
+// where a strip's settings live in the song, and its chain of devices
+const mixOf = id => { const {T, k} = ownerOf(id); if (k) return T.pads[k].mix = T.pads[k].mix || {}; if (T) return T.mix = T.mix || {};
+  return id === 'master' ? (song.master = song.master || {}) : [...(song.groups || []), ...(song.returns || [])].find(x => x.id === id); };
+const chainOf = id => { const m = mixOf(id); return m.chain = m.chain || []; };
+// a chain changed: the graph is built again (playing on), and the page redrawn
+function rechained(){ dataStale = true; if (player) { const was = player.playing; player.rebuild(); if (!was) player.stop(); } drawMixer(); drawDetail(); markSel(); }
 function drawMixer(){
   const m = $('mixer'); m.innerHTML = '';
   stripsOf(song).filter(d => d.kind !== 'pad' || open.has(d.rack)).forEach(d => {
@@ -170,6 +198,13 @@ function drawDetail(){
   else if (T && T.pads) cards.appendChild(padsCard(T));
   else if (T) cards.appendChild(instCard(T));
   (d.chain || []).forEach((x, k) => cards.appendChild(devCard(d, x, k)));
+  { const add = h('select', 'adddev'); add.setAttribute('aria-label', `Add a device to ${d.name || d.id}`);
+    add.innerHTML = '<option value="">+ Device…</option><optgroup label="Mixing">' + ADD.map(([k, l]) => `<option value="${k}">${l}</option>`).join('') +
+      '</optgroup><optgroup label="Effects">' + EFFECTS.filter(e => !['eq', 'comp'].includes(e.key)).map(e => `<option value="${e.key}">${esc(e.label)}</option>`).join('') + '</optgroup>';
+    // (on the master, before its limiter: the limiter stays last)
+    add.onchange = () => { if (!add.value) return; const ch = chainOf(d.id), x = structuredClone(NEW_DEV[add.value] || {type: add.value, p: {}}), li = ch.findIndex(z => z.type === 'limiter');
+      ch.splice(li >= 0 && add.value !== 'limiter' ? li : ch.length, 0, x); rechained(); };
+    cards.appendChild(add); }
   if (d.sends && Object.keys(d.sends).length) { const c = card('Sends'), ks = h('div', 'knobs');
     for (const [r, v] of Object.entries(d.sends)) ks.appendChild(kn((song.returns.find(x => x.id === r) || {}).name || r, -40, 6, -40, v, fmtDb, `${d.id}.send.${r}`));
     c.appendChild(ks); cards.appendChild(c); }
@@ -236,7 +271,15 @@ function synthFace(T, I){
   return c;
 }
 function devCard(d, x, k){
-  const c = card(`${DEV[x.type] && x.type !== 'sc' ? {eq: 'EQ', comp: 'Compressor', limiter: 'Limiter'}[x.type] || x.type : x.type === 'sc' ? 'Sidechain from ' + esc(x.src || 'kick') : x.type}`, `<span class="gr" data-k="${k}"></span>`), path = `${d.id}.${k}`, ks = h('div', 'knobs');
+  const nm = x.type === 'sc' ? 'Sidechain from ' + esc(x.src || 'kick') : TITLE[x.type] || (EFFECTS.find(e => e.key === x.type) || {}).label || x.type;
+  const c = card(`${nm}${x.id ? ` <i class="dim">${esc(x.id)}</i>` : ''}`, `<span class="gr" data-k="${k}"></span>`), path = `${d.id}.${k}`, ks = h('div', 'knobs');
+  // (◂ moves it earlier in the chain, ✕ takes it out)
+  const tools = h('span', 'devtools'), mv = h('button', null, '◂'), rm = h('button', null, '✕'); mv.title = 'Earlier in the chain'; rm.title = `Remove the ${nm}`; mv.disabled = !k;
+  mv.onclick = () => { const ch = chainOf(d.id); [ch[k - 1], ch[k]] = [ch[k], ch[k - 1]]; rechained(); };
+  rm.onclick = () => { if (!rm.dataset.sure) { rm.dataset.sure = 1; rm.textContent = 'Remove?'; setTimeout(() => { delete rm.dataset.sure; rm.textContent = '✕'; }, 3000); return; } chainOf(d.id).splice(k, 1); rechained(); };
+  tools.append(mv, rm); c.querySelector('h4').appendChild(tools);
+  const sub = (name, ...kids) => { const g = h('div', 'syngroup', `<h5>${name}</h5>`), kk = h('div', 'knobs'); kk.append(...kids); g.appendChild(kk); return g; };
+  const sec = fmtOf({unit: 's'}), pct = fmtOf({unit: '%'}), ratio = r => r.toFixed(1) + ':1';
   if (x.type === 'eq') {
     const cv = h('canvas', 'eqc'); cv.width = 520; cv.height = 160; c.appendChild(cv); drawEq(cv, d, k);
     (x.bands || []).forEach((b, i) => {
@@ -253,6 +296,40 @@ function devCard(d, x, k){
   } else if (x.type === 'sc') {
     const v = {depth: 8, rel: .18, hold: .03, ...x};
     ks.append(kn('Depth', 0, 24, 8, v.depth, v => v.toFixed(1) + 'dB', `${path}.depth`), kn('Hold', 0, .2, .03, v.hold, fmtOf({unit: 's'}), `${path}.hold`), kn('Release', .02, 1, .18, v.rel, fmtOf({unit: 's'}), `${path}.rel`, true));
+  } else if (x.type === 'multiband') {
+    const v = {lo: 200, hi: 2500, att: .01, rel: .15, mix: 1, ...x};
+    ks.append(kn('Low | mid', 40, 1000, 200, v.lo, fmtHz, `${path}.lo`, true), kn('Mid | high', 500, 12000, 2500, v.hi, fmtHz, `${path}.hi`, true),
+      kn('Attack', .001, .2, .01, v.att, sec, `${path}.att`, true), kn('Release', .02, 1, .15, v.rel, sec, `${path}.rel`, true), kn('Mix', 0, 1, 1, v.mix, pct, `${path}.mix`));
+    c.appendChild(ks);
+    const row = h('div', 'mbands');
+    ['Low', 'Mid', 'High'].forEach((n, i) => { const b = {thr: 0, ratio: 1, gain: 0, drive: 0, ...(x.bands || [])[i]};
+      row.appendChild(sub(n, kn('Threshold', -48, 0, 0, b.thr, fmtDb, `${path}.${i}.thr`), kn('Ratio', 1, 20, 1, b.ratio, ratio, `${path}.${i}.ratio`, true),
+        kn('Make-up', -12, 12, 0, b.gain, fmtDb, `${path}.${i}.gain`), kn('Drive', 0, 18, 0, b.drive, fmtDb, `${path}.${i}.drive`))); });
+    c.appendChild(row); c.classList.add('wide'); return c;
+  } else if (x.type === 'dyneq') {
+    c.appendChild(ks); const row = h('div', 'mbands');
+    (x.bands || []).forEach((b, i) => row.appendChild(sub(`${{ls: 'Low shelf', hs: 'High shelf'}[b.type] || 'Bell'} ${i + 1}`,
+      kn('Freq', 30, 16000, 300, b.f || 300, fmtHz, `${path}.${i}.f`, true), kn('Q', .3, 8, 1.4, b.q || 1.4, v => v.toFixed(1), `${path}.${i}.q`, true),
+      kn('Threshold', -60, 0, -30, b.thr ?? -30, fmtDb, `${path}.${i}.thr`), kn('Range', -18, 12, -6, b.range ?? -6, fmtDb, `${path}.${i}.range`),
+      kn('Ratio', 1.1, 20, 3, b.ratio || 3, ratio, `${path}.${i}.ratio`, true))));
+    c.appendChild(row); c.classList.add('wide'); return c;
+  } else if (x.type === 'mseq') {
+    const cv = h('canvas', 'eqc'); cv.width = 520; cv.height = 160; c.appendChild(cv); drawEq(cv, d, k);
+    ks.appendChild(kn('Sides', -18, 12, 0, x.side || 0, fmtDb, `${path}.side`));
+    (x.bands || []).forEach((b, i) => { const lbl = (b.ch === 'side' ? 'Side ' : 'Mid ') + {hp: 'low cut', lp: 'high cut', ls: 'low shelf', hs: 'high shelf', bell: 'bell', notch: 'notch'}[b.type];
+      ks.appendChild(kn(lbl, 20, 20000, b.f, b.f, fmtHz, `${path}.${i}.f`, true));
+      if (!['hp', 'lp', 'notch'].includes(b.type)) ks.appendChild(kn(lbl + ' gain', -18, 18, 0, b.g || 0, fmtDb, `${path}.${i}.g`)); });
+    ks.addEventListener('pointermove', () => drawEq(cv, d, k)); ks.addEventListener('wheel', () => setTimeout(() => drawEq(cv, d, k)));
+  } else if (x.type === 'transient') {
+    ks.append(kn('Attack', -12, 12, 0, x.attack || 0, fmtDb, `${path}.attack`), kn('Sustain', -12, 12, 0, x.sustain || 0, fmtDb, `${path}.sustain`));
+  } else if (x.type === 'tape') {
+    const v = {drive: 6, bump: 1.5, hf: 15000, bias: .2, ...x};
+    ks.append(kn('Drive', 0, 18, 6, v.drive, fmtDb, `${path}.drive`), kn('Head bump', 0, 4, 1.5, v.bump, fmtDb, `${path}.bump`), kn('Highs to', 4000, 20000, 15000, v.hf, fmtHz, `${path}.hf`, true),
+      kn('Warmth', 0, .5, .2, v.bias, v => Math.round(v*200) + '%', `${path}.bias`));
+  } else if (x.type === 'console') {
+    ks.append(kn('Drive', 0, 12, 3, x.drive ?? 3, fmtDb, `${path}.drive`));
+  } else if (x.type === 'mono') {
+    ks.append(kn('Mono below', 40, 300, 120, x.f || 120, fmtHz, `${path}.f`, true));
   } else if (x.type === 'limiter') {
     const v = {gain: 0, ceil: -.3, ...x};
     ks.append(kn('Drive', 0, 12, 0, v.gain, fmtDb, `${path}.gain`), kn('Ceiling', -6, 0, -.3, v.ceil, fmtDb, `${path}.ceil`));
@@ -268,10 +345,13 @@ function drawEq(cv, d, k){
   g.strokeStyle = '#1e2733'; g.lineWidth = 1; for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) { const x = Math.log(f/20)/Math.log(1000)*W; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
   g.beginPath(); g.moveTo(0, H/2); g.lineTo(W, H/2); g.stroke();
   const s = player && player.E.desk.strips.get(d.id), dv = s && s.dev[k];
-  if (!dv || !dv.curve) { g.fillStyle = '#4a5566'; g.font = '20px sans-serif'; g.fillText('Play to see the curve', 12, 30); return; }
-  const F = Array.from({length: W/2}, (_, i) => 20*Math.pow(1000, i/(W/2))), r = dv.curve(F);
-  g.strokeStyle = getComputedStyle(cv).getPropertyValue('--tc') || '#5cf'; g.lineWidth = 3; g.beginPath();
-  r.forEach((db, i) => { const x = i*2, y = H/2 - Math.max(-24, Math.min(24, db))/24*(H/2 - 6); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  if (!dv || !(dv.curve || dv.curves)) { g.fillStyle = '#4a5566'; g.font = '20px sans-serif'; g.fillText('Play to see the curve', 12, 30); return; }
+  const F = Array.from({length: W/2}, (_, i) => 20*Math.pow(1000, i/(W/2))), line = (r, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+    r.forEach((db, i) => { const x = i*2, y = H/2 - Math.max(-24, Math.min(24, db))/24*(H/2 - 6); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+  // (a mid/side EQ: the middle in the track's colour, the sides in violet)
+  if (dv.curves) { const c2 = dv.curves(F); line(c2.side, '#b48cff', 2); line(c2.mid, getComputedStyle(cv).getPropertyValue('--tc') || '#5cf', 3);
+    g.font = '18px sans-serif'; g.fillStyle = '#b48cff'; g.fillText('sides', W - 60, 22); return; }
+  line(dv.curve(F), getComputedStyle(cv).getPropertyValue('--tc') || '#5cf', 3);
 }
 
 /* ---------- editing a clip: a step sequencer, or a piano roll ---------- */
@@ -438,6 +518,8 @@ function frame(t){
     s._chips.querySelectorAll('.chip').forEach(c => { const v = m.gr[+c.dataset.k] || 0; c.classList.toggle('gr', v > .3); c.lastChild.textContent = v > .3 ? '−' + Math.min(99, v).toFixed(0) : ''; });
     if (s.dataset.id === sel) document.querySelectorAll('.detail .gr').forEach(e => { const v = m.gr[+e.dataset.k] || 0; e.textContent = v > .1 ? `−${v.toFixed(1)} dB` : ''; });
   }
+  // the goniometer: the master's left against right
+  if (gonA && player.playing) { gonA[0].getFloatTimeDomainData(gonA[0].buf); gonA[1].getFloatTimeDomainData(gonA[1].buf); gonio($('gonio'), gonA[0].buf, gonA[1].buf); }
   // the spectrum
   if (specAn) {
     const cv = $('spec'), g = cv.getContext('2d'), W = cv.width, H = cv.height; specBuf = specBuf || new Float32Array(specAn.frequencyBinCount); specAn.getFloatFrequencyData(specBuf);
@@ -463,7 +545,11 @@ $('render').onclick = async () => {
     const max = Math.max(...Object.values(r.bands));
     $('rep').innerHTML = `<b>${r.lufs.toFixed(1)} LUFS</b> integrated · short-term max ${r.short.toFixed(1)}<br>true peak <b>${r.truePeak.toFixed(1)} dBTP</b> · range ${r.lra.toFixed(1)} LU<br>` +
       `stereo correlation ${r.corr.toFixed(2)} · sides ${r.side.toFixed(1)} dB<br>rendered in ${((performance.now() - t0)/1000).toFixed(0)} s` +
-      `<div class="bands">${Object.entries(r.bands).map(([k, v]) => `<span>${k}</span><i style="width:${Math.max(2, 100 + (v - max)*3)}%"></i><span>${v.toFixed(1)}</span>`).join('')}</div>`;
+      `<div class="bands">${Object.entries(r.bands).map(([k, v]) => `<span>${k}</span><i style="width:${Math.max(2, 100 + (v - max)*3)}%"></i><span>${v.toFixed(1)}</span>`).join('')}</div>` +
+      // (each band's sides against its middle: the low end should be near mono, the top can open out)
+      `<div class="wid" title="The sides against the middle, band by band (dB)">${r.width.map(w => `<span>${w.band}</span><i style="width:${Math.max(2, Math.min(100, (w.side + 40)*2.5))}%"></i><span>${w.side.toFixed(0)}</span>`).join('')}</div>` +
+      `<small class="dim">above: each band's share of the energy; below: how wide each band is (sides against middle, dB)</small>`;
+    showRef();
     const g = $('gram'); g.hidden = false; paint(g, L, R, buf.sampleRate, {bar: 240/song.bpm});
     $('save').hidden = false; $('save').textContent = (await downloads()) ? 'Save WAV (zip)' : 'Save WAV';
   } catch (e) { $('rep').textContent = 'The render failed: ' + e.message; }
@@ -475,6 +561,61 @@ $('save').onclick = async () => {
   if (!rendered) return; const name = rendered.title.replace(/\W+/g, '-').toLowerCase(), w = wav(rendered.buf), d = await downloads();
   if (d) { try { await d.save({filename: name + '.zip', data: zip([{name: name + '.wav', data: new Uint8Array(await w.arrayBuffer())}, {name: name + '.json', data: JSON.stringify(song, null, 1)}])}); } catch (e) { if (e.code !== 'declined') $('rep').insertAdjacentText('beforeend', ` Saving failed (${e.code}).`); } return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(w); a.download = name + '.wav'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+
+/* ---------- a reference track: measured here, the song compared with it ---------- */
+const f1 = v => (v > 0 ? '+' : '') + v.toFixed(1);
+// (what's kept of it, in the song: the numbers, not the audio, so it comes back with the song and Claude can read it)
+const REF_KEYS = ['lufs', 'truePeak', 'lra', 'tilt', 'side', 'lowSide', 'corr', 'bands', 'thirds', 'width'];
+$('refPick').onclick = () => $('refFile').click();
+$('refFile').onchange = async () => {
+  const f = $('refFile').files[0]; if (!f) return; $('refRep').textContent = `Measuring ${f.name}…`;
+  try { const buf = await audio().decodeAudioData(await f.arrayBuffer()); await new Promise(r => setTimeout(r, 30));
+    setRef(buf, f.name.replace(/\.[^.]+$/, '')); }
+  catch (e) { $('refRep').textContent = 'That file couldn’t be read as audio: ' + (e.message || e); }
+  $('refFile').value = '';
+};
+function setRef(buf, name){
+  const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L, r = report(L, R, buf.sampleRate);
+  song.ref = JSON.parse(JSON.stringify({name, ...Object.fromEntries(REF_KEYS.map(k => [k, r[k]]))}, (k, v) => typeof v === 'number' ? Math.round(v*100)/100 : v));
+  dataStale = true; showRef();
+}
+function showRef(){
+  const ref = song.ref, e = $('refRep'); $('refMatch').hidden = true; if (!ref) { e.innerHTML = ''; return; }
+  let html = `<b>${esc(ref.name)}</b>: ${ref.lufs.toFixed(1)} LUFS · true peak ${ref.truePeak.toFixed(1)} dBTP · range ${ref.lra.toFixed(1)} LU · tilt ${ref.tilt.toFixed(2)} dB/oct · sides ${ref.side.toFixed(1)} dB`;
+  if (rendered) { const d = compare(rendered.r, ref);
+    html += `<div class="bands" title="Your mix against the reference, band by band, at the same loudness">${Object.entries(d.bands).map(([k, v]) => `<span>${k}</span><i style="margin-left:${v < 0 ? 50 - Math.min(50, -v*5) : 50}%;width:${Math.max(1, Math.min(50, Math.abs(v)*5))}%;background:${v < 0 ? '#5cf' : '#f2b33d'}"></i><span>${f1(v)}</span>`).join('')}</div>` +
+      `<small class="dim">your mix against it, band by band at the same loudness (orange: more than the reference)</small><ul class="adv">${advise(d).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+    $('refMatch').hidden = false; }
+  else html += '<br>Render the song (above) to compare it.';
+  e.innerHTML = html;
+}
+// an EQ on the master, before its limiter, leaning the balance part of the way towards the reference's (called match: again replaces it)
+$('refMatch').onclick = () => {
+  if (!rendered || !song.ref) return; const bands = matchEq(compare(rendered.r, song.ref)), ch = chainOf('master');
+  let x = ch.find(z => z.id === 'match'); if (x) x.bands = bands; else { x = {type: 'eq', id: 'match', bands}; const li = ch.findIndex(z => z.type === 'limiter'); ch.splice(li >= 0 ? li : ch.length, 0, x); }
+  rechained();
+  $('refRep').insertAdjacentHTML('beforeend', `<p>An EQ called <b>match</b> is on the master now (${bands.map(b => `${fmtHz(b.f)} ${f1(b.g)}`).join(', ')}). Render again to compare; open the master to change it or take it out.</p>`);
+};
+
+/* ---------- clashes: where two tracks fill the same frequencies at the same moments ---------- */
+$('clashBtn').onclick = async () => {
+  const b = $('clashBtn'), e = $('clashRep'); b.disabled = true;
+  try {
+    const r = await clashes(song, {onProgress: (p, l) => { e.textContent = l ? `Rendering ${l} alone… ${Math.round(p*100)}%` : 'Comparing…'; }}), name = id => esc((r.stems[id] || {}).label || id);
+    e.innerHTML = r.list.length ? `Bars ${r.from + 1}–${r.from + r.bars}, the busiest part:` : `Bars ${r.from + 1}–${r.from + r.bars}: no two tracks fill the same band at the same moments.`;
+    for (const c of r.list.slice(0, 6)) {
+      const row = h('div', 'clash'), f = Math.round(Math.sqrt(c.lo*c.hi)), T = trackOf(c.cut);
+      row.innerHTML = `<span><b>${name(c.a)}</b> and <b>${name(c.b)}</b> in the ${c.band} (${fmtHz(c.lo)}–${fmtHz(c.hi)} Hz): ${Math.round(c.overlap*100)}% at the same moments. It matters less to <b>${name(c.cut)}</b>.</span>`;
+      // (a dip on the one it matters less to; not on a rack whose kick is its own stem, which would dip the kick too)
+      if (!(T && T.pads && T.pads.kick)) { const cut = h('button', null, `Dip ${name(c.cut)} 3 dB at ${fmtHz(f)}`);
+        cut.onclick = () => { const ch = chainOf(c.cut); let eq = ch.find(z => z.type === 'eq'); if (!eq) { eq = {type: 'eq', bands: []}; ch.unshift(eq); }
+          eq.bands.push({type: 'bell', f, q: 1.2, g: -3}); cut.disabled = true; cut.textContent = 'Dipped: render or play to hear'; rechained(); };
+        row.appendChild(cut); }
+      e.appendChild(row);
+    }
+  } catch (err) { e.textContent = 'It failed: ' + err.message; }
+  b.disabled = false;
 };
 
 /* ---------- the song as data ---------- */
@@ -607,4 +748,4 @@ SAVE.start().then(() => {
 SONGS.forEach((s, i) => addSongTab(i));
 load(0);
 // (for tests: the player, the song, a reset to the song as written, and saving now)
-window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};
+window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, setRef, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};

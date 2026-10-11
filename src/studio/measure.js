@@ -114,17 +114,21 @@ export function bandEnv(x, sr, N = 4096){
   return out;
 }
 // where tracks mask each other: for each pair and band, how much of the quieter one's energy there sits in the same
-// moments as the other's (0..1), counted only where the band matters to both (at least `minShare` of each one's energy).
+// moments as the other's, at a level within `near` dB of it (0..1), counted only where the band matters to both (at least
+// `minShare` of each one's energy) and where both are heard (within `heard` dB of the loudest part in that band).
 // stems: {id: bandEnv(…)}. Each clash says which of the two the band matters less to: the one to cut there
-export function masking(stems, {minShare = .1, min = .4} = {}){
-  const ids = Object.keys(stems), tot = {}, share = {};
+export function masking(stems, {minShare = .1, min = .4, near = 10, heard = 20} = {}){
+  const nearP = Math.pow(10, near/10), heardP = Math.pow(10, -heard/10), ids = Object.keys(stems), tot = {}, share = {};
   for (const id of ids) { tot[id] = BANDS.map((_, b) => stems[id].reduce((s, f) => s + f[b], 0)); const all = tot[id].reduce((a, b) => a + b, 0) || 1e-20; share[id] = tot[id].map(v => v/all); }
+  // (and only parts heard in that band: within `heard` dB of the loudest part there; two parts far under the mix can't fight)
+  const top = BANDS.map((_, b) => Math.max(...ids.map(id => tot[id][b])));
   const out = [];
   for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
     const A = ids[i], B = ids[j], n = Math.min(stems[A].length, stems[B].length);
     BANDS.forEach(([band, lo, hi], b) => {
-      if (share[A][b] < minShare || share[B][b] < minShare) return;
-      let both = 0; for (let t = 0; t < n; t++) both += Math.min(stems[A][t][b], stems[B][t][b]);
+      if (share[A][b] < minShare || share[B][b] < minShare || Math.min(tot[A][b], tot[B][b]) < top[b]*heardP) return;
+      // (only the moments the two are within `near` dB of each other there: a part far under the other is buried, not fighting it)
+      let both = 0; for (let t = 0; t < n; t++) { const x = stems[A][t][b], y = stems[B][t][b]; if (Math.max(x, y) < Math.min(x, y)*nearP) both += Math.min(x, y); }
       const overlap = both/(Math.min(tot[A][b], tot[B][b]) || 1e-20);
       if (overlap >= min) out.push({a: A, b: B, band, lo, hi, overlap, shares: [share[A][b], share[B][b]], cut: share[A][b] < share[B][b] ? A : B,
         louder: 10*Math.log10((tot[A][b] + 1e-20)/(tot[B][b] + 1e-20))});

@@ -154,7 +154,9 @@ export async function renderSong(song, {bars, from = 0, solo, sr = TUNE.studio.s
 
 /* ---------- live: the song on the page's clock ---------- */
 export function makePlayer(ctx, song, opts = {}){
+  // (onBuild: told each time the graph is built, so the page can hang its analysers on the new master)
   let E = buildSong(ctx, song, {meters: true, ...opts}), timer = 0;
+  if (opts.onBuild) opts.onBuild(E);
   const pl = {get E(){ return E; }, playing: false,
     // play from a bar: the arrangement, or a scene looped (session)
     // (clips: {track: [clip, row]}: start from those clips alone, the rest silent)
@@ -174,7 +176,7 @@ export function makePlayer(ctx, song, opts = {}){
     // where it is: the sixteenth being heard
     pos(){ return Math.max(0, (ctx.currentTime - E.t0)/E.S16); },
     // the song changed in a way the graph can't follow (a new device, a new instrument): built again, playing on
-    rebuild(){ const was = pl.playing, at = Math.ceil(pl.pos()/16), mode = E.mode, sess = E.session; pl.stop(); E.dispose(); E = buildSong(ctx, song, {meters: true, ...opts}); if (was) mode === 'session' ? pl.play({scene: sess.scene}) : pl.play({bar: at}); },
+    rebuild(){ const was = pl.playing, at = Math.ceil(pl.pos()/16), mode = E.mode, sess = E.session; pl.stop(); E.dispose(); E = buildSong(ctx, song, {meters: true, ...opts}); if (opts.onBuild) opts.onBuild(E); if (was) mode === 'session' ? pl.play({scene: sess.scene}) : pl.play({bar: at}); },
     dispose(){ pl.stop(); E.dispose(); }};
   return pl;
 }

@@ -58,9 +58,12 @@
   </section>
 
   <section aria-labelledby="h-out" class="out">
-    <h2 id="h-out">The mix <small>live spectrum; render to measure loudness and save the WAV</small></h2>
+    <h2 id="h-out">The mix <small>live spectrum and goniometer; render to measure loudness and save the WAV; compare with a reference; find where tracks clash</small></h2>
     <div class="outgrid">
-      <canvas id="spec" width="900" height="200" aria-label="Spectrum of the master"></canvas>
+      <div class="scopes">
+        <canvas id="spec" width="900" height="200" aria-label="Spectrum of the master"></canvas>
+        <canvas id="gonio" width="220" height="234" aria-label="Goniometer: the master's left against right; upright is mono, wide opens out"></canvas>
+      </div>
       <div class="render">
         <button id="render" class="big">Render and measure</button>
         <div class="prog" id="prog" hidden><i id="progBar"></i></div>
@@ -69,6 +72,22 @@
       </div>
     </div>
     <canvas id="gram" width="1400" height="360" hidden aria-label="Spectrogram of the rendered song"></canvas>
+    <div class="tools">
+      <div class="tool">
+        <h3>Reference</h3>
+        <p class="dim">A track whose mix you love: it's measured here in the browser (it isn't uploaded), and your song is compared with it after a render.</p>
+        <input type="file" id="refFile" accept="audio/*" hidden>
+        <button id="refPick">Load a reference track</button>
+        <div id="refRep" class="rep"></div>
+        <button id="refMatch" hidden title="An EQ on the master, called match, leaning your mix part of the way towards the reference's balance">Lean the master towards it</button>
+      </div>
+      <div class="tool">
+        <h3>Clashes</h3>
+        <p class="dim">Each track rendered alone over the busiest part, then compared band by band: where two fill the same frequencies at the same moments.</p>
+        <button id="clashBtn">Find clashes</button>
+        <div id="clashRep" class="rep"></div>
+      </div>
+    </div>
   </section>
 
   <section aria-labelledby="h-data">

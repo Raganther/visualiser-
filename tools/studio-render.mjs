@@ -1,7 +1,9 @@
 // Renders Studio songs offline in headless Chromium (the same graph as the page plays) to WAV, and measures each mix:
 // loudness, true peak, the spectrum's balance and tilt, stereo, and with --stems each track alone through the master
-// (its loudness and peak), how far the sidechained tracks duck under the kick, and how much the kick and bass overlap.
+// (its loudness and peak), how far the sidechained tracks duck under the kick, how much the kick and bass overlap, and where
+// any two tracks clash (the same band at the same moments); with --ref, each mix against a reference track.
 // Usage: node tools/studio-render.mjs [song.js …] [--out dir] [--stems] [--from bar] [--bars N] [--png] [--no-wav] [--json]
+//        [--ref track.mp3]
 // (no songs: every song in src/studio/songs/; WAVs go to out/studio/, which git ignores)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { serve, launch, ROOT } from '../tests/lib.mjs';
 
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : null; }, flag = k => { const i = args.indexOf(k); if (i >= 0) args.splice(i, 1); return i >= 0; };
-const out = path.resolve(opt('--out') || path.join(ROOT, 'out/studio')), bars = +opt('--bars') || 0, from = +opt('--from') || 0, stems = flag('--stems'), json = flag('--json'), noWav = flag('--no-wav'), png = flag('--png');
+const out = path.resolve(opt('--out') || path.join(ROOT, 'out/studio')), bars = +opt('--bars') || 0, from = +opt('--from') || 0, stems = flag('--stems'), json = flag('--json'), noWav = flag('--no-wav'), png = flag('--png'), refPath = opt('--ref');
 const files = args.length ? args : fs.readdirSync(path.join(ROOT, 'src/studio/songs')).filter(f => f.endsWith('.js') && !['index.js', 'blank.js'].includes(f)).map(f => path.join(ROOT, 'src/studio/songs', f));
 fs.mkdirSync(out, {recursive: true});
 const {srv, url} = await serve();
@@ -20,15 +22,22 @@ page.on('console', m => { if (m.type() === 'error') console.log('console:', m.te
 await page.goto(url + 'studio.html').catch(() => {});
 
 const f1 = (v, d = 1) => (v >= 0 ? ' ' : '') + v.toFixed(d);
+// the reference, measured once in the page (decoded there, as the page decodes the user's)
+let ref = null;
+if (refPath) { const b64 = fs.readFileSync(refPath).toString('base64');
+  ref = await page.evaluate(async b64 => { const M = await import('/src/studio/measure.js'), bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const buf = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(a.buffer), r = M.report(buf.getChannelData(0), buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0), buf.sampleRate); delete r.shortTerm; return r; }, b64);
+  console.log(`reference ${path.basename(refPath)}: ${ref.lufs.toFixed(1)} LUFS, true peak ${ref.truePeak.toFixed(1)} dBTP, range ${ref.lra.toFixed(1)} LU, tilt ${ref.tilt.toFixed(2)} dB/oct, sides ${ref.side.toFixed(1)} dB`); }
 for (const f of files) {
   const song = (await import(pathToFileURL(path.resolve(f)).href + '?' + Date.now())).default, name = path.basename(f, '.js');
   const t0 = Date.now();
-  const r = await page.evaluate(async ({song, bars, from, stems, noWav, png}) => {
+  const r = await page.evaluate(async ({song, bars, from, stems, noWav, png, ref}) => {
     const {renderSong} = await import('/src/studio/engine.js'), M = await import('/src/studio/measure.js'), {wav} = await import('/src/studio/wav.js'), {check} = await import('/src/studio/song.js');
     const problems = check(song); if (problems.length) return {problems};
     const notes = [], t0 = performance.now(), buf = await renderSong(song, {bars, from, onNote: e => notes.push(e)}), secs = (performance.now() - t0)/1000;
     const L = buf.getChannelData(0), R = buf.getChannelData(1), sr = buf.sampleRate, rep = M.report(L, R, sr); delete rep.shortTerm;
     const o = {secs, dur: buf.duration, rep, notes: notes.length};
+    if (ref) { const d = M.compare(rep, ref); o.ref = {d, advice: M.advise(d), eq: M.matchEq(d)}; }
     if (png) { const cv = document.createElement('canvas'); cv.width = 1400; cv.height = 520; M.paint(cv, L, R, sr, {bar: 240/song.bpm}); o.png = cv.toDataURL('image/png').split(',')[1];
       const z = document.createElement('canvas'); z.width = 1400; z.height = 520; const b0 = 240/song.bpm*Math.min(16, Math.max(0, Math.floor((buf.duration/(240/song.bpm))/2) - 1)); M.paint(z, L, R, sr, {bar: 60/song.bpm, from: b0, to: b0 + 480/song.bpm}); o.zoom = z.toDataURL('image/png').split(',')[1]; }
     if (!noWav) { const b = wav(buf), a = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 32768) s += String.fromCharCode.apply(null, a.subarray(i, i + 32768)); o.wav = btoa(s); }
@@ -50,9 +59,12 @@ for (const f of files) {
         else if (kLow && /bass/.test(t.id)) { const e = env(low(mono)); let mn = 0, sb = 0; for (let i = 0; i < Math.min(e.length, kLow.length); i++) { mn += Math.min(e[i], kLow[i]); sb += e[i]; } s.overlap = mn/(sb + 1e-20); }
         o.stems[t.id] = s;
       }
+      // where any two parts clash (a rack's kick its own stem, the rest of the rack another)
+      const {clashes} = await import('/src/studio/clash.js'), c = await clashes(song, bars ? {from, bars} : {});
+      o.clashes = {from: c.from, bars: c.bars, list: c.list.slice(0, 8).map(x => ({...x, a: c.stems[x.a].label, b: c.stems[x.b].label, cut: c.stems[x.cut].label}))};
     }
     return o;
-  }, {song, bars, from, stems, noWav, png});
+  }, {song, bars, from, stems, noWav, png, ref});
   if (r.problems) { console.log(`${name}: the song has problems:\n  ${r.problems.join('\n  ')}`); continue; }
   if (r.wav) fs.writeFileSync(path.join(out, name + '.wav'), Buffer.from(r.wav, 'base64'));
   if (r.png) { fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(r.png, 'base64')); fs.writeFileSync(path.join(out, name + '-zoom.png'), Buffer.from(r.zoom, 'base64')); delete r.png; delete r.zoom; }
@@ -64,6 +76,11 @@ for (const f of files) {
   console.log(`  true peak ${f1(p.truePeak)} dBTP, sample peak ${f1(p.peak)} dBFS, ${p.clipped} samples at full scale, peak to loudness ${p.plr.toFixed(1)} dB`);
   console.log(`  bands (dB of the whole): ${Object.entries(p.bands).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', ')}`);
   console.log(`  tilt ${p.tilt.toFixed(2)} dB/oct (100 Hz–10 kHz); stereo: correlation ${p.corr.toFixed(2)}, sides ${f1(p.side)} dB, below 150 Hz ${f1(p.lowSide)} dB`);
+  console.log(`  width by band (sides against middle, dB): ${p.width.map(w => `${w.band} ${w.side.toFixed(0)}`).join(', ')}`);
+  if (r.ref) { const d = r.ref.d; console.log(`  against the reference: loudness ${f1(d.lufs)} LU, tilt ${f1(d.tilt, 2)}, sides ${f1(d.side)} dB; bands ${Object.entries(d.bands).map(([k, v]) => `${k} ${f1(v)}`).join(', ')}`);
+    for (const t of r.ref.advice) console.log(`    ${t}`); console.log(`    match EQ: ${r.ref.eq.map(b => `${b.type} ${b.f} Hz ${f1(b.g)}`).join(', ')}`); }
   if (r.stems) for (const [k, s] of Object.entries(r.stems)) console.log(`    ${k.padEnd(8)} ${f1(s.lufs)} LUFS alone, peak ${f1(s.peak)} dBFS${s.duck != null ? `, ducks ${s.duck.toFixed(1)} dB under the kick` : ''}${s.overlap != null ? `, low-end overlap with the kick ${(s.overlap*100).toFixed(0)}%` : ''}`);
+  if (r.clashes) { console.log(`  clashes over bars ${r.clashes.from + 1}–${r.clashes.from + r.clashes.bars}:${r.clashes.list.length ? '' : ' none'}`);
+    for (const c of r.clashes.list) console.log(`    ${c.a} and ${c.b} in the ${c.band}: ${(c.overlap*100).toFixed(0)}% at once; matters less to ${c.cut}`); }
 }
 await browser.close(); srv.close();

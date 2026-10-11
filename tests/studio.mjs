@@ -94,6 +94,34 @@ const r = await page.evaluate(async () => {
   { const [a, b] = await through({type: 'limiter', gain: 12, ceil: -1}, (ctx, dest) => { const s = ctx.createOscillator(); s.frequency.value = 997; const g = ctx.createGain(); g.gain.value = .9; s.connect(g); g.connect(dest); s.start(); }, 1);
     o.lim = M.truePeak([a.subarray(SR*.1), b.subarray(SR*.1)]); }
 
+  /* the mixing tools: multiband, dynamic EQ, mid/side EQ, transient shaper, tape, console */
+  { const dB = x => 20*Math.log10(x), tones = (fs, amp) => (ctx, dest) => fs.forEach((f, i) => { const s = ctx.createOscillator(); s.frequency.value = f; const g = ctx.createGain(); g.gain.value = Array.isArray(amp) ? amp[i] : amp; s.connect(g); g.connect(dest); s.start(); });
+    const FS = [50, 150, 400, 1200, 3000, 8000], flat = {type: 'multiband', bands: [{}, {}, {}]};
+    const [a] = await through(flat, tones(FS, .05)); o.mbFlat = Math.max(...FS.map(f => Math.abs(dB(tone(a, f, .3, .9)/.025))));
+    const [b] = await through({type: 'multiband', bands: [{thr: -30, ratio: 8}, {}, {}]}, tones([60, 3000], [.5, .05])), [c] = await through(flat, tones([60, 3000], [.5, .05]));
+    o.mb = {low: dB(tone(b, 60, .5, .9)/tone(c, 60, .5, .9)), high: dB(tone(b, 3000, .5, .9)/tone(c, 3000, .5, .9))};
+    const [dr] = await through({type: 'multiband', bands: [{drive: 12}, {}, {}]}, tones([80], .4)); o.mbDrive = dB(tone(dr, 240, .3, .9)/tone(dr, 80, .3, .9));
+    o.dyn = []; for (const amp of [.5, .01]) { const [d] = await through({type: 'dyneq', bands: [{type: 'bell', f: 300, q: 1.4, thr: -30, range: -6, ratio: 8}]}, tones([300], amp)); o.dyn.push(dB(tone(d, 300, .5, .9)/(amp/2))); }
+    const [l, rr] = await through({type: 'mseq', bands: [{type: 'hp', f: 200, ch: 'side'}]}, tones([1000], .2)); o.msMono = [dB(tone(l, 1000, .3, .9)/.1), dB(tone(rr, 1000, .3, .9)/.1)];
+    const wide = (ctx, dest) => { const m = ctx.createChannelMerger(2); for (const [ch, amp] of [[0, .2], [1, -.2]]) { const s = ctx.createOscillator(); s.frequency.value = 60; const g = ctx.createGain(); g.gain.value = amp; s.connect(g); g.connect(m, 0, ch); s.start(); } m.connect(dest); };
+    const [l2] = await through({type: 'mseq', bands: [{type: 'hp', f: 200, ch: 'side'}]}, wide); o.msSide = dB(tone(l2, 60, .3, .9)/.1);
+    const [tp] = await through({type: 'tape', drive: 9}, tones([200], .5)); o.tape = {h2: dB(tone(tp, 400, .3, .9)/tone(tp, 200, .3, .9)), lvl: dB(tone(tp, 200, .3, .9)/.25)};
+    const [cs] = await through({type: 'console', drive: 6}, tones([200], .5)); o.cons = {h2: dB(tone(cs, 400, .3, .9)/tone(cs, 200, .3, .9)), h3: dB(tone(cs, 600, .3, .9)/tone(cs, 200, .3, .9))};
+    const hit = (ctx, dest) => { const s = ctx.createOscillator(); s.frequency.value = 180; const g = ctx.createGain(); g.gain.value = 0; for (const t of [.2, .7]) { g.gain.setValueAtTime(.5, t); g.gain.setTargetAtTime(0, t + .001, .08); } s.connect(g); g.connect(dest); s.start(); };
+    const env = async dev => { const [x] = await through(dev, hit); return [rms(x, .702, .712), rms(x, .85, .95)]; };
+    const n = await env({type: 'transient'}), up = await env({type: 'transient', attack: 9}), sus = await env({type: 'transient', sustain: 9});
+    o.tr = {atk: [dB(up[0]/n[0]), dB(up[1]/n[1])], sus: [dB(sus[0]/n[0]), dB(sus[1]/n[1])]}; }
+  /* the new measures: width by band, masking, a reference compared and matched */
+  { const N = SR*2, noise = () => Float32Array.from({length: N}, () => Math.random()*2 - 1), a = noise(), b = noise();
+    const mono = M.stereoBands(a, a, SR), wide = M.stereoBands(a, b, SR); o.sb = {mono: Math.max(...mono.map(x => x.side)), wide: Math.min(...wide.map(x => x.side)), corr: [mono[3].corr, wide[3].corr]};
+    // a low tone held under a pad's low tone (the same moments) clashes; the hats far above don't
+    const sine = (f, on) => Float32Array.from({length: N}, (_, i) => on(i/SR) ? Math.sin(2*Math.PI*f*i/SR)*.3 : 0);
+    const bass = sine(200, () => true), pad = sine(220, () => true), hats = Float32Array.from({length: N}, (_, i) => (i % 5512 < 400 ? (Math.random()*2 - 1)*.3 : 0));
+    const ms = M.masking({bass: M.bandEnv(bass, SR), pad: M.bandEnv(pad, SR), hats: M.bandEnv(hats, SR)});
+    o.mask = ms.map(m => `${m.a}/${m.b}:${m.band}`);
+    const mixR = M.report(a, b, SR), dark = new Float32Array(N); let s1 = 0; for (let i = 0; i < N; i++) { s1 += (a[i] - s1)*.05; dark[i] = s1*4; }
+    const refR = M.report(dark, dark, SR), d = M.compare(mixR, refR); o.cmp = {air: d.bands.air, tilt: d.tilt, side: d.side, eq: M.matchEq(d).map(x => x.g), adv: M.advise(d).length}; }
+
   /* the scheduler, on a short song */
   const song = {title: 't', bpm: 120, swing: .2, seed: 3,
     tracks: [{id: 'kick', inst: {type: 'drums', kit: '909'}, clips: {a: {hits: {kick: 'x...x...x...x...'}}, b: {hits: {kick: 'x.x.x.x.x.x.x.x.'}}}},
@@ -140,6 +168,16 @@ check('the EQ: a 6 dB bell lifts its frequency 6 dB, a 24 dB cut takes 50 Hz dow
 check('the compressor turns a loud tone down', r.comp < -6, r.comp.toFixed(1));
 check('the sidechain ducks by its depth right after the kick, and is back before the next', r.sc.dip < -9 && r.sc.dip > -13 && Math.abs(r.sc.back) < 1, f2(r.sc));
 check('the limiter keeps a signal 12 dB hot under its ceiling (true peak)', r.lim <= -.5 && r.lim > -2, r.lim.toFixed(2));
+check('the multiband\'s bands sum back flat with nothing on', r.mbFlat < .2, r.mbFlat.toFixed(2));
+check('the multiband turns its loud low band down by its ratio and leaves the highs', r.mb.low < -15 && Math.abs(r.mb.high) < .5, f2(r.mb));
+check('a band\'s drive adds harmonics', r.mbDrive > -30, r.mbDrive.toFixed(1));
+check('the dynamic EQ cuts a loud tone by its range and leaves a quiet one', Math.abs(r.dyn[0] + 6) < .7 && Math.abs(r.dyn[1]) < .3, f2(r.dyn));
+check('the mid/side EQ passes a mono sound untouched and cuts the sides\' low end', Math.abs(r.msMono[0]) < .1 && Math.abs(r.msMono[1]) < .1 && r.msSide < -30, f2([r.msMono, r.msSide]));
+check('tape adds the second harmonic and keeps the level; console only odd ones', r.tape.h2 > -30 && Math.abs(r.tape.lvl) < 1.5 && r.cons.h2 < -80 && r.cons.h3 > -35, f2([r.tape, r.cons]));
+check('the transient shaper lifts the attack, or the sustain, by its amount', Math.abs(r.tr.atk[0] - 9) < 1 && Math.abs(r.tr.atk[1]) < 1 && Math.abs(r.tr.sus[0]) < 1 && r.tr.sus[1] > 5, f2(r.tr));
+check('width by band: mono reads as no sides, two unrelated channels as wide', r.sb.mono < -60 && r.sb.wide > -3 && r.sb.corr[0] > .99 && Math.abs(r.sb.corr[1]) < .1, f2(r.sb));
+check('masking: two tones in the same band at once clash; the hats above don\'t', f2(r.mask) === '["bass/pad:low-mid"]', f2(r.mask));
+check('a reference compared: brighter and wider than a dark mono reference, and the match EQ leans darker', r.cmp.air > 6 && r.cmp.tilt > 1 && r.cmp.side > 20 && r.cmp.eq[5] < 0 && r.cmp.adv > 1, f2(r.cmp));
 check('the kicks land on the sixteenths, the off ones swung late', r.sched.kicks === 8 + 16 && r.sched.onGrid < 1e-6 && r.sched.swing.length && r.sched.swing.every(x => Math.abs(x - .2) < .01), f2(r.sched));
 check('chance: about half the ?-hats play, and the same ones every render', r.sched.hats > 8 && r.sched.hats < 24 && r.sched.again === r.sched.hats, `${r.sched.hats} and ${r.sched.again}`);
 check('a 12-step clip goes round every 12 sixteenths (polymeter)', f2(r.sched.poly) === f2([0, 5, 12, 17, 24, 29]), f2(r.sched.poly));
@@ -206,6 +244,34 @@ check('a click launches one clip on the next bar, and only its cell lights', q.l
 check('a step clicked on edits the drum clip; a click and drag on the roll adds a note', q.stepEdit && q.rollAdd === 1, f2([q.stepEdit, q.rollAdd]));
 check('the play view records pads and keys into the clips while it plays', q.rec.clap >= 2 && q.rec.bass === 2, f2(q.rec));
 check('a clip saved to the library comes back as a new clip', f2(q.lib) === '["test loop"]' && q.added === 1, f2([q.lib, q.added]));
+// the mixing tools in the page: devices added to a strip while it plays (each its card), a knob on one written into the
+// song, one removed; the goniometer drawing; a reference measured and shown; the clash finder on a short song
+const mx = await page.evaluate(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {};
+  st.load(0); document.querySelector('#play').click(); await wait(1200);
+  document.querySelector('.strip[data-id=bass] .nm').click(); await wait(100);
+  const T = () => st.song.tracks.find(t => t.id === 'bass'), n0 = T().mix.chain.length;
+  for (const k of ['multiband', 'dyneq', 'mseq', 'transient', 'tape', 'console']) { const sel = document.querySelector('select.adddev'); sel.value = k; sel.dispatchEvent(new Event('change')); await wait(250); }
+  o.added = T().mix.chain.slice(n0).map(x => x.type);
+  o.cards = [...document.querySelectorAll('.detail .card h4 span:first-child')].map(e => e.textContent).slice(-6);
+  st.player.E.set('bass.' + (n0) + '.0.thr', -30); o.mbThr = T().mix.chain[n0].bands[0].thr;
+  const cc = [...document.querySelectorAll('.detail .card')].find(c => /Console/.test(c.textContent)), rm = cc.querySelector('.devtools button:last-child'); rm.click(); rm.click(); await wait(200);
+  o.removed = !T().mix.chain.some(x => x.type === 'console'); o.playing = st.player.playing;
+  await wait(1500); const g = document.querySelector('#gonio').getContext('2d').getImageData(0, 0, 220, 220).data; let lit = 0; for (let i = 0; i < g.length; i += 4) if (g[i + 2] > 120) lit++; o.gonio = lit;
+  document.querySelector('#stop').click();
+  const b = new AudioBuffer({numberOfChannels: 2, length: 44100*4, sampleRate: 44100}); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2 - 1)*.3; }
+  st.setRef(b, 'noise'); o.ref = [st.song.ref.name, /noise: .*LUFS/.test(document.querySelector('#refRep').textContent)];
+  const {clashes} = await import('/src/studio/clash.js');
+  const tiny = {title: 'c', bpm: 120, tracks: [{id: 'a', inst: {type: 'analog', p: {w1: 'Sine', cut: 8000, fenv: 0, as: 1}}, clips: {a: {notes: [[0, 'G3', 16]]}}}, {id: 'b', inst: {type: 'analog', p: {w1: 'Sine', cut: 8000, fenv: 0, as: 1}}, clips: {a: {notes: [[0, 'A3', 16]]}}}],
+    master: {chain: []}, scenes: [{id: 's', clips: {a: 'a', b: 'a'}}], arrange: [['s', 2]]};
+  const c = await clashes(tiny); o.clash = c.list.map(x => `${x.a}/${x.b}:${x.band}`);
+  return o;
+});
+check('devices added to a strip while it plays, each with its card', f2(mx.added) === '["multiband","dyneq","mseq","transient","tape","console"]' && mx.cards.join() === 'Multiband,Dynamic EQ,Mid/side EQ,Transient shaper,Tape,Console' && mx.playing, f2([mx.added, mx.cards]));
+check('a multiband knob is written into the song; a device removed', mx.mbThr === -30 && mx.removed, f2([mx.mbThr, mx.removed]));
+check('the goniometer draws the master', mx.gonio > 10, '' + mx.gonio);
+check('a reference is measured and kept with the song', mx.ref[0] === 'noise' && mx.ref[1], f2(mx.ref));
+check('the clash finder finds two tones in the same band', f2(mx.clash) === '["a/b:mid"]' || f2(mx.clash) === '["a/b:low-mid"]', f2(mx.clash));
 // the user's changes to a song are kept: an edit, saved, is there after a reload, with their own new song as a tab; Revert
 // goes back to the song as written
 const sv = await page.evaluate(async () => {
