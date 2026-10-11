@@ -357,7 +357,7 @@ const jm = await page.evaluate(async () => {
   o.follow = JSON.stringify(B.clips.jam.notes) !== b0 && B.clips.jam.notes.filter(n => kicks().has(Math.floor(n[0]) % 16)).length === 0;
   document.querySelector('[data-jam=chords]').click(); document.querySelector('[data-jam=hook]').click(); await wait(100);
   o.parts = Object.values(st.jam.parts).map(p => p.part).sort();
-  document.querySelector('#jamEvolve').click(); const before = JSON.stringify(S.tracks.map(t => t.clips.jam)); await wait(8500);
+  document.querySelector('#jamEvolve').click(); const before = JSON.stringify(S.tracks.map(t => t.clips.jam)); await wait(9500);
   o.evolved = JSON.stringify(S.tracks.map(t => t.clips.jam)) !== before;
   document.querySelector('#jamEvolve').click(); document.querySelector('#stop').click();
   return o;
@@ -384,7 +384,7 @@ const sv2 = await page.evaluate(async () => {
   return o;
 });
 check('an edit to a song is saved, and is there after a reload', /Saved/.test(sv.status) && sv.revert && sv2.vol === -7.5, f2([sv, sv2.vol]));
-check('a new song comes back as a tab after a reload', sv2.tabs.length === sv2.builtIn + 1 && /My song/.test(sv2.tabs[sv2.tabs.length - 1]), f2(sv2.tabs));
+check('the songs made here come back as tabs after a reload', sv2.tabs.length === sv2.builtIn + 2 && sv2.tabs.some(t => /My song/.test(t)) && sv2.tabs.some(t => /jam/.test(t)), f2(sv2.tabs));
 check('Revert goes back to the song as written and forgets the saved one', sv2.after !== -7.5 && !sv2.stored.includes('night-shift') && sv2.status === 'As written', f2(sv2));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));

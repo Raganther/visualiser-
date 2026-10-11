@@ -585,7 +585,7 @@ function frame(t){
       const ph = document.querySelector('.rollbox .ph'); if (ph) { ph.style.display = 'block'; ph.style.transform = `translateX(${(pos + .5)/r.len*ph.parentNode.clientWidth}px)`; } }
     else { const ph = document.querySelector('.rollbox .ph'); if (ph) ph.style.display = 'none'; }
   } else { $('pos').textContent = '  –'; }
-  pv.frame(n); jamEvolve();
+  pv.frame(n);
   // meters: peak and level, with how far each device is turning it down
   for (const s of document.querySelectorAll('.strip')) {
     const m = E.desk.meter(s.dataset.id, dt, TUNE.studio.meterFall); if (!m) continue;
@@ -870,6 +870,9 @@ function jamEvolve(){
   dataStale = true;
   if (clipFor && clipFor[1] === 'jam') { const [T, id, ti] = clipFor, old = clipBox, nb = clipView(T, id, ti); if (old && old.isConnected) old.replaceWith(nb); }
 }
+
+// (on its own timer, as the scheduler is: drawing stops in a hidden tab, and the jam shouldn't)
+setInterval(jamEvolve, 200);
 
 /* ---------- the play view (touch first, for the iPad) ---------- */
 const pv = mountPlay({song: () => song, player: () => player, ctx: () => audio(), build, edited, setVal, newClip: T => newClip(T),
