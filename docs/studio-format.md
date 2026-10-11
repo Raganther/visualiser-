@@ -114,3 +114,7 @@ The page's **Library** (and the Play view) saves what the user makes: a clip (wi
 ## The improviser
 
 `src/studio/improv.js` makes parts in this format, for a model or the page's Jam panel to start from: `makeDrums({style, energy, expr, seed, part: 'drums' | 'hats' | 'perc', bars, base})` (a clip of drum rows; `base` keeps rows it doesn't make), `makeBass({style, energy, expr, seed, key, groove})` (a note clip off the kick; `groove` from `grooveOf(drumClip)`), `makeChords({…, bass})`, `makeHook({…})`, and `vary(clip, {seed, amount, key})` (the next variation). Styles: `minimal`, `driving`, `hypnotic`, `broken`, `dub`, `acid`; `energy` and `expr` 0–1; the same seed makes the same part.
+
+## The jam's song
+
+A jam (`src/studio/jam/song.js`) is a song in this format with six tracks (`drums`, `hats`, `perc`: drum racks; `bass`, `chords`, `hook`) whose clips are takes named `t1`, `t2`, … in the order they were made, one scene `jam` (what's playing), and its own state in `song.jam`: `{style, energy, expr, q (quantise in sixteenths, 0 as played), launch ('bar' | 'now'), recBars, click, seed, lanes: {<track>: {takes: [ids], take, mute}}}`. A model can write a take into a lane by adding a clip and its id to `lanes.<track>.takes`.

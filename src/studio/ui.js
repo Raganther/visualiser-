@@ -15,6 +15,7 @@ import { knob } from '../ui/widgets.js';
 import { TUNE } from '../tuning.js';
 import { blankSong } from './songs/blank.js';
 import { mountPlay } from './play.js';
+import { mountJam } from './jam/page.js';
 import * as LIB from './library.js';
 import * as SAVE from './saved.js';
 import { STYLES, makeDrums, makeBass, makeChords, makeHook, grooveOf, vary } from './improv.js';
@@ -920,7 +921,7 @@ async function revert(){
 // the saved versions come in once the store answers: a built-in song as the user left it, and their own songs as tabs
 SAVE.start().then(() => {
   for (const d of SAVE.all()) {
-    if (check(d.song).length) continue;
+    if (d.id === 'jam' || check(d.song).length) continue;   // (the jam keeps its own)
     const i = ids.indexOf(d.id);
     if (i < 0) { addMine(d.song, d.id); savedJson[d.id] = JSON.stringify(d.song); continue; }
     const untouched = jsonOf(i) === JSON.stringify(pristine[i]);
@@ -930,8 +931,23 @@ SAVE.start().then(() => {
   storeReady = true; showSaved();
 });
 
+/* ---------- the jam: its own view, first (an improvising instrument; the Studio is where a jam is arranged and mixed) ---------- */
+const VIEW = 'afterglow.studio.view';
+function showView(v){
+  document.body.classList.toggle('jamon', v === 'jam'); $('jamView').hidden = v !== 'jam';
+  if (v === 'jam' && player && player.playing) { player.stop(); setPlay(); }
+  if (v !== 'jam' && jamPage) jamPage.stop();
+  try { localStorage.setItem(VIEW, v); } catch (e) {}
+}
+let jamPage = null;
+const jamReady = mountJam({root: $('jamView'), getCtx: audio, toStudio: s => {
+  s.title = `Jam ${mine.filter(Boolean).length + 1}`; load(addMine(s)); showView('studio'); }}).then(p => jamPage = p);
+$('toJam').onclick = () => showView('jam');
+// (?view=studio or ?view=jam picks one; otherwise the one last used, the jam the first time)
+showView(new URLSearchParams(location.search).get('view') || (() => { try { return localStorage.getItem(VIEW) || 'jam'; } catch (e) { return 'jam'; } })());
+
 /* ---------- start ---------- */
 SONGS.forEach((s, i) => addSongTab(i));
 load(0);
 // (for tests: the player, the song, a reset to the song as written, and saving now)
-window.__studio = {get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, setRef, jam: JAM, jamMake, jamEvolve, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};
+window.__studio = {showView, jamReady, get jamPage(){ return jamPage; }, get player(){ return player; }, get song(){ return song; }, reset: revert, load, view, setRef, jam: JAM, jamMake, jamEvolve, saveNow: async () => { await SAVE.start(); for (const i in songs) seen[ids[i]] = jsonOf(i); await autosave(); }};

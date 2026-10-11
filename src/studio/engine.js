@@ -104,8 +104,10 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
   E.window = n => {
     if (n % 16 === 0) {
       const s = E.session; if (s.next) { s.scene = s.next; s.at = n; s.next = null; E.over = {}; }
-      for (const [id, o] of Object.entries(E.over)) if (o.next !== undefined) { o.clip = o.next; o.row = o.nrow; o.at = n; delete o.next; }
     }
+    // (a clip queued for the bar line, or for a given sixteenth: `when`, starting its loop from `from`, the bar it falls in)
+    for (const o of Object.values(E.over)) if (o.next !== undefined && (o.when != null ? n >= o.when : n % 16 === 0)) {
+      o.clip = o.next; o.row = o.nrow; o.at = o.when != null ? o.from : n; delete o.next; delete o.when; delete o.from; }
     for (const tr of tracks) {
       const c = clipAt(tr, n); if (!c) continue;
       const clip = (tr.t.clips || {})[c.id], r = readClip(clip); if (!r) continue;
@@ -113,6 +115,8 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
       r.ev.forEach((e, k) => {
         if (Math.floor(e.s) !== pos) return;
         if (e.p < 1 && hash(song.seed || 1, tr.t.id, c.id, loop, k) >= e.p) return;
+        // (a note just recorded, already heard as it was played: not again this time round)
+        if (E.skip && E.skip.delete(`${tr.t.id}|${n}|${e.n}`)) return;
         const pd = tr.t.pads && tr.t.pads[e.n], t = E.time(n, e.s - pos, pd && pd.swing != null ? pd.swing : sw), len = e.l*S16, ev = {t, note: e.n, voice: typeof e.n === 'string' ? e.n : null, vel: e.v, len, track: tr.t.id};
         tr.inst.play(e.n, t, len, e.v);
         desk.note(tr.t.id, ev); if (onNote) onNote(ev);
@@ -173,8 +177,12 @@ export function makePlayer(ctx, song, opts = {}){
     // a scene from the next bar (switching to session mode, carrying on from where it is)
     launch(sc){ if (!pl.playing) return pl.play({scene: sc}); if (E.mode !== 'session') { E.session = {scene: E.sceneAt(E.n), at: E.session.at, next: null}; E.mode = 'session'; } E.session.next = sc; },
     // one track's clip from the next bar (null stops it); row: the scene whose cell launched it (for the page to light)
-    launchClip(id, clip, row = null){ if (!pl.playing) return pl.play({clips: {[id]: [clip, row]}});
-      E.over[id] = {...(E.over[id] || {clip: null, at: Infinity}), next: clip, nrow: row}; if (E.over[id].at === Infinity) E.over[id].at = Math.ceil(E.n/16)*16; },
+    // (now: from the next sixteenth instead, the clip in step with the bar it comes into, for a mute that's heard at once)
+    launchClip(id, clip, row = null, {now = false} = {}){ if (!pl.playing) return pl.play({clips: {[id]: [clip, row]}});
+      E.over[id] = {...(E.over[id] || {clip: null, at: Infinity}), next: clip, nrow: row}; if (E.over[id].at === Infinity) E.over[id].at = Math.ceil(E.n/16)*16;
+      if (now) { E.over[id].when = E.n; E.over[id].from = Math.floor(E.n/16)*16; } },
+    // a clip swapped in where it is, its loop carrying on (the same notes under a new name: a take that's being recorded)
+    swapClip(id, clip){ const o = E.over[id]; if (o && o.clip != null) o.clip = clip; },
     // where it is: the sixteenth being heard
     pos(){ return Math.max(0, (ctx.currentTime - E.t0)/E.S16); },
     // the song changed in a way the graph can't follow (a new device, a new instrument): built again, playing on

@@ -17,7 +17,7 @@ const browser = await launch('2d', ['--autoplay-policy=no-user-gesture-required'
 const page = await browser.newPage();
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
-await page.goto(url + 'studio.html');
+await page.goto(url + 'studio.html?view=studio');
 
 const r = await page.evaluate(async () => {
   const S = await import('/src/studio/song.js'), {renderSong} = await import('/src/studio/engine.js'), M = await import('/src/studio/measure.js');
@@ -388,6 +388,52 @@ const sv2 = await page.evaluate(async () => {
 check('an edit to a song is saved, and is there after a reload', /Saved/.test(sv.status) && sv.revert && sv2.vol === -7.5, f2([sv, sv2.vol]));
 check('the songs made here come back as tabs after a reload', sv2.tabs.length === sv2.builtIn + 2 && sv2.tabs.some(t => /My song/.test(t)) && sv2.tabs.some(t => /jam/.test(t)), f2(sv2.tabs));
 check('Revert goes back to the song as written and forgets the saved one', sv2.after !== -7.5 && !sv2.stored.includes('night-shift') && sv2.status === 'As written', f2(sv2));
+// the jam (src/studio/jam/): an improvising instrument over the same engine. Every lane gets an idea at once; a hit played
+// into an empty lane while recording starts a loop there; a held note is written as long as it was held; a pass over a
+// loop is a new take that Undo takes back; a mute heard at once; a macro turns its settings; the three layouts each draw
+// the lanes; a step tapped in Focus lands in the loop; the jam is kept across a reload; Open in Studio makes it a song
+const jj = await page.evaluate(async () => {
+  const st = window.__studio, wait = ms => new Promise(r => setTimeout(r, ms)), o = {};
+  st.showView('jam'); await st.jamReady; const pg = st.jamPage, c = pg.core, {check} = await import('/src/studio/song.js');
+  document.querySelector('.jall').click(); o.all = c.PARTS.every(p => c.lane(p.key).takes.length === 1 && !c.empty(p.key));
+  c.clear('hats'); c.lane('hats').takes.splice(0); c.lane('hats').take = null;
+  await c.start(); await wait(300);
+  await c.setRec(true); await c.hit('hats', 'chh', .9); await wait(120); await c.hit('hats', 'ohh', .5);
+  const hats = c.clip('hats'); o.hats = !!hats && /[1-9]/.test(hats.hits.chh) && /[1-9]/.test(hats.hits.ohh) && hats.steps === 32;
+  await c.noteOn('hook', 72, .8, 'x'); await wait(260); c.noteOff('hook', 'x');
+  const hn = c.clip('hook').notes.find(n => n[1] === 72); o.held = hn && hn[2];
+  const t0 = c.lane('drums').take; await c.hit('drums', 'clap', .8); const t1 = c.lane('drums').take; await c.hit('drums', 'clap', .8);
+  o.pass = t0 !== t1 && c.lane('drums').take === t1 && c.lane('drums').takes.length === 2;
+  c.step('drums', -1); o.undo = c.lane('drums').take === t0; await c.setRec(false);
+  c.setting('launch', 'now'); c.mute('perc', true); await wait(250); o.muteNow = c.player.E.over.perc.clip === null; c.mute('perc', false); c.setting('launch', 'bar');
+  c.setMacro('bass', 0, 0); o.cut = Math.round(c.get('bass', 'cut'));
+  for (const f of ['grid', 'strips', 'focus']) { pg.setFace(f); await wait(80); o[f] = document.querySelectorAll(f === 'grid' ? '.grow' : f === 'strips' ? '.jstrip' : '.ftab').length; }
+  pg.select('perc'); await wait(50); const s0 = c.clip('perc').hits.rim || ''; document.querySelector('.fsteps .frow .fst[data-s="1"]').click(); o.step = (c.clip('perc').hits.rim || '') !== s0;
+  c.vary('bass'); o.vary = c.lane('bass').takes.length === 2;
+  c.stop(); await wait(1500);
+  o.takes = Object.fromEntries(c.PARTS.map(p => [p.key, c.lane(p.key).takes.length]));
+  o.song = check(c.song).length === 0 ? 'clean' : check(c.song);
+  return o;
+});
+check('the jam: New groove gives every lane an idea', jj.all, f2(jj));
+check('the jam: a hit played into an empty lane while recording starts a two-bar loop there', jj.hats, f2(jj));
+check('the jam: a held note is written as long as it was held (on the 16ths)', jj.held >= 1.5 && jj.held <= 3, f2(jj.held));
+check('the jam: a pass over a loop is a new take, and Undo goes back to the one before', jj.pass && jj.undo, f2(jj));
+check('the jam: a mute is heard at once with Launch: Now; a macro turns its settings', jj.muteNow && jj.cut === 90, f2(jj));
+check('the jam: grid, strips and focus each show the six lanes; a step tapped in Focus lands in the loop; Vary adds a take',
+  jj.grid === 6 && jj.strips === 6 && jj.focus === 6 && jj.step && jj.vary, f2(jj));
+check('the jam\'s song checks clean', jj.song === 'clean', f2(jj.song));
+await page.goto(url + 'studio.html?view=jam'); await page.waitForFunction(() => window.__studio && window.__studio.jamPage);
+const jk = await page.evaluate(async () => {
+  const st = window.__studio, c = st.jamPage.core, o = {takes: Object.fromEntries(c.PARTS.map(p => [p.key, c.lane(p.key).takes.length]))};
+  const n = document.querySelectorAll('#songs button').length; document.querySelector('.jstudio').click();
+  o.tabs = document.querySelectorAll('#songs button').length - n; o.title = st.song.title; o.studio = !document.body.classList.contains('jamon');
+  o.clips = st.song.scenes.find(s => s.id === 'jam').clips;
+  localStorage.removeItem('afterglow.studio.songs'); localStorage.removeItem('afterglow.studio.view');
+  return o;
+});
+check('the jam is kept across a reload, every take', JSON.stringify(jk.takes) === JSON.stringify(jj.takes), f2([jk.takes, jj.takes]));
+check('Open in Studio makes the jam a song of the user\'s, its scene what was playing', jk.tabs === 1 && /^Jam/.test(jk.title) && jk.studio && Object.keys(jk.clips).length === 6, f2(jk));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
