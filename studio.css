@@ -24,7 +24,7 @@ small{color:var(--dim);font-weight:400;font-size:12px;letter-spacing:0;text-tran
 .songs button[aria-current="true"]{border-color:var(--accent);color:var(--accent)}
 .transport{display:flex;align-items:center;gap:8px;margin-left:auto}
 .pos,.tempo{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
-.pos{color:var(--ink);min-width:6ch}
+.pos{color:var(--ink);width:9ch;white-space:pre;display:inline-block}
 
 main{padding:4px 16px 48px;display:flex;flex-direction:column;gap:22px;max-width:1500px;margin:0 auto}
 h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:14px 0 8px;color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
@@ -36,17 +36,24 @@ h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
 .arr .part{flex:none;border-right:1px solid var(--bg);padding:4px 6px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:var(--panel2);color:var(--dim)}
 .arr .part b{display:block;color:var(--ink);font-weight:500}
 .arr .part.now{background:#123041;color:var(--accent)}
-.arr .head{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);left:0;pointer-events:none;box-shadow:0 0 8px var(--accent)}
+.arr .head{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);left:0;pointer-events:none;box-shadow:0 0 8px var(--accent);will-change:transform}
 
 /* session: scenes down, tracks across */
-.ses{border-collapse:collapse;font-size:12px;min-width:100%}
+.ses{border-collapse:collapse;font-size:12px;table-layout:fixed;width:max(100%, calc(120px + var(--cols, 8)*112px))}
+.ses col.sc,.ses th.scene{width:120px}
 .ses th,.ses td{border:1px solid var(--line);padding:0;height:30px}
 .ses th{font-weight:500;padding:4px 8px;text-align:left;white-space:nowrap;color:var(--dim)}
 .ses thead th{color:var(--ink);border-bottom:2px solid var(--tc,var(--line))}
 .ses td button,.ses th button{width:100%;height:100%;border:0;border-radius:0;background:none;text-align:left;padding:4px 8px;color:var(--dim)}
 .ses td button.clip{background:color-mix(in srgb,var(--tc) 14%,transparent);color:var(--ink)}
 .ses td button.clip.sel{outline:1px solid var(--tc);outline-offset:-2px}
-.ses td button.clip.live{background:color-mix(in srgb,var(--tc) 45%,transparent);color:#fff;font-weight:500}
+.ses td button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ses td button .tri{display:inline-block;width:1.4em;color:var(--tc);opacity:.7}
+.ses td button.clip.live{background:color-mix(in srgb,var(--tc) 45%,transparent);color:#fff}
+.ses td button.clip.live .tri{color:#fff;opacity:1}
+.ses tr.stops td button{text-align:center;color:var(--faint);font-size:11px}
+.ses tr.stops td button:hover{color:var(--hot)}
+.dim{color:var(--faint);font-weight:400}
 .ses td button.clip.queued{animation:blink .5s steps(2) infinite}
 .ses th.scene button{color:var(--ink)} .ses th.scene button.live{color:var(--accent)}
 @keyframes blink{50%{opacity:.4}}
@@ -54,18 +61,23 @@ h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
 
 /* mixer */
 .mixer{display:flex;gap:1px;background:var(--line);min-width:max-content}
-.strip{display:grid;grid-template-rows:auto auto 150px auto auto auto;justify-items:center;gap:6px;width:84px;padding:8px 6px;background:var(--panel)}
+.strip{display:grid;grid-template-rows:26px 36px 150px 16px 58px 24px;justify-items:center;gap:6px;width:84px;flex:none;padding:8px 6px;background:var(--panel)}
+.strip.kind-pad{background:#0a0e13;width:76px}
 .strip.sel{background:var(--panel2);box-shadow:inset 0 2px 0 var(--tc,var(--accent))}
 .strip.kind-return{background:#0d0f17} .strip.kind-group{background:#0f1114} .strip.kind-master{background:#0e1614;width:100px}
 .strip .nm{font-size:12px;width:100%;padding:3px 4px;background:none;border-color:transparent;overflow:hidden;text-overflow:ellipsis;color:var(--ink);border-bottom:2px solid var(--tc,var(--line));border-radius:0}
-.strip .chips{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;min-height:16px}
-.chip{font:10px/1 var(--mono);padding:2px 3px;border-radius:3px;background:var(--panel2);color:var(--dim)}
+.strip .chips{display:grid;grid-template-columns:repeat(2,34px);grid-auto-rows:16px;gap:2px;justify-content:center;overflow:hidden;height:36px}
+.chip{font:10px/16px var(--mono);border-radius:3px;background:var(--panel2);color:var(--dim);display:flex;justify-content:space-between;padding:0 3px;overflow:hidden;width:34px}
+.chip b{font-weight:400;overflow:hidden}
+.chip i{font-style:normal;width:0;overflow:hidden}
+.chip.gr i{width:auto}
+.chip.gr b{display:none}
 .chip.gr{color:var(--duck)}
 .strip .ff{display:flex;gap:6px;align-items:stretch;height:150px}
 .strip canvas.met{width:14px;height:150px;background:#05070a;border-radius:2px}
 .strip input.fader{writing-mode:vertical-lr;direction:rtl;height:150px;width:22px;accent-color:var(--accent)}
 .strip .db{font:11px var(--mono);color:var(--dim);font-variant-numeric:tabular-nums}
-.strip .ms{display:flex;gap:3px} .strip .ms button{padding:1px 6px;font-size:11px}
+.strip .ms{display:flex;gap:3px} .strip .ms button{padding:1px 6px;font-size:11px;width:22px}
 .strip .ms button.m[aria-pressed="true"]{color:var(--warn);border-color:var(--warn)}
 
 /* knobs (the visualiser's own widget) */
@@ -75,8 +87,8 @@ h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
 .knob .ka{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round}
 .knob .kp{stroke:#fff;stroke-width:2;stroke-linecap:round}
 .knob.on .kt{stroke:var(--accent)}
-.knob .kv{font:10px/1.2 var(--mono);color:var(--ink)}
-.knob .kl{font-size:10px;line-height:1.2;color:var(--dim);text-align:center}
+.knob .kv{font:10px/1.2 var(--mono);color:var(--ink);width:100%;text-align:center;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.knob .kl{font-size:10px;line-height:1.2;color:var(--dim);text-align:center;width:100%;height:2.4em;overflow:hidden}
 
 /* the open strip */
 .detail:empty{display:none}
@@ -85,19 +97,36 @@ h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
 .cards{display:flex;flex-wrap:wrap;gap:10px}
 .card{border:1px solid var(--line);border-radius:5px;background:var(--panel2);padding:8px 10px;min-width:0}
 .card h4{margin:0 0 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:500;display:flex;justify-content:space-between;gap:8px}
-.card .gr{color:var(--duck);font-family:var(--mono);letter-spacing:0}
+.card .gr{color:var(--duck);font-family:var(--mono);letter-spacing:0;width:8ch;text-align:right;font-variant-numeric:tabular-nums}
 .knobs{display:flex;flex-wrap:wrap;gap:4px}
 .card canvas.eqc{display:block;width:260px;max-width:100%;height:80px;background:#05070a;border-radius:3px;margin-bottom:6px}
 
+/* the rack's pads */
+.padgrid{display:grid;grid-template-columns:repeat(4,72px);gap:6px}
+.pad{height:52px;background:color-mix(in srgb,var(--tc) 12%,var(--panel2));border-color:color-mix(in srgb,var(--tc) 40%,var(--line));white-space:normal;font-size:12px;line-height:1.2}
+.pad:active{background:color-mix(in srgb,var(--tc) 50%,var(--panel2))}
 /* a clip: drum steps, or notes on a roll */
+.clipbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px}
+.clipbar .ct{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.clipbar .hint{font-size:12px;color:var(--faint)}
+.seg{display:inline-flex} .seg button{border-radius:0;padding:3px 10px} .seg button:first-child{border-radius:5px 0 0 5px} .seg button:last-child{border-radius:0 5px 5px 0;margin-left:-1px}
 .clipv{margin-top:12px}
-.steps{display:grid;grid-template-columns:70px 1fr;gap:3px 8px;align-items:center;font-size:12px;overflow-x:auto}
-.steps .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(14px,1fr);gap:2px}
+.steps{display:grid;grid-template-columns:84px minmax(0,1fr);gap:3px 8px;align-items:center;font-size:12px;overflow-x:auto}
+.steps .rn{padding:0 6px;height:20px;text-align:left;font-size:11px;background:none;overflow:hidden;text-overflow:ellipsis}
+.steps.notes{gap:1px 8px} .steps.notes .rn{height:16px;font-family:var(--mono)} .steps.notes .row button{height:15px}
+.steps .rn.blk{color:var(--faint)}
+.steps .row{display:grid;gap:2px}
 .steps .row button{height:20px;padding:0;border-radius:2px;background:#151b24;border-color:transparent}
 .steps .row button.b{background:#1b2330}
 .steps .row button.on{background:color-mix(in srgb,var(--tc) calc(var(--v)*100%),#151b24)}
+.steps .row button.rep{opacity:.55}
+.pager{margin-bottom:6px}
+.steps .row button.acc{box-shadow:inset 0 0 0 1px #fff}
+.steps .row button.held{background:color-mix(in srgb,var(--tc) 25%,#151b24)}
 .steps .row button.ph{box-shadow:inset 0 -2px 0 var(--accent)}
-canvas.roll{width:100%;height:160px;background:#05070a;border-radius:4px;display:block}
+.rollbox{position:relative;overflow:hidden;border-radius:4px}
+canvas.roll{width:100%;background:#05070a;display:block;cursor:crosshair;touch-action:none}
+.rollbox .ph{position:absolute;top:0;bottom:0;left:0;width:2px;background:var(--accent);display:none;pointer-events:none;will-change:transform}
 
 /* the mix */
 .outgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:12px}

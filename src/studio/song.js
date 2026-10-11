@@ -33,11 +33,10 @@ const CACHE = new WeakMap();
 export function readClip(c){
   if (!c) return null; if (CACHE.has(c)) return CACHE.get(c);
   const ev = []; let len = c.steps || (c.bars ? c.bars*16 : 0), rowLen = 0;
-  for (const [voice, row] of Object.entries(c.hits || {})) {
-    const r = hitRow(typeof row === 'string' ? row : row.p), p = typeof row === 'object' && row.prob != null ? row.prob : 1;
-    rowLen = Math.max(rowLen, r.len);
-    for (const e of r.ev) ev.push({s: e.s, n: voice, l: .5, v: e.v, p: e.p*p});
-  }
+  const rows = Object.entries(c.hits || {}).map(([voice, row]) => [voice, hitRow(typeof row === 'string' ? row : row.p), typeof row === 'object' && row.prob != null ? row.prob : 1]);
+  for (const [, r] of rows) rowLen = Math.max(rowLen, r.len);
+  // (a row shorter than its clip goes round inside it: a 12-step rim in a three-bar clip plays four times)
+  for (const [voice, r, p] of rows) for (let o = 0; o < (len || rowLen); o += r.len || Infinity) for (const e of r.ev) if (o + e.s < (len || rowLen)) ev.push({s: o + e.s, n: voice, l: .5, v: e.v, p: e.p*p, row: voice, rs: e.s});
   for (const x of c.notes || []) {
     const [s, pitch, l = 1, v = .8, o = {}] = Array.isArray(x) ? x : [x.t, x.n, x.l, x.v, x];
     for (const q of [].concat(pitch)) ev.push({s, n: noteNum(q), l, v, p: o.p != null ? o.p : (o.prob != null ? o.prob : 1), slide: !!o.slide});
@@ -58,8 +57,10 @@ export function arrangement(song){
 }
 export const scene = (song, id) => (song.scenes || []).find(s => s.id === id);
 // every strip: tracks, groups, returns, the master
+// (a drum rack's pads are strips of their own, 'drums:kick', going into the rack's strip unless they say otherwise)
 export function stripsOf(song){
-  return [...(song.tracks || []).map(t => ({...t.mix, id: t.id, name: t.name || t.id, kind: 'track'})), ...(song.groups || []).map(g => ({...g, kind: 'group'})),
+  return [...(song.tracks || []).flatMap(t => [...Object.entries(t.pads || {}).map(([k, p]) => ({...p.mix, id: t.id + ':' + k, name: (p.name || k), kind: 'pad', rack: t.id, pad: k, to: (p.mix || {}).to || t.id})),
+      {...t.mix, id: t.id, name: t.name || t.id, kind: 'track'}]), ...(song.groups || []).map(g => ({...g, kind: 'group'})),
     ...(song.returns || []).map(r => ({...r, kind: 'return'})), {...(song.master || {}), id: 'master', name: 'Master', kind: 'master'}];
 }
 
@@ -78,13 +79,14 @@ export function check(song){
       for (const e of r.ev) if (I.key === 'drums' ? !I.voices.some(v => v.key === e.n || v.note === e.n) : typeof e.n !== 'number') { bad.push(`${t.id}.${k}: "${e.n}" isn't a ${I.key === 'drums' ? 'drum voice' : 'note'}`); break; }
     }
   }
+  for (const t of song.tracks || []) for (const k in t.pads || {}) strip.add(t.id + ':' + k);
   for (const g of [...(song.groups || []), ...(song.returns || [])]) strip.add(g.id);
   for (const s of stripsOf(song)) {
     if (s.to && !strip.has(s.to)) bad.push(`${s.id} goes to "${s.to}", which isn't a group`);
     for (const r in s.sends || {}) if (!(song.returns || []).some(x => x.id === r)) bad.push(`${s.id} sends to "${r}", which isn't a return`);
     for (const d of s.chain || []) {
       if (!DEVICES[d.type] && !EFFECTS.some(e => e.key === d.type)) bad.push(`${s.id}: no device "${d.type}"`);
-      if (d.type === 'sc' && !ids.has(d.src || 'kick')) bad.push(`${s.id}: the sidechain listens to "${d.src || 'kick'}", which isn't a track`);
+      if (d.type === 'sc' && !ids.has(d.src || 'kick') && !strip.has(d.src || 'kick')) bad.push(`${s.id}: the sidechain listens to "${d.src || 'kick'}", which isn't a track`);
     }
   }
   const sc = new Set((song.scenes || []).map(s => s.id));

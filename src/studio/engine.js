@@ -25,10 +25,21 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
     onNote: fn => desk.onNote((id, e) => fn({...e, ch: e.voice || id}))};
   const desk = makeDesk(ctx, song, {out, env, meters});
   const tracks = song.tracks.map((t, i) => {
-    const I = instrument(t.inst.type), inst = I.make(ctx, desk.strips.get(t.id).input, env);
-    inst.load(I.key === 'drums' ? t.inst : {...((I.presets || {})[t.inst.preset] || {}), ...(t.inst.p || {})});
+    const I = instrument(t.inst.type), inst = t.pads ? rack(t) : I.make(ctx, desk.strips.get(t.id).input, env);
+    if (!t.pads) inst.load(I.key === 'drums' ? t.inst : {...((I.presets || {})[t.inst.preset] || {}), ...(t.inst.p || {})});
     return {t, i, I, inst};
   });
+  // a drum rack: a kit for each pad, into the pad's own strip, each from the rack's kit or its own; voices without a pad
+  // play from one kit into the rack's strip
+  function rack(t){
+    const D = instrument('drums'), mk = (out, kit, voices) => { const k = D.make(ctx, out, env); k.load({kit, voices}); return k; };
+    const base = (t.inst || {}).voices || {}, pads = {}, rest = mk(desk.strips.get(t.id).input, t.inst.kit, base);
+    for (const [k, p] of Object.entries(t.pads)) pads[k] = mk(desk.strips.get(t.id + ':' + k).input, p.kit || t.inst.kit, {[k]: {...(base[k] || {}), ...(p.voice || {})}});
+    const of = v => pads[v] || rest;
+    return {pads, P: new Proxy({}, {get: (o, v) => of(v).P[v]}),
+      play(n, t0, len, vel){ of(n).play(n, t0, len, vel); },
+      set(k, v){ const [voice] = k.split('.'); of(voice).set(k, v); }, param: () => null, load(){}, start(){}, allOff(){}};
+  }
   const T = id => tracks.find(x => x.t.id === id);
   const E = {song, ctx, desk, tracks, env, P, S16, t0: 0, n: 0, mode: 'arrange', session: {scene: null, at: 0, next: null}, over: {}, on: false};
   const A = arrangement(song);
@@ -38,9 +49,9 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
   E.target = path => {
     const [id, ...r] = path.split('.'), rest = r.join('.'), tr = T(id);
     if (tr && r[0] === 'inst') {
-      const k = r.slice(1).join('.'), q = tr.inst.param(k), ip = tr.t.inst;
+      const k = r.slice(1).join('.'), q = tr.inst.param(k), ip = tr.t.inst, pad = tr.t.pads && tr.t.pads[r[1]];
       const get = () => tr.I.key === 'drums' ? (tr.inst.P[r[1]] || {})[r[2]] : tr.inst.P[k];
-      const put = v => { if (tr.I.key === 'drums') { const vo = ip.voices = ip.voices || {}; (vo[r[1]] = vo[r[1]] || {})[r[2]] = v; } else (ip.p = ip.p || {})[k] = v; };
+      const put = v => { if (pad) (pad.voice = pad.voice || {})[r[2]] = v; else if (tr.I.key === 'drums') { const vo = ip.voices = ip.voices || {}; (vo[r[1]] = vo[r[1]] || {})[r[2]] = v; } else (ip.p = ip.p || {})[k] = v; };
       return q ? {ps: [q.p], map: q.map, get, put, inst: tr.inst, k} : {set: v => tr.inst.set(k, v), get, put, inst: tr.inst, k};
     }
     return desk.target(id, rest);
@@ -90,7 +101,7 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
   E.window = n => {
     if (n % 16 === 0) {
       const s = E.session; if (s.next) { s.scene = s.next; s.at = n; s.next = null; E.over = {}; }
-      for (const [id, o] of Object.entries(E.over)) if (o.next !== undefined) { o.clip = o.next; o.at = n; delete o.next; }
+      for (const [id, o] of Object.entries(E.over)) if (o.next !== undefined) { o.clip = o.next; o.row = o.nrow; o.at = n; delete o.next; }
     }
     for (const tr of tracks) {
       const c = clipAt(tr, n); if (!c) continue;
@@ -99,7 +110,7 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
       r.ev.forEach((e, k) => {
         if (Math.floor(e.s) !== pos) return;
         if (e.p < 1 && hash(song.seed || 1, tr.t.id, c.id, loop, k) >= e.p) return;
-        const t = E.time(n, e.s - pos, sw), len = e.l*S16, ev = {t, note: e.n, voice: typeof e.n === 'string' ? e.n : null, vel: e.v, len, track: tr.t.id};
+        const pd = tr.t.pads && tr.t.pads[e.n], t = E.time(n, e.s - pos, pd && pd.swing != null ? pd.swing : sw), len = e.l*S16, ev = {t, note: e.n, voice: typeof e.n === 'string' ? e.n : null, vel: e.v, len, track: tr.t.id};
         tr.inst.play(e.n, t, len, e.v);
         desk.note(tr.t.id, ev); if (onNote) onNote(ev);
       });
@@ -127,7 +138,8 @@ export function buildSong(ctx, song, {out = ctx.destination, meters = false, onN
 // opts: bars (default: the whole arrangement), solo (track ids: everything else muted, for stems), sr
 export async function renderSong(song, {bars, from = 0, solo, sr = TUNE.studio.sr, tail = TUNE.studio.tail, onProgress, onNote, chunk = 4} = {}){
   song = structuredClone(song);
-  if (solo) for (const t of song.tracks) { t.mix = t.mix || {}; t.mix.solo = [].concat(solo).includes(t.id); }
+  // (soloing a track, or a rack's pad: 'drums:kick')
+  if (solo) for (const t of song.tracks) { t.mix = t.mix || {}; t.mix.solo = [].concat(solo).includes(t.id); for (const [k, p] of Object.entries(t.pads || {})) { p.mix = p.mix || {}; p.mix.solo = [].concat(solo).includes(t.id + ':' + k); } }
   const S16 = 60/song.bpm/4, n0 = from*16, N = (bars || arrangement(song).bars - from)*16, ctx = new OfflineAudioContext(2, Math.ceil((N*S16 + tail)*sr), sr);
   const E = buildSong(ctx, song, {onNote});
   // (the windows a beat at a time, a beat ahead: suspending every sixteenth cost more than the music)
@@ -143,8 +155,10 @@ export function makePlayer(ctx, song, opts = {}){
   let E = buildSong(ctx, song, {meters: true, ...opts}), timer = 0;
   const pl = {get E(){ return E; }, playing: false,
     // play from a bar: the arrangement, or a scene looped (session)
-    play({bar = 0, scene: sc = null} = {}){
-      pl.stop(); E.mode = sc ? 'session' : 'arrange'; E.session = {scene: sc, at: bar*16, next: null}; E.over = {};
+    // (clips: {track: [clip, row]}: start from those clips alone, the rest silent)
+    play({bar = 0, scene: sc = null, clips = null} = {}){
+      pl.stop(); E.mode = sc || clips ? 'session' : 'arrange'; E.session = {scene: sc, at: bar*16, next: null}; E.over = {};
+      for (const [id, [clip, row]] of Object.entries(clips || {})) E.over[id] = {clip, at: bar*16, row};
       E.startAt(ctx.currentTime + .08, bar*16); pl.playing = true;
       const tick = () => { while (E.grid(E.n) < ctx.currentTime + TUNE.studio.ahead) { if (E.mode === 'arrange' && E.n >= E.bars*16) { pl.end = true; break; } E.window(E.n); E.n++; } };
       tick(); timer = setInterval(tick, TUNE.studio.tickMs);
@@ -152,8 +166,9 @@ export function makePlayer(ctx, song, opts = {}){
     stop(){ clearInterval(timer); if (pl.playing) E.silence(); pl.playing = false; pl.end = false; },
     // a scene from the next bar (switching to session mode, carrying on from where it is)
     launch(sc){ if (!pl.playing) return pl.play({scene: sc}); if (E.mode !== 'session') { E.session = {scene: E.sceneAt(E.n), at: E.session.at, next: null}; E.mode = 'session'; } E.session.next = sc; },
-    // one track's clip from the next bar (null stops it)
-    launchClip(id, clip){ E.over[id] = {...(E.over[id] || {clip: null, at: Infinity}), next: clip}; if (E.over[id].at === Infinity) E.over[id].at = Math.ceil(E.n/16)*16; },
+    // one track's clip from the next bar (null stops it); row: the scene whose cell launched it (for the page to light)
+    launchClip(id, clip, row = null){ if (!pl.playing) return pl.play({clips: {[id]: [clip, row]}});
+      E.over[id] = {...(E.over[id] || {clip: null, at: Infinity}), next: clip, nrow: row}; if (E.over[id].at === Infinity) E.over[id].at = Math.ceil(E.n/16)*16; },
     // where it is: the sixteenth being heard
     pos(){ return Math.max(0, (ctx.currentTime - E.t0)/E.S16); },
     // the song changed in a way the graph can't follow (a new device, a new instrument): built again, playing on

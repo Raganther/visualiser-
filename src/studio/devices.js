@@ -81,7 +81,8 @@ function scDevice(ctx, d, desk){
       p.linearRampToValueAtTime(lo, t + P.att); p.setValueAtTime(lo, t + P.att + P.hold); p.setTargetAtTime(1, t + P.att + P.hold, Math.max(.005, P.rel/3));
       hits.push(t); if (hits.length > 8) hits.shift();
     };
-    off = desk.onNote((id, e) => { if (id === P.src && (!P.voice || e.voice === P.voice)) duck(e.t); });
+    // (a source 'drums:kick' is the kick pad of the rack called drums)
+    off = desk.onNote((id, e) => { if ((id === P.src && (!P.voice || e.voice === P.voice)) || id + ':' + e.voice === P.src) duck(e.t); });
   }
   return {input, output,
     set(k, v){ P[k] = v; }, param: () => null,

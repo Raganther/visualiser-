@@ -19,7 +19,7 @@ export function makeDesk(ctx, song, {out = ctx.destination, env, meters = false}
   // every strip's nodes first (a sidechain may listen to any of them), then their chains, then where they go
   const defs = stripsOf(song);
   for (const d of defs) {
-    const s = {id: d.id, name: d.name, kind: d.kind, def: d, src: d.kind === 'track' ? song.tracks.find(t => t.id === d.id) : d.kind === 'master' ? song.master : (song.groups || []).concat(song.returns || []).find(x => x.id === d.id),
+    const s = {id: d.id, name: d.name, kind: d.kind, def: d, src: d.kind === 'track' ? song.tracks.find(t => t.id === d.id) : d.kind === 'pad' ? song.tracks.find(t => t.id === d.rack).pads[d.pad] : d.kind === 'master' ? song.master : (song.groups || []).concat(song.returns || []).find(x => x.id === d.id),
       input: gainNode(ctx), post: gainNode(ctx), pan: ctx.createStereoPanner(), fader: gainNode(ctx), mute: gainNode(ctx), out: gainNode(ctx), sends: {}, dev: []};
     s.post.connect(s.pan); s.pan.connect(s.fader); s.fader.connect(s.mute); s.mute.connect(s.out);
     S.set(d.id, s);
@@ -39,18 +39,19 @@ export function makeDesk(ctx, song, {out = ctx.destination, env, meters = false}
   }
   // mute and solo: a soloed track (or group) leaves only what's soloed, and the groups and returns it needs
   function mutes(){
-    const solo = [...S.values()].filter(s => s.def.solo && (s.kind === 'track' || s.kind === 'group'));
+    const tg = s => s.kind === 'track' || s.kind === 'group' || s.kind === 'pad';
+    const solo = [...S.values()].filter(s => s.def.solo && tg(s));
     // (kept: what's soloed, the groups it goes through, and what goes into a soloed group)
     const keep = new Set(); for (const s of solo) { keep.add(s.id); let t = s.def.to; while (t && S.has(t)) { keep.add(t); t = S.get(t).def.to; } }
     const inSolo = s => { let t = s.def.to; while (t && S.has(t)) { if (S.get(t).def.solo) return true; t = S.get(t).def.to; } return false; };
     for (const s of S.values()) {
-      const off = s.def.mute || (solo.length && (s.kind === 'track' || s.kind === 'group') && !keep.has(s.id) && !inSolo(s));
+      const off = s.def.mute || (solo.length && tg(s) && !keep.has(s.id) && !inSolo(s));
       s.mute.gain.setTargetAtTime(off ? 0 : 1, ctx.currentTime, .005);
     }
   }
   mutes();
   // where the song's description of a strip lives (a tweak writes back there, so the song as heard can be copied out)
-  const home = s => s.kind === 'track' ? (s.src.mix = s.src.mix || {}) : s.src || (song.master = song.master || {});
+  const home = s => s.kind === 'track' || s.kind === 'pad' ? (s.src.mix = s.src.mix || {}) : s.src || (song.master = song.master || {});
   const devOf = (s, id) => s.dev.find(v => v.d.id === id) || s.dev.find(v => v.d.type === id) || (/^\d+$/.test(id) ? s.dev[+id] : null);
   // a parameter by its path within a strip: 'vol', 'pan', 'send.verb', '<device id or type or index>.<setting>'
   desk.target = (id, path) => {

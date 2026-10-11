@@ -13,7 +13,7 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder);
   - `blender-object`: model an object in Blender (or take the user's .glb) and bring it in, with a shape key it plays on the beat.
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
-- **Studio:** an AI-native DAW, its own page (`studio.html`, published as its own Artifact from `dist/studio.html`, `npm run build:studio`): songs as plain data, played live and rendered offline from the same graph. See The Studio below, `docs/studio-plan.md` and `docs/studio-format.md`.
+- **Studio:** an AI-native DAW, its own page (`studio.html`, published as its own Artifact, https://claude.ai/artifact/Gr4pisRjCo75HzS9iH1ckE, from `dist/studio.html`: `npm run build:studio`, then publish that file to that URL): songs as plain data, played live and rendered offline from the same graph. See The Studio below, `docs/studio-plan.md` and `docs/studio-format.md`.
 - **Voice:** an experiment, set aside by the user: the page Afterglow Voice (https://claude.ai/artifact/HBgUQnbG3XJEeNQ22XKgGi, `tools/voice/afterglow-voice.html`) reads aloud whatever is in its database document `voice/latest`. Pages can't use the microphone, so it never became a spoken back-and-forth. Don't write to it unless asked.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
