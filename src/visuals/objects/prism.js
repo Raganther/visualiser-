@@ -25,6 +25,7 @@ import { DANCE } from '../../scene/dance.js';
 import { SIG } from '../../scene/signals.js';
 import { L } from '../../audio/listen.js';
 import { gemSheetGeo, sheetGeo, facetPlaceP, facetGL, facet2d, facetPath2d } from '../../render/facet.js';
+import { RULES, makeCells, stepCells, touch, clear, syncAll, scatter } from './cells.js';
 
 const hash = n => { const x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
 const hashStr = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0)/4294967296; };
@@ -102,6 +103,7 @@ function makeBody(kind, G, AL){
   // the automata on the facets of level AL: a cascade (a lit facet lights its neighbours next 16th, then rests) and life
   const NA = G.NF[AL], ADJ = G.ADJ[AL]; b.NA = NA; b.ADJ = ADJ; b.age = new Float32Array(NA).fill(99); b.casc = new Float32Array(NA); b.life = new Uint8Array(NA);
   b.N2 = []; for (let c = 0; c < NA; c++) { const s = new Set(); for (let j = 0; j < 3; j++) { const n = ADJ[c*3 + j]; if (n < 0) continue; s.add(n); for (let k = 0; k < 3; k++) if (ADJ[n*3 + k] >= 0) s.add(ADJ[n*3 + k]); } s.delete(c); b.N2.push([...s]); }
+  b.C = makeCells(NA, ADJ, rnd);   // the facets as cells (stage 5)
   b.lv = []; b.lv2 = []; for (let l = 0; l <= F; l++) { b.lv.push(new Float32Array(G.NF[l])); b.lv2.push(new Float32Array(G.NF[l])); }
   b.tint = kind === 'g' ? f => G.FA[0][f] % 3 : f => (G.CH[1][G.FA[1][f]] + (G.FA[0][f] < 4 ? 0 : 1)) % 3;
   return b;
@@ -122,8 +124,8 @@ function programFor(type, T){
   const p = {theme: archetype(pickArch(live ? .65 : .3, true)), visits: 0,
     det: live ? 1.6 + rnd()*1.2 : .6 + rnd()*1.3, n: {g: pick([5, 5, 10]), s: pick([4, 6, 8])},
     kick: pick(['ripple', 'ripple', 'cascade', 'pulse']), stab: pick(['sectors', 'checker', 'rings']), spiral: [pick([1, 2, 3, 5]), pick([2, 3, 5])],
-    figure: rnd() < .5 ? 'life' : 'improv', brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
-    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in'])};   // (rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
+    figure: pick(live ? ['improv', 'life', 'swell', 'fireflies', 'fireflies', 'frost'] : ['spots', 'stripes', 'frost', 'spots', 'improv', 'life']), brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
+    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in'])};   // (figure: life, the improvised one, or the facets as cells; rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
   if (id) st.progs[id] = p;
   return p;
 }
@@ -142,6 +144,7 @@ export default {
   stats: '20 to 2,048 facets: a gem in ten shapes that opens into a star, mountains, waves, a tube, a ring, a twist',
   onBeat(pos){
     st.run++; st.beat = pos;
+    if (pos === 0 && st.prog && RULES.includes(st.prog.figure)) { const b = BODY[st.body], ru = st.prog.figure; if (ru !== 'fireflies' && ru !== 'swell') touch(b.C, ru, symCells(b, st.bars), .7); }   // (the bar seeds the cells, at n points round the middle)
     if (pos === 0) { st.bars++; st.secBars++; st.glow = 1; st.barT = st.t; if (st.prog && st.prog.figure === 'life' && (st.secBars >= TUNE.prism.layerBars.life || st.prog.rest === 'figure')) stepLife(BODY[st.body]); }
   },
   breakApart(){ st.exT = 1; },
@@ -154,6 +157,7 @@ export default {
       if (!st.hold) { const pr = st.prog; goGenome(pr.visits++ ? mutate(pr.theme, TUNE.prism.imp.vary, want()) : pr.theme); } setDetail(detFor()); }
     const pr = st.prog;
     // a drop: it shatters, gains every facet, and a closed form opens out into mountains or an open one snaps shut into a star
+    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop && st.prog) { const C = BODY[st.body].C; if (st.prog.figure === 'fireflies') syncAll(C); else if (st.prog.figure === 'frost') C.f.fill(1); else if (st.prog.figure === 'swell') touch(C, 'swell', [...C.out.keys()].filter((_, i) => i % 7 === 0), 1); }
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.exT = Math.max(st.exT, J.on ? 1 : .6); setDetail(BODY[st.body].F, 1);
       if (!st.hold) { if (closed() > .5) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }
     st.lastDrop = J ? J.lastDrop : null;
@@ -179,6 +183,7 @@ export default {
     if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; if (st.act >= TA.at.everyKick || st.beat === 0) kick(ten); }   // (calm: the kick's light only on the 1)
     // stabs: the wedges step on, the checker flips, the superformula gains points; three in a bar spin the wedges for a bar
     if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; st.chk ^= 1; st.chkT = st.t; st.hue += .1;
+      if (RULES.includes(pr.figure)) { const bb = BODY[st.body]; if (pr.figure === 'frost') clear(bb.C, wedgeCells(bb, st.sec)); else if (pr.figure !== 'fireflies') touch(bb.C, pr.figure, symCells(bb, st.sec*3 + 1), .5); }
       const b = SF[st.g.sf]; setSf([b[0] + 2*(st.sec % 3), b[1], b[2], b[3]], T.stabSfSecs);
       st.stabs = st.stabs.filter(t => st.t - t < 4*S.beatPeriod); st.stabs.push(st.t); if (st.stabs.length >= 3) st.spinT = st.t; }
     st.lastHit = x.hit;
@@ -206,6 +211,7 @@ export default {
     st.spin += dt*T.spin*(1 - .6*TUNE.dance.amount)*(TA.spinCalm + (1 - TA.spinCalm)*st.act);
     const b = BODY[st.body];
     if (b.kind === 'g') shapeGem(b, P, x); else shapeSheet(b, P, x);
+    if (RULES.includes(pr.figure)) stepCells(b.C, pr.figure, dt, T.cells, S.beatPeriod, flyK(J), rnd);
     light(b, P, x);
     // where it stands and how it turns (its dance on top): a flat form turns about its face, never edge-on
     const An = P.anchor, d = DANCE.obj.prism, f = st.f, burst = st.t - st.spinT < 4*S.beatPeriod ? (st.t - st.spinT)*2*at('spin') : 0, sway = .4 + .6*st.act;
@@ -437,11 +443,19 @@ function shapeSheet(b, P, x){
 // ---- what the music does on its beats ----
 const dirAt = (r, a) => [Math.sin(r*Math.PI)*Math.cos(a), Math.sin(r*Math.PI)*Math.sin(a), Math.cos(r*Math.PI)];
 function nearestCell(b, d){ const C = b.FD[b.AL]; let best = 0, bd = -2; for (let c = 0; c < b.NA; c++) { const v = C[c*3]*d[0] + C[c*3 + 1]*d[1] + C[c*3 + 2]*d[2]; if (v > bd) { bd = v; best = c; } } return best; }
+// n facets round the middle at a distance and turn chosen by k (the section's symmetry), and the facets of one wedge
+function symCells(b, k){ const n = st.prog.n[b.kind], r = .12 + .55*hash(k*.71 + 3), a0 = hash(k*1.3 + 5)*Math.PI*2, out = [];
+  for (let i = 0; i < n; i++) out.push(nearestCell(b, dirAt(r, a0 + i/n*Math.PI*2))); return out; }
+function wedgeCells(b, k){ const n = st.prog.n[b.kind], w = Math.PI*2/n, i0 = k % n, Z = b.FZ[b.AL], out = [];
+  for (let c = 0; c < b.NA; c++) if (Math.floor(((Z[c]/w) % n + n) % n) === i0) out.push(c); return out; }
+// how strongly the fireflies are coupled: loose when calm, in step through a drop's run-up (stage 6 plans it)
+const flyK = J => { const T = TUNE.prism.cells, a = (J && J.anticip) || 0; return T.flyK + (T.flyKBuild - T.flyK)*Math.max(a, (st.act - .4)/.6); };
 function kick(ten){
   const pr = st.prog; if (!pr) return;
   // its ring: from the middle, or on the closed gem from a new point each time
   const o = st.body === 'g' && st.f.k > .6 ? dirAt(Math.acos(1 - 2*hash(st.run*.37))/Math.PI, hash(st.run*.91)*Math.PI*2) : [0, 0, 1];
   st.rip.push({o, t: st.t, k: .6 + ten*.6, inv: pr.rings === 'in'}); if (st.rip.length > 4) st.rip.shift();
+  if (pr.figure === 'swell') touch(BODY[st.body].C, 'swell', symCells(BODY[st.body], st.run), .8);
   if (pr.kick === 'cascade') {   // seeded at n points round the middle, so its rings run out symmetric
     const b = BODY[st.body], n = pr.n[b.kind], r = .15 + .45*hash(st.run*.71), a0 = hash(st.run*1.3)*Math.PI*2;
     for (let i = 0; i < n; i++) b.age[nearestCell(b, dirAt(r, a0 + i/n*Math.PI*2))] = 0;
@@ -477,7 +491,8 @@ function light(b, P, x){
   for (let c = 0; c < b.NA; c++) b.casc[c] = b.age[c] < 99 ? Math.exp(-b.age[c]*.7) : 0;
   levels(b, b.casc, b.lv);
   if (pr.figure === 'life') { const lf = new Float32Array(b.NA); for (let c = 0; c < b.NA; c++) lf[c] = b.life[c]; levels(b, lf, b.lv2); }
-  const hats = Math.min(1, SIG.hat*1.4), on = k => sb >= T.layerBars[k], anticip = (x.J && x.J.anticip) || 0, kc = closed();
+  else if (RULES.includes(pr.figure)) levels(b, b.C.out, b.lv2);
+  const hats = Math.min(1, SIG.hat*1.4), on = k => sb >= (T.layerBars[k] ?? T.layerBars.cells), anticip = (x.J && x.J.anticip) || 0, kc = closed();
   const fade = Math.exp(-(st.t - st.secT)*2.5), cfade = Math.exp(-(st.t - st.chkT)*2.5), mel = Math.min(1, (SIG.harm || 0)*1.2 + (P.mid || 0)*x.react*.6);
   const spinning = st.t - st.spinT < 4*bp, wave = Math.max(0, 1 - (st.t - st.waveT)/(4*bp)), burst = Math.max(0, 1 - (st.t - st.burstT)/(2*bp));
   const rest = pr.rest, gate = k => rest === k ? 1 : at(k);   // (the section's calm pattern plays whatever the activity; the rest come in as it rises)
@@ -504,7 +519,7 @@ function light(b, P, x){
     // the melody: a spiral turning with the mids; and after a run of kicks, a wave out from the middle
     LM[f] = Math.max(0, Math.cos(an*pr.spiral[0] + r*pr.spiral[1]*4 - x.t*(.5 + (P.mid || 0)*2)))**10*mel*gM + wave*gW*Math.exp(-(((r - (1 - wave))/.1)**2));
     // once the section's run a while: life on the facets, or a symmetric figure (folded into the n wedges, mirrored) that improvises a new shape each bar
-    if (fig === 'life') LI[f] = b.lv2[L0][g]*.8*gF;
+    if (fig === 'life' || RULES.includes(fig)) LI[f] = b.lv2[L0][g]*(fig === 'life' ? .8 : 1)*gF;
     else if (fig === 'improv') { const a = Math.abs(((an % wedge) + wedge) % wedge - wedge/2), u = r*Math.cos(a)*4, w = r*Math.sin(a)*4;
       const va = vn(u + bar*7.31, w + pr.seed), vb = vn(u + (bar - 1)*7.31, w + pr.seed); LI[f] = smooth(((va*e + vb*(1 - e)) - .62)/.08)*gF; }
     else LI[f] = 0;

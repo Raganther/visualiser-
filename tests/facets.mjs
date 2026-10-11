@@ -44,6 +44,18 @@ const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0)/a.length
   check('the sheet: 8, 32, 128, 512 and 2,048 facets on a 33 × 33 grid, flat and facing one way', G.NF.join() === '8,32,128,512,2048' && G.nv === 33*33 && [...G.VI].every(i => i >= 0) && nz > .999, `${G.NF.join()}, ${G.nv} corners, least facing ${nz.toFixed(3)}`);
 }
 
+// the facets as cells (stage 5), on the gem's 320 facets: stripes hold a pattern, fireflies fall into step only when coupled, frost grows
+{
+  const {makeCells, stepCells, touch} = await import('../src/visuals/objects/cells.js'), {TUNE} = await import('../src/tuning.js');
+  const G = gemSheetGeo(3), NA = G.NF[2], ADJ = G.ADJ[2], T = TUNE.prism.cells; let sd = 5; const rnd = () => (sd = (sd*16807) % 2147483647)/2147483647;
+  const run = (rule, secs, K = 0, seeds = []) => { const C = makeCells(NA, ADJ, rnd); touch(C, rule, seeds); for (let f = 0; f < secs*60; f++) stepCells(C, rule, 1/60, T, .5, K, rnd); return C; };
+  const lit = C => C.out.filter(x => x > .5).length/NA;
+  const st = run('stripes', 40, 0, [0, 50, 100, 150, 200, 250]), f0 = run('fireflies', 15, T.flyK), f1 = run('fireflies', 15, T.flyKBuild), fr = run('frost', 4, 0, [0, 160]);
+  check('cells: stripes hold a pattern, neither dying nor filling', lit(st) > .15 && lit(st) < .85, `${(lit(st)*100).toFixed(0)}% lit after 40 s`);
+  check('cells: fireflies blink apart when calm and fall into step when coupled', f0.R < .4 && f1.R > .8, `in step ${f0.R.toFixed(2)} → ${f1.R.toFixed(2)}`);
+  check('cells: frost grows out from its seeds', lit(fr) > .1 && lit(fr) < 1, `${(lit(fr)*100).toFixed(0)}% after 4 s`);
+}
+
 const {srv, url} = await serve();
 for (const mode of ['2d', 'gl']) {
   const browser = await launch(mode), page = await openPage(browser, url, {width: 320, height: 180});
@@ -66,6 +78,12 @@ for (const mode of ['2d', 'gl']) {
     out.prog = {same: prismProgram(A, .3) === pa, differ: JSON.stringify(pa) !== JSON.stringify(pb)};
     // a section coming back brings a variation of its theme (this once threw: a local name hid the function it called)
     { const pm = await import('/src/visuals/objects/prism.js'), A = {}, B = {}; for (const ty of [A, B, A, B, A]) { pm.prismSection(ty); __step(4); } out.back = prismProgram(A, .3).visits; pm.prismSection(undefined); }
+    // every rule of the facets as cells drawn for a while, past the bars where every layer has come in: nothing ever non-finite
+    // (a NaN in the facets once blacked out the whole picture in WebGL)
+    { const pm = await import('/src/visuals/objects/prism.js'); let bad = 0;
+      for (const rule of ['spots', 'stripes', 'swell', 'frost', 'fireflies']) { const pr = pm.prismState().prog; pr.figure = rule; pr.rest = 'figure';
+        for (let i = 0; i < 5; i++) { __step(${mode === 'gl' ? 60 : 120}); const X = pm.prismState().X; for (const a of [X.pos, X.fill, X.edge, X.eA, X.off]) for (const v of a) if (!Number.isFinite(v)) bad++; } }
+      out.cellsBad = bad; out.cellsPic = ${THUMB}; }
     set('prism', 0); __step(40);
     // the gem orbit: all five
     set('gems', 1); __step(${mode === 'gl' ? 60 : 120}); out.gems = {pic: ${THUMB}, on: S.lastP.m.gems.gems.filter(u => u.w > .5).length};
@@ -106,6 +124,7 @@ for (const mode of ['2d', 'gl']) {
   const p = r.out.prism, sh = diff(r.off, p.a), mv = diff(p.a, p.b);
   check(`${mode}: the prism draws and changes as the music plays`, sh > .6 && mv > .2, `shown ${sh.toFixed(1)}, moving ${mv.toFixed(1)}`);
   check(`${mode}: a drop gives it every facet`, p.det1 === p.F && p.det0 < p.F, `${p.det0.toFixed(1)} → ${p.det1} of ${p.F}`);
+  check(`${mode}: the facets as cells, every rule, draw for long with nothing non-finite`, r.out.cellsBad === 0 && diff(r.off, r.out.cellsPic) > .5, `${r.out.cellsBad} bad values`);
   check(`${mode}: a returning section brings back its theme, varied`, r.out.back >= 2, `visited ${r.out.back} times`);
   check(`${mode}: a section's program is its own, and comes back with it`, r.out.prog.same && r.out.prog.differ, JSON.stringify(r.out.prog));
   check(`${mode}: the gem orbit draws all five`, r.out.gems.on === 5 && diff(r.off, r.out.gems.pic) > .4, `${r.out.gems.on} on, change ${diff(r.off, r.out.gems.pic).toFixed(1)}`);

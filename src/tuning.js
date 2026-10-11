@@ -268,11 +268,16 @@ export const TUNE = {
     waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
     ripSpeed: .75, ripLift: .2, ripLiftClosed: .045, ripSecs: 1.6,   // the kick's ring: how fast it runs out (the ball's front to back a second), how much it lifts an open sheet and the closed gem, how long it lasts
     explode: .9, explodeSecs: 1.2,                  // how far its facets fly when it shatters, and how long it takes to pull together
-    layerBars: {stab: 4, hat: 8, improv: 8, life: 12, extrude: 16},   // when each part's pattern comes in, in bars from the section's start (improv: the symmetric figure; life: on the facets; extrude: lit facets lifting further)
+    layerBars: {stab: 4, hat: 8, improv: 8, life: 12, cells: 4, extrude: 16},   // when each part's pattern comes in, in bars from the section's start (improv: the symmetric figure; life: on the facets; extrude: lit facets lifting further)
     hatShare: .1,                                   // the share of facets the hats light each 16th, at full hats
     fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
     extrude: .2, lit: .8,                           // how far lit facets push out; how bright the patterns light it
+    cells: {rdRate: 90, du: .2, dv: .1, rdGain: 7,   // the facets as cells (stage 5, objects/cells.js): spots and stripes' steps a second, diffusion, brightness
+      waveC: .25, waveDamp: 2, waveGain: 2,         // the swell: how fast a wave crosses facet to facet, how soon it dies, how bright
+      frostRate: 4, frostGrow: .35, frostMelt: 8,   // frost: growth steps a second, the chance a facet frosts from one frosted neighbour, how long it takes to melt (s)
+      flyBeats: 2, flySpread: .3, flyWidth: .35,    // the fireflies: their cycle in beats, how far apart their clocks run, how long a flash lasts (radians)
+      flyK: .05, flyKBuild: .45},                   // how strongly they're pulled into step: calm (apart), and through a build (all in step by the drop)
     openChance: .15,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
     imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a variation's size, more as the music builds; added to the chance of moving on, more as it builds
       next: .55, fresh: .05, recent: 6,              // the chance each step moves on to the next shape on its tour (ARCH), how much that shape is varied, how many recent ones it won't revisit
