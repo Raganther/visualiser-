@@ -152,7 +152,7 @@ const p = await page.evaluate(async () => {
   const ev = await import('/src/audio/engine/events.js'), got = []; ev.onNote(e => { if (e.src === 'studio') got.push(e); });
   const wait = ms => new Promise(r => setTimeout(r, ms));
   document.querySelector('#play').click(); await wait(2500);
-  const st = window.__studio, pl = st.player, E = pl.E, meter = E.desk.meter('kick');
+  const st = window.__studio, pl = st.player, E = pl.E; let meter = {peak: -90}; for (let k = 0; k < 20; k++) { const m = E.desk.meter('drums:kick', .05); if (m && m.now > meter.peak) meter = {peak: m.now}; await wait(50); }
   const before = Math.floor(pl.pos()); pl.launch('break'); const queued = E.session.next;
   await wait(2500); const n = Math.floor(pl.pos()), sw = E.session.at;
   const f = document.querySelector('.strip[data-id=bass] input.fader'); f.value = -12; f.dispatchEvent(new Event('input'));
@@ -163,6 +163,49 @@ const p = await page.evaluate(async () => {
 check('the page plays: notes reach the note bus, and the meters move', p.notes > 10 && p.meter > -40, `${p.notes} notes, kick meter ${p.meter && p.meter.toFixed(1)} dB`);
 check('a launched scene starts on the next bar', p.queued === 'break' && p.sw % 16 === 0 && p.sw > p.before && p.sw <= p.before + 16 && p.scene === 'break', f2(p));
 check('a fader writes into the song', p.vol === -12, '' + p.vol);
+// making things: a click launches one clip (only that cell lights); a step clicked on edits the clip; a new song, recorded
+// into from the play view's pads and keys, saved to the library and added back
+const q = await page.evaluate(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), st = window.__studio, o = {};
+  localStorage.removeItem('afterglow.studio.loops');
+  document.querySelector('.ses .clip[data-track=bass][data-row=dub]').click(); await wait(2600);
+  const pl = st.player, n = Math.floor(pl.pos());
+  o.launched = {bass: pl.E.clipOf('bass', n), drums: pl.E.clipOf('drums', n), lit: [...document.querySelectorAll('.ses .clip.live')].map(b => b.dataset.track + '/' + b.dataset.row)};
+  pl.stop();
+  document.querySelector('.strip[data-id=drums] .nm').click(); await wait(100);
+  const rows = () => st.song.tracks[0].clips[document.querySelector('.clipbar .ct').textContent.match(/Clip (\S+)/)[1]].hits;
+  const before = JSON.stringify(rows()); document.querySelector('.steps .row button[data-i="2"]').click(); await wait(50); o.stepEdit = JSON.stringify(rows()) !== before;
+  // a note added on the roll
+  document.querySelector('.strip[data-id=bass] .nm').click(); await wait(100);
+  const cv = document.querySelector('canvas.roll'), r = cv.getBoundingClientRect(), nb = st.song.tracks.find(t => t.id === 'bass').clips.a.notes.length;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, clientX: r.left + r.width*.53, clientY: r.top + r.height*.3, pointerId: 3}));
+  cv.dispatchEvent(new PointerEvent('pointermove', {bubbles: true, clientX: r.left + r.width*.6, clientY: r.top + r.height*.3, pointerId: 3}));
+  cv.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientX: r.left + r.width*.6, clientY: r.top + r.height*.3, pointerId: 3}));
+  o.rollAdd = st.song.tracks.find(t => t.id === 'bass').clips.a.notes.length - nb;
+  // a new song, the play view: record claps and two bass notes while it plays
+  document.querySelector('#newSong').click(); await wait(100); document.querySelector('#playView').click(); await wait(100);
+  document.querySelector('#pvPlay').click(); await wait(900); document.querySelector('#pvRec').click();
+  const pad = [...document.querySelectorAll('.pvpad')].find(b => b.textContent === 'Clap');
+  for (let i = 0; i < 3; i++) { pad.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, clientX: 10, clientY: 10, pointerId: 5})); await wait(300); }
+  [...document.querySelectorAll('.pvt')][1].click(); await wait(100);
+  const area = document.querySelector('#pvPlayArea'), keys = document.querySelectorAll('.pvkey');
+  for (const k of [keys[8], keys[10]]) { const b = k.getBoundingClientRect(), opt = {bubbles: true, clientX: b.left + 5, clientY: b.top + 5, pointerId: 6};
+    area.dispatchEvent(new PointerEvent('pointerdown', opt)); await wait(260); area.dispatchEvent(new PointerEvent('pointerup', opt)); await wait(150); }
+  const s = st.song; o.rec = {clap: (s.tracks[0].clips.a.hits.clap || '').replace(/\./g, '').length, bass: s.tracks[1].clips.a.notes.length};
+  document.querySelector('#pvClose').click(); st.player.stop();
+  // saved, then added to the song again
+  document.querySelector('.strip[data-id=bass] .nm').click(); await wait(50);
+  document.querySelector('#libName').value = 'test loop'; document.querySelector('#saveClip').click(); await wait(200);
+  o.lib = [...document.querySelectorAll('#libList li b')].map(b => b.textContent);
+  const nClips = Object.keys(s.tracks[1].clips).length; [...document.querySelectorAll('#libList li button')].find(b => b.textContent === 'Add').click(); await wait(200);
+  o.added = Object.keys(s.tracks[1].clips).length - nClips;
+  localStorage.removeItem('afterglow.studio.loops');
+  return o;
+});
+check('a click launches one clip on the next bar, and only its cell lights', q.launched.bass === 'a' && !q.launched.drums && f2(q.launched.lit) === '["bass/dub"]', f2(q.launched));
+check('a step clicked on edits the drum clip; a click and drag on the roll adds a note', q.stepEdit && q.rollAdd === 1, f2([q.stepEdit, q.rollAdd]));
+check('the play view records pads and keys into the clips while it plays', q.rec.clap >= 2 && q.rec.bass === 2, f2(q.rec));
+check('a clip saved to the library comes back as a new clip', f2(q.lib) === '["test loop"]' && q.added === 1, f2([q.lib, q.added]));
 const errs = errors.filter(e => !/Failed to load resource/.test(e));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();

@@ -12,6 +12,9 @@ import { wav } from './wav.js';
 import { zip } from './zip.js';
 import { knob } from '../ui/widgets.js';
 import { TUNE } from '../tuning.js';
+import { blankSong } from './songs/blank.js';
+import { mountPlay } from './play.js';
+import * as LIB from './library.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -243,7 +246,7 @@ function drawEq(cv, d, k){
 
 /* ---------- editing a clip: a step sequencer, or a piano roll ---------- */
 let clipBox = null, clipFor = null;
-const edited = clip => { forget(clip); dataStale = true; if (clipFor) { const [T, id, ti] = clipFor, nb = clipView(T, id, ti); clipBox.replaceWith(nb); } };
+const edited = clip => { forget(clip); dataStale = true; if (clipFor) { const [T, id, ti] = clipFor, nb = clipView(T, id, ti); clipBox.replaceWith(nb); } if (pv && !$('pv').hidden) pv.steps(); };
 function clipView(T, id, ti){
   const clip = T.clips[id], drums = !!clip.hits || T.inst.type === 'drums', key = drums ? 'd' : 'n', wrap = h('div', 'clipv');
   clipBox = wrap; clipFor = [T, id, ti]; wrap.style.setProperty('--tc', HUE(ti));
@@ -252,6 +255,7 @@ function clipView(T, id, ti){
   const tg = h('div', 'seg'); for (const [v, label] of [['steps', 'Steps'], ['roll', 'Piano roll']]) { const b = h('button', null, label); b.setAttribute('aria-pressed', view[key] === v);
     b.onclick = () => { view[key] = v; edited(clip); }; tg.appendChild(b); }
   bar.appendChild(tg);
+  const nc = h('button', null, '+ New clip'); nc.title = 'An empty clip for this track (in the session\'s "new" row)'; nc.onclick = () => { newClip(T); drawDetail(); markSel(); }; bar.appendChild(nc);
   bar.appendChild(h('span', 'hint', drums ? (view.d === 'steps' ? 'Click a step: on, accent, off.' : 'Click to add a hit, click a hit to remove it.') : (view.n === 'steps' ? 'Click a step to add a note there, click a note to remove it.' : 'Click to add a note, drag right for longer; click a note to remove it.')));
   wrap.appendChild(bar);
   wrap.appendChild(drums ? (view.d === 'steps' ? drumSteps(T, clip) : drumRoll(T, clip)) : (view.n === 'steps' ? noteSteps(T, id, clip) : noteRoll(T, id, clip)));
@@ -311,8 +315,11 @@ function flatNotes(clip){
   return out;
 }
 function pitchRange(T, id, clip){
-  const k = T.id + '/' + id; if (range[k]) return range[k];
-  const ns = flatNotes(clip).map(x => x[1]); let lo = ns.length ? Math.min(...ns) - 3 : 45, hi = ns.length ? Math.max(...ns) + 3 : 69;
+  // (two octaves round the notes, or round where the instrument plays when the clip is empty; kept while editing, and
+  // widened to take in any note that falls outside)
+  const k = T.id + '/' + id, ns = flatNotes(clip).map(x => x[1]), low = /bass|sub/i.test((T.name || '') + (T.inst.preset || '')) ? 33 : 52;
+  let [lo, hi] = range[k] || (ns.length ? [Math.min(...ns) - 3, Math.max(...ns) + 3] : [low, low + 24]);
+  if (ns.length) { lo = Math.min(lo, Math.min(...ns) - 1); hi = Math.max(hi, Math.max(...ns) + 1); }
   while (hi - lo < 24) { hi++; if (hi - lo < 24) lo--; }
   return range[k] = [lo, hi];
 }
@@ -351,7 +358,7 @@ function noteRoll(T, id, clip){
   const at = e => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left)/b.width*r.len, hi - Math.floor((e.clientY - b.top)/b.height*rows)]; };
   cv.addEventListener('pointerdown', e => { const [x, n] = at(e), N = flatNotes(clip), j = N.findIndex(q => q[1] === n && x >= q[0] && x < q[0] + q[2]);
     if (j >= 0) { N.splice(j, 1); clip.notes = N; edited(clip); return; }
-    drag = {s: Math.floor(x), n, l: 1}; cv.setPointerCapture(e.pointerId); audition(T, null, n); draw([drag.s, n, 1, .8]); });
+    drag = {s: Math.floor(x), n, l: 1}; try { cv.setPointerCapture(e.pointerId); } catch (x) {} audition(T, null, n); draw([drag.s, n, 1, .8]); });
   cv.addEventListener('pointermove', e => { if (!drag) return; const [x] = at(e); drag.l = Math.max(1, Math.ceil(x) - drag.s); draw([drag.s, drag.n, drag.l, .8]); });
   cv.addEventListener('pointerup', () => { if (!drag) return; const N = flatNotes(clip); N.push([drag.s, drag.n, drag.l, .8]); N.sort((a, b) => a[0] - b[0] || a[1] - b[1]); clip.notes = N; drag = null; edited(clip); });
   return box;
@@ -388,6 +395,7 @@ function frame(t){
       const ph = document.querySelector('.rollbox .ph'); if (ph) { ph.style.display = 'block'; ph.style.transform = `translateX(${(pos + .5)/r.len*ph.parentNode.clientWidth}px)`; } }
     else { const ph = document.querySelector('.rollbox .ph'); if (ph) ph.style.display = 'none'; }
   } else { $('pos').textContent = '  –'; }
+  pv.frame(n);
   // meters: peak and level, with how far each device is turning it down
   for (const s of document.querySelectorAll('.strip')) {
     const m = E.desk.meter(s.dataset.id, dt, TUNE.studio.meterFall); if (!m) continue;
@@ -451,8 +459,71 @@ $('paste').onclick = () => {
   const was = player && player.playing; songs[idx] = s; load(idx); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); $('dmsg').textContent = 'Loaded.';
 };
 
+/* ---------- making your own: a new song, a new clip ---------- */
+// a new, empty clip for a track (a bar long; a drum rack's gets a row for each pad), put in the session's "new" row
+function newClip(T){
+  let i = 0, id; do { id = String.fromCharCode(97 + (i % 26)) + (i >= 26 ? Math.floor(i/26) : ''); i++; } while (T.clips[id]);
+  T.clips[id] = T.inst.type === 'drums' ? {bars: 1, hits: Object.fromEntries(Object.keys(T.pads || {kick: 1}).map(k => [k, '.'.repeat(16)]))} : {bars: 1, notes: []};
+  let sc = song.scenes.find(x => x.id === 'new'); if (!sc) { sc = {id: 'new', clips: {}}; song.scenes.push(sc); }
+  sc.clips[T.id] = id; sel = T.id; selClip = id; dataStale = true; drawSession(); return id;
+}
+let made = 0;
+$('newSong').onclick = () => { const was = player && player.playing; if (player) player.stop();
+  songs.push(blankSong(++made)); pristine.push(structuredClone(songs[songs.length - 1])); addSongTab(songs.length - 1); load(songs.length - 1); setPlay(); };
+function addSongTab(i){ const b = h('button', null, esc(songs[i].title)); b.onclick = () => { const was = player && player.playing; load(i); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); }; $('songs').appendChild(b); }
+
+/* ---------- the library: save what you made, load it back (and Claude can read it) ---------- */
+const libMsg = (t, bad) => { $('libMsg').textContent = t; $('libMsg').className = 'dmsg' + (bad ? ' bad' : ''); };
+const nameOr = def => ($('libName').value.trim() || def);
+$('saveClip').onclick = async () => { const {T} = ownerOf(sel); if (!T || !selClip) return libMsg('Open a track\'s clip first (click it in the session).', true);
+  const tr = {...T, clips: {[selClip]: T.clips[selClip]}};
+  await LIB.save({name: nameOr(`${T.name || T.id} ${selClip}`), kind: 'clip', song: song.title, bpm: song.bpm, key: song.key || '', data: {track: tr, clip: selClip}}); libMsg('Saved.'); $('libName').value = ''; };
+$('saveTrack').onclick = async () => { const {T} = ownerOf(sel); if (!T) return libMsg('Open a track first (its name in the mixer).', true);
+  await LIB.save({name: nameOr(T.name || T.id), kind: 'track', song: song.title, bpm: song.bpm, key: song.key || '', data: {track: T}}); libMsg('Saved.'); $('libName').value = ''; };
+$('saveSong').onclick = async () => { await LIB.save({name: nameOr(song.title), kind: 'song', song: song.title, bpm: song.bpm, key: song.key || '', data: {song}}); libMsg('Saved.'); $('libName').value = ''; };
+// loading: a song opens as its own tab; a track joins the open song; a clip joins the open track if it can play it (drums
+// on a drum track, notes on a synth), else comes in with its own track
+function loadItem(it){
+  const d = structuredClone(it.data);
+  if (it.kind === 'song') { d.song.title = it.name; songs.push(d.song); pristine.push(structuredClone(d.song)); addSongTab(songs.length - 1); load(songs.length - 1); return libMsg(`Opened ${it.name}.`); }
+  const {T} = ownerOf(sel), clip = d.track.clips[d.clip], fits = it.kind === 'clip' && T && (!!clip.hits === (T.inst.type === 'drums'));
+  if (fits) { let id = d.clip; while (T.clips[id]) id += "'"; T.clips[id] = clip; let sc = song.scenes.find(x => x.id === 'new'); if (!sc) song.scenes.push(sc = {id: 'new', clips: {}}); sc.clips[T.id] = id;
+    selClip = id; dataStale = true; drawSession(); drawDetail(); markSel(); if (player && player.playing) player.launchClip(T.id, id, 'new'); return libMsg(`Added ${it.name} to ${T.name || T.id} as clip ${id}.`); }
+  const tr = d.track; let id = tr.id; while (song.tracks.some(t => t.id === id)) id += '2';
+  // (a track's sidechain still listens to the song's kick if it has one; sends to returns the song lacks are dropped)
+  tr.id = id; tr.name = tr.name || id; for (const x of (tr.mix || {}).chain || []) if (x.type === 'sc' && !song.tracks.some(t => x.src === t.id || (x.src || '').startsWith(t.id + ':'))) x.src = song.tracks.find(t => t.pads && t.pads.kick) ? song.tracks.find(t => t.pads && t.pads.kick).id + ':kick' : (song.tracks[0] || {}).id;
+  if ((tr.mix || {}).sends) for (const r in tr.mix.sends) if (!(song.returns || []).some(x => x.id === r)) delete tr.mix.sends[r];
+  if (tr.mix && tr.mix.to && ![...(song.groups || []), ...song.tracks].some(x => x.id === tr.mix.to)) delete tr.mix.to;
+  song.tracks.push(tr); let sc = song.scenes.find(x => x.id === 'new'); if (!sc) song.scenes.push(sc = {id: 'new', clips: {}}); sc.clips[id] = Object.keys(tr.clips)[0];
+  sel = id; selClip = Object.keys(tr.clips)[0]; dataStale = true;
+  const bad = check(song); if (bad.length) { song.tracks.pop(); delete sc.clips[id]; return libMsg('It doesn\'t fit this song: ' + bad[0], true); }
+  if (player) { const was = player.playing; player.rebuild(); if (!was) player.stop(); }
+  drawSession(); drawMixer(); drawDetail(); markSel(); libMsg(`Added the track ${tr.name}.`);
+}
+const KIND = {clip: 'Loop', track: 'Track', song: 'Song'};
+function drawLib(items){
+  const ul = $('libList'); ul.innerHTML = '';
+  if (!items.length) { ul.appendChild(h('li', 'empty', 'Nothing saved yet. Make something (a clip in the steps or the piano roll, or in the Play view), then save it here.')); return; }
+  for (const it of items) {
+    const li = h('li'), when = it.at ? new Date(it.at).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'}) : '';
+    li.innerHTML = `<span class="lk">${KIND[it.kind] || it.kind}</span><b>${esc(it.name)}</b><span class="lm">${esc(it.song || '')} · ${it.bpm || ''} BPM · ${esc(when)}</span>`;
+    const ld = h('button', null, it.kind === 'song' ? 'Open' : 'Add'); ld.onclick = () => loadItem(it);
+    const rn = h('button', null, 'Rename'); rn.onclick = () => { const v = $('libName').value.trim(); if (!v) return libMsg('Type the new name in the box above, then Rename.', true); LIB.rename(it.id, v); $('libName').value = ''; };
+    const del = h('button', 'del', 'Delete'); del.onclick = () => { if (del.dataset.sure) { LIB.remove(it.id); return; } del.dataset.sure = 1; del.textContent = 'Sure?'; setTimeout(() => { delete del.dataset.sure; del.textContent = 'Delete'; }, 3000); };
+    li.append(ld, rn, del); ul.appendChild(li);
+  }
+}
+LIB.onLibrary(drawLib);
+LIB.start().then(() => { $('libWhere').textContent = 'saved in ' + LIB.where(); });
+
+/* ---------- the play view (touch first, for the iPad) ---------- */
+const pv = mountPlay({song: () => song, player: () => player, ctx: () => audio(), build, edited, setVal, newClip: T => newClip(T),
+  select: (track, clip) => { sel = track; selClip = clip; drawDetail(); markSel(); }, sel: () => ({track: ownerOf(sel).T ? ownerOf(sel).T.id : null, clip: selClip}),
+  stepsOf: (T, clip) => clip.hits || T.inst.type === 'drums' ? drumSteps(T, clip) : noteSteps(T, Object.keys(T.clips).find(k => T.clips[k] === clip), clip), hue: HUE, padLabel});
+$('playView').onclick = () => pv.open();
+
 /* ---------- start ---------- */
-SONGS.forEach((s, i) => { const b = h('button', null, esc(s.title)); b.onclick = () => { const was = player && player.playing; load(i); if (was) build().then(pl => { pl.play({bar: 0}); setPlay(); }); }; $('songs').appendChild(b); });
+SONGS.forEach((s, i) => addSongTab(i));
 load(0);
 // (for tests: the player, the song, and a reset to the song as written)
 window.__studio = {get player(){ return player; }, get song(){ return song; }, reset(){ songs[idx] = structuredClone(pristine[idx]); load(idx); }, load, view};

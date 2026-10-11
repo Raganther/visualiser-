@@ -10,7 +10,7 @@ import { serve, launch, ROOT } from '../tests/lib.mjs';
 
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : null; }, flag = k => { const i = args.indexOf(k); if (i >= 0) args.splice(i, 1); return i >= 0; };
 const out = path.resolve(opt('--out') || path.join(ROOT, 'out/studio')), bars = +opt('--bars') || 0, from = +opt('--from') || 0, stems = flag('--stems'), json = flag('--json'), noWav = flag('--no-wav'), png = flag('--png');
-const files = args.length ? args : fs.readdirSync(path.join(ROOT, 'src/studio/songs')).filter(f => f.endsWith('.js') && f !== 'index.js').map(f => path.join(ROOT, 'src/studio/songs', f));
+const files = args.length ? args : fs.readdirSync(path.join(ROOT, 'src/studio/songs')).filter(f => f.endsWith('.js') && !['index.js', 'blank.js'].includes(f)).map(f => path.join(ROOT, 'src/studio/songs', f));
 fs.mkdirSync(out, {recursive: true});
 const {srv, url} = await serve();
 const browser = await launch('2d');
@@ -34,17 +34,19 @@ for (const f of files) {
     if (!noWav) { const b = wav(buf), a = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 32768) s += String.fromCharCode.apply(null, a.subarray(i, i + 32768)); o.wav = btoa(s); }
     if (stems) {
       o.stems = {};
-      const kicks = notes.filter(e => e.track === 'kick').map(e => e.t);
+      const kicks = notes.filter(e => e.track === 'kick' || e.voice === 'kick').map(e => e.t);
       const low = x => { const y = new Float32Array(x.length), a = Math.exp(-2*Math.PI*120/sr); let s1 = 0, s2 = 0; for (let i = 0; i < x.length; i++) { s1 = a*s1 + (1 - a)*x[i]; s2 = a*s2 + (1 - a)*s1; y[i] = s2; } return y; };
       const env = x => { const w = Math.round(sr*.01), e = []; for (let a = 0; a + w <= x.length; a += w) { let s = 0; for (let i = a; i < a + w; i++) s += x[i]*x[i]; e.push(s/w); } return e; };
       let kLow = null;
-      for (const t of song.tracks) {
+      // (a rack's kick pad first, as its own stem, so the bass's low end can be held against it)
+      const list = [...song.tracks.filter(t => t.pads && t.pads.kick).map(t => ({id: t.id + ':kick', kick: true})), ...song.tracks];
+      for (const t of list) {
         const b = await renderSong(song, {bars, from, solo: [t.id]}), l = b.getChannelData(0), rr = b.getChannelData(1), lu = M.loudness(l, rr, sr), pk = M.samplePeak([l, rr]);
         const mono = new Float32Array(l.length); for (let i = 0; i < l.length; i++) mono[i] = (l[i] + rr[i])/2;
         const s = {lufs: lu.I, peak: pk.peak};
         const sc = ((t.mix || {}).chain || []).find(d => d.type === 'sc');
         if (sc && kicks.length) s.duck = M.ducking(mono, sr, kicks);
-        if (t.id === 'kick') kLow = env(low(mono));
+        if (t.id === 'kick' || t.kick) kLow = env(low(mono));
         else if (kLow && /bass/.test(t.id)) { const e = env(low(mono)); let mn = 0, sb = 0; for (let i = 0; i < Math.min(e.length, kLow.length); i++) { mn += Math.min(e[i], kLow[i]); sb += e[i]; } s.overlap = mn/(sb + 1e-20); }
         o.stems[t.id] = s;
       }

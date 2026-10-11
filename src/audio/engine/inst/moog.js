@@ -29,12 +29,13 @@ export const PARAMS = GROUPS.flatMap(g => g[1]);
 const NVOICES = [1, 2, 3, 4, 6];
 
 export const PRESETS = {
+  // (the basses have no ensemble: a chorus would spread the low end, which belongs in the middle)
   // the classic: two saws a few cents apart and a square an octave down, the mixer pushed, the contour snapping shut
-  'Fat bass': {w1: 'Saw', w2: 'Saw', d2: 7, w3: 'Square', o3: -12, l3: .6, cut: 320, res: .28, drive: .6, cenv: 3.2, fd: .22, fs: .15, kbd: .3, aa: .002, ad: .4, as: .8, ar: .07, level: 1},
+  'Fat bass': {ens: 0, w1: 'Saw', w2: 'Saw', d2: 7, w3: 'Square', o3: -12, l3: .6, cut: 320, res: .28, drive: .6, cenv: 3.2, fd: .22, fs: .15, kbd: .3, aa: .002, ad: .4, as: .8, ar: .07, level: 1},
   // a round sub under everything: triangle and a soft saw, the filter low, no squelch
-  'Taurus sub': {w1: 'Triangle', w2: 'Saw', o2: -12, l2: .35, d2: 3, l3: 0, cut: 220, res: .1, drive: .3, cenv: 1.2, fd: .4, fs: .4, kbd: .2, aa: .004, as: 1, ar: .12, level: 1.3},
+  'Taurus sub': {ens: 0, w1: 'Triangle', w2: 'Saw', o2: -12, l2: .35, d2: 3, l3: 0, cut: 220, res: .1, drive: .3, cenv: 1.2, fd: .4, fs: .4, kbd: .2, aa: .004, as: 1, ar: .12, level: 1.3},
   // a rubbery plucked bass for rolling lines: square and saw, short contour, a little emphasis
-  'Rubber bass': {w1: 'Square', w2: 'Saw', d2: -5, l2: .7, w3: 'Triangle', o3: -12, l3: .5, cut: 260, res: .45, drive: .5, cenv: 3.8, fd: .14, fs: 0, vfilt: .7, aa: .002, ad: .3, as: .5, ar: .06, level: 1},
+  'Rubber bass': {ens: 0, w1: 'Square', w2: 'Saw', d2: -5, l2: .7, w3: 'Triangle', o3: -12, l3: .5, cut: 260, res: .45, drive: .5, cenv: 3.8, fd: .14, fs: 0, vfilt: .7, aa: .002, ad: .3, as: .5, ar: .06, level: 1},
   // the lead: three saws, the third an octave up, glide, vibrato, the emphasis singing
   'Lead': {w1: 'Saw', w2: 'Saw', d2: 6, w3: 'Saw', o3: 12, d3: -5, l3: .45, cut: 1500, res: .4, drive: .55, cenv: 2.2, fd: .6, fs: .5, kbd: .6, glide: .07, vib: 7, lrate: 5.5, aa: .01, as: .9, ar: .3, level: .8},
   // brass: the contour's attack is slower than the amp's, so each note blooms open
@@ -46,7 +47,7 @@ export const PRESETS = {
   'Texture': {w1: 'Saw', w2: 'Narrow pulse', o2: 7, d2: 4, l2: .5, w3: 'Saw', o3: -12, l3: .5, noise: .35, cut: 600, res: .72, drive: .7, cenv: .8, fa: 2, fd: 3, fs: .6, aa: 1.5, as: 1, ar: 2.5,
     lshape: 'Triangle', lsync: '2 bars', lcut: .9, voices: '3', ens: .6, drift: .8, level: .65},
   // the emphasis near self-oscillation: a whistling, squelching sweep for acid-like lines
-  'Squelch': {w1: 'Saw', w2: 'Square', o2: -12, l2: .5, l3: 0, cut: 240, res: .92, drive: .65, cenv: 4.2, fd: .18, fs: .05, vfilt: .9, kbd: .3, glide: .05, aa: .002, ad: .3, as: .7, ar: .05, level: .75},
+  'Squelch': {ens: 0, w1: 'Saw', w2: 'Square', o2: -12, l2: .5, l3: 0, cut: 240, res: .92, drive: .65, cenv: 4.2, fd: .18, fs: .05, vfilt: .9, kbd: .3, glide: .05, aa: .002, ad: .3, as: .7, ar: .05, level: .75},
 };
 
 /* ---------- the voice: DSP on the audio thread ---------- */

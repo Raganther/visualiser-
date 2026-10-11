@@ -28,9 +28,16 @@ export default {
  mix: {vol: -6, pan: 0, to: 'master', chain: [ … ], sends: {verb: -24, echo: -18}, mute: false, solo: false}}
 ```
 
-- `inst.type`: `drums`, `analog`, `fm` or `poly` (the groovebox's synth). `preset` names one of the instrument's presets; `p` sets any knob over it (lists take their names: `{w1: 'Pulse', mode: 'Legato'}`).
+- `inst.type`: `drums`, `analog`, `moog`, `fm` or `poly` (the groovebox's synth). `preset` names one of the instrument's presets; `p` sets any knob over it (lists take their names: `{w1: 'Pulse', mode: 'Legato'}`).
 - `drums` takes `kit` (`909`, `808`, `Minimal`, `Industrial`, `Lo-fi`) and `voices`: `{kick: {tune: -2, decay: .8, tone: .5, drive: .3, level: 1, pan: 0, x: .6}}` (`x` is each voice's character: the kick's punch, the snare's snap, the hats' metal).
-- Each drum track is its own kit, so a kick on its own track gets its own strip (and can be a sidechain's source).
+- **A drum rack**: a drums track with `pads`, one a voice, each its own kit (`kit`, or the rack's), voice settings (`voice`), name, swing and mixer strip (`mix`: chain, sends, `to`). Each pad is a strip of its own, `drums:kick`, going into the rack's strip unless `to` says otherwise (a group: `to: 'bus'`). The rack's clips hold every pad's row; a sidechain listens to a pad with `src: 'drums:kick'`; a pad's path is `drums:kick.vol`, `drums:kick.eq.0.g`.
+
+```js
+{id: 'drums', inst: {type: 'drums', kit: '909'},
+ pads: {kick: {voice: {tune: -2, decay: .8}, mix: {vol: -1, chain: [{type: 'eq', bands: [{type: 'hp', f: 28}]}]}},
+        chh: {name: 'Closed hat', kit: 'Minimal', swing: .12, mix: {vol: -10, to: 'bus', sends: {verb: -24}}}},
+ clips: {a: {bars: 2, hits: {kick: 'x...x...x...x...', chh: '..x...x...x...x.'}}}}
+```
 
 ### Instruments and their knobs
 
@@ -38,6 +45,7 @@ export default {
   - `matrix: [[source, destination, amount], …]`: sources `lfo1`, `lfo2`, `menv`, `vel`, `key`; destinations `cut` (amount 1 = 4 octaves), `res`, `pitch` (1 = an octave), `p2`, `pw`, `amp`, `pan`, `mix2`, `fenv`.
   - Presets: Rolling bass, Sub bass, Reese, Acid, Pluck, Dub chord, Stab, Supersaw pad, Warm pad, Lead, Arp, Noise riser.
   - Automation and LFOs move `cut`, `res`, `fenv`, `pw`, `mix2`, `semi`, `fine`, `tune`, `level`, `pan` smoothly on held notes; other knobs apply from the next note.
+- **moog** (`src/audio/engine/inst/moog.js`, an AudioWorklet voice at twice the sample rate). Oscillators: `w1 w2 w3` (Triangle, Saw, Square, Wide pulse, Narrow pulse), `o1 o2 o3` (range in semitones: −12 an octave down), `d2 d3` (detune, cents), `l1 l2 l3` (levels), `noise`, `drift`. Filter (a four-pole ladder): `cut`, `res` (emphasis; past 1 it rings), `drive` (the mixer pushed into it), `cenv` (contour amount, octaves), `kbd`, `vfilt`, `fa fd fs fr`. Loudness: `aa ad as ar`, `vamp`. Modulation: `glide`, `lshape` (Sine, Triangle), `lsync` (Free or a division), `lrate`, `vib` (cents), `lcut` (octaves). Output: `voices` (Mono, 2, 3, 4, 6), `ens` (ensemble chorus), `level`, `tune`. Mono is legato: a note held into the next (a slide) glides without striking the contours again. Every knob moves smoothly under automation. Presets: Fat bass, Taurus sub, Rubber bass, Lead, Brass, Velvet pad, Texture, Squelch.
 - **fm** (`src/audio/engine/inst/fm.js`). `algo` (Stack 3→2→1, 2+3→1, 2→1 with 3 alone, 3→2 and 3→1), `r1 r2 r3` (ratios), `d2`, `i2 i3` (depths: modulation index), `fb` (op 3's level as a carrier), `ma`, `m2d m2s m3d m3s` (the depths' envelopes), `ivel`, `ikey`, `aa ad as ar`, `vel`, `cut`, `res`, `drive`, `l1 l1t l1r`, `mode`, `voices`, `glide`, `oct`, `tune`, `index` (all depths, smoothly automatable), `level`, `pan`. Matrix sources `lfo1`, `vel`, `key`; destinations `index`, `cut`, `pitch`, `amp`, `pan`. Presets: Bell, Metal pluck, Wood blip, E-piano, FM bass, Glass, Clang.
 - **poly**: the groovebox's polysynth (`src/audio/engine/inst/poly.js`) and its presets.
 
@@ -87,3 +95,7 @@ A **path** names any parameter: `<track>.inst.<knob>` (a drum voice's: `<track>.
 ## Live
 
 In the page a scene can be launched by hand (it starts on the next bar, and the session plays it round), or one track's clip; the arrangement plays the scenes in order. Notes go out on the audio core's note bus as they're scheduled (`src: 'studio'`), the bridge the visuals already listen to.
+
+## The library: what the user makes
+
+The page's **Library** (and the Play view) saves what the user makes: a clip (with its track's instrument and mixer, so it plays the same anywhere), a track, or a whole song. On the published page each is a document in the Artifact's database, collection `loops`: `{name, kind: 'clip' | 'track' | 'song', song, bpm, key, data, at}`, where `data` is `{track, clip}` (the clip's id inside `track.clips`), `{track}` or `{song}`, in this format. Claude reads them with ArtifactData (`list` on `loops`) to hear what the user made, and can write parts back the same way (a new document with `kind: 'clip'` or `'track'` appears in the user's library to add).

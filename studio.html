@@ -14,6 +14,8 @@
   <div class="brand"><b>Afterglow</b> Studio</div>
   <nav class="songs" id="songs" aria-label="Songs"></nav>
   <div class="transport">
+    <button id="newSong" title="Start a new song from a blank kit and synths">+ New song</button>
+    <button id="playView" title="The touch view: pads, keys, an XY pad and the steps, for the iPad">Play view</button>
     <button id="play" class="big" aria-label="Play the arrangement">▶ Play</button>
     <button id="stop" aria-label="Stop">■</button>
     <span class="pos" id="pos" aria-live="off">1.1.1</span>
@@ -41,6 +43,18 @@
 
   <section class="detail" id="detail" aria-live="polite"></section>
 
+  <section aria-labelledby="h-lib">
+    <h2 id="h-lib">Library <small id="libWhere">your saved loops, tracks and songs</small></h2>
+    <div class="lib">
+      <div class="libbar">
+        <label for="libName" class="vh">Name</label><input id="libName" placeholder="Name it (optional)" maxlength="60">
+        <button id="saveClip">Save the open clip</button><button id="saveTrack">Save the open track</button><button id="saveSong">Save the song</button>
+        <span id="libMsg" class="dmsg" aria-live="polite"></span>
+      </div>
+      <ul id="libList" class="liblist"></ul>
+    </div>
+  </section>
+
   <section aria-labelledby="h-out" class="out">
     <h2 id="h-out">The mix <small>live spectrum; render to measure loudness and save the WAV</small></h2>
     <div class="outgrid">
@@ -63,6 +77,16 @@
     </div>
   </section>
 </main>
+<div id="pv" class="pv" hidden role="dialog" aria-label="Play view">
+  <div class="pvtop">
+    <button id="pvClose" aria-label="Close the play view">✕</button>
+    <div id="pvTracks" class="pvtracks"></div>
+    <div class="pvtx"><button id="pvPlay" class="big">▶</button><button id="pvRec" aria-pressed="false">● Rec</button><span id="pvPos" class="pos">–</span></div>
+  </div>
+  <div id="pvClips" class="pvclips"></div>
+  <div class="pvmain"><div id="pvPlayArea" class="pvplay"></div><div class="pvxy"><canvas id="pvXY" width="600" height="600" aria-label="XY pad: across the cutoff, up the resonance"></canvas><div id="pvXYl" class="pvxyl"></div></div></div>
+  <div id="pvSteps" class="pvsteps"></div>
+</div>
 <script type="module" src="src/studio/ui.js"></script>
 </body>
 </html>
