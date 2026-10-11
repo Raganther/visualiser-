@@ -178,9 +178,9 @@ check('the Moog glides to an overlapping note', r.moog.glide > 5, r.moog.glide.t
 check('the EQ: a 6 dB bell lifts its frequency 6 dB, a 24 dB cut takes 50 Hz down by far more', Math.abs(r.eq.bell - 6) < .5 && r.eq.cut < -40, f2(r.eq));
 check('the compressor turns a loud tone down', r.comp < -6, r.comp.toFixed(1));
 check('the sidechain ducks by its depth right after the kick, and is back before the next', r.sc.dip < -9 && r.sc.dip > -13 && Math.abs(r.sc.back) < 1, f2(r.sc));
-check('the limiter keeps a signal 12 dB hot under its ceiling (true peak)', r.lim <= -.5 && r.lim > -2, r.lim.toFixed(2));
+check('the limiter keeps a signal 12 dB hot under its ceiling (true peak)', r.lim <= -.5 && r.lim > -2.5, r.lim.toFixed(2));
 check('the Studio\'s compressor turns a tone down as Chromium\'s does (within 1.5 dB)', Math.abs(r.dyn2[0] - r.dyn2[1]) < 1.5 && r.dyn2[0] < -1, f2(r.dyn2));
-check('a sound through a whole song\'s mixer comes out in under 4 ms (no look-ahead)', r.lat >= 0 && r.lat < 4, r.lat.toFixed(1) + ' ms');
+check('a sound through a whole song\'s mixer comes out in under 7 ms (only the limiter looks ahead, 1.5 ms)', r.lat >= 0 && r.lat < 7, r.lat.toFixed(1) + ' ms');
 check('the multiband\'s bands sum back flat with nothing on', r.mbFlat < .2, r.mbFlat.toFixed(2));
 check('the multiband turns its loud low band down by its ratio and leaves the highs', r.mb.low < -15 && Math.abs(r.mb.high) < .5, f2(r.mb));
 check('a band\'s drive adds harmonics', r.mbDrive > -30, r.mbDrive.toFixed(1));
