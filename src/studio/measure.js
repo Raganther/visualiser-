@@ -1,6 +1,7 @@
 // Measuring a mix (pure functions on sample arrays, for the page, the tests and the render tool): loudness to ITU BS.1770
 // (integrated, short-term and momentary LUFS, loudness range), true peak (4× oversampled), the spectrum's balance in bands
-// and its tilt, the stereo image (correlation, and the low end's width), and how far one stem ducks under another's hits.
+// and its tilt, the stereo image (correlation, the low end's width, and each band's), how far one stem ducks under another's
+// hits, where tracks mask each other, a goniometer, and a mix against a reference track (and an EQ to lean towards it).
 
 // a biquad from the RBJ cookbook, run over x
 function biquad(x, b0, b1, b2, a0, a1, a2){
@@ -77,6 +78,90 @@ export function stereo(L, R, sr){
   const sum = p => p.reduce((a, b) => a + b, 0);
   return {corr: lr/Math.sqrt(ll*rr + 1e-20), side: 10*Math.log10(sum(ps)/(sum(pm) + 1e-20) + 1e-20), lowSide: 10*Math.log10(low(ps)/(low(pm) + 1e-20) + 1e-20)};
 }
+// the stereo image band by band: in each of BANDS, the sides against the middle (dB) and the correlation, from the two
+// channels' spectra and their cross-spectrum (the low end should be near mono, the highs can open out)
+export function stereoBands(L, R, sr, N = 4096){
+  const pl = new Float64Array(N/2), pr = new Float64Array(N/2), cr = new Float64Array(N/2), w = Float32Array.from({length: N}, (_, i) => .5 - .5*Math.cos(2*Math.PI*i/N));
+  for (let a = 0; a + N <= L.length; a += N) { const lr = new Float64Array(N), li = new Float64Array(N), rr = new Float64Array(N), ri = new Float64Array(N);
+    for (let i = 0; i < N; i++) { lr[i] = L[a + i]*w[i]; rr[i] = R[a + i]*w[i]; } fft(lr, li); fft(rr, ri);
+    for (let k = 0; k < N/2; k++) { pl[k] += lr[k]*lr[k] + li[k]*li[k]; pr[k] += rr[k]*rr[k] + ri[k]*ri[k]; cr[k] += lr[k]*rr[k] + li[k]*ri[k]; } }
+  const df = sr/N;
+  return BANDS.map(([name, a, b]) => { let l = 0, r = 0, c = 0; for (let k = Math.ceil(a/df); k <= Math.min(N/2 - 1, b/df); k++) { l += pl[k]; r += pr[k]; c += cr[k]; }
+    const side = (l + r - 2*c)/4, mid = (l + r + 2*c)/4;
+    return {band: name, side: 10*Math.log10((side + 1e-20)/(mid + 1e-20)), corr: c/Math.sqrt(l*r + 1e-30), level: 10*Math.log10(l + r + 1e-30)}; });
+}
+// the goniometer: left against right turned 45° (a mono sound stands upright, wide sound opens out, out of phase lies
+// flat), dots fading in, with the correlation along the bottom. L and R: a stretch of samples
+export function gonio(cv, L, R, {fade = .25, corr} = {}){
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, S = Math.min(W, H - 14)*.47, cx = W/2, cy = (H - 14)/2;
+  g.fillStyle = `rgba(5,7,10,${fade})`; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#1e2733'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - S); g.lineTo(cx, cy + S); g.moveTo(cx - S, cy); g.lineTo(cx + S, cy);
+  g.moveTo(cx - S*.7, cy - S*.7); g.lineTo(cx + S*.7, cy + S*.7); g.moveTo(cx + S*.7, cy - S*.7); g.lineTo(cx - S*.7, cy + S*.7); g.stroke();
+  let pk = 1e-4; for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+  const k = S/Math.max(pk, .05)*.7; g.fillStyle = 'rgba(92,204,255,.55)';
+  for (let i = 0; i < L.length; i += 2) { const x = (R[i] - L[i])*Math.SQRT1_2*k, y = (L[i] + R[i])*Math.SQRT1_2*k; g.fillRect(cx + x, cy - y, 1.2, 1.2); }
+  if (corr == null) { let lr = 0, ll = 0, rr = 0; for (let i = 0; i < L.length; i++) { lr += L[i]*R[i]; ll += L[i]*L[i]; rr += R[i]*R[i]; } corr = lr/Math.sqrt(ll*rr + 1e-20); }
+  g.fillStyle = '#05070a'; g.fillRect(0, H - 12, W, 12); g.fillStyle = '#1e2733'; g.fillRect(4, H - 7, W - 8, 2); g.fillRect(W/2, H - 11, 1, 10);
+  g.fillStyle = corr < 0 ? '#ff5a5a' : corr < .3 ? '#f2b33d' : '#3fd68a'; g.fillRect(4 + (W - 8)*(corr + 1)/2 - 2, H - 11, 4, 10);
+  return corr;
+}
+
+// each band's energy over time, in frames of `hop` samples (for finding where two tracks fight)
+export function bandEnv(x, sr, N = 4096){
+  const w = Float32Array.from({length: N}, (_, i) => .5 - .5*Math.cos(2*Math.PI*i/N)), df = sr/N, out = [];
+  for (let a = 0; a + N <= x.length; a += N/2) { const re = new Float64Array(N), im = new Float64Array(N); for (let i = 0; i < N; i++) re[i] = x[a + i]*w[i]; fft(re, im);
+    out.push(BANDS.map(([, lo, hi]) => { let s = 0; for (let k = Math.ceil(lo/df); k <= Math.min(N/2 - 1, hi/df); k++) s += re[k]*re[k] + im[k]*im[k]; return s; })); }
+  return out;
+}
+// where tracks mask each other: for each pair and band, how much of the quieter one's energy there sits in the same
+// moments as the other's (0..1), counted only where the band matters to both (at least `minShare` of each one's energy).
+// stems: {id: bandEnv(…)}. Each clash says which of the two the band matters less to: the one to cut there
+export function masking(stems, {minShare = .1, min = .4} = {}){
+  const ids = Object.keys(stems), tot = {}, share = {};
+  for (const id of ids) { tot[id] = BANDS.map((_, b) => stems[id].reduce((s, f) => s + f[b], 0)); const all = tot[id].reduce((a, b) => a + b, 0) || 1e-20; share[id] = tot[id].map(v => v/all); }
+  const out = [];
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    const A = ids[i], B = ids[j], n = Math.min(stems[A].length, stems[B].length);
+    BANDS.forEach(([band, lo, hi], b) => {
+      if (share[A][b] < minShare || share[B][b] < minShare) return;
+      let both = 0; for (let t = 0; t < n; t++) both += Math.min(stems[A][t][b], stems[B][t][b]);
+      const overlap = both/(Math.min(tot[A][b], tot[B][b]) || 1e-20);
+      if (overlap >= min) out.push({a: A, b: B, band, lo, hi, overlap, shares: [share[A][b], share[B][b]], cut: share[A][b] < share[B][b] ? A : B,
+        louder: 10*Math.log10((tot[A][b] + 1e-20)/(tot[B][b] + 1e-20))});
+    });
+  }
+  return out.sort((x, y) => y.overlap*Math.min(...y.shares) - x.overlap*Math.min(...x.shares));
+}
+
+// a mix against a reference (two report()s): the loudness, peaks, range, width and tilt apart, and each band's level with
+// the two brought to the same loudness (positive: the mix has more there than the reference)
+export function compare(mix, ref){
+  const bands = Object.fromEntries(Object.keys(mix.bands).map(k => [k, mix.bands[k] - ref.bands[k]]));
+  const thirds = mix.thirds.map(([f, v], i) => [f, v - (ref.thirds[i] ? ref.thirds[i][1] : v)]);
+  return {lufs: mix.lufs - ref.lufs, truePeak: mix.truePeak - ref.truePeak, lra: mix.lra - ref.lra, tilt: mix.tilt - ref.tilt, side: mix.side - ref.side, lowSide: mix.lowSide - ref.lowSide, corr: mix.corr - ref.corr, bands, thirds};
+}
+// an EQ that leans the mix towards the reference's balance: shelves at the ends and bells between, each band's difference
+// smoothed and taken part of the way (amount), never more than max dB: a nudge to listen to, not a copy
+export function matchEq(diff, {amount = .6, max = 4} = {}){
+  const sm = diff.thirds.map(([f], i) => { let s = 0, n = 0; for (let j = i - 2; j <= i + 2; j++) if (diff.thirds[j]) { s += diff.thirds[j][1]; n++; } return [f, s/n]; });
+  const at = f => { let best = sm[0]; for (const x of sm) if (Math.abs(Math.log(x[0]/f)) < Math.abs(Math.log(best[0]/f))) best = x; return best[1]; };
+  const g = f => Math.max(-max, Math.min(max, -at(f)*amount));
+  const bands = [{type: 'ls', f: 80, g: g(50)}, {type: 'bell', f: 200, q: 1, g: g(200)}, {type: 'bell', f: 600, q: 1, g: g(600)}, {type: 'bell', f: 1800, q: 1, g: g(1800)}, {type: 'bell', f: 4500, q: 1, g: g(4500)}, {type: 'hs', f: 10000, g: g(13000)}];
+  for (const b of bands) b.g = Math.round(b.g*10)/10;
+  return bands;
+}
+// a few plain words from a comparison: what to do first
+export function advise(d){
+  const t = [], f1 = v => (v > 0 ? '+' : '') + v.toFixed(1);
+  if (Math.abs(d.lufs) > 1) t.push(`${d.lufs < 0 ? 'Quieter' : 'Louder'} than the reference by ${Math.abs(d.lufs).toFixed(1)} LU: ${d.lufs < 0 ? 'more drive into the master\'s limiter' : 'less drive into the limiter'}.`);
+  const big = Object.entries(d.bands).filter(([, v]) => Math.abs(v) > 2).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 3);
+  for (const [k, v] of big) t.push(`${v > 0 ? 'More' : 'Less'} ${k} than the reference (${f1(v)} dB).`);
+  if (Math.abs(d.tilt) > .5) t.push(`${d.tilt > 0 ? 'Brighter' : 'Darker'} overall (tilt ${f1(d.tilt)} dB an octave).`);
+  if (d.side < -3) t.push(`Narrower (sides ${f1(d.side)} dB): wider pads, chords or returns.`); else if (d.side > 3) t.push(`Wider (sides ${f1(d.side)} dB).`);
+  if (d.lowSide > 3) t.push(`The low end is wider than the reference's (${f1(d.lowSide)} dB): keep the bass mono.`);
+  if (d.lra < -3) t.push(`Less movement in loudness (range ${f1(d.lra)} LU): the breakdowns could drop further.`);
+  return t.length ? t : ['Close to the reference on every measure.'];
+}
 // how far x ducks under hits at times ts: its level in the first `win` after each hit against its level just before the next (dB)
 export function ducking(x, sr, ts, win = .04){
   const lv = (a, b) => { let s = 0, n = 0; for (let i = Math.max(0, Math.round(a*sr)); i < Math.min(x.length, Math.round(b*sr)); i++) { s += x[i]*x[i]; n++; } return s/Math.max(1, n); };
@@ -87,7 +172,8 @@ export function ducking(x, sr, ts, win = .04){
 export function report(L, R, sr){
   const lu = loudness(L, R, sr), tp = truePeak([L, R]), sp = samplePeak([L, R]), M = new Float32Array(L.length); for (let i = 0; i < L.length; i++) M[i] = (L[i] + R[i])/2;
   const bal = balance(spectrum(M), sr), st = stereo(L, R, sr);
-  return {lufs: lu.I, short: lu.S, momentary: lu.M, lra: lu.LRA, truePeak: tp, peak: sp.peak, clipped: sp.clip, plr: tp - lu.I, bands: bal.bands, tilt: bal.tilt, thirds: bal.thirds, ...st, shortTerm: lu.short};
+  return {lufs: lu.I, short: lu.S, momentary: lu.M, lra: lu.LRA, truePeak: tp, peak: sp.peak, clipped: sp.clip, plr: tp - lu.I, bands: bal.bands, tilt: bal.tilt, thirds: bal.thirds, ...st,
+    width: stereoBands(L, R, sr).map(b => ({band: b.band, side: b.side, corr: b.corr})), shortTerm: lu.short};
 }
 
 // a picture of the sound on a canvas: a spectrogram on a log frequency scale (20 Hz–20 kHz, brighter louder), the
