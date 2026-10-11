@@ -277,6 +277,7 @@ body.jamon > .top, body.jamon > main, body.jamon #pv{display:none!important}
 .jtempo button{width:44px}
 .jlab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
 .jgap{flex:1}
+.jgrp{display:inline-flex;align-items:center;gap:6px}
 .jseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .jseg button{border:0;border-radius:0;background:none;color:var(--dim);padding:0 12px}
 .jseg button.cur{background:var(--panel2);color:var(--accent)}

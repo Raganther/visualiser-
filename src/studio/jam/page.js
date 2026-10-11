@@ -45,7 +45,9 @@ export async function mountJam({root, getCtx, toStudio}){
   const fresh = btn('New jam', 'jnew', () => { if (!fresh.dataset.sure) { fresh.dataset.sure = 1; fresh.textContent = 'Sure?'; setTimeout(() => { delete fresh.dataset.sure; fresh.textContent = 'New jam'; }, 2500); return; }
     delete fresh.dataset.sure; fresh.textContent = 'New jam'; core.stop(); if (core.player) core.player.dispose(); core = makeJam({getCtx, song: jamSong({bpm: core.song.bpm, key: core.song.key})}); hook(); mountFace(); drawDeck(); paintTop(); }, 'Start again with nothing (the jam you had is replaced)');
   const lab = t => { const s = h('span', 'jlab', t); return s; };
-  top.append(playB, recB, click, groove, lab('Tempo'), tempo, keySel, styleSel, energy, lab('Quantise'), qSeg, lab('Launch'), lSeg, h('span', 'jgap'), lab('Layout'), fSeg, fresh, studio);
+  // (a label stays with its control when the bar wraps)
+  const grp = (...els) => { const g = h('span', 'jgrp'); g.append(...els); return g; };
+  top.append(playB, recB, click, groove, grp(lab('Tempo'), tempo), keySel, styleSel, energy, grp(lab('Quantise'), qSeg), grp(lab('Launch'), lSeg), h('span', 'jgap'), grp(lab('Layout'), fSeg), fresh, studio);
   function paintTop(){
     playB.textContent = core.playing() ? '■' : '▶'; playB.classList.toggle('on', core.playing());
     recB.classList.toggle('on', core.rec.on); click.classList.toggle('on', !!core.J.click); tv.textContent = core.song.bpm; keySel.value = core.song.key; styleSel.value = core.J.style; energy.show();
