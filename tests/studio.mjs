@@ -94,6 +94,16 @@ const r = await page.evaluate(async () => {
   { const [a, b] = await through({type: 'limiter', gain: 12, ceil: -1}, (ctx, dest) => { const s = ctx.createOscillator(); s.frequency.value = 997; const g = ctx.createGain(); g.gain.value = .9; s.connect(g); g.connect(dest); s.start(); }, 1);
     o.lim = M.truePeak([a.subarray(SR*.1), b.subarray(SR*.1)]); }
 
+  /* no delay in the mixer: the Studio's compressor (a worklet without look-ahead) turns a tone down as Chromium's does,
+     make-up and all, and an impulse through a whole song's mixer comes out at once */
+  { const {prepare} = await import('/src/studio/engine.js'), {makeComp} = await import('/src/studio/dyn.js'), {makeDesk} = await import('/src/studio/desk.js');
+    const lvl = async ours => { const ctx = new OfflineAudioContext(2, SR, SR); if (ours) await prepare(ctx); const c = makeComp(ctx, {thr: -24, ratio: 4, knee: 6, att: .003, rel: .1});
+      const s = ctx.createOscillator(); s.frequency.value = 220; const g = ctx.createGain(); g.gain.value = .5; s.connect(g); g.connect(c.input); c.output.connect(ctx.destination); s.start();
+      const b = await ctx.startRendering(); return 20*Math.log10(rms(b.getChannelData(0), .5, .9)/(.5/Math.SQRT2)); };
+    o.dyn2 = [await lvl(true), await lvl(false)];
+    const ctx = new OfflineAudioContext(2, SR*.3, SR); await prepare(ctx); const desk = makeDesk(ctx, SONGS[0], {env: {period: () => .5, clock: {}, onNote: () => () => {}}});
+    const b = ctx.createBuffer(1, 1, SR); b.getChannelData(0)[0] = .3; const src = ctx.createBufferSource(); src.buffer = b; src.connect(desk.strips.get('bass').input); src.start(.05);
+    const x = (await ctx.startRendering()).getChannelData(0); let pk = 0, at = 0; for (let i = 0; i < x.length; i++) if (Math.abs(x[i]) > pk) { pk = Math.abs(x[i]); at = i; } o.lat = (at/SR - .05)*1000; }
   /* the mixing tools: multiband, dynamic EQ, mid/side EQ, transient shaper, tape, console */
   { const dB = x => 20*Math.log10(x), tones = (fs, amp) => (ctx, dest) => fs.forEach((f, i) => { const s = ctx.createOscillator(); s.frequency.value = f; const g = ctx.createGain(); g.gain.value = Array.isArray(amp) ? amp[i] : amp; s.connect(g); g.connect(dest); s.start(); });
     const FS = [50, 150, 400, 1200, 3000, 8000], flat = {type: 'multiband', bands: [{}, {}, {}]};
@@ -137,7 +147,7 @@ const r = await page.evaluate(async () => {
     swing: ev.filter(e => e.track === 'hat' && Math.floor(e.t/S16) % 2 === 1).map(e => +((e.t/S16) % 1).toFixed(3)).slice(0, 3),
     hats: ev.filter(e => e.track === 'hat').length, poly: ev.filter(e => e.track === 'poly').map(e => Math.round(e.t/S16)).slice(0, 6)};
   const ev2 = []; await renderSong(song, {onNote: e => ev2.push(e), tail: .1, bars: 2}); o.sched.again = ev2.filter(e => e.track === 'hat').length;
-  const L = buf.getChannelData(0), Rr = buf.getChannelData(1); o.render = {peak: M.truePeak([L, Rr]), padRise: rms(L, 3.2, 3.9) > rms(L, .2, .9)};
+  const L = buf.getChannelData(0), Rr = buf.getChannelData(1); o.render = {peak: M.truePeak([L, Rr]), padRise: tone(L, 220, 3.2, 3.9) > tone(L, 220, .2, .9)*4};
   // automation: a sine's level following a lane, and an LFO modulator on its pan
   { const s2 = {bpm: 120, tracks: [{id: 'a', inst: {type: 'analog'}, p: {}, clips: {a: {bars: 4, notes: [[0, 'A3', 63]]}}, mix: {}}], master: {chain: []},
       scenes: [{id: 's', clips: {a: 'a'}}], arrange: [['s', 4]], auto: [{target: 'a.vol', points: [[0, -30], [4, 0]]}], mods: [{target: 'a.pan', shape: 'Square', rate: '1 bar', depth: 1}]};
@@ -168,6 +178,8 @@ check('the EQ: a 6 dB bell lifts its frequency 6 dB, a 24 dB cut takes 50 Hz dow
 check('the compressor turns a loud tone down', r.comp < -6, r.comp.toFixed(1));
 check('the sidechain ducks by its depth right after the kick, and is back before the next', r.sc.dip < -9 && r.sc.dip > -13 && Math.abs(r.sc.back) < 1, f2(r.sc));
 check('the limiter keeps a signal 12 dB hot under its ceiling (true peak)', r.lim <= -.5 && r.lim > -2, r.lim.toFixed(2));
+check('the Studio\'s compressor turns a tone down as Chromium\'s does (within 1.5 dB)', Math.abs(r.dyn2[0] - r.dyn2[1]) < 1.5 && r.dyn2[0] < -3, f2(r.dyn2));
+check('a sound through a whole song\'s mixer comes out in under 4 ms (no look-ahead)', r.lat >= 0 && r.lat < 4, r.lat.toFixed(1) + ' ms');
 check('the multiband\'s bands sum back flat with nothing on', r.mbFlat < .2, r.mbFlat.toFixed(2));
 check('the multiband turns its loud low band down by its ratio and leaves the highs', r.mb.low < -15 && Math.abs(r.mb.high) < .5, f2(r.mb));
 check('a band\'s drive adds harmonics', r.mbDrive > -30, r.mbDrive.toFixed(1));

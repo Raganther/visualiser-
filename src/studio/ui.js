@@ -36,7 +36,7 @@ const songs = SONGS.map(s => structuredClone(s));
 const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const ids = SONGS.map(s => slug(s.title)), mine = SONGS.map(() => false);
 const myId = () => 'my-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-const audio = () => { if (!ctx) ctx = new AudioContext({latencyHint: 'playback'}); if (ctx.state === 'suspended') ctx.resume(); return ctx; };
+const audio = () => { if (!ctx) ctx = new AudioContext({latencyHint: TUNE.studio.latency}); if (ctx.state === 'suspended') ctx.resume(); return ctx; };
 const trackOf = id => song.tracks.find(t => t.id === id);
 // a strip's track (a pad's is its rack) and, for a pad, which
 const ownerOf = id => { const [t, k] = String(id).split(':'); const T = trackOf(t); return {T, k: k && T && T.pads && T.pads[k] ? k : null}; };
@@ -218,7 +218,7 @@ function padsCard(T){
     b.onclick = () => audition(T, k); b.ondblclick = () => { sel = T.id + ':' + k; drawDetail(); markSel(); }; g.appendChild(b); }
   c.appendChild(g); return c;
 }
-const audition = (T, k, n) => build().then(pl => { const tr = pl.E.tracks.find(x => x.t.id === T.id); if (tr) tr.inst.play(n == null ? k : n, ctx.currentTime + .02, .25, .9); });
+const audition = (T, k, n) => build().then(pl => { const tr = pl.E.tracks.find(x => x.t.id === T.id); if (tr) tr.inst.play(n == null ? k : n, ctx.currentTime, .25, .9); });
 // one pad: its voice's knobs
 function voiceCard(T, k){
   const I = instrument('drums'), v = I.voices.find(x => x.key === k), c = card(`${v ? v.label : k} <small>${esc(T.pads[k].kit || T.inst.kit)} kit</small>`), ks = h('div', 'knobs');

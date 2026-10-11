@@ -4,6 +4,7 @@
 // chain as well. A device: {input, output, set(k, v), param(k) → {p, map} for smooth automation, gr() → dB it's turning down}.
 import { effect, defaults } from '../audio/engine/registry.js';
 import { TUNE } from '../tuning.js';
+import { makeComp } from './dyn.js';
 
 const db = v => Math.pow(10, v/20);
 const gainNode = (ctx, g = 1) => { const n = ctx.createGain(); n.gain.value = g; return n; };
@@ -73,18 +74,18 @@ function msDevice(ctx, d){
 }
 
 /* ---------- compressor: threshold, ratio, knee, attack, release, make-up; mix below 1 is parallel compression ---------- */
-// (Chromium's compressor looks ahead 6 ms: the dry path is delayed to match, so a parallel mix doesn't comb)
+// (makeComp, dyn.js: no look-ahead, so nothing is held back; where it falls back to Chromium's, which looks ahead 6 ms, the
+// dry path is delayed to match, so a parallel mix doesn't comb)
 function compDevice(ctx, d){
-  const input = gainNode(ctx), output = gainNode(ctx), c = ctx.createDynamicsCompressor(), mk = gainNode(ctx), wet = gainNode(ctx), dry = gainNode(ctx), dl = ctx.createDelay(.05);
-  dl.delayTime.value = TUNE.studio.compLook;
-  input.connect(c); c.connect(mk); mk.connect(wet); wet.connect(output); input.connect(dl); dl.connect(dry); dry.connect(output);
   const P = {thr: -18, ratio: 3, knee: 6, att: .01, rel: .15, gain: 0, mix: 1, ...d};
-  const apply = () => { c.threshold.value = P.thr; c.ratio.value = P.ratio; c.knee.value = P.knee; c.attack.value = P.att; c.release.value = P.rel;
-    mk.gain.value = db(P.gain); wet.gain.value = P.mix; dry.gain.value = 1 - P.mix; };
+  const input = gainNode(ctx), output = gainNode(ctx), c = makeComp(ctx, P), mk = gainNode(ctx), wet = gainNode(ctx), dry = gainNode(ctx), dl = ctx.createDelay(.05);
+  dl.delayTime.value = c.look;
+  input.connect(c.input); c.output.connect(mk); mk.connect(wet); wet.connect(output); input.connect(dl); dl.connect(dry); dry.connect(output);
+  const apply = () => { c.set(P); mk.gain.value = db(P.gain); wet.gain.value = P.mix; dry.gain.value = 1 - P.mix; };
   apply();
-  return {input, output, node: c,
-    param(k){ if (k === 'gain') return {ps: [mk.gain], map: db}; if (k === 'thr') return {ps: [c.threshold], map: v => v}; return null; },
-    set(k, v){ P[k] = v; apply(); }, gr: () => -c.reduction};
+  return {input, output,
+    param(k){ if (k === 'gain') return {ps: [mk.gain], map: db}; const p = c.param(k); return p ? {ps: [p], map: v => v} : null; },
+    set(k, v){ P[k] = v; apply(); }, gr: () => c.reduction()};
 }
 
 /* ---------- sidechain: duck when another track plays ---------- */
@@ -127,19 +128,19 @@ function scDevice(ctx, d, desk){
 /* ---------- limiter: drive in, a fast compressor, then a soft clipper at the ceiling, oversampled ---------- */
 function limDevice(ctx, d){
   const P = {gain: 0, ceil: -.3, rel: .06, ...d};
-  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = ctx.createDynamicsCompressor(), clip = ctx.createWaveShaper(), output = gainNode(ctx);
+  const input = gainNode(ctx), drive = gainNode(ctx, db(P.gain)), c = makeComp(ctx, {thr: P.ceil - 1.5, knee: 1, ratio: 20, att: .001, rel: P.rel}), clip = ctx.createWaveShaper(), output = gainNode(ctx);
   // the clipper: straight up to 80% of the ceiling, then bending smoothly into it (never past). It aims a little under:
   // oversampling's filters ring past a clipped drum's edge, so the true peak lands at the ceiling, not over it
   const curve = () => { const n = 8192, cv = new Float32Array(n), C = db(P.ceil - TUNE.studio.tpMargin), k = .8*C;
     for (let i = 0; i < n; i++) { const x = (i/(n - 1)*2 - 1)*2, a = Math.abs(x), y = a <= k ? a : k + (C - k)*Math.tanh((a - k)/(C - k)); cv[i] = Math.sign(x)*y; } return cv; };
   // (a wave shaper reads -1..1: halved first, the curve covers ±2, so a peak up to +6 dB over full scale is still shaped, not cut flat)
   const pre = gainNode(ctx, .5), post = gainNode(ctx, 1);
-  const apply = () => { c.threshold.value = P.ceil - 1.5; c.knee.value = 1; c.ratio.value = 20; c.attack.value = .001; c.release.value = P.rel; clip.curve = curve(); };
-  clip.oversample = '4x'; apply();
-  input.connect(drive); drive.connect(c); c.connect(pre); pre.connect(clip); clip.connect(post); post.connect(output);
-  return {input, output, node: c,
+  const apply = () => { c.set({thr: P.ceil - 1.5, rel: P.rel}); clip.curve = curve(); };
+  clip.oversample = '2x'; apply();
+  input.connect(drive); drive.connect(c.input); c.output.connect(pre); pre.connect(clip); clip.connect(post); post.connect(output);
+  return {input, output,
     param(k){ return k === 'gain' ? {ps: [drive.gain], map: db} : null; },
-    set(k, v){ P[k] = v; if (k === 'gain') ease(ctx, drive.gain, db(v)); else apply(); }, gr: () => -c.reduction};
+    set(k, v){ P[k] = v; if (k === 'gain') ease(ctx, drive.gain, db(v)); else apply(); }, gr: () => c.reduction()};
 }
 
 /* ---------- pieces for the dynamic devices ---------- */
@@ -157,27 +158,23 @@ function satCurve(drive, bias = 0){
   return u => f(u*2)*k;
 }
 
-// Chromium's compressor adds make-up of its own (0.6 of what it takes off a full-scale sound): taken back out, so a band's
-// compressor only turns it down, and its own gain is the only make-up
-const unMakeup = (thr, ratio) => ratio > 1 ? .6*thr*(1 - 1/ratio) : 0;
-
 /* ---------- multiband: three bands, each its own drive and compressor ---------- */
 // lo and hi are the crossovers (Hz); bands [{thr, ratio, gain, drive}] low, mid, high; att and rel for all three; mix for
 // parallel. With every ratio 1 and no drive the bands sum back flat (the low band passes an all-pass to match the others)
 function multiDevice(ctx, d){
   const P = {lo: 200, hi: 2500, att: .01, rel: .15, mix: 1, knee: 6, ...d}, B = [0, 1, 2].map(i => ({thr: 0, ratio: 1, gain: 0, drive: 0, ...((d.bands || [])[i] || {})}));
   const input = gainNode(ctx), output = gainNode(ctx), wet = gainNode(ctx), dry = gainNode(ctx), dl = ctx.createDelay(.05);
-  dl.delayTime.value = TUNE.studio.compLook; input.connect(dl); dl.connect(dry); dry.connect(output); wet.connect(output);
+  input.connect(dl); dl.connect(dry); dry.connect(output); wet.connect(output);
   const lowLp = lr4(ctx, 'lowpass', P.lo), restHp = lr4(ctx, 'highpass', P.lo), midLp = lr4(ctx, 'lowpass', P.hi), hiHp = lr4(ctx, 'highpass', P.hi), ap = ctx.createBiquadFilter();
   ap.type = 'allpass'; ap.frequency.value = P.hi; ap.Q.value = Math.SQRT1_2;
   input.connect(lowLp.input); input.connect(restHp.input); lowLp.output.connect(ap); restHp.output.connect(midLp.input); restHp.output.connect(hiHp.input);
   const ends = [ap, midLp.output, hiHp.output];
   const st = ends.map((from, i) => {
-    const pre = gainNode(ctx, .5), sh = shaper(ctx, satCurve(B[i].drive), '2x'), c = ctx.createDynamicsCompressor(), mk = gainNode(ctx);
-    from.connect(pre); pre.connect(sh); sh.connect(c); c.connect(mk); mk.connect(wet); return {sh, c, mk};
+    const pre = gainNode(ctx, .5), sh = shaper(ctx, satCurve(B[i].drive), '2x'), c = makeComp(ctx, {}, false), mk = gainNode(ctx);
+    from.connect(pre); pre.connect(sh); sh.connect(c.input); c.output.connect(mk); mk.connect(wet); return {sh, c, mk};
   });
-  const apply = () => { st.forEach((x, i) => { const b = B[i]; x.c.threshold.value = b.thr; x.c.ratio.value = Math.max(1, b.ratio); x.c.knee.value = P.knee; x.c.attack.value = P.att; x.c.release.value = P.rel;
-      x.mk.gain.value = db(b.gain + unMakeup(b.thr, b.ratio)); });
+  dl.delayTime.value = st[0].c.look;
+  const apply = () => { st.forEach((x, i) => { const b = B[i]; x.c.set({thr: b.thr, ratio: Math.max(1, b.ratio), knee: P.knee, att: P.att, rel: P.rel}); x.mk.gain.value = db(b.gain); });
     wet.gain.value = P.mix; dry.gain.value = 1 - P.mix; };
   apply();
   const xo = () => { for (const f of [...lowLp.fs, ...restHp.fs]) ease(ctx, f.frequency, P.lo); for (const f of [...midLp.fs, ...hiHp.fs, ap]) ease(ctx, f.frequency, P.hi); };
@@ -186,7 +183,7 @@ function multiDevice(ctx, d){
     set(k, v){ const [i, f] = String(k).split('.');
       if (f && B[+i]) { B[+i][f] = v; if (d.bands && d.bands[+i]) d.bands[+i][f] = v; if (f === 'drive') st[+i].sh.curve = shaper(ctx, satCurve(v)).curve; else apply(); return; }
       P[k] = v; if (k === 'lo' || k === 'hi') xo(); else apply(); },
-    gr: () => Math.max(...st.map(x => -x.c.reduction)), grs: () => st.map(x => -x.c.reduction)};
+    gr: () => Math.max(...st.map(x => x.c.reduction())), grs: () => st.map(x => x.c.reduction())};
 }
 
 /* ---------- dynamic EQ: bands that move only when their part of the sound is loud ---------- */

@@ -520,8 +520,8 @@ export const TUNE = {
   studio: {
     ahead: .2,                 // seconds the live scheduler looks ahead (a stalled frame can't knock the music out of time)
     tickMs: 25,                // how often it looks
-    compLook: .006,
-    tpMargin: .7,              // dB the limiter's clipper aims under its ceiling (drums' true peaks rang ~.6 dB past it)            // Chromium's compressor looks ahead this long: a parallel compressor's dry path is delayed to match
+    tpMargin: .7,              // dB the limiter's clipper aims under its ceiling (drums' true peaks rang ~.6 dB past it)
+    latency: 'interactive',    // the page's audio buffer: 'interactive' (the smallest: a pad sounds as it's hit) or 'playback' (larger, safer on a slow device; 23 ms against 10 here, more on Windows)
     tail: 3,                   // seconds rendered after the last bar (reverb and delay tails)
     meterFall: 18,             // dB a second a meter's peak falls back
     sr: 44100,                 // the sample rate songs render at

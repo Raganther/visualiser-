@@ -2,8 +2,10 @@
 // The scheduler walks the song a sixteenth at a time ("windows"): the clips each track plays there (from the arrangement,
 // or the scenes launched by hand), their notes with swing and chance, the automation lanes and modulators. Live, the page's
 // clock drives it a little ahead of time; offline, it runs between the context's suspends, so a render is the song as played.
-import { instrument, prepare } from '../audio/engine/registry.js';
-export { prepare };
+import { instrument, prepare as prepInst } from '../audio/engine/registry.js';
+import { prepare as prepDyn } from './dyn.js';
+// every worklet a song needs, on this context: the Moog's and the mixer's compressor
+export const prepare = ctx => Promise.all([prepInst(ctx), prepDyn(ctx)]);
 import { SHAPES, lfoHz } from '../audio/engine/inst/vkit.js';
 import { makeDesk } from './desk.js';
 import { arrangement, readClip, scene } from './song.js';

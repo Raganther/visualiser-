@@ -76,7 +76,7 @@ Every track, group and return is a **strip**: its `chain` of devices in order, t
 
 Devices (`src/studio/devices.js`), each `{type, …settings}`, with an optional `id` to name it:
 - `eq`: `bands: [{type, f, g, q, slope}]`. Types: `hp`/`lp` (cuts; `slope` 12, 24 or 48 dB), `ls`/`hs` (shelves, `g` dB), `bell` (`g`, `q`), `notch` (`q`).
-- `comp`: `thr` (dB), `ratio`, `knee` (dB), `att`, `rel` (s), `gain` (make-up dB), `mix` (below 1: parallel compression). The browser's compressor also adds a little make-up of its own as it compresses.
+- `comp`: `thr` (dB), `ratio`, `knee` (dB), `att`, `rel` (s), `gain` (make-up dB), `mix` (below 1: parallel compression). It adds a little make-up of its own as it compresses (as the browser's does: 0.6 of what it takes off a full-scale sound), and holds nothing back.
 - `sc`, the sidechain: `src` (a track), `voice` (only its drum voice, say `kick`), `depth` (dB), `att`, `hold`, `rel` (s). It ducks on the source's notes, known ahead, so it lands on the kick's first sample. `mode: 'audio'` follows the source's sound instead, with `thr`, `ratio`, `range`.
 - `limiter`: `gain` (dB in), `ceil` (dB, the most out; a soft clipper after a fast compressor), `rel`.
 - `mseq`, the mid/side EQ: `bands` as the EQ's, each with `ch: 'mid'` or `'side'`, and `side` (dB, the sides' level). A side low cut keeps the bass mono; a side high shelf opens the air without touching the middle.

@@ -76,9 +76,9 @@ export function mountPlay(api){
 
   /* ---------- sound, and recording into the clip ---------- */
   const live = () => { const pl = api.player(); return pl && pl.E.tracks.find(x => x.t.id === T().id); };
-  function hit(k, vel){ api.build().then(pl => { const tr = pl.E.tracks.find(x => x.t.id === T().id); if (!tr) return; tr.inst.play(k, api.ctx().currentTime + .005, .2, vel); record({k, vel}); }); }
-  function on(x){ api.build().then(() => { const tr = live(); if (tr && tr.inst.noteOn) tr.inst.noteOn(x.n, .85, api.ctx().currentTime + .005); }); }
-  function off(x){ const tr = live(); if (tr && tr.inst.noteOff) tr.inst.noteOff(x.n, api.ctx().currentTime + .005); record({n: x.n, len: api.ctx().currentTime - x.t, t: x.t}); }
+  function hit(k, vel){ api.build().then(pl => { const tr = pl.E.tracks.find(x => x.t.id === T().id); if (!tr) return; tr.inst.play(k, api.ctx().currentTime, .2, vel); record({k, vel}); }); }
+  function on(x){ api.build().then(() => { const tr = live(); if (tr && tr.inst.noteOn) tr.inst.noteOn(x.n, .85, api.ctx().currentTime); }); }
+  function off(x){ const tr = live(); if (tr && tr.inst.noteOff) tr.inst.noteOff(x.n, api.ctx().currentTime); record({n: x.n, len: api.ctx().currentTime - x.t, t: x.t}); }
   // where in the playing clip a moment falls, to the nearest sixteenth (null if the clip isn't the one playing)
   function stepAt(t){
     const pl = api.player(), tr = T(), id = clipId(); if (!st.rec || !pl || !pl.playing) return null;
