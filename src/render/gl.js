@@ -521,7 +521,7 @@ export function initRenderer(){
 }
 let lost = false;
 export function resize(){
-  const dpr = Math.min(window.devicePixelRatio || 1, gl ? 1.5 : 1)*Q.scale;   // Q.scale: drawn smaller while frames run slow
+  const dpr = Math.min(window.devicePixelRatio || 1, gl ? TUNE.render.maxDpr : 1)*Q.scale;   // (maxDpr: 1.5, a Retina screen's 2 only when asked: the Prism lab's Sharp)   // Q.scale: drawn smaller while frames run slow
   const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(viewH() * dpr));   // (viewH: less the DJ panel under the picture)
   if (w === W && h === H && (!gl || fbos.length)) return;
   W = w; H = h; canvas.width = W; canvas.height = H;

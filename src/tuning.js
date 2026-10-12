@@ -82,6 +82,7 @@ export const TUNE = {
     // heavy world (the cosmos, the 3D worlds) is drawn at, and the trails' resolution. They never switch, unlike Auto
     gfx: {best: {scale: 1, world: 1, trail: .75}, balanced: {scale: .85, world: .7, trail: .7}, fast: {scale: .7, world: .55, trail: .6},
       fastest: {scale: .55, world: .45, trail: .5}},
+    maxDpr: 1.5,               // the most pixels drawn per screen point (a Retina screen has 2: sharper, slower)
     freezeMs: 150,             // a frame this long after the last goes in the stall log (render/stalls.js)
     fbSlack: 6,                // a ready trails shader holding up to this many more visuals than are drawing serves, rather than building another
     worldsOwn: 1,              // 1: every world is drawn in its own pass (two at once), its front plane's coverage in the alpha, and the scene's shaders only read those pictures: they hold no world's code, so each scene's are all built while the page loads (on a Mac each new shader froze the picture 0.2–6 s at its first draw)

@@ -13,6 +13,7 @@ import { RULES } from '../visuals/objects/cells.js';
 import { VISUALS } from '../visuals/registry.js';
 import { showFps } from '../ui/fps.js';
 import { resize } from '../render/gl.js';
+import { GFX, setGfx, gfxLevel, Q } from '../render/quality.js';
 import { GB, PRESETS as GROOVES, loadPreset, grooveToggle, setMute } from '../audio/groove.js';
 import { buffer, playing, tracks, tIndex, togglePlay, nextTrack, prevTrack, playFrom, position } from '../audio/player.js';
 import { F } from '../audio/foresee.js';
@@ -117,6 +118,7 @@ body.jamming canvas{touch-action:none;cursor:grab}
 `;
 
 export default function(){
+  try { if (localStorage.getItem('afterglow.sharp')) TUNE.render.maxDpr = 2; } catch (e) {}   // (Sharp, remembered)
   // the Tune tab's settings saved on this device
   try { const s = JSON.parse(localStorage.getItem(SAVE) || '{}'); for (const p in s) if (p in DEF) setT(p, s[p]); } catch (e) {}
   const save = () => { const s = {}; for (const p in DEF) if (getT(p) !== DEF[p]) s[p] = getT(p); try { localStorage.setItem(SAVE, JSON.stringify(s)); } catch (e) {} return s; };
@@ -178,7 +180,7 @@ export default function(){
     const b = el.querySelector('.bar i'); if (b) b.style.width = Math.max(LS.build ? Math.min(100, (performance.now() - LS.build.t)/10/(BUILD_BARS*4*Math.max(.25, S.beatPeriod || .5))) : 0, J.anticip*100) + '%';
     const s = prismState(), t = el.querySelector('.st');
     const next = playing && F.ready ? F.drops.find(d => d.t > position()) : null;
-    if (t) t.textContent = `${s.form || ''} · ${s.tex} · ${s.prog ? s.prog.figure : ''} · detail ${s.det} · activity ${(s.act*100|0)}% · beams ${s.beams}${HEAR.brk ? ' · breakdown' : ''}${next ? ` · drop in ${Math.round(next.t - position())} s` : ''}`;
+    if (t) t.textContent = `${s.form || ''} · ${s.tex} · ${s.prog ? s.prog.figure : ''} · detail ${s.det} · activity ${(s.act*100|0)}% · beams ${s.beams} · drawn at ${Math.round(Q.scale*Math.min(devicePixelRatio || 1, TUNE.render.maxDpr)*100/(devicePixelRatio || 1))}%${HEAR.brk ? ' · breakdown' : ''}${next ? ` · drop in ${Math.round(next.t - position())} s` : ''}`;
     const sk = el.querySelector('.sk input'), tt = el.querySelector('.tt'), pb = el.querySelector('[data-b=play]');
     if (sk && buffer && !LS.seeking) { sk.max = buffer.duration; sk.value = position(); }
     if (tt) tt.textContent = buffer ? `${fmt(position())} / ${fmt(buffer.duration)}` : '';
@@ -218,6 +220,8 @@ export default function(){
       ${btn('det:-1', 'Facets −')}${btn('det:1', 'Facets +')}</div></div>
     <div class="pg"><h3>Room and camera</h3><div class="pr">${btn('room', 'Room', LS.room)}${opts('cam', ['auto', 'far', 'mid', 'near', 'inside', 'low'])}</div></div>
     <div class="pg"><h3>Room style</h3><div class="pr">${opts('style', ['auto', ...roomStyles()])}</div></div>
+    <div class="pg"><h3>Graphics</h3><div class="pr">${GFX.map(([k, n]) => btn('gfx:' + k, n, gfxLevel() === k)).join('')}${btn('sharp', 'Sharp (Retina)', TUNE.render.maxDpr > 1.5)}</div>
+      <p class="note">Auto draws smaller while frames run slow; Best always draws full size. Sharp draws every Retina pixel (slower).</p></div>
     <div class="pg"><h3>Switches</h3><div class="pr">${SWITCHES.map(([k, label]) => btn('sw:' + k, label, getT('on.' + k) > 0)).join('')}</div></div>
     <div class="pg"><h3>3D lasers</h3><div class="pr">${opts('laser', ['auto', ...laserShows(), 'off'])}</div></div>
     <div class="pg"><h3>Layers in 3D</h3><div class="pr">${LAYERS.map(([k, n]) => btn('layer:' + k, n, p && p[k] > 0)).join('')}</div></div>
@@ -287,6 +291,8 @@ export default function(){
     else if (id === 'beat') { LS.beat = v; prismClear(BEAT[v]); render(); }
     else if (id === 'det') { prismDetail(Math.max(0, Math.min(4, prismState().det + +v))); render(); }
     else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
+    else if (id === 'gfx') { setGfx(v); render(); }
+    else if (id === 'sharp') { TUNE.render.maxDpr = TUNE.render.maxDpr > 1.5 ? 1.5 : 2; try { localStorage.setItem('afterglow.sharp', TUNE.render.maxDpr > 1.5 ? '1' : ''); } catch (e) {} Q.pending = true; resize(); render(); }
     else if (id === 'sw') { setT('on.' + v, getT('on.' + v) > 0 ? 0 : 1); save(); render(); }
     else if (id === 'jam') { LS.jam = !LS.jam; JAM.on = LS.jam; document.body.classList.toggle('jamming', LS.jam); render(); }
     else if (id === 'style') { LS.style = v; prismStyle(v === 'auto' ? undefined : v); render(); }
