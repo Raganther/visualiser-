@@ -479,7 +479,7 @@ function room(u, P, x, rw){
   // the shadow: the key lamp's, through the middle onto the floor
   const n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)], Lp = Ls[0].p, ll = Math.hypot(...Lp), d = Lp.map(v => -v/ll), dn = n[1]*d[1] + n[2]*d[2];
   if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7), .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
-  const ac = tint([.55, .6, .72], 1, .4);
+  const ac = tint([.55, .6, .72], 1, .4); STAGE.plinth = [0, 0, 0];
   STAGE.amb = ac.map(v => v*LT.ambient*rw); STAGE.refl = LT.refl*rw;
   Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5), hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
 }
