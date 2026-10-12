@@ -11,7 +11,7 @@ export const STYLES = ['cove', 'mirror', 'void', 'dome', 'glass'];
 const L3 = new Float32Array(12), C3 = new Float32Array(9), A3 = new Float32Array(12), B3 = new Float32Array(12);
 function pack(){
   STAGE.lamps.slice(0, 3).forEach((l, i) => { L3.set([l.p[0], l.p[1], l.p[2], l.k], i*4); C3.set(l.c, i*3); A3.set([l.a ? l.a[0] : 0, l.a ? l.a[1] : 0, l.a ? l.a[2] : -1, Math.cos(l.cone*1.3)], i*4);
-    B3.set([l.s[0], l.s[1], l.k*(l.vis ?? 0)*TUNE.prism.on.beams, l.cone], i*4); });
+    B3.set([l.s[0], l.s[1], l.k*(l.vis ?? 0)*TUNE.prism.on.beams*TUNE.prism.on.haze, l.cone], i*4); });
 }
 // without the Prism (the room alone, or another object standing in it on a plinth): the same calm rig the Prism has, its key
 // light drifting slowly at the height asked, a rim light behind and a low fill (TUNE.prism.light), the key's shadow on the floor
@@ -37,7 +37,7 @@ export default {
   suits: () => 0,
   params(P, x){ if (!(P.w.room > .003) || (x.eff && x.eff.prism) > .003) return; idle(P, x, Math.min(1, P.w.room)); },   // (with the Prism on, it sets the room up itself)
   glsl: {
-    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb, uRmCh, uRm3, uRmPl, uRmOn; uniform float uRmSt; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24], uRmK[8]; uniform vec3 uRmKC[8];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
+    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb, uRmCh, uRm3, uRmPl, uRmOn, uRmOn2; uniform float uRmSt; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24], uRmK[8]; uniform vec3 uRmKC[8];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
     functions: `
 vec3 room(vec2 sp){
   float cam=uRm.x, f=uRm.y, e=uRm.z, fl=uRm.w;
@@ -58,7 +58,7 @@ vec3 room(vec2 sp){
       seam+=att*smoothstep(0.08,0.0,hw-abs(along))*uRmCh.w; att*=mix(1.0,uRm3.y,uRmCh.w);
     }
   }
-  float b=dot(o,d), c=dot(o,o)-uRm3.x, tw=-b+sqrt(max(0.0,b*b-c)), dn=dot(n,d), tf=dn<-1e-4 ? (-fl-dot(n,o))/dn : 1e9;
+  float b=dot(o,d), c=dot(o,o)-uRm3.x, tw=-b+sqrt(max(0.0,b*b-c)), dn=dot(n,d), tf=dn<-1e-4&&uRmOn2.x>0.5 ? (-fl-dot(n,o))/dn : 1e9;   // (uRmOn2: the floor, the walls, the haze switched on)
   bool onF=tf>0.0&&tf<tw; float t=onF ? tf : tw; vec3 p=o+d*t;
   // the style (uRmSt: 0 the cove, 1 the mirror chamber, 2 a black mirror void, 3 a ribbed dome, 4 a hall of glass panes)
   float stV=step(1.5,uRmSt)*step(uRmSt,2.5), stD=step(2.5,uRmSt)*step(uRmSt,3.5), stG=step(3.5,uRmSt);
@@ -81,13 +81,14 @@ vec3 room(vec2 sp){
     float pane=smoothstep(0.0,0.06,min(min(pf.x,1.0-pf.x),min(pf.y,1.0-pf.y))), glow=0.12+0.4*pow(0.5+0.5*sin(uRmR.y*0.4+ph*6.2831853),3.0);
     col=mix(col,col*0.3+(amb*0.6+hsv(uRm2.w+ph*0.15,0.35,1.0)*0.12)*glow*pane+amb*0.05*(1.0-pane),stG);
     col*=1.0-0.85*stV; }
+  if(!onF&&!onP) col*=uRmOn2.y;   // (no walls: the void)
   if(onP){ col=amb*(0.35+0.25*max(0.0,dot(pn,n)))+base*0.02;   // the plinth: lit stone
     for(int i=0;i<3;i++){ vec3 l=normalize(uRmL[i].xyz-p); col+=uRmC[i]*uRmL[i].w*max(0.0,dot(pn,l))*0.35; } }
   // the lamps: their pools on the floor and walls (in each cone, facing it, falling off with distance)
   vec3 nn=onF ? n : -normalize(p);
   for(int i=0;i<3;i++){ vec3 l=uRmL[i].xyz-p; float ld=length(l); l/=ld;
     float ca=dot(-l,uRmA[i].xyz), cone=smoothstep(uRmA[i].w,mix(uRmA[i].w,1.0,0.6),ca);
-    col+=uRmC[i]*uRmL[i].w*cone*max(0.0,dot(nn,l))*(onF ? 0.5 : 0.18)/(1.0+ld*ld*0.12); }
+    col+=uRmC[i]*uRmL[i].w*cone*max(0.0,dot(nn,l))*(onF ? 0.5 : 0.18*uRmOn2.y)/(1.0+ld*ld*0.12); }
   if(onF){
     vec2 q=vec2(p.x,dot(p,fv)), g=abs(fract(q*2.0)-0.5); float w=0.012+t*0.006;
     float ln=smoothstep(0.5-w,0.5,max(g.x,g.y))*exp(-length(q)*0.3)*uRmOn.x*(1.0-stV);   // the grid (off unless switched on)
@@ -116,7 +117,7 @@ vec3 room(vec2 sp){
     fn: 'room',
   },
   uniforms(gl, u, P){ pack();
-    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); const ON = TUNE.prism.on; gl.uniform4f(u.uRmOn, ON.grid, ON.glints, ON.shadow, ON.fog); gl.uniform1f(u.uRmSt, STYLES.indexOf(STAGE.style) < 0 ? 0 : STYLES.indexOf(STAGE.style)); const pl = STAGE.plinth || [0, 0, 0]; gl.uniform4f(u.uRmPl, pl[0], pl[1], pl[2], 0); const ch = STAGE.ch || [0, 0, 0, 0], CH = TUNE.prism.chamber; gl.uniform4f(u.uRmCh, ch[0], ch[1], ch[2], ch[3]); gl.uniform4f(u.uRm3, Math.max(11.56, (ch[1]*1.3)**2), CH.fade, CH.ceil, CH.seam); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
+    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); const ON = TUNE.prism.on; gl.uniform4f(u.uRmOn, ON.grid, ON.glints, ON.shadow, ON.fog); gl.uniform4f(u.uRmOn2, ON.floor, ON.walls, ON.haze, 0); gl.uniform1f(u.uRmSt, STYLES.indexOf(STAGE.style) < 0 ? 0 : STYLES.indexOf(STAGE.style)); const pl = STAGE.plinth || [0, 0, 0]; gl.uniform4f(u.uRmPl, pl[0], pl[1], pl[2], 0); const ch = STAGE.ch || [0, 0, 0, 0], CH = TUNE.prism.chamber; gl.uniform4f(u.uRmCh, ch[0], ch[1], ch[2], ch[3]); gl.uniform4f(u.uRm3, Math.max(11.56, (ch[1]*1.3)**2), CH.fade, CH.ceil, CH.seam); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
     const v = k => u[k + '[0]'] || u[k] || null;
     gl.uniform4fv(v('uRmL'), L3); gl.uniform4fv(v('uRmA'), A3); gl.uniform4fv(v('uRmB'), B3); gl.uniform3fv(v('uRmC'), C3); gl.uniform4fv(v('uRmS'), STAGE.spots); if (!STAGE.nBeams) STAGE.beamC.fill(0); if (!STAGE.nCaus) STAGE.caus.fill(0); gl.uniform4fv(v('uRmK'), STAGE.caus); gl.uniform3fv(v('uRmKC'), STAGE.causC); gl.uniform4fv(v('uRmZ'), STAGE.beams); gl.uniform4fv(v('uRmZC'), STAGE.beamC); },
   // simple mode: the floor's grid in perspective, the shadow, the beams as soft wedges, the spots
@@ -124,7 +125,7 @@ vec3 room(vec2 sp){
     const W = o.canvas.width, H = o.canvas.height, a = Math.min(1, P.w.room), X = s => W/2 + s[0]*H, Y = s => H/2 - s[1]*H;
     o.globalAlpha = a; o.fillStyle = '#000'; o.fillRect(0, 0, W, H);
     const am = (STAGE.amb || [0, 0, 0]).map(v => Math.round(Math.min(1, v*.35)*255)).join(',');   // ambient light: the walls a soft wash, the floor a little brighter
-    const sty = STAGE.style || 'cove', wash = sty === 'void' ? .25 : 1;
+    const ON = TUNE.prism.on, sty = STAGE.style || 'cove', wash = (sty === 'void' ? .25 : 1)*(ON.floor || ON.walls ? 1 : 0);
     { const g = o.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(${am},${.25*wash})`); g.addColorStop(.6, `rgba(${am},${.55*wash})`); g.addColorStop(1, `rgba(${am},${.9*wash})`); o.fillStyle = g; o.fillRect(0, 0, W, H); }
     if (sty === 'glass') { const cw = W/12, rh = H*.11; for (let r = 0; r < 4; r++) for (let c = 0; c < 12; c++) { const ph = Math.sin(c*12.9 + r*78.2)*43758.5 % 1, gl = .12 + .35*Math.pow(.5 + .5*Math.sin((STAGE.t || 0)*.4 + ph*6.28), 3);   // the glass hall's panes, lit from behind
       o.fillStyle = `rgba(${am},${gl.toFixed(3)})`; o.fillRect(c*cw + 3, r*rh + 3, cw - 6, rh - 6); } }
@@ -142,6 +143,7 @@ vec3 room(vec2 sp){
         const up = [A[0], A[1] + 1.2*f/(cam + .5)]; o.moveTo(X(A), Y(A)); o.lineTo(X(up), Y(up)); }
       o.stroke(); }
     const sh = STAGE.shadow, c = sh[2] > .01 && at(sh[0], sh[1]);
+    if (!ON.floor && !ON.walls) { o.globalAlpha = 1; return; }   // (a void: nothing of the room)
     const pl = STAGE.plinth || [0, 0, 0];   // the plinth: its front face and top
     if (pl[0] > .5) { const at3 = (x, y, z) => { const p = [x, y*n[1] + z*fv[1], y*n[2] + z*fv[2]], dz = cam - p[2]; return [pos[0] + p[0]*f/dz, pos[1] + p[1]*f/dz]; }, w2 = pl[2];
       const q = [at3(-w2, -fl, w2), at3(w2, -fl, w2), at3(w2, pl[1], w2), at3(-w2, pl[1], w2)], tq = [at3(-w2, pl[1], w2), at3(w2, pl[1], w2), at3(w2, pl[1], -w2), at3(-w2, pl[1], -w2)];

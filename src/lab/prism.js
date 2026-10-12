@@ -69,7 +69,7 @@ const KNOBS = [
     ['lasers.calm', 'Laser brightness when calm', 0, 1, .05]]],
 ];
 // the Switches: each element on or off (TUNE.prism.on), kept with the Tune tab's settings
-const SWITCHES = [['refl', 'Floor reflection'], ['shadow', 'Shadows'], ['fog', 'Fog and vignette'], ['glints', 'Sheen on the floor'], ['grid', 'Floor grid'],
+const SWITCHES = [['floor', 'Floor'], ['walls', 'Walls'], ['haze', 'Haze'], ['refl', 'Floor reflection'], ['shadow', 'Shadows'], ['fog', 'Fog and vignette'], ['glints', 'Sheen on the floor'], ['grid', 'Floor grid'],
   ['beams', 'Lamp beams'], ['spots', 'Mirror-ball spots'], ['lasers', '3D lasers'], ['caustics', 'Caustics'], ['fire', 'Rainbow fire'], ['patterns', 'Lit patterns'],
   ['strobe', 'Kick strobe'], ['dance', 'Its dance'], ['shatter', 'Shatter on drops'], ['layers3d', 'Layers in 3D'], ['camera', 'Camera moves']];
 const at = path => { const ks = path.split('.'), last = ks.pop(); return [ks.reduce((o, k) => o[k], TUNE.prism), last]; };
@@ -222,7 +222,7 @@ export default function(){
     <div class="pg"><h3>Room style</h3><div class="pr">${opts('style', ['auto', ...roomStyles()])}</div></div>
     <div class="pg"><h3>Graphics</h3><div class="pr">${GFX.map(([k, n]) => btn('gfx:' + k, n, gfxLevel() === k)).join('')}${btn('sharp', 'Sharp (Retina)', TUNE.render.maxDpr > 1.5)}</div>
       <p class="note">Auto draws smaller while frames run slow; Best always draws full size. Sharp draws every Retina pixel (slower).</p></div>
-    <div class="pg"><h3>Switches</h3><div class="pr">${SWITCHES.map(([k, label]) => btn('sw:' + k, label, getT('on.' + k) > 0)).join('')}</div></div>
+    <div class="pg"><h3>Switches</h3><div class="pr">${btn('void', 'Void: no room', !getT('on.floor') && !getT('on.walls') && !getT('on.haze'), 'big')}${SWITCHES.map(([k, label]) => btn('sw:' + k, label, getT('on.' + k) > 0)).join('')}</div></div>
     <div class="pg"><h3>3D lasers</h3><div class="pr">${opts('laser', ['auto', ...laserShows(), 'off'])}</div></div>
     <div class="pg"><h3>Layers in 3D</h3><div class="pr">${LAYERS.map(([k, n]) => btn('layer:' + k, n, p && p[k] > 0)).join('')}</div></div>
     </div>`;
@@ -293,6 +293,7 @@ export default function(){
     else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
     else if (id === 'gfx') { setGfx(v); render(); }
     else if (id === 'sharp') { TUNE.render.maxDpr = TUNE.render.maxDpr > 1.5 ? 1.5 : 2; try { localStorage.setItem('afterglow.sharp', TUNE.render.maxDpr > 1.5 ? '1' : ''); } catch (e) {} Q.pending = true; resize(); render(); }
+    else if (id === 'void') { const v0 = !getT('on.floor') && !getT('on.walls') && !getT('on.haze'); for (const k of ['floor', 'walls', 'haze']) setT('on.' + k, v0 ? 1 : 0); save(); render(); }   // (the Prism floating in the dark, its lamps still lighting it)
     else if (id === 'sw') { setT('on.' + v, getT('on.' + v) > 0 ? 0 : 1); save(); render(); }
     else if (id === 'jam') { LS.jam = !LS.jam; JAM.on = LS.jam; document.body.classList.toggle('jamming', LS.jam); render(); }
     else if (id === 'style') { LS.style = v; prismStyle(v === 'auto' ? undefined : v); render(); }

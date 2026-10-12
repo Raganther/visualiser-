@@ -344,7 +344,7 @@ function lasers(b, u, P, x, rw){
     else if (show === 'cross') { const sd = i % 2 ? 1 : -1; aim([2.6*sd, .4, -1.2], [-.3*sd + .25*Math.sin(t*.8 + i), .15*Math.cos(t*1.1 + i), 0], i); }
     else if (show === 'star') { const a = i/nOn*Math.PI*2 + t*.2; aim([2.8*Math.cos(a), 1.7*Math.sin(a), -1.4], [.08*Math.sin(t + i), .08*Math.cos(t*1.3 + i), 0], i); }
     else aim([0, -.4, -2.9], [.4*Math.sin(t*.9 + i*1.7), .3*Math.sin(t*1.3 + i*2.1), 0], i); }
-  traceBeams(VV, TRI, FNV, b.nf, emit, {closed: cl, rmax: rmax + .02, walls: TUNE.prism.room.walls, floor: STAGE.n ? [STAGE.n[0], STAGE.n[1], STAGE.n[2], STAGE.floor] : null,
+  traceBeams(VV, TRI, FNV, b.nf, emit, {closed: cl, rmax: rmax + .02, walls: TUNE.prism.room.walls, floor: STAGE.n && TUNE.prism.on.floor ? [STAGE.n[0], STAGE.n[1], STAGE.n[2], STAGE.floor] : null,
     n: LT.index, maxSegs: 160, maxDepth: LT.depth, splits: show === 'burst' ? 12 : LT.splits}, BO);
   for (const [f, v] of BO.lit) lz[f] = Math.max(lz[f], v);
   // to the screen (in screen heights from the middle), each segment cut at the camera's near plane; a pulse runs out along each
@@ -360,7 +360,7 @@ function lasers(b, u, P, x, rw){
   for (let i = 0; i < BO.nFl; i++) { const q = BO.flares.subarray(i*4, i*4 + 4), dz = cam - q[2]; if (dz < .2) continue; const A = pr(q[0], q[1], q[2]);
     over([A[0], A[1], 0, 0, LT.flare*(.5 + q[3])*fo/dz, q[3], q[3]*.9, q[3]*.8, 1, -1]); }
   // caustics: the light that's been through the glass landing on the floor and walls, a rainbow smear (the room draws them)
-  for (let i = 0; i < BO.nL && i < 8 && TUNE.prism.on.caustics; i++) { const q = BO.land.subarray(i*6, i*6 + 6), dz = cam - q[2]; if (dz < .3) continue; const A = pr(q[0], q[1], q[2]);
+  for (let i = 0; i < BO.nL && i < 8 && TUNE.prism.on.caustics && (TUNE.prism.on.floor || TUNE.prism.on.walls); i++) { const q = BO.land.subarray(i*6, i*6 + 6), dz = cam - q[2]; if (dz < .3) continue; const A = pr(q[0], q[1], q[2]);
     STAGE.caus.set([A[0], A[1], LT.caustic*fo/dz, 1], i*4); STAGE.causC.set([q[3], q[4], q[5]], i*3); STAGE.nCaus = i + 1; }
   STAGE.caus.fill(0, STAGE.nCaus*4);
   // the sheet: its outline round the Prism where it cuts each facet, the facets it crosses lit, and the sheet itself a fan in the haze
@@ -484,7 +484,7 @@ function room(u, P, x, rw){
   u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw;
   if (st.chW > .01 && rw > .5 && cam > .5) u.images = chamber(cam, e, st.chW*rw); else STAGE.ch = [0, 0, 0, 0];
   st.nImg = u.images ? u.images.length : 0;
-  { const LT = TUNE.prism.light; if (LT.refl > .01 && TUNE.prism.on.refl && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
+  { const LT = TUNE.prism.light; if (LT.refl > .01 && TUNE.prism.on.refl && TUNE.prism.on.floor && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
   // the lamps (view space, the Prism round the origin)
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;
   const lift = Math.min(1, Math.max(st.act/TA.cap*.6, an, since < dropLen ? 1 - since/dropLen : 0)), k = (R.lampCalm + (1 - R.lampCalm)*lift)*rw;
@@ -507,17 +507,17 @@ function room(u, P, x, rw){
   set(0, [RR*ce*Math.sin(az), RR*Math.sin(el), RR*ce*Math.cos(az)], tint([1, .88, .74], 0, .45), k*flash*(brk ? LS.brkKey : 1), R.cone*narrow*(brk ? LS.brkCone : 1), 0);
   const er = Math.min(1.2, el*.6 + .45);
   set(1, [-RR*Math.cos(er)*Math.sin(az)*.8, RR*Math.sin(er), -RR*Math.cos(er)], tint([.72, .84, 1], 1, .6), brk ? 0 : k*.8*flash, R.rimCone*narrow, 2);
-  set(2, [-RR*.8*Math.sin(az - .4), -.45, RR*.6*Math.cos(az - .4)], tint([.88, .9, 1], 2, .6), brk ? 0 : (LT.fill + (1 - LT.fill)*SIG.kick*at('kick'))*k*flash, .55*narrow, 4);
+  set(2, [-RR*.8*Math.sin(az - .4), -.45, RR*.6*Math.cos(az - .4)], tint([.88, .9, 1], 2, .6), brk ? 0 : (LT.fill + (1 - LT.fill)*SIG.kick*at('kick')*TUNE.prism.on.strobe)*k*flash, .55*narrow, 4);
   // the layers in 3D: orbits and comets as lights circling it (lighting it as they pass)
   const wO = w3(P, 'orbit', 'comets')*TUNE.prism.on.layers3d;
   for (let i = 0; i < 3; i++) { const a = st.t*LS.orbSpeed*(1 + i*.3) + i*2.1, tl = .5 + i*.6, r = LS.orbR*(1 + .15*i), p = [r*Math.cos(a), r*Math.sin(a)*Math.sin(tl), r*Math.sin(a)*Math.cos(tl)];
     set(3 + i, p, hsv2rgb(h + pal[i], .8, 1), wO*LS.orb*rw, 9, 0); Ls[3 + i].orb = [a, tl, r]; }
   // the shadow: the key lamp's, through the middle onto the floor
   const n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)], Lp = Ls[0].p, ll = Math.hypot(...Lp), d = Lp.map(v => -v/ll), dn = n[1]*d[1] + n[2]*d[2];
-  if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7)*TUNE.prism.on.shadow, .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
+  if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], (.6*Ls[0].k*(1 - st.ex*.7)*TUNE.prism.on.shadow*TUNE.prism.on.floor), .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
   const ac = tint([.55, .6, .72], 1, .4); STAGE.plinth = [0, 0, 0];
   STAGE.amb = ac.map(v => v*LT.ambient*rw); STAGE.refl = LT.refl*rw;
-  Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5), hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
+  Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5*TUNE.prism.on.strobe)*TUNE.prism.on.haze, hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
 }
 // a layer's 3D version in the room: as strong as the layer (Journey turns the flat one down while the room is on: TUNE.prism.show.flat)
 const w3 = (P, ...ks) => Math.min(1, Math.max(...ks.map(k => P.l[k] || 0))/(P.w.room > .5 ? TUNE.prism.show.flat*.8 : .8));
