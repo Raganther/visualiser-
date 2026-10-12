@@ -5,6 +5,7 @@
 // it in only with the Prism as centrepiece (J.stage), and by hand it's a slider under "Media and objects".
 import { hc, hsv2rgb } from '../../util.js';
 import { STAGE, MAXSPOTS } from '../../scene/stage.js';
+import { TUNE } from '../../tuning.js';
 
 const L3 = new Float32Array(12), C3 = new Float32Array(9), A3 = new Float32Array(12), B3 = new Float32Array(12);
 function pack(){
@@ -17,7 +18,7 @@ function idle(P, x, w){
   it += x.dt; const h = P.hue || 0, pal = P.pal || [0, .33, .67], e = .22, cam = 3.2, f = 1.3, n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)];
   STAGE.lamps.forEach((l, i) => { const a = it*.2 + i*2.1, p = [2.2*Math.sin(a), 1.4, .4*Math.cos(a) - .6], ax = .3*Math.sin(it*.3 + i) - p[0], ay = -.8 - p[1], az = -p[2], al = Math.hypot(ax, ay, az), dz = cam - p[2];
     Object.assign(l, {p, c: hsv2rgb(h + pal[i % 3], .6, 1), k: i < 3 ? .6*w : 0, a: [ax/al, ay/al, az/al], cone: .3, s: [p[0]*f/dz, p[1]*f/dz], vis: 1}); });
-  STAGE.amb = [.55, .6, .72].map(v => v*.45*w); STAGE.refl = 0;
+  STAGE.amb = [.55, .6, .72].map(v => v*.45*w); STAGE.refl = 0; STAGE.ch = [0, 0, 0, 0];
   Object.assign(STAGE, {on: 0, cam, f, pos: [0, 0], tilt: e, floor: .8, walls: 3.4, haze: .5*w, hue: h + pal[1], n, fv, shadow: [0, 0, 0, 1], nSpots: 0, nBeams: 0, rain: 0, t: it});
   STAGE.spots.fill(0);
 }
@@ -27,12 +28,28 @@ export default {
   suits: () => 0,
   params(P, x){ if (!(P.w.room > .003) || (x.eff && x.eff.prism) > .003) return; idle(P, x, Math.min(1, P.w.room)); },   // (with the Prism on, it sets the room up itself)
   glsl: {
-    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24], uRmK[8]; uniform vec3 uRmKC[8];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
+    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb, uRmCh, uRm3; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24], uRmK[8]; uniform vec3 uRmKC[8];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
     functions: `
 vec3 room(vec2 sp){
   float cam=uRm.x, f=uRm.y, e=uRm.z, fl=uRm.w;
   vec3 o=vec3(0.0,0.0,cam), d=normalize(vec3(sp-uRm2.xy,-f)), n=vec3(0.0,cos(e),sin(e)), fv=vec3(0.0,-sin(e),cos(e));
-  float b=dot(o,d), c=dot(o,o)-11.56, tw=-b+sqrt(max(0.0,b*b-c)), dn=dot(n,d), tf=dn<-1e-4 ? (-fl-dot(n,o))/dn : 1e9;
+  // the mirror chamber (uRmCh: its sides, how far out, its turn, how far stood up): the ray bounces off its walls a few times,
+  // dimming each time, before it meets the floor or the ceiling; where two mirrors meet, a seam of light
+  float att=1.0, seam=0.0;
+  if(uRmCh.w>0.01){ vec3 ex=vec3(1.0,0.0,0.0);
+    for(int k=0;k<4;k++){
+      vec2 oq=vec2(o.x,dot(o,fv)), dq=vec2(d.x,dot(d,fv)); float tb=1e9; vec2 mb=vec2(0.0);
+      for(int i=0;i<6;i++){ if(float(i)>=uRmCh.x) break; float a=uRmCh.z+float(i)*6.2831853/uRmCh.x; vec2 m=vec2(cos(a),sin(a)); float dm=dot(dq,m);
+        if(m.y*cam*cos(e)>uRmCh.y) continue;   // (the open end, towards the camera)
+        if(dm>1e-4){ float t=(uRmCh.y-dot(oq,m))/dm; if(t>1e-3&&t<tb){ tb=t; mb=m; } } }
+      float hy=dot(o,n), dy=dot(d,n), tfl=dy<-1e-4 ? (-fl-hy)/dy : 1e9, tce=dy>1e-4 ? (uRm3.z-hy)/dy : 1e9;
+      if(tb>=min(tfl,tce)) break;
+      o+=d*tb; vec3 mv=mb.x*ex+mb.y*fv; d=d-2.0*dot(d,mv)*mv;
+      vec2 q2=vec2(o.x,dot(o,fv)); float along=dot(q2,vec2(-mb.y,mb.x)), hw=uRmCh.y*tan(3.14159265/uRmCh.x);
+      seam+=att*smoothstep(0.08,0.0,hw-abs(along))*uRmCh.w; att*=mix(1.0,uRm3.y,uRmCh.w);
+    }
+  }
+  float b=dot(o,d), c=dot(o,o)-uRm3.x, tw=-b+sqrt(max(0.0,b*b-c)), dn=dot(n,d), tf=dn<-1e-4 ? (-fl-dot(n,o))/dn : 1e9;
   bool onF=tf>0.0&&tf<tw; float t=onF ? tf : tw; vec3 p=o+d*t;
   vec3 base=hsv(uRm2.w,0.45,1.0), amb=uRmAmb.rgb, col=base*(0.012+0.012*max(0.0,d.y));
   // ambient light: the floor catching most, the walls brighter low down and towards the lamps' side (a soft cove)
@@ -62,12 +79,13 @@ vec3 room(vec2 sp){
   col+=base*uRm2.z*0.05*exp(-length(sp-uRm2.xy)*2.5);   // the haze lit round it
   for(int i=0;i<24;i++){ vec4 z=uRmZ[i], zc=uRmZC[i]; if(zc.w<1e-4) continue; vec2 ab=z.zw-z.xy; float h=clamp(dot(sp-z.xy,ab)/max(dot(ab,ab),1e-6),0.0,1.0);   // the lasers behind the Prism
     float r=length(sp-z.xy-ab*h)/zc.w; col+=zc.rgb*(exp(-r*r*2.0)+0.12*exp(-r*0.6)); }
+  col*=att; col+=hsv(uRm2.w,0.3,1.0)*seam*uRm3.w*(0.4+amb.g);   // (the mirrors' dimming, and their seams of light)
   return col;
 }`,
     fn: 'room',
   },
   uniforms(gl, u, P){ pack();
-    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
+    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); const ch = STAGE.ch || [0, 0, 0, 0], CH = TUNE.prism.chamber; gl.uniform4f(u.uRmCh, ch[0], ch[1], ch[2], ch[3]); gl.uniform4f(u.uRm3, Math.max(11.56, (ch[1]*1.3)**2), CH.fade, CH.ceil, CH.seam); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
     const v = k => u[k + '[0]'] || u[k] || null;
     gl.uniform4fv(v('uRmL'), L3); gl.uniform4fv(v('uRmA'), A3); gl.uniform4fv(v('uRmB'), B3); gl.uniform3fv(v('uRmC'), C3); gl.uniform4fv(v('uRmS'), STAGE.spots); if (!STAGE.nBeams) STAGE.beamC.fill(0); if (!STAGE.nCaus) STAGE.caus.fill(0); gl.uniform4fv(v('uRmK'), STAGE.caus); gl.uniform3fv(v('uRmKC'), STAGE.causC); gl.uniform4fv(v('uRmZ'), STAGE.beams); gl.uniform4fv(v('uRmZC'), STAGE.beamC); },
   // simple mode: the floor's grid in perspective, the shadow, the beams as soft wedges, the spots
@@ -83,6 +101,11 @@ vec3 room(vec2 sp){
     for (let i = -6; i <= 6; i++) { const A = at(i/2, -3), B = at(i/2, zMax); if (A && B) { o.moveTo(X(A), Y(A)); o.lineTo(X(B), Y(B)); }
       const C = i/2 <= zMax && at(-3, i/2), D = C && at(3, i/2); if (C && D) { o.moveTo(X(C), Y(C)); o.lineTo(X(D), Y(D)); } }
     o.stroke();
+    const ch = STAGE.ch || [0, 0, 0, 0];   // the mirror chamber: its walls standing on the floor, their seams
+    if (ch[3] > .01) { o.strokeStyle = hc(STAGE.hue, 30, 70, .5*ch[3]); o.lineWidth = 2; o.beginPath();
+      for (let i = 0; i < ch[0]; i++) { const a = ch[2] + (i + .5)*2*Math.PI/ch[0]; if (Math.sin(a)*cam*Math.cos(e) > ch[1]*1.2) continue; const r = ch[1]/Math.cos(Math.PI/ch[0]), A = at(r*Math.cos(a), r*Math.sin(a)); if (!A) continue;
+        const up = [A[0], A[1] + 1.2*f/(cam + .5)]; o.moveTo(X(A), Y(A)); o.lineTo(X(up), Y(up)); }
+      o.stroke(); }
     const sh = STAGE.shadow, c = sh[2] > .01 && at(sh[0], sh[1]);
     if (c) { const r = sh[3]*f/(cam + .5)*H; o.fillStyle = `rgba(0,0,0,${(sh[2]*.8).toFixed(3)})`; o.beginPath(); o.ellipse(X(c), Y(c), r, r*.35, 0, 0, Math.PI*2); o.fill(); }
     o.globalCompositeOperation = 'lighter';

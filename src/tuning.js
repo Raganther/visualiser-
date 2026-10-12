@@ -316,6 +316,8 @@ export const TUNE = {
       orb: .9, orbR: 1.0, orbSpeed: .7,             // the orbits and comets as lights circling it: how bright, how far out, how fast
       motes: 20, rings: 6, ringStep: .9, ringR: 1.5},
     swarm: {secs: 1.6, swirl: .6, gather: .45, swapEx: .2},   // the swarm (stage 11): how long its shards take to fly into another object's shape, how far they swirl on the way; changing body, how quickly they come out of the disc, and how much shatter is left
+    chamber: {N: 6, apothem: 1.1, camMax: 3.4, depth: 3, fade: .72, max: 14, max2d: 6, ceil: 2.2, seam: .5},   // the mirror chamber (a room style): its walls (a regular polygon of mirrors round the Prism), how far out, the camera kept inside it; how many reflections deep its images go, how much each mirror dims, how many images at most (simple mode fewer); the ceiling's height; the glow where two mirrors meet
+    styles: {cove: 3, mirror: 1.5},                 // how often a section's room is each style (cove: the soft studio; mirror: the chamber)
     light: {ambient: .45, fill: .35, move: .3, height: .55, colour: .25, refl: .35, aim: .08}},   // the room's light (the user found it dark, flitting and always from above, its colours odd): ambient light filling the room and the Prism; the low fill lamp; how fast the lamps move (0 still); the key lamp's height (0 below, 1 overhead); its colour (0 warm and cool white, 1 the palette's); the floor's reflection; how far the lamps' aim wanders
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,

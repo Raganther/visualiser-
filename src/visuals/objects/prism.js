@@ -156,7 +156,7 @@ function programFor(type, T){
     det: live ? 1.6 + rnd()*1.2 : .6 + rnd()*1.3, n: {g: pick([5, 5, 10]), s: pick([4, 6, 8])},
     kick: pick(['ripple', 'ripple', 'cascade', 'pulse']), stab: pick(['sectors', 'checker', 'rings']), spiral: [pick([1, 2, 3, 5]), pick([2, 3, 5])],
     figure: pick(live ? ['improv', 'life', 'swell', 'fireflies', 'fireflies', 'frost'] : ['spots', 'stripes', 'frost', 'spots', 'improv', 'life']), brk: rnd() < .35 ? 'star' : 'gem', extrude: .5 + rnd()*.8, seed: rnd()*1000,
-    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in']), tex: pickTex(live)};   // (figure: life, the improvised one, or the facets as cells; rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
+    rest: pick(['figure', 'sectors', 'spiral', 'ripple']), rings: pick(['out', 'out', 'in']), tex: pickTex(live), room: pickRoom()};   // (figure: life, the improvised one, or the facets as cells; rest: the one pattern it plays when calm; rings: the kick's run out from the middle or close in from the rim)
   if (id) st.progs[id] = p;
   return p;
 }
@@ -291,10 +291,12 @@ export default {
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
     const u = P.m.prism, b = BODY[u.body]; if (this._gen !== S.glGen) { this._gl = {}; this._gen = S.glGen; }
     const dr = this._gl[u.body] = this._gl[u.body] || facetGL(gl, b.G);
-    if (stage === 'screen' && u.mirror) dr(b.X, {...u, dim: u.refl}, W, H, stage, u.mirror);   // its reflection in the floor, first
+    if (stage === 'screen' && u.images) for (const im of u.images) dr(b.X, {...u, dim: im.dim}, W, H, stage, im.M);   // its images in the mirror chamber, farthest first
+    if (stage === 'screen' && u.mirror) dr(b.X, {...u, dim: u.refl}, W, H, stage, u.mirror);   // its reflection in the floor
     dr(b.X, u, W, H, stage);
     if (stage === 'screen' && OVER.n) (this._gl.beams = this._gl.beams || beamsGL(gl))(overPx(W, H), OVER.n, W, H); },
-  draw2d(o, P){ const u = P.m.prism; if (u.mirror) { o.save(); o.globalAlpha = u.refl; facet2d(o, BODY[u.body].G, BODY[u.body].X, u, u.mirror); o.restore(); } facet2d(o, BODY[u.body].G, BODY[u.body].X, u); if (OVER.n) beams2d(o, overPx(o.canvas.width, o.canvas.height), OVER.n); },
+  draw2d(o, P){ const u = P.m.prism; if (u.images) for (const im of u.images.slice(-TUNE.prism.chamber.max2d)) { o.save(); o.globalAlpha = im.dim; facet2d(o, BODY[u.body].G, BODY[u.body].X, u, im.M); o.restore(); }
+    if (u.mirror) { o.save(); o.globalAlpha = u.refl; facet2d(o, BODY[u.body].G, BODY[u.body].X, u, u.mirror); o.restore(); } facet2d(o, BODY[u.body].G, BODY[u.body].X, u); if (OVER.n) beams2d(o, overPx(o.canvas.width, o.canvas.height), OVER.n); },
   path2d(o, P){ const u = P.m.prism; facetPath2d(o, BODY[u.body].G, BODY[u.body].X, u); },
 };
 
@@ -380,6 +382,35 @@ function overPx(W, H){ for (let i = 0; i < OVER.n; i++) { const k = i*10, L = OV
   PX[k] = W/2 + L[k]*H; PX[k + 1] = H/2 - L[k + 1]*H; PX[k + 2] = W/2 + L[k + 2]*H; PX[k + 3] = H/2 - L[k + 3]*H; PX[k + 4] = L[k + 4]*H; for (let j = 5; j < 10; j++) PX[k + j] = L[k + j]; }
   return PX; }
 
+// ---- the room's style: the soft studio cove or the mirror chamber (and those step 4 adds), a section's own ----
+function pickRoom(){ const w = TUNE.prism.styles, ks = Object.keys(w), tot = ks.reduce((a, k) => a + w[k], 0); let r = rnd()*tot;
+  for (const k of ks) if ((r -= w[k]) < 0) return k; return ks[0]; }
+export const roomStyles = () => Object.keys(TUNE.prism.styles);
+export const prismStyle = k => { st.testStyle = k; };   // (the lab and tests: hold a style; undefined lets the section say)
+// the mirror chamber's images of the Prism: its reflections across the walls (a regular polygon of mirrors standing round it on
+// the floor), and theirs, a few deep, each a 3×4 matrix in view space for the facet engine, farthest first
+function chamber(cam, e, w){
+  const CH = TUNE.prism.chamber, N = CH.N, A = CH.apothem, rot = Math.PI/2 + (st.chRot || 0), cq = cam*Math.cos(e);
+  // (looked into from its open end, as a kaleidoscope is: the walls between the camera and the Prism aren't there)
+  const ms = Array.from({length: N}, (_, i) => [Math.cos(rot + i*2*Math.PI/N), Math.sin(rot + i*2*Math.PI/N)]).filter(m => m[1]*cq <= A);
+  const seen = new Set(['0,0,10,0']), all = []; let front = [{K: [1, 0, 0, 1], t: [0, 0], d: 0}];
+  for (let dp = 1; dp <= CH.depth; dp++) { const next = [];
+    for (const im of front) for (const m of ms) { const R = [1 - 2*m[0]*m[0], -2*m[0]*m[1], -2*m[0]*m[1], 1 - 2*m[1]*m[1]];
+      const K = [R[0]*im.K[0] + R[1]*im.K[2], R[0]*im.K[1] + R[1]*im.K[3], R[2]*im.K[0] + R[3]*im.K[2], R[2]*im.K[1] + R[3]*im.K[3]];
+      const t = [R[0]*im.t[0] + R[1]*im.t[1] + 2*A*m[0], R[2]*im.t[0] + R[3]*im.t[1] + 2*A*m[1]], key = [t[0], t[1], K[0], K[1]].map(v => Math.round(v*10)).join();
+      if (seen.has(key)) continue; seen.add(key); const im2 = {K, t, d: dp}; next.push(im2); all.push(im2); }
+    front = next; }
+  const ce = Math.cos(e), se = Math.sin(e), out = [];
+  for (const im of all) { const ap = p => { const f0 = p[0], f1 = ce*p[1] + se*p[2], f2 = -se*p[1] + ce*p[2], g0 = im.K[0]*f0 + im.K[1]*f2 + im.t[0], g2 = im.K[2]*f0 + im.K[3]*f2 + im.t[1];
+      return [g0, ce*f1 - se*g2, se*f1 + ce*g2]; };
+    const o = ap([0, 0, 0]), X1 = ap([1, 0, 0]), Y1 = ap([0, 1, 0]), Z1 = ap([0, 0, 1]); if (o[2] > cam - .4) continue;
+    out.push({M: [X1[0] - o[0], Y1[0] - o[0], Z1[0] - o[0], o[0], X1[1] - o[1], Y1[1] - o[1], Z1[1] - o[1], o[1], X1[2] - o[2], Y1[2] - o[2], Z1[2] - o[2], o[2]],
+      dim: Math.pow(CH.fade, im.d)*w, dist: cam - o[2] + Math.hypot(o[0], o[1])*.2}); }
+  out.sort((a, b) => a.dist - b.dist); out.length = Math.min(out.length, CH.max); out.reverse();
+  STAGE.ch = [N, A, rot, w];
+  return out;
+}
+
 // ---- textures (docs/prism-plan.md, stage 8): glass, frosted ice, mirror, stained glass, iridescent, LED panels, brushed metal;
 // a new one sweeps across from a point, facet by facet. The shader draws their detail (render/facet.js: TEXCODE) ----
 const TEXCODE = {glass: 0, stained: 1, led: 2, metal: 3, ice: 4, mirror: 0, iris: 0};
@@ -408,10 +439,15 @@ function room(u, P, x, rw){
   else if (brkNow() && an < .05) { goal = R.brk; tilt = R.tiltLow; }
   else if (kc < .5) { goal = Math.min(goal, R.low + .8); tilt = R.tiltLow + (R.tilt - R.tiltLow)*.3; }   // (open land: low over it)
   if (st.testCam) { goal = st.testCam === 'low' ? R.brk : R[st.testCam]; tilt = st.testCam === 'low' ? R.tiltLow : R.tilt; dive = st.testCam === 'inside'; }   // (the Prism lab: the camera held)
+  const style = st.testStyle || (st.prog && st.prog.room) || 'cove'; STAGE.style = style;
+  st.chW = (st.chW || 0) + ((style === 'mirror' ? 1 : 0) - (st.chW || 0))*Math.min(1, dt/1.5);   // the mirror chamber standing up round it, or folding away
+  if (st.chW > .01) goal = Math.min(goal, TUNE.prism.chamber.camMax + (1 - st.chW)*3);   // (the camera kept near its open end)
+  st.chRot = (st.chRot || 0) + dt*.02*TUNE.prism.light.move;
   st.cam ??= goal; st.tilt ??= tilt;
   st.cam += (goal - st.cam)*Math.min(1, dt/(dive || goal < st.cam - 1.5 ? R.dive : R.ease)); st.tilt += (tilt - st.tilt)*Math.min(1, dt/R.ease);
   const cam = CAM + (st.cam - CAM)*rw, e = st.tilt*rw, near = smooth((2.6 - cam)/1.4);
   u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw;
+  if (st.chW > .01 && rw > .5 && cam > .5) u.images = chamber(cam, e, st.chW*rw); else STAGE.ch = [0, 0, 0, 0];
   { const LT = TUNE.prism.light; if (LT.refl > .01 && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
   // the lamps (view space, the Prism round the origin)
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;

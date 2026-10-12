@@ -8,7 +8,7 @@ import { J } from '../journey/core.js';
 import { setJourney } from '../ui/controls.js';
 import { setPreset } from '../ui/presets.js';
 import { prismShape, prismForm, prismTex, prismTexs, prismShapes, prismFigure, prismDetail, prismState, prismBrk, prismTension,
-  prismCam, prismLasers, laserShows, prismRunUp, prismClear, prismSection } from '../visuals/objects/prism.js';
+  prismCam, prismLasers, laserShows, prismRunUp, prismClear, prismSection, prismStyle, roomStyles } from '../visuals/objects/prism.js';
 import { RULES } from '../visuals/objects/cells.js';
 import { VISUALS } from '../visuals/registry.js';
 import { showFps } from '../ui/fps.js';
@@ -122,7 +122,7 @@ export default function(){
   // (after the page's own setup has run: Journey off, the Prism in its room)
   requestAnimationFrame(() => requestAnimationFrame(start));
 
-  const LS = {tab: 'play', room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1, seeking: false};
+  const LS = {tab: 'play', room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', style: 'auto', laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1, seeking: false};
   let p;   // the lab's own preset
   function start(){
     setJourney(false);
@@ -210,6 +210,7 @@ export default function(){
     <div class="pg"><h3>Prism</h3><div class="pr">${Object.entries(CYC).map(([k, [list, key]]) => cyc(k, list(), LS[key])).join('')}
       ${btn('det:-1', 'Facets −')}${btn('det:1', 'Facets +')}</div></div>
     <div class="pg"><h3>Room and camera</h3><div class="pr">${btn('room', 'Room', LS.room)}${opts('cam', ['auto', 'far', 'mid', 'near', 'inside', 'low'])}</div></div>
+    <div class="pg"><h3>Room style</h3><div class="pr">${opts('style', ['auto', ...roomStyles()])}</div></div>
     <div class="pg"><h3>3D lasers</h3><div class="pr">${opts('laser', ['auto', ...laserShows(), 'off'])}</div></div>
     <div class="pg"><h3>Layers in 3D</h3><div class="pr">${LAYERS.map(([k, n]) => btn('layer:' + k, n, p && p[k] > 0)).join('')}</div></div>
     </div>`;
@@ -252,6 +253,7 @@ export default function(){
     else if (id === 'beat') { LS.beat = v; prismClear(BEAT[v]); render(); }
     else if (id === 'det') { prismDetail(Math.max(0, Math.min(4, prismState().det + +v))); render(); }
     else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
+    else if (id === 'style') { LS.style = v; prismStyle(v === 'auto' ? undefined : v); render(); }
     else if (id === 'cam') { LS.cam = v; prismCam(v === 'auto' ? undefined : v); render(); }
     else if (id === 'laser') { LS.laser = v; prismLasers(v === 'off' ? false : undefined, v === 'auto' || v === 'off' ? undefined : v); render(); }
     else if (id === 'layer') { set(v, p[v] > 0 ? 0 : LAYER_ON); render(); }

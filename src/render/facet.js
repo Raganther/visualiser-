@@ -224,7 +224,7 @@ export function facetPlaceP(G, S3, D, out){
 // U: rot, pitch, roll, sq, size, pos [x, y]; the frame X: pos, fn, off (per face, a push in object space), and from the
 // brain fill (rgba per face), edge (rgb per face), eA (per face edge, 0..1). Out: screen points (px), each face's depth and
 // facing, sorted far to near.
-function project(G, X, U, W, H, M){   // (M: a mirror plane [nx, ny, nz, d] in view space, points on it n·p = -d: the Prism drawn reflected in the room's floor)
+function project(G, X, U, W, H, M){   // (M: a mirror plane [nx, ny, nz, d] in view space, points on it n·p = -d: the Prism drawn reflected in the room's floor; or a 3×4 matrix)
   const {nv, nf, TRI} = G, P = X.pos;
   const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), sp = Math.sin(U.pitch), co = Math.cos(U.roll || 0), so = Math.sin(U.roll || 0);
   const sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, sc = H*U.size*FOCAL, ox = W/2 + U.pos[0]*H, oy = H/2 - U.pos[1]*H, cam = U.cam || CAM;   // (cam: how far off the camera stands; inside the shape below its radius)
@@ -236,7 +236,8 @@ function project(G, X, U, W, H, M){   // (M: a mirror plane [nx, ny, nz, d] in v
     let zs = 0; VIS[f] = 1;
     for (let k = 0; k < 3; k++) {
       const v = TRI[f*3 + k]*3; turn(P[v] + ex, P[v + 1] + ey, P[v + 2] + ez, T, 0);
-      if (M) { const q = 2*(M[0]*T[0] + M[1]*T[1] + M[2]*T[2] + M[3]); T[0] -= q*M[0]; T[1] -= q*M[1]; T[2] -= q*M[2]; }
+      if (M && M.length === 4) { const q = 2*(M[0]*T[0] + M[1]*T[1] + M[2]*T[2] + M[3]); T[0] -= q*M[0]; T[1] -= q*M[1]; T[2] -= q*M[2]; }
+      else if (M) { const a = T[0], b = T[1], c = T[2]; T[0] = M[0]*a + M[1]*b + M[2]*c + M[3]; T[1] = M[4]*a + M[5]*b + M[6]*c + M[7]; T[2] = M[8]*a + M[9]*b + M[10]*c + M[11]; }   // (or a 3×4 matrix: an image of it in the mirror chamber's walls)
       const dz = cam - T[2]; if (dz < near) VIS[f] = 0;   // (behind the camera, or touching it: left out, so the camera can pass through a facet)
       const w = sc/Math.max(near, dz); S[f*9 + k*3] = ox + T[0]*w; S[f*9 + k*3 + 1] = oy - T[1]*w; S[f*9 + k*3 + 2] = T[2]; zs += T[2];
     }
