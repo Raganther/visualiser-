@@ -139,6 +139,15 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
       pm.prismForm('gem', true); for (let i = 1; i <= 6; i++) { pm.prismRunUp(.5 + i/12); __step(10); } const ls = pm.prismState(); rm.beams = ls.beams; rm.inGlass = ls.inGlass; rm.lasers = ${THUMB}; pm.prismRunUp(undefined);
       set('orbit', 1); __step(20); rm.orb = STAGE.lamps[3].k; set('orbit', 0);
       set('room', 0); set('prism', 0); pm.prismForm(null); __step(30); }
+    // the room's light and styles (2026-10-12): ambient light, the floor's reflection, the mirror chamber's images, the void, dome and
+    // glass; the lasers from the Prism (a burst, a sheet drawing its outline); another object on a plinth
+    { const pm = await import('/src/visuals/objects/prism.js'), {solo} = await import('/src/ui/presets.js'), rs = {};
+      set('prism', 1); set('room', 1); pm.prismForm('gem', true); pm.prismLasers(false); pm.prismCam('mid');
+      for (const k of ['cove', 'mirror', 'void', 'dome', 'glass']) { pm.prismStyle(k); __step(${mode === 'gl' ? 80 : 120}); rs[k] = {pic: ${THUMB}, ...pm.prismState()}; }
+      pm.prismStyle('cove'); pm.prismLasers(true, 'burst'); __step(40); rs.burst = pm.prismState().beams;
+      pm.prismLasers(true, 'sheet'); __step(40); rs.sheet = pm.prismState().beams; pm.prismLasers(undefined); pm.prismCam(undefined); pm.prismStyle(undefined); pm.prismForm(null);
+      set('prism', 0); set('skull', 1); __step(${mode === 'gl' ? 80 : 120}); rs.skull = ${THUMB}; set('room', 0); __step(${mode === 'gl' ? 40 : 60}); rs.skullBare = ${THUMB}; set('skull', 0); __step(30);
+      out.styles = rs; }
     // textures (stage 8): stained glass and LED panels sweep across it; the swarm and wrapping onto objects (stage 11)
     { const pm = await import('/src/visuals/objects/prism.js'); set('prism', 1); pm.prismForm('gem', true); __step(${mode === 'gl' ? 60 : 120}); const tx = {glass: ${THUMB}};
       for (const k of ['stained', 'led']) { pm.prismTex(k); __step(${mode === 'gl' ? 300 : 300}); tx[k] = ${THUMB}; tx[k + 'Is'] = pm.prismState().tex; }
@@ -177,6 +186,12 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
   { const t = r.out.tex; check(`${mode}: textures sweep across it (stained glass, LED panels)`, t.stainedIs === 'stained' && t.ledIs === 'led' && diff(t.glass, t.stained) > .3 && diff(t.stained, t.led) > .3, `glass → stained ${diff(t.glass, t.stained).toFixed(2)}, → led ${diff(t.stained, t.led).toFixed(2)}`);
     check(`${mode}: it wraps onto the skull, and its facets swarm into the skull's shape and back`, t.wrapFin && diff(t.glass, t.wrap) > .3 && t.sw > .9 && t.off > .05 && diff(t.wrap, t.swarm) > .2 && t.back < .1,
       `wrapped ${diff(t.glass, t.wrap).toFixed(2)}, swarm ${t.sw.toFixed(2)} (shards out to ${t.off.toFixed(2)}), back ${t.back.toFixed(2)}`); }
+  { const r2 = r.out.styles, ks = ['cove', 'mirror', 'void', 'dome', 'glass'], dd = [];
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) dd.push(diff(r2[ks[i]].pic, r2[ks[j]].pic));
+    check(`${mode}: the room's five styles each look their own`, Math.min(...dd) > .3, `least apart ${Math.min(...dd).toFixed(2)}`);
+    check(`${mode}: the mirror chamber draws the Prism's images, the floor reflects it`, r2.mirror.imgs >= 3 && r2.cove.imgs === 0 && r2.cove.refl > .1, `${r2.mirror.imgs} images, reflection ${r2.cove.refl.toFixed(2)}`);
+    check(`${mode}: lasers from the Prism: a burst, and a sheet drawing its outline`, r2.burst >= 5 && r2.sheet >= 10, `burst ${r2.burst}, sheet ${r2.sheet} pieces`);
+    check(`${mode}: another object stands in the room on a plinth`, diff(r2.skull, r2.skullBare) > .3, `change ${diff(r2.skull, r2.skullBare).toFixed(2)}`); }
   check(`${mode}: no page errors`, !errors.length, errors.join('; '));
   await browser.close();
 }

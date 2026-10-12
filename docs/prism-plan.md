@@ -42,3 +42,15 @@ The user loves the faceted objects and the way their facets light up (`docs/tast
 
 - Their new stall log from the 2019 Mac (Graphics on Auto) after the every-world-in-its-own-pass fix, for any freezes left.
 - Jev (an AI model they mentioned) composing shapes live: it needs their API access; the sheet and the swarm make a shape a short recipe an AI could write.
+
+## The room, reworked (2026-10-12)
+
+After trying stages 7 to 11 in the Prism lab the user found the room dark (no ambient light), the lighting flitting and always from above, its colours odd, the lasers thin lines that didn't play with the shape, and asked for the room to place the Prism more convincingly, for glass or mirror walls and a kaleidoscope in the room, and for ambient light. They liked the light refracting off the facets and the camera zooming into the middle. Agreed and built in this order:
+
+1. **Room light and lamp control** (built): ambient light, a polished floor reflecting the Prism, a calm rig in natural colours (warm key, cool rim, a low fill), its movement, height, colour and the stabs' swing on the lab's sliders.
+2. **Lasers from the Prism** (built): a burst from its heart through its facets in its symmetry, splitting into rainbows; a light sheet drawing its outline where it cuts; thick beams with pulses on the kick; caustics where light through the glass lands.
+3. **The mirror chamber** (built): mirror walls looked into from an open end, the Prism's images real 3D copies, the room's rays bouncing too.
+4. **Room styles and other objects in the room** (built): the cove, the chamber, a black mirror void, a ribbed dome, a hall of glass panes lit from behind; any centrepiece on a plinth under the same rig.
+
+Still open from the brainstorm: inside the gem, the room seen through the facets; slow fixed orbits and a rise to look down; the gem orbit circling the Prism as small lights; lit objects lit by the room's own lamps.
+

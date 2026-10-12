@@ -161,7 +161,7 @@ function programFor(type, T){
   return p;
 }
 // for tests and stills: its state, a section's program, and holding a form (null lets the music choose again)
-export const prismState = () => { const b = BODY[st.body]; return {act: st.act, asym: st.asym, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length, tex: st.tex ? st.tex.to : 'glass', beams: OVER.n, inGlass: Array.from({length: BO.n}, (_, i) => BO.segs[i*10 + 9]).filter(v => v > .5).length, split: BO.n, sw: st.sw || 0, flat: st.flat || 0, ex: st.ex, spin: st.spin}; };
+export const prismState = () => { const b = BODY[st.body]; return {act: st.act, asym: st.asym, form: st.form, body: st.body, f: st.f, g: st.swap ? st.swap.g : st.g, w: st.w, det: st.dTo, shapes: topShapes(st.w), X: b.X, D: b.D, G: b.G, prog: st.prog, swapping: !!st.swap, arch: st.arch.length, tex: st.tex ? st.tex.to : 'glass', beams: OVER.n, inGlass: Array.from({length: BO.n}, (_, i) => BO.segs[i*10 + 9]).filter(v => v > .5).length, split: BO.n, sw: st.sw || 0, flat: st.flat || 0, ex: st.ex, spin: st.spin, imgs: st.nImg || 0, style: STAGE.style, refl: STAGE.refl || 0, caus: STAGE.nCaus || 0}; };
 export const prismClear = v => { st.testClear = v; };   // (tests: play as if the beat were this steady; undefined lets Journey say)
 export const prismTex = k => { setTex(k); };
 export const prismShape = name => { st.hold = name; const g = archetype(name); goGenome(g, true); };   // (tests and stills: one of the named shapes, held; prismForm(null) lets go)   // (tests and stills: sweep to this texture)
@@ -448,6 +448,7 @@ function room(u, P, x, rw){
   const cam = CAM + (st.cam - CAM)*rw, e = st.tilt*rw, near = smooth((2.6 - cam)/1.4);
   u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw;
   if (st.chW > .01 && rw > .5 && cam > .5) u.images = chamber(cam, e, st.chW*rw); else STAGE.ch = [0, 0, 0, 0];
+  st.nImg = u.images ? u.images.length : 0;
   { const LT = TUNE.prism.light; if (LT.refl > .01 && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
   // the lamps (view space, the Prism round the origin)
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;
