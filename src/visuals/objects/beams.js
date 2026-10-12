@@ -23,7 +23,7 @@ const SPECTRUM = [[1.47, [1, .12, .08]], [1.5, [.25, 1, .2]], [1.53, [.45, .3, 1
 // emit: [{p: [x, y, z], d: [x, y, z], c: [r, g, b]}]; o: {closed, rmax, walls, n (index), maxSegs, maxDepth}
 // out: segs (x0 y0 z0 x1 y1 z1 r g b inside), flares (x y z bright), the facets lit (and how brightly)
 export function traceBeams(V, TRI, FN, nf, emit, o, out){
-  out.n = 0; out.nFl = 0; out.lit.clear();
+  out.n = 0; out.nFl = 0; out.nL = 0; out.lit.clear();
   const seg = (a, b, c, inside) => { if (out.n >= o.maxSegs) return; out.segs.set([a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], inside ? 1 : 0], out.n*10); out.n++; };
   const toWalls = (p, d) => { const bb = p[0]*d[0] + p[1]*d[1] + p[2]*d[2], cc = p[0]*p[0] + p[1]*p[1] + p[2]*p[2] - o.walls*o.walls; return -bb + Math.sqrt(Math.max(0, bb*bb - cc)); };
   let split = 0;
@@ -31,7 +31,11 @@ export function traceBeams(V, TRI, FN, nf, emit, o, out){
     if (out.n >= o.maxSegs || Math.max(c[0], c[1], c[2]) < .03) return;
     // the bounding sphere first: a ray passing wide of it meets no facet
     const bb = p[0]*d[0] + p[1]*d[1] + p[2]*d[2], cc = p[0]*p[0] + p[1]*p[1] + p[2]*p[2] - o.rmax*o.rmax, f = inside || bb*bb - cc > 0 && -bb + Math.sqrt(Math.max(0, bb*bb - cc)) > 0 ? hit(V, TRI, nf, p[0], p[1], p[2], d[0], d[1], d[2], skip, R3) : -1;
-    if (f < 0) { const t = toWalls(p, d); seg(p, [p[0] + d[0]*t, p[1] + d[1]*t, p[2] + d[2]*t], c, inside); return; }
+    if (f < 0) { let t = toWalls(p, d); const F = o.floor;   // out into the room: to the walls, or the floor first
+      if (F) { const dn = F[0]*d[0] + F[1]*d[1] + F[2]*d[2]; if (dn < -1e-4) { const tf = (-F[3] - (F[0]*p[0] + F[1]*p[1] + F[2]*p[2]))/dn; if (tf > 0 && tf < t) t = tf; } }
+      const q = [p[0] + d[0]*t, p[1] + d[1]*t, p[2] + d[2]*t]; seg(p, q, c, inside);
+      if (depth > 0 && out.nL < 16) { out.land.set([q[0], q[1], q[2], c[0], c[1], c[2]], out.nL*6); out.nL++; }   // where light that's been through the glass lands: a caustic
+      return; }
     const t = R3[0], q = [p[0] + d[0]*t, p[1] + d[1]*t, p[2] + d[2]*t];
     seg(p, q, c, inside);
     const br = Math.max(c[0], c[1], c[2]); if (out.nFl < 32) { out.flares.set([q[0], q[1], q[2], br], out.nFl*4); out.nFl++; }
@@ -51,7 +55,7 @@ export function traceBeams(V, TRI, FN, nf, emit, o, out){
       else go(q, r, c.map(v => v*.8), depth + 1, false, f);
     }
   };
-  for (const e of emit) go(e.p, e.d, e.c, 0, false, -1);
+  for (const e of emit) go(e.p, e.d, e.c, 0, !!e.inside, -1);
   return out;
 }
-export const beamOut = (maxSegs = 96) => ({segs: new Float32Array(maxSegs*10), flares: new Float32Array(32*4), lit: new Map(), n: 0, nFl: 0});
+export const beamOut = (maxSegs = 96) => ({segs: new Float32Array(maxSegs*10), flares: new Float32Array(32*4), land: new Float32Array(16*6), lit: new Map(), n: 0, nFl: 0, nL: 0});

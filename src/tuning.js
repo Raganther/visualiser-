@@ -309,7 +309,8 @@ export const TUNE = {
       fire: 1.35, fireSpread: .09, fireGloss: .5},
     lasers: {max: 6, calm: .45, calmShare: .5, showBars: 2, dropBars: 2,   // the 3D lasers (stage 9): the most beams, how bright when calm, how much of the calm activity counts, a new show every this many bars, all through it for this many bars on a drop
       index: 1.5, depth: 6, splits: 3,              // the glass's refractive index; how many times a ray is followed; how many exits split into a rainbow
-      width: .0035, flare: .018, trace: .9, traceSecs: .6},
+      width: .007, flare: .02, trace: .9, traceSecs: .6,   // a beam's width and a flare's size (screen heights); how brightly a facet a laser meets lights, and how soon it fades
+      shows: {burst: 3, sheet: 2, fan: .7, cross: .7, star: .7, scan: .7}, sheetBars: 4, pulseSecs: .45, caustic: .05},   // how often each show plays (from the Prism: burst, sheet; from the walls: the rest); how long the sheet takes to sweep through and back; how long the kick's pulse takes along a beam; a caustic's size
     show: {strobe: 1, strobeDecay: 12, swing: .15, narrow: .45, brkKey: .6, brkCone: 2.2,   // the light show (stage 10): how much the kick strobes the lamps and how fast it fades; how far a stab swings the key light; how much a build narrows the cones; a breakdown's one soft light
       flat: .35,                                    // while the room is on, the layers it draws in 3D (orbits, comets, fireflies, stargate, rain) are this strong flat
       orb: .9, orbR: 1.0, orbSpeed: .7,             // the orbits and comets as lights circling it: how bright, how far out, how fast

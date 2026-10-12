@@ -11,5 +11,6 @@ export const STAGE = {
   lamps: [0, 1, 2, 3, 4, 5].map(() => ({p: [0, 1, 1], c: [1, 1, 1], k: 0, s: [0, 0], cone: .35})),   // (3 to 5: the orbits' lights, stage 10)
   spots: new Float32Array(MAXSPOTS*4), spotC: new Float32Array(MAXSPOTS*3), nSpots: 0,
   shadow: [0, 0, 0],   // where on the floor (x, z in the floor's own frame) and how dark
+  caus: new Float32Array(8*4), causC: new Float32Array(8*3), nCaus: 0,   // caustics: light through the glass landing as rainbow patches (screen x, y, size; colour)
   MAXB: 24, beams: new Float32Array(24*4), beamC: new Float32Array(24*4), nBeams: 0,   // the lasers behind the Prism (screen x0 y0 x1 y1; colour, width), for the room to draw
 };

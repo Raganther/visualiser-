@@ -27,7 +27,7 @@ export default {
   suits: () => 0,
   params(P, x){ if (!(P.w.room > .003) || (x.eff && x.eff.prism) > .003) return; idle(P, x, Math.min(1, P.w.room)); },   // (with the Prism on, it sets the room up itself)
   glsl: {
-    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
+    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24], uRmK[8]; uniform vec3 uRmKC[8];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
     functions: `
 vec3 room(vec2 sp){
   float cam=uRm.x, f=uRm.y, e=uRm.z, fl=uRm.w;
@@ -52,6 +52,8 @@ vec3 room(vec2 sp){
   }
   // the spots off the facets
   for(int i=0;i<${MAXSPOTS};i++){ vec4 s=uRmS[i]; if(s.w<0.002) continue; vec2 dd=(sp-s.xy)/max(s.z,1e-3); col+=uRmC[0]*s.w*exp(-dot(dd,dd)*2.0)*0.7; }
+  // caustics: light that's been through the glass landing on the floor and walls, rainbow patches
+  for(int i=0;i<8;i++){ vec4 k=uRmK[i]; if(k.w<0.5) continue; vec2 dd=(sp-k.xy)/max(k.z,1e-3); col+=uRmKC[i]*exp(-dot(dd,dd)*1.5)*1.6; }
   // the beams through the haze, from each lamp past the Prism
   for(int i=0;i<3;i++){ vec4 B=uRmB[i]; if(B.z<0.01) continue; vec2 a=B.xy, ab=(uRm2.xy-a)*1.8; float h=clamp(dot(sp-a,ab)/dot(ab,ab),0.0,1.0);
     float r=length(sp-a-ab*h), wd=0.01+h*length(ab)*B.w*0.9, bm=exp(-r*r/(wd*wd))*smoothstep(0.0,0.15,h)*(1.0-h*0.6);
@@ -67,7 +69,7 @@ vec3 room(vec2 sp){
   uniforms(gl, u, P){ pack();
     gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
     const v = k => u[k + '[0]'] || u[k] || null;
-    gl.uniform4fv(v('uRmL'), L3); gl.uniform4fv(v('uRmA'), A3); gl.uniform4fv(v('uRmB'), B3); gl.uniform3fv(v('uRmC'), C3); gl.uniform4fv(v('uRmS'), STAGE.spots); if (!STAGE.nBeams) STAGE.beamC.fill(0); gl.uniform4fv(v('uRmZ'), STAGE.beams); gl.uniform4fv(v('uRmZC'), STAGE.beamC); },
+    gl.uniform4fv(v('uRmL'), L3); gl.uniform4fv(v('uRmA'), A3); gl.uniform4fv(v('uRmB'), B3); gl.uniform3fv(v('uRmC'), C3); gl.uniform4fv(v('uRmS'), STAGE.spots); if (!STAGE.nBeams) STAGE.beamC.fill(0); if (!STAGE.nCaus) STAGE.caus.fill(0); gl.uniform4fv(v('uRmK'), STAGE.caus); gl.uniform3fv(v('uRmKC'), STAGE.causC); gl.uniform4fv(v('uRmZ'), STAGE.beams); gl.uniform4fv(v('uRmZC'), STAGE.beamC); },
   // simple mode: the floor's grid in perspective, the shadow, the beams as soft wedges, the spots
   draw2d(o, P){
     const W = o.canvas.width, H = o.canvas.height, a = Math.min(1, P.w.room), X = s => W/2 + s[0]*H, Y = s => H/2 - s[1]*H;
@@ -93,6 +95,8 @@ vec3 room(vec2 sp){
     for (let i = 0; i < STAGE.nSpots; i++) { const s = STAGE.spots.subarray(i*4, i*4 + 4); if (s[3] < .01) continue; const r = Math.max(1.5, s[2]*H);
       const g = o.createRadialGradient(X(s), Y(s), 0, X(s), Y(s), r); g.addColorStop(0, `rgba(${sc},${Math.min(1, s[3]*.8).toFixed(3)})`); g.addColorStop(1, `rgba(${sc},0)`);
       o.fillStyle = g; o.fillRect(X(s) - r, Y(s) - r, r*2, r*2); }
+    for (let i = 0; i < STAGE.nCaus; i++) { const k = STAGE.caus.subarray(i*4, i*4 + 4), c = STAGE.causC.subarray(i*3, i*3 + 3), r = Math.max(2, k[2]*H), cs = [...c].map(v => Math.min(255, v*255|0)).join(',');
+      const g = o.createRadialGradient(X(k), Y(k), 0, X(k), Y(k), r); g.addColorStop(0, `rgba(${cs},.9)`); g.addColorStop(1, `rgba(${cs},0)`); o.fillStyle = g; o.fillRect(X(k) - r, Y(k) - r, r*2, r*2); }
     o.lineCap = 'round';
     for (let i = 0; i < STAGE.nBeams; i++) { const z = STAGE.beams.subarray(i*4, i*4 + 4), c = STAGE.beamC.subarray(i*4, i*4 + 4), cs = `${Math.min(255, c[0]*255|0)},${Math.min(255, c[1]*255|0)},${Math.min(255, c[2]*255|0)}`;
       o.strokeStyle = `rgba(${cs},.3)`; o.lineWidth = c[3]*H*1.6; o.beginPath(); o.moveTo(X([z[0], z[1]]), Y([z[0], z[1]])); o.lineTo(X([z[2], z[3]]), Y([z[2], z[3]])); o.stroke();

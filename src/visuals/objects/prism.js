@@ -26,6 +26,7 @@ import { SIG } from '../../scene/signals.js';
 import { L } from '../../audio/listen.js';
 import { gemSheetGeo, sheetGeo, facetPlaceP, facetGL, facet2d, facetPath2d, FOCAL, CAM, beamsGL, beams2d } from '../../render/facet.js';
 import { traceBeams, beamOut } from './beams.js';
+const OV = 480;   // the most beams, flares and outline pieces drawn over the Prism
 import { STAGE, MAXSPOTS } from '../../scene/stage.js';
 import SKULL from './meshes/skull.js';
 import UNICORN from './meshes/unicorn.js';
@@ -301,47 +302,82 @@ export default {
 // the room's walls, traced through it (objects/beams.js): bouncing off, bending in, split into a rainbow or trapped inside, flaring
 // where they touch and leaving a fading trace on the facets they meet. One beam when calm, more as it builds, all through it on
 // the drop. Those inside the glass or in front of it are drawn over it; the rest the room draws behind it ----
-const BO = beamOut(96), VV = new Float32Array(3000*3), FNV = new Float32Array(2048*3), OVER = {list: new Float32Array(130*9), n: 0}, PX = new Float32Array(130*9);
-const SHOWS = ['fan', 'cross', 'star', 'scan'];
+const BO = beamOut(160), VV = new Float32Array(3000*3), FNV = new Float32Array(2048*3), OVER = {list: new Float32Array(OV*10), n: 0}, PX = new Float32Array(OV*10);
+// the shows: from the Prism itself (a burst of rays from its heart, out through its facets in its own symmetry, each splitting into
+// a rainbow; a sheet of light cutting through it, drawing its outline where it cuts) or from the walls (a fan, a crossing, a star,
+// a scan), weighted by TUNE.prism.lasers.shows
+const SHOWS = ['burst', 'sheet', 'fan', 'cross', 'star', 'scan'];
+function pickShow(k){ const w = TUNE.prism.lasers.shows, tot = SHOWS.reduce((a, s) => a + (w[s] || 0), 0); let r = hash(k)*tot;
+  for (const s of SHOWS) if ((r -= (w[s] || 0)) < 0) return s; return 'burst'; }
+// a segment over the Prism, in screen heights: x0 y0 x1 y1, width, colour, kind (0 a beam, 1 a flare), where a pulse runs along it (-1 none)
+const over = (a) => { if (OVER.n < OV) { OVER.list.set(a, OVER.n*10); OVER.n++; } };
 function lasers(b, u, P, x, rw){
-  OVER.n = 0; STAGE.nBeams = 0; const LT = TUNE.prism.lasers;
+  OVER.n = 0; STAGE.nBeams = 0; STAGE.nCaus = 0; const LT = TUNE.prism.lasers;
   const lz = b.lz || (b.lz = new Float32Array(b.nf)); for (let f = 0; f < b.nf; f++) lz[f] *= Math.exp(-x.dt/LT.traceSecs);
   if (rw < .01 || u.inside || st.testLasers === false) return;
   const an = runUp(x.J), dropLen = LT.dropBars*4*S.beatPeriod, since = st.t - st.dropT, drop = since < dropLen;
   const lv = Math.min(1, Math.max(st.act/TUNE.prism.act.cap*LT.calmShare, an, drop ? 1 : 0)), nOn = drop ? LT.max : Math.min(LT.max, 1 + Math.round(lv*(LT.max - 2)));
-  const show = st.testShow || (drop ? 'star' : SHOWS[Math.floor(hash(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0))*SHOWS.length)]);
+  const show = st.testShow || (drop ? 'burst' : pickShow(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0)));
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], t = st.t, br = (LT.calm + (1 - LT.calm)*lv)*rw, emit = [];
-  const aim = (p, q, i) => { const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], l = Math.hypot(...d) || 1; emit.push({p, d: d.map(v => v/l), c: hsv2rgb(h + pal[i % 3], .85, 1).map(v => v*br)}); };
-  for (let i = 0; i < nOn; i++) { const s = nOn > 1 ? i/(nOn - 1) - .5 : 0;
-    if (show === 'fan') aim([0, 2.2, -2.4], [s*.9 + .3*Math.sin(t*.6), -.1, 0], i);
-    else if (show === 'cross') { const sd = i % 2 ? 1 : -1; aim([2.6*sd, .4, -1.2], [-.3*sd + .25*Math.sin(t*.8 + i), .15*Math.cos(t*1.1 + i), 0], i); }
-    else if (show === 'star') { const a = i/nOn*Math.PI*2 + t*.2; aim([2.8*Math.cos(a), 1.7*Math.sin(a), -1.4], [.08*Math.sin(t + i), .08*Math.cos(t*1.3 + i), 0], i); }
-    else aim([0, -.4, -2.9], [.4*Math.sin(t*.9 + i*1.7), .3*Math.sin(t*1.3 + i*2.1), 0], i); }
+  const col = i => hsv2rgb(h + pal[i % 3], .85, 1).map(v => v*br);
+  const aim = (p, q, i) => { const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], l = Math.hypot(...d) || 1; emit.push({p, d: d.map(v => v/l), c: col(i)}); };
   // the Prism in view space (as the facet engine turns it)
   const X = b.X, Pp = X.pos, cr = Math.cos(u.rot), sr = Math.sin(u.rot), cp = Math.cos(u.pitch), sp = Math.sin(u.pitch), co = Math.cos(u.roll || 0), so = Math.sin(u.roll || 0);
   const turn = (x0, y0, z0, o, k) => { const x1 = cr*x0 + sr*z0, z1 = -sr*x0 + cr*z0, y2 = cp*y0 - sp*z1; o[k + 2] = sp*y0 + cp*z1; o[k] = co*x1 - so*y2; o[k + 1] = so*x1 + co*y2; };
   let rmax = 0; for (let v = 0; v < b.nv; v++) { turn(Pp[v*3], Pp[v*3 + 1], Pp[v*3 + 2], VV, v*3); rmax = Math.max(rmax, Math.hypot(VV[v*3], VV[v*3 + 1], VV[v*3 + 2])); }
-  const cl = closed() > .5, TRI = b.G.TRI;
+  const cl = closed() > .5, TRI = b.G.TRI, n = st.prog ? st.prog.n[b.kind] : 5, D3 = [0, 0, 0];
   for (let f = 0; f < b.nf; f++) { turn(X.fn[f*3], X.fn[f*3 + 1], X.fn[f*3 + 2], FNV, f*3);
     if (cl) { const a = TRI[f*3]*3, cx = VV[a], cy = VV[a + 1], cz = VV[a + 2]; if (cx*FNV[f*3] + cy*FNV[f*3 + 1] + cz*FNV[f*3 + 2] < 0) for (let i = 0; i < 3; i++) FNV[f*3 + i] *= -1; } }
-  traceBeams(VV, TRI, FNV, b.nf, emit, {closed: cl, rmax: rmax + .02, walls: TUNE.prism.room.walls, n: LT.index, maxSegs: 96, maxDepth: LT.depth, splits: LT.splits}, BO);
+  let sheet = null;
+  if (show === 'burst') {   // rays from its heart, out in its own symmetry (turning with it), leaving through the facets as rainbows
+    const k = drop ? Math.min(12, n*2) : Math.max(n, Math.min(nOn, 10)), r0 = .35 + .2*Math.sin(t*.13);
+    for (let i = 0; i < k; i++) { const d0 = dirAt(i % 2 && k > n ? r0 + .25 : r0, i/k*Math.PI*2 + t*.05); turn(d0[0], d0[1], d0[2], D3, 0);
+      emit.push({p: [0, 0, 0], d: [...D3], c: col(i).map(v => v*1.3), inside: cl}); } }
+  else if (show === 'sheet') {   // a plane of light, tipped towards the camera (its outline reads as a ring), turning slowly, sweeping through it over a few bars
+    const a = t*.11, nrm = [Math.sin(a)*.55, .75, .65 + .25*Math.cos(a*.7)], nl = Math.hypot(...nrm), sw = Math.sin(t*Math.PI*2/(LT.sheetBars*4*Math.max(.25, S.beatPeriod)));
+    sheet = {n: nrm.map(v => v/nl), d: sw*rmax*.8, c: col(1).map(v => v*2.6)}; }
+  else for (let i = 0; i < nOn; i++) { const s = nOn > 1 ? i/(nOn - 1) - .5 : 0;
+    if (show === 'fan') aim([0, 2.2, -2.4], [s*.9 + .3*Math.sin(t*.6), -.1, 0], i);
+    else if (show === 'cross') { const sd = i % 2 ? 1 : -1; aim([2.6*sd, .4, -1.2], [-.3*sd + .25*Math.sin(t*.8 + i), .15*Math.cos(t*1.1 + i), 0], i); }
+    else if (show === 'star') { const a = i/nOn*Math.PI*2 + t*.2; aim([2.8*Math.cos(a), 1.7*Math.sin(a), -1.4], [.08*Math.sin(t + i), .08*Math.cos(t*1.3 + i), 0], i); }
+    else aim([0, -.4, -2.9], [.4*Math.sin(t*.9 + i*1.7), .3*Math.sin(t*1.3 + i*2.1), 0], i); }
+  traceBeams(VV, TRI, FNV, b.nf, emit, {closed: cl, rmax: rmax + .02, walls: TUNE.prism.room.walls, floor: STAGE.n ? [STAGE.n[0], STAGE.n[1], STAGE.n[2], STAGE.floor] : null,
+    n: LT.index, maxSegs: 160, maxDepth: LT.depth, splits: show === 'burst' ? 12 : LT.splits}, BO);
   for (const [f, v] of BO.lit) lz[f] = Math.max(lz[f], v);
-  // to the screen (in screen heights from the middle), each segment cut at the camera's near plane
-  const cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, zc = cam - .15, L = OVER.list, Z = STAGE.beams; let nb = 0;
+  // to the screen (in screen heights from the middle), each segment cut at the camera's near plane; a pulse runs out along each
+  // beam on the kick (from the Prism: outwards)
+  const cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, zc = cam - .15, Z = STAGE.beams, pulse = st.t - st.kickT < LT.pulseSecs ? (st.t - st.kickT)/LT.pulseSecs : -1; let nb = 0;
   const pr = (x0, y0, z0) => { const dz = cam - z0; return [pos[0] + x0*fo/dz, pos[1] + y0*fo/dz]; };
-  for (let i = 0; i < BO.n; i++) { const g = BO.segs.subarray(i*10, i*10 + 10); let a = [g[0], g[1], g[2]], c = [g[3], g[4], g[5]];
-    if (a[2] > zc && c[2] > zc) continue;
-    if (a[2] > zc || c[2] > zc) { const k = (zc - a[2])/(c[2] - a[2]), m = [a[0] + (c[0] - a[0])*k, a[1] + (c[1] - a[1])*k, zc]; if (a[2] > zc) a = m; else c = m; }
-    const A = pr(...a), B = pr(...c), over = g[9] > .5 || (a[2] + c[2])/2 > -.1;
-    if (over) { if (OVER.n < 128) { L.set([A[0], A[1], B[0], B[1], LT.width, g[6], g[7], g[8], 0], OVER.n*9); OVER.n++; } }
-    else if (nb < STAGE.MAXB) { Z.set([A[0], A[1], B[0], B[1]], nb*4); STAGE.beamC.set([g[6], g[7], g[8], LT.width], nb*4); nb++; } }
-  for (let i = 0; i < BO.nFl && OVER.n < 128; i++) { const q = BO.flares.subarray(i*4, i*4 + 4), dz = cam - q[2]; if (dz < .2) continue; const A = pr(q[0], q[1], q[2]);
-    L.set([A[0], A[1], 0, 0, LT.flare*(.5 + q[3])*fo/dz, q[3], q[3]*.9, q[3]*.8, 1], OVER.n*9); OVER.n++; }
+  const clip = (a, c) => { if (a[2] > zc && c[2] > zc) return null;
+    if (a[2] > zc || c[2] > zc) { const k = (zc - a[2])/(c[2] - a[2]), m = [a[0] + (c[0] - a[0])*k, a[1] + (c[1] - a[1])*k, zc]; if (a[2] > zc) a = m; else c = m; } return [a, c]; };
+  for (let i = 0; i < BO.n; i++) { const g = BO.segs.subarray(i*10, i*10 + 10), cc = clip([g[0], g[1], g[2]], [g[3], g[4], g[5]]); if (!cc) continue;
+    const [a, c] = cc, A = pr(...a), B = pr(...c), ov = g[9] > .5 || (a[2] + c[2])/2 > -.1, w = LT.width*(g[9] > .5 ? .8 : 1);
+    if (ov) over([A[0], A[1], B[0], B[1], w, g[6], g[7], g[8], 0, pulse]);
+    else if (nb < STAGE.MAXB) { Z.set([A[0], A[1], B[0], B[1]], nb*4); STAGE.beamC.set([g[6], g[7], g[8], w], nb*4); nb++; } }
+  for (let i = 0; i < BO.nFl; i++) { const q = BO.flares.subarray(i*4, i*4 + 4), dz = cam - q[2]; if (dz < .2) continue; const A = pr(q[0], q[1], q[2]);
+    over([A[0], A[1], 0, 0, LT.flare*(.5 + q[3])*fo/dz, q[3], q[3]*.9, q[3]*.8, 1, -1]); }
+  // caustics: the light that's been through the glass landing on the floor and walls, a rainbow smear (the room draws them)
+  for (let i = 0; i < BO.nL && i < 8; i++) { const q = BO.land.subarray(i*6, i*6 + 6), dz = cam - q[2]; if (dz < .3) continue; const A = pr(q[0], q[1], q[2]);
+    STAGE.caus.set([A[0], A[1], LT.caustic*fo/dz, 1], i*4); STAGE.causC.set([q[3], q[4], q[5]], i*3); STAGE.nCaus = i + 1; }
+  STAGE.caus.fill(0, STAGE.nCaus*4);
+  // the sheet: its outline round the Prism where it cuts each facet, the facets it crosses lit, and the sheet itself a fan in the haze
+  if (sheet) { const {n: N, d, c} = sheet, cut = [];
+    for (let f = 0; f < b.nf; f++) { if (X.vis && !X.vis[f]) continue; const ia = TRI[f*3]*3, ib = TRI[f*3 + 1]*3, ic = TRI[f*3 + 2]*3, P3 = [ia, ib, ic];
+      const s3 = P3.map(k => VV[k]*N[0] + VV[k + 1]*N[1] + VV[k + 2]*N[2] - d); if ((s3[0] > 0) === (s3[1] > 0) && (s3[1] > 0) === (s3[2] > 0)) continue;
+      const pts = []; for (let j = 0; j < 3; j++) { const k0 = j, k1 = (j + 1) % 3; if ((s3[k0] > 0) !== (s3[k1] > 0)) { const q = s3[k0]/(s3[k0] - s3[k1]), A = P3[k0], B = P3[k1];
+        pts.push([VV[A] + (VV[B] - VV[A])*q, VV[A + 1] + (VV[B + 1] - VV[A + 1])*q, VV[A + 2] + (VV[B + 2] - VV[A + 2])*q]); } }
+      if (pts.length === 2) { cut.push(pts); lz[f] = Math.max(lz[f], .8); } }
+    for (const [a0, c0] of cut) { const cc = clip(a0, c0); if (!cc) continue; const A = pr(...cc[0]), B = pr(...cc[1]); over([A[0], A[1], B[0], B[1], LT.width*1.2, c[0], c[1], c[2], 0, -1]); }
+    // the fan: rays in the plane from a point on the wall behind, through the cut, faint
+    const e1 = Math.abs(N[1]) < .9 ? [0, 1, 0] : [1, 0, 0], u1 = norm3(cross3(N, e1)), v1 = cross3(N, u1), src = [N[0]*d - v1[0]*3, N[1]*d - v1[1]*3, N[2]*d - v1[2]*3];
+    for (let i = 0; i < 9; i++) { const s2 = (i/8 - .5)*1.2, q = [N[0]*d + u1[0]*s2*2.5 + v1[0]*2, N[1]*d + u1[1]*s2*2.5 + v1[1]*2, N[2]*d + u1[2]*s2*2.5 + v1[2]*2], cc = clip(src, q); if (!cc) continue;
+      const A = pr(...cc[0]), B = pr(...cc[1]); if (nb < STAGE.MAXB) { Z.set([A[0], A[1], B[0], B[1]], nb*4); STAGE.beamC.set([c[0]*.08, c[1]*.08, c[2]*.08, LT.width*1.5], nb*4); nb++; } } }
   STAGE.nBeams = nb; Z.fill(0, nb*4);
 }
+const cross3 = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]], norm3 = a => { const l = Math.hypot(...a) || 1; return a.map(v => v/l); };
 // the beams over it, in pixels
-function overPx(W, H){ for (let i = 0; i < OVER.n; i++) { const k = i*9, L = OVER.list;
-  PX[k] = W/2 + L[k]*H; PX[k + 1] = H/2 - L[k + 1]*H; PX[k + 2] = W/2 + L[k + 2]*H; PX[k + 3] = H/2 - L[k + 3]*H; PX[k + 4] = L[k + 4]*H; for (let j = 5; j < 9; j++) PX[k + j] = L[k + j]; }
+function overPx(W, H){ for (let i = 0; i < OVER.n; i++) { const k = i*10, L = OVER.list;
+  PX[k] = W/2 + L[k]*H; PX[k + 1] = H/2 - L[k + 1]*H; PX[k + 2] = W/2 + L[k + 2]*H; PX[k + 3] = H/2 - L[k + 3]*H; PX[k + 4] = L[k + 4]*H; for (let j = 5; j < 10; j++) PX[k + j] = L[k + j]; }
   return PX; }
 
 // ---- textures (docs/prism-plan.md, stage 8): glass, frosted ice, mirror, stained glass, iridescent, LED panels, brushed metal;
@@ -419,7 +455,7 @@ function show3d(u, P, x, rw){
   if (rw < .01) return;
   const LS = TUNE.prism.show, cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, L = OVER.list, h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67];
   const pr = (p) => { const dz = cam - p[2]; return dz > .15 ? [pos[0] + p[0]*fo/dz, pos[1] + p[1]*fo/dz, dz] : null; };
-  const add = (a) => { if (OVER.n < 128) { L.set(a, OVER.n*9); OVER.n++; } };
+  const add = (a) => over([...a, -1]);
   const behind = p => p[2] < 0 && Math.hypot(p[0], p[1]) < .5 ? .25 : 1;   // (behind the glass: dimmed by it)
   for (let i = 3; i < 6; i++) { const l = STAGE.lamps[i]; if (!l.orb || l.k < .01) continue; const [a, tl, r] = l.orb, A = pr(l.p); if (!A) continue; const b = l.k*behind(l.p)/LS.orb;
     add([A[0], A[1], 0, 0, .02*fo/A[2], l.c[0]*b, l.c[1]*b, l.c[2]*b, 1]);

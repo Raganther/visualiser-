@@ -365,44 +365,47 @@ export function facetPath2d(o, G, X, U, add){   // (add: onto the path already b
   if (!add) o.beginPath(); for (let f = 0; f < G.nf; f++) { if (!X.vis[f]) continue; o.moveTo(Sc[f*9], Sc[f*9 + 1]); o.lineTo(Sc[f*9 + 3], Sc[f*9 + 4]); o.lineTo(Sc[f*9 + 6], Sc[f*9 + 7]); o.closePath(); }
 }
 
-// ---- lasers drawn over the facets (stage 9): soft additive quads, a beam's across its width, a flare's round its point ----
-const BVS = `attribute vec2 aP, aQ; attribute vec3 aC; uniform vec2 uWH; varying vec2 vQ; varying vec3 vC;
-void main(){ vQ=aQ; vC=aC; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
-const BFS = `precision mediump float; varying vec2 vQ; varying vec3 vC;
-void main(){ float r=dot(vQ,vQ); gl_FragColor=vec4(vC*(exp(-r*14.0)+0.3*exp(-r*3.0))*(1.0-smoothstep(0.8,1.0,r)),0.0); }`;
-const BPROGS = new WeakMap();
+// ---- lasers drawn over the facets (stage 9): soft additive quads, a beam's across its width (a bright core in a wide glow, a
+// pulse running along it on the kick), a flare's round its point. A list entry: x0 y0 x1 y1 width r g b kind (0 a beam, 1 a
+// flare) pulse (where along it, -1 none), in pixels ----
+const BVS = `attribute vec2 aP, aQ, aU; attribute vec3 aC; uniform vec2 uWH; varying vec2 vQ, vU; varying vec3 vC;
+void main(){ vQ=aQ; vU=aU; vC=aC; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
+const BFS = `precision mediump float; varying vec2 vQ, vU; varying vec3 vC;
+void main(){ float r=dot(vQ,vQ), pl=vU.y<0.0 ? 0.0 : exp(-pow((vU.x-vU.y)*7.0,2.0))*2.0;
+  gl_FragColor=vec4(vC*(1.0+pl)*(exp(-r*30.0)*1.4+0.35*exp(-r*4.0))*(1.0-smoothstep(0.8,1.0,r)),0.0); }`;
+const BPROGS = new WeakMap(), BN = 10, BV = 9;
 export function beamsGL(gl){
-  const buf = gl.createBuffer(); let arr = new Float32Array(7*6*64);
-  return function draw(list, n, W, H){   // list: per quad x0 y0 x1 y1 width r g b kind (0 a beam, 1 a flare), in pixels
+  const buf = gl.createBuffer(); let arr = new Float32Array(BV*6*64);
+  return function draw(list, n, W, H){
     if (!n) return;
     let s = BPROGS.get(gl); if (!s || !gl.isProgram(s.p)) { const p = gl.createProgram(); for (const [t, src] of [[gl.VERTEX_SHADER, 'precision highp float;' + BVS], [gl.FRAGMENT_SHADER, BFS]]) { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); gl.attachShader(p, x); }
-      ['aP', 'aQ', 'aC'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a)); gl.linkProgram(p); BPROGS.set(gl, s = {p, u: null}); }
+      ['aP', 'aQ', 'aU', 'aC'].forEach((a, i) => gl.bindAttribLocation(p, i + 1, a)); gl.linkProgram(p); BPROGS.set(gl, s = {p, u: null}); }
     if (!s.u) { const x = gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return; if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) return; s.u = {uWH: gl.getUniformLocation(s.p, 'uWH')}; }
-    if (arr.length < n*42) arr = new Float32Array(n*42);
-    let o = 0; const put = (x, y, qx, qy, r, g, b) => { arr[o++] = x; arr[o++] = y; arr[o++] = qx; arr[o++] = qy; arr[o++] = r; arr[o++] = g; arr[o++] = b; };
-    for (let i = 0; i < n; i++) { const k = i*9, x0 = list[k], y0 = list[k + 1], x1 = list[k + 2], y1 = list[k + 3], w = list[k + 4], r = list[k + 5], g = list[k + 6], b = list[k + 7];
-      let ax, ay, bx, by;
-      if (list[k + 8] > .5) { ax = w; ay = 0; bx = 0; by = w;   // a flare: a square round its point
-        put(x0 - ax - bx, y0 - ay - by, -1, -1, r, g, b); put(x0 + ax - bx, y0 + ay - by, 1, -1, r, g, b); put(x0 + ax + bx, y0 + ay + by, 1, 1, r, g, b);
-        put(x0 - ax - bx, y0 - ay - by, -1, -1, r, g, b); put(x0 + ax + bx, y0 + ay + by, 1, 1, r, g, b); put(x0 - ax + bx, y0 - ay + by, -1, 1, r, g, b); }
+    if (arr.length < n*6*BV) arr = new Float32Array(n*6*BV);
+    let o = 0; const put = (x, y, qx, qy, al, pl, r, g, b) => { arr[o++] = x; arr[o++] = y; arr[o++] = qx; arr[o++] = qy; arr[o++] = al; arr[o++] = pl; arr[o++] = r; arr[o++] = g; arr[o++] = b; };
+    for (let i = 0; i < n; i++) { const k = i*BN, x0 = list[k], y0 = list[k + 1], x1 = list[k + 2], y1 = list[k + 3], w = list[k + 4], r = list[k + 5], g = list[k + 6], b = list[k + 7], pl = list[k + 9];
+      if (list[k + 8] > .5) {   // a flare: a square round its point
+        put(x0 - w, y0 - w, -1, -1, 0, -1, r, g, b); put(x0 + w, y0 - w, 1, -1, 0, -1, r, g, b); put(x0 + w, y0 + w, 1, 1, 0, -1, r, g, b);
+        put(x0 - w, y0 - w, -1, -1, 0, -1, r, g, b); put(x0 + w, y0 + w, 1, 1, 0, -1, r, g, b); put(x0 - w, y0 + w, -1, 1, 0, -1, r, g, b); }
       else { const l = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0)/l*w, ny = (x1 - x0)/l*w;
-        put(x0 - nx, y0 - ny, -1, 0, r, g, b); put(x0 + nx, y0 + ny, 1, 0, r, g, b); put(x1 + nx, y1 + ny, 1, 0, r, g, b);
-        put(x0 - nx, y0 - ny, -1, 0, r, g, b); put(x1 + nx, y1 + ny, 1, 0, r, g, b); put(x1 - nx, y1 - ny, -1, 0, r, g, b); }
+        put(x0 - nx, y0 - ny, -1, 0, 0, pl, r, g, b); put(x0 + nx, y0 + ny, 1, 0, 0, pl, r, g, b); put(x1 + nx, y1 + ny, 1, 0, 1, pl, r, g, b);
+        put(x0 - nx, y0 - ny, -1, 0, 0, pl, r, g, b); put(x1 + nx, y1 + ny, 1, 0, 1, pl, r, g, b); put(x1 - nx, y1 - ny, -1, 0, 1, pl, r, g, b); }
     }
     gl.useProgram(s.p); gl.uniform2f(s.u.uWH, W, H);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr.subarray(0, o), gl.DYNAMIC_DRAW);
     gl.disableVertexAttribArray(0);
-    [[2, 0], [2, 2], [3, 4]].forEach(([m, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, m, gl.FLOAT, false, 28, at*4); });
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, 0, o/7);
-    for (let i = 1; i <= 3; i++) gl.disableVertexAttribArray(i); gl.enableVertexAttribArray(0); gl.disable(gl.BLEND);
+    [[2, 0], [2, 2], [2, 4], [3, 6]].forEach(([m, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, m, gl.FLOAT, false, BV*4, at*4); });
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, 0, o/BV);
+    for (let i = 1; i <= 4; i++) gl.disableVertexAttribArray(i); gl.enableVertexAttribArray(0); gl.disable(gl.BLEND);
   };
 }
 // the same in simple mode
 export function beams2d(o, list, n){
   if (!n) return; o.save(); o.globalCompositeOperation = 'lighter'; o.lineCap = 'round';
-  for (let i = 0; i < n; i++) { const k = i*9, c = `${Math.min(255, list[k + 5]*255|0)},${Math.min(255, list[k + 6]*255|0)},${Math.min(255, list[k + 7]*255|0)}`;
+  for (let i = 0; i < n; i++) { const k = i*BN, c = `${Math.min(255, list[k + 5]*255|0)},${Math.min(255, list[k + 6]*255|0)},${Math.min(255, list[k + 7]*255|0)}`;
     if (list[k + 8] > .5) { const g = o.createRadialGradient(list[k], list[k + 1], 0, list[k], list[k + 1], list[k + 4]); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(1, `rgba(${c},0)`); o.fillStyle = g; o.fillRect(list[k] - list[k + 4], list[k + 1] - list[k + 4], list[k + 4]*2, list[k + 4]*2); }
-    else { o.strokeStyle = `rgba(${c},.35)`; o.lineWidth = list[k + 4]*1.6; o.beginPath(); o.moveTo(list[k], list[k + 1]); o.lineTo(list[k + 2], list[k + 3]); o.stroke();
-      o.strokeStyle = `rgba(${c},1)`; o.lineWidth = Math.max(1, list[k + 4]*.35); o.stroke(); } }
+    else { o.strokeStyle = `rgba(${c},.3)`; o.lineWidth = list[k + 4]*1.6; o.beginPath(); o.moveTo(list[k], list[k + 1]); o.lineTo(list[k + 2], list[k + 3]); o.stroke();
+      o.strokeStyle = `rgba(${c},1)`; o.lineWidth = Math.max(1, list[k + 4]*.35); o.stroke();
+      const pl = list[k + 9]; if (pl >= 0) { const px = list[k] + (list[k + 2] - list[k])*pl, py = list[k + 1] + (list[k + 3] - list[k + 1])*pl; o.fillStyle = `rgba(${c},.9)`; o.beginPath(); o.arc(px, py, Math.max(2, list[k + 4]*1.2), 0, Math.PI*2); o.fill(); } } }
   o.restore();
 }
