@@ -1,0 +1,630 @@
+<title>Prism Test Web</title>
+<style>
+/* One full-screen dark stage, as the native test: the picture fills the window, a slim bar of glass chips sits at the
+   bottom. A deliberately single (dark) look, like the app it mirrors. */
+:root {
+  --bg: #000;
+  --fg: rgba(255, 255, 255, .92);
+  --dim: rgba(255, 255, 255, .7);
+  --faint: rgba(255, 255, 255, .4);
+  --chip: rgba(60, 60, 72, .42);
+  --chip-edge: rgba(255, 255, 255, .14);
+  --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--ui); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 16px calc(28px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+#bar > * { pointer-events: auto; }
+#status { font: 12px/1.45 var(--mono); color: var(--dim); text-align: center; white-space: pre-line; max-width: 100%; }
+#chips { display: flex; gap: 8px; overflow-x: auto; max-width: 100%; padding: 0 4px; scrollbar-width: none; }
+#chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; font: 500 15px var(--ui); color: var(--fg); background: var(--chip); border: 1px solid var(--chip-edge); border-radius: 999px; padding: 9px 14px; -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); cursor: pointer; }
+.chip:active { background: rgba(90, 90, 104, .55); }
+.chip:focus-visible, #more:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.chip[disabled] { opacity: .45; }
+#hint { font-size: 11px; color: var(--faint); text-align: center; max-width: 46em; }
+#more { position: fixed; right: 28px; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--faint); background: transparent; color: var(--faint); font: 700 14px var(--ui); line-height: 1; cursor: pointer; }
+#file { display: none; }
+#err { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--dim); font: 14px var(--ui); }
+</style>
+
+<canvas id="cv"></canvas>
+<div id="bar">
+  <div id="status">No music: ＋ Music or Demo beat</div>
+  <div id="chips">
+    <button class="chip" id="bMusic">＋ Music</button>
+    <button class="chip" id="bDemo">Demo beat</button>
+    <button class="chip" id="bPlay">Play</button>
+    <button class="chip" id="bShape">New shape</button>
+    <button class="chip" id="bDrop">Drop</button>
+    <button class="chip" id="bFacets">Facets: auto</button>
+    <button class="chip" id="bHide">Hide</button>
+  </div>
+  <div id="hint">Drag beside it to turn it · press on it and drag out for spikes, in or hold for dents · tap it for a ring of light · pinch to come closer</div>
+</div>
+<button id="more" hidden aria-label="Show the bar">•••</button>
+<input type="file" id="file" accept="audio/*">
+<div id="err" hidden></div>
+
+<script>
+// The Prism test in WebGL: a line-for-line port of the native test (native/PrismTest.swiftpm: Geometry, Analysis, Player,
+// Prism, Renderer), so the two can be compared on the same device. Same geometry, brain, music reading, lights, shaders
+// and finish; only the platform differs.
+'use strict';
+const $ = id => document.getElementById(id);
+
+// ---- the feel numbers (Tune in Prism.swift) ----
+const Tune = {r: .62, spin: .22, morphSecs: 3.9, breath: .14, explode: 1.25, explodeSecs: 1.2, ripSecs: 1.6, ripSpeed: .75, ripW: .28,
+  kickCalm: .5, fire: 1.35, hatShare: .12, actBase: .22, actBrk: .55, actFree: .4,
+  width: .05, pull: 1.2, maxPull: .35, holdRate: .25, bounce: 1, damp: .12, friction: 2.2, maxSpin: 5, turn: 5, tilt: 3, tapBright: .8,
+  cam: 3.2, focal: 2.6};
+
+// ---- small maths ----
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
+const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+const cross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+function hash(a, b){ let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0)/4294967296; }
+function hsv(h, s, v){ const hh = (h - Math.floor(h))*6, c = [Math.abs(hh - 3) - 1, 2 - Math.abs(hh - 2), 2 - Math.abs(hh - 4)].map(x => clamp(x, 0, 1));
+  return c.map(k => v*((1 - s) + s*k)); }
+const ICO = (() => { const t = (1 + Math.sqrt(5))/2; return [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(norm); })();
+
+// ---- the facet geometry (Geometry.swift): an icosahedron subdivided F times ----
+function facetGeo(F = 3){
+  const V = ICO.map(v => v.slice());
+  let faces = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+  const ek = (a, b) => a < b ? a*65536 + b : b*65536 + a, elev = new Map();
+  for (const [a, b, c] of faces) for (const [p, q] of [[a, b], [b, c], [c, a]]) elev.set(ek(p, q), 0);
+  const LV = [faces], PAR = [[]];
+  for (let L = 0; L < F; L++) {
+    const mid = new Map(), nfs = [], par = [];
+    const m = (a, b) => { const k = ek(a, b); let i = mid.get(k); if (i !== undefined) return i;
+      i = V.length; V.push(norm([(V[a][0] + V[b][0])/2, (V[a][1] + V[b][1])/2, (V[a][2] + V[b][2])/2])); mid.set(k, i);
+      const l = elev.get(k) ?? 0; elev.set(ek(a, i), l); elev.set(ek(i, b), l); return i; };
+    faces.forEach(([a, b, c], fi) => { const ab = m(a, b), bc = m(b, c), ca = m(c, a);
+      for (const [p, q] of [[ab, bc], [bc, ca], [ca, ab]]) elev.set(ek(p, q), L + 1);
+      nfs.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]); par.push(fi, fi, fi, fi); });
+    faces = nfs; LV.push(nfs); PAR.push(par);
+  }
+  const nv = V.length, nf = faces.length;
+  const FA = []; for (let L = 0; L <= F; L++) FA.push(new Int32Array(nf));
+  for (let f = 0; f < nf; f++) { let g = f; for (let L = F; L >= 0; L--) { FA[L][f] = g; if (L > 0) g = PAR[L][g]; } }
+  const AI = new Int32Array(nv*(F + 1)*3), AW = new Float32Array(nv*(F + 1)*3);
+  for (let L = 0; L <= F; L++) { const done = new Uint8Array(nv);
+    for (let f = 0; f < nf; f++) for (const v of faces[f]) { if (done[v]) continue; done[v] = 1;
+      const [a, b, c] = LV[L][FA[L][f]], d = V[v], n = cross(sub(V[b], V[a]), sub(V[c], V[a])), k = dot(n, V[a])/dot(n, d), X = [d[0]*k, d[1]*k, d[2]*k];
+      const ar = (x0, x1) => dot(n, cross(sub(V[x1], V[x0]), sub(X, V[x0])));
+      const tot = dot(n, n), wa = ar(b, c)/tot, wb = ar(c, a)/tot, wc = 1 - wa - wb, o = (v*(F + 1) + L)*3;
+      AI[o] = a; AI[o + 1] = b; AI[o + 2] = c; AW[o] = wa; AW[o + 1] = wb; AW[o + 2] = wc; } }
+  const EL = new Int32Array(nf*3), TRI = new Int32Array(nf*3);
+  faces.forEach(([a, b, c], f) => { TRI[f*3] = a; TRI[f*3 + 1] = b; TRI[f*3 + 2] = c; EL[f*3] = elev.get(ek(b, c)) ?? 0; EL[f*3 + 1] = elev.get(ek(c, a)) ?? 0; EL[f*3 + 2] = elev.get(ek(a, b)) ?? 0; });
+  const CEN = LV.map(l => l.map(([a, b, c]) => norm([V[a][0] + V[b][0] + V[c][0], V[a][1] + V[b][1] + V[c][1], V[a][2] + V[b][2] + V[c][2]])));
+  return {F, nv, nf, dir: V, tri: TRI, el: EL, ai: AI, aw: AW, fa: FA, cen: CEN, nfAt: LV.map(l => l.length)};
+}
+
+// ---- the track read ahead (Analysis.swift) ----
+function makeFFT(N){
+  const bits = Math.log2(N), rev = new Uint32Array(N), cs = new Float32Array(N/2), sn = new Float32Array(N/2), win = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let r = 0; for (let b = 0; b < bits; b++) r |= ((i >> b) & 1) << (bits - 1 - b); rev[i] = r; win[i] = .5 - .5*Math.cos(2*Math.PI*i/N); }
+  for (let i = 0; i < N/2; i++) { cs[i] = Math.cos(-2*Math.PI*i/N); sn[i] = Math.sin(-2*Math.PI*i/N); }
+  const re = new Float32Array(N), im = new Float32Array(N), mag = new Float32Array(N/2);
+  return x => {   // the power in each bin of N samples from x (a subarray)
+    for (let i = 0; i < N; i++) { re[rev[i]] = x[i]*win[i]; im[rev[i]] = 0; }
+    for (let size = 2; size <= N; size <<= 1) { const h = size >> 1, step = N/size;
+      for (let s = 0; s < N; s += size) for (let j = 0, k = 0; j < h; j++, k += step) {
+        const a = s + j, b = a + h, tr = re[b]*cs[k] - im[b]*sn[k], ti = re[b]*sn[k] + im[b]*cs[k];
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; } }
+    for (let k = 0; k < N/2; k++) mag[k] = re[k]*re[k] + im[k]*im[k];
+    return mag;
+  };
+}
+const pct = (x, q) => { if (!x.length) return 0; const s = Float32Array.from(x).sort(); return s[Math.min(s.length - 1, Math.floor((s.length - 1)*q))]; };
+async function analyse(mono, sr, progress){
+  const A = {sr, hop: 512, dtH: 512/sr, duration: mono.length/sr, n: 0, bass: [], tension: [], hatLv: [], beats: [], kick: [], period: .5, bpm: 120, conf: 0, steady: false,
+    stabs: [], hats: [], onsets: [], drops: [], breaks: []};
+  const N = 2048, hop = A.hop, dtH = A.dtH;
+  if (mono.length <= N*2) return A;
+  const fft = makeFFT(N), half = N/2, binHz = sr/N, n = A.n = Math.floor((mono.length - N)/hop) + 1;
+  const bins = (lo, hi) => { const a = Math.max(1, Math.floor(lo/binHz)), b = Math.min(half, Math.max(a + 2, Math.floor(hi/binHz) + 1)); return [a, b]; };
+  const bl = bins(30, 150), bm = bins(300, 2500), bh = bins(6000, 16000), ba = bins(30, 16000);
+  const low = new Float32Array(n), mid = new Float32Array(n), high = new Float32Array(n), all = new Float32Array(n);
+  const db = (m, [a, b]) => { let s = 0; for (let k = a; k < b; k++) s += m[k]; return 10*Math.log10(s + 1e-9); };
+  for (let i = 0; i < n; i++) {
+    const m = fft(mono.subarray(i*hop, i*hop + N));
+    low[i] = db(m, bl); mid[i] = db(m, bm); high[i] = db(m, bh); all[i] = db(m, ba);
+    if (i % 1500 === 0) { progress(i/n); await new Promise(r => setTimeout(r, 0)); }
+  }
+  const rise = x => { const o = new Float32Array(x.length); for (let i = 2; i < x.length; i++) o[i] = Math.max(0, x[i] - x[i - 2]); return o; };
+  const oLow = rise(low), oMid = rise(mid), oHigh = rise(high), oAll = rise(all), o = new Float32Array(n);
+  for (let i = 0; i < n; i++) o[i] = oLow[i] + .5*oAll[i];
+  // the tempo and the beats
+  const lagLo = Math.floor(60/180/dtH), lagHi = Math.floor(60/70/dtH) + 1;
+  if (n > lagHi*8) {
+    let bestLag = lagLo, bestS = -1;
+    for (let lag = lagLo; lag <= lagHi; lag++) { let s = 0; for (let i = lag; i < n; i++) s += o[i]*o[i - lag];
+      const bpmL = 60/(lag*dtH), w = Math.exp(-.5*(Math.log2(bpmL/125)/.6)**2); s = s/(n - lag)*(.6 + .4*w); if (s > bestS) { bestS = s; bestLag = lag; } }
+    const at = x => { const i = Math.floor(x), f = x - i; return i + 1 < n && i >= 0 ? o[i]*(1 - f) + o[i + 1]*f : 0; };
+    let bestP = bestLag, bestPh = 0, best = -1, meanAtBest = 1;
+    for (let P = bestLag - 1; P <= bestLag + 1 + 1e-9; P += .02) {
+      let sum = 0, cnt = 0, top = -1, topPh = 0;
+      for (let ph = 0; ph < P; ph += .5) { let s = 0; for (let k = ph; k < n - 1; k += P) s += at(k); sum += s; cnt++; if (s > top) { top = s; topPh = ph; } }
+      if (top > best) { best = top; bestP = P; bestPh = topPh; meanAtBest = sum/Math.max(cnt, 1); }
+    }
+    A.period = bestP*dtH; A.bpm = 60/A.period; A.conf = (best - meanAtBest)/Math.max(meanAtBest, 1e-6);
+    A.steady = A.conf > 3.5;   // (the demo and synthetic techno score 8 to 13, music played freely about 2)
+    for (let k = bestPh; k < n - 1; k += bestP) A.beats.push(k*dtH);
+    const raw = A.beats.map(b => { const i = Math.floor(b/dtH); let m = 0; for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++) m = Math.max(m, oLow[j]); return m; });
+    const top = pct(raw, .9); A.kick = raw.map(v => Math.min(1, v/Math.max(top, 1e-3)));
+  }
+  const peaks = (x, q, gap) => { const thr = Math.max(pct(x, q), .5), out = []; let last = -1;
+    for (let i = 1; i < n - 1; i++) if (x[i] >= thr && x[i] >= x[i - 1] && x[i] >= x[i + 1]) { const t = i*dtH; if (t - last >= gap) { out.push(t); last = t; } } return out; };
+  A.stabs = peaks(oMid, .93, .12); A.hats = peaks(oHigh, .9, .08); A.onsets = peaks(oLow, .97, .3);
+  const ema = (x, tau) => { const a = 1 - Math.exp(-dtH/tau), y = new Float32Array(x.length); let v = x[0] || 0; for (let i = 0; i < x.length; i++) { v += (x[i] - v)*a; y[i] = v; } return y; };
+  const nrm = (x, lo, hi) => { const a = pct(x, lo), b = pct(x, hi), d = Math.max(b - a, 1e-3); return Float32Array.from(x, v => clamp((v - a)/d, 0, 1)); };
+  A.bass = nrm(ema(low, .25), .05, .98);
+  const allN = nrm(ema(all, 3), .1, .95); A.hatLv = nrm(ema(high, 1), .1, .95);
+  A.tension = Float32Array.from(allN, (v, i) => .65*v + .35*A.hatLv[i]);
+  // breakdowns and drops
+  const env = ema(low, .5); let rm = -200, under = 0, inBreak = false, lastDrop = -100, brStart = 0;
+  for (let i = 0; i < n; i++) { const t = i*dtH; rm = Math.max(env[i], rm - .3*dtH);
+    if (env[i] < rm - 9) { if (under === 0) brStart = t; under += dtH; } else if (!inBreak) under = 0;
+    if (!inBreak && under >= 4) { inBreak = true; A.breaks.push(brStart); }
+    if (inBreak && env[i] > rm - 4) { inBreak = false; under = 0;
+      if (t > 8 && t - lastDrop > 15) { let d = t - .15; if (A.steady) { const b = A.beats.find(x => x >= d - A.period*.5); if (b !== undefined) d = b; } A.drops.push(d); lastDrop = d; } } }
+  A.at = (arr, t) => arr.length ? arr[clamp(Math.floor(t/dtH), 0, arr.length - 1)] : 0;
+  return A;
+}
+
+// ---- the music (Player.swift): a track or the demo beat, and where it is as heard ----
+const player = {ctx: null, src: null, buf: null, analysis: null, playing: false, name: '', loopLen: 0, t0: 0, lastT: 0,
+  ensure(){ if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); return this.ctx; },
+  start(buf, A, name, loop){
+    const ctx = this.ensure(); this.stop();
+    this.buf = buf; this.analysis = A; this.name = name; this.loopLen = loop ? buf.duration : 0;
+    const s = ctx.createBufferSource(); s.buffer = buf; s.loop = !!loop; s.connect(ctx.destination);
+    if (ctx.state === 'suspended') ctx.resume();
+    this.t0 = ctx.currentTime + .05; s.start(this.t0); this.src = s; this.playing = true; this.lastT = 0;
+  },
+  stop(){ if (this.src) { try { this.src.stop(); } catch (e) {} this.src.disconnect(); this.src = null; } this.playing = false; this.lastT = 0; },
+  toggle(){ if (!this.src) return; if (this.playing) { this.ctx.suspend(); this.playing = false; } else { this.ctx.resume(); this.playing = true; } },
+  // the audio clock as it reaches the speakers (its output timestamp, carried on by the page's clock), less where it started
+  get time(){
+    if (!this.playing || !this.ctx) return this.lastT;
+    const c = this.ctx; let now = c.currentTime - (c.outputLatency || c.baseLatency || 0);
+    if (c.getOutputTimestamp) { const ts = c.getOutputTimestamp(); if (ts.contextTime > 0) now = ts.contextTime + Math.max(0, Math.min(.1, (performance.now() - ts.performanceTime)/1000)); }
+    let t = now - this.t0; if (t < 0) return this.lastT = 0;
+    if (this.loopLen > 0) { t %= this.loopLen; if (t < 0) t += this.loopLen; }
+    return this.lastT = Math.max(0, t);
+  },
+};
+// the demo beat: sixteen bars of minimal techno at 124 BPM, the breakdown bars 9 to 12, the drop on bar 13 (Demo in Player.swift)
+function demoBeat(ctx){
+  const sr = 44100, bpm = 124, beat = 60/bpm, n = Math.floor(64*beat*sr), buf = ctx.createBuffer(2, n, sr), L = buf.getChannelData(0), R = buf.getChannelData(1), mono = new Float32Array(n);
+  let seed = 12345; const noise = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return (seed >>> 8)/8388608 - 1; };
+  let kPh = 0, bPh = 0, bLp = 0, hPrev = 0, cLp = 0, cHp = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i/sr, b = t/beat, bi = Math.floor(b), bt = (b - bi)*beat, bar = Math.floor(bi/4), brk = bar >= 8 && bar < 12;
+    let l = 0, r = 0;
+    if (!brk && bt < .45) { const f = 48 + 120*Math.exp(-bt*32); kPh += 2*Math.PI*f/sr; const k = Math.sin(kPh)*Math.exp(-bt*6.5)*.9 + (bt < .004 ? noise()*.3 : 0); l += k; r += k; }
+    else if (bt >= .45) kPh = 0;
+    const ob = bt - beat*.5;
+    if (!brk && ob >= 0 && ob < .22) { bPh += 55/sr; const saw = 2*(bPh - Math.floor(bPh)) - 1; bLp += (saw - bLp)*.06; const v = bLp*Math.exp(-ob*9)*.55; l += v; r += v; }
+    if (bi % 2 === 1 && bt < .18) { const x = noise(); cHp = x - cLp; cLp += (x - cLp)*.3; const env = Math.exp(-bt*22)*(bt < .02 ? .6 + .4*Math.sin(bt*900) : 1); l += cHp*env*.35; r += cHp*env*.28; }
+    const s16 = beat/4, st = t % s16, si = Math.floor(t/s16) % 4;
+    if (bar >= 2 && st < .05) { const x = noise(), h = x - hPrev; hPrev = x; const v = h*Math.exp(-st*70)*(si === 2 ? .16 : .07); l += v*.7; r += v; }
+    const inBar = b - bar*4;
+    if (bar % 2 === 1 && inBar >= 3.5 && inBar < 3.5 + .15/beat) { const tt = (inBar - 3.5)*beat; let v = 0; for (const f of [220, 261.63, 329.63]) { const p = t*f; v += 2*(p - Math.floor(p)) - 1; } const s = v/3*Math.exp(-tt*18)*.22; l += s*.8; r += s; }
+    if (brk) { const into = t - 32*beat, fade = Math.min(1, into/2)*Math.min(1, (48*beat - t)/.5); let v = 0; for (const f of [110, 164.81, 220, 261.63]) v += Math.sin(2*Math.PI*f*t + Math.sin(t*.7 + f)); const s = v/4*.18*fade; l += s; r += s*.9; }
+    l = Math.tanh(l); r = Math.tanh(r); L[i] = l; R[i] = r; mono[i] = (l + r)*.5;
+  }
+  return {buf, mono, sr};
+}
+
+// ---- the Prism's brain (Prism.swift) ----
+const LOOKS = [
+  {name: 'ball', kind: 'ball'}, {name: 'cube', kind: 'cube', sharp: true}, {name: 'octahedron', kind: 'octa', sharp: true}, {name: 'diamond', kind: 'gem', sharp: true},
+  {name: 'star', kind: 'star', sharp: true}, {name: 'disc', kind: 'disc'}, {name: 'pill', kind: 'pill'}, {name: 'flower', kind: 'flower'},
+  {name: 'starfish', kind: 'superf', sf: [5, .3, .3, .3], sharp: true}, {name: 'urchin', kind: 'superf', sf: [10, .4, .6, .6], sharp: true},
+  {name: 'shell', kind: 'superf', sf: [3, 4.5, 10, 10]}, {name: 'cushion', kind: 'superf', sf: [4, 12, 15, 15]}, {name: 'jewel', kind: 'superf', sf: [5, 2, 4, 4], sharp: true},
+  {name: 'lantern', kind: 'ball', lathe: .22, lf: 4}, {name: 'spindle', kind: 'pill', sq: [.7, 1.5, .7]}, {name: 'twisted cube', kind: 'cube', twist: 1.4, sharp: true},
+].map(L => ({sf: [0, 1, 2, 2], sq: [1, 1, 1], twist: 0, lathe: 0, lf: 4, sharp: false, ...L}));
+const sfr = (t, p) => { const m = p[0]/4; return Math.pow(Math.pow(Math.abs(Math.cos(m*t)), p[2]) + Math.pow(Math.abs(Math.sin(m*t)), p[3]), -1/p[1]); };
+for (const L of LOOKS) if (L.kind === 'superf') { let mx = 0; for (let i = 0; i < 96; i++) mx = Math.max(mx, sfr(i/96*2*Math.PI - Math.PI, L.sf)); L.mx = Math.max(mx, 1e-3); }
+function radius(L, d){
+  const [x, y, z] = d;
+  switch (L.kind) {
+    case 'ball': return 1;
+    case 'octa': return 1.25/(Math.abs(x) + Math.abs(y) + Math.abs(z));
+    case 'cube': return .8/Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
+    case 'gem': { const r = Math.sqrt(x*x + z*z); return Math.min(1.05/(r*.8 + Math.abs(y)*.95), y > 0 ? .55/y : 9); }
+    case 'star': { let m = 0; for (const a of ICO) m = Math.max(m, dot(a, d)); return .78 + .95*Math.pow(m, 28); }
+    case 'flower': return .85 + .3*Math.cos(5*Math.atan2(z, x))*(1 - Math.abs(y)) + .12*y;
+    case 'disc': return 1/Math.sqrt(x*x*.9025 + z*z*.9025 + y*y*4);
+    case 'pill': return .8/Math.sqrt(x*x + z*z + y*y*.3025);
+    case 'superf': { const th = Math.atan2(y, x), ph = Math.asin(clamp(z, -1, 1)); return .6 + .55*(sfr(th, L.sf)/L.mx)*(sfr(ph, L.sf)/L.mx); }
+  }
+  return 1;
+}
+function shaped(L, d, out){
+  let R = radius(L, d);
+  if (L.lathe > 0) R *= 1 + L.lathe*Math.sin(L.lf*Math.asin(clamp(d[1], -1, 1))*2);
+  let px = d[0]*R*L.sq[0], py = d[1]*R*L.sq[1], pz = d[2]*R*L.sq[2];
+  if (L.twist) { const a = L.twist*py, c = Math.cos(a), s = Math.sin(a), x2 = c*px - s*pz; pz = s*px + c*pz; px = x2; }
+  out[0] = px; out[1] = py; out[2] = pz;
+}
+
+function makePrism(){
+  const G = facetGeo(3), nv = G.nv, nf = G.nf;
+  const S3 = new Float32Array(nv*3), P3 = new Float32Array(nv*3), D = new Float32Array(nv).fill(1);
+  const angFront = G.dir.map(d => Math.acos(clamp(d[2], -1, 1))/Math.PI);
+  const verts = new Float32Array(nf*3*16);   // per corner: pos 3, normal 3, bary 3, edge 3, colour 4
+  const st = {lookA: LOOKS[0], lookB: LOOKS[0], morph: 1, recent: ['ball'], dPrev: 1, dNext: 1, wave: 1, detailMode: -1, act: .2, ex: 0, exHold: 0,
+    rings: [], wedge: 0, wedgeLit: 0, hatSeed: 0, hatLit: 0, kickFlash: 0, h0: .62, palSpread: .08, clock: 0, rng: 99,
+    lastT: -1, iBeat: 0, iStab: 0, iHat: 0, iOnset: 0, iDrop: 0, phraseN: 0, kicksRun: 0, lastPhraseT: 0, idleBeat: 0, lastDropAt: -100,
+    tension: 0, bassLv: 0, anticip: 0, inBreak: false, steady: true, period: .5, info: '',
+    yaw: 0, pitch: .3, yawV: 0, pitchV: 0, camZ: Tune.cam, aspect: 1,
+    touching: false, onObj: false, tStart: [0, 0], tLast: [0, 0], tTime: 0, tLastTime: 0, tDir: [0, 0, 1], tOut: [1, 0], tMoved: 0, holdDent: 0,
+    bumpDirs: [], bumpA: 0, bumpV: 0, bumpTarget: null};
+  const rand = () => { st.rng = (Math.imul(st.rng, 1664525) + 1013904223) >>> 0; return (st.rng >>> 8)/16777216; };
+  const curDetail = () => st.dPrev + (st.dNext - st.dPrev)*sm(st.wave);
+  const rot = () => { const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+    return [cy, 0, sy, sp*sy, cp, -sp*cy, -cp*sy, sp, cp*cy]; };   // rows of Rx·Ry
+  const mul = (M, v) => [M[0]*v[0] + M[1]*v[1] + M[2]*v[2], M[3]*v[0] + M[4]*v[1] + M[5]*v[2], M[6]*v[0] + M[7]*v[1] + M[8]*v[2]];
+  const mulT = (M, v) => [M[0]*v[0] + M[3]*v[1] + M[6]*v[2], M[1]*v[0] + M[4]*v[1] + M[7]*v[2], M[2]*v[0] + M[5]*v[1] + M[8]*v[2]];
+  const front = () => mulT(rot(), [0, 0, 1]);
+  const ring = (dir, b) => { st.rings.push({dir, t0: st.clock, bright: b}); if (st.rings.length > 6) st.rings.shift(); };
+  function nextLook(sharp){
+    const pool = LOOKS.filter(L => L.name !== st.lookB.name && !st.recent.includes(L.name)), want = pool.filter(L => L.sharp === sharp);
+    const from = want.length && rand() < .7 ? want : pool; if (!from.length) return;
+    const L = from[Math.min(from.length - 1, Math.floor(rand()*from.length))];
+    st.lookA = st.morph >= 1 ? st.lookB : (st.morph < .5 ? st.lookA : st.lookB); st.lookB = L; st.morph = 0;
+    st.recent.push(L.name); if (st.recent.length > 5) st.recent.shift();
+  }
+  const setDetail = d => { if (Math.abs(d - st.dNext) < .01) return; st.dPrev = curDetail(); st.dNext = d; st.wave = 0; };
+  function onPhrase(){ st.phraseN++; if (st.act > .3 || st.phraseN % 2 === 0) nextLook(st.act > .6); if (st.phraseN % 2 === 0) st.h0 += .06 + rand()*.12; st.palSpread = st.act > .5 ? .33 : .08; }
+  function onBeat(k, kick){
+    if (kick > .3) st.kicksRun++; else if (k % 8 === 0) st.kicksRun = 0;
+    const calm = st.act < .35;
+    if (kick > .3 && (!calm || k % 4 === 0)) { ring(k % 8 === 0 ? front() : ICO[Math.min(11, Math.floor(rand()*12))], (.45 + .55*kick)*(calm ? Tune.kickCalm : 1)); st.kickFlash = kick; }
+    if (k % 16 === 0) onPhrase();
+  }
+  function drop(free = false){
+    if (free) { st.act = Math.max(st.act, .25); ring(front(), .6); return; }
+    st.ex = 1; st.exHold = .25; nextLook(true); st.h0 += .33; for (const d of ICO.slice(0, 6)) ring(d, .8); st.act = 1; st.lastDropAt = st.clock;
+  }
+  function resync(A, t){
+    const after = a => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= t) lo = m + 1; else hi = m; } return lo; };
+    st.iBeat = after(A.beats); st.iStab = after(A.stabs); st.iHat = after(A.hats); st.iOnset = after(A.onsets); st.iDrop = after(A.drops); st.lastT = t; st.lastPhraseT = t;
+  }
+
+  function step(dt, P){
+    st.clock += dt;
+    const A = P.analysis;
+    if (A && P.playing) {
+      const t = P.time; st.steady = A.steady; st.period = A.period;
+      if (st.lastT < 0 || t < st.lastT - .05 || t - st.lastT > 1) resync(A, t);
+      else if (t > st.lastT) {
+        while (st.iBeat < A.beats.length && A.beats[st.iBeat] <= t) { if (st.steady) onBeat(st.iBeat, A.kick[st.iBeat]); st.iBeat++; }
+        while (st.iStab < A.stabs.length && A.stabs[st.iStab] <= t) { if (st.act > .25) { st.wedge = (st.wedge + 1) % 5; st.wedgeLit = 1; } st.iStab++; }
+        while (st.iHat < A.hats.length && A.hats[st.iHat] <= t) { st.hatSeed++; st.hatLit = 1; st.iHat++; }
+        while (st.iOnset < A.onsets.length && A.onsets[st.iOnset] <= t) { if (!st.steady) ring(rand() < .5 ? front() : ICO[Math.min(11, Math.floor(rand()*12))], .35); st.iOnset++; }
+        while (st.iDrop < A.drops.length && A.drops[st.iDrop] <= t) { drop(!st.steady); st.iDrop++; }
+        if (!st.steady && t - st.lastPhraseT > 16) { st.lastPhraseT = t; onPhrase(); }
+        st.lastT = t;
+      }
+      st.tension += (A.at(A.tension, t) - st.tension)*Math.min(1, dt*.8);
+      st.bassLv = A.at(A.bass, t);
+      st.anticip = 0;
+      if (st.iDrop < A.drops.length) { const ahead = A.drops[st.iDrop] - t, len = Math.max(6, A.period*16); if (ahead > 0 && ahead < len) st.anticip = 1 - ahead/len; }
+      const b = [...A.breaks].reverse().find(x => x <= t);
+      st.inBreak = b !== undefined ? !A.drops.some(x => x > b && x <= t) : false;
+      st.info = `${P.name} · ${st.steady ? A.bpm.toFixed(1) + ' BPM' : 'free time'} · ${st.inBreak ? 'breakdown' : st.anticip > 0 ? 'the drop is coming' : ''}`;
+    } else {
+      st.steady = true; st.tension *= 1 - Math.min(1, dt*.3); st.bassLv = 0; st.anticip = 0; st.inBreak = false;
+      st.idleBeat += dt; if (st.idleBeat > 12) { st.idleBeat = 0; st.phraseN++; nextLook(rand() < .4); }
+      st.info = A ? 'Paused' : 'No music: ＋ Music or Demo beat';
+      st.lastT = -1;
+    }
+    const sinceDrop = st.clock - st.lastDropAt, dropBoost = Math.max(0, 1 - sinceDrop/Math.max(8, st.period*32))*.6;
+    let target = Tune.actBase + .35*st.tension + .5*st.anticip + dropBoost;
+    if (st.inBreak) target *= Tune.actBrk; if (!st.steady) target *= Tune.actFree;
+    target = clamp(target, 0, 1);
+    st.act += (target - st.act)*Math.min(1, dt*(target > st.act ? .6 : .25));
+    if (st.detailMode >= 0) setDetail(st.detailMode);
+    else { let d = 1; if (st.steady && st.kicksRun >= 32) d = 2; if (st.act > .65 || st.anticip > .5) d = 3; if (dropBoost > .3) d = 3; if (st.inBreak || !st.steady) d = 1; setDetail(d); }
+    st.wave = Math.min(1, st.wave + dt/Math.max(1.5, st.period*4));
+    st.morph = Math.min(1, st.morph + dt/(Tune.morphSecs*(st.steady ? 1 : 1.5)));
+    if (st.exHold > 0) st.exHold -= dt; else st.ex = Math.max(0, st.ex - dt/Tune.explodeSecs);
+    st.wedgeLit *= Math.exp(-dt/.5); st.hatLit *= Math.exp(-dt/.2); st.kickFlash *= Math.exp(-dt/.12);
+    st.h0 += dt*.004;
+    jamStep(dt);
+    st.yaw += dt*(Tune.spin*(.4 + st.act)*(st.steady ? 1 : .5) + st.yawV);
+    st.pitch += dt*st.pitchV;
+    if (!(st.touching && !st.onObj)) { st.yawV *= Math.exp(-Tune.friction*dt); st.pitchV *= Math.exp(-Tune.friction*dt); st.pitch += (.3 - st.pitch)*Math.min(1, dt*Tune.tilt*.5); }
+    build();
+  }
+
+  const pa = [0, 0, 0], pb = [0, 0, 0];
+  function build(){
+    const F = G.F, m = sm(st.morph), breath = 1 + Tune.breath*st.bassLv*st.act, bumping = Math.abs(st.bumpA) > .002 && st.bumpDirs.length;
+    for (let v = 0; v < nv; v++) {
+      const d = G.dir[v];
+      shaped(st.lookB, d, pb);
+      if (m < 1) { shaped(st.lookA, d, pa); for (let k = 0; k < 3; k++) pb[k] = pa[k] + (pb[k] - pa[k])*m; }
+      let s = breath;
+      if (bumping) { let b = 0; for (const c of st.bumpDirs) b += Math.exp(-(1 - dot(d, c))/Tune.width); s *= 1 + st.bumpA*b; }
+      s *= Tune.r; S3[v*3] = pb[0]*s; S3[v*3 + 1] = pb[1]*s; S3[v*3 + 2] = pb[2]*s;
+      D[v] = st.wave >= 1 ? st.dNext : st.dPrev + (st.dNext - st.dPrev)*sm((st.wave*1.5 - angFront[v])/.5);
+    }
+    for (let v = 0; v < nv; v++) {
+      const dd = clamp(D[v], 0, F), L0 = Math.min(F - 1, Math.floor(dd)), fr = dd - L0;
+      let x = 0, y = 0, z = 0;
+      for (let s = 0; s < 2; s++) { const k = s ? fr : 1 - fr; if (k < 1e-4) continue; const o = (v*(F + 1) + L0 + s)*3;
+        for (let j = 0; j < 3; j++) { const i = G.ai[o + j]*3, w = G.aw[o + j]*k; x += S3[i]*w; y += S3[i + 1]*w; z += S3[i + 2]*w; } }
+      P3[v*3] = x; P3[v*3 + 1] = y; P3[v*3 + 2] = z;
+    }
+    const R = rot(), runLvl = -1.2 + 2.6*st.anticip, palOff = [0, st.palSpread, -st.palSpread*.8];
+    for (let f = 0; f < nf; f++) {
+      const a = G.tri[f*3], b = G.tri[f*3 + 1], c = G.tri[f*3 + 2];
+      const A3 = [P3[a*3], P3[a*3 + 1], P3[a*3 + 2]], B3 = [P3[b*3], P3[b*3 + 1], P3[b*3 + 2]], C3 = [P3[c*3], P3[c*3 + 1], P3[c*3 + 2]];
+      let n = cross(sub(B3, A3), sub(C3, A3)); const ln = Math.hypot(n[0], n[1], n[2]); n = ln > 1e-9 ? [n[0]/ln, n[1]/ln, n[2]/ln] : [0, 0, 1];
+      const fd = (D[a] + D[b] + D[c])/3, fl = clamp(Math.floor(fd + .5), 0, F), anc = G.fa[fl][f], cd = G.cen[fl][anc];
+      let lit = 0;
+      for (const r of st.rings) { const age = st.clock - r.t0; if (age >= Tune.ripSecs) continue;
+        const ang = Math.acos(clamp(dot(cd, r.dir), -1, 1)), x = (ang - age*Math.PI*Tune.ripSpeed)/Tune.ripW; lit += r.bright*Math.exp(-x*x)*(1 - age/Tune.ripSecs); }
+      if (st.wedgeLit > .01) { const az = Math.atan2(cd[2], cd[0])/(2*Math.PI) + .5; if (Math.floor(az*5) % 5 === st.wedge) lit += .55*st.wedgeLit; }
+      if (st.hatLit > .01 && hash(anc + fl*4096, st.hatSeed) < Tune.hatShare*(.4 + st.tension)) lit += .7*st.hatLit;
+      if (st.anticip > 0) lit += .6*st.anticip*sm((runLvl - cd[1])/.3);
+      lit = Math.min(lit, 1.6);
+      const hp = hash(anc + fl*4096, 3), pidx = hp < .6 ? 0 : hp < .85 ? 1 : 2;
+      const tint = hsv(st.h0 + palOff[pidx] + .03*(hash(anc, 9) - .5), .6, .32);
+      const off = Tune.explode*st.ex*st.ex*(.4 + .6*hash(anc + fl*4096, 21))*Tune.r + lit*.035*Tune.r;
+      const e = [0, 1, 2].map(j => { const lv = G.el[f*3 + j]; return lv === 0 ? 1 : clamp(fd - lv + 1, 0, 1); });
+      const nw = mul(R, n);
+      [A3, B3, C3].forEach((p, j) => {
+        const w = mul(R, [p[0] + n[0]*off, p[1] + n[1]*off, p[2] + n[2]*off]), o = (f*3 + j)*16;
+        verts[o] = w[0]; verts[o + 1] = w[1]; verts[o + 2] = w[2]; verts[o + 3] = nw[0]; verts[o + 4] = nw[1]; verts[o + 5] = nw[2];
+        verts[o + 6] = j === 0 ? 1 : 0; verts[o + 7] = j === 1 ? 1 : 0; verts[o + 8] = j === 2 ? 1 : 0;
+        verts[o + 9] = e[0]; verts[o + 10] = e[1]; verts[o + 11] = e[2]; verts[o + 12] = tint[0]; verts[o + 13] = tint[1]; verts[o + 14] = tint[2]; verts[o + 15] = lit;
+      });
+    }
+  }
+
+  function lights(){
+    const az = .55 + .6*Math.sin(st.clock*.07) + .25*(st.phraseN % 4), el = .45, key = [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)];
+    const fillC = hsv(st.h0 + st.palSpread, .7, .35 + .8*st.kickFlash*st.act);
+    return [key, [1.5, 1.395, 1.23], norm([-.4, .5, -.8]), [.605, .77, 1.1], norm([.2, -.8, .5]), fillC];
+  }
+
+  // Jam
+  function pick(px, py, W, H){
+    const x = 2*px/W - 1, y = 1 - 2*py/H, th = 1/Tune.focal, d = norm([x*st.aspect*th, y*th, -1]), o = [0, 0, st.camZ];
+    let rr = 0; for (let v = 0; v < nv; v += 7) rr = Math.max(rr, Math.hypot(P3[v*3], P3[v*3 + 1], P3[v*3 + 2])); rr *= .95;
+    const b = dot(o, d), c = dot(o, o) - rr*rr, disc = b*b - c; if (disc < 0) return null;
+    const t = -b - Math.sqrt(disc); return norm(mulT(rot(), [o[0] + d[0]*t, o[1] + d[1]*t, o[2] + d[2]*t]));
+  }
+  const now = () => performance.now()/1000;
+  function touchBegan(px, py, W, H){
+    st.touching = true; st.tStart = [px, py]; st.tLast = [px, py]; st.tTime = now(); st.tLastTime = st.tTime; st.tMoved = 0; st.holdDent = 0;
+    const dir = pick(px, py, W, H);
+    if (dir) { st.onObj = true; st.tDir = dir;
+      const a0 = Math.atan2(dir[2], dir[0]), rxz = Math.hypot(dir[0], dir[2]);
+      st.bumpDirs = [0, 1, 2, 3, 4].map(k => { const a = a0 + k*2*Math.PI/5; return [Math.cos(a)*rxz, dir[1], Math.sin(a)*rxz]; });
+      const ox = px - W/2, oy = py - H/2, ol = Math.hypot(ox, oy); st.tOut = ol > 1 ? [ox/ol, oy/ol] : [1, 0]; st.bumpTarget = st.bumpA;
+    } else { st.onObj = false; st.yawV = 0; st.pitchV = 0; }
+  }
+  function touchMoved(px, py, W, H){
+    if (!st.touching) return;
+    const t = now(), edt = Math.max(1/240, t - st.tLastTime), dx = px - st.tLast[0], dy = py - st.tLast[1];
+    st.tMoved = Math.max(st.tMoved, Math.hypot(px - st.tStart[0], py - st.tStart[1]));
+    if (st.onObj) { const along = ((px - st.tStart[0])*st.tOut[0] + (py - st.tStart[1])*st.tOut[1])/(H*.5); st.bumpTarget = clamp(along*Tune.pull - st.holdDent, -Tune.maxPull, Tune.maxPull); }
+    else { const k = Tune.turn/H*.6; st.yaw += dx*k; st.pitch += dy*k;
+      st.yawV = clamp(st.yawV*.5 + .5*dx*k/edt, -Tune.maxSpin, Tune.maxSpin); st.pitchV = clamp(st.pitchV*.5 + .5*dy*k/edt, -Tune.maxSpin, Tune.maxSpin); }
+    st.tLast = [px, py]; st.tLastTime = t;
+  }
+  function touchEnded(){
+    if (!st.touching) return; st.touching = false;
+    if (st.onObj) { if (st.tMoved < 12 && now() - st.tTime < .3) ring(st.tDir, Tune.tapBright*(st.steady ? 1 : .7)); st.bumpTarget = null; }
+    st.onObj = false;
+  }
+  function jamStep(dt){
+    if (st.touching && st.onObj && st.tMoved < 12 && now() - st.tTime > .25) { st.holdDent = Math.min(Tune.maxPull, st.holdDent + Tune.holdRate*dt); st.bumpTarget = Math.max(-Tune.maxPull, -st.holdDent); }
+    if (st.bumpTarget !== null) { st.bumpA += (st.bumpTarget - st.bumpA)*Math.min(1, dt*12); st.bumpV = 0; }
+    else { const w = 2*Math.PI/Math.max(.25, st.period*Tune.bounce), k = w*w, c = 2*Tune.damp*w, h = dt/4;
+      for (let i = 0; i < 4; i++) { st.bumpV += (-k*st.bumpA - c*st.bumpV)*h; st.bumpA += st.bumpV*h; }
+      if (Math.abs(st.bumpA) < 1e-4 && Math.abs(st.bumpV) < 1e-3) { st.bumpA = 0; st.bumpV = 0; } }
+  }
+  return {G, st, verts, step, drop, lights, touchBegan, touchMoved, touchEnded,
+    nextShape: () => nextLook(rand() < .5), zoom: z => { st.camZ = clamp(z, 1.7, 7); },
+    get facets(){ return G.nfAt[clamp(Math.floor(curDetail() + .5), 0, G.F)]; }};
+}
+
+// ---- drawing (Renderer.swift, in WebGL 2) ----
+const VS = `#version 300 es
+in vec3 aP, aN, aB, aE; in vec4 aC; uniform mat4 uProj; uniform vec4 uCam;
+out vec3 wpos, nrm, bary, edge; out vec4 col;
+void main(){ gl_Position = uProj*vec4(aP - uCam.xyz, 1.0); wpos = aP; nrm = aN; bary = aB; edge = aE; col = aC; }`;
+const FS = `#version 300 es
+precision highp float;
+in vec3 wpos, nrm, bary, edge; in vec4 col; out vec4 o;
+uniform vec4 uCam, uL0d, uL0c, uL1d, uL1c, uL2d, uL2c, uP, uP2;
+vec3 lamp(vec3 n, vec3 V, vec3 tint, vec4 ld, vec4 lc, float fire){
+  vec3 L = normalize(ld.xyz); float diff = max(dot(n, L), 0.0); vec3 R = reflect(-L, n);
+  vec3 side = normalize(cross(n, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0)); float sh = 70.0;
+  float sr = pow(max(dot(R, normalize(V + side*fire*0.07)), 0.0), sh), sg = pow(max(dot(R, V), 0.0), sh), sb = pow(max(dot(R, normalize(V - side*fire*0.07)), 0.0), sh);
+  vec3 spec = fire > 0.0 ? vec3(sr, sg, sb) : vec3(sg);
+  return lc.rgb*(tint*diff*0.45 + spec*1.7);
+}
+void main(){
+  vec3 N = normalize(nrm), V = normalize(uCam.xyz - wpos); float facing = dot(N, V); bool isFar = facing < 0.0;
+  if (isFar != (uP2.w < 0.5)) discard;
+  vec3 n = isFar ? -N : N; float ndv = abs(facing), fres = pow(1.0 - ndv, 3.0);
+  vec3 tint = col.rgb; float lit = col.a;
+  vec3 c = tint*(uP2.x*(0.55 + 0.45*n.y) + lit*1.3);
+  c += lamp(n, V, tint, uL0d, uL0c, uP.x); c += lamp(n, V, tint, uL1d, uL1c, uP.x); c += lamp(n, V, tint, uL2d, uL2c, 0.0);
+  c += (tint*1.5 + 0.1)*fres*uP2.y;
+  vec3 d = bary/max(fwidth(bary), vec3(1e-5));
+  vec3 line = (1.0 - smoothstep(vec3(0.5), vec3(1.6), d))*edge, glow = exp(-d/5.0)*0.3*edge;
+  float e = max(max(line.x + glow.x, line.y + glow.y), line.z + glow.z);
+  c += mix(tint*2.2, vec3(1.0), vec3(0.3))*(0.7 + 2.2*lit)*uP.y*e;
+  float a = clamp(uP.z + fres*0.45 + lit*0.25, 0.0, 1.0);
+  if (isFar) { c *= uP.w; a *= 0.6; }
+  o = vec4(c, a);
+}`;
+const QVS = `#version 300 es
+out vec2 uv; void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p*2.0 - 1.0, 0.0, 1.0); uv = p; }`;
+const COPY = `#version 300 es
+precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uT; void main(){ o = texture(uT, uv); }`;
+// the glow's blur: a gaussian (sigma 14 half-size pixels, as the native one) in two passes, 21 taps two pixels apart read
+// between texels, so each tap averages two
+const BLUR = `#version 300 es
+precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uT; uniform vec2 uDir;
+void main(){ vec4 s = vec4(0.0); float wsum = 0.0;
+  for (int i = -10; i <= 10; i++) { float x = float(i)*2.0, w = exp(-x*x/(2.0*14.0*14.0)); s += texture(uT, uv + uDir*(x + 0.5*sign(x)))*w; wsum += w; }
+  o = s/wsum; }`;
+const COMP = `#version 300 es
+precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uS, uB; uniform vec4 uCp;
+void main(){ vec3 c = texture(uS, uv).rgb + texture(uB, uv).rgb*uCp.x; c = 1.0 - exp(-c*uCp.y);
+  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453); c += (n - 0.5)/255.0; o = vec4(c, 1.0); }`;
+
+function makeRenderer(cv, prism){
+  const gl = cv.getContext('webgl2', {antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance'});
+  if (!gl) throw new Error('This browser has no WebGL 2.');
+  const half = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
+  gl.getExtension('OES_texture_float_linear');
+  const prog = (vs, fs) => { const p = gl.createProgram();
+    for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); gl.attachShader(p, sh); }
+    ['aP', 'aN', 'aB', 'aE', 'aC'].forEach((a, i) => gl.bindAttribLocation(p, i, a));
+    gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const nu = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < nu; i++) { const n = gl.getActiveUniform(p, i).name; u[n] = gl.getUniformLocation(p, n); }
+    return {p, u}; };
+  const facets = prog(VS, FS), copy = prog(QVS, COPY), blur = prog(QVS, BLUR), comp = prog(QVS, COMP);
+  const vao = gl.createVertexArray(), buf = gl.createBuffer();
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, prism.verts.byteLength, gl.DYNAMIC_DRAW);
+  [[0, 3, 0], [1, 3, 3], [2, 3, 6], [3, 3, 9], [4, 4, 12]].forEach(([i, n, o]) => { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 64, o*4); });
+  const qvao = gl.createVertexArray();
+  const target = (w, h) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, half ? gl.RGBA16F : gl.RGBA8, w, h, 0, gl.RGBA, half ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, null);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return {t, fb, w, h}; };
+  let T = null;
+  const size = () => { const dpr = Math.min(window.devicePixelRatio || 1, 3), w = Math.max(1, Math.round(cv.clientWidth*dpr)), h = Math.max(1, Math.round(cv.clientHeight*dpr));
+    if (T && T.w === w && T.h === h) return T;
+    cv.width = w; cv.height = h;
+    if (T) for (const x of [T.scene, T.half, T.blur]) { gl.deleteTexture(x.t); gl.deleteFramebuffer(x.fb); }
+    const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1);
+    return T = {w, h, scene: target(w, h), half: target(hw, hh), blur: target(hw, hh)}; };
+  const quad = (p, fb, w, h) => { gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, w, h); gl.useProgram(p.p); gl.bindVertexArray(qvao); };
+
+  return function draw(){
+    const S = size(), f = Tune.focal, a = S.w/S.h, zn = .05, zf = 50, st = prism.st;
+    st.aspect = a;
+    // the facets: the far side, then the near
+    gl.bindFramebuffer(gl.FRAMEBUFFER, S.scene.fb); gl.viewport(0, 0, S.w, S.h);
+    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(facets.p); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, prism.verts);
+    const u = facets.u, L = prism.lights();
+    gl.uniformMatrix4fv(u.uProj, false, [f/a, 0, 0, 0, 0, f, 0, 0, 0, 0, zf/(zn - zf), -1, 0, 0, zn*zf/(zn - zf), 0]);
+    gl.uniform4f(u.uCam, 0, 0, st.camZ, 0);
+    ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => gl.uniform4f(u[k], L[i][0], L[i][1], L[i][2], 0));
+    gl.uniform4f(u.uP, Tune.fire, 1, .2, .45);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    for (let side = 0; side < 2; side++) { gl.uniform4f(u.uP2, .45, .6, 0, side); gl.drawArrays(gl.TRIANGLES, 0, prism.G.nf*3); }
+    gl.disable(gl.BLEND);
+    // the glow: the picture at half size, blurred
+    quad(copy, S.half.fb, S.half.w, S.half.h); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.scene.t); gl.uniform1i(copy.u.uT, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    quad(blur, S.blur.fb, S.half.w, S.half.h); gl.bindTexture(gl.TEXTURE_2D, S.half.t); gl.uniform1i(blur.u.uT, 0); gl.uniform2f(blur.u.uDir, 1/S.half.w, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    quad(blur, S.half.fb, S.half.w, S.half.h); gl.bindTexture(gl.TEXTURE_2D, S.blur.t); gl.uniform2f(blur.u.uDir, 0, 1/S.half.h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // the finish
+    quad(comp, null, S.w, S.h);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.scene.t); gl.uniform1i(comp.u.uS, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.half.t); gl.uniform1i(comp.u.uB, 1);
+    gl.uniform4f(comp.u.uCp, .9, 1.25, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.activeTexture(gl.TEXTURE0);
+  };
+}
+
+// ---- the screen (ContentView.swift) ----
+let prism, draw, fps = 0, last = 0, note = '', busy = false, detail = -1;
+try { prism = makePrism(); draw = makeRenderer($('cv'), prism); }
+catch (e) { $('err').hidden = false; $('err').textContent = 'The picture can\'t start here: ' + e.message; }
+
+function frame(ts){
+  requestAnimationFrame(frame);
+  if (!prism) return;
+  const dt = last ? Math.min(.1, (ts - last)/1000) : 1/60; last = ts;
+  fps += (1/Math.max(dt, 1e-3) - fps)*.05;
+  prism.step(dt, player);
+  draw();
+}
+requestAnimationFrame(frame);
+
+const setBusy = (b, msg = '') => { busy = b; note = msg; document.querySelectorAll('.chip').forEach(c => c.disabled = b); };
+setInterval(() => {
+  if (!prism) return;
+  const st = prism.st;
+  $('status').textContent = note || `${st.info}\n${st.lookB.name} · ${prism.facets} facets · activity ${Math.round(st.act*100)}% · ${Math.round(fps)} fps`;
+  $('bPlay').textContent = player.playing ? 'Pause' : 'Play';
+}, 500);
+
+$('bMusic').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const ctx = player.ensure(); ctx.resume();
+  setBusy(true, 'Reading ahead…');
+  try {
+    const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+    const mono = new Float32Array(buf.length), k = 1/buf.numberOfChannels;
+    for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) mono[i] += d[i]*k; }
+    const A = await analyse(mono, buf.sampleRate, p => { note = `Reading ahead… ${Math.round(p*100)}%`; $('status').textContent = note; });
+    prism.st.lastT = -1;
+    player.start(buf, A, file.name.replace(/\.[^.]+$/, ''), false);
+    setBusy(false);
+  } catch (err) { setBusy(false); note = 'Couldn\'t play it: ' + (err.message || err); setTimeout(() => { note = ''; }, 4000); }
+};
+$('bDemo').onclick = async () => {
+  const ctx = player.ensure(); ctx.resume();
+  setBusy(true, 'Making the demo beat…');
+  await new Promise(r => setTimeout(r, 30));
+  const {buf, mono, sr} = demoBeat(ctx), A = await analyse(mono, sr, () => {});
+  prism.st.lastT = -1;
+  player.start(buf, A, 'Demo beat', true);
+  setBusy(false);
+};
+$('bPlay').onclick = () => { player.toggle(); };
+$('bShape').onclick = () => prism.nextShape();
+$('bDrop').onclick = () => prism.drop();
+$('bFacets').onclick = () => { const modes = [-1, 0, 1, 2, 3]; detail = modes[(modes.indexOf(detail) + 1) % modes.length]; prism.st.detailMode = detail;
+  $('bFacets').textContent = detail < 0 ? 'Facets: auto' : 'Facets: ' + [20, 80, 320, 1280][detail]; };
+$('bHide').onclick = () => { $('bar').hidden = true; $('more').hidden = false; };
+$('more').onclick = () => { $('bar').hidden = false; $('more').hidden = true; };
+
+// touch: one finger is Jam, two pinch
+const cv = $('cv'), ptrs = new Map(); let pinch = null;
+const rect = () => cv.getBoundingClientRect();
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  const r = rect();
+  if (ptrs.size === 1) prism.touchBegan(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+  else if (ptrs.size === 2) { prism.touchEnded(); const [a, b] = [...ptrs.values()]; pinch = {d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: prism.st.camZ}; }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  const r = rect();
+  if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; prism.zoom(pinch.z/Math.max(.2, Math.hypot(a[0] - b[0], a[1] - b[1])/pinch.d)); }
+  else if (ptrs.size === 1) prism.touchMoved(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+});
+const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) prism.touchEnded(); };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); prism.zoom(prism.st.camZ*Math.exp(e.deltaY*.001)); }, {passive: false});
+try { navigator.wakeLock?.request('screen').catch(() => {}); } catch (e) {}
+</script>

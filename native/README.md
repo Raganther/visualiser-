@@ -60,3 +60,8 @@ Neither compiles here, in Claude's cloud container: it has no Swift toolchain or
 | `Player.swift` | Playback (AVAudioEngine), the time as heard, and the demo beat |
 
 The steady-beat threshold (`conf > 3.5` in `Analysis.swift`) was set on synthetic music: techno scored 8 to 13, and music played freely about 2. Real tracks may want it moved.
+
+## The same test in WebGL
+
+`prism-web.html` is the same test ported line for line to the browser: the same geometry, brain, track reading, lights, shaders and finish, in WebGL 2. It's published at https://claude.ai/artifact/741JxUbdFxzgAgrrH8SWQy, so the two can be compared on the same iPad. It draws at the screen's full resolution, up to 3× (`devicePixelRatio`), as the app does.
+
