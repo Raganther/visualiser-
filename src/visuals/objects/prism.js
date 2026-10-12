@@ -289,9 +289,11 @@ export default {
   },
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
     const u = P.m.prism, b = BODY[u.body]; if (this._gen !== S.glGen) { this._gl = {}; this._gen = S.glGen; }
-    (this._gl[u.body] = this._gl[u.body] || facetGL(gl, b.G))(b.X, u, W, H, stage);
+    const dr = this._gl[u.body] = this._gl[u.body] || facetGL(gl, b.G);
+    if (stage === 'screen' && u.mirror) dr(b.X, {...u, dim: u.refl}, W, H, stage, u.mirror);   // its reflection in the floor, first
+    dr(b.X, u, W, H, stage);
     if (stage === 'screen' && OVER.n) (this._gl.beams = this._gl.beams || beamsGL(gl))(overPx(W, H), OVER.n, W, H); },
-  draw2d(o, P){ const u = P.m.prism; facet2d(o, BODY[u.body].G, BODY[u.body].X, u); if (OVER.n) beams2d(o, overPx(o.canvas.width, o.canvas.height), OVER.n); },
+  draw2d(o, P){ const u = P.m.prism; if (u.mirror) { o.save(); o.globalAlpha = u.refl; facet2d(o, BODY[u.body].G, BODY[u.body].X, u, u.mirror); o.restore(); } facet2d(o, BODY[u.body].G, BODY[u.body].X, u); if (OVER.n) beams2d(o, overPx(o.canvas.width, o.canvas.height), OVER.n); },
   path2d(o, P){ const u = P.m.prism; facetPath2d(o, BODY[u.body].G, BODY[u.body].X, u); },
 };
 
@@ -373,7 +375,8 @@ function room(u, P, x, rw){
   st.cam ??= goal; st.tilt ??= tilt;
   st.cam += (goal - st.cam)*Math.min(1, dt/(dive || goal < st.cam - 1.5 ? R.dive : R.ease)); st.tilt += (tilt - st.tilt)*Math.min(1, dt/R.ease);
   const cam = CAM + (st.cam - CAM)*rw, e = st.tilt*rw, near = smooth((2.6 - cam)/1.4);
-  u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw; u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
+  u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw;
+  { const LT = TUNE.prism.light; if (LT.refl > .01 && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
   // the lamps (view space, the Prism round the origin)
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;
   const lift = Math.min(1, Math.max(st.act/TA.cap*.6, an, since < dropLen ? 1 - since/dropLen : 0)), k = (R.lampCalm + (1 - R.lampCalm)*lift)*rw;
@@ -382,13 +385,21 @@ function room(u, P, x, rw){
   // lamp onto it (their cones narrowing), a breakdown leaves one soft light
   if (SIG.kick > .99 && st.t - (st.strobeT ?? -9) > .12) { st.strobeT = st.t; if (at('kick') > .5 || since < dropLen) st.strobe = 1; }
   st.strobe = (st.strobe || 0)*Math.exp(-dt*LS.strobeDecay); st.swing = (st.swing || 0) + (st.sec*LS.swing - (st.swing || 0))*Math.min(1, dt*4);
-  const brk = brkNow() && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, wob = 1 - an;
+  const brk = brkNow() && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, LT = TUNE.prism.light, wob = (1 - an)*LT.aim/.22;
   const set = (i, p, c, kk, cone, ai) => { const l = Ls[i], ax = .22*wob*Math.sin(st.t*.7 + ai) - p[0], ay = .18*wob*Math.cos(st.t*.5 + ai*1.3) - p[1], az = -p[2], al = Math.hypot(ax, ay, az) || 1, dz = cam - p[2];
     l.p = p; l.c = c; l.k = kk; l.a = [ax/al, ay/al, az/al]; l.cone = cone; l.s = dz > .05 ? [u.pos[0] + p[0]*f/dz, u.pos[1] + p[1]*f/dz] : [0, 0]; l.vis = smooth((dz - .2)/.5); };
-  const narrow = 1 - LS.narrow*an, ka = ph*.5 + st.swing;
-  set(0, [2.2*Math.sin(ka), 1.5 + .4*Math.sin(st.bars*1.7), .6 + 1.2*Math.cos(ka)], hsv2rgb(h + pal[0], .35, 1), k*flash*(brk ? LS.brkKey : 1), R.cone*narrow*(brk ? LS.brkCone : 1), 0);
-  set(1, [-1.6*Math.sin(ph*.3 + 1 - st.swing*.5), 1.1, -2.4], hsv2rgb(h + pal[1], .7, 1), brk ? 0 : k*.8*flash, R.rimCone*narrow, 2);
-  set(2, [1.9*Math.cos(ph*.7), -.5, .4], hsv2rgb(h + pal[2], .75, 1), brk ? 0 : k*(.25 + .75*SIG.kick*at('kick'))*flash, .4*narrow, 4);
+  // the rig: a key light in front and to one side, at the height asked (TUNE.prism.light), drifting slowly and stepping round a
+  // little on each phrase line; a rim light behind it; a low fill from the other side, which the kick flashes once things build.
+  // Their colours warm and cool white, the palette's as asked (a pink light on a green facet came out muddy)
+  if (st.phrT !== st.rigPhr) { st.rigPhr = st.phrT; st.azT = (st.azT ?? 0) + (rnd() < .5 ? -1 : 1)*.9*LT.move; st.azT = Math.max(-1.3, Math.min(1.3, st.azT)); }
+  st.az = (st.az ?? 0) + ((st.azT ?? 0) - (st.az ?? 0))*Math.min(1, dt/4);
+  const az = .6 + st.az + .35*Math.sin(st.t*.05*LT.move) + st.swing, el = -.35 + 1.45*LT.height, ce = Math.cos(el), RR = 2.6;
+  const tint = (w, i, sat) => { const p2 = hsv2rgb(h + pal[i], sat, 1); return w.map((v, j) => v + (p2[j] - v)*LT.colour); };
+  const narrow = 1 - LS.narrow*an;
+  set(0, [RR*ce*Math.sin(az), RR*Math.sin(el), RR*ce*Math.cos(az)], tint([1, .88, .74], 0, .45), k*flash*(brk ? LS.brkKey : 1), R.cone*narrow*(brk ? LS.brkCone : 1), 0);
+  const er = Math.min(1.2, el*.6 + .45);
+  set(1, [-RR*Math.cos(er)*Math.sin(az)*.8, RR*Math.sin(er), -RR*Math.cos(er)], tint([.72, .84, 1], 1, .6), brk ? 0 : k*.8*flash, R.rimCone*narrow, 2);
+  set(2, [-RR*.8*Math.sin(az - .4), -.45, RR*.6*Math.cos(az - .4)], tint([.88, .9, 1], 2, .6), brk ? 0 : (LT.fill + (1 - LT.fill)*SIG.kick*at('kick'))*k*flash, .55*narrow, 4);
   // the layers in 3D: orbits and comets as lights circling it (lighting it as they pass)
   const wO = w3(P, 'orbit', 'comets');
   for (let i = 0; i < 3; i++) { const a = st.t*LS.orbSpeed*(1 + i*.3) + i*2.1, tl = .5 + i*.6, r = LS.orbR*(1 + .15*i), p = [r*Math.cos(a), r*Math.sin(a)*Math.sin(tl), r*Math.sin(a)*Math.cos(tl)];
@@ -396,6 +407,8 @@ function room(u, P, x, rw){
   // the shadow: the key lamp's, through the middle onto the floor
   const n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)], Lp = Ls[0].p, ll = Math.hypot(...Lp), d = Lp.map(v => -v/ll), dn = n[1]*d[1] + n[2]*d[2];
   if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7), .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
+  const ac = tint([.55, .6, .72], 1, .4);
+  STAGE.amb = ac.map(v => v*LT.ambient*rw); STAGE.refl = LT.refl*rw;
   Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5), hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
 }
 // a layer's 3D version in the room: as strong as the layer (Journey turns the flat one down while the room is on: TUNE.prism.show.flat)
@@ -772,13 +785,15 @@ function colour(b, P, x, u, w){
       const a0 = G.TRI[f*3]*3, a1 = G.TRI[f*3 + 1]*3, a2 = G.TRI[f*3 + 2]*3, px = (Pp[a0] + Pp[a1] + Pp[a2])/3, py = (Pp[a0 + 1] + Pp[a1 + 1] + Pp[a2 + 1])/3, pz = (Pp[a0 + 2] + Pp[a1 + 2] + Pp[a2 + 2])/3;
       const c1 = cr*px + sr*pz, cz1 = -sr*px + cr*pz, cy0 = cp*py - sp*cz1, Cz = sp*py + cp*cz1, Cx = co*c1 - so*cy0, Cy = so*c1 + co*cy0;
       const vl = Math.hypot(Cx, Cy, cam - Cz) || 1, Vx = -Cx/vl, Vy = -Cy/vl, Vz = (cam - Cz)/vl, nX = sg*vx, nY = sg*vy, nZ = sg*vz;
+      const am = STAGE.amb, hemi = .3 + .35*(1 + nY);   // ambient light, more from above than below
+      for (let j = 0; j < 3; j++) fr[j] += am[j]*hemi*(.55 + .45*tn[j])*R.diff*(solid ? 1.4 : .8);
       for (let i = 0; i < Ls.length; i++) { const l = Ls[i]; if (l.k < .01) continue;
         let lx = l.p[0] - Cx, ly = l.p[1] - Cy, lz = l.p[2] - Cz; const ld = Math.hypot(lx, ly, lz) || 1; lx /= ld; ly /= ld; lz /= ld;
         const nd = nX*lx + nY*ly + nZ*lz; if (nd <= 0) continue;
         const ca = -(lx*l.a[0] + ly*l.a[1] + lz*l.a[2]), spot = smooth((ca - cones[i][0])/(cones[i][1] - cones[i][0])); if (spot < .01) continue;
         let hx = lx + Vx, hy = ly + Vy, hz = lz + Vz; const hn = Math.hypot(hx, hy, hz) || 1, gl = Math.pow(Math.max(0, (nX*hx + nY*hy + nZ*hz)/hn), R.gloss);
         const amt = l.k*spot, dfa = nd*amt*R.diff*(solid ? 1.6 : 1), gla = gl*amt*R.glint; gw += gla;
-        for (let j = 0; j < 3; j++) fr[j] += l.c[j]*(dfa*(.4 + .6*tn[j]) + gla);
+        for (let j = 0; j < 3; j++) fr[j] += l.c[j]*(dfa*(.75 + .25*tn[j]) + gla);   // (the light's own colour on the glass, a little tinted by it; the glint the light's)
         // a mirror ball: the key lamp thrown off every few facets onto the floor or the walls
         if (i === 0 && f % stride === 0 && !u.inside && nc < SPC) { const rx = 2*nd*nX - lx, ry = 2*nd*nY - ly, rz = 2*nd*nZ - lz, n = STAGE.n;
           const dn = n[1]*ry + n[2]*rz, tf = dn < -1e-3 ? (-STAGE.floor - (n[1]*Cy + n[2]*Cz))/dn : 1e9, bb = Cx*rx + Cy*ry + Cz*rz, cc = Cx*Cx + Cy*Cy + Cz*Cz - STAGE.walls**2, tw = -bb + Math.sqrt(Math.max(0, bb*bb - cc));

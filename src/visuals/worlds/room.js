@@ -17,6 +17,7 @@ function idle(P, x, w){
   it += x.dt; const h = P.hue || 0, pal = P.pal || [0, .33, .67], e = .22, cam = 3.2, f = 1.3, n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)];
   STAGE.lamps.forEach((l, i) => { const a = it*.2 + i*2.1, p = [2.2*Math.sin(a), 1.4, .4*Math.cos(a) - .6], ax = .3*Math.sin(it*.3 + i) - p[0], ay = -.8 - p[1], az = -p[2], al = Math.hypot(ax, ay, az), dz = cam - p[2];
     Object.assign(l, {p, c: hsv2rgb(h + pal[i % 3], .6, 1), k: i < 3 ? .6*w : 0, a: [ax/al, ay/al, az/al], cone: .3, s: [p[0]*f/dz, p[1]*f/dz], vis: 1}); });
+  STAGE.amb = [.55, .6, .72].map(v => v*.45*w); STAGE.refl = 0;
   Object.assign(STAGE, {on: 0, cam, f, pos: [0, 0], tilt: e, floor: .8, walls: 3.4, haze: .5*w, hue: h + pal[1], n, fv, shadow: [0, 0, 0, 1], nSpots: 0, nBeams: 0, rain: 0, t: it});
   STAGE.spots.fill(0);
 }
@@ -26,14 +27,16 @@ export default {
   suits: () => 0,
   params(P, x){ if (!(P.w.room > .003) || (x.eff && x.eff.prism) > .003) return; idle(P, x, Math.min(1, P.w.room)); },   // (with the Prism on, it sets the room up itself)
   glsl: {
-    uniforms: `uniform vec4 uRm, uRm2, uRmSh; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
+    uniforms: `uniform vec4 uRm, uRm2, uRmSh, uRmAmb; uniform vec2 uRmR; uniform vec4 uRmL[3], uRmA[3], uRmB[3]; uniform vec3 uRmC[3]; uniform vec4 uRmS[${MAXSPOTS}], uRmZ[24], uRmZC[24];   // the room: camera distance, focal length, tilt, floor; the Prism's place on screen, haze, hue; the shadow; the lamps (place, brightness; aim, cone; on screen); the mirror ball's spots`,
     functions: `
 vec3 room(vec2 sp){
   float cam=uRm.x, f=uRm.y, e=uRm.z, fl=uRm.w;
   vec3 o=vec3(0.0,0.0,cam), d=normalize(vec3(sp-uRm2.xy,-f)), n=vec3(0.0,cos(e),sin(e)), fv=vec3(0.0,-sin(e),cos(e));
   float b=dot(o,d), c=dot(o,o)-11.56, tw=-b+sqrt(max(0.0,b*b-c)), dn=dot(n,d), tf=dn<-1e-4 ? (-fl-dot(n,o))/dn : 1e9;
   bool onF=tf>0.0&&tf<tw; float t=onF ? tf : tw; vec3 p=o+d*t;
-  vec3 base=hsv(uRm2.w,0.45,1.0), col=base*(0.012+0.012*max(0.0,d.y));
+  vec3 base=hsv(uRm2.w,0.45,1.0), amb=uRmAmb.rgb, col=base*(0.012+0.012*max(0.0,d.y));
+  // ambient light: the floor catching most, the walls brighter low down and towards the lamps' side (a soft cove)
+  col+=onF ? amb*0.32 : amb*(0.1+0.14*smoothstep(1.0,-0.4,dot(normalize(p),n)));
   // the lamps: their pools on the floor and walls (in each cone, facing it, falling off with distance)
   vec3 nn=onF ? n : -normalize(p);
   for(int i=0;i<3;i++){ vec3 l=uRmL[i].xyz-p; float ld=length(l); l/=ld;
@@ -42,7 +45,8 @@ vec3 room(vec2 sp){
   if(onF){
     vec2 q=vec2(p.x,dot(p,fv)), g=abs(fract(q*2.0)-0.5); float w=0.012+t*0.006;
     float ln=smoothstep(0.5-w,0.5,max(g.x,g.y))*exp(-length(q)*0.3);
-    col+=base*ln*0.1+col*ln*1.5;
+    col+=base*ln*0.06+col*ln*0.5;
+    for(int i=0;i<3;i++){ vec3 l=normalize(uRmL[i].xyz-p), r=reflect(d,n); col+=uRmC[i]*uRmL[i].w*pow(max(0.0,dot(r,l)),60.0)*0.5*uRmAmb.w*2.0; }   // the lamps glinting in the polished floor
     vec2 sq=(q-uRmSh.xy)/max(uRmSh.w,0.05); col*=1.0-uRmSh.z*smoothstep(1.0,0.2,length(sq*vec2(1.0,1.3)));   // the Prism's shadow
     col*=smoothstep(3.4,1.0,length(q));
   }
@@ -61,13 +65,15 @@ vec3 room(vec2 sp){
     fn: 'room',
   },
   uniforms(gl, u, P){ pack();
-    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
+    gl.uniform4f(u.uRm, STAGE.cam, STAGE.f, STAGE.tilt, STAGE.floor); gl.uniform4f(u.uRm2, STAGE.pos[0], STAGE.pos[1], STAGE.haze, STAGE.hue); const am = STAGE.amb || [0, 0, 0]; gl.uniform4f(u.uRmAmb, am[0], am[1], am[2], STAGE.refl || 0); gl.uniform2f(u.uRmR, STAGE.rain, STAGE.t % 1000); gl.uniform4fv(u.uRmSh, STAGE.shadow.length === 4 ? STAGE.shadow : [0, 0, 0, 1]);
     const v = k => u[k + '[0]'] || u[k] || null;
     gl.uniform4fv(v('uRmL'), L3); gl.uniform4fv(v('uRmA'), A3); gl.uniform4fv(v('uRmB'), B3); gl.uniform3fv(v('uRmC'), C3); gl.uniform4fv(v('uRmS'), STAGE.spots); if (!STAGE.nBeams) STAGE.beamC.fill(0); gl.uniform4fv(v('uRmZ'), STAGE.beams); gl.uniform4fv(v('uRmZC'), STAGE.beamC); },
   // simple mode: the floor's grid in perspective, the shadow, the beams as soft wedges, the spots
   draw2d(o, P){
     const W = o.canvas.width, H = o.canvas.height, a = Math.min(1, P.w.room), X = s => W/2 + s[0]*H, Y = s => H/2 - s[1]*H;
     o.globalAlpha = a; o.fillStyle = '#000'; o.fillRect(0, 0, W, H);
+    const am = (STAGE.amb || [0, 0, 0]).map(v => Math.round(Math.min(1, v*.35)*255)).join(',');   // ambient light: the walls a soft wash, the floor a little brighter
+    { const g = o.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(${am},.25)`); g.addColorStop(.6, `rgba(${am},.55)`); g.addColorStop(1, `rgba(${am},.9)`); o.fillStyle = g; o.fillRect(0, 0, W, H); }
     const {cam, f, tilt: e, floor: fl, pos} = STAGE, n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)];
     const at = (x, z) => { const p = [x, -fl*n[1] + z*fv[1], -fl*n[2] + z*fv[2]], dz = cam - p[2]; return dz > .05 ? [pos[0] + p[0]*f/dz, pos[1] + p[1]*f/dz] : null; };
     o.lineWidth = 1; o.strokeStyle = hc(STAGE.hue, 45, 30, .25); o.beginPath();

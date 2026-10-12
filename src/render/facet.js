@@ -224,7 +224,7 @@ export function facetPlaceP(G, S3, D, out){
 // U: rot, pitch, roll, sq, size, pos [x, y]; the frame X: pos, fn, off (per face, a push in object space), and from the
 // brain fill (rgba per face), edge (rgb per face), eA (per face edge, 0..1). Out: screen points (px), each face's depth and
 // facing, sorted far to near.
-function project(G, X, U, W, H){
+function project(G, X, U, W, H, M){   // (M: a mirror plane [nx, ny, nz, d] in view space, points on it n·p = -d: the Prism drawn reflected in the room's floor)
   const {nv, nf, TRI} = G, P = X.pos;
   const cr = Math.cos(U.rot), sr = Math.sin(U.rot), cp = Math.cos(U.pitch), sp = Math.sin(U.pitch), co = Math.cos(U.roll || 0), so = Math.sin(U.roll || 0);
   const sq = U.sq || 0, sqx = 1 + sq*.5, sqy = 1 - sq, sc = H*U.size*FOCAL, ox = W/2 + U.pos[0]*H, oy = H/2 - U.pos[1]*H, cam = U.cam || CAM;   // (cam: how far off the camera stands; inside the shape below its radius)
@@ -236,6 +236,7 @@ function project(G, X, U, W, H){
     let zs = 0; VIS[f] = 1;
     for (let k = 0; k < 3; k++) {
       const v = TRI[f*3 + k]*3; turn(P[v] + ex, P[v + 1] + ey, P[v + 2] + ez, T, 0);
+      if (M) { const q = 2*(M[0]*T[0] + M[1]*T[1] + M[2]*T[2] + M[3]); T[0] -= q*M[0]; T[1] -= q*M[1]; T[2] -= q*M[2]; }
       const dz = cam - T[2]; if (dz < near) VIS[f] = 0;   // (behind the camera, or touching it: left out, so the camera can pass through a facet)
       const w = sc/Math.max(near, dz); S[f*9 + k*3] = ox + T[0]*w; S[f*9 + k*3 + 1] = oy - T[1]*w; S[f*9 + k*3 + 2] = T[2]; zs += T[2];
     }
@@ -259,7 +260,7 @@ varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS, vT;
 void main(){ vD=aD; vE=aE; vL=aL; vF=aF; vT=aT; vS=aP/uWH; gl_Position=vec4(aP.x/uWH.x*2.0-1.0,1.0-aP.y/uWH.y*2.0,0.0,1.0); }`;
 // the facets' textures (TEX: 1 stained glass's lead, 2 LED panels' dots, 3 brushed metal's streaks, 4 frosted ice's grain), drawn
 // in each face's own frame (its distances from its edges, in pixels), so they move with it
-const FS = `precision mediump float; varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS, vT; uniform float uLw, uCover, uFillAmt; uniform sampler2D uFillTex;
+const FS = `precision mediump float; varying vec3 vD, vE, vL; varying vec4 vF; varying vec2 vS, vT; uniform float uLw, uCover, uFillAmt, uDim; uniform sampler2D uFillTex;
 float fH(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 void main(){
   if(uCover>0.5){ gl_FragColor=vec4(1.0); return; }
@@ -272,7 +273,7 @@ void main(){
   else if(k>3.5&&k<4.5) f+=vec3(0.06,0.08,0.1)*step(0.86,fH(floor(vD.xy/(uLw*0.8))))*vF.a;   // frost's grain
   vec3 c=f+vL*e;
   if(uFillAmt>0.0) c+=texture2D(uFillTex,vec2(vS.x,1.0-vS.y)).rgb*uFillAmt*vF.a;   // a fill seen through the glass
-  gl_FragColor=vec4(c,vF.a);
+  gl_FragColor=vec4(c,vF.a)*uDim;   // (uDim: a reflection, fainter)
 }`;
 const NA = 17, PROGS = new WeakMap();
 export const FACET = {wait: 0};   // (tests: report the program still building this many more times, as a real driver building it in the background does)
@@ -286,16 +287,16 @@ function prog(gl){
   if (FACET.wait > 0) { FACET.wait--; return null; }
   const x = gl.getExtension('KHR_parallel_shader_compile'); if (x && !gl.getProgramParameter(s.p, x.COMPLETION_STATUS_KHR)) return null;   // (still building: shown once it is)
   if (!gl.getProgramParameter(s.p, gl.LINK_STATUS)) throw new Error(s.sh.map(x => gl.getShaderInfoLog(x)).join('') || gl.getProgramInfoLog(s.p));
-  mark('shader linked: facets'); s.u = {}; for (const k of ['uWH', 'uLw', 'uCover', 'uFillAmt', 'uFillTex']) s.u[k] = gl.getUniformLocation(s.p, k);
+  mark('shader linked: facets'); s.u = {}; for (const k of ['uWH', 'uLw', 'uCover', 'uFillAmt', 'uFillTex', 'uDim']) s.u[k] = gl.getUniformLocation(s.p, k);
   return s;
 }
 export const facetWarm = gl => { try { prog(gl); } catch (e) {} };
 export function facetGL(gl, G){
   const buf = gl.createBuffer(), arr = new Float32Array(G.nf*3*NA);
   let blank = null;
-  return function draw(X, U, W, H, stage){
+  return function draw(X, U, W, H, stage, M){
     const s = prog(gl); if (!s) return;
-    project(G, X, U, W, H);
+    project(G, X, U, W, H, M);
     const {TRI} = G, Sc = X.scr, O = X.order, lw = Math.max(.8, (U.line || 2.2)*H/720);
     let o = 0;
     for (let n = 0; n < O.length; n++) {
@@ -315,7 +316,7 @@ export function facetGL(gl, G){
       }
     }
     gl.useProgram(s.p); const u = s.u;
-    gl.uniform2f(u.uWH, W, H); gl.uniform1f(u.uLw, lw); gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0);
+    gl.uniform2f(u.uWH, W, H); gl.uniform1f(u.uDim, U.dim ?? 1); gl.uniform1f(u.uLw, lw); gl.uniform1f(u.uCover, stage === 'cover' ? 1 : 0);
     if (!blank) { blank = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, blank); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); }
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, stage === 'screen' && U.fillTex || blank); gl.uniform1i(u.uFillTex, 4); gl.activeTexture(gl.TEXTURE0);   // (never the surface being drawn into)
     gl.uniform1f(u.uFillAmt, stage === 'screen' && U.fillTex ? U.fillAmt || 0 : 0);
@@ -332,8 +333,8 @@ export function facetGL(gl, G){
 // ---- simple mode: the faces far to near, each visible facet filled as one shape (no seams between its panes), then the
 // edges gathered by colour into a few paths ----
 const rgba = (r, g, b, a) => `rgba(${Math.min(255, r*255|0)},${Math.min(255, g*255|0)},${Math.min(255, b*255|0)},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
-export function facet2d(o, G, X, U){
-  const W = o.canvas.width, H = o.canvas.height; project(G, X, U, W, H);
+export function facet2d(o, G, X, U, M){
+  const W = o.canvas.width, H = o.canvas.height; project(G, X, U, W, H, M);
   const Sc = X.scr, O = X.order;
   o.save(); o.lineJoin = 'round';
   // facets: consecutive panes of the same visible facet share one path (they're coplanar, so they sort together)

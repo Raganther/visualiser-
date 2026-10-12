@@ -300,7 +300,7 @@ export const TUNE = {
     room: {chance: .3,                             // the room (stage 7, worlds/room.js): the share of sections with the Prism as centrepiece that put it in the room
       far: 4.4, mid: 3.3, near: 1.25, low: 1.05, brk: 1.8, inside: .04,   // the camera's distance: calm (a jewel far off), as it builds, at the end of a run-up (facets filling the screen), low over open land, in a breakdown, inside it on the drop
       insideFrac: .45, ease: 1.8, dive: .35,       // the share of the drop's release spent inside; how quickly the camera moves (s), and how quickly it dives in
-      tilt: .22, tiltLow: .05, floor: .8, walls: 3.4,   // how far the camera looks down (radians; low over the land, nearly level); the floor below the middle and the walls' distance (the Prism's radius about .45)
+      tilt: .22, tiltLow: .05, floor: .62, walls: 3.4,   // how far the camera looks down (radians; low over the land, nearly level); the floor below the middle and the walls' distance (the Prism's radius about .45)
       lampCalm: .8, cone: .2, rimCone: .45, diff: .35, glint: 1.4, gloss: 60,   // the lamps: how bright when calm (full as it builds); the key's cone (radians) and the rim's; how much they light the glass, and their glints off the facets
       spotBright: .9, haze: 1.2},
     tex: {calm: {glass: 2, ice: 1.2, mirror: 1, iris: 1, stained: .8, led: .3, metal: .5},   // the facets' textures (stage 8): how often each is a section's, calm
@@ -310,11 +310,12 @@ export const TUNE = {
     lasers: {max: 6, calm: .45, calmShare: .5, showBars: 2, dropBars: 2,   // the 3D lasers (stage 9): the most beams, how bright when calm, how much of the calm activity counts, a new show every this many bars, all through it for this many bars on a drop
       index: 1.5, depth: 6, splits: 3,              // the glass's refractive index; how many times a ray is followed; how many exits split into a rainbow
       width: .0035, flare: .018, trace: .9, traceSecs: .6},
-    show: {strobe: 1, strobeDecay: 12, swing: .7, narrow: .45, brkKey: .6, brkCone: 2.2,   // the light show (stage 10): how much the kick strobes the lamps and how fast it fades; how far a stab swings the key light; how much a build narrows the cones; a breakdown's one soft light
+    show: {strobe: 1, strobeDecay: 12, swing: .15, narrow: .45, brkKey: .6, brkCone: 2.2,   // the light show (stage 10): how much the kick strobes the lamps and how fast it fades; how far a stab swings the key light; how much a build narrows the cones; a breakdown's one soft light
       flat: .35,                                    // while the room is on, the layers it draws in 3D (orbits, comets, fireflies, stargate, rain) are this strong flat
       orb: .9, orbR: 1.0, orbSpeed: .7,             // the orbits and comets as lights circling it: how bright, how far out, how fast
       motes: 20, rings: 6, ringStep: .9, ringR: 1.5},
-    swarm: {secs: 1.6, swirl: .6, gather: .45, swapEx: .2}},   // the swarm (stage 11): how long its shards take to fly into another object's shape, how far they swirl on the way; changing body, how quickly they come out of the disc, and how much shatter is left   // fireflies as motes in the haze; the stargate's rings (how many, how far apart, one a beat, how wide)   // a beam's width and a flare's size (screen heights); how brightly a facet a laser meets lights, and how soon it fades   // the fire: light split into a rainbow by each facet (how bright, how far the colours part, how wide its glints against the white one)                  // the mirror-ball spots thrown off the facets; how thick the haze the beams show in   // the activity at which each comes in (form: a new form every phrase, not every other)
+    swarm: {secs: 1.6, swirl: .6, gather: .45, swapEx: .2},   // the swarm (stage 11): how long its shards take to fly into another object's shape, how far they swirl on the way; changing body, how quickly they come out of the disc, and how much shatter is left
+    light: {ambient: .45, fill: .35, move: .3, height: .55, colour: .25, refl: .35, aim: .08}},   // the room's light (the user found it dark, flitting and always from above, its colours odd): ambient light filling the room and the Prism; the low fill lamp; how fast the lamps move (0 still); the key lamp's height (0 below, 1 overhead); its colour (0 warm and cool white, 1 the palette's); the floor's reflection; how far the lamps' aim wanders
   heart: {chance: 0, size: .82, hinge: 0,         // the heart (tools/blender/heart.py): its shape key squeezes it (1) and fills it (-1)
     turn: .08, turnSwing: .45, pitch: .04,
     beat: 1.3, fill: .4,       // each beat's squeeze, and how far it fills after

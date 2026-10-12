@@ -50,6 +50,15 @@ const KNOBS = [
     ['glint', 'Glints', 0, 2, .05],
     ['tex.fire', 'Rainbow fire', 0, 2, .05],
     ['show.strobe', 'Kick strobe', 0, 3, .1]]],
+  ['Room light', [
+    ['light.ambient', 'Ambient light', 0, 1.5, .05],
+    ['light.fill', 'Fill light from below', 0, 1, .05],
+    ['light.height', 'Key light height (below → above)', 0, 1, .05],
+    ['light.move', 'How much the lights move', 0, 1, .05],
+    ['light.colour', 'Light colour (white → palette)', 0, 1, .05],
+    ['light.aim', 'How much the beams wander', 0, .3, .01],
+    ['show.swing', 'Stabs swing the key light', 0, 1, .05],
+    ['light.refl', 'Floor reflection', 0, 1, .05]]],
   ['Room and lasers', [
     ['room.ease', 'The camera moves over (seconds)', .3, 5, .1],
     ['room.far', 'Camera distance when calm', 1.5, 8, .1],
