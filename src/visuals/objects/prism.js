@@ -168,7 +168,17 @@ export const prismProgram = (type, T) => programFor(type, T);
 export const prismForm = (k, now) => { st.hold = k; if (k) { const g = fromForm(k, st.g); goGenome(g, now); if (now) { snapTo(g); } } };
 export const prismImprovise = (size = .5) => improvise(size, 0);   // (tests: one step of the improviser now)
 export const prismSection = ty => { st.testType = ty; };
-export const prismRunUp = a => { st.testRunUp = a; };   // (tests: hold the run-up to a drop at a; undefined lets Journey say)   // (tests: play as if Journey were in this section; undefined lets Journey say again)
+export const prismRunUp = a => { st.testRunUp = a; };
+// the Prism lab (src/lab/prism.js): each holds one thing (undefined lets the music say again)
+export const prismBrk = v => { st.testBrk = v; };
+export const prismTension = v => { st.testTen = v; };
+export const prismCam = k => { st.testCam = k; };   // 'far', 'mid', 'near', 'inside' or 'low'
+export const prismLasers = (on, show) => { st.testLasers = on; st.testShow = show; };   // show: 'fan', 'cross', 'star' or 'scan'
+export const prismFigure = k => { if (st.prog) st.prog.figure = k; };   // RULES, 'life' or 'improv'
+export const prismDetail = n => { setDetail(n); };
+export const prismShapes = () => Object.keys(ARCH);
+export const prismTexs = () => Object.keys(TEXCODE);
+export const laserShows = () => SHOWS;
 
 export default {
   key: 'prism', kind: 'object', label: 'Prism', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
@@ -183,7 +193,7 @@ export default {
   },
   breakApart(){ st.exT = 1; },
   params(P, x){
-    const T = TUNE.prism, J = x.J, dt = x.dt, w = P.o.prism || 0, ten = J ? J.tension || 0 : .5;
+    const T = TUNE.prism, J = x.J, dt = x.dt, w = P.o.prism || 0, ten = st.testTen ?? (J ? J.tension || 0 : .5);
     st.t += dt;
     // how steady the beat is: music played freely (no dance pulse) gets swells, not drops, and its own slow time (TUNE.prism.free)
     const steady = st.clear = st.testClear ?? (J && J.on && J.beatClear != null ? J.beatClear : 1), free = 1 - steady, FR = T.free;
@@ -209,7 +219,7 @@ export default {
     let goal = Math.min(TA.cap, TA.base + TA.climb*smooth(climbBars/TA.climbBars)*(.4 + .6*ten) + (afterDrop ? 0 : TA.rising*Math.max(0, st.tFast - st.tSlow)));
     if (anticip > .02) goal = Math.max(goal, TA.runUp + (1 - TA.runUp)*anticip);
     if (since < dropLen) goal = Math.max(goal, (1 - since/dropLen)*(FR.dropFloor + (1 - FR.dropFloor)*(st.dropK ?? 1)));
-    if (L.brk) goal *= TA.brk;
+    if (brkNow()) goal *= TA.brk;
     goal *= 1 - free*FR.actCut;
     st.act += (goal - st.act)*Math.min(1, dt/((goal > st.act ? TA.rise : TA.fall)*(1 + free*FR.slower)));   // (freely played music: rising and settling slowly)
     if (w < .003) { st.off = true; return; }
@@ -239,11 +249,11 @@ export default {
     if (phrase) { st.phr = st.bars; st.phrT = st.t;
       if (!st.hold && st.t - st.dropT > 8*S.beatPeriod) { const an = runUp(J);   // (a drop's run-up: bigger steps and leaps as it nears)
         const sk = 1 - free*FR.stepCut;   // (freely played: smaller steps, more often a variation than a new shape)
-        improvise((L.brk && an < .05 ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct + an*T.arc.stepBuild)*sk, (L.brk && an < .05 ? 0 : T.imp.leap + st.act*T.imp.leapAct + an*T.arc.leapBuild)*sk, sk); } }   // (a breakdown: small, calm steps)
+        improvise((brkNow() && an < .05 ? T.imp.step*.6 : T.imp.step + st.act*T.imp.stepAct + an*T.arc.stepBuild)*sk, (brkNow() && an < .05 ? 0 : T.imp.leap + st.act*T.imp.leapAct + an*T.arc.leapBuild)*sk, sk); } }   // (a breakdown: small, calm steps)
     // a breakdown lays it down calm with fewer facets; after it, and a while after a drop, back to the section's own
-    if (L.brk && !st.brk) { if (!st.hold) goGenome(P.w.room > .5 ? fromForm('peaks', st.g) : pr.brk === 'star' ? fromForm('star', st.g) : calmer()); setDetail(1 + rnd()*.8); }   // (in the room: unrolled into land, ranges rising out of it)
-    if (!L.brk && st.brk) setDetail(detFor());
-    st.brk = L.brk;
+    if (brkNow() && !st.brk) { if (!st.hold) goGenome(P.w.room > .5 ? fromForm('peaks', st.g) : pr.brk === 'star' ? fromForm('star', st.g) : calmer()); setDetail(1 + rnd()*.8); }   // (in the room: unrolled into land, ranges rising out of it)
+    if (!brkNow() && st.brk) setDetail(detFor());
+    st.brk = brkNow();
     // a drop's run-up climbs in facets as it nears (whole levels: the front blooms out at each)
     { const an = runUp(J); if (an > .05 && st.t - st.dropT > 2) { const want = Math.round(detFor() + an*T.arc.detBuild); if (want > st.dTo) setDetail(want); } }
     st.asym = st.asymT ? Math.max(0, 1 - (st.t - st.asymT)/(T.arc.asymBars*4*S.beatPeriod)) : 0;   // (symmetry broken at the drop, found again over these bars)
@@ -294,10 +304,10 @@ const SHOWS = ['fan', 'cross', 'star', 'scan'];
 function lasers(b, u, P, x, rw){
   OVER.n = 0; STAGE.nBeams = 0; const LT = TUNE.prism.lasers;
   const lz = b.lz || (b.lz = new Float32Array(b.nf)); for (let f = 0; f < b.nf; f++) lz[f] *= Math.exp(-x.dt/LT.traceSecs);
-  if (rw < .01 || u.inside) return;
+  if (rw < .01 || u.inside || st.testLasers === false) return;
   const an = runUp(x.J), dropLen = LT.dropBars*4*S.beatPeriod, since = st.t - st.dropT, drop = since < dropLen;
   const lv = Math.min(1, Math.max(st.act/TUNE.prism.act.cap*LT.calmShare, an, drop ? 1 : 0)), nOn = drop ? LT.max : Math.min(LT.max, 1 + Math.round(lv*(LT.max - 2)));
-  const show = drop ? 'star' : SHOWS[Math.floor(hash(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0))*SHOWS.length)];
+  const show = st.testShow || (drop ? 'star' : SHOWS[Math.floor(hash(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0))*SHOWS.length)]);
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], t = st.t, br = (LT.calm + (1 - LT.calm)*lv)*rw, emit = [];
   const aim = (p, q, i) => { const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], l = Math.hypot(...d) || 1; emit.push({p, d: d.map(v => v/l), c: hsv2rgb(h + pal[i % 3], .85, 1).map(v => v*br)}); };
   for (let i = 0; i < nOn; i++) { const s = nOn > 1 ? i/(nOn - 1) - .5 : 0;
@@ -357,8 +367,9 @@ function room(u, P, x, rw){
   let goal = R.far - (R.far - R.mid)*smooth(st.act/TA.cap), tilt = R.tilt, dive = false;
   if (an > .02) goal += (R.near - goal)*smooth(an);
   if (since < dropLen) { const q = since/dropLen; if (q < R.insideFrac) { goal = R.inside; dive = true; } else goal = R.near + (goal - R.near)*smooth((q - R.insideFrac)/(1 - R.insideFrac)); }
-  else if (L.brk && an < .05) { goal = R.brk; tilt = R.tiltLow; }
+  else if (brkNow() && an < .05) { goal = R.brk; tilt = R.tiltLow; }
   else if (kc < .5) { goal = Math.min(goal, R.low + .8); tilt = R.tiltLow + (R.tilt - R.tiltLow)*.3; }   // (open land: low over it)
+  if (st.testCam) { goal = st.testCam === 'low' ? R.brk : R[st.testCam]; tilt = st.testCam === 'low' ? R.tiltLow : R.tilt; dive = st.testCam === 'inside'; }   // (the Prism lab: the camera held)
   st.cam ??= goal; st.tilt ??= tilt;
   st.cam += (goal - st.cam)*Math.min(1, dt/(dive || goal < st.cam - 1.5 ? R.dive : R.ease)); st.tilt += (tilt - st.tilt)*Math.min(1, dt/R.ease);
   const cam = CAM + (st.cam - CAM)*rw, e = st.tilt*rw, near = smooth((2.6 - cam)/1.4);
@@ -371,7 +382,7 @@ function room(u, P, x, rw){
   // lamp onto it (their cones narrowing), a breakdown leaves one soft light
   if (SIG.kick > .99 && st.t - (st.strobeT ?? -9) > .12) { st.strobeT = st.t; if (at('kick') > .5 || since < dropLen) st.strobe = 1; }
   st.strobe = (st.strobe || 0)*Math.exp(-dt*LS.strobeDecay); st.swing = (st.swing || 0) + (st.sec*LS.swing - (st.swing || 0))*Math.min(1, dt*4);
-  const brk = L.brk && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, wob = 1 - an;
+  const brk = brkNow() && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, wob = 1 - an;
   const set = (i, p, c, kk, cone, ai) => { const l = Ls[i], ax = .22*wob*Math.sin(st.t*.7 + ai) - p[0], ay = .18*wob*Math.cos(st.t*.5 + ai*1.3) - p[1], az = -p[2], al = Math.hypot(ax, ay, az) || 1, dz = cam - p[2];
     l.p = p; l.c = c; l.k = kk; l.a = [ax/al, ay/al, az/al]; l.cone = cone; l.s = dz > .05 ? [u.pos[0] + p[0]*f/dz, u.pos[1] + p[1]*f/dz] : [0, 0]; l.vis = smooth((dz - .2)/.5); };
   const narrow = 1 - LS.narrow*an, ka = ph*.5 + st.swing;
@@ -636,6 +647,7 @@ function wedgeCells(b, k){ const n = st.prog.n[b.kind], w = Math.PI*2/n, i0 = k 
 // how strongly the fireflies are coupled: loose when calm, in step through a drop's run-up (stage 6 plans it)
 // how far into a drop's run-up the music is (Journey's read-ahead; a test can hold it)
 const runUp = J => st.testRunUp ?? ((J && J.anticip) || 0);
+const brkNow = () => st.testBrk ?? L.brk;
 const flyK = J => { const T = TUNE.prism.cells, a = runUp(J); return T.flyK + (T.flyKBuild - T.flyK)*Math.max(a, (st.act - .4)/.6); };
 function kick(ten){
   const pr = st.prog; if (!pr) return;

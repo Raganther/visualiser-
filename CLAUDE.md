@@ -717,6 +717,7 @@ Everything here is opt-in from the URL, so the normal page is unaffected:
 - `?tune=path=value` overrides a `TUNE` number, e.g. `?tune=hitNone=.4&tune=pace.divBar=.2`. Use it for quick feel comparisons.
 - `?lab=name` loads `src/lab/name.js` before the first frame and calls its default export with `{TUNE, J, PACE, registry}`. Use it for trying an idea on one branch without touching the defaults; `src/lab/example.js` is a template. Labs are bundled into the build too. The panel's lab switches last for the tab (`sessionStorage`).
 - `?seed=N` makes a run repeatable.
+- **The Prism lab** (`src/lab/prism.js`; `?lab=prism`, or `dist/prism-lab.html`, built beside `afterglow.html` and published as its own Artifact: https://claude.ai/artifact/U6v35WUinkw7MEN78Ki7z3): the Prism alone in its room, Journey off, with a touch panel for the iPad. Its buttons play the music's moments (a groovebox starter for sound; a build to a drop; a drop now; a breakdown; calm, mid or intense; a steady or free beat) and hold each feature (the shape, texture and cell pattern, cycled; the number of facets; the room; the camera far, near, inside or low; the 3D lasers' show or none; the layers drawn in 3D). Each button holds the setting through one of the Prism's hooks (`prismBrk`, `prismTension`, `prismCam`, `prismLasers`, `prismFigure`, `prismDetail`, and the tests' own hooks); Auto lets the music choose again. The picture sits above the panel (`S.djH`). A page names its labs before the modules load with `window.__labs`.
 - For bigger ideas, use one branch per idea.
 
 ## Testing

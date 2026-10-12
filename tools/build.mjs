@@ -22,3 +22,8 @@ for (const bad of ['src="src/', 'href="styles.css"']) if (html.includes(bad)) th
 fs.mkdirSync(path.join(root, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(root, 'dist/afterglow.html'), html);
 console.log(`dist/afterglow.html: ${(html.length/1024).toFixed(0)} KB`);
+// the Prism lab: the same page, opening straight into src/lab/prism.js (a link to the Artifact can't carry ?lab=prism)
+let lab = swap(html, '<title>Afterglow visualizer</title>', '<title>Prism Lab</title>');
+lab = swap(lab, '<script type="module">', `<script>window.__labs = ['prism'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/prism-lab.html'), lab);
+console.log(`dist/prism-lab.html: ${(lab.length/1024).toFixed(0)} KB`);
