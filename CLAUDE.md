@@ -40,6 +40,7 @@ tests/                     npm test: smoke, media, objects, scene, sync, grid, l
 docs/composition-plan.md   the staged rebuild around composition, with its log
 docs/prism-plan.md         the plan for the prism: one sheet of facets becoming any shape, in a 3D room with lamps and lasers (stages 1 and 2 built: the sheet, and the Prism that merges the prism and the Fold)
 tools/build.mjs            the bundler for dist/afterglow.html
+native/PrismTest.swiftpm   the Prism alone, native (Swift and Metal, for Swift Playgrounds on the iPad or Xcode): a test of how it feels outside the browser, with your tracks read ahead and Jam (native/README.md)
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
 tools/blender/*.py         objects modelled in Blender (the manta), exported as .glb; the lit assets (lit_kit.py, goblin_hd.py, tentacle.py, hand.py, heart.py) and lit_export.py
 tools/import-glb.mjs       a .glb from Blender into a mesh file (parts from materials, a shape key as the morph)
