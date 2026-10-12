@@ -156,7 +156,7 @@ export function stepJourney(now, dt){
   // a centrepiece object stands in front; the lead steps back a little so it isn't crowded (the tunnel wins while media is on)
   for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE.mesh.level : 0;
   if (J.centre && !MEDIA.on) tgt[J.lead] *= .7;
-  if (byKey.room) { tgt.room = J.stage && J.centre && !MEDIA.on ? 1 : 0; if (tgt.room) { WORLDS.forEach(k => tgt[k] = 0); for (const k of ['orbit', 'comets', 'fireflies', 'stargate', 'rain']) if (tgt[k]) tgt[k] *= TUNE.prism.show.flat; } }   // (those it draws in 3D, flat only faintly)   // the Prism in its room: the room is the world
+  if (byKey.room) { tgt.room = J.stage && J.centre && !MEDIA.on && !J.worldHold && !worldPinned ? 1 : 0; if (tgt.room) { WORLDS.forEach(k => tgt[k] = 0); for (const k of ['orbit', 'comets', 'fireflies', 'stargate', 'rain']) if (tgt[k]) tgt[k] *= TUNE.prism.show.flat; } }   // (those it draws in 3D, flat only faintly)   // the Prism in its room: the room is the world
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
