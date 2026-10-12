@@ -260,19 +260,19 @@ export const TUNE = {
   prism: {chance: 0, size: .5, spin: .22, journey: 1.6, spinBurst: 1.4, spinBurstSecs: 1.2,   // (spinBurst: three stabs in a bar spin it this much faster, easing out over spinBurstSecs)   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
     r: .45, star: .9,                               // the closed gem's radius; the open star's size against it (its points reach π × r × star)
     half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
-    morphSecs: 2.8, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
+    morphSecs: 3.9, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
     swapSecs: .5, swapEx: .8,                       // flying from the gem to the square (or back): how long its facets are out, and how far they fly
     detCalm: 2, detTension: 1.1, wipeBeats: 4,   // (detCalm: the most levels of facets when calm)                  // how many more levels of facets an intense section has; how long new facets take to bloom out from the middle
-    breath: .08,                                    // how much the bass swells the closed gem
+    breath: .14,                                    // how much the bass swells the closed gem
     mtn: .3, mtnScale: 2.2, mtnBreath: .5,          // the mountains: how high, how wide their ranges (smaller: broader), how much the bass lifts them
     waveK: 9, waveSpeed: 2.2,                       // the waves running out from the middle: how close, how fast
     ripSpeed: .75, ripLift: .2, ripLiftClosed: .045, ripSecs: 1.6,   // the kick's ring: how fast it runs out (the ball's front to back a second), how much it lifts an open sheet and the closed gem, how long it lasts
-    explode: .9, explodeSecs: 1.2,                  // how far its facets fly when it shatters, and how long it takes to pull together
+    explode: 1.25, explodeSecs: 1.2,                  // how far its facets fly when it shatters, and how long it takes to pull together
     layerBars: {stab: 4, hat: 8, improv: 8, life: 12, cells: 4, extrude: 16},   // when each part's pattern comes in, in bars from the section's start (improv: the symmetric figure; life: on the facets; extrude: lit facets lifting further)
     hatShare: .1,                                   // the share of facets the hats light each 16th, at full hats
     fill: .14, dark: .72,                           // how much light the glass holds, and how much it darkens what's behind
     gloss: 90, glint: .6,                           // its facets' highlight: how tight, how bright (they flash as it turns)
-    extrude: .2, lit: .8,                           // how far lit facets push out; how bright the patterns light it
+    extrude: .2, lit: .4,                           // how far lit facets push out; how bright the patterns light it
     cells: {rdRate: 90, du: .2, dv: .1, rdGain: 7,   // the facets as cells (stage 5, objects/cells.js): spots and stripes' steps a second, diffusion, brightness
       waveC: .25, waveDamp: 2, waveGain: 2,         // the swell: how fast a wave crosses facet to facet, how soon it dies, how bright
       frostRate: 4, frostGrow: .35, frostMelt: 8,   // frost: growth steps a second, the chance a facet frosts from one frosted neighbour, how long it takes to melt (s)
@@ -280,9 +280,9 @@ export const TUNE = {
       flyK: .05, flyKBuild: .45},                   // how strongly they're pulled into step: calm (apart), and through a build (all in step by the drop)
     arc: {detBuild: 1.5, stepBuild: .4, leapBuild: .5,   // the arc (stage 6): in a drop's run-up, how many more levels of facets, how much bigger the improviser's steps and how likely its leaps, at the drop
       asymAmt: .5, asymBars: 6, calmBars: 8},       // ... and after the drop's release, this many bars of calm (rising tension then doesn't count as a build)                    // at the drop its symmetry breaks (one side swollen out) and is found again over these bars
-    openChance: .15,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
-    imp: {step: .2, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a variation's size, more as the music builds; added to the chance of moving on, more as it builds
-      next: .55, fresh: .05, recent: 6,              // the chance each step moves on to the next shape on its tour (ARCH), how much that shape is varied, how many recent ones it won't revisit
+    openChance: .55,                                // how often a fresh shape is laid open (the star, mountains, waves, a bloom): a moment, not home
+    imp: {step: .58, stepAct: .35, leap: .06, leapAct: .22,   // the improviser (stage 4): a variation's size, more as the music builds; added to the chance of moving on, more as it builds
+      next: .7, fresh: .05, recent: 6,              // the chance each step moves on to the next shape on its tour (ARCH), how much that shape is varied, how many recent ones it won't revisit
       kinds: {closed: .6, square: .22, open: .13, swarm: .05},   // how often each kind is visited: the closed gem's shapes, the square's (donut, tube, ribbon, flat ring), the open ones
       seenWeight: 1, chance: 1.2,                   // how strongly it prefers shapes it hasn't shown lately, and how much chance there is in the order
       vary: .2, home: .08,                         // how far a returning section's theme is varied; the chance a phrase line comes home to the theme
@@ -290,27 +290,27 @@ export const TUNE = {
       novelty: .6, stepScale: 2.5, suit: .4,        // how much a variation prefers shapes unlike those it's made and a step of the size wanted; how much the music's sharpness leans the tour
       openTheme: .2, squareChance: .12, squareStay: .6, openStay: .5,   // ... and the chance each phrase line on the square folds back into the gem, or the open star closes up
       noBarSecs: 6},                                // with no bars from the beat grid (pads, a beatless stretch), it counts a bar every this many seconds   // ... and the chance each phrase line on the square folds back into the gem            // the chance a section's theme is laid open, and that a fresh shape is on the square (a tube, a ring, a twist, the flat ring)
-    act: {base: .1, climb: .25, climbBars: 32, cap: .4,    // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
+    act: {base: .22, climb: .25, climbBars: 32, cap: .4,    // its activity (how much may move) between drops: a little at rest, climbing through a section over these bars (more if it's intense), never above cap without a drop
       rising: 2.5, fastSecs: 4, slowSecs: 30,      // and lifted while the tension rises above its own level of the last half minute (its quick average against its slow one)
-      runUp: .45, dropBars: 8, brk: .35,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown
+      runUp: .45, dropBars: 8, brk: .55,            // lifted to at least this through a drop's run-up; full on the drop, falling back over these bars; held to this share in a breakdown
       rise: 5, fall: 2.5,                           // how quickly it rises and falls (seconds)
-      spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .3, litCalm: .5,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern), how bright its patterns glow
+      spinCalm: .3, danceCalm: .2, liftCalm: .15, kickCalm: .5, litCalm: .5,   // when calm: how fast it turns, how much it dances, how much the kick's ring lifts it, how bright the kick lights it (unless the kick's ring is its calm pattern), how bright its patterns glow
       at: {everyKick: .35, form: .35, kick: .3, sectors: .25, spiral: .35, hat: .4, figure: .45, grow: .5, lift: .5, dance: .4, spin: .6}},
     free: {dropFloor: .25, actCut: .4, slower: 1.5, spinCut: .5, phraseSecs: 16, stepCut: .5},   // music without a steady beat (Journey's beatClear 0; Us and Them): a drop lifts it to only this, its activity cut by this share, rising, settling and morphing this much slower, turning this much slower, a phrase every this many seconds, the improviser's steps this much smaller
     room: {chance: .3,                             // the room (stage 7, worlds/room.js): the share of sections with the Prism as centrepiece that put it in the room
       far: 4.4, mid: 3.3, near: 1.25, low: 1.05, brk: 1.8, inside: .04,   // the camera's distance: calm (a jewel far off), as it builds, at the end of a run-up (facets filling the screen), low over open land, in a breakdown, inside it on the drop
       insideFrac: .45, ease: 1.8, dive: .35,       // the share of the drop's release spent inside; how quickly the camera moves (s), and how quickly it dives in
       tilt: .22, tiltLow: .05, floor: .8, walls: 3.4,   // how far the camera looks down (radians; low over the land, nearly level); the floor below the middle and the walls' distance (the Prism's radius about .45)
-      lampCalm: .35, cone: .2, rimCone: .45, diff: .35, glint: 1.4, gloss: 60,   // the lamps: how bright when calm (full as it builds); the key's cone (radians) and the rim's; how much they light the glass, and their glints off the facets
-      spotBright: .9, haze: .5},
+      lampCalm: .8, cone: .2, rimCone: .45, diff: .35, glint: 1.4, gloss: 60,   // the lamps: how bright when calm (full as it builds); the key's cone (radians) and the rim's; how much they light the glass, and their glints off the facets
+      spotBright: .9, haze: 1.2},
     tex: {calm: {glass: 2, ice: 1.2, mirror: 1, iris: 1, stained: .8, led: .3, metal: .5},   // the facets' textures (stage 8): how often each is a section's, calm
       live: {glass: 1, ice: .5, mirror: .8, iris: 1, stained: 1.2, led: 1.2, metal: 1},   // ... and intense
       sweepBeats: 8, change: .3,                    // how long a new texture takes to sweep across it, facet by facet; the chance one comes in when the improviser moves on
-      fire: .7, fireSpread: .09, fireGloss: .5},
-    lasers: {max: 8, calm: .45, calmShare: .5, showBars: 2, dropBars: 2,   // the 3D lasers (stage 9): the most beams, how bright when calm, how much of the calm activity counts, a new show every this many bars, all through it for this many bars on a drop
+      fire: 1.35, fireSpread: .09, fireGloss: .5},
+    lasers: {max: 6, calm: .45, calmShare: .5, showBars: 2, dropBars: 2,   // the 3D lasers (stage 9): the most beams, how bright when calm, how much of the calm activity counts, a new show every this many bars, all through it for this many bars on a drop
       index: 1.5, depth: 6, splits: 3,              // the glass's refractive index; how many times a ray is followed; how many exits split into a rainbow
       width: .0035, flare: .018, trace: .9, traceSecs: .6},
-    show: {strobe: 1.2, strobeDecay: 12, swing: .7, narrow: .45, brkKey: .6, brkCone: 2.2,   // the light show (stage 10): how much the kick strobes the lamps and how fast it fades; how far a stab swings the key light; how much a build narrows the cones; a breakdown's one soft light
+    show: {strobe: 1, strobeDecay: 12, swing: .7, narrow: .45, brkKey: .6, brkCone: 2.2,   // the light show (stage 10): how much the kick strobes the lamps and how fast it fades; how far a stab swings the key light; how much a build narrows the cones; a breakdown's one soft light
       flat: .35,                                    // while the room is on, the layers it draws in 3D (orbits, comets, fireflies, stargate, rain) are this strong flat
       orb: .9, orbR: 1.0, orbSpeed: .7,             // the orbits and comets as lights circling it: how bright, how far out, how fast
       motes: 20, rings: 6, ringStep: .9, ringR: 1.5},
