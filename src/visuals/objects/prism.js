@@ -284,9 +284,10 @@ export default {
       u.rot += d.yaw*f.yw*dm; u.roll += d.yaw*(1 - f.yw)*dm;
       u.pitch += d.pitch*(f.pitch < 0 ? .3 : 1)*dm; u.roll += d.roll*dm; u.pos = [u.pos[0] + d.dx*dm, u.pos[1] + d.dy*dm]; u.size *= 1 + (d.s - 1)*dm; u.sq = d.sq*(f.pitch < 0 ? .3 : 1)*dm; }
     const Vw = S.view; if (Vw && Vw.key === 'prism') { u.rot = Vw.yaw + (d ? d.yaw : 0); u.pitch += Vw.pitch; u.size *= Vw.zoom; }
+    if (JAM.on || JAM.pulls.length || Math.abs(JAM.yaw) + Math.abs(JAM.tilt) > 1e-4) { jamStep(dt); u.rot += JAM.yaw; u.pitch += JAM.tilt; }   // your hand on it (the Prism lab's Jam)
     const rw = Math.min(1, P.w.room || 0); if (rw > .01) room(u, P, x, rw); else STAGE.on = 0;
     colour(b, P, x, u, w);
-    lasers(b, u, P, x, rw); show3d(u, P, x, rw);
+    lasers(b, u, P, x, rw); show3d(u, P, x, rw); st.lastU = u;
   },
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
     const u = P.m.prism, b = BODY[u.body]; if (this._gen !== S.glGen) { this._gl = {}; this._gen = S.glGen; }
@@ -381,6 +382,39 @@ const cross3 = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1
 function overPx(W, H){ for (let i = 0; i < OVER.n; i++) { const k = i*10, L = OVER.list;
   PX[k] = W/2 + L[k]*H; PX[k + 1] = H/2 - L[k + 1]*H; PX[k + 2] = W/2 + L[k + 2]*H; PX[k + 3] = H/2 - L[k + 3]*H; PX[k + 4] = L[k + 4]*H; for (let j = 5; j < 10; j++) PX[k + j] = L[k + j]; }
   return PX; }
+
+// ---- jamming (the Prism lab's Jam): your hand on it while the music plays, the picture only. Dragging turns and tips it (it
+// spins on when let go, then settles face on to its own symmetry within a beat); pressing on it and dragging outward pulls out
+// a spike, inward or holding pushes a dent, at each of its symmetric copies, springing back when let go and bouncing at the
+// beat's own speed; a tap sends a ring of light out from that point, brighter the nearer the beat. TUNE.prism.jam ----
+export const JAM = {on: false, drag: false, yaw: 0, yawV: 0, tilt: 0, tiltV: 0, pulls: []};
+// the point on it under a point on the screen (screen heights from the middle), as a direction on its ball, or null off it
+export function prismPick(sx, sy){
+  const u = st.lastU; if (!u) return null;
+  const cam = u.cam || CAM, f = u.size*FOCAL, dx = (sx - u.pos[0])/f, dy = (sy - u.pos[1])/f, dl = Math.hypot(dx, dy, 1), d = [dx/dl, dy/dl, -1/dl], o = [0, 0, cam];
+  const R = TUNE.prism.r*1.05, b = o[0]*d[0] + o[1]*d[1] + o[2]*d[2], c = o[2]*o[2] - R*R, disc = b*b - c, hit = disc > 0;
+  const t = hit ? -b - Math.sqrt(disc) : -b, p = [d[0]*t, d[1]*t, cam + d[2]*t];
+  const cr = Math.cos(u.rot), sr = Math.sin(u.rot), cp = Math.cos(u.pitch), sp = Math.sin(u.pitch), co = Math.cos(u.roll || 0), so = Math.sin(u.roll || 0);
+  const x1 = co*p[0] + so*p[1], y2 = -so*p[0] + co*p[1], z2 = p[2], y = cp*y2 + sp*z2, z1 = -sp*y2 + cp*z2, x = cr*x1 - sr*z1, z = sr*x1 + cr*z1, l = Math.hypot(x, y, z) || 1;
+  return {dir: [x/l, y/l, z/l], hit, c: u.pos};
+}
+// a new pull at a point (its symmetric copies about the front axis, the gem's own); the lab moves it with jamPull
+export function jamGrab(dir){ const n = st.prog ? st.prog.n[st.body] : 5, cs = [];
+  for (let i = 0; i < n; i++) { const a = i/n*Math.PI*2, c = Math.cos(a), s2 = Math.sin(a); cs.push(c*dir[0] - s2*dir[1], s2*dir[0] + c*dir[1], dir[2]); }
+  const q = {cs, amt: 0, v: 0, target: 0, held: true}; JAM.pulls.push(q); if (JAM.pulls.length > TUNE.prism.jam.max) JAM.pulls.shift(); return q; }
+// a tap: a ring of light from there, brighter the nearer the beat
+export function jamTap(dir){ const ph = SIG.beatPhase || 0, off = Math.min(ph, 1 - ph), acc = Math.max(0, 1 - off*4);
+  st.rip.push({o: dir, t: st.t, k: .5 + acc*TUNE.prism.jam.tapBright, inv: false}); if (st.rip.length > 6) st.rip.shift(); return acc; }
+function jamStep(dt){
+  const J2 = TUNE.prism.jam, bp = Math.max(.25, S.beatPeriod || .5), w = Math.PI*2/bp*J2.bounce, z = J2.damp, n = st.prog ? st.prog.n[st.body] : 5, sym = Math.PI*2/n;
+  for (const q of JAM.pulls) { if (q.held) { q.amt += (q.target - q.amt)*Math.min(1, dt*12); q.v = 0; continue; }
+    for (let k = 0; k < 4; k++) { const h = dt/4, a = -w*w*q.amt - 2*z*w*q.v; q.v += a*h; q.amt += q.v*h; } }
+  JAM.pulls = JAM.pulls.filter(q => q.held || Math.abs(q.amt) + Math.abs(q.v)*.05 > .002);
+  if (!JAM.drag) {   // let go: it spins on, slowing, then settles face on to its symmetry within a beat; its tilt springs back
+    JAM.yawV *= Math.exp(-dt*J2.friction); JAM.yaw += JAM.yawV*dt;
+    if (Math.abs(JAM.yawV) < .4) { const tg = Math.round(JAM.yaw/sym)*sym; JAM.yaw += (tg - JAM.yaw)*Math.min(1, dt/(bp*.5)); }
+    for (let k = 0; k < 4; k++) { const h = dt/4, a = -w*w*JAM.tilt - 2*z*w*JAM.tiltV; JAM.tiltV += a*h; JAM.tilt += JAM.tiltV*h; } }
+}
 
 // ---- the room's style: the soft studio cove or the mirror chamber (and those step 4 adds), a section's own ----
 function pickRoom(){ const w = TUNE.prism.styles, ks = Object.keys(w), tot = ks.reduce((a, k) => a + w[k], 0); let r = rnd()*tot;
@@ -658,6 +692,8 @@ function height(b, v, t, bass, f){
   const lift = (T.ripLift + (T.ripLiftClosed - T.ripLift)*closed())*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift')), dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];
   for (const q of st.rip) { const g = st.t - q.t, r0 = Math.acos(Math.max(-1, Math.min(1, dx*q.o[0] + dy*q.o[1] + dz*q.o[2])))/Math.PI, rr = q.inv ? 1 - r0 : r0;
     hgt += lift*q.k*Math.exp(-(((rr - g*T.ripSpeed)/.08)**2))*Math.max(0, 1 - g/T.ripSecs); }
+  if (JAM.pulls.length) { const dx = b.VD[v*3], dy = b.VD[v*3 + 1], dz = b.VD[v*3 + 2];   // pulled out or pushed in by hand, at each of its symmetric copies
+    for (const q of JAM.pulls) for (let i = 0; i < q.cs.length; i += 3) { const d = dx*q.cs[i] + dy*q.cs[i + 1] + dz*q.cs[i + 2]; if (d > .8) hgt += q.amt*Math.exp(-(1 - d)/TUNE.prism.jam.width); } }
   return hgt + asy;
 }
 // the detail: a front of new facets blooming out from the middle

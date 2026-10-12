@@ -8,7 +8,7 @@ import { J } from '../journey/core.js';
 import { setJourney } from '../ui/controls.js';
 import { setPreset } from '../ui/presets.js';
 import { prismShape, prismForm, prismTex, prismTexs, prismShapes, prismFigure, prismDetail, prismState, prismBrk, prismTension,
-  prismCam, prismLasers, laserShows, prismRunUp, prismClear, prismSection, prismStyle, roomStyles } from '../visuals/objects/prism.js';
+  prismCam, prismLasers, laserShows, prismRunUp, prismClear, prismSection, prismStyle, roomStyles, JAM, prismPick, jamGrab, jamTap } from '../visuals/objects/prism.js';
 import { RULES } from '../visuals/objects/cells.js';
 import { VISUALS } from '../visuals/registry.js';
 import { showFps } from '../ui/fps.js';
@@ -107,6 +107,7 @@ body.prismlab #bar,body.prismlab #welcome,body.prismlab #caption,body.prismlab #
 #plab .knob output{color:var(--dim);font-variant-numeric:tabular-nums}
 #plab .knob.set label,#plab .knob.set output{color:var(--accent)}
 #plab .note{font-size:12px;color:var(--dim);margin:6px 0 0}
+body.jamming canvas{touch-action:none;cursor:grab}
 @media (min-width:700px){ #plab .pgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px} }
 @media (min-width:1180px){ #plab .pgs{grid-template-columns:repeat(3,minmax(0,1fr))} }
 `;
@@ -122,7 +123,7 @@ export default function(){
   // (after the page's own setup has run: Journey off, the Prism in its room)
   requestAnimationFrame(() => requestAnimationFrame(start));
 
-  const LS = {tab: 'play', room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', style: 'auto', laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1, seeking: false};
+  const LS = {tab: 'play', room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', style: 'auto', jam: false, laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1, seeking: false};
   let p;   // the lab's own preset
   function start(){
     setJourney(false);
@@ -203,6 +204,8 @@ export default function(){
     <div class="pg"><h3>Music</h3><div class="pr"><label class="btn lbtn" for="fileIn" tabindex="0">＋ Add music</label>${btn('prev', '⏮')}${btn('play', '▶')}${btn('next', '⏭')}
       ${btn('groove', LS.groove < 0 ? '♪ Groovebox: off' : '♪ ' + gn[LS.groove], LS.groove >= 0)}</div>
       <div class="trk"><span class="tn"></span><span class="sk"><input type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek"></span><span class="tt"></span></div></div>
+    <div class="pg"><h3>Your hand</h3><div class="pr">${btn('jam', LS.jam ? '✋ Jamming' : '✋ Jam', LS.jam, 'big')}</div>
+      <p class="note">${LS.jam ? 'Drag beside it to turn and tip it; press on it and drag out to pull, in (or hold) to push; tap for a ring of light, brightest on the beat.' : 'Shape the Prism by hand as the music plays.'}</p></div>
     <div class="pg"><h3>Moments</h3><div class="pr">${btn('build', LS.build ? 'Building…' : 'Build → drop', !!LS.build, 'big')}${btn('drop', 'Drop now', undefined, 'big drop')}${btn('brk', 'Breakdown', LS.brk)}</div>
       <div class="bar"><i></i></div></div>
     <div class="pg"><h3>Energy</h3><div class="pr">${opts('ten', Object.keys(TEN))}</div></div>
@@ -228,6 +231,32 @@ export default function(){
     ${LS.tab === 'play' ? play() : tune()}`;
     LS.markId = null; tick();
   }
+  // jamming: the pointer on the picture (screen heights from its middle), the Prism's hooks doing the rest (prism.js: JAM)
+  const JT = TUNE.prism.jam, G2 = {p: null};
+  const spOf = e => { const H = innerHeight - (S.djH || 0); return [(e.clientX - innerWidth/2)/H, (H/2 - e.clientY)/H]; };
+  addEventListener('pointerdown', e => {
+    if (!LS.jam || e.target.closest('#plab') || e.target.tagName !== 'CANVAS') return;
+    e.preventDefault(); e.stopPropagation();
+    const [sx, sy] = spOf(e), pk = prismPick(sx, sy); JAM.drag = true; JAM.yawV = 0;
+    G2.p = {id: e.pointerId, sx, sy, lx: sx, ly: sy, lt: performance.now(), t0: performance.now(), pk, q: pk && pk.hit ? jamGrab(pk.dir) : null, moved: false,
+      r0: pk ? Math.hypot(sx - pk.c[0], sy - pk.c[1]) : 0};
+  }, true);
+  addEventListener('pointermove', e => {
+    const g = G2.p; if (!g || e.pointerId !== g.id) return; e.preventDefault();
+    const [sx, sy] = spOf(e), now = performance.now(), dx = sx - g.lx, dy = sy - g.ly, dt = Math.max(.008, (now - g.lt)/1000);
+    if (Math.hypot(sx - g.sx, sy - g.sy) > .015) g.moved = true;
+    if (g.q) { const r = Math.hypot(sx - g.pk.c[0], sy - g.pk.c[1]); g.q.target = Math.max(-JT.maxPull, Math.min(JT.maxPull, (r - g.r0)*JT.pull)); JAM.yaw += dx*JT.turn*.25; }
+    else { JAM.yaw += dx*JT.turn; JAM.yawV = Math.max(-JT.maxSpin, Math.min(JT.maxSpin, JAM.yawV*.5 + dx*JT.turn/dt*.5)); JAM.tilt = Math.max(-.8, Math.min(.8, JAM.tilt - dy*JT.tilt)); JAM.tiltV = 0; }
+    g.lx = sx; g.ly = sy; g.lt = now;
+  }, true);
+  const up = e => { const g = G2.p; if (!g || e.pointerId !== g.id) return; G2.p = null; JAM.drag = false;
+    const quick = performance.now() - g.t0 < 250;
+    if (!g.moved && quick && g.pk && g.pk.hit) { jamTap(g.pk.dir); if (g.q) { g.q.held = false; g.q.target = 0; } }
+    else if (g.q) g.q.held = false;
+    if (performance.now() - g.lt > 80) JAM.yawV = 0; };   // (a drag that stopped before letting go doesn't fling)
+  addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
+  (function hold(){ requestAnimationFrame(hold); const g = G2.p; if (g && g.q && !g.moved && performance.now() - g.t0 > 250) g.q.target = Math.max(-JT.maxPull, g.q.target - JT.holdRate/60); })();   // holding still on it pushes a dent in
+
   el.addEventListener('input', e => {
     const k = e.target.dataset.k;
     if (k) { const v = +e.target.value; setT(k, v); const row = e.target.closest('.knob'); row.querySelector('output').textContent = num(v, +e.target.step); row.classList.toggle('set', v !== DEF[k]); save(); }
@@ -253,6 +282,7 @@ export default function(){
     else if (id === 'beat') { LS.beat = v; prismClear(BEAT[v]); render(); }
     else if (id === 'det') { prismDetail(Math.max(0, Math.min(4, prismState().det + +v))); render(); }
     else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
+    else if (id === 'jam') { LS.jam = !LS.jam; JAM.on = LS.jam; document.body.classList.toggle('jamming', LS.jam); render(); }
     else if (id === 'style') { LS.style = v; prismStyle(v === 'auto' ? undefined : v); render(); }
     else if (id === 'cam') { LS.cam = v; prismCam(v === 'auto' ? undefined : v); render(); }
     else if (id === 'laser') { LS.laser = v; prismLasers(v === 'off' ? false : undefined, v === 'auto' || v === 'off' ? undefined : v); render(); }
