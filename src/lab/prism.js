@@ -1,37 +1,83 @@
 // The Prism lab (?lab=prism, or the published dist/prism-lab.html): the Prism alone in its room, with a touch panel to play the
-// music's moments (a build, the drop, a breakdown, calm or intense) and to hold or cycle each of its features, without loading a track
+// music's moments (a build, the drop, a breakdown, calm or intense), to play a track of your own, to hold or cycle each of its
+// features, and to tune how it reacts (the Tune tab: TUNE.prism's feel numbers, kept on this device)
 import { S } from '../state.js';
+import { TUNE } from '../tuning.js';
 import { presets } from '../presets.js';
 import { J } from '../journey/core.js';
 import { setJourney } from '../ui/controls.js';
 import { setPreset } from '../ui/presets.js';
 import { prismShape, prismForm, prismTex, prismTexs, prismShapes, prismFigure, prismDetail, prismState, prismBrk, prismTension,
-  prismCam, prismLasers, laserShows, prismRunUp, prismClear } from '../visuals/objects/prism.js';
+  prismCam, prismLasers, laserShows, prismRunUp, prismClear, prismSection } from '../visuals/objects/prism.js';
 import { RULES } from '../visuals/objects/cells.js';
 import { VISUALS } from '../visuals/registry.js';
 import { showFps } from '../ui/fps.js';
 import { resize } from '../render/gl.js';
 import { GB, PRESETS as GROOVES, loadPreset, grooveToggle, setMute } from '../audio/groove.js';
+import { buffer, playing, tracks, tIndex, togglePlay, nextTrack, prevTrack, playFrom, position } from '../audio/player.js';
+import { F } from '../audio/foresee.js';
+import { L as HEAR } from '../audio/listen.js';
+import { G } from '../audio/beatgrid.js';
+import { fmt } from '../util.js';
 
 const LAYERS = [['orbit', 'Orbits'], ['comets', 'Comets'], ['fireflies', 'Fireflies'], ['stargate', 'Stargate'], ['rain', 'Rain']];
 const LAYER_ON = .3;   // (in the room a layer this strong is drawn fully in 3D: TUNE.prism.show.flat)
 const BUILD_BARS = 4;  // a build runs up to its drop over this many bars
+const SAVE = 'afterglow.prismlab';   // the Tune tab's settings, on this device
+
+// the Tune tab: [path in TUNE.prism, label, min, max, step]
+const KNOBS = [
+  ['How lively', [
+    ['act.cap', 'Liveliness between drops', 0, 1, .01],
+    ['act.base', 'Liveliness at rest', 0, .5, .01],
+    ['act.rise', 'Wakes up over (seconds)', .5, 15, .5],
+    ['act.fall', 'Settles over (seconds)', .5, 10, .5],
+    ['act.brk', 'Liveliness in a breakdown', 0, 1, .05],
+    ['act.dropBars', 'A drop lasts (bars)', 1, 16, 1],
+    ['spin', 'Turning speed', 0, 1, .01],
+    ['act.danceCalm', 'Dancing when calm', 0, 1, .05]]],
+  ['Shapes', [
+    ['morphSecs', 'A shape change takes (seconds)', .5, 8, .1],
+    ['imp.next', 'How often it moves on to a new shape', 0, 1, .05],
+    ['imp.step', 'How far each variation goes', 0, .6, .02],
+    ['openChance', 'How often it opens up', 0, 1, .05],
+    ['explode', 'Shatter on a drop', 0, 2, .05],
+    ['breath', 'The bass swells it', 0, .3, .01],
+    ['detCalm', 'Levels of facets when calm', 0, 3, 1]]],
+  ['Light', [
+    ['lit', 'Pattern brightness', 0, 2, .05],
+    ['act.kickCalm', 'Kick light when calm', 0, 1, .05],
+    ['glint', 'Glints', 0, 2, .05],
+    ['tex.fire', 'Rainbow fire', 0, 2, .05],
+    ['show.strobe', 'Kick strobe', 0, 3, .1]]],
+  ['Room and lasers', [
+    ['room.ease', 'The camera moves over (seconds)', .3, 5, .1],
+    ['room.far', 'Camera distance when calm', 1.5, 8, .1],
+    ['room.haze', 'Haze', 0, 1.5, .05],
+    ['room.lampCalm', 'Lamps when calm', 0, 1, .05],
+    ['lasers.max', 'Laser beams at most', 1, 8, 1],
+    ['lasers.calm', 'Laser brightness when calm', 0, 1, .05]]],
+];
+const at = path => { const ks = path.split('.'), last = ks.pop(); return [ks.reduce((o, k) => o[k], TUNE.prism), last]; };
+const getT = path => { const [o, k] = at(path); return o[k]; };
+const setT = (path, v) => { const [o, k] = at(path); o[k] = v; };
+const DEF = Object.fromEntries(KNOBS.flatMap(([, ks]) => ks.map(([p]) => [p, getT(p)])));   // (the defaults, before any saved ones)
 
 const CSS = `
 body.prismlab #bar,body.prismlab #welcome,body.prismlab #caption,body.prismlab #keyHud,body.prismlab #panel{display:none!important}
 #plab{position:fixed;left:0;right:0;bottom:0;z-index:20;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(4,6,10,.82);border-top:1px solid var(--line);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:15px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-#plab.min .pg{display:none}
+#plab.min .pgs,#plab.min .tune{display:none}
 #plab .ph{display:flex;align-items:center;gap:8px}
 #plab .ph b{color:var(--accent);letter-spacing:.06em;flex:none}
 #plab .st{flex:1;min-width:0;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#plab .pg{margin-top:8px}
+#plab .pg{margin-top:6px}
 #plab .pg h3{margin:0 0 4px;font-size:11px;font-weight:500;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
 #plab .pr{display:flex;flex-wrap:wrap;gap:6px}
-#plab button{min-height:44px;min-width:44px;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);font-size:15px;justify-content:center}
+#plab button,#plab .lbtn{min-height:44px;min-width:44px;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);font-size:15px;justify-content:center}
 #plab button[aria-pressed=true]{background:var(--accent);color:#000;border-color:var(--accent)}
-#plab button.big{font-weight:600}
+#plab button.big,#plab .lbtn{font-weight:600}
 #plab button.drop{border-color:#ff5a7a;color:#ff9ab0}
 #plab .cyc{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 #plab .cyc button{border:0;border-radius:0}
@@ -39,25 +85,41 @@ body.prismlab #bar,body.prismlab #welcome,body.prismlab #caption,body.prismlab #
 #plab .cyc i{font-style:normal;color:var(--dim);font-size:11px;margin-right:6px}
 #plab .bar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
 #plab .bar i{display:block;height:100%;width:0;background:#ff5a7a}
+#plab .trk{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+#plab .tn{max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+#plab .sk{flex:1;position:relative;min-width:80px}
+#plab .sk input{width:100%}
+#plab .sk i{position:absolute;top:0;width:2px;height:6px;background:#ff5a7a;border-radius:1px;pointer-events:none}
+#plab input[type=range]{height:32px}
+#plab input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-9.5px}
+#plab input[type=range]::-moz-range-thumb{width:22px;height:22px}
+#plab .knob{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 8px;font-size:13px}
+#plab .knob input{grid-column:1 / -1;width:100%}
+#plab .knob output{color:var(--dim);font-variant-numeric:tabular-nums}
+#plab .knob.set label,#plab .knob.set output{color:var(--accent)}
+#plab .note{font-size:12px;color:var(--dim);margin:6px 0 0}
 @media (min-width:700px){ #plab .pgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px} }
 @media (min-width:1180px){ #plab .pgs{grid-template-columns:repeat(3,minmax(0,1fr))} }
-#plab .pg{margin-top:6px}
 `;
 
 export default function(){
+  // the Tune tab's settings saved on this device
+  try { const s = JSON.parse(localStorage.getItem(SAVE) || '{}'); for (const p in s) if (p in DEF) setT(p, s[p]); } catch (e) {}
+  const save = () => { const s = {}; for (const p in DEF) if (getT(p) !== DEF[p]) s[p] = getT(p); try { localStorage.setItem(SAVE, JSON.stringify(s)); } catch (e) {} return s; };
+
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   document.body.classList.add('prismlab');
   const el = document.createElement('section'); el.id = 'plab'; el.setAttribute('aria-label', 'Prism lab'); document.body.appendChild(el);
   // (after the page's own setup has run: Journey off, the Prism in its room)
   requestAnimationFrame(() => requestAnimationFrame(start));
 
-  const L = {room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1};
+  const LS = {tab: 'play', room: true, brk: false, build: null, ten: 'auto', beat: 'auto', cam: 'auto', laser: 'auto', shape: -1, tex: -1, fig: -1, groove: -1, seeking: false};
   let p;   // the lab's own preset
   function start(){
     setJourney(false);
     const base = presets.find(q => q.name === 'Prism in the room');
     p = {...JSON.parse(JSON.stringify(base)), name: 'Prism lab'}; for (const v of VISUALS) p[v.key] = 0; p.prism = p.room = 1;   // (the Prism in its room, nothing else)
-    setPreset(p, 'Prism lab'); showFps(false); render(); setInterval(tick, 100);
+    setPreset(p, 'Prism lab'); showFps(false); render(); setInterval(tick, 100); requestAnimationFrame(watch);
     new ResizeObserver(fit).observe(el); addEventListener('resize', fit);
   }
   const set = (k, v) => { p[k] = v; };   // (the page eases what's drawn towards it)
@@ -66,24 +128,57 @@ export default function(){
   function fit(){ const h = Math.round(Math.min(el.offsetHeight, innerHeight*.6)); if (h === S.djH) return;
     S.djH = h; document.documentElement.style.setProperty('--djH', h + 'px'); document.body.classList.add('djopen'); resize(); }
   // the music's moments
-  const drop = () => { prismRunUp(undefined); L.build = null; J.lastDrop = performance.now(); };
-  const build = () => { if (L.build) { L.build = null; prismRunUp(undefined); } else L.build = {t: performance.now()}; render(); };
-  const brk = () => { L.brk = !L.brk; prismBrk(L.brk || undefined); if (GB.playing) { setMute('kick', L.brk); setMute('bass', L.brk); } render(); };
+  const drop = () => { prismRunUp(undefined); LS.build = null; J.lastDrop = performance.now(); };
+  const build = () => { if (LS.build) { LS.build = null; prismRunUp(undefined); } else LS.build = {t: performance.now()}; render(); };
+  const brk = () => { LS.brk = !LS.brk; prismBrk(LS.brk || undefined); if (GB.playing) { setMute('kick', LS.brk); setMute('bass', LS.brk); } render(); };
   const TEN = {auto: undefined, calm: .1, mid: .5, intense: .95}, BEAT = {auto: undefined, steady: 1, free: 0};
   const groove = () => {
-    const names = Object.keys(GROOVES); L.groove = L.groove + 1 >= names.length ? -1 : L.groove + 1;
-    if (L.groove < 0) { if (GB.playing) grooveToggle(); }
-    else { loadPreset(names[L.groove]); if (!GB.playing) grooveToggle(); if (L.brk) { setMute('kick', true); setMute('bass', true); } }
+    const names = Object.keys(GROOVES); LS.groove = LS.groove + 1 >= names.length ? -1 : LS.groove + 1;
+    if (LS.groove < 0) { if (GB.playing) grooveToggle(); }
+    else { if (playing) togglePlay(); loadPreset(names[LS.groove]); if (!GB.playing) grooveToggle(); if (LS.brk) { setMute('kick', true); setMute('bass', true); } }
     render();
   };
-  function tick(){
-    if (L.build) { const a = (performance.now() - L.build.t)/1000/(BUILD_BARS*4*Math.max(.25, S.beatPeriod || .5)); if (a >= 1) drop(); else prismRunUp(a); }
-    const s = prismState(), b = el.querySelector('.bar i'); if (b) b.style.width = (L.build ? Math.min(100, (performance.now() - L.build.t)/10/(BUILD_BARS*4*Math.max(.25, S.beatPeriod || .5))) : 0) + '%';
-    const t = el.querySelector('.st'); if (t) t.textContent = `${s.form || ''} · ${s.tex} · ${s.prog ? s.prog.figure : ''} · detail ${s.det} · activity ${(s.act*100|0)}% · beams ${s.beams}`;
+
+  // a track of your own, as Journey would hear it (Journey is off here, so the lab does its part): the drops read ahead land on
+  // the moment (the run-up to them is Journey's, J.anticip, worked out with Journey off too), the live listening's drops where
+  // nothing was read ahead, a new part of the Prism's program at each change the read-ahead found, and how steady the beat is
+  const W = {t: null, id: -1, n: 0, ld: HEAR.drops, clear: 1};
+  function watch(){
+    requestAnimationFrame(watch);
+    const now = performance.now(), t = F.ready && F.at ? F.at() : null;
+    if (t != null && playing) {
+      if (W.id !== F.id) { W.id = F.id; W.t = t; prismSection({n: ++W.n}); }
+      if (W.t == null || t < W.t - .5) W.t = t;   // (a seek, or back to the start: the lab's own seeks clear W.t)
+      for (const d of F.drops) if (d.t > W.t && d.t <= t && now - J.lastDrop > 2000) drop();
+      for (const c of (F.map && F.map.changes) || []) if (c.t > W.t && c.t <= t) prismSection({n: ++W.n});
+      W.t = t;
+    }
+    if (HEAR.drops !== W.ld) { W.ld = HEAR.drops; if (!(F.ready && F.drops.length && playing) && now - J.lastDrop > 15000) drop(); }
+    W.clear += ((G.acP ? G.acConf : 1) - W.clear)*Math.min(1, 1/240);
+    if (LS.beat === 'auto') prismClear(playing || GB.playing ? W.clear : undefined);
   }
 
+  function tick(){
+    if (playing && GB.playing) { grooveToggle(); LS.groove = -1; render(); }   // (a track started: the groovebox stops)
+    if (LS.build) { const a = (performance.now() - LS.build.t)/1000/(BUILD_BARS*4*Math.max(.25, S.beatPeriod || .5)); if (a >= 1) drop(); else prismRunUp(a); }
+    const b = el.querySelector('.bar i'); if (b) b.style.width = Math.max(LS.build ? Math.min(100, (performance.now() - LS.build.t)/10/(BUILD_BARS*4*Math.max(.25, S.beatPeriod || .5))) : 0, J.anticip*100) + '%';
+    const s = prismState(), t = el.querySelector('.st');
+    const next = playing && F.ready ? F.drops.find(d => d.t > position()) : null;
+    if (t) t.textContent = `${s.form || ''} · ${s.tex} · ${s.prog ? s.prog.figure : ''} · detail ${s.det} · activity ${(s.act*100|0)}% · beams ${s.beams}${HEAR.brk ? ' · breakdown' : ''}${next ? ` · drop in ${Math.round(next.t - position())} s` : ''}`;
+    const sk = el.querySelector('.sk input'), tt = el.querySelector('.tt'), pb = el.querySelector('[data-b=play]');
+    if (sk && buffer && !LS.seeking) { sk.max = buffer.duration; sk.value = position(); }
+    if (tt) tt.textContent = buffer ? `${fmt(position())} / ${fmt(buffer.duration)}` : '';
+    if (pb) pb.textContent = playing ? '⏸' : '▶';
+    const tn = el.querySelector('.tn'), name = tracks[tIndex] ? tracks[tIndex].name : 'No track: add one, or play the groovebox';
+    if (tn && tn.textContent !== name) { tn.textContent = name; marks(); }
+    if (F.id !== LS.markId || !F.ready) marks();
+  }
+  // the drops read ahead, marked on the seek bar
+  function marks(){ const sk = el.querySelector('.sk'); if (!sk) return; sk.querySelectorAll('i').forEach(i => i.remove());
+    if (!buffer || !F.ready) return; LS.markId = F.id; for (const d of F.drops) { const i = document.createElement('i'); i.style.left = (d.t/buffer.duration*100) + '%'; sk.appendChild(i); } }
+
   // cycling: ◂ name ▸, the first entry letting the music choose
-  const cyc = (label, list, i, go) => { const cur = i < 0 ? 'Auto' : list[i];
+  const cyc = (label, list, i) => { const cur = i < 0 ? 'Auto' : list[i];
     return `<span class="cyc" data-c="${label}"><button data-d="-1" aria-label="Previous ${label}">◂</button><span><i>${label}</i>${cur}</span><button data-d="1" aria-label="Next ${label}">▸</button></span>`; };
   const CYC = {
     Shape: [() => prismShapes(), 'shape', (n) => n ? prismShape(n) : prismForm(null)],
@@ -91,41 +186,67 @@ export default function(){
     Pattern: [() => [...RULES, 'life', 'improv'], 'fig', (n) => n && prismFigure(n)],
   };
   const btn = (id, text, on, cls = '') => `<button data-b="${id}" class="${cls}" ${on === undefined ? '' : `aria-pressed="${!!on}"`}>${text}</button>`;
-  const opts = (key, list) => list.map(v => btn(`${key}:${v}`, v[0].toUpperCase() + v.slice(1), L[key] === v)).join('');
-  function render(){
-    const gn = Object.keys(GROOVES), min = el.classList.contains('min');
-    el.innerHTML = `<div class="ph"><b>PRISM LAB</b><span class="st"></span>${btn('fps', 'Frame rate', !document.querySelector('#fps').hidden)}${btn('min', min ? 'Show ▴' : 'Hide ▾')}</div>
-    <div class="pgs">
-    <div class="pg"><h3>Music</h3><div class="pr">${btn('groove', L.groove < 0 ? '♪ Sound: off' : '♪ ' + gn[L.groove], L.groove >= 0)}
-      ${btn('build', L.build ? 'Building…' : 'Build → drop', !!L.build, 'big')}${btn('drop', 'Drop now', undefined, 'big drop')}${btn('brk', 'Breakdown', L.brk)}</div>
+  const opts = (key, list) => list.map(v => btn(`${key}:${v}`, v[0].toUpperCase() + v.slice(1), LS[key] === v)).join('');
+  const num = (v, step) => step >= 1 ? String(v) : (+v).toFixed(step < .1 ? 2 : 1);
+  function play(){
+    const gn = Object.keys(GROOVES);
+    return `<div class="pgs">
+    <div class="pg"><h3>Music</h3><div class="pr"><label class="btn lbtn" for="fileIn" tabindex="0">＋ Add music</label>${btn('prev', '⏮')}${btn('play', '▶')}${btn('next', '⏭')}
+      ${btn('groove', LS.groove < 0 ? '♪ Groovebox: off' : '♪ ' + gn[LS.groove], LS.groove >= 0)}</div>
+      <div class="trk"><span class="tn"></span><span class="sk"><input type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek"></span><span class="tt"></span></div></div>
+    <div class="pg"><h3>Moments</h3><div class="pr">${btn('build', LS.build ? 'Building…' : 'Build → drop', !!LS.build, 'big')}${btn('drop', 'Drop now', undefined, 'big drop')}${btn('brk', 'Breakdown', LS.brk)}</div>
       <div class="bar"><i></i></div></div>
     <div class="pg"><h3>Energy</h3><div class="pr">${opts('ten', Object.keys(TEN))}</div></div>
     <div class="pg"><h3>Beat</h3><div class="pr">${opts('beat', Object.keys(BEAT))}</div></div>
-    <div class="pg"><h3>Prism</h3><div class="pr">${Object.entries(CYC).map(([k, [list, key]]) => cyc(k, list(), L[key])).join('')}
+    <div class="pg"><h3>Prism</h3><div class="pr">${Object.entries(CYC).map(([k, [list, key]]) => cyc(k, list(), LS[key])).join('')}
       ${btn('det:-1', 'Facets −')}${btn('det:1', 'Facets +')}</div></div>
-    <div class="pg"><h3>Room and camera</h3><div class="pr">${btn('room', 'Room', L.room)}${opts('cam', ['auto', 'far', 'mid', 'near', 'inside', 'low'])}</div></div>
+    <div class="pg"><h3>Room and camera</h3><div class="pr">${btn('room', 'Room', LS.room)}${opts('cam', ['auto', 'far', 'mid', 'near', 'inside', 'low'])}</div></div>
     <div class="pg"><h3>3D lasers</h3><div class="pr">${opts('laser', ['auto', ...laserShows(), 'off'])}</div></div>
     <div class="pg"><h3>Layers in 3D</h3><div class="pr">${LAYERS.map(([k, n]) => btn('layer:' + k, n, p && p[k] > 0)).join('')}</div></div>
     </div>`;
-    tick();
   }
+  function tune(){
+    return `<div class="tune"><p class="note">How the Prism reacts to the music. Changes apply at once and are kept on this device; a highlighted one differs from the default.</p>
+    <div class="pgs">${KNOBS.map(([g, ks]) => `<div class="pg"><h3>${g}</h3>${ks.map(([path, label, mn, mx, step]) => { const v = getT(path);
+      return `<div class="knob${v !== DEF[path] ? ' set' : ''}"><label for="k-${path}">${label}</label><output>${num(v, step)}</output>
+        <input type="range" id="k-${path}" data-k="${path}" min="${mn}" max="${mx}" step="${step}" value="${v}"></div>`; }).join('')}</div>`).join('')}</div>
+    <div class="pr" style="margin-top:8px">${btn('reset', 'Reset all')}${btn('copy', 'Copy settings')}</div></div>`;
+  }
+  function render(){
+    const min = el.classList.contains('min');
+    el.innerHTML = `<div class="ph"><b>PRISM LAB</b><span class="st"></span>${btn('tab:play', 'Play', LS.tab === 'play')}${btn('tab:tune', 'Tune', LS.tab === 'tune')}${btn('fps', 'FPS', !document.querySelector('#fps').hidden)}${btn('min', min ? 'Show ▴' : 'Hide ▾')}</div>
+    ${LS.tab === 'play' ? play() : tune()}`;
+    LS.markId = null; tick();
+  }
+  el.addEventListener('input', e => {
+    const k = e.target.dataset.k;
+    if (k) { const v = +e.target.value; setT(k, v); const row = e.target.closest('.knob'); row.querySelector('output').textContent = num(v, +e.target.step); row.classList.toggle('set', v !== DEF[k]); save(); }
+    else if (e.target.closest('.sk')) LS.seeking = true;
+  });
+  el.addEventListener('change', e => { if (e.target.closest('.sk')) { LS.seeking = false; W.t = null; const v = +e.target.value; playing ? playFrom(v) : (S.pausedAt = v); } });
   el.addEventListener('click', e => {
     const c = e.target.closest('[data-c]'), b = e.target.closest('[data-b]');
     if (c && e.target.closest('[data-d]')) { const [list, key, go] = CYC[c.dataset.c], ls = list(), d = +e.target.closest('[data-d]').dataset.d;
-      L[key] = ((L[key] + 1 + d) % (ls.length + 1) + ls.length + 1) % (ls.length + 1) - 1; go(L[key] < 0 ? null : ls[L[key]]); render(); return; }
+      LS[key] = ((LS[key] + 1 + d) % (ls.length + 1) + ls.length + 1) % (ls.length + 1) - 1; go(LS[key] < 0 ? null : ls[LS[key]]); render(); return; }
     if (!b) return; const [id, v] = b.dataset.b.split(':');
     if (id === 'min') { el.classList.toggle('min'); render(); }
+    else if (id === 'tab') { LS.tab = v; render(); }
     else if (id === 'fps') { showFps(document.querySelector('#fps').hidden); render(); }
+    else if (id === 'play') { if (GB.playing && buffer) { grooveToggle(); LS.groove = -1; } togglePlay(); setTimeout(render, 50); }
+    else if (id === 'prev') { W.t = null; prevTrack(); }
+    else if (id === 'next') { W.t = null; nextTrack(); }
     else if (id === 'groove') groove();
     else if (id === 'build') build();
     else if (id === 'drop') { drop(); render(); }
     else if (id === 'brk') brk();
-    else if (id === 'ten') { L.ten = v; prismTension(TEN[v]); render(); }
-    else if (id === 'beat') { L.beat = v; prismClear(BEAT[v]); render(); }
+    else if (id === 'ten') { LS.ten = v; prismTension(TEN[v]); render(); }
+    else if (id === 'beat') { LS.beat = v; prismClear(BEAT[v]); render(); }
     else if (id === 'det') { prismDetail(Math.max(0, Math.min(4, prismState().det + +v))); render(); }
-    else if (id === 'room') { L.room = !L.room; set('room', L.room ? 1 : 0); render(); }
-    else if (id === 'cam') { L.cam = v; prismCam(v === 'auto' ? undefined : v); render(); }
-    else if (id === 'laser') { L.laser = v; prismLasers(v === 'off' ? false : undefined, v === 'auto' || v === 'off' ? undefined : v); render(); }
+    else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
+    else if (id === 'cam') { LS.cam = v; prismCam(v === 'auto' ? undefined : v); render(); }
+    else if (id === 'laser') { LS.laser = v; prismLasers(v === 'off' ? false : undefined, v === 'auto' || v === 'off' ? undefined : v); render(); }
     else if (id === 'layer') { set(v, p[v] > 0 ? 0 : LAYER_ON); render(); }
+    else if (id === 'reset') { for (const k in DEF) setT(k, DEF[k]); save(); render(); }
+    else if (id === 'copy') { const s = JSON.stringify(save(), null, 1); (navigator.clipboard ? navigator.clipboard.writeText(s) : Promise.reject()).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Could not copy'; }); }
   });
 }
