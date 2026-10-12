@@ -205,7 +205,7 @@ export default {
     const pr = st.prog;
     // a drop: it shatters, gains every facet, and a closed form opens out into mountains or an open one snaps shut into a star
     if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop && st.prog) { const C = BODY[st.body].C; if (st.prog.figure === 'fireflies') syncAll(C); else if (st.prog.figure === 'frost') C.f.fill(1); else if (st.prog.figure === 'swell') touch(C, 'swell', [...C.out.keys()].filter((_, i) => i % 7 === 0), 1); }
-    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.asymT = st.t; st.asymAx = dirAt(.35 + .3*hash(st.run*.3), hash(st.run*.9)*Math.PI*2); st.climb0 = st.secBars + T.act.dropBars; setTex(pick(['iris', 'stained', 'led', 'mirror'])); st.dropK = steady; st.exT = Math.max(st.exT, (J.on ? 1 : .6)*steady*steady); setDetail(BODY[st.body].F, steady < .5 ? 0 : 1);   // (without a steady beat: a swell, not a shatter)
+    if (J && st.lastDrop !== null && J.lastDrop !== st.lastDrop) { st.dropT = st.t; st.asymT = st.t; st.asymAx = dirAt(.35 + .3*hash(st.run*.3), hash(st.run*.9)*Math.PI*2); st.climb0 = st.secBars + T.act.dropBars; setTex(pick(['iris', 'stained', 'led', 'mirror'])); st.dropK = steady; st.exT = Math.max(st.exT, (J.on ? 1 : .6)*steady*steady*T.on.shatter); setDetail(BODY[st.body].F, steady < .5 ? 0 : 1);   // (without a steady beat: a swell, not a shatter)
       if (!st.hold) { if (closed() > .5 && !(P.w.room > .5)) goGenome(fromForm('peaks', st.g)); else goGenome(spiky(st.g)); } }   // (in the room it always snaps shut, round the camera diving in)
     st.lastDrop = J ? J.lastDrop : null;
     // how much may move (docs/prism-plan.md, stage 3): the tension, lifted through a drop's run-up and by the drop itself, held
@@ -280,7 +280,7 @@ export default {
     const u = U.prism = {rot: st.spin*f.yw + burst + Math.sin(x.t*.11)*.15*(1 - f.yw)*sway, pitch: f.pitch + Math.sin(x.t*.19)*.08*sway, roll: st.spin*(1 - f.yw)*.5,
       size: (An && An.size || T.size)*(1 + (P.bass || 0)*x.react*.03*st.act), pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject],
       line: TUNE.mesh.line, w: An && An.hide ? 0 : Math.min(1, w*1.2), X: b.X, body: st.body};
-    if (d) { const dm = TA.danceCalm + (1 - TA.danceCalm)*at('dance');   // (its dance, small when calm)
+    if (d) { const dm = (TA.danceCalm + (1 - TA.danceCalm)*at('dance'))*T.on.dance;   // (its dance, small when calm)
       u.rot += d.yaw*f.yw*dm; u.roll += d.yaw*(1 - f.yw)*dm;
       u.pitch += d.pitch*(f.pitch < 0 ? .3 : 1)*dm; u.roll += d.roll*dm; u.pos = [u.pos[0] + d.dx*dm, u.pos[1] + d.dy*dm]; u.size *= 1 + (d.s - 1)*dm; u.sq = d.sq*(f.pitch < 0 ? .3 : 1)*dm; }
     const Vw = S.view; if (Vw && Vw.key === 'prism') { u.rot = Vw.yaw + (d ? d.yaw : 0); u.pitch += Vw.pitch; u.size *= Vw.zoom; }
@@ -317,7 +317,7 @@ const over = (a) => { if (OVER.n < OV) { OVER.list.set(a, OVER.n*10); OVER.n++; 
 function lasers(b, u, P, x, rw){
   OVER.n = 0; STAGE.nBeams = 0; STAGE.nCaus = 0; const LT = TUNE.prism.lasers;
   const lz = b.lz || (b.lz = new Float32Array(b.nf)); for (let f = 0; f < b.nf; f++) lz[f] *= Math.exp(-x.dt/LT.traceSecs);
-  if (rw < .01 || u.inside || st.testLasers === false) return;
+  if (rw < .01 || u.inside || st.testLasers === false || !TUNE.prism.on.lasers && !st.testShow) return;
   const an = runUp(x.J), dropLen = LT.dropBars*4*S.beatPeriod, since = st.t - st.dropT, drop = since < dropLen;
   const lv = Math.min(1, Math.max(st.act/TUNE.prism.act.cap*LT.calmShare, an, drop ? 1 : 0)), nOn = drop ? LT.max : Math.min(LT.max, 1 + Math.round(lv*(LT.max - 2)));
   const show = st.testShow || (drop ? 'burst' : pickShow(Math.floor(st.bars/LT.showBars) + (st.prog ? st.prog.seed : 0)));
@@ -360,7 +360,7 @@ function lasers(b, u, P, x, rw){
   for (let i = 0; i < BO.nFl; i++) { const q = BO.flares.subarray(i*4, i*4 + 4), dz = cam - q[2]; if (dz < .2) continue; const A = pr(q[0], q[1], q[2]);
     over([A[0], A[1], 0, 0, LT.flare*(.5 + q[3])*fo/dz, q[3], q[3]*.9, q[3]*.8, 1, -1]); }
   // caustics: the light that's been through the glass landing on the floor and walls, a rainbow smear (the room draws them)
-  for (let i = 0; i < BO.nL && i < 8; i++) { const q = BO.land.subarray(i*6, i*6 + 6), dz = cam - q[2]; if (dz < .3) continue; const A = pr(q[0], q[1], q[2]);
+  for (let i = 0; i < BO.nL && i < 8 && TUNE.prism.on.caustics; i++) { const q = BO.land.subarray(i*6, i*6 + 6), dz = cam - q[2]; if (dz < .3) continue; const A = pr(q[0], q[1], q[2]);
     STAGE.caus.set([A[0], A[1], LT.caustic*fo/dz, 1], i*4); STAGE.causC.set([q[3], q[4], q[5]], i*3); STAGE.nCaus = i + 1; }
   STAGE.caus.fill(0, STAGE.nCaus*4);
   // the sheet: its outline round the Prism where it cuts each facet, the facets it crosses lit, and the sheet itself a fan in the haze
@@ -472,6 +472,7 @@ function room(u, P, x, rw){
   if (since < dropLen) { const q = since/dropLen; if (q < R.insideFrac) { goal = R.inside; dive = true; } else goal = R.near + (goal - R.near)*smooth((q - R.insideFrac)/(1 - R.insideFrac)); }
   else if (brkNow() && an < .05) { goal = R.brk; tilt = R.tiltLow; }
   else if (kc < .5) { goal = Math.min(goal, R.low + .8); tilt = R.tiltLow + (R.tilt - R.tiltLow)*.3; }   // (open land: low over it)
+  if (!TUNE.prism.on.camera && !st.testCam) { goal = R.mid; tilt = R.tilt; dive = false; }   // (its moves with the music switched off: it holds)
   if (st.testCam) { goal = st.testCam === 'low' ? R.brk : R[st.testCam]; tilt = st.testCam === 'low' ? R.tiltLow : R.tilt; dive = st.testCam === 'inside'; }   // (the Prism lab: the camera held)
   const style = st.testStyle || (st.prog && st.prog.room) || 'cove'; STAGE.style = style;
   st.chW = (st.chW || 0) + ((style === 'mirror' ? 1 : 0) - (st.chW || 0))*Math.min(1, dt/1.5);   // the mirror chamber standing up round it, or folding away
@@ -483,7 +484,7 @@ function room(u, P, x, rw){
   u.cam = cam; u.pitch += e + (-1.35 - st.f.pitch)*(1 - kc)*near*rw;
   if (st.chW > .01 && rw > .5 && cam > .5) u.images = chamber(cam, e, st.chW*rw); else STAGE.ch = [0, 0, 0, 0];
   st.nImg = u.images ? u.images.length : 0;
-  { const LT = TUNE.prism.light; if (LT.refl > .01 && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
+  { const LT = TUNE.prism.light; if (LT.refl > .01 && TUNE.prism.on.refl && rw > .5 && cam > .5) { u.mirror = [0, Math.cos(e), Math.sin(e), R.floor]; u.refl = LT.refl*rw; } }   // (the floor's a dark mirror: the Prism drawn reflected in it) u.pos = [u.pos[0]*(1 - rw), u.pos[1]*(1 - rw)]; u.inside = cam < .4;
   // the lamps (view space, the Prism round the origin)
   const h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67], ph = st.t/(16*Math.max(.25, S.beatPeriod))*Math.PI*2;
   const lift = Math.min(1, Math.max(st.act/TA.cap*.6, an, since < dropLen ? 1 - since/dropLen : 0)), k = (R.lampCalm + (1 - R.lampCalm)*lift)*rw;
@@ -492,7 +493,7 @@ function room(u, P, x, rw){
   // lamp onto it (their cones narrowing), a breakdown leaves one soft light
   if (SIG.kick > .99 && st.t - (st.strobeT ?? -9) > .12) { st.strobeT = st.t; if (at('kick') > .5 || since < dropLen) st.strobe = 1; }
   st.strobe = (st.strobe || 0)*Math.exp(-dt*LS.strobeDecay); st.swing = (st.swing || 0) + (st.sec*LS.swing - (st.swing || 0))*Math.min(1, dt*4);
-  const brk = brkNow() && an < .05, flash = 1 + st.strobe*LS.strobe*x.dim, LT = TUNE.prism.light, wob = (1 - an)*LT.aim/.22;
+  const brk = brkNow() && an < .05, flash = 1 + st.strobe*LS.strobe*TUNE.prism.on.strobe*x.dim, LT = TUNE.prism.light, wob = (1 - an)*LT.aim/.22;
   const set = (i, p, c, kk, cone, ai) => { const l = Ls[i], ax = .22*wob*Math.sin(st.t*.7 + ai) - p[0], ay = .18*wob*Math.cos(st.t*.5 + ai*1.3) - p[1], az = -p[2], al = Math.hypot(ax, ay, az) || 1, dz = cam - p[2];
     l.p = p; l.c = c; l.k = kk; l.a = [ax/al, ay/al, az/al]; l.cone = cone; l.s = dz > .05 ? [u.pos[0] + p[0]*f/dz, u.pos[1] + p[1]*f/dz] : [0, 0]; l.vis = smooth((dz - .2)/.5); };
   // the rig: a key light in front and to one side, at the height asked (TUNE.prism.light), drifting slowly and stepping round a
@@ -508,12 +509,12 @@ function room(u, P, x, rw){
   set(1, [-RR*Math.cos(er)*Math.sin(az)*.8, RR*Math.sin(er), -RR*Math.cos(er)], tint([.72, .84, 1], 1, .6), brk ? 0 : k*.8*flash, R.rimCone*narrow, 2);
   set(2, [-RR*.8*Math.sin(az - .4), -.45, RR*.6*Math.cos(az - .4)], tint([.88, .9, 1], 2, .6), brk ? 0 : (LT.fill + (1 - LT.fill)*SIG.kick*at('kick'))*k*flash, .55*narrow, 4);
   // the layers in 3D: orbits and comets as lights circling it (lighting it as they pass)
-  const wO = w3(P, 'orbit', 'comets');
+  const wO = w3(P, 'orbit', 'comets')*TUNE.prism.on.layers3d;
   for (let i = 0; i < 3; i++) { const a = st.t*LS.orbSpeed*(1 + i*.3) + i*2.1, tl = .5 + i*.6, r = LS.orbR*(1 + .15*i), p = [r*Math.cos(a), r*Math.sin(a)*Math.sin(tl), r*Math.sin(a)*Math.cos(tl)];
     set(3 + i, p, hsv2rgb(h + pal[i], .8, 1), wO*LS.orb*rw, 9, 0); Ls[3 + i].orb = [a, tl, r]; }
   // the shadow: the key lamp's, through the middle onto the floor
   const n = [0, Math.cos(e), Math.sin(e)], fv = [0, -Math.sin(e), Math.cos(e)], Lp = Ls[0].p, ll = Math.hypot(...Lp), d = Lp.map(v => -v/ll), dn = n[1]*d[1] + n[2]*d[2];
-  if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7), .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
+  if (dn < -.05) { const t = (-R.floor - (n[1]*Lp[1] + n[2]*Lp[2]))/dn, q = Lp.map((v, i) => v + d[i]*t); STAGE.shadow = [q[0], q[1]*fv[1] + q[2]*fv[2], .6*Ls[0].k*(1 - st.ex*.7)*TUNE.prism.on.shadow, .5*t/ll]; } else STAGE.shadow = [0, 0, 0, 1];
   const ac = tint([.55, .6, .72], 1, .4); STAGE.plinth = [0, 0, 0];
   STAGE.amb = ac.map(v => v*LT.ambient*rw); STAGE.refl = LT.refl*rw;
   Object.assign(STAGE, {on: rw, cam, f, pos: u.pos, tilt: e, floor: R.floor, walls: R.walls, haze: R.haze*(.6 + .4*lift)*rw*(1 + st.strobe*.5), hue: h + pal[1], n, fv, rain: w3(P, 'rain')*rw, t: st.t});
@@ -523,7 +524,7 @@ const w3 = (P, ...ks) => Math.min(1, Math.max(...ks.map(k => P.l[k] || 0))/(P.w.
 // the layers drawn in 3D over the room: the orbiting lights and their tails, fireflies as motes in the haze, the stargate's rings
 // rushing past the camera
 function show3d(u, P, x, rw){
-  if (rw < .01) return;
+  if (rw < .01 || !TUNE.prism.on.layers3d) return;
   const LS = TUNE.prism.show, cam = u.cam || CAM, fo = u.size*FOCAL, pos = u.pos, L = OVER.list, h = (P.hue || 0) + st.hue, pal = P.pal || [0, .33, .67];
   const pr = (p) => { const dz = cam - p[2]; return dz > .15 ? [pos[0] + p[0]*fo/dz, pos[1] + p[1]*fo/dz, dz] : null; };
   const add = (a) => over([...a, -1]);
@@ -855,7 +856,7 @@ function colour(b, P, x, u, w){
   const cr = Math.cos(u.rot), sr = Math.sin(u.rot), cp = Math.cos(u.pitch), sp = Math.sin(u.pitch), co = Math.cos(u.roll), so = Math.sin(u.roll);
   const Hx = -.25, Hy = .35, Hz = 1.5, hl = Math.hypot(Hx, Hy, Hz);   // the highlight's half-way vector (a light up and to the left, towards us)
   const ext = sty === 2 ? .5 : 1, ex = st.ex*st.ex*T.explode, gone = Math.max(0, 1 - w/.6), dim = x.dim, fill = T.fill*(.6 + (P.beat || 0)*.8);
-  const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed(), litAmt = T.lit*(T.act.litCalm + (1 - T.act.litCalm)*st.act);   // (calm: the patterns glow softer)
+  const solid = sty === 1 || sty === 5, outline = sty === 2, holo = sty === 3, kc = closed(), litAmt = T.lit*(T.act.litCalm + (1 - T.act.litCalm)*st.act)*T.on.patterns;   // (calm: the patterns glow softer)
   const extr = T.extrude*(st.secBars >= T.layerBars.extrude ? pr.extrude : .5)*(T.act.liftCalm + (1 - T.act.liftCalm)*at('lift'));
   const hop = at('spin');
   const room = STAGE.on > .01, R = TUNE.prism.room, Ls = STAGE.lamps, cam = u.cam || CAM, Pp = X.pos, stride = Math.max(1, Math.ceil(b.nf/120)), fo = STAGE.f;
@@ -887,7 +888,7 @@ function colour(b, P, x, u, w){
     }
     if (tx === 'glass' || tx === 'ice' || tx === 'iris' || tx === 'mirror') { const FT = T.tex, fs = FT.fireSpread, gl2 = T.gloss*FT.fireGloss;
       for (let i = 0; i < 3; i++) { const ox = (i - 1)*fs, oy = (1 - i)*fs*.6, hx = Hx + ox, hy = Hy + oy, hn = Math.hypot(hx, hy, Hz);
-        fr[i] += Math.pow(Math.max(0, sg*(vx*hx + vy*hy + vz*Hz)/hn), gl2)*T.glint*FT.fire; } }
+        fr[i] += Math.pow(Math.max(0, sg*(vx*hx + vy*hy + vz*Hz)/hn), gl2)*T.glint*FT.fire*T.on.fire; } }
     if (!X.tex) X.tex = new Float32Array(b.nf); X.tex[f] = TEXCODE[tx];
     let gw = 0;
     if (room) {   // the lamps: each lights the facets turned to it inside its cone, and glints off those turned between it and the camera
@@ -904,7 +905,7 @@ function colour(b, P, x, u, w){
         const amt = l.k*spot, dfa = nd*amt*R.diff*(solid ? 1.6 : 1), gla = gl*amt*R.glint; gw += gla;
         for (let j = 0; j < 3; j++) fr[j] += l.c[j]*(dfa*(.75 + .25*tn[j]) + gla);   // (the light's own colour on the glass, a little tinted by it; the glint the light's)
         // a mirror ball: the key lamp thrown off every few facets onto the floor or the walls
-        if (i === 0 && f % stride === 0 && !u.inside && nc < SPC) { const rx = 2*nd*nX - lx, ry = 2*nd*nY - ly, rz = 2*nd*nZ - lz, n = STAGE.n;
+        if (i === 0 && f % stride === 0 && !u.inside && nc < SPC && TUNE.prism.on.spots) { const rx = 2*nd*nX - lx, ry = 2*nd*nY - ly, rz = 2*nd*nZ - lz, n = STAGE.n;
           const dn = n[1]*ry + n[2]*rz, tf = dn < -1e-3 ? (-STAGE.floor - (n[1]*Cy + n[2]*Cz))/dn : 1e9, bb = Cx*rx + Cy*ry + Cz*rz, cc = Cx*Cx + Cy*Cy + Cz*Cz - STAGE.walls**2, tw = -bb + Math.sqrt(Math.max(0, bb*bb - cc));
           const t = tf > 0 && tf < tw ? tf : tw, Qx = Cx + rx*t, Qy = Cy + ry*t, Qz = Cz + rz*t, dz = cam - Qz;
           if (dz > .3) { SPX[nc*4] = STAGE.pos[0] + Qx*fo/dz; SPX[nc*4 + 1] = STAGE.pos[1] + Qy*fo/dz; SPX[nc*4 + 2] = (.05 + t*.035)*fo/dz; SPX[nc*4 + 3] = amt*nd*R.spotBright*alpha; nc++; } }

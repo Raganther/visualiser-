@@ -67,10 +67,14 @@ const KNOBS = [
     ['lasers.max', 'Laser beams at most', 1, 8, 1],
     ['lasers.calm', 'Laser brightness when calm', 0, 1, .05]]],
 ];
+// the Switches: each element on or off (TUNE.prism.on), kept with the Tune tab's settings
+const SWITCHES = [['refl', 'Floor reflection'], ['shadow', 'Shadows'], ['fog', 'Fog and vignette'], ['glints', 'Sheen on the floor'], ['grid', 'Floor grid'],
+  ['beams', 'Lamp beams'], ['spots', 'Mirror-ball spots'], ['lasers', '3D lasers'], ['caustics', 'Caustics'], ['fire', 'Rainbow fire'], ['patterns', 'Lit patterns'],
+  ['strobe', 'Kick strobe'], ['dance', 'Its dance'], ['shatter', 'Shatter on drops'], ['layers3d', 'Layers in 3D'], ['camera', 'Camera moves']];
 const at = path => { const ks = path.split('.'), last = ks.pop(); return [ks.reduce((o, k) => o[k], TUNE.prism), last]; };
 const getT = path => { const [o, k] = at(path); return o[k]; };
 const setT = (path, v) => { const [o, k] = at(path); o[k] = v; };
-const DEF = Object.fromEntries(KNOBS.flatMap(([, ks]) => ks.map(([p]) => [p, getT(p)])));   // (the defaults, before any saved ones)
+const DEF = Object.fromEntries([...KNOBS.flatMap(([, ks]) => ks.map(([p]) => [p, getT(p)])), ...SWITCHES.map(([k]) => ['on.' + k, getT('on.' + k)])]);   // (the defaults, before any saved ones)
 
 const CSS = `
 body.prismlab #bar,body.prismlab #welcome,body.prismlab #caption,body.prismlab #keyHud,body.prismlab #panel{display:none!important}
@@ -214,6 +218,7 @@ export default function(){
       ${btn('det:-1', 'Facets −')}${btn('det:1', 'Facets +')}</div></div>
     <div class="pg"><h3>Room and camera</h3><div class="pr">${btn('room', 'Room', LS.room)}${opts('cam', ['auto', 'far', 'mid', 'near', 'inside', 'low'])}</div></div>
     <div class="pg"><h3>Room style</h3><div class="pr">${opts('style', ['auto', ...roomStyles()])}</div></div>
+    <div class="pg"><h3>Switches</h3><div class="pr">${SWITCHES.map(([k, label]) => btn('sw:' + k, label, getT('on.' + k) > 0)).join('')}</div></div>
     <div class="pg"><h3>3D lasers</h3><div class="pr">${opts('laser', ['auto', ...laserShows(), 'off'])}</div></div>
     <div class="pg"><h3>Layers in 3D</h3><div class="pr">${LAYERS.map(([k, n]) => btn('layer:' + k, n, p && p[k] > 0)).join('')}</div></div>
     </div>`;
@@ -282,6 +287,7 @@ export default function(){
     else if (id === 'beat') { LS.beat = v; prismClear(BEAT[v]); render(); }
     else if (id === 'det') { prismDetail(Math.max(0, Math.min(4, prismState().det + +v))); render(); }
     else if (id === 'room') { LS.room = !LS.room; set('room', LS.room ? 1 : 0); render(); }
+    else if (id === 'sw') { setT('on.' + v, getT('on.' + v) > 0 ? 0 : 1); save(); render(); }
     else if (id === 'jam') { LS.jam = !LS.jam; JAM.on = LS.jam; document.body.classList.toggle('jamming', LS.jam); render(); }
     else if (id === 'style') { LS.style = v; prismStyle(v === 'auto' ? undefined : v); render(); }
     else if (id === 'cam') { LS.cam = v; prismCam(v === 'auto' ? undefined : v); render(); }
