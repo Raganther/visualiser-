@@ -1,14 +1,16 @@
 <title>Prism Test Web</title>
 <style>
 /* One full-screen dark stage, as the native test: the picture fills the window, a slim bar of glass chips sits at the
-   bottom. A deliberately single (dark) look, like the app it mirrors. */
+   bottom, and the Layers sheet rises above it. A deliberately single (dark) look, like the app it mirrors. */
 :root {
   --bg: #000;
   --fg: rgba(255, 255, 255, .92);
   --dim: rgba(255, 255, 255, .7);
   --faint: rgba(255, 255, 255, .4);
   --chip: rgba(60, 60, 72, .42);
+  --chip-on: rgba(150, 140, 230, .42);
   --chip-edge: rgba(255, 255, 255, .14);
+  --sheet: rgba(18, 18, 26, .72);
   --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
@@ -23,21 +25,45 @@ body { background: var(--bg); color: var(--fg); font-family: var(--ui); overflow
 #chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; font: 500 15px var(--ui); color: var(--fg); background: var(--chip); border: 1px solid var(--chip-edge); border-radius: 999px; padding: 9px 14px; -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); cursor: pointer; }
 .chip:active { background: rgba(90, 90, 104, .55); }
-.chip:focus-visible, #more:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.chip[aria-pressed="true"] { background: var(--chip-on); }
+.chip:focus-visible, #more:focus-visible, .row:focus-visible, #lv:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .chip[disabled] { opacity: .45; }
 #hint { font-size: 11px; color: var(--faint); text-align: center; max-width: 46em; }
 #more { position: fixed; right: 28px; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--faint); background: transparent; color: var(--faint); font: 700 14px var(--ui); line-height: 1; cursor: pointer; }
 #file { display: none; }
 #err { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--dim); font: 14px var(--ui); }
+/* the Layers sheet */
+#sheet { width: min(560px, 100%); max-height: 52vh; overflow-y: auto; background: var(--sheet); border: 1px solid var(--chip-edge); border-radius: 18px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 10px; -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); }
+.sh-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.sh-head span { font: 600 13px var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.sh-head b { font: 600 17px var(--ui); }
+#lv { width: 100%; accent-color: #b3a8ff; height: 28px; }
+.ticks { display: grid; grid-template-columns: repeat(10, 1fr); font: 11px var(--mono); color: var(--faint); text-align: center; margin-top: -6px; }
+#rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+@media (max-width: 480px) { #rows { grid-template-columns: 1fr; } }
+.row { display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; text-align: left; align-items: start; background: transparent; border: 1px solid var(--chip-edge); border-radius: 12px; padding: 8px 10px; color: var(--fg); font: 14px var(--ui); cursor: pointer; min-width: 0; }
+.row[aria-pressed="true"] { background: var(--chip-on); }
+.row .n { font: 600 12px var(--mono); color: var(--faint); grid-row: span 2; padding-top: 2px; }
+.row .t { font-weight: 600; }
+.row .d { font-size: 12px; color: var(--dim); line-height: 1.35; }
+.sh-foot { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 </style>
 
 <canvas id="cv"></canvas>
 <div id="bar">
+  <div id="sheet" hidden>
+    <div class="sh-head"><span>Complexity</span><b id="lvName">5 · Drops</b></div>
+    <input type="range" id="lv" min="0" max="9" step="1" value="5" aria-label="Complexity">
+    <div class="ticks"><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></div>
+    <div id="rows"></div>
+    <div class="sh-foot"><button class="chip" id="bCopy">Copy settings</button><button class="chip" id="bDone">Done</button></div>
+  </div>
   <div id="status">No music: ＋ Music or Demo beat</div>
   <div id="chips">
     <button class="chip" id="bMusic">＋ Music</button>
     <button class="chip" id="bDemo">Demo beat</button>
     <button class="chip" id="bPlay">Play</button>
+    <button class="chip" id="bLayers" aria-pressed="false">Layers</button>
     <button class="chip" id="bShape">New shape</button>
     <button class="chip" id="bDrop">Drop</button>
     <button class="chip" id="bFacets">Facets: auto</button>
@@ -50,17 +76,45 @@ body { background: var(--bg); color: var(--fg); font-family: var(--ui); overflow
 <div id="err" hidden></div>
 
 <script>
-// The Prism test in WebGL: a line-for-line port of the native test (native/PrismTest.swiftpm: Geometry, Analysis, Player,
-// Prism, Renderer), so the two can be compared on the same device. Same geometry, brain, music reading, lights, shaders
-// and finish; only the platform differs.
+// The Prism test in WebGL: the native test (native/PrismTest.swiftpm) ported line for line, then built up in layers of
+// complexity (the Layers sheet): 0 the still gem, then the pulse, detail, shapes, patterns and drops the native test has, then
+// opening into a star and mountains, surfaces, life on the facets, and the room with its lamps, lasers and camera, each
+// brought over from the full Prism (src/visuals/objects/prism.js) one at a time, each its own switch.
 'use strict';
 const $ = id => document.getElementById(id);
 
-// ---- the feel numbers (Tune in Prism.swift) ----
+// ---- the layers, simplest first (the Complexity slider turns on 1..n) ----
+const LAYERS = [
+  {k: 'pulse', t: 'Pulse', d: 'The kick sends rings of light across it; the bass swells it'},
+  {k: 'detail', t: 'Detail', d: 'More facets as the groove settles and the music builds'},
+  {k: 'shapes', t: 'Shapes', d: 'A new shape each phrase'},
+  {k: 'patterns', t: 'Patterns', d: 'Stabs step a lit wedge, hats spark facets, a drop’s run-up fills it'},
+  {k: 'drops', t: 'Drops', d: 'It shatters on the drop and comes back sharp'},
+  {k: 'open', t: 'Opening', d: 'It blooms open into a star, mountains or waves, and folds back'},
+  {k: 'surfaces', t: 'Surfaces', d: 'Stained glass, LED panels, brushed metal, ice, mirror, iridescence'},
+  {k: 'life', t: 'Life', d: 'Patterns that live on the facets: spots, stripes, swells, frost, fireflies'},
+  {k: 'space', t: 'Space', d: 'A room: a mirror floor, lamps in haze, lasers through it, the camera moving'},
+];
+const NAMES = ['Still', ...LAYERS.map(l => l.t)];
+const ON = Object.fromEntries(LAYERS.map((l, i) => [l.k, i < 5]));
+let level = 5;
+const on = k => ON[k];
+
+// ---- the feel numbers (Tune in Prism.swift, and TUNE.prism for the layers brought over) ----
 const Tune = {r: .62, spin: .22, morphSecs: 3.9, breath: .14, explode: 1.25, explodeSecs: 1.2, ripSecs: 1.6, ripSpeed: .75, ripW: .28,
   kickCalm: .5, fire: 1.35, hatShare: .12, actBase: .22, actBrk: .55, actFree: .4,
   width: .05, pull: 1.2, maxPull: .35, holdRate: .25, bounce: 1, damp: .12, friction: 2.2, maxSpin: 5, turn: 5, tilt: 3, tapBright: .8,
-  cam: 3.2, focal: 2.6};
+  cam: 3.2, focal: 2.6,
+  star: .55, mtn: .3, mtnScale: 2.2, mtnBreath: .5, waveK: 9, waveSpeed: 2.2, openChance: .3, wedges: 5,   // opening
+  tex: {calm: [2, .8, .3, .5, 1.2, 1, 1], live: [1, 1.2, 1.2, 1, .5, .8, 1], sweepBeats: 8, change: .3},   // surfaces: glass, stained, led, metal, ice, mirror, iridescent
+  cells: {rdRate: 90, du: .2, dv: .1, rdGain: 7, waveC: .25, waveDamp: 2, waveGain: 2, frostRate: 4, frostGrow: .35, frostMelt: 8, flyBeats: 2, flySpread: .3, flyWidth: .35, flyK: .05, flyKBuild: .45, lit: .55},
+  room: {floor: -1.05, refl: .32, haze: 1, walls: 6},
+  lasers: {max: 6, calm: .45, index: 1.5, depth: 6, splits: 3, width: .007, flare: .02, trace: .9, traceSecs: .6, dropBars: 2}};
+const FORMS = {gem: {k: 1, h: 0, wv: 0, pitch: .25, yw: 1, det: 0}, bloom: {k: .45, h: .06, wv: 0, pitch: -.2, yw: .3, det: 1},
+  star: {k: 0, h: .3, wv: 0, pitch: -.55, yw: 0, det: 2}, peaks: {k: 0, h: 1, wv: 0, pitch: -1.05, yw: 0, det: 3}, waves: {k: 0, h: .15, wv: 1, pitch: -.85, yw: 0, det: 3}};
+const OPEN = ['bloom', 'star', 'peaks', 'waves'];
+const TEX = ['glass', 'stained glass', 'LED panels', 'brushed metal', 'ice', 'mirror', 'iridescent'];
+const RULES = ['spots', 'stripes', 'swell', 'frost', 'fireflies'];
 
 // ---- small maths ----
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -72,7 +126,13 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 function hash(a, b){ let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0)/4294967296; }
 function hsv(h, s, v){ const hh = (h - Math.floor(h))*6, c = [Math.abs(hh - 3) - 1, 2 - Math.abs(hh - 2), 2 - Math.abs(hh - 4)].map(x => clamp(x, 0, 1));
   return c.map(k => v*((1 - s) + s*k)); }
+const h2 = (i, j) => { const x = Math.sin(i*127.1 + j*311.7)*43758.5453; return x - Math.floor(x); };
+function vn(x, y){ const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, u = fx*fx*(3 - 2*fx), v = fy*fy*(3 - 2*fy);
+  return (h2(i, j)*(1 - u) + h2(i + 1, j)*u)*(1 - v) + (h2(i, j + 1)*(1 - u) + h2(i + 1, j + 1)*u)*v; }
 const ICO = (() => { const t = (1 + Math.sqrt(5))/2; return [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(norm); })();
+const m3 = (A, B) => { const C = new Array(9); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i*3 + j] = A[i*3]*B[j] + A[i*3 + 1]*B[3 + j] + A[i*3 + 2]*B[6 + j]; return C; };
+const mul = (M, v) => [M[0]*v[0] + M[1]*v[1] + M[2]*v[2], M[3]*v[0] + M[4]*v[1] + M[5]*v[2], M[6]*v[0] + M[7]*v[1] + M[8]*v[2]];
+const mulT = (M, v) => [M[0]*v[0] + M[3]*v[1] + M[6]*v[2], M[1]*v[0] + M[4]*v[1] + M[7]*v[2], M[2]*v[0] + M[5]*v[1] + M[8]*v[2]];
 
 // ---- the facet geometry (Geometry.swift): an icosahedron subdivided F times ----
 function facetGeo(F = 3){
@@ -95,17 +155,140 @@ function facetGeo(F = 3){
   const nv = V.length, nf = faces.length;
   const FA = []; for (let L = 0; L <= F; L++) FA.push(new Int32Array(nf));
   for (let f = 0; f < nf; f++) { let g = f; for (let L = F; L >= 0; L--) { FA[L][f] = g; if (L > 0) g = PAR[L][g]; } }
-  const AI = new Int32Array(nv*(F + 1)*3), AW = new Float32Array(nv*(F + 1)*3);
-  for (let L = 0; L <= F; L++) { const done = new Uint8Array(nv);
-    for (let f = 0; f < nf; f++) for (const v of faces[f]) { if (done[v]) continue; done[v] = 1;
-      const [a, b, c] = LV[L][FA[L][f]], d = V[v], n = cross(sub(V[b], V[a]), sub(V[c], V[a])), k = dot(n, V[a])/dot(n, d), X = [d[0]*k, d[1]*k, d[2]*k];
-      const ar = (x0, x1) => dot(n, cross(sub(V[x1], V[x0]), sub(X, V[x0])));
-      const tot = dot(n, n), wa = ar(b, c)/tot, wb = ar(c, a)/tot, wc = 1 - wa - wb, o = (v*(F + 1) + L)*3;
-      AI[o] = a; AI[o + 1] = b; AI[o + 2] = c; AW[o] = wa; AW[o + 1] = wb; AW[o + 2] = wc; } }
   const EL = new Int32Array(nf*3), TRI = new Int32Array(nf*3);
   faces.forEach(([a, b, c], f) => { TRI[f*3] = a; TRI[f*3 + 1] = b; TRI[f*3 + 2] = c; EL[f*3] = elev.get(ek(b, c)) ?? 0; EL[f*3 + 1] = elev.get(ek(c, a)) ?? 0; EL[f*3 + 2] = elev.get(ek(a, b)) ?? 0; });
-  const CEN = LV.map(l => l.map(([a, b, c]) => norm([V[a][0] + V[b][0] + V[c][0], V[a][1] + V[b][1] + V[c][1], V[a][2] + V[b][2] + V[c][2]])));
-  return {F, nv, nf, dir: V, tri: TRI, el: EL, ai: AI, aw: AW, fa: FA, cen: CEN, nfAt: LV.map(l => l.length)};
+  // each facet's neighbours at every level (sharing an edge)
+  const ADJ = LV.map(fl => { const adj = new Int32Array(fl.length*3).fill(-1), byEdge = new Map();
+    fl.forEach(([a, b, c], f) => [[a, b], [b, c], [c, a]].forEach(([p, q], j) => { const k = ek(p, q), o = byEdge.get(k); if (o) { adj[f*3 + j] = o[0]; adj[o[0]*3 + o[1]] = f; } else byEdge.set(k, [f, j]); }));
+    return adj; });
+  return {F, nv, nf, V, LV, FA, TRI, EL, ADJ};
+}
+// the gem cut open (gemSheetGeo in src/render/facet.js): the ball turned so a corner faces us, cut along its edges into five
+// gores, a corner on a cut one corner per gore, so it can open like a flower into a flat star. Closed, it's the ball exactly
+function gemSheet(B){
+  const {F, V, LV, FA, TRI, EL, ADJ, nf} = B;
+  const p = V[0], ax = norm(cross(p, [0, 0, 1])), an = Math.acos(clamp(p[2], -1, 1));
+  const rot = d => { const c = Math.cos(an), s = Math.sin(an), k = dot(ax, d), x = cross(ax, d); return [d[0]*c + x[0]*s + ax[0]*k*(1 - c), d[1]*c + x[1]*s + ax[1]*k*(1 - c), d[2]*c + x[2]*s + ax[2]*k*(1 - c)]; };
+  const RV = V.map(rot), az = d => Math.atan2(d[1], d[0]), cen0 = f => norm(LV[0][f].reduce((a, i) => [a[0] + RV[i][0], a[1] + RV[i][1], a[2] + RV[i][2]], [0, 0, 0]));
+  const gore = new Int8Array(20).fill(-1), A0 = ADJ[0], has0 = f => LV[0][f].includes(0);
+  const T = [...Array(20).keys()].filter(has0).sort((a, b) => az(cen0(a)) - az(cen0(b)));
+  const wrap = a => Math.atan2(Math.sin(a), Math.cos(a)), GCs = [];
+  T.forEach((t, i) => {
+    const D = [0, 1, 2].map(j => A0[t*3 + j]).find(f => !has0(f));
+    const Us = [0, 1, 2].map(j => A0[D*3 + j]).filter(f => f !== t), U = wrap(az(cen0(Us[0])) - az(cen0(D))) > 0 ? Us[0] : Us[1];
+    const Bk = [0, 1, 2].map(j => A0[U*3 + j]).find(f => ![0, 1, 2].some(k => T.includes(A0[f*3 + k])));
+    for (const f of [t, D, U, Bk]) gore[f] = i;
+    const c = [t, D, U, Bk].reduce((a, f) => { const d = cen0(f); return [a[0] + d[0], a[1] + d[1]]; }, [0, 0]); GCs.push(Math.atan2(c[1], c[0]));
+  });
+  const copy = new Map(), SRC = [], GO = [], fg = f => gore[FA[0][f]];
+  const id = (v, g) => { const k = v*8 + g; let i = copy.get(k); if (i === undefined) { i = SRC.length; copy.set(k, i); SRC.push(v); GO.push(g); } return i; };
+  const NT = new Int32Array(nf*3); for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) NT[f*3 + j] = id(TRI[f*3 + j], fg(f));
+  const AI = [], AW = [];
+  for (let L = 0; L <= F; L++) { const done = new Set();
+    for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) {
+      const v = NT[f*3 + j]; if (done.has(v)) continue; done.add(v);
+      const [a, b, c] = LV[L][FA[L][f]], d = V[SRC[v]], n = cross(sub(V[b], V[a]), sub(V[c], V[a])), k = dot(n, V[a])/dot(n, d), X = [d[0]*k, d[1]*k, d[2]*k];
+      const ar = (q, r) => dot(n, cross(sub(V[r], V[q]), sub(X, V[q]))), tot = dot(n, n), wa = ar(b, c)/tot, wb = ar(c, a)/tot, o = (v*(F + 1) + L)*3, g = GO[v];
+      AI[o] = id(a, g); AI[o + 1] = id(b, g); AI[o + 2] = id(c, g); AW[o] = wa; AW[o + 1] = wb; AW[o + 2] = 1 - wa - wb;
+    } }
+  const nv = SRC.length, DIR = [], TH = new Float32Array(nv), PS = new Float32Array(nv), GC = new Float32Array(nv), SX = new Float32Array(nv), SY = new Float32Array(nv);
+  for (let i = 0; i < nv; i++) { const d = RV[SRC[i]]; DIR.push(d); TH[i] = Math.acos(clamp(d[2], -1, 1)); GC[i] = GCs[GO[i]];
+    PS[i] = Math.hypot(d[0], d[1]) < 1e-6 ? 0 : wrap(az(d) - GC[i]);
+    const sc = TH[i] < 1e-4 ? 1 : Math.sin(TH[i])/TH[i], ps = GC[i] + PS[i]*sc; SX[i] = TH[i]*Math.cos(ps); SY[i] = TH[i]*Math.sin(ps); }   // (where it lies on the flat star)
+  const CEN = LV.map(l => l.map(([a, b, c]) => norm([RV[a][0] + RV[b][0] + RV[c][0], RV[a][1] + RV[b][1] + RV[c][1], RV[a][2] + RV[b][2] + RV[c][2]])));
+  return {F, nv, nf, tri: NT, el: EL, fa: FA, cen: CEN, adj: ADJ, ai: Int32Array.from(AI), aw: Float32Array.from(AW), dir: DIR, TH, PS, GC, SX, SY, nfAt: LV.map(l => l.length)};
+}
+
+// ---- life on the facets (src/visuals/objects/cells.js) ----
+function makeCells(NA, ADJ, rnd){
+  const C = {NA, ADJ, u: new Float32Array(NA).fill(1), v: new Float32Array(NA), lu: new Float32Array(NA), lv: new Float32Array(NA),
+    h: new Float32Array(NA), hv: new Float32Array(NA), f: new Float32Array(NA), ph: new Float32Array(NA), om: new Float32Array(NA), out: new Float32Array(NA), acc: 0};
+  for (let c = 0; c < NA; c++) { C.ph[c] = rnd()*Math.PI*2; C.om[c] = rnd() - .5; }
+  return C;
+}
+const GS = {spots: [.03, .062], stripes: [.04, .06]};
+function lap(C, x, o){ const {NA, ADJ} = C; for (let c = 0; c < NA; c++) { let s = 0, n = 0; for (let j = 0; j < 3; j++) { const k = ADJ[c*3 + j]; if (k >= 0) { s += x[k]; n++; } } o[c] = n ? s/n - x[c] : 0; } }
+function touchCells(C, rule, cells, amt = 1){
+  for (const c of cells) {
+    if (rule === 'spots' || rule === 'stripes') { C.v[c] = Math.min(1, C.v[c] + .5*amt); C.u[c] = Math.max(0, C.u[c] - .5*amt); }
+    else if (rule === 'swell') C.hv[c] += amt;
+    else if (rule === 'frost') C.f[c] = 1;
+    else if (rule === 'fireflies') C.ph[c] = 0;
+  }
+}
+function stepCells(C, rule, dt, T, beat, K, rnd){
+  const {NA, out} = C; beat = beat > .2 ? beat : .5;
+  if (rule === 'spots' || rule === 'stripes') {
+    const [F, k] = GS[rule]; C.acc += dt*T.rdRate;
+    for (; C.acc >= 1; C.acc--) { lap(C, C.u, C.lu); lap(C, C.v, C.lv);
+      for (let c = 0; c < NA; c++) { const u = C.u[c], v = C.v[c], r = u*v*v;
+        C.u[c] = clamp(u + T.du*C.lu[c] - r + F*(1 - u), 0, 1); C.v[c] = clamp(v + T.dv*C.lv[c] + r - (F + k)*v, 0, 1); } }
+    let mx = 0; for (let c = 0; c < NA; c++) { mx = Math.max(mx, C.v[c]); const x = clamp((C.v[c] - .04)*T.rdGain, 0, 1); out[c] = x*x*(3 - 2*x); }
+    if (mx < .08) for (let i = 0; i < 8; i++) { const c = Math.floor(rnd()*NA); C.v[c] = .5; C.u[c] = .5; }
+  } else if (rule === 'swell') {
+    const s = Math.min(1, dt*60); lap(C, C.h, C.lu);
+    for (let c = 0; c < NA; c++) C.hv[c] = (C.hv[c] + T.waveC*C.lu[c]*s)*Math.exp(-T.waveDamp*dt);
+    for (let c = 0; c < NA; c++) { C.h[c] += C.hv[c]*s; out[c] = Math.min(1, Math.abs(C.h[c])*T.waveGain); }
+  } else if (rule === 'frost') {
+    C.acc += dt*T.frostRate;
+    for (; C.acc >= 1; C.acc--) {
+      for (let c = 0; c < NA; c++) if (C.f[c] < .5) { let n = 0; for (let j = 0; j < 3; j++) { const k = C.ADJ[c*3 + j]; if (k >= 0 && C.f[k] > .9) n++; }
+        C.lv[c] = n && rnd() < T.frostGrow*(n === 1 ? 1 : .35) ? 1 : 0; } else C.lv[c] = 0;
+      for (let c = 0; c < NA; c++) if (C.lv[c]) C.f[c] = 1;
+    }
+    for (let c = 0; c < NA; c++) { C.f[c] *= Math.exp(-dt/T.frostMelt); out[c] = C.f[c]; }
+  } else if (rule === 'fireflies') {
+    let sx = 0, sy = 0; for (let c = 0; c < NA; c++) { sx += Math.cos(C.ph[c]); sy += Math.sin(C.ph[c]); }
+    const R = Math.hypot(sx, sy)/NA, psi = Math.atan2(sy, sx), w0 = Math.PI*2/(beat*T.flyBeats);
+    for (let c = 0; c < NA; c++) {
+      let p = C.ph[c] + dt*(w0*(1 + C.om[c]*T.flySpread) + K*w0*R*Math.sin(psi - C.ph[c]));
+      p %= Math.PI*2; if (p < 0) p += Math.PI*2; C.ph[c] = p;
+      const d = p > Math.PI ? p - Math.PI*2 : p; out[c] = Math.exp(-(d*d)/(2*T.flyWidth*T.flyWidth));
+    }
+  } else out.fill(0);
+  return out;
+}
+
+// ---- 3D lasers (src/visuals/objects/beams.js): rays traced against the facets, bouncing, bending in, splitting into a rainbow ----
+const R3 = new Float32Array(3);
+function hitTri(V, nf, ox, oy, oz, dx, dy, dz, skip, out){
+  let best = 1e9, bf = -1;
+  for (let f = 0; f < nf; f++) { if (f === skip) continue; const a = f*9, b = a + 3, c = a + 6;
+    const e1x = V[b] - V[a], e1y = V[b + 1] - V[a + 1], e1z = V[b + 2] - V[a + 2], e2x = V[c] - V[a], e2y = V[c + 1] - V[a + 1], e2z = V[c + 2] - V[a + 2];
+    const px = dy*e2z - dz*e2y, py = dz*e2x - dx*e2z, pz = dx*e2y - dy*e2x, det = e1x*px + e1y*py + e1z*pz; if (Math.abs(det) < 1e-9) continue;
+    const inv = 1/det, tx = ox - V[a], ty = oy - V[a + 1], tz = oz - V[a + 2], u = (tx*px + ty*py + tz*pz)*inv; if (u < 0 || u > 1) continue;
+    const qx = ty*e1z - tz*e1y, qy = tz*e1x - tx*e1z, qz = tx*e1y - ty*e1x, v = (dx*qx + dy*qy + dz*qz)*inv; if (v < 0 || u + v > 1) continue;
+    const t = (e2x*qx + e2y*qy + e2z*qz)*inv; if (t > 1e-4 && t < best) { best = t; bf = f; } }
+  out[0] = best; return bf;
+}
+function refract(dx, dy, dz, nx, ny, nz, eta){ const c = -(dx*nx + dy*ny + dz*nz), k = 1 - eta*eta*(1 - c*c); if (k < 0) return null; const s = eta*c - Math.sqrt(k); return [eta*dx + s*nx, eta*dy + s*ny, eta*dz + s*nz]; }
+const SPECTRUM = [[1.47, [1, .12, .08]], [1.5, [.25, 1, .2]], [1.53, [.45, .3, 1]]];
+function traceBeams(V, FN, nf, emit, o, out){
+  out.segs.length = 0; out.flares.length = 0; out.land.length = 0; out.lit.clear();
+  const seg = (a, b, c) => { if (out.segs.length < o.maxSegs) out.segs.push([a, b, c]); };
+  const toWalls = (p, d) => { const bb = dot(p, d), cc = dot(p, p) - o.walls*o.walls; return -bb + Math.sqrt(Math.max(0, bb*bb - cc)); };
+  let split = 0;
+  const go = (p, d, c, depth, inside, skip) => {
+    if (out.segs.length >= o.maxSegs || Math.max(c[0], c[1], c[2]) < .03) return;
+    const bb = dot(p, d), cc = dot(p, p) - o.rmax*o.rmax, f = inside || bb*bb - cc > 0 && -bb + Math.sqrt(Math.max(0, bb*bb - cc)) > 0 ? hitTri(V, nf, p[0], p[1], p[2], d[0], d[1], d[2], skip, R3) : -1;
+    if (f < 0) { let t = toWalls(p, d); if (d[1] < -1e-4) { const tf = (o.floor - p[1])/d[1]; if (tf > 0 && tf < t) t = tf; }
+      const q = [p[0] + d[0]*t, p[1] + d[1]*t, p[2] + d[2]*t]; seg(p, q, c);
+      if (depth > 0 && out.land.length < 16) out.land.push([q, c]); return; }
+    const t = R3[0], q = [p[0] + d[0]*t, p[1] + d[1]*t, p[2] + d[2]*t]; seg(p, q, c);
+    const br = Math.max(c[0], c[1], c[2]); if (out.flares.length < 32) out.flares.push([q, br]);
+    out.lit.set(f, Math.max(out.lit.get(f) || 0, br));
+    if (depth >= o.maxDepth) return;
+    let nx = FN[f*3], ny = FN[f*3 + 1], nz = FN[f*3 + 2]; const dn = d[0]*nx + d[1]*ny + d[2]*nz; if (dn > 0) { nx = -nx; ny = -ny; nz = -nz; }
+    const cos = Math.abs(dn), rd = [d[0] + 2*cos*nx, d[1] + 2*cos*ny, d[2] + 2*cos*nz];
+    if (!o.closed) { go(q, rd, c.map(v => v*.7), depth + 1, false, f); return; }
+    if (!inside) { go(q, rd, c.map(v => v*.3), depth + 1, false, f); const r = refract(d[0], d[1], d[2], nx, ny, nz, 1/o.n); if (r) go(q, r, c.map(v => v*.85), depth + 1, true, f); }
+    else { const r = refract(d[0], d[1], d[2], nx, ny, nz, o.n);
+      if (!r) { go(q, rd, c.map(v => v*.9), depth + 1, true, f); return; }
+      if (split++ < o.splits) for (const [k, col] of SPECTRUM) { const s = refract(d[0], d[1], d[2], nx, ny, nz, k); if (s) go(q, s, [c[0]*col[0], c[1]*col[1], c[2]*col[2]].map(v => v*1.2), depth + 1, false, f); }
+      else go(q, r, c.map(v => v*.8), depth + 1, false, f); }
+  };
+  for (const e of emit) go(e.p, e.d, e.c, 0, !!e.inside, -1);
+  return out;
 }
 
 // ---- the track read ahead (Analysis.swift) ----
@@ -114,7 +297,7 @@ function makeFFT(N){
   for (let i = 0; i < N; i++) { let r = 0; for (let b = 0; b < bits; b++) r |= ((i >> b) & 1) << (bits - 1 - b); rev[i] = r; win[i] = .5 - .5*Math.cos(2*Math.PI*i/N); }
   for (let i = 0; i < N/2; i++) { cs[i] = Math.cos(-2*Math.PI*i/N); sn[i] = Math.sin(-2*Math.PI*i/N); }
   const re = new Float32Array(N), im = new Float32Array(N), mag = new Float32Array(N/2);
-  return x => {   // the power in each bin of N samples from x (a subarray)
+  return x => {
     for (let i = 0; i < N; i++) { re[rev[i]] = x[i]*win[i]; im[rev[i]] = 0; }
     for (let size = 2; size <= N; size <<= 1) { const h = size >> 1, step = N/size;
       for (let s = 0; s < N; s += size) for (let j = 0, k = 0; j < h; j++, k += step) {
@@ -128,6 +311,7 @@ const pct = (x, q) => { if (!x.length) return 0; const s = Float32Array.from(x).
 async function analyse(mono, sr, progress){
   const A = {sr, hop: 512, dtH: 512/sr, duration: mono.length/sr, n: 0, bass: [], tension: [], hatLv: [], beats: [], kick: [], period: .5, bpm: 120, conf: 0, steady: false,
     stabs: [], hats: [], onsets: [], drops: [], breaks: []};
+  A.at = (arr, t) => arr.length ? arr[clamp(Math.floor(t/A.dtH), 0, arr.length - 1)] : 0;
   const N = 2048, hop = A.hop, dtH = A.dtH;
   if (mono.length <= N*2) return A;
   const fft = makeFFT(N), half = N/2, binHz = sr/N, n = A.n = Math.floor((mono.length - N)/hop) + 1;
@@ -143,7 +327,6 @@ async function analyse(mono, sr, progress){
   const rise = x => { const o = new Float32Array(x.length); for (let i = 2; i < x.length; i++) o[i] = Math.max(0, x[i] - x[i - 2]); return o; };
   const oLow = rise(low), oMid = rise(mid), oHigh = rise(high), oAll = rise(all), o = new Float32Array(n);
   for (let i = 0; i < n; i++) o[i] = oLow[i] + .5*oAll[i];
-  // the tempo and the beats
   const lagLo = Math.floor(60/180/dtH), lagHi = Math.floor(60/70/dtH) + 1;
   if (n > lagHi*8) {
     let bestLag = lagLo, bestS = -1;
@@ -170,14 +353,12 @@ async function analyse(mono, sr, progress){
   A.bass = nrm(ema(low, .25), .05, .98);
   const allN = nrm(ema(all, 3), .1, .95); A.hatLv = nrm(ema(high, 1), .1, .95);
   A.tension = Float32Array.from(allN, (v, i) => .65*v + .35*A.hatLv[i]);
-  // breakdowns and drops
   const env = ema(low, .5); let rm = -200, under = 0, inBreak = false, lastDrop = -100, brStart = 0;
   for (let i = 0; i < n; i++) { const t = i*dtH; rm = Math.max(env[i], rm - .3*dtH);
     if (env[i] < rm - 9) { if (under === 0) brStart = t; under += dtH; } else if (!inBreak) under = 0;
     if (!inBreak && under >= 4) { inBreak = true; A.breaks.push(brStart); }
     if (inBreak && env[i] > rm - 4) { inBreak = false; under = 0;
       if (t > 8 && t - lastDrop > 15) { let d = t - .15; if (A.steady) { const b = A.beats.find(x => x >= d - A.period*.5); if (b !== undefined) d = b; } A.drops.push(d); lastDrop = d; } } }
-  A.at = (arr, t) => arr.length ? arr[clamp(Math.floor(t/dtH), 0, arr.length - 1)] : 0;
   return A;
 }
 
@@ -193,7 +374,6 @@ const player = {ctx: null, src: null, buf: null, analysis: null, playing: false,
   },
   stop(){ if (this.src) { try { this.src.stop(); } catch (e) {} this.src.disconnect(); this.src = null; } this.playing = false; this.lastT = 0; },
   toggle(){ if (!this.src) return; if (this.playing) { this.ctx.suspend(); this.playing = false; } else { this.ctx.resume(); this.playing = true; } },
-  // the audio clock as it reaches the speakers (its output timestamp, carried on by the page's clock), less where it started
   get time(){
     if (!this.playing || !this.ctx) return this.lastT;
     const c = this.ctx; let now = c.currentTime - (c.outputLatency || c.baseLatency || 0);
@@ -203,7 +383,6 @@ const player = {ctx: null, src: null, buf: null, analysis: null, playing: false,
     return this.lastT = Math.max(0, t);
   },
 };
-// the demo beat: sixteen bars of minimal techno at 124 BPM, the breakdown bars 9 to 12, the drop on bar 13 (Demo in Player.swift)
 function demoBeat(ctx){
   const sr = 44100, bpm = 124, beat = 60/bpm, n = Math.floor(64*beat*sr), buf = ctx.createBuffer(2, n, sr), L = buf.getChannelData(0), R = buf.getChannelData(1), mono = new Float32Array(n);
   let seed = 12345; const noise = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return (seed >>> 8)/8388608 - 1; };
@@ -226,7 +405,7 @@ function demoBeat(ctx){
   return {buf, mono, sr};
 }
 
-// ---- the Prism's brain (Prism.swift) ----
+// ---- the Prism's shapes (Prism.swift) ----
 const LOOKS = [
   {name: 'ball', kind: 'ball'}, {name: 'cube', kind: 'cube', sharp: true}, {name: 'octahedron', kind: 'octa', sharp: true}, {name: 'diamond', kind: 'gem', sharp: true},
   {name: 'star', kind: 'star', sharp: true}, {name: 'disc', kind: 'disc'}, {name: 'pill', kind: 'pill'}, {name: 'flower', kind: 'flower'},
@@ -259,26 +438,36 @@ function shaped(L, d, out){
   out[0] = px; out[1] = py; out[2] = pz;
 }
 
+// ---- the Prism's brain ----
 function makePrism(){
-  const G = facetGeo(3), nv = G.nv, nf = G.nf;
-  const S3 = new Float32Array(nv*3), P3 = new Float32Array(nv*3), D = new Float32Array(nv).fill(1);
-  const angFront = G.dir.map(d => Math.acos(clamp(d[2], -1, 1))/Math.PI);
-  const verts = new Float32Array(nf*3*16);   // per corner: pos 3, normal 3, bary 3, edge 3, colour 4
+  const G = gemSheet(facetGeo(3)), nv = G.nv, nf = G.nf;
+  const S3 = new Float32Array(nv*3), P3 = new Float32Array(nv*3), D = new Float32Array(nv).fill(1), angFront = Float32Array.from(G.TH, t => t/Math.PI);
+  const STRIDE = 20, verts = new Float32Array(nf*3*STRIDE);   // per corner: pos 3, normal 3, bary 3, edge 3, colour 4, texture 1, spare 3
+  const WV = new Float32Array(nf*9), WN = new Float32Array(nf*3), litL = new Float32Array(nf);   // the facets in the world (for the lasers) and what the lasers lit
   const st = {lookA: LOOKS[0], lookB: LOOKS[0], morph: 1, recent: ['ball'], dPrev: 1, dNext: 1, wave: 1, detailMode: -1, act: .2, ex: 0, exHold: 0,
     rings: [], wedge: 0, wedgeLit: 0, hatSeed: 0, hatLit: 0, kickFlash: 0, h0: .62, palSpread: .08, clock: 0, rng: 99,
     lastT: -1, iBeat: 0, iStab: 0, iHat: 0, iOnset: 0, iDrop: 0, phraseN: 0, kicksRun: 0, lastPhraseT: 0, idleBeat: 0, lastDropAt: -100,
-    tension: 0, bassLv: 0, anticip: 0, inBreak: false, steady: true, period: .5, info: '',
-    yaw: 0, pitch: .3, yawV: 0, pitchV: 0, camZ: Tune.cam, aspect: 1,
+    tension: 0, bassLv: 0, anticip: 0, inBreak: false, wasBreak: false, steady: true, period: .5, info: '',
+    yaw: 0, pitch: .25, roll: 0, yawV: 0, pitchV: 0, camZ: Tune.cam, camEff: Tune.cam, aspect: 1,
     touching: false, onObj: false, tStart: [0, 0], tLast: [0, 0], tTime: 0, tLastTime: 0, tDir: [0, 0, 1], tOut: [1, 0], tMoved: 0, holdDent: 0,
-    bumpDirs: [], bumpA: 0, bumpV: 0, bumpTarget: null};
+    bumpDirs: [], bumpA: 0, bumpV: 0, bumpTarget: null,
+    form: 'gem', f: {...FORMS.gem}, seed: 3.7,                                           // opening
+    tex: {cur: 0, prev: 0, o: [0, 0, 1], t0: -100, dur: 4},                             // surfaces
+    rule: 'spots', cells: null,                                                          // life
+    dive: -100, beams: {segs: [], flares: [], land: [], lit: new Map()}, laserN: 0};    // space
   const rand = () => { st.rng = (Math.imul(st.rng, 1664525) + 1013904223) >>> 0; return (st.rng >>> 8)/16777216; };
+  st.cells = makeCells(G.nfAt[2], G.adj[2], rand);
   const curDetail = () => st.dPrev + (st.dNext - st.dPrev)*sm(st.wave);
-  const rot = () => { const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
-    return [cy, 0, sy, sp*sy, cp, -sp*cy, -cp*sy, sp, cp*cy]; };   // rows of Rx·Ry
-  const mul = (M, v) => [M[0]*v[0] + M[1]*v[1] + M[2]*v[2], M[3]*v[0] + M[4]*v[1] + M[5]*v[2], M[6]*v[0] + M[7]*v[1] + M[8]*v[2]];
-  const mulT = (M, v) => [M[0]*v[0] + M[3]*v[1] + M[6]*v[2], M[1]*v[0] + M[4]*v[1] + M[7]*v[2], M[2]*v[0] + M[5]*v[1] + M[8]*v[2]];
+  const isOpen = () => st.form !== 'gem';
+  // its turn: tipped (pitch), turning about its upright (yaw) and round its face (roll)
+  const rot = () => { const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch), cr = Math.cos(st.roll), sr = Math.sin(st.roll);
+    return m3(m3([1, 0, 0, 0, cp, -sp, 0, sp, cp], [cy, 0, sy, 0, 1, 0, -sy, 0, cy]), [cr, -sr, 0, sr, cr, 0, 0, 0, 1]); };
   const front = () => mulT(rot(), [0, 0, 1]);
   const ring = (dir, b) => { st.rings.push({dir, t0: st.clock, bright: b}); if (st.rings.length > 6) st.rings.shift(); };
+  // the cells nearest n points round its middle (the music touches the life at symmetric places)
+  const nearCell = d => { let best = -2, bc = 0; const C = G.cen[2]; for (let c = 0; c < C.length; c++) { const x = dot(C[c], d); if (x > best) { best = x; bc = c; } } return bc; };
+  const symCells = (el, a0) => [0, 1, 2, 3, 4].map(i => { const a = a0 + i*2*Math.PI/5, ce = Math.cos(el); return nearCell([ce*Math.cos(a), ce*Math.sin(a), Math.sin(el)]); });
+
   function nextLook(sharp){
     const pool = LOOKS.filter(L => L.name !== st.lookB.name && !st.recent.includes(L.name)), want = pool.filter(L => L.sharp === sharp);
     const from = want.length && rand() < .7 ? want : pool; if (!from.length) return;
@@ -287,16 +476,46 @@ function makePrism(){
     st.recent.push(L.name); if (st.recent.length > 5) st.recent.shift();
   }
   const setDetail = d => { if (Math.abs(d - st.dNext) < .01) return; st.dPrev = curDetail(); st.dNext = d; st.wave = 0; };
-  function onPhrase(){ st.phraseN++; if (st.act > .3 || st.phraseN % 2 === 0) nextLook(st.act > .6); if (st.phraseN % 2 === 0) st.h0 += .06 + rand()*.12; st.palSpread = st.act > .5 ? .33 : .08; }
+  function newTex(vivid){
+    const w = vivid ? [0, 1.5, 1.5, .5, 0, .5, 1.5] : st.act > .5 ? Tune.tex.live : Tune.tex.calm;
+    let tot = 0; for (let i = 0; i < w.length; i++) if (i !== st.tex.cur) tot += w[i];
+    let r = rand()*tot, k = 0; for (let i = 0; i < w.length; i++) { if (i === st.tex.cur) continue; r -= w[i]; if (r <= 0) { k = i; break; } }
+    st.tex = {prev: st.tex.cur, cur: k, o: ICO[Math.floor(rand()*12)], t0: st.clock, dur: Math.max(2, st.period*Tune.tex.sweepBeats)};
+  }
+  function newRule(){ const calm = st.act < .45, w = calm ? [1.4, 1.2, .6, 1.2, .6] : [.6, .6, 1.4, .8, 1.4]; let tot = w.reduce((a, b) => a + b), r = rand()*tot;
+    st.rule = RULES[w.findIndex(x => (r -= x) <= 0)] || 'spots'; }
+  function onPhrase(){
+    st.phraseN++;
+    if (on('open')) {
+      if (isOpen()) st.form = rand() < .6 ? 'gem' : OPEN[Math.floor(rand()*OPEN.length)];
+      else if (rand() < Tune.openChance) st.form = OPEN[Math.floor(rand()*OPEN.length)];
+    }
+    if (on('shapes') && (st.act > .3 || st.phraseN % 2 === 0)) nextLook(st.act > .6);
+    if (on('surfaces') && rand() < Tune.tex.change) newTex(false);
+    if (on('life') && st.phraseN % 2 === 0) newRule();
+    if (st.phraseN % 2 === 0) st.h0 += .06 + rand()*.12;
+    st.palSpread = st.act > .5 ? .33 : .08;
+  }
   function onBeat(k, kick){
     if (kick > .3) st.kicksRun++; else if (k % 8 === 0) st.kicksRun = 0;
     const calm = st.act < .35;
-    if (kick > .3 && (!calm || k % 4 === 0)) { ring(k % 8 === 0 ? front() : ICO[Math.min(11, Math.floor(rand()*12))], (.45 + .55*kick)*(calm ? Tune.kickCalm : 1)); st.kickFlash = kick; }
+    if (on('pulse') && kick > .3 && (!calm || k % 4 === 0)) {
+      const dir = k % 8 === 0 ? front() : ICO[Math.min(11, Math.floor(rand()*12))];
+      ring(dir, (.45 + .55*kick)*(calm ? Tune.kickCalm : 1)); st.kickFlash = kick;
+      if (on('life') && st.rule === 'swell') touchCells(st.cells, 'swell', [nearCell(dir)], 1.5);
+    }
+    if (on('life') && k % 4 === 0) touchCells(st.cells, st.rule, symCells(.3*Math.sin(k*.7), k*.4), .8);   // (the bar seeds the life at five points round it)
     if (k % 16 === 0) onPhrase();
   }
   function drop(free = false){
-    if (free) { st.act = Math.max(st.act, .25); ring(front(), .6); return; }
-    st.ex = 1; st.exHold = .25; nextLook(true); st.h0 += .33; for (const d of ICO.slice(0, 6)) ring(d, .8); st.act = 1; st.lastDropAt = st.clock;
+    if (free || !on('drops')) { st.act = Math.max(st.act, .25); if (on('pulse')) ring(front(), .6); return; }
+    st.ex = 1; st.exHold = .25; if (on('shapes')) nextLook(true); st.h0 += .33;
+    for (const d of ICO.slice(0, 6)) ring(d, .8);
+    st.act = 1; st.lastDropAt = st.clock;
+    if (on('open')) st.form = isOpen() ? 'gem' : 'peaks';
+    if (on('surfaces')) newTex(true);
+    if (on('life')) { const C = st.cells; if (st.rule === 'fireflies') C.ph.fill(0); else if (st.rule === 'frost') C.f.fill(1); else for (let i = 0; i < 40; i++) touchCells(C, st.rule === 'swell' ? 'swell' : st.rule, [Math.floor(rand()*C.NA)], 1.2); }
+    if (on('space')) st.dive = st.clock;
   }
   function resync(A, t){
     const after = a => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= t) lo = m + 1; else hi = m; } return lo; };
@@ -311,9 +530,12 @@ function makePrism(){
       if (st.lastT < 0 || t < st.lastT - .05 || t - st.lastT > 1) resync(A, t);
       else if (t > st.lastT) {
         while (st.iBeat < A.beats.length && A.beats[st.iBeat] <= t) { if (st.steady) onBeat(st.iBeat, A.kick[st.iBeat]); st.iBeat++; }
-        while (st.iStab < A.stabs.length && A.stabs[st.iStab] <= t) { if (st.act > .25) { st.wedge = (st.wedge + 1) % 5; st.wedgeLit = 1; } st.iStab++; }
+        while (st.iStab < A.stabs.length && A.stabs[st.iStab] <= t) {
+          if (on('patterns') && st.act > .25) { st.wedge = (st.wedge + 1) % 5; st.wedgeLit = 1; }
+          if (on('life') && (st.rule === 'spots' || st.rule === 'stripes')) touchCells(st.cells, st.rule, symCells(-.4, st.wedge*1.257), .6);
+          st.iStab++; }
         while (st.iHat < A.hats.length && A.hats[st.iHat] <= t) { st.hatSeed++; st.hatLit = 1; st.iHat++; }
-        while (st.iOnset < A.onsets.length && A.onsets[st.iOnset] <= t) { if (!st.steady) ring(rand() < .5 ? front() : ICO[Math.min(11, Math.floor(rand()*12))], .35); st.iOnset++; }
+        while (st.iOnset < A.onsets.length && A.onsets[st.iOnset] <= t) { if (!st.steady && on('pulse')) ring(rand() < .5 ? front() : ICO[Math.min(11, Math.floor(rand()*12))], .35); st.iOnset++; }
         while (st.iDrop < A.drops.length && A.drops[st.iDrop] <= t) { drop(!st.steady); st.iDrop++; }
         if (!st.steady && t - st.lastPhraseT > 16) { st.lastPhraseT = t; onPhrase(); }
         st.lastT = t;
@@ -327,39 +549,73 @@ function makePrism(){
       st.info = `${P.name} · ${st.steady ? A.bpm.toFixed(1) + ' BPM' : 'free time'} · ${st.inBreak ? 'breakdown' : st.anticip > 0 ? 'the drop is coming' : ''}`;
     } else {
       st.steady = true; st.tension *= 1 - Math.min(1, dt*.3); st.bassLv = 0; st.anticip = 0; st.inBreak = false;
-      st.idleBeat += dt; if (st.idleBeat > 12) { st.idleBeat = 0; st.phraseN++; nextLook(rand() < .4); }
+      st.idleBeat += dt; if (st.idleBeat > 12) { st.idleBeat = 0; st.phraseN++; if (on('shapes')) nextLook(rand() < .4); }
       st.info = A ? 'Paused' : 'No music: ＋ Music or Demo beat';
       st.lastT = -1;
     }
+    if (st.inBreak && !st.wasBreak && on('open')) st.form = 'star';   // (a breakdown lays it down as a star)
+    st.wasBreak = st.inBreak;
+    if (!on('open')) st.form = 'gem';
     const sinceDrop = st.clock - st.lastDropAt, dropBoost = Math.max(0, 1 - sinceDrop/Math.max(8, st.period*32))*.6;
     let target = Tune.actBase + .35*st.tension + .5*st.anticip + dropBoost;
     if (st.inBreak) target *= Tune.actBrk; if (!st.steady) target *= Tune.actFree;
     target = clamp(target, 0, 1);
     st.act += (target - st.act)*Math.min(1, dt*(target > st.act ? .6 : .25));
+    // the form eases to its target (opening)
+    const fa = 1 - Math.exp(-dt/(Tune.morphSecs*(st.steady ? .35 : .5))), FT = FORMS[st.form];
+    for (const k of ['k', 'h', 'wv', 'pitch', 'yw']) st.f[k] += (FT[k] - st.f[k])*fa;
     if (st.detailMode >= 0) setDetail(st.detailMode);
-    else { let d = 1; if (st.steady && st.kicksRun >= 32) d = 2; if (st.act > .65 || st.anticip > .5) d = 3; if (dropBoost > .3) d = 3; if (st.inBreak || !st.steady) d = 1; setDetail(d); }
+    else { let d = 1;
+      if (on('detail')) { if (st.steady && st.kicksRun >= 32) d = 2; if (st.act > .65 || st.anticip > .5) d = 3; if (dropBoost > .3) d = 3; if (st.inBreak || !st.steady) d = 1; }
+      if (on('open')) d = Math.max(d, FT.det);
+      setDetail(d); }
     st.wave = Math.min(1, st.wave + dt/Math.max(1.5, st.period*4));
     st.morph = Math.min(1, st.morph + dt/(Tune.morphSecs*(st.steady ? 1 : 1.5)));
     if (st.exHold > 0) st.exHold -= dt; else st.ex = Math.max(0, st.ex - dt/Tune.explodeSecs);
     st.wedgeLit *= Math.exp(-dt/.5); st.hatLit *= Math.exp(-dt/.2); st.kickFlash *= Math.exp(-dt/.12);
+    for (let f = 0; f < nf; f++) litL[f] *= Math.exp(-dt/Tune.lasers.traceSecs);
     st.h0 += dt*.004;
+    if (on('life')) stepCells(st.cells, st.rule, dt, Tune.cells, st.period, Tune.cells.flyK + (Tune.cells.flyKBuild - Tune.cells.flyK)*st.anticip, rand);
     jamStep(dt);
-    st.yaw += dt*(Tune.spin*(.4 + st.act)*(st.steady ? 1 : .5) + st.yawV);
+    // the turn: its own slow spin (an open form round its face), and what Jam gave it
+    const sp = Tune.spin*(.4 + st.act)*(st.steady ? 1 : .5);
+    st.yaw += dt*(sp*st.f.yw + st.yawV); st.roll += dt*sp*(1 - st.f.yw)*.6;
     st.pitch += dt*st.pitchV;
-    if (!(st.touching && !st.onObj)) { st.yawV *= Math.exp(-Tune.friction*dt); st.pitchV *= Math.exp(-Tune.friction*dt); st.pitch += (.3 - st.pitch)*Math.min(1, dt*Tune.tilt*.5); }
+    if (!(st.touching && !st.onObj)) { st.yawV *= Math.exp(-Tune.friction*dt); st.pitchV *= Math.exp(-Tune.friction*dt); st.pitch += (st.f.pitch - st.pitch)*Math.min(1, dt*Tune.tilt*.5); }
+    // the camera (space): drawn in through a run-up, diving into the middle on the drop and out again
+    let cz = st.camZ;
+    if (on('space')) { cz *= 1 - .2*st.anticip; const age = st.clock - st.dive, bar = Math.max(1.6, st.period*4);
+      const dv = age < 0 ? 0 : age < .6 ? sm(age/.6) : Math.max(0, 1 - (age - .6 - bar)/(3*bar)); cz += (.3 - cz)*sm(Math.min(1, dv)); }
+    st.camEff += (cz - st.camEff)*Math.min(1, dt*3);
     build();
+    if (on('space')) lasers(); else st.beams.segs.length = st.beams.flares.length = st.beams.land.length = 0;
+  }
+
+  // the mountains and waves on an open form (height() in prism.js): ridged noise folded into five wedges, lower to the rim
+  function height(v){
+    const f = st.f, x = G.SX[v], y = G.SY[v], r = Math.hypot(x, y), wedge = Math.PI*2/Tune.wedges;
+    let a = Math.atan2(y, x); a = Math.abs(((a % wedge) + wedge) % wedge - wedge/2);
+    const u = r*Math.cos(a)*Tune.mtnScale, w = r*Math.sin(a)*Tune.mtnScale, s = st.seed;
+    let hgt = 0, amp = 1, fr = 1;
+    for (let i = 0; i < 3; i++) { const q = 1 - Math.abs(2*vn(u*fr + s, w*fr + s*.7) - 1); hgt += q*q*amp; amp *= .5; fr *= 2.1; }
+    hgt = (hgt - .45)*f.h*(1 + st.bassLv*Tune.mtnBreath*st.act*(on('pulse') ? 1 : 0)) + f.wv*Math.sin(r*Tune.waveK - st.clock*Tune.waveSpeed)*.6;
+    return hgt*Tune.mtn*(1 - .85*sm((angFront[v] - .7)/.3));
   }
 
   const pa = [0, 0, 0], pb = [0, 0, 0];
   function build(){
-    const F = G.F, m = sm(st.morph), breath = 1 + Tune.breath*st.bassLv*st.act, bumping = Math.abs(st.bumpA) > .002 && st.bumpDirs.length;
+    const F = G.F, m = sm(st.morph), f = st.f, kk = Math.max(f.k, 1e-3), kc = f.k*f.k*f.k, mid = (1 - Math.cos(kk*Math.PI))/(2*kk);
+    const sc0 = Tune.r*(Tune.star + (1 - Tune.star)*f.k)*(1 + (on('pulse') ? Tune.breath*st.bassLv*st.act*f.k : 0)), bumping = Math.abs(st.bumpA) > .002 && st.bumpDirs.length, hills = f.h > .005 || f.wv > .005;
     for (let v = 0; v < nv; v++) {
-      const d = G.dir[v];
-      shaped(st.lookB, d, pb);
-      if (m < 1) { shaped(st.lookA, d, pa); for (let k = 0; k < 3; k++) pb[k] = pa[k] + (pb[k] - pa[k])*m; }
-      let s = breath;
-      if (bumping) { let b = 0; for (const c of st.bumpDirs) b += Math.exp(-(1 - dot(d, c))/Tune.width); s *= 1 + st.bumpA*b; }
-      s *= Tune.r; S3[v*3] = pb[0]*s; S3[v*3 + 1] = pb[1]*s; S3[v*3 + 2] = pb[2]*s;
+      // the gem's gores bent on a sphere of curvature k (1 closed, 0 the flat star)
+      const th = G.TH[v], s = Math.sin(kk*th), c = Math.cos(kk*th), sc = th < 1e-4 || s < 1e-6 ? 1 : Math.sin(th)*kk/s, ps = G.GC[v] + G.PS[v]*sc, cp = Math.cos(ps), spn = Math.sin(ps);
+      let px = s/kk*cp, py = s/kk*spn, pz = (c - 1)/kk + mid;
+      if (kc > .001) { const d = G.dir[v]; shaped(st.lookB, d, pb); if (m < 1) { shaped(st.lookA, d, pa); for (let k = 0; k < 3; k++) pb[k] = pa[k] + (pb[k] - pa[k])*m; }
+        px += (pb[0] - px)*kc; py += (pb[1] - py)*kc; pz += (pb[2] - pz)*kc; }
+      let q = 1;
+      if (bumping) { const d = G.dir[v]; let b = 0; for (const cc of st.bumpDirs) b += Math.exp(-(1 - dot(d, cc))/Tune.width); q = 1 + st.bumpA*b; }
+      const hh = hills ? height(v)/sc0 : 0;
+      S3[v*3] = (px*q + s*cp*hh)*sc0; S3[v*3 + 1] = (py*q + s*spn*hh)*sc0; S3[v*3 + 2] = (pz*q + c*hh)*sc0;
       D[v] = st.wave >= 1 ? st.dNext : st.dPrev + (st.dNext - st.dPrev)*sm((st.wave*1.5 - angFront[v])/.5);
     }
     for (let v = 0; v < nv; v++) {
@@ -369,7 +625,8 @@ function makePrism(){
         for (let j = 0; j < 3; j++) { const i = G.ai[o + j]*3, w = G.aw[o + j]*k; x += S3[i]*w; y += S3[i + 1]*w; z += S3[i + 2]*w; } }
       P3[v*3] = x; P3[v*3 + 1] = y; P3[v*3 + 2] = z;
     }
-    const R = rot(), runLvl = -1.2 + 2.6*st.anticip, palOff = [0, st.palSpread, -st.palSpread*.8];
+    const R = rot(), runLvl = -1.2 + 2.6*st.anticip, palOff = [0, st.palSpread, -st.palSpread*.8], cells = on('life') ? st.cells.out : null;
+    const tx = st.tex, txP = on('surfaces') ? (st.clock - tx.t0)/tx.dur : 0;
     for (let f = 0; f < nf; f++) {
       const a = G.tri[f*3], b = G.tri[f*3 + 1], c = G.tri[f*3 + 2];
       const A3 = [P3[a*3], P3[a*3 + 1], P3[a*3 + 2]], B3 = [P3[b*3], P3[b*3 + 1], P3[b*3 + 2]], C3 = [P3[c*3], P3[c*3 + 1], P3[c*3 + 2]];
@@ -378,33 +635,56 @@ function makePrism(){
       let lit = 0;
       for (const r of st.rings) { const age = st.clock - r.t0; if (age >= Tune.ripSecs) continue;
         const ang = Math.acos(clamp(dot(cd, r.dir), -1, 1)), x = (ang - age*Math.PI*Tune.ripSpeed)/Tune.ripW; lit += r.bright*Math.exp(-x*x)*(1 - age/Tune.ripSecs); }
-      if (st.wedgeLit > .01) { const az = Math.atan2(cd[2], cd[0])/(2*Math.PI) + .5; if (Math.floor(az*5) % 5 === st.wedge) lit += .55*st.wedgeLit; }
-      if (st.hatLit > .01 && hash(anc + fl*4096, st.hatSeed) < Tune.hatShare*(.4 + st.tension)) lit += .7*st.hatLit;
-      if (st.anticip > 0) lit += .6*st.anticip*sm((runLvl - cd[1])/.3);
+      if (on('patterns')) {
+        if (st.wedgeLit > .01) { const az = Math.atan2(cd[2], cd[0])/(2*Math.PI) + .5; if (Math.floor(az*5) % 5 === st.wedge) lit += .55*st.wedgeLit; }
+        if (st.hatLit > .01 && hash(anc + fl*4096, st.hatSeed) < Tune.hatShare*(.4 + st.tension)) lit += .7*st.hatLit;
+        if (st.anticip > 0) lit += .6*st.anticip*sm((runLvl - cd[1])/.3);
+      }
+      if (cells) lit += cells[G.fa[2][f]]*Tune.cells.lit;
+      lit += litL[f]*Tune.lasers.trace;
       lit = Math.min(lit, 1.6);
       const hp = hash(anc + fl*4096, 3), pidx = hp < .6 ? 0 : hp < .85 ? 1 : 2;
       const tint = hsv(st.h0 + palOff[pidx] + .03*(hash(anc, 9) - .5), .6, .32);
       const off = Tune.explode*st.ex*st.ex*(.4 + .6*hash(anc + fl*4096, 21))*Tune.r + lit*.035*Tune.r;
       const e = [0, 1, 2].map(j => { const lv = G.el[f*3 + j]; return lv === 0 ? 1 : clamp(fd - lv + 1, 0, 1); });
+      const texK = on('surfaces') ? (Math.acos(clamp(dot(cd, tx.o), -1, 1))/Math.PI < txP ? tx.cur : tx.prev) : 0;
       const nw = mul(R, n);
+      WN[f*3] = nw[0]; WN[f*3 + 1] = nw[1]; WN[f*3 + 2] = nw[2];
       [A3, B3, C3].forEach((p, j) => {
-        const w = mul(R, [p[0] + n[0]*off, p[1] + n[1]*off, p[2] + n[2]*off]), o = (f*3 + j)*16;
+        const w = mul(R, [p[0] + n[0]*off, p[1] + n[1]*off, p[2] + n[2]*off]), o = (f*3 + j)*STRIDE;
+        WV[f*9 + j*3] = w[0]; WV[f*9 + j*3 + 1] = w[1]; WV[f*9 + j*3 + 2] = w[2];
         verts[o] = w[0]; verts[o + 1] = w[1]; verts[o + 2] = w[2]; verts[o + 3] = nw[0]; verts[o + 4] = nw[1]; verts[o + 5] = nw[2];
         verts[o + 6] = j === 0 ? 1 : 0; verts[o + 7] = j === 1 ? 1 : 0; verts[o + 8] = j === 2 ? 1 : 0;
         verts[o + 9] = e[0]; verts[o + 10] = e[1]; verts[o + 11] = e[2]; verts[o + 12] = tint[0]; verts[o + 13] = tint[1]; verts[o + 14] = tint[2]; verts[o + 15] = lit;
+        verts[o + 16] = texK;
       });
     }
   }
 
+  // ---- lasers (space): a burst from its heart out through its facets, in its own five-fold symmetry, splitting into
+  // rainbows as they leave; one beam when calm, more as it builds, all of them for a couple of bars after a drop ----
+  function lasers(){
+    const L = Tune.lasers, bar = Math.max(1.6, st.period*4), dropped = st.clock - st.lastDropAt < L.dropBars*bar;
+    const n = dropped ? 10 : Math.max(0, Math.min(L.max, Math.round(st.act*L.max*1.2)));
+    st.laserN = n;
+    if (!n) { st.beams.segs.length = st.beams.flares.length = st.beams.land.length = 0; return; }
+    const emit = [], t = st.clock, bright = dropped ? 1 : L.calm + (1 - L.calm)*st.act;
+    for (let i = 0; i < n; i++) { const a = i*2*Math.PI/Math.max(5, n) + t*.25, el = .35*Math.sin(t*.4 + i*1.3), c = hsv(st.h0 + .5 + i*.07, .35, bright);
+      emit.push({p: [0, 0, 0], d: norm([Math.cos(a)*Math.cos(el), Math.sin(el), Math.sin(a)*Math.cos(el)]), c, inside: st.f.k > .9}); }
+    let rmax = 0; for (let i = 0; i < WV.length; i += 3) rmax = Math.max(rmax, WV[i]*WV[i] + WV[i + 1]*WV[i + 1] + WV[i + 2]*WV[i + 2]);
+    traceBeams(WV, WN, nf, emit, {closed: st.f.k > .9, rmax: Math.sqrt(rmax) + .01, walls: Tune.room.walls, floor: Tune.room.floor, n: L.index, maxSegs: 96, maxDepth: L.depth, splits: L.splits}, st.beams);
+    for (const [f, b] of st.beams.lit) litL[f] = Math.max(litL[f], b);
+  }
+
   function lights(){
     const az = .55 + .6*Math.sin(st.clock*.07) + .25*(st.phraseN % 4), el = .45, key = [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)];
-    const fillC = hsv(st.h0 + st.palSpread, .7, .35 + .8*st.kickFlash*st.act);
+    const fillC = hsv(st.h0 + st.palSpread, .7, .35 + (on('pulse') ? .8*st.kickFlash*st.act : 0));
     return [key, [1.5, 1.395, 1.23], norm([-.4, .5, -.8]), [.605, .77, 1.1], norm([.2, -.8, .5]), fillC];
   }
 
   // Jam
   function pick(px, py, W, H){
-    const x = 2*px/W - 1, y = 1 - 2*py/H, th = 1/Tune.focal, d = norm([x*st.aspect*th, y*th, -1]), o = [0, 0, st.camZ];
+    const x = 2*px/W - 1, y = 1 - 2*py/H, th = 1/Tune.focal, d = norm([x*st.aspect*th, y*th, -1]), o = [0, 0, st.camEff];
     let rr = 0; for (let v = 0; v < nv; v += 7) rr = Math.max(rr, Math.hypot(P3[v*3], P3[v*3 + 1], P3[v*3 + 2])); rr *= .95;
     const b = dot(o, d), c = dot(o, o) - rr*rr, disc = b*b - c; if (disc < 0) return null;
     const t = -b - Math.sqrt(disc); return norm(mulT(rot(), [o[0] + d[0]*t, o[1] + d[1]*t, o[2] + d[2]*t]));
@@ -440,49 +720,88 @@ function makePrism(){
       for (let i = 0; i < 4; i++) { st.bumpV += (-k*st.bumpA - c*st.bumpV)*h; st.bumpA += st.bumpV*h; }
       if (Math.abs(st.bumpA) < 1e-4 && Math.abs(st.bumpV) < 1e-3) { st.bumpA = 0; st.bumpV = 0; } }
   }
-  return {G, st, verts, step, drop, lights, touchBegan, touchMoved, touchEnded,
-    nextShape: () => nextLook(rand() < .5), zoom: z => { st.camZ = clamp(z, 1.7, 7); },
-    get facets(){ return G.nfAt[clamp(Math.floor(curDetail() + .5), 0, G.F)]; }};
+  return {G, st, verts, STRIDE, step, drop, lights, touchBegan, touchMoved, touchEnded,
+    nextShape: () => { if (on('open') && rand() < .35) st.form = isOpen() ? 'gem' : OPEN[Math.floor(rand()*OPEN.length)]; else { if (isOpen()) st.form = 'gem'; nextLook(rand() < .5); } },
+    zoom: z => { st.camZ = clamp(z, 1.7, 7); },
+    get facets(){ return G.nfAt[clamp(Math.floor(curDetail() + .5), 0, G.F)]; },
+    describe(){ const p = [isOpen() ? st.form : st.lookB.name]; if (on('surfaces')) p.push(TEX[st.tex.cur]); if (on('life')) p.push(st.rule); if (on('space') && st.laserN) p.push(st.laserN + ' lasers'); return p.join(' · '); }};
 }
 
-// ---- drawing (Renderer.swift, in WebGL 2) ----
+// ---- drawing (Renderer.swift, in WebGL 2), with the surfaces, the room and the lasers added ----
 const VS = `#version 300 es
-in vec3 aP, aN, aB, aE; in vec4 aC; uniform mat4 uProj; uniform vec4 uCam;
-out vec3 wpos, nrm, bary, edge; out vec4 col;
-void main(){ gl_Position = uProj*vec4(aP - uCam.xyz, 1.0); wpos = aP; nrm = aN; bary = aB; edge = aE; col = aC; }`;
+in vec3 aP, aN, aB, aE; in vec4 aC; in float aT; uniform mat4 uProj; uniform vec4 uCam, uMir;
+out vec3 wpos, nrm, bary, edge; out vec4 col; out float tk;
+void main(){ vec3 p = aP, n = aN; if (uMir.x > 0.5) { p.y = 2.0*uMir.y - p.y; n.y = -n.y; }
+  gl_Position = uProj*vec4(p - uCam.xyz, 1.0); wpos = p; nrm = n; bary = aB; edge = aE; col = aC; tk = aT; }`;
 const FS = `#version 300 es
 precision highp float;
-in vec3 wpos, nrm, bary, edge; in vec4 col; out vec4 o;
-uniform vec4 uCam, uL0d, uL0c, uL1d, uL1c, uL2d, uL2c, uP, uP2;
-vec3 lamp(vec3 n, vec3 V, vec3 tint, vec4 ld, vec4 lc, float fire){
+in vec3 wpos, nrm, bary, edge; in vec4 col; in float tk; out vec4 o;
+uniform vec4 uCam, uL0d, uL0c, uL1d, uL1c, uL2d, uL2c, uP, uP2, uMir;
+float fH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }
+vec3 lamp(vec3 n, vec3 V, vec3 tint, vec4 ld, vec4 lc, float fire, float sh, float kd){
   vec3 L = normalize(ld.xyz); float diff = max(dot(n, L), 0.0); vec3 R = reflect(-L, n);
-  vec3 side = normalize(cross(n, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0)); float sh = 70.0;
+  vec3 side = normalize(cross(n, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0));
   float sr = pow(max(dot(R, normalize(V + side*fire*0.07)), 0.0), sh), sg = pow(max(dot(R, V), 0.0), sh), sb = pow(max(dot(R, normalize(V - side*fire*0.07)), 0.0), sh);
   vec3 spec = fire > 0.0 ? vec3(sr, sg, sb) : vec3(sg);
-  return lc.rgb*(tint*diff*0.45 + spec*1.7);
+  return lc.rgb*(tint*diff*kd + spec*1.7);
 }
 void main(){
   vec3 N = normalize(nrm), V = normalize(uCam.xyz - wpos); float facing = dot(N, V); bool isFar = facing < 0.0;
   if (isFar != (uP2.w < 0.5)) discard;
   vec3 n = isFar ? -N : N; float ndv = abs(facing), fres = pow(1.0 - ndv, 3.0);
   vec3 tint = col.rgb; float lit = col.a;
+  int k = int(tk + 0.5); float lw = uP2.z, fire = uP.x, sh = 70.0, kd = 0.45, alphaAdd = 0.0;
+  vec3 d = bary/max(fwidth(bary), vec3(1e-5)); float md = min(min(d.x, d.y), d.z);
+  // the surfaces (src/render/facet.js's textures): each drawn in the face's own frame, so it moves with it
+  if (k == 1) { tint = tint*1.9 + 0.03; }                                            // stained glass (its lead below)
+  else if (k == 2) { vec2 g = fract(d.xy/(lw*4.5)) - 0.5; tint *= 0.15 + (1.7 + 2.0*lit)*smoothstep(0.32, 0.12, length(g)); }   // LED panels: a grid of dots
+  else if (k == 3) { tint = mix(tint, vec3(0.32), 0.5)*(0.75 + 0.5*fH(vec2(floor(d.x/(lw*0.5)), floor(d.y/(lw*14.0))))); sh = 18.0; kd = 1.1; fire = 0.0; }   // brushed metal
+  else if (k == 4) { tint = mix(tint, vec3(0.45, 0.55, 0.65), 0.45) + vec3(0.06, 0.08, 0.1)*step(0.86, fH(floor(d.xy/(lw*0.8)))); alphaAdd = 0.2; }   // ice: frosted grain
+  else if (k == 5) { vec3 r = reflect(-V, n); tint = mix(vec3(0.015, 0.016, 0.02), vec3(0.32, 0.36, 0.45), smoothstep(-0.15, 0.5, r.y)) + vec3(0.25, 0.2, 0.15)*exp(-abs(r.y)*12.0); alphaAdd = 0.25; }   // mirror: a horizon and sky
+  else if (k == 6) { tint = (0.5 + 0.5*cos(6.2831*(ndv*1.4 + vec3(0.0, 0.33, 0.67) + tint.r)))*0.4; }   // iridescent: colour by angle
   vec3 c = tint*(uP2.x*(0.55 + 0.45*n.y) + lit*1.3);
-  c += lamp(n, V, tint, uL0d, uL0c, uP.x); c += lamp(n, V, tint, uL1d, uL1c, uP.x); c += lamp(n, V, tint, uL2d, uL2c, 0.0);
+  c += lamp(n, V, tint, uL0d, uL0c, fire, sh, kd); c += lamp(n, V, tint, uL1d, uL1c, fire, sh, kd); c += lamp(n, V, tint, uL2d, uL2c, 0.0, sh, kd);
   c += (tint*1.5 + 0.1)*fres*uP2.y;
-  vec3 d = bary/max(fwidth(bary), vec3(1e-5));
+  if (k == 1) c *= mix(0.04, 1.0, smoothstep(lw*1.2, lw*3.0, md));   // (the lead between the panes)
   vec3 line = (1.0 - smoothstep(vec3(0.5), vec3(1.6), d))*edge, glow = exp(-d/5.0)*0.3*edge;
   float e = max(max(line.x + glow.x, line.y + glow.y), line.z + glow.z);
-  c += mix(tint*2.2, vec3(1.0), vec3(0.3))*(0.7 + 2.2*lit)*uP.y*e;
-  float a = clamp(uP.z + fres*0.45 + lit*0.25, 0.0, 1.0);
+  c += mix(col.rgb*2.2, vec3(1.0), vec3(0.3))*(0.7 + 2.2*lit)*uP.y*e;
+  float a = clamp(uP.z + fres*0.45 + lit*0.25 + alphaAdd, 0.0, 1.0);
   if (isFar) { c *= uP.w; a *= 0.6; }
+  if (uMir.x > 0.5) { float fade = uMir.z*exp(-(uMir.y - wpos.y)*1.6); c *= fade; a *= fade; }   // (its reflection in the floor, fading with depth)
   o = vec4(c, a);
 }`;
 const QVS = `#version 300 es
 out vec2 uv; void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p*2.0 - 1.0, 0.0, 1.0); uv = p; }`;
+// the room (space): a soft dark cove, a dark mirror floor with the lamps' pools and the Prism's contact shadow, fog, and the
+// key and rim lamps' beams in the haze
+const ROOM = `#version 300 es
+precision highp float; in vec2 uv; out vec4 o;
+uniform vec4 uRm, uL0d, uL0c, uL1d, uL1c, uAmb;   // aspect, focal, camera, floor; the lamps; the room's tint and haze
+vec3 beam(vec3 ro, vec3 rd, vec3 L, vec3 lc){
+  vec3 A = normalize(L)*5.0, ax = -normalize(L); vec3 w0 = ro - A; float b = dot(rd, ax), dd = dot(rd, w0), e = dot(ax, w0), den = max(1.0 - b*b, 1e-4);
+  float sc = (b*e - dd)/den, tc = (e - b*dd)/den; if (sc < 0.0 || tc < 0.0) return vec3(0.0);
+  float dist = length((ro + rd*sc) - (A + ax*tc)), wdt = 0.06 + tc*0.13;
+  return lc*exp(-dist*dist/(wdt*wdt))*smoothstep(0.0, 1.5, tc)*exp(-max(0.0, tc - 5.0)*1.5)*0.035;
+}
+void main(){
+  vec2 ndc = uv*2.0 - 1.0; vec3 ro = vec3(0.0, 0.0, uRm.z), rd = normalize(vec3(ndc.x*uRm.x/uRm.y, ndc.y/uRm.y, -1.0));
+  vec2 q = ndc*vec2(uRm.x, 1.0);
+  vec3 wall = vec3(0.008, 0.008, 0.012) + uAmb.rgb*0.035*exp(-dot(q, q)*0.5);
+  vec3 c = wall;
+  if (rd.y < -1e-3) { float t = (uRm.w - ro.y)/rd.y; vec3 p = ro + rd*t; float r2 = dot(p.xz, p.xz);
+    vec3 fl = vec3(0.006, 0.006, 0.009);
+    for (int i = 0; i < 2; i++) { vec4 L = i == 0 ? uL0d : uL1d; vec4 lc = i == 0 ? uL0c : uL1c; vec2 ctr = -L.xz/max(L.y, 0.2)*abs(uRm.w)*0.8; vec2 dv = p.xz - ctr;
+      fl += lc.rgb*0.045*exp(-dot(dv, dv)*0.9); }
+    fl *= 1.0 - 0.75*exp(-r2*3.5);   // (the contact shadow)
+    c = mix(wall, fl, exp(-max(0.0, t - 2.0)*0.12));
+  }
+  c += (beam(ro, rd, uL0d.xyz, uL0c.rgb) + beam(ro, rd, uL1d.xyz, uL1c.rgb))*uAmb.w;
+  c *= 1.0 - 0.35*dot(ndc*0.7, ndc*0.7);
+  o = vec4(c, 1.0);
+}`;
 const COPY = `#version 300 es
 precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uT; void main(){ o = texture(uT, uv); }`;
-// the glow's blur: a gaussian (sigma 14 half-size pixels, as the native one) in two passes, 21 taps two pixels apart read
-// between texels, so each tap averages two
 const BLUR = `#version 300 es
 precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uT; uniform vec2 uDir;
 void main(){ vec4 s = vec4(0.0); float wsum = 0.0;
@@ -492,31 +811,41 @@ const COMP = `#version 300 es
 precision highp float; in vec2 uv; out vec4 o; uniform sampler2D uS, uB; uniform vec4 uCp;
 void main(){ vec3 c = texture(uS, uv).rgb + texture(uB, uv).rgb*uCp.x; c = 1.0 - exp(-c*uCp.y);
   float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453); c += (n - 0.5)/255.0; o = vec4(c, 1.0); }`;
+// the lasers: each segment a band across the screen, a hot core in a glow; flares and caustics round
+const BVS = `#version 300 es
+in vec2 aQ, aU; in vec4 aK; out vec2 u; out vec4 k; void main(){ gl_Position = vec4(aQ, 0.0, 1.0); u = aU; k = aK; }`;
+const BFS = `#version 300 es
+precision highp float; in vec2 u; in vec4 k; out vec4 o;
+void main(){ float d = k.w < 0.5 ? abs(u.y) : length(u); float g = exp(-d*d*9.0)*0.45 + exp(-d*d*70.0)*1.4; o = vec4(k.rgb*g, 0.0); }`;
 
 function makeRenderer(cv, prism){
   const gl = cv.getContext('webgl2', {antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance'});
   if (!gl) throw new Error('This browser has no WebGL 2.');
   const half = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
   gl.getExtension('OES_texture_float_linear');
-  const prog = (vs, fs) => { const p = gl.createProgram();
+  const prog = (vs, fs, attrs) => { const p = gl.createProgram();
     for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
       if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); gl.attachShader(p, sh); }
-    ['aP', 'aN', 'aB', 'aE', 'aC'].forEach((a, i) => gl.bindAttribLocation(p, i, a));
+    (attrs || []).forEach((a, i) => gl.bindAttribLocation(p, i, a));
     gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     const u = {}; const nu = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < nu; i++) { const n = gl.getActiveUniform(p, i).name; u[n] = gl.getUniformLocation(p, n); }
     return {p, u}; };
-  const facets = prog(VS, FS), copy = prog(QVS, COPY), blur = prog(QVS, BLUR), comp = prog(QVS, COMP);
+  const facets = prog(VS, FS, ['aP', 'aN', 'aB', 'aE', 'aC', 'aT']), room = prog(QVS, ROOM), copy = prog(QVS, COPY), blur = prog(QVS, BLUR), comp = prog(QVS, COMP), beams = prog(BVS, BFS, ['aQ', 'aU', 'aK']);
+  const SB = prism.STRIDE*4;
   const vao = gl.createVertexArray(), buf = gl.createBuffer();
   gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, prism.verts.byteLength, gl.DYNAMIC_DRAW);
-  [[0, 3, 0], [1, 3, 3], [2, 3, 6], [3, 3, 9], [4, 4, 12]].forEach(([i, n, o]) => { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 64, o*4); });
+  [[0, 3, 0], [1, 3, 3], [2, 3, 6], [3, 3, 9], [4, 4, 12], [5, 1, 16]].forEach(([i, n, o]) => { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, SB, o*4); });
+  const bvao = gl.createVertexArray(), bbuf = gl.createBuffer(), BMAX = 200, barr = new Float32Array(BMAX*6*8);
+  gl.bindVertexArray(bvao); gl.bindBuffer(gl.ARRAY_BUFFER, bbuf); gl.bufferData(gl.ARRAY_BUFFER, barr.byteLength, gl.DYNAMIC_DRAW);
+  [[0, 2, 0], [1, 2, 2], [2, 4, 4]].forEach(([i, n, o]) => { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 32, o*4); });
   const qvao = gl.createVertexArray();
   const target = (w, h) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, half ? gl.RGBA16F : gl.RGBA8, w, h, 0, gl.RGBA, half ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
     return {t, fb, w, h}; };
-  let T = null;
-  const size = () => { const dpr = Math.min(window.devicePixelRatio || 1, 3), w = Math.max(1, Math.round(cv.clientWidth*dpr)), h = Math.max(1, Math.round(cv.clientHeight*dpr));
+  let T = null, dprNow = 1;
+  const size = () => { const dpr = dprNow = Math.min(window.devicePixelRatio || 1, 3), w = Math.max(1, Math.round(cv.clientWidth*dpr)), h = Math.max(1, Math.round(cv.clientHeight*dpr));
     if (T && T.w === w && T.h === h) return T;
     cv.width = w; cv.height = h;
     if (T) for (const x of [T.scene, T.half, T.blur]) { gl.deleteTexture(x.t); gl.deleteFramebuffer(x.fb); }
@@ -524,20 +853,57 @@ function makeRenderer(cv, prism){
     return T = {w, h, scene: target(w, h), half: target(hw, hh), blur: target(hw, hh)}; };
   const quad = (p, fb, w, h) => { gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, w, h); gl.useProgram(p.p); gl.bindVertexArray(qvao); };
 
+  // the lasers as screen bands: each segment clipped to in front of the camera, projected, widened across the screen
+  function beamQuads(S, f, a, cz){
+    const B = prism.st.beams, Hp = S.h, wC = Tune.lasers.width*2*4, out = barr; let n = 0;
+    const proj = p => [f/a*p[0]/(cz - p[2]), f*p[1]/(cz - p[2])];
+    const put = (x, y, ux, uy, c, kind) => { const o = n*8; out[o] = x; out[o + 1] = y; out[o + 2] = ux; out[o + 3] = uy; out[o + 4] = c[0]; out[o + 5] = c[1]; out[o + 6] = c[2]; out[o + 7] = kind; n++; };
+    const quadOf = (P0, P1, P2, P3, U, c, kind) => { put(...P0, ...U[0], c, kind); put(...P1, ...U[1], c, kind); put(...P2, ...U[2], c, kind); put(...P0, ...U[0], c, kind); put(...P2, ...U[2], c, kind); put(...P3, ...U[3], c, kind); };
+    for (const [p0, p1, c] of B.segs) { if (n + 6 > BMAX*6) break;
+      let A0 = p0.slice(), A1 = p1.slice(); const near = cz - .08;
+      if (A0[2] > near && A1[2] > near) continue;
+      if (A0[2] > near) { const t = (near - A1[2])/(A0[2] - A1[2]); A0 = A1.map((v, i) => v + (A0[i] - v)*t); }
+      if (A1[2] > near) { const t = (near - A0[2])/(A1[2] - A0[2]); A1 = A0.map((v, i) => v + (A1[i] - v)*t); }
+      const s0 = proj(A0), s1 = proj(A1), dx = (s1[0] - s0[0])*a, dy = s1[1] - s0[1], l = Math.hypot(dx, dy) || 1e-6, nx = -dy/l/a*wC, ny = dx/l*wC;
+      quadOf([s0[0] + nx, s0[1] + ny], [s1[0] + nx, s1[1] + ny], [s1[0] - nx, s1[1] - ny], [s0[0] - nx, s0[1] - ny], [[0, 1], [1, 1], [1, -1], [0, -1]], c, 0); }
+    const sprite = (p, r, c) => { if (n + 6 > BMAX*6 || p[2] > cz - .1) return; const s = proj(p), rr = r*f/(cz - p[2]);
+      quadOf([s[0] - rr/a, s[1] - rr], [s[0] + rr/a, s[1] - rr], [s[0] + rr/a, s[1] + rr], [s[0] - rr/a, s[1] + rr], [[-1, -1], [1, -1], [1, 1], [-1, 1]], c, 1); };
+    for (const [p, br] of B.flares) sprite(p, Tune.lasers.flare*3, [br*.9, br*.9, br]);
+    for (const [p, c] of B.land) sprite(p, .09, c.map(v => v*.6));
+    return n;
+  }
+
   return function draw(){
-    const S = size(), f = Tune.focal, a = S.w/S.h, zn = .05, zf = 50, st = prism.st;
+    const S = size(), f = Tune.focal, a = S.w/S.h, zn = .05, zf = 50, st = prism.st, cz = st.camEff, space = on('space');
     st.aspect = a;
-    // the facets: the far side, then the near
+    const L = prism.lights();
     gl.bindFramebuffer(gl.FRAMEBUFFER, S.scene.fb); gl.viewport(0, 0, S.w, S.h);
     gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (space) {   // the room behind it
+      gl.useProgram(room.p); gl.bindVertexArray(qvao); const u = room.u, amb = hsv(st.h0 + st.palSpread, .35, 1);
+      gl.uniform4f(u.uRm, a, f, cz, Tune.room.floor);
+      gl.uniform4f(u.uL0d, ...L[0], 0); gl.uniform4f(u.uL0c, ...L[1], 0); gl.uniform4f(u.uL1d, ...L[2], 0); gl.uniform4f(u.uL1c, ...L[3], 0);
+      gl.uniform4f(u.uAmb, amb[0], amb[1], amb[2], Tune.room.haze);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    // the facets: its reflection in the floor (space), then the far side, then the near
     gl.useProgram(facets.p); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, prism.verts);
-    const u = facets.u, L = prism.lights();
+    const u = facets.u;
     gl.uniformMatrix4fv(u.uProj, false, [f/a, 0, 0, 0, 0, f, 0, 0, 0, 0, zf/(zn - zf), -1, 0, 0, zn*zf/(zn - zf), 0]);
-    gl.uniform4f(u.uCam, 0, 0, st.camZ, 0);
+    gl.uniform4f(u.uCam, 0, 0, cz, 0);
     ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => gl.uniform4f(u[k], L[i][0], L[i][1], L[i][2], 0));
     gl.uniform4f(u.uP, Tune.fire, 1, .2, .45);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    for (let side = 0; side < 2; side++) { gl.uniform4f(u.uP2, .45, .6, 0, side); gl.drawArrays(gl.TRIANGLES, 0, prism.G.nf*3); }
+    for (const mir of space ? [1, 0] : [0]) {
+      gl.uniform4f(u.uMir, mir, Tune.room.floor, Tune.room.refl, 0);
+      for (let side = 0; side < 2; side++) { gl.uniform4f(u.uP2, .45, .6, 1.5*dprNow, side); gl.drawArrays(gl.TRIANGLES, 0, prism.G.nf*3); }
+    }
+    // the lasers over it
+    if (space && st.beams.segs.length) {
+      const n = beamQuads(S, f, a, cz);
+      if (n) { gl.useProgram(beams.p); gl.bindVertexArray(bvao); gl.bindBuffer(gl.ARRAY_BUFFER, bbuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, barr.subarray(0, n*8));
+        gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, 0, n); }
+    }
     gl.disable(gl.BLEND);
     // the glow: the picture at half size, blurred
     quad(copy, S.half.fb, S.half.w, S.half.h); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.scene.t); gl.uniform1i(copy.u.uT, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -553,8 +919,8 @@ function makeRenderer(cv, prism){
   };
 }
 
-// ---- the screen (ContentView.swift) ----
-let prism, draw, fps = 0, last = 0, note = '', busy = false, detail = -1;
+// ---- the screen ----
+let prism, draw, fps = 0, last = 0, note = '', detail = -1;
 try { prism = makePrism(); draw = makeRenderer($('cv'), prism); }
 catch (e) { $('err').hidden = false; $('err').textContent = 'The picture can\'t start here: ' + e.message; }
 
@@ -568,14 +934,35 @@ function frame(ts){
 }
 requestAnimationFrame(frame);
 
-const setBusy = (b, msg = '') => { busy = b; note = msg; document.querySelectorAll('.chip').forEach(c => c.disabled = b); };
+// the layers: the slider turns on the first n; a switch on its own makes it custom; kept on the device
+const levelOf = () => { let n = 0; while (n < LAYERS.length && ON[LAYERS[n].k]) n++; return LAYERS.every((l, i) => ON[l.k] === i < n) ? n : -1; };
+const save = () => { try { localStorage.setItem('prismweb.layers', JSON.stringify(ON)); } catch (e) {} };
+function showLayers(){
+  const lv = levelOf();
+  $('lvName').textContent = lv < 0 ? 'Custom' : `${lv} · ${NAMES[lv]}`;
+  if (lv >= 0) $('lv').value = lv;
+  document.querySelectorAll('.row').forEach(r => r.setAttribute('aria-pressed', ON[r.dataset.k] ? 'true' : 'false'));
+}
+$('rows').innerHTML = LAYERS.map((l, i) => `<button class="row" id="ly-${l.k}" data-k="${l.k}" aria-pressed="false"><span class="n">${i + 1}</span><span class="t">${l.t}</span><span class="d">${l.d}</span></button>`).join('');
+document.querySelectorAll('.row').forEach(r => r.onclick = () => { ON[r.dataset.k] = !ON[r.dataset.k]; save(); showLayers(); });
+$('lv').oninput = e => { const n = +e.target.value; LAYERS.forEach((l, i) => ON[l.k] = i < n); save(); showLayers(); };
+try { const s = JSON.parse(localStorage.getItem('prismweb.layers') || 'null'); if (s) for (const l of LAYERS) if (l.k in s) ON[l.k] = !!s[l.k]; } catch (e) {}
+showLayers();
+$('bLayers').onclick = () => { const open = $('sheet').hidden; $('sheet').hidden = !open; $('bLayers').setAttribute('aria-pressed', open ? 'true' : 'false'); };
+$('bDone').onclick = () => { $('sheet').hidden = true; $('bLayers').setAttribute('aria-pressed', 'false'); };
+$('bCopy').onclick = () => {
+  const lv = levelOf(), txt = JSON.stringify({prismWebLayers: lv < 0 ? 'custom' : lv, on: LAYERS.filter(l => ON[l.k]).map(l => l.k)});
+  const done = () => { $('bCopy').textContent = 'Copied'; setTimeout(() => { $('bCopy').textContent = 'Copy settings'; }, 1500); };
+  try { navigator.clipboard.writeText(txt).then(done, () => { note = txt; setTimeout(() => { note = ''; }, 6000); }); } catch (e) { note = txt; setTimeout(() => { note = ''; }, 6000); }
+};
+
 setInterval(() => {
   if (!prism) return;
-  const st = prism.st;
-  $('status').textContent = note || `${st.info}\n${st.lookB.name} · ${prism.facets} facets · activity ${Math.round(st.act*100)}% · ${Math.round(fps)} fps`;
+  const st = prism.st, lv = levelOf();
+  $('status').textContent = note || `${st.info}\n${prism.describe()} · ${prism.facets} facets · activity ${Math.round(st.act*100)}% · ${Math.round(fps)} fps\nLayers: ${lv < 0 ? 'custom' : lv + ' · ' + NAMES[lv]}`;
   $('bPlay').textContent = player.playing ? 'Pause' : 'Play';
 }, 500);
-
+const setBusy = (b, msg = '') => { note = msg; document.querySelectorAll('#chips .chip').forEach(c => c.disabled = b); };
 $('bMusic').onclick = () => $('file').click();
 $('file').onchange = async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
@@ -627,4 +1014,5 @@ const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinc
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); prism.zoom(prism.st.camZ*Math.exp(e.deltaY*.001)); }, {passive: false});
 try { navigator.wakeLock?.request('screen').catch(() => {}); } catch (e) {}
+window.__prism = {prism, ON, LAYERS};   // (for checking it headless)
 </script>

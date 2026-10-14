@@ -65,3 +65,20 @@ The steady-beat threshold (`conf > 3.5` in `Analysis.swift`) was set on syntheti
 
 `prism-web.html` is the same test ported line for line to the browser: the same geometry, brain, track reading, lights, shaders and finish, in WebGL 2. It's published at https://claude.ai/artifact/741JxUbdFxzgAgrrH8SWQy, so the two can be compared on the same iPad. It draws at the screen's full resolution, up to 3× (`devicePixelRatio`), as the app does.
 
+### Layers of complexity
+
+The web version has a **Layers** sheet. Its Complexity slider turns on the layers in order, from 0 to 9, and each layer also has its own switch. The choice is kept on the device (`prismweb.layers`), and **Copy settings** copies it to paste back to Claude.
+
+| Level | Layer | What it adds |
+|---|---|---|
+| 0 | Still | The glass gem turning slowly under the lamps |
+| 1 | Pulse | The kick's rings, and the bass swelling it |
+| 2 | Detail | More facets as the groove settles and the music builds |
+| 3 | Shapes | A new shape each phrase |
+| 4 | Patterns | The stabs' wedge, the hats' sparks, the drop's run-up fill |
+| 5 | Drops | The shatter (the native test, and the default) |
+| 6 | Opening | The gem cut into five gores and opened into a bloom, a star, mountains or waves, then folded back; a breakdown lays it down as a star (`gemSheetGeo` and `shapeGem` from the full Prism) |
+| 7 | Surfaces | Stained glass, LED panels, brushed metal, ice, mirror and iridescence, each sweeping across it facet by facet |
+| 8 | Life | Patterns living on 320 facets: spots, stripes, swells, frost, fireflies (`objects/cells.js`) |
+| 9 | Space | A dark cove with a mirror floor and the Prism's reflection, the lamps' beams in the haze, lasers from its heart traced through its facets (`objects/beams.js`), and the camera drawn in through a run-up and diving into the middle on a drop |
+
