@@ -260,7 +260,8 @@ export const TUNE = {
     layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
   sdf: {size: .5, spin: .2, exSecs: 2.6, stabHue: .12, res2d: 44,   // the morphing objects (render/sdf.js, objects/sdf-object.js): size, turning, a splash's length, a stab's colour turn, simple mode's rays across
     res: .75, steps: 1, ao: .7,                     // speed: the share of its pixels marched (then laid over smoothed), its march steps (×), ambient occlusion (0 off)
-    look: -1, looks: [3, 1, .8, 1, 1, .6]},         // its look held (0 own, 1 chrome, 2 glass, 3 neon, 4 iridescent, 5 toon; -1: each section its own, by these weights; an object's own TUNE[key].look wins)
+    look: -1, looks: [3, 1, .8, 1, 1, .6],
+    wander: {amount: .7, speed: .35, ease: .4, dropJump: 2.2}},   // under a kaleidoscope that folds it: how far it wanders (of the screen's half-width), how fast, how slowly it leaves and returns to the centre, a drop's swing to a new place         // its look held (0 own, 1 chrome, 2 glass, 3 neon, 4 iridescent, 5 toon; -1: each section its own, by these weights; an object's own TUNE[key].look wins)
   ferro: {chance: 0, journey: 1, spike: .32, jolt: .07, fling: .7,      // ferrofluid: the spikes' height (the bass and a run-up raise it), a kick's jolt, how far a drop flings its drops
     sharp: 1, flow: .15, magnet: .8, drops: 3, ripple: .012},            // how sharp the spikes (×), how fast the field crawls over it, how far a stab pulls them to one side, orbiting drops (0–3), the bass's ripple
   mercury: {chance: 0, journey: 1, pull: 7, splash: .95,                // liquid metal: a kick's pull on its droplet, how far a drop splashes its beads

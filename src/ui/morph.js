@@ -10,7 +10,8 @@ const LOOKS = ['each section its own', 'own', 'chrome', 'glass', 'neon', 'irides
 const GROUPS = [
   ['All of them', [['sdf.res', 'Sharpness (share of pixels marched; lower is faster)', .3, 1, .05], ['sdf.steps', 'March steps (lower is faster, rougher)', .4, 1.5, .05],
     ['sdf.ao', 'Shading in the creases (ambient occlusion)', 0, 1, .05], ['sdf.res2d', 'Simple mode: rays across', 24, 80, 4],
-    ['sdf.look', 'Look', LOOKS, -1], ['sdf.size', 'Size', .3, .9, .02], ['sdf.spin', 'Turning', 0, .6, .02], ['sdf.exSecs', 'A drop\'s splash: how long', .8, 6, .1]]],
+    ['sdf.look', 'Look', LOOKS, -1], ['sdf.size', 'Size', .3, .9, .02], ['sdf.spin', 'Turning', 0, .6, .02], ['sdf.exSecs', 'A drop\'s splash: how long', .8, 6, .1],
+    ['sdf.wander.amount', 'Under a kaleidoscope: how far it wanders', 0, 1, .05], ['sdf.wander.speed', 'Under a kaleidoscope: how fast it wanders', 0, 1.5, .05]]],
   ['Ferrofluid', [['ferro.spike', 'Spikes: height', 0, .7, .01], ['ferro.sharp', 'Spikes: sharpness', .4, 2.5, .05], ['ferro.jolt', 'The kick\'s jolt', 0, .25, .01],
     ['ferro.flow', 'The spikes crawling', 0, 1, .02], ['ferro.magnet', 'A stab\'s pull to one side', 0, 2, .05], ['ferro.drops', 'Orbiting drops', 0, 3, 1],
     ['ferro.fling', 'A drop\'s fling', 0, 1.5, .05], ['ferro.ripple', 'The bass\'s ripple', 0, .05, .002], ['ferro.look', 'Its own look', LOOKS, -1]]],

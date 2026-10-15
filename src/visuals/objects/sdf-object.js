@@ -2,7 +2,7 @@
 // bass, the hats, a stab, the tension, a drop's run-up and its age, a breakdown, the beat), its place (P.anchor when the
 // world carries objects, else the centre, swaying a little in the wind), its turn and its dance, its palette and its key
 // light; the object's own step(st, M, dt) moves its beads and directions. A drop, or breakApart(), starts its splash (st.ex).
-import { S } from '../../state.js';
+import { S, viewAsp } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { hsv2rgb } from '../../util.js';
 import { DANCE } from '../../scene/dance.js';
@@ -20,7 +20,7 @@ const m3 = (A, B) => { const C = new Array(9); for (let i = 0; i < 3; i++) for (
 // o: {key, label, words, stats, glsl, custom?, steps?, stepK?, dance, step(st, M, dt, x, P), map2d(x, y, z, st), tint2d(p, n, rd, t, st, U), rad(st), burst?(st)}
 export function sdfObject(o){
   sdfRegister(o);
-  const st = {t: 0, bars: 0, ex: 0, exHold: 0, kick: 0, kickT: -9, lastHit: 0, stab: 0, dropAt: -99, lastDrop: undefined, off: true, yaw: 0, bass: 0, hat: 0, ten: 0, hue: 0,
+  const st = {t: 0, bars: 0, wan: 0, wph: 0, ex: 0, exHold: 0, kick: 0, kickT: -9, lastHit: 0, stab: 0, dropAt: -99, lastDrop: undefined, off: true, yaw: 0, bass: 0, hat: 0, ten: 0, hue: 0,
     Bd: new Float32Array(48), D: new Float32Array(128), K: [0, 0, 0, 0], K2: [0, 0, 0, 0], br: 1, rnd: 1};
   st.rand = () => (st.rnd = (st.rnd*16807) % 2147483647)/2147483647;   // (its own numbers: Journey's draws are untouched)
   st.rnd = 1 + [...o.key].reduce((a, c) => a*31 + c.charCodeAt(0), 7) % 99991;
@@ -56,6 +56,13 @@ export function sdfObject(o){
       const own = (TUNE[o.key] || {}).look, lk = own != null && own >= 0 ? own : T.look >= 0 ? T.look : st.look || 0;
       // its turn: slow, slower without a steady beat, the dance on top
       st.yaw += dt*T.spin*(.4 + st.ten)*(steady ? 1 : .5);
+      // under a kaleidoscope that folds it, it wanders slowly round the screen, so its mirrored copies make new patterns;
+      // alone it stays in the centre (eased in and out over a few seconds: TUNE.sdf.wander)
+      const kf = P.kal && P.kal.on && (P.kal.where === 0 || P.kal.where === 3) && !P.anchor, Wn = T.wander;
+      st.wan += ((kf ? 1 : 0) - st.wan)*Math.min(1, dt*Wn.ease);
+      if (drop) st.wph += Wn.dropJump;
+      st.wph += dt*Wn.speed*(.6 + .8*st.ten)*(steady ? 1 : .6);
+      const wx = st.wan*Wn.amount*viewAsp()*.5*(.75*Math.sin(st.wph*.7 + 1.3) + .25*Math.sin(st.wph*1.9)), wy = st.wan*Wn.amount*.42*(.7*Math.sin(st.wph*1.1) + .3*Math.cos(st.wph*2.3 + .5));
       const d = DANCE.obj[o.key], An = P.anchor, Vw = S.view && S.view.key === o.key ? S.view : null;
       const yaw = Vw ? Vw.yaw : st.yaw + (d ? d.yaw : 0), pitch = .18 + Math.sin(st.t*.23)*.08 + (d ? d.pitch : 0) + (Vw ? Vw.pitch : 0), roll = d ? d.roll : 0;
       const R = m3(m3(rx(pitch), ry(yaw)), rz(roll)), h = P.hue + st.hue, pal = P.pal || [0, .33, .67];
@@ -63,7 +70,7 @@ export function sdfObject(o){
       P.m = P.m || {};
       P2.U = P.m[o.key] = {w: An && An.hide ? 0 : Math.min(1, w*1.2), R, br: st.br,
         size: (An && An.size || (TUNE[o.key] || {}).size || T.size)*(d ? d.s : 1)*(Vw ? Vw.zoom : 1),
-        pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject + (d ? d.dx : 0), .02 + P.wind.y*TUNE.ctx.windObject + (d ? d.dy : 0)],
+        pos: An && An.pos ? An.pos : [wx + P.wind.x*TUNE.ctx.windObject + (d ? d.dx : 0), wy + .02 + P.wind.y*TUNE.ctx.windObject + (d ? d.dy : 0)],
         M1: [st.t, st.kick*dim, st.bass, st.hat], M2: [st.stab*dim, Math.min(99, M.dropAge), st.ten, M.anticip], M3: [st.ex, M.brk],
         K: st.K, K2: st.K2, Bd: st.Bd, D: st.D, res: T.res, Q: [(o.steps || 80)*T.steps, T.ao, o.custom ? 0 : lk, 1],
         C0: hsv2rgb(h + pal[0], .75, 1), C1: hsv2rgb(h + pal[1], .7, 1), C2: hsv2rgb(h + pal[2], .6, 1), Ld: [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)]};

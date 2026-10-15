@@ -76,3 +76,4 @@ shattering for every object; a check of the Prism's inside), golden re-recorded,
     - the crystals' number is a setting (1–16), and each phrase some grow and some shrink back;
     - the Prism's inside has settings for its bounces, each bounce's light, shards, beads, the tunnel's seams and the glass's bending.
   - **Fine-tuning:** the Adjust panel's "Morphing objects" (`ui/morph.js`): a slider or menu over each of these numbers, live, kept on the device (`afterglow.morph`), with Copy settings and Reset.
+- 2026-10-15: the user suggested that the morphing objects leave the centre under a kaleidoscope, so their mirrored copies make new patterns. Now, when the kaleidoscope folds one, it wanders slowly round the screen; alone it stays in the centre (`TUNE.sdf.wander`).

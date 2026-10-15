@@ -693,6 +693,7 @@ The user found 3D objects over simple 3D worlds, under a kaleidoscope, "really c
 - **The body** (`objects/sdf-object.js`, `sdfObject()`):
   - It gathers the music once: the kick's flash, the bass, the hats, a stab, the tension, a drop's run-up and its age, and a breakdown.
   - It handles placement (`P.anchor` when the world carries objects, otherwise the centre), the object's turn and dance (`DANCE.obj`), the palette and the key light.
+  - **Wandering under a kaleidoscope** (`TUNE.sdf.wander`): alone it stays in the centre, but when the kaleidoscope folds it (everything, or inside the object) it slowly wanders round the screen, left and right, up and down, faster as the tension rises, swinging to a new place on a drop. The user suggested it, so the mirrored copies make new patterns as it moves off the fold's centre. It eases out of the centre and back over a few seconds (`ease`); `amount` and `speed` are in the Morphing objects panel.
   - A drop or `breakApart()` starts the object's splash (`st.ex`, over `TUNE.sdf.exSecs`).
   - Each object's `step(st, M, dt)` moves its beads and directions.
   - `noRoom`: never in the Prism's room.
@@ -809,7 +810,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
 
   And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
-- `tests/objects.mjs`: every object (the morphing ones too) draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, each style draws the skull differently, each kind of the Prism's own kaleidoscope draws it differently, each look draws the ferrofluid differently, the Morphing objects panel's sliders reach their settings, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
+- `tests/objects.mjs`: every object (the morphing ones too) draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, each style draws the skull differently, each kind of the Prism's own kaleidoscope draws it differently, each look draws the ferrofluid differently, the Morphing objects panel's sliders reach their settings, the ferrofluid wanders off the centre under a kaleidoscope and stays there without one, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;
