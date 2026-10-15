@@ -11,6 +11,7 @@ export const scopeLR = new Float32Array(128);
 
 // variables that several modules reassign live here as properties
 export const S = {
+  objWorld: (() => { try { return localStorage.getItem('afterglow.objWorld') === '1'; } catch (e) { return false; } })(),   // objects carried through the 3D worlds and the cosmos (true) or kept in the centre (the user's choice, O then C, remembered)
   skipW: new Set(),               // worlds Journey leaves out (the panel's "3D worlds in Journey", ui/fps.js)
   active: null,                  // the preset in use (jState during Journey); set once presets load
   glGen: 0,                      // bumps when a lost WebGL context is restored, so visuals rebuild their own GL objects

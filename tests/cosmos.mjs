@@ -61,7 +61,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   const gl = mode === 'gl', browser = await launch(mode), page = await openPage(browser, url, {width: gl ? 160 : 320, height: gl ? 90 : 180, query: '?lab=cosmos&tune=scene.centreChance=0'});   // (no centrepiece of Journey's own: it would take the camera to its monument)
   await page.waitForFunction(async () => (await import('/src/journey/core.js')).J.worldHold === 'cosmos', null, {timeout: 20000, polling: 100});
   const r = await page.evaluate(async ({gl, thumb}) => {
-    const {byKey} = await import('/src/visuals/registry.js'), {J} = await import('/src/journey/core.js'), cz = byKey.cosmos, out = {};
+    const {byKey} = await import('/src/visuals/registry.js'), {J} = await import('/src/journey/core.js'), {S} = await import('/src/state.js'), cz = byKey.cosmos, out = {};
     const lit = () => eval(thumb).filter(v => v > 12).length, f = gl ? 1 : 2;
     __step(60*3); cz.hold(600);   // the music leaves the camera alone: each shot is checked on its own
     for (const what of ['hole', 'pulsar', 'binary', 'belt']) {
@@ -75,7 +75,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
     cz.galaxy(); __step(60*4); out.galCap = cz.info().caption; out.galOut = cz.info().galaxy; const from = cz.info().system; out.galLit = lit();
     let n = 0; while (cz.info().galPhase && n++ < 60) __step(60);
     out.galBack = {phase: cz.info().galPhase, moved: cz.info().system !== from, cap: cz.info().caption};
-    cz.shot('orbit'); for (let i = 0; i < 60; i++) { J.centre = 'skull'; __step(6); }
+    S.objWorld = true; cz.shot('orbit'); for (let i = 0; i < 60; i++) { J.centre = 'skull'; __step(6); }   // (objects carried through the worlds: the monument)
     out.mon = cz.info().mon; out.monCap = cz.info().caption; out.monSubj = cz.info().subject;
     cz.fold(1); __step(60*f); out.fold = {whole: cz.info().fold, cap: cz.caption(), lit: lit()};   // the kaleidoscope: whole view, round the subject, closed
     cz.fold(2); __step(30*f); out.fold.local = cz.info().fold; cz.fold(0); __step(90*f); out.fold.closed = cz.info().fold;

@@ -36,6 +36,8 @@ const GROUPS = {
   k: {name: 'Kaleidoscope: mirrors', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.kal || 0) === n, n])
       .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()])),
     pick: n => { if (n === 1) return false; edit(); S.active.kal = n; last = 'kal'; return true; }, off: () => { S.active.kal = 0; }},
+  // K then M: the kaleidoscope's kind, each on its own key (the user found stepping through fourteen with M slow)
+  km: {name: 'Kaleidoscope: kind', list: () => KAL_KINDS.map((n, i) => [n, kindNow() === i, KIND_KEYS[i]])},
   // Shift+K: the glow's own folds, inside the trails (ghostly, lined), and mirrored trails
   kg: {name: 'Glow folds (the trails)', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.sym || 1) === n, n]).concat([['mirror trails', (S.active.mirror || 0) > .5, 'M']]),
     pick: n => { if (n === 1) return false; edit(); S.active.sym = n; last = 'sym'; return true; }, off: () => { S.active.sym = 1; }},
@@ -43,6 +45,13 @@ const GROUPS = {
     pick: n => { const t = TEMPLATES[n - 1]; if (!t) return false; edit(); compose(t.key); return true; }, off: () => { S.scene = null; if (S.active) delete S.active.scene; }},
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
+const KIND_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'H', 'D', 'C', 'T'];   // the kinds: wedges … tiles on the numbers, then Hyperbolic, Droste, Curved, Two centres
+const kindNow = () => J.on ? (J.kal ? J.kal.mode || 0 : -1) : (S.active.kal || 0) >= 2 ? Math.round(S.active.kalMode || 0) : -1;
+function setKind(m){   // (while Journey runs, it keeps that kind)
+  if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
+  else { edit(); S.active.kalMode = m; if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
+  toast('Kaleidoscope: ' + KAL_KINDS[m]);
+}
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
 const WMORE = ['H', 'N', 'V', 'G', 'D', 'I'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall, the lattIce), none a group's letter, T, R, A or X
@@ -106,27 +115,31 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (wedges, mirror box, dive) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fourteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
-    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · Esc leaves'
-    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (wedges, mirror box, dive) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
+    : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · C centred or carried through the 3D worlds · Esc leaves'
+    : mode === 'km' ? 'a key picks that kind · ↑ ↓ the next or the one before · M back to the mirrors · Esc leaves'
+    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (a list of fourteen) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
+function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afterglow.objWorld', v ? '1' : '0'); } catch (e) {}
+  const c = $('#objWorld'); if (c) c.checked = v; if (!quiet) toast(v ? 'Objects travel through the 3D worlds' : 'Objects stay in the centre'); }
+{ const c = $('#objWorld'); if (c) { c.checked = S.objWorld; c.addEventListener('change', e => setObjWorld(e.target.checked)); } }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
 addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
-  const k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
+  const was = mode, k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
-  else if (k === 't' && mode !== 'c') { mode = null; if (e.shiftKey) combos(); else tutorial(); }   // (Shift+T: the walk-throughs of combinations)   // (in the camera group T takes off)
+  else if (k === 't' && mode !== 'c' && mode !== 'km') { mode = null; if (e.shiftKey) combos(); else tutorial(); }   // (Shift+T: the walk-throughs of combinations)   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
-  else if (mode === 'k' && k === 'm') {   // the kind: wedges, a mirror box, a dive (while Journey runs, it keeps that kind)
-    const m = ((J.on ? (J.kal && J.kal.mode) || 0 : Math.round(S.active.kalMode || 0)) + 1) % KAL_N;
-    if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
-    else { edit(); S.active.kalMode = m; if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
-    toast('Kaleidoscope: ' + KAL_KINDS[m]); }
+  else if (mode === 'o' && k === 'c') setObjWorld(!S.objWorld);   // objects carried through the 3D worlds, or kept in the centre
+  else if (mode === 'k' && k === 'm') mode = 'km';   // the kinds' own list
+  else if (mode === 'km' && (k === 'm' || k === 'backspace')) mode = 'k';   // (back to the mirrors)
+  else if (mode === 'km' && KIND_KEYS.includes(e.key.toUpperCase())) setKind(KIND_KEYS.indexOf(e.key.toUpperCase()));
+  else if (mode === 'km' && (k === 'arrowup' || k === 'arrowdown')) { e.preventDefault(); setKind((Math.max(0, kindNow()) + (k === 'arrowdown' ? 1 : KAL_N - 1)) % KAL_N); }
   else if (mode === 'k' && J.on && KAL_WHERE.some(w => w[0] === k)) steerKalKey(null, KAL_WHERE.findIndex(w => w[0] === k));
   else if (mode === 'k' && KAL_WHERE.some(w => w[0] === k)) {   // what the kaleidoscope folds (on at 6 if it was off)
     edit(); S.active.kalWhere = KAL_WHERE.findIndex(w => w[0] === k); if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
@@ -198,6 +211,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (k === ',' || k === '.') { J.speed = Math.max(.25, Math.min(3, J.speed*(k === '.' ? 1.25 : .8))); const s = $('#jSpeed'); s.value = J.speed; s.dispatchEvent(new Event('input')); toast(`Evolving ${J.speed.toFixed(2)}×`); }
   else done = false;
   if (!done) return;
+  if (was && k.length === 1) e.stopImmediatePropagation();   // (a group's own letter: not the page's too, as O then P once also toggled the frame rate, X froze the trails, H hid the controls)
   if (mode === 's' && S.scene == null) sceneKeyByHand = null;
   syncSliders();
   idle = performance.now(); show();

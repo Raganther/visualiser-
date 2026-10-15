@@ -195,7 +195,9 @@ function render(now){
     if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
-  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
+  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS]) if (v.params) v.params(P, vx);
+  if (!S.objWorld) delete P.anchor;   // (objects kept in the centre: the worlds don't carry them through, S.objWorld)
+  for (const v of OBJECT_VISUALS) if (v.params) v.params(P, vx);
   // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
   // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
   if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);

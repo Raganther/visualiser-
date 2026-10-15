@@ -242,12 +242,12 @@ void main(){
   gl_FragColor = vec4(c*uCam.y, a*min(1.0, uCam.y));
 }`;
 const NA_ = 20, ATTRS = [['aS', 2, 0], ['aP', 3, 2], ['aN', 3, 5], ['aD', 3, 8], ['aE', 3, 11], ['aC', 4, 14], ['aT', 1, 18]];
-const SC = new Float32Array(NF*9), ZF = new Float32Array(NF);
+const SC = new Float32Array(NF*9), ZF = new Float32Array(NF), NEAR = new Uint8Array(NF);   // (NEAR: a face at or behind the camera, left out)
 // each corner on screen (px) and its depth; the faces sorted far to near
 function project(U, W, H){
   const sc = H*U.size*FOCAL, ox = W/2 + U.pos[0]*H, oy = H/2 - U.pos[1]*H, cam = CAM;
-  for (let f = 0; f < NF; f++) { let z = 0;
-    for (let k = 0; k < 3; k++) { const i = f*9 + k*3, dz = Math.max(.06, cam - FV[i + 2]), w = sc/dz; SC[i] = ox + FV[i]*w; SC[i + 1] = oy - FV[i + 1]*w; SC[i + 2] = FV[i + 2]; z += FV[i + 2]; }
+  for (let f = 0; f < NF; f++) { let z = 0; NEAR[f] = 0;
+    for (let k = 0; k < 3; k++) { const i = f*9 + k*3; if (cam - FV[i + 2] < .15/Math.max(.2, U.size*2)) NEAR[f] = 1; const dz = Math.max(.06, cam - FV[i + 2]), w = sc/dz; SC[i] = ox + FV[i]*w; SC[i + 1] = oy - FV[i + 1]*w; SC[i + 2] = FV[i + 2]; z += FV[i + 2]; }
     ZF[f] = z/3; }
 }
 function glDrawer(gl){
@@ -261,6 +261,7 @@ function glDrawer(gl){
     project(U, W, H);
     let o = 0;
     for (let f = 0; f < NF; f++) {
+      if (NEAR[f]) { arr.fill(0, o, o + 3*NA_); o += 3*NA_; continue; }
       const ax = SC[f*9], ay = SC[f*9 + 1], bx = SC[f*9 + 3], by = SC[f*9 + 4], cx = SC[f*9 + 6], cy = SC[f*9 + 7];
       const a2 = Math.abs((bx - ax)*(cy - ay) - (by - ay)*(cx - ax)), h = [a2/(Math.hypot(cx - bx, cy - by) || 1), a2/(Math.hypot(ax - cx, ay - cy) || 1), a2/(Math.hypot(bx - ax, by - ay) || 1)];
       for (let k = 0; k < 3; k++) { const i = f*9 + k*3;
@@ -295,7 +296,8 @@ function draw2d(o, U){
   const Lt = U.lights, T = TUNE.jewel, w = U.w*T.gain;
   o.save(); o.lineJoin = 'round'; o.lineWidth = Math.max(1, T.line*H/720*.7);
   for (let n = 0; n < NF; n++) {
-    const f = ORD[n], nx = FN[f*3], ny = FN[f*3 + 1], nz = FN[f*3 + 2], far = nz < 0, s = far ? -1 : 1, lit = FC[f*4 + 3];
+    const f = ORD[n]; if (NEAR[f]) continue;
+    const nx = FN[f*3], ny = FN[f*3 + 1], nz = FN[f*3 + 2], far = nz < 0, s = far ? -1 : 1, lit = FC[f*4 + 3];
     let r = 0, g = 0, b = 0; const amb = .45*(.55 + .45*ny*s);
     for (let i = 0; i < 3; i++) { const l = Lt[i*2], c = Lt[i*2 + 1], d = Math.max(0, (nx*l[0] + ny*l[1] + nz*l[2])*s)*.45; r += c[0]*d; g += c[1]*d; b += c[2]*d; }
     const k = (1 - Math.abs(nz))**3*.6, m = far ? .45 : 1;
