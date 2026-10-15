@@ -16,7 +16,7 @@ float map(vec3 p){
   float r = length(p), bd = beads(p, 0.1, 0, 12), sh = r - uK.z - uK2.x;   // (uK2.x: the tallest a spike can be)
   if (sh > 0.12) return min(sh, bd);   // (well clear of the spikes: the sphere they lie in is near enough, and the spikes are skipped)
   vec3 n = p/max(r, 1e-4); float s = 0.0;
-  for (int i = 0; i < 32; i++) s += uD[i].w*pow(max(dot(n, uD[i].xyz), 0.0), uK.y);
+  for (int i = 0; i < 32; i++) { float c = dot(n, uD[i].xyz); if (c > 0.55) s += uD[i].w*pow(c, uK.y); }   // (a spike this sharp adds nothing past 57°)
   float body = (r - uK.z - uK.x*s)*0.45 + uK2.y*BASS*sin(p.x*11.0 + TIME*3.0)*sin(p.y*9.0 - TIME*2.0);
   return smin(body, bd, 0.16);
 }
@@ -28,7 +28,7 @@ function map2d(x, y, z, st){
   const r = Math.hypot(x, y, z) || 1e-4, K = st.K, bd = beads(st, x, y, z, .1, 0, 12), sh = r - K[2] - st.K2[0];
   if (sh > .12) return Math.min(sh, bd);
   let s = 0; const D = st.D;
-  for (let i = 0; i < 32; i++) { const c = (x*D[i*4] + y*D[i*4 + 1] + z*D[i*4 + 2])/r; if (c > 0) s += D[i*4 + 3]*c**K[1]; }
+  for (let i = 0; i < 32; i++) { const c = (x*D[i*4] + y*D[i*4 + 1] + z*D[i*4 + 2])/r; if (c > .55) s += D[i*4 + 3]*c**K[1]; }
   return smin((r - K[2] - K[0]*s)*.45, bd, .16);
 }
 export default sdfObject({key: 'ferro', label: 'Ferrofluid', words: 'Black liquid rises into spikes with the bass, its drops orbiting and splashing on the drop',

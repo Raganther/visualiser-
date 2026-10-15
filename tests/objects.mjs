@@ -1,6 +1,6 @@
 // Objects test: every object (the wire skull, the unicorn, the maths shapes, the manta, the lit and faceted ones, the
 // morphing ones) draws and shatters in both renderers, a model with a shape key (the manta) plays it with the beat, each
-// style draws differently, and so does each kind of the Prism's own kaleidoscope;
+// style draws differently, and so does each kind of the Prism's own kaleidoscope and each look of the morphing ones;
 // with ?lab=skull, Journey casts the skull as a centrepiece (never under a lens). Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
@@ -42,11 +42,22 @@ for (const mode of ['2d', 'gl']) {
     for (let n = 0; n < 4; n++) { S.jewelInner = n; __step(${mode === 'gl' ? 40 : 60}); inner.push(${THUMB}); }
     S.jewelInner = null; set('jewel', 0); __step(40);
     out.inner = inner;
+    // the morphing objects' looks (render/sdf.js): chrome, glass, neon, iridescent and toon each draw the ferrofluid differently from its own
+    const {TUNE} = await import('/src/tuning.js'); set('ferro', 1); const looks = [];
+    for (let n = 0; n < 6; n++) { TUNE.sdf.look = n; __step(${mode === 'gl' ? 30 : 40}); looks.push(${THUMB}); }
+    TUNE.sdf.look = -1; set('ferro', 0); __step(40);
+    out.looks = looks;
+    // the Adjust panel's sliders reach their settings (ui/morph.js)
+    const sl = document.querySelector('#mt_ferro_spike'), was = TUNE.ferro.spike; sl.value = .5; sl.dispatchEvent(new Event('input'));
+    out.panel = TUNE.ferro.spike === .5 && document.querySelectorAll('#morphTune input[type=range]').length > 30; TUNE.ferro.spike = was; localStorage.removeItem('afterglow.morph');
     return {off, out};
   })()`);
   let errors = await page.errors(); await page.close();
   const st = res.out.styles; delete res.out.styles;
   const inn = res.out.inner; delete res.out.inner;
+  const lk = res.out.looks, pan = res.out.panel; delete res.out.looks; delete res.out.panel;
+  const ldf = lk.slice(1).map(x => diff(lk[0], x)), lok = ldf.every(d => d > .3) && pan && !errors.length; if (!lok) failed = true;
+  console.log(`${mode}: ${lok ? 'ok' : 'FAILED'}  each look draws the ferrofluid its own way (chrome, glass, neon, iridescent, toon against its own: ${ldf.map(d => d.toFixed(1)).join(', ')}); the panel's sliders reach their settings: ${pan}`);
   const idf = inn.slice(1).map(x => diff(inn[0], x)), iok = idf.every(d => d > .3) && !errors.length; if (!iok) failed = true;
   console.log(`${mode}: ${iok ? 'ok' : 'FAILED'}  the Prism's own kaleidoscope draws it its own way (skin, mirrors, tunnel against none: ${idf.map(d => d.toFixed(1)).join(', ')})`);
   const sd = st.slice(1).map(x => diff(st[0], x)), sok = sd.every(d => d > .3) && !errors.length; if (!sok) failed = true;

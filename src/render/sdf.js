@@ -66,7 +66,7 @@ vec4 look(vec4 own, vec3 p, vec3 n, vec3 rd){
   int k = int(uQ.z + 0.5); if (k == 0) return own;
   vec3 N = normalize(uR*n), V = -normalize(uR*rd); float ndv = max(dot(N, V), 0.0), f = pow(1.0 - ndv, 3.0); vec4 c = own;
   if (k == 1) c = vec4(lit(n, rd, vec3(0.05), 2.2, 160.0, 1.3)*mix(vec3(1.0), uC0*0.6 + 0.5, 0.3), 1.0);
-  else if (k == 2) { vec3 r = env(reflect(-V, N))*(0.15 + 0.85*f) + uC1*(0.08 + 0.5*f) + vec3(1.4, 1.3, 1.15)*pow(max(dot(reflect(-uLd, N), V), 0.0), 90.0)*1.5;
+  else if (k == 2) { vec3 r = env(reflect(-V, N))*(0.3 + 0.7*f) + uC1*(0.18 + 0.7*f) + own.rgb*0.25 + vec3(1.4, 1.3, 1.15)*pow(max(dot(reflect(-uLd, N), V), 0.0), 90.0)*1.5;
     c = vec4(r, 0.22 + 0.7*f); }
   else if (k == 3) { float ln = abs(fract(length(p)*9.0 - TIME*0.4) - 0.5), band = smoothstep(0.06, 0.0, ln - 0.02);
     c = vec4(vec3(0.008) + uC0*pow(f, 1.5)*2.2 + uC1*band*(0.5 + 1.2*KICK)*(0.35 + 0.65*ndv), 1.0); }

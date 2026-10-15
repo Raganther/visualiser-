@@ -52,3 +52,27 @@ shattering for every object; a check of the Prism's inside), golden re-recorded,
 
 - 2026-10-15: planned.
 - 2026-10-15: built: the engine (`render/sdf.js`, `objects/sdf-object.js`), the six objects, the Prism's skin, mirrors and tunnel, keys, presets, tuning, Journey (centrepieces, never in the room), tests. Checked by eye in both renderers: the coral's maze made finer (`freq` 19) and the crystals bigger and fewer (12) after the first stills; the skin folded over the 80 big triangles (on each of the 1,280 facets it read as lace).
+- 2026-10-15: the audit, asked for with better graphics, more features, options to fine-tune and a smoother run.
+  - **Measured** (headless software WebGL at 640×360, ms a frame with each frame finished; a real GPU is far quicker, but the shares hold):
+    - a plain frame with the ring: 68–85;
+    - any object at all, a wire one too: about 260 (the skull 262, the torus 274, the Prism 288). That's the engine's object path, not the shapes;
+    - the morphing ones: ferrofluid 450 (its 32 spike sums), the others 250–320;
+    - the Prism's inside: about the same as the Prism alone.
+    - Simple mode (script, ms): a plain frame 4–5; ferrofluid 21–23; the others 10–16.
+  - **Made quicker:**
+    - each one is drawn at a share of its pixels into a picture of its own, then laid over it smoothed (`TUNE.sdf.res`, ¾ by default; ½ saves about 30%), its colour stored at half so highlights past white still glow;
+    - the march steps can be cut (`steps`);
+    - every shape skips its detail where a ray is well clear of it: ferrofluid's spikes, the coral's ridges and the crystals each have their own bounding test;
+    - ferrofluid adds only the spikes that can reach a point, and the crystals' frames are worked out once, not per pixel.
+  - **Better graphics:**
+    - ambient occlusion in the creases (`ao`);
+    - six looks over each solid one's own: chrome, glass, neon contour lines, iridescent, toon. Each section picks one (`looks`), or one is held, for all of them or each its own (`TUNE[key].look`). Simple mode has plainer versions.
+  - **New features:**
+    - ferrofluid's spike field crawls over it (`flow`), a stab pulls the spikes to one side like a magnet (`magnet`), and its sharpness, drops and ripple are settings;
+    - liquid metal has moons that dip in on the hats, and the bass stretches it upright;
+    - the bubble has foam (up to four small bubbles clinging), and its swirl, bands and clearness are settings;
+    - the cell can divide on its own every n bars, and its organelles stir with the hats;
+    - the coral has four patterns: a maze, holes (Schwarz's P), a diamond lattice (Schwarz's D) and bands;
+    - the crystals' number is a setting (1–16), and each phrase some grow and some shrink back;
+    - the Prism's inside has settings for its bounces, each bounce's light, shards, beads, the tunnel's seams and the glass's bending.
+  - **Fine-tuning:** the Adjust panel's "Morphing objects" (`ui/morph.js`): a slider or menu over each of these numbers, live, kept on the device (`afterglow.morph`), with Copy settings and Reset.

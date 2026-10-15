@@ -35,7 +35,7 @@ src/fx/                    particles (flow), effects (comets, shockwave motion, 
 src/play/                  the play lab: host.js and toys/ (waves, touch, fly, mandala, paint, draw, orbits, pads)
 src/media/source.js        MEDIA: the video, image or camera feeding the mirror tunnel (a leaf module)
 src/scene/                 stage.js (what the Prism's room needs each frame), dance.js (the choreographer: every layer and object dances), facets.js (the wire objects' facet light), signals.js (the signal bus), notes.js (the notes played, as signals), tweaks.js (each layer's own speed, size and sound), graph.js (scenes → draw plans), templates.js (Journey's scene templates), context.js (palette, wind, light), camera.js (a 3D camera on springs, and its shots)
-src/ui/                    panel (sliders, narration), scene (the scene editor), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments), dj (the DJ panel under the picture), groove (its Groovebox tab), synth (its Synth section), mix (its Effects section), widgets (knobs and sliders for both)
+src/ui/                    panel (sliders, narration), scene (the scene editor), morph (the morphing objects' own settings), presets (switch/randomize), controls (Space, arrows and the other single keys, pad, buttons), keys (the keyboard's groups and strip), fly (the cosmos camera's keys), transport, toast, fps (the frame-rate readout), caption (what a world's camera is doing), taste (👍 / 👎 moments), dj (the DJ panel under the picture), groove (its Groovebox tab), synth (its Synth section), mix (its Effects section), widgets (knobs and sliders for both)
 tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, foresee, beatmap, visuals, journey, quality, cosmos, dance, steer, dj, audio-engine, effects, drums, synth, sequencer, seq-journey, playlab, facets, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 docs/prism-plan.md         the plan for the prism: one sheet of facets becoming any shape, in a 3D room with lamps and lasers (stages 1 and 2 built: the sheet, and the Prism that merges the prism and the Fold)
@@ -687,6 +687,9 @@ The user found 3D objects over simple 3D worlds, under a kaleidoscope, "really c
   - It draws only the square round the object's bounding sphere (`br`, set each frame).
   - Each object has one program, started at idle (`sdfWarm`) and used once the driver has built it.
   - Simple mode marches the same shape on the CPU (`map2d` and `tint2d` in JS) at `TUNE.sdf.res2d` rays across. The edges are soft: a near miss counts as its share of the cell. The result is laid over the picture, smoothed. Masks use a circle (`rad`).
+  - **Speed** (`TUNE.sdf`, measured in `docs/morph-plan.md`): each one is drawn at a share of its pixels (`res`) into a picture of its own (texture unit 4, its colour stored at half so highlights past white survive), then laid over the picture smoothed. Its march steps scale with `steps`, and every shape skips its detail where a ray is well clear of it.
+  - **Looks** (`look()` in the prelude, `look2d` in simple mode): own, chrome, glass, neon, iridescent, toon, over a solid one's own shading. Each section picks one by `TUNE.sdf.looks`; `TUNE.sdf.look` holds one for all of them, and `TUNE[key].look` for one alone. Ambient occlusion in the creases (`ao`).
+  - **Settings** (`ui/morph.js`, the Adjust panel's "Morphing objects"): a slider or menu over each of these numbers and each object's own, and the Prism's inside. They apply live, are kept on the device (`afterglow.morph`), and have Copy settings (for Claude to make them defaults) and Reset.
 - **The body** (`objects/sdf-object.js`, `sdfObject()`):
   - It gathers the music once: the kick's flash, the bass, the hats, a stab, the tension, a drop's run-up and its age, and a breakdown.
   - It handles placement (`P.anchor` when the world carries objects, otherwise the centre), the object's turn and dance (`DANCE.obj`), the palette and the key light.
@@ -698,25 +701,30 @@ The user found 3D objects over simple 3D worlds, under a kaleidoscope, "really c
   - The bass raises the spikes, the kick jolts them, and a run-up sharpens them.
   - A breakdown melts it smooth.
   - A drop flings its drops and a spray out.
+  - The spike field crawls slowly over it (`flow`), and a stab pulls the spikes towards a magnet on one side (`magnet`).
 - **Liquid metal** (`mercury`, D): chrome.
   - Each kick pulls a droplet out, which snaps back on a spring.
   - The bass wobbles it.
   - A drop splashes it into eight beads that run back together.
+  - Moons of metal circle it, dipping in on the hats (`moons`), and the bass stretches it upright (`stretch`).
 - **Soap bubble** (`bubble`, V): a thin film with rainbow interference flowing over it (its thickness is noise, draining at the top), and its far wall seen through it.
   - The hats speed the swirl.
   - A drop splits it in two, and the halves merge again.
+  - Small bubbles cling to it as foam (`foam`, up to four).
 - **Living cell** (`cell`, N): a translucent membrane, a nucleus glowing through a lit cytoplasm, and eight organelles drifting.
   - It breathes with the bass, and the kick flashes the nucleus.
-  - A drop divides it: the membrane pinches and the nucleus splits, then it rejoins.
-- **Brain coral** (`coral`, A; `TUNE.coral`): a sphere carved by a gyroid into a maze of ridges.
+  - A drop divides it: the membrane pinches and the nucleus splits, then it rejoins. It can also divide on its own every n bars (`divideBars`).
+  - The organelles stir faster with the hats.
+- **Brain coral** (`coral`, A; `TUNE.coral`): a sphere carved into ridges by a maze (the gyroid), holes (Schwarz's P), a diamond lattice (Schwarz's D) or bands (`pattern`).
   - It breathes with the bass.
   - A ring of colour runs over it from a new point on each kick.
   - It tightens through a run-up.
   - On a drop it heaves open and its pattern shifts.
-- **Growing crystals** (`growth`, Z; `TUNE.growth`): twelve hexagonal crystals pointing out from a heart, milky at the base and glowing at the point.
+- **Growing crystals** (`growth`, Z; `TUNE.growth`): up to sixteen hexagonal crystals (`count`, twelve by default) pointing out from a heart, milky at the base and glowing at the point.
   - They grow longer as the music builds.
   - Light runs up them on the kick, and they glint with the hats.
   - A drop flings them out.
+  - Each phrase some grow and some shrink back (`regrow`).
 - **Presets** (manual looks):
   - "Ferrofluid": in the Corridor, under a pinwheel kaleidoscope inside it;
   - "Liquid metal": in the Hollow;
@@ -730,7 +738,7 @@ The user found 3D objects over simple 3D worlds, under a kaleidoscope, "really c
 - **mirrors:** the ray is refracted into the glass and bounces up to six times between its twenty big faces, each bounce dimmer. The faces are planes fitted to its shape each frame (`planes()`, `uPl`). Along the way the ray meets six coloured glass shards tumbling inside (`uSh`): stabs turn them, and a drop scatters them.
 - **tunnel:** the same mirrors with no shards: seams of light where two mirrors meet, repeating into the gem.
 
-The mirrors and the tunnel show only while the gem is closed. Simple mode colours each facet by its direction folded eight ways, with beads drifting in the fold.
+Its bounces, each bounce's light, the shards, the beads, the tunnel's seams and the glass's bending are settings (`TUNE.jewel.inner`, and the Morphing objects panel). The mirrors and the tunnel show only while the gem is closed. Simple mode colours each facet by its direction folded eight ways, with beads drifting in the fold.
 
 ## Scenes: composing the pictures
 
@@ -801,7 +809,7 @@ Run `npm test` before every PR (`npm run test:dist` also builds and tests the bu
   - the city fills the skull and nowhere else; comets in a group seen only through its glass leave the screen's edges.
 
   And the scene editor: composing "among" by hand, moving an entry, and driving the trails' weight by the kick.
-- `tests/objects.mjs`: every object (the morphing ones too) draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, each style draws the skull differently, each kind of the Prism's own kaleidoscope draws it differently, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
+- `tests/objects.mjs`: every object (the morphing ones too) draws and shatters in both renderers, a model with a shape key (the manta) plays it both ways, each style draws the skull differently, each kind of the Prism's own kaleidoscope draws it differently, each look draws the ferrofluid differently, the Morphing objects panel's sliders reach their settings, and with `?lab=skull` Journey casts the skull as a centrepiece, never under a lens.
 - `tests/grid.mjs`: on the synthetic groove, the grid must:
   - lock;
   - hold the tempo within 0.5 BPM;

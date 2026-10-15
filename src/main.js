@@ -29,6 +29,7 @@ import './ui/controls.js';
 import './ui/keys.js';   // the keyboard: groups, numbers, the strip
 import './ui/assets.js';   // the Asset Viewer: every visual on its own (V)
 import './ui/transport.js';
+import './ui/morph.js';   // the morphing objects' own settings (the Adjust panel)
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
 import { showNow } from './ui/panel.js';

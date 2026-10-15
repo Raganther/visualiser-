@@ -407,3 +407,6 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #playBar select{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
 #playBar .plhow{color:var(--dim);font-size:12px;margin-top:3px}
 body.playlab #caption,body.playlab #keyHud{display:none}
+#morphTune details{margin:4px 0;border-top:1px solid rgba(255,255,255,.08);padding-top:4px}
+#morphTune summary{cursor:pointer;font-size:13px;padding:4px 0;color:var(--accent)}
+#morphTune .row select{grid-column:2 / -1}
