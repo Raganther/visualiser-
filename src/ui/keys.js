@@ -20,7 +20,7 @@ import { combos, tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
-import { KAL_KINDS, steerKal } from '../journey/extras.js';
+import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
 import { updateSectionUI } from './panel.js';
 import { $ } from '../util.js';
 
@@ -123,7 +123,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (mode === 'k' && k === 'm') {   // the kind: wedges, a mirror box, a dive (while Journey runs, it keeps that kind)
-    const m = ((J.on ? (J.kal && J.kal.mode) || 0 : Math.round(S.active.kalMode || 0)) + 1) % 3;
+    const m = ((J.on ? (J.kal && J.kal.mode) || 0 : Math.round(S.active.kalMode || 0)) + 1) % KAL_N;
     if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
     else { edit(); S.active.kalMode = m; if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
     toast('Kaleidoscope: ' + KAL_KINDS[m]); }

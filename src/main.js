@@ -56,6 +56,7 @@ import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
+import { KAL_N } from './journey/extras.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
 import { BASE, SPEC, curP, eff } from './presets.js';
 import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
@@ -122,7 +123,7 @@ function fpsInfo(){
   return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%${gfxLevel() === 'auto' ? ', lowered for speed' : ''})` : '') + (Q.heavy && Q.world < 1 ? `, the 3D world at ${Math.round(Q.world*100)}%` : '') + ` · graphics: ${gfxLevel()} (Q)`
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
-let kalA = 0, kalZ = 0;   // the kaleidoscope's turn, and how far it has dived
+let kalA = 0, kalZ = 0, kalT = 0, kalBar = 0, kalPh = 0, kalAs = 1, kalDrop = null;   // the kaleidoscope's turn, how far it has dived, its own time, the bars counted, how asymmetric
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -168,12 +169,17 @@ function render(now){
   // the kaleidoscope: a mirror fold of the picture round the trails' centre. Under 2 mirrors it's off; between two counts it
   // eases (the share of the next), and it turns at motion time
   kalA += mdt*(eff.kalTurn || 0);
-  const km = Math.max(0, Math.min(2, Math.round(eff.kalMode || 0)));   // the kind: wedges, a mirror box, a dive
-  kalZ += km === 2 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
+  const km = Math.max(0, Math.min(KAL_N - 1, Math.round(eff.kalMode || 0)));   // the kind (render/shaders.js, KAL): wedges, a mirror box, a dive, and the broken symmetries
+  kalZ += km === 2 || km === 11 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
+  // the broken symmetries follow the music: a bar counted (the odd wedge moves on, the inverted pairs swap), the asymmetry
+  // settling as a drop we saw coming nears (TUNE.kal.settle) and breaking on the drop (TUNE.kal.burst), easing back
+  kalT += mdt; if (SIG.barPhase < kalPh - .5) kalBar++; kalPh = SIG.barPhase;
+  if (J.on && kalDrop !== null && J.lastDrop !== kalDrop) kalAs = TUNE.kal.burst; kalDrop = J.lastDrop ?? null;
+  kalAs += ((J.on ? 1 - TUNE.kal.settle*(J.anticip || 0) : 1) - kalAs)*Math.min(1, mdt*.6);
   const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
-    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band]};
+    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band], v3: [kalT, kalBar, kalAs, SIG.bass || 0]};
   P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
   P.hush = J.on ? J.hush*TUNE.foresee.hush*(reduceMotion ? .5 : 1) : 0;   // the breath held before a drop we saw coming (journey/director.js)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)

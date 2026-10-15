@@ -513,12 +513,12 @@ export const TUNE = {
   fractal: {speed: .22, calm: .45, octave: 2.5, surge: 4, surgeSecs: 2.5, echoSpeed: 2.5, folds: [4, 5, 6, 8, 10]},
   // the kaleidoscope's other kinds (kalMode): the mirror box's hall (how fast its copies recede toward the edges), and the
   // dive (how fast it zooms in, faster as the tension rises; each band's width in log radius: each band e^band smaller)
-  kal: {hall: 1, dive: .25, band: .8},
+  kal: {hall: 1, dive: .25, band: .8, settle: .85, burst: 1.7},   // (settle: how symmetric the broken kinds become as a drop nears; burst: how far a drop breaks them)
   // Journey's extras, chosen per section with the cast (journey/extras.js), so it uses every setting, not only the roles
   extras: {
     kal: {chance: .2, intense: .25, recipe: .8, cosmos: .5,    // the kaleidoscope: a share of sections (more when intense; a recipe with one brings it most of the time; less in the cosmos, which folds itself)
       n: [3, 8], turn: .08,                                    // mirrors calm to intense, and how fast it may turn either way
-      mode: [1, .6, .8],                                       // wedges, a mirror box, a dive
+      mode: [1, .6, .8, .7, .8, .6, .6, .6, .7, .6, .6, .5, .6, .5],   // wedges, a mirror box, a dive, pinwheel, ripple, inverted pairs, odd one out, imperfect, colour wedges, tiles, hyperbolic, Droste, curved, two centres
       where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
     grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
     mand: {base: .5, tension: .5, spread: .7},                 // the mandalas' detail: its middle, how much the tension raises it, how far chance spreads it
