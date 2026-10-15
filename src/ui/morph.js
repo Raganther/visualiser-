@@ -11,6 +11,7 @@ const GROUPS = [
   ['All of them', [['sdf.res', 'Sharpness (share of pixels marched; lower is faster)', .3, 1, .05], ['sdf.steps', 'March steps (lower is faster, rougher)', .4, 1.5, .05],
     ['sdf.ao', 'Shading in the creases (ambient occlusion)', 0, 1, .05], ['sdf.res2d', 'Simple mode: rays across', 24, 80, 4],
     ['sdf.look', 'Look', LOOKS, -1], ['sdf.size', 'Size', .3, .9, .02], ['sdf.spin', 'Turning', 0, .6, .02], ['sdf.exSecs', 'A drop\'s splash: how long', .8, 6, .1],
+    ['sdf.wander.on', 'Wander under a kaleidoscope (K then D; only when it folds everything)', ['off', 'on'], 0],
     ['sdf.wander.amount', 'Under a kaleidoscope: how far it wanders', 0, 1, .05], ['sdf.wander.speed', 'Under a kaleidoscope: how fast it wanders', 0, 1.5, .05]]],
   ['Ferrofluid', [['ferro.spike', 'Spikes: height', 0, .7, .01], ['ferro.sharp', 'Spikes: sharpness', .4, 2.5, .05], ['ferro.jolt', 'The kick\'s jolt', 0, .25, .01],
     ['ferro.flow', 'The spikes crawling', 0, 1, .02], ['ferro.magnet', 'A stab\'s pull to one side', 0, 2, .05], ['ferro.drops', 'Orbiting drops', 0, 3, 1],
@@ -74,4 +75,5 @@ function build(){
   bar.append(cp, rs); box.append(bar);
 }
 if (typeof document !== 'undefined') { if (document.readyState === 'loading') addEventListener('DOMContentLoaded', build); else build(); }
-export const morphPanel = build;   // (the keys change the Prism's inside too: rebuilt when the panel opens)
+export const morphPanel = build;
+export function morphSet(p, v){ set(p, v); saved[p] = v; keep(); build(); }   // (a key changing one of these: kept, and the panel shows it)   // (the keys change the Prism's inside too: rebuilt when the panel opens)

@@ -24,6 +24,7 @@ import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
 import { updateSectionUI } from './panel.js';
 import { $ } from '../util.js';
 import { INNER } from '../visuals/objects/jewel.js';
+import { morphSet } from './morph.js';
 
 const layers = LAYER_VISUALS.filter(v => !v.optIn), worlds = WORLD_VISUALS.filter(v => !v.optIn);
 const SCENE_WORDS = {plain: 'plain', between: 'between', split: 'split', among: 'among', held: 'held', reflect: 'reflect', inside: 'inside', window: 'window', glass: 'glass'};
@@ -36,7 +37,7 @@ const GROUPS = {
   // the kaleidoscope: a mirror fold of the picture (everything, the world, the glow, or inside the object), and its letters
   k: {name: 'Kaleidoscope: mirrors', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.kal || 0) === n, n])
       .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()]))
-      .concat([['inside the Prism: ' + (S.jewelInner == null ? 'auto' : INNER[S.jewelInner]), S.jewelInner > 0, 'P']]),
+      .concat([['inside the Prism: ' + (S.jewelInner == null ? 'auto' : INNER[S.jewelInner]), S.jewelInner > 0, 'P'], ['objects wander', !!TUNE.sdf.wander.on, 'D']]),
     pick: n => { if (n === 1) return false; edit(); S.active.kal = n; last = 'kal'; return true; }, off: () => { S.active.kal = 0; }},
   // K then M: the kaleidoscope's kind, each on its own key (the user found stepping through fourteen with M slow)
   km: {name: 'Kaleidoscope: kind', list: () => KAL_KINDS.map((n, i) => [n, kindNow() === i, KIND_KEYS[i]])},
@@ -139,6 +140,9 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (mode === 'o' && k === 'c') setObjWorld(!S.objWorld);   // objects carried through the 3D worlds, or kept in the centre
   else if (mode === 'k' && k === 'm') mode = 'km';
+  else if (mode === 'k' && k === 'd') {   // the morphing objects wandering round the screen under a kaleidoscope that folds everything
+    const W = TUNE.sdf.wander; morphSet('sdf.wander.on', W.on ? 0 : 1);
+    toast(W.on ? 'Morphing objects wander under the kaleidoscope (when it folds everything: K then E)' : 'Morphing objects stay in the centre'); }
   else if (mode === 'k' && k === 'p') {   // the Prism's own kaleidoscope: auto (Journey's sections choose), off, skin, mirrors, tunnel
     S.jewelInner = S.jewelInner == null ? 0 : S.jewelInner >= INNER.length - 1 ? null : S.jewelInner + 1;
     toast('Inside the Prism: ' + (S.jewelInner == null ? 'auto (each section its own)' : INNER[S.jewelInner])); }   // the kinds' own list

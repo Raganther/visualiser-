@@ -51,8 +51,8 @@ for (const mode of ['2d', 'gl']) {
     const sl = document.querySelector('#mt_ferro_spike'), was = TUNE.ferro.spike; sl.value = .5; sl.dispatchEvent(new Event('input'));
     // under a kaleidoscope that folds it, a morphing one wanders off the centre; without one it stays there
     const fe = (await import('/src/visuals/objects/ferro.js')).default; set('ferro', 1); __step(200); const alone = fe.state().wan;
-    set('kal', 6); set('kalWhere', 0); __step(${mode === "gl" ? 220 : 400}); const folded = fe.state().wan; set('kal', 0); set('ferro', 0); __step(30);
-    out.wander = alone < .05 && folded > .6;
+    TUNE.sdf.wander.on = 1; set('kal', 6); set('kalWhere', 0); __step(${mode === "gl" ? 220 : 400}); const folded = fe.state().wan; set('kalWhere', 3); __step(260); const inside = fe.state().wan; TUNE.sdf.wander.on = 0; set('kal', 0); set('ferro', 0); __step(30);
+    out.wander = alone < .05 && folded > .6 && inside < .3;   // (turned on: it wanders only while everything is folded)
     out.panel = TUNE.ferro.spike === .5 && document.querySelectorAll('#morphTune input[type=range]').length > 30; TUNE.ferro.spike = was; localStorage.removeItem('afterglow.morph');
     return {off, out};
   })()`);
@@ -61,7 +61,7 @@ for (const mode of ['2d', 'gl']) {
   const inn = res.out.inner; delete res.out.inner;
   const lk = res.out.looks, pan = res.out.panel, wan = res.out.wander; delete res.out.looks; delete res.out.panel; delete res.out.wander;
   const ldf = lk.slice(1).map(x => diff(lk[0], x)), lok = ldf.every(d => d > .3) && pan && wan && !errors.length; if (!lok) failed = true;
-  console.log(`${mode}: ${lok ? 'ok' : 'FAILED'}  each look draws the ferrofluid its own way (chrome, glass, neon, iridescent, toon against its own: ${ldf.map(d => d.toFixed(1)).join(', ')}); the panel's sliders reach their settings: ${pan}; under a kaleidoscope it wanders off the centre, alone it stays: ${wan}`);
+  console.log(`${mode}: ${lok ? 'ok' : 'FAILED'}  each look draws the ferrofluid its own way (chrome, glass, neon, iridescent, toon against its own: ${ldf.map(d => d.toFixed(1)).join(', ')}); the panel's sliders reach their settings: ${pan}; turned on, it wanders off the centre while a kaleidoscope folds everything and stays in it alone or folded inside: ${wan}`);
   const idf = inn.slice(1).map(x => diff(inn[0], x)), iok = idf.every(d => d > .3) && !errors.length; if (!iok) failed = true;
   console.log(`${mode}: ${iok ? 'ok' : 'FAILED'}  the Prism's own kaleidoscope draws it its own way (skin, mirrors, tunnel against none: ${idf.map(d => d.toFixed(1)).join(', ')})`);
   const sd = st.slice(1).map(x => diff(st[0], x)), sok = sd.every(d => d > .3) && !errors.length; if (!sok) failed = true;
