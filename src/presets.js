@@ -115,9 +115,10 @@ export const BASE = [
   {name:'Jellyfish', journey:false, decay:.92, zoom:1.002, rot:0, warp:.1, sym:1, deep:1, jelly:1, fireflies:.35, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Crystals', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, aurora:1, crystal:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // the Prism: a gem of facets that opens into a star, mountains, a tube or a ring and lights its facets with the music (alone, and in the Cathedral)
-  {name:'Prism', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, prism:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Prism', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, jewel:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Gem orbit', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, gems:1, constellation:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
-  {name:'Prism in the cathedral', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cathedral:1, prism:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Prism (full)', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, prism:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Prism in the cathedral', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cathedral:1, jewel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Prism in the room', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, room:1, prism:1, colorSpeed:.02, hueDrift:.004, mods:{}},   // (stage 7: the room, its lamps, the camera's arc)
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,

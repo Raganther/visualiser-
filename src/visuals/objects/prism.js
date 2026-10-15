@@ -182,7 +182,7 @@ export const prismTexs = () => Object.keys(TEXCODE);
 export const laserShows = () => SHOWS;
 
 export default {
-  key: 'prism', kind: 'object', label: 'Prism', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
+  key: 'prism', kind: 'object', label: 'Prism (full)', words: 'A prism of facets opens into a star, rises into mountains and folds back into shapes with the music', optIn: true,
   dance: {moves: {face: 2.5, spin: 1.2, float: 1, rise: .7, approach: 1.1, pulse: 1, still: .6, groove: .4, bang: .2, look: .3}, sym: 5, liftPart: 1},
   // (a plain mesh of the closed gem's finest facets, for the tests and the Asset Viewer)
   get mesh(){ const G = BODY.g.G, pos = Array.from(G.DIR, x => x*.45); return this._m || (this._m = {pieces: [{pos, tri: Array.from(G.TRI), part: Array.from({length: G.nf}, (_, f) => 1 + G.FA[0][f] % 6)}], hinge: [0, 0, 0]}); },

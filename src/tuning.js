@@ -258,7 +258,15 @@ export const TUNE = {
     turn: .05,                 // how fast its rings turn (each the other way from the last)
     hatShare: .1,              // the share of cells the hats light each 16th, at full hats
     layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
-  prism: {chance: 0, size: .5, spin: .22, journey: 1.6, spinBurst: 1.4, spinBurstSecs: 1.2,   // (spinBurst: three stabs in a bar spin it this much faster, easing out over spinBurstSecs)   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
+  jewel: {chance: 0, size: .5, journey: 1.6,      // the Prism (objects/jewel.js), as the user chose it in the WebGL test (native/prism-web.html, Layers at 8): Journey's Prism now
+    on: {pulse: 1, detail: 1, shapes: 1, patterns: 1, drops: 1, open: 1, surfaces: 1, life: 1},   // its layers (the room, lasers and camera, the test's ninth, left out)
+    r: .62, spin: .22, morphSecs: 3.9, breath: .14, explode: 1.25, explodeSecs: 1.2,   // its radius; turning; a new shape or form's ease; the bass's swell; the drop's shatter
+    ripSecs: 1.6, ripSpeed: .75, ripW: .28, kickCalm: .5, hatShare: .12,               // the kick's rings (how long, how fast, how wide; when calm), the hats' share of facets
+    actBase: .22, actBrk: .55, actFree: .4,                                             // how much may move: at rest, in a breakdown, without a steady beat
+    star: .55, mtn: .3, mtnScale: 2.2, mtnBreath: .5, waveK: 9, waveSpeed: 2.2, openChance: .3, wedges: 5,   // opening: the flat star's size, the mountains, the waves, how often a phrase opens it
+    tex: {calm: [2, .8, .3, .5, 1.2, 1, 1], live: [1, 1.2, 1.2, 1, .5, .8, 1], sweepBeats: 8, change: .3},   // surfaces (glass, stained, LED, metal, ice, mirror, iridescent): how often each, calm and intense; a new one's sweep
+    cellLit: .55, fire: 1.35, gain: 1.5, line: 1.5},   // (gain: the page's own glow is gentler than the test's)                                      // life's light; the rainbow fire; its brightness; the edges' width
+  prism: {chance: 0, size: .5, spin: .22, journey: .05, spinBurst: 1.4, spinBurstSecs: 1.2,   // (spinBurst: three stabs in a bar spin it this much faster, easing out over spinBurstSecs)   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
     r: .45, star: .9,                               // the closed gem's radius; the open star's size against it (its points reach π × r × star)
     half: .85, ringR: .38,                          // the square sheet's half-width; how far out a ring's centre line runs past its tube
     morphSecs: 3.9, stabSfSecs: .35,                // how long a new form or shape takes to ease in; the superformula gaining points on a stab
