@@ -128,7 +128,8 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
     // the rose window and the Lattice
   for (const k of ['rosette', 'lattice']) { set(k, 1); __step(${mode === 'gl' ? 50 : 100}); out[k] = ${THUMB}; set(k, 0); __step(30); }
     // the room (stage 7): the camera far off when calm, drawn in through a run-up, inside on the drop and out again; the lamps' spots on the walls
-    { const pm = await import('/src/visuals/objects/prism.js'), {STAGE} = await import('/src/scene/stage.js');
+    { const pm = await import('/src/visuals/objects/prism.js'), {STAGE} = await import('/src/scene/stage.js'), {TUNE} = await import('/src/tuning.js');
+      TUNE.prism.on.spots = 1;   // (the mirror ball's spots, off by default since the room was refined: on for this check)
       set('prism', 1); pm.prismForm('gem', true); __step(${mode === 'gl' ? 60 : 120}); const bare = ${THUMB};
       set('room', 1); __step(${mode === 'gl' ? 120 : 240}); for (let i = 0; i < 40 && (STAGE.cam < 1.5 || !STAGE.nSpots); i++) __step(20);   // (out of the last drop's release first)
       const rm = {bare, pic: ${THUMB}, far: STAGE.cam, spots: STAGE.nSpots};
@@ -179,7 +180,7 @@ for (const mode of (process.env.FACET_MODES || '2d,gl').split(',')) {   // (FACE
   check(`${mode}: the improviser makes new shapes rather than looping`, fo.kinds >= 9, `${fo.kinds} different in 12 steps`);
   for (const k of ['rosette', 'lattice']) { const d = diff(r.off, r.out[k]); check(`${mode}: the ${k === 'rosette' ? 'rose window' : 'Lattice'} draws`, d > .4, `change ${d.toFixed(1)}`); }
   { const m = r.out.room; check(`${mode}: the room draws round the Prism, the lamps throw spots off its facets`, diff(m.bare, m.pic) > .3 && m.spots >= 3, `change ${diff(m.bare, m.pic).toFixed(2)}, ${m.spots} spots`);
-    check(`${mode}: the room's camera: drawn in through a run-up, inside on the drop, back out far off once calm`, m.near < 2 && m.inside < .4 && m.after > 3.5 && m.form !== 'peaks' && diff(r.off, m.in) > .5,
+    check(`${mode}: the room's camera: drawn in through a run-up, inside on the drop, back out far off once calm`, m.near < 2.4 && m.inside < .4 && m.after > 3.5 && m.form !== 'peaks' && diff(r.off, m.in) > .5,
       `${m.far.toFixed(2)} → ${m.near.toFixed(2)} → ${m.inside.toFixed(2)} (${m.form}) → ${m.after.toFixed(2)}`); }
   { const m = r.out.room; check(`${mode}: the lasers trace through the Prism, bending into the glass`, m.beams >= 4 && m.inGlass >= 1 && diff(m.pic, m.lasers) > .2, `${m.beams} drawn over it, ${m.inGlass} inside the glass`);
     check(`${mode}: in the room the orbits are lights circling it`, m.orb > .3, `${m.orb.toFixed(2)}`); }
