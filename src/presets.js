@@ -120,6 +120,13 @@ export const BASE = [
   {name:'Prism (full)', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, prism:1, fireflies:.3, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Prism in the cathedral', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cathedral:1, jewel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Prism in the room', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, room:1, prism:1, colorSpeed:.02, hueDrift:.004, mods:{}},   // (stage 7: the room, its lamps, the camera's arc)
+  // the morphing objects (render/sdf.js): liquids, a bubble, a cell, a coral, crystals, each in a simple 3D world or under a kaleidoscope
+  {name:'Ferrofluid', journey:false, decay:.88, zoom:1.003, rot:0, warp:0, sym:1, ferro:1, corridor:1, kal:6, kalWhere:3, kalMode:3, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Liquid metal', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, mercury:1, hollow:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Soap bubble', journey:false, decay:.9, zoom:1.003, rot:.002, warp:0, sym:1, bubble:1, fireflies:.4, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Living cell', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cell:1, vessel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Brain coral', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, coral:1, kal:8, kalWhere:0, kalMode:4, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Growing crystals', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, growth:1, geode:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
     mods:{ring:{src:'kick', amt:.3}},

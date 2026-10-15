@@ -63,11 +63,17 @@ import heart from './objects/heart.js';
 import prism from './objects/prism.js';
 import jewel from './objects/jewel.js';
 import gems from './objects/gems.js';
+import ferro from './objects/ferro.js';
+import mercury from './objects/mercury.js';
+import bubble from './objects/bubble.js';
+import cell from './objects/cell.js';
+import coral from './objects/coral.js';
+import growth from './objects/growth.js';
 
 export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice, room];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch, cascade];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, rosette, tunnel];
-export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, jewel, gems, prism];   // 3D centrepieces, drawn crisp over the picture
+export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, jewel, gems, prism, ferro, mercury, bubble, cell, coral, growth];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);

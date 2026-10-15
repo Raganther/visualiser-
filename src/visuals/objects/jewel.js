@@ -78,7 +78,7 @@ const st = {lookA: LOOKS[0], lookB: LOOKS[0], morph: 1, recent: ['ball'], dPrev:
   pos: 0, bars: 0, kicks: 0, kickT: -9, lastPhraseT: 0, lastDrop: undefined, lastDropAt: -100, lastHit: 0, s16: -1, type: undefined,
   tension: 0, bassLv: 0, anticip: 0, inBreak: false, wasBreak: false, steady: true, period: .5,
   yaw: 0, pitch: .25, roll: 0, off: true, form: 'gem', f: {...FORMS.gem}, seed: 3.7,
-  tex: {cur: 0, prev: 0, o: [0, 0, 1], t0: -100, dur: 4}, rule: 'spots', cells: makeCells(NA, G.ADJ[2], rand)};
+  tex: {cur: 0, prev: 0, o: [0, 0, 1], t0: -100, dur: 4}, inner: -1, inAmt: 0, inT: 0, inKick: 0, shard: [], rule: 'spots', cells: makeCells(NA, G.ADJ[2], rand)};
 const on = k => !!TUNE.jewel.on[k];
 const curDetail = () => st.dPrev + (st.dNext - st.dPrev)*sm(st.wave);
 const isOpen = () => st.form !== 'gem';
@@ -105,6 +105,49 @@ function newTex(vivid){
 }
 function newRule(){ const w = st.act < .45 ? [1.4, 1.2, .6, 1.2, .6] : [.6, .6, 1.4, .8, 1.4]; let r = rand()*w.reduce((a, b) => a + b);
   st.rule = RULES[w.findIndex(x => (r -= x) <= 0)] || 'spots'; }
+// its own kaleidoscope (off, skin, mirrors, tunnel): a section's own, or held by hand (S.jewelInner, K then P)
+export const INNER = ['off', 'skin', 'mirrors', 'tunnel'];
+function newInner(){ const w = TUNE.jewel.inner.pick; let r = rand()*w.reduce((a, b) => a + b); st.inner = Math.max(0, w.findIndex(x => (r -= x) <= 0)); }
+function newShards(spread){ st.shard = Array.from({length: 6}, (_, i) => ({d: norm([rand()*2 - 1, rand()*2 - 1, rand()*2 - 1]), n: norm([rand()*2 - 1, rand()*2 - 1, rand()*2 - 1]),
+  r: (.12 + .22*rand())*spread, s: .1 + .1*rand(), w: (rand() - .5)*1.6, h: i*.17 + rand()*.05})); }
+// each facet's corners placed in the big triangle it lies in (level 1: 80 of them), so the skin's fold spans it
+const BARY = (() => {
+  const Lv = 1, nb = G.NF[Lv], B = new Float32Array(NF*9), dir = v => [G.DIR[v*3], G.DIR[v*3 + 1], G.DIR[v*3 + 2]], sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const vs = Array.from({length: nb}, () => new Set()); for (let f = 0; f < NF; f++) for (let j = 0; j < 3; j++) vs[G.FA[Lv][f]].add(G.TRI[f*3 + j]);
+  const corners = vs.map(set => { const p = [...set].map(dir), m = p.reduce((a, q) => [a[0] + q[0], a[1] + q[1], a[2] + q[2]], [0, 0, 0]);
+    const far = (from, ex) => p.reduce((best, q) => { const d = ex(q); return d > best[0] ? [d, q] : best; }, [-1, p[0]])[1];
+    const A = far(m, q => Math.hypot(...sub(q, m.map(x => x/p.length)))), Bq = far(A, q => Math.hypot(...sub(q, A)));
+    const ab = sub(Bq, A), lab = Math.hypot(...ab), C = far(null, q => { const aq = sub(q, A), t = (aq[0]*ab[0] + aq[1]*ab[1] + aq[2]*ab[2])/(lab*lab); return Math.hypot(aq[0] - ab[0]*t, aq[1] - ab[1]*t, aq[2] - ab[2]*t); });
+    return [A, Bq, C]; });
+  for (let f = 0; f < NF; f++) { const [A, Bq, C] = corners[G.FA[Lv][f]], e0 = sub(Bq, A), e1 = sub(C, A);
+    const d00 = dot(e0, e0), d01 = dot(e0, e1), d11 = dot(e1, e1), den = d00*d11 - d01*d01 || 1;
+    for (let j = 0; j < 3; j++) { const e2 = sub(dir(G.TRI[f*3 + j]), A), d20 = dot(e2, e0), d21 = dot(e2, e1), v = (d11*d20 - d01*d21)/den, w = (d00*d21 - d01*d20)/den;
+      B[f*9 + j*3] = 1 - v - w; B[f*9 + j*3 + 1] = v; B[f*9 + j*3 + 2] = w; } }
+  return B; })();
+const PL = new Float32Array(80), SH = new Float32Array(48), FK = new Float32Array(NF*3);
+// the mirrors: a plane fitted to each of the gem's twenty big faces as it is now (their facets' normals and middles, averaged)
+function planes(){
+  PL.fill(0); const C = new Float32Array(60);
+  for (let f = 0; f < NF; f++) { const a = G.FA[0][f]; for (let k = 0; k < 3; k++) { PL[a*4 + k] += FN[f*3 + k]; C[a*3 + k] += FV[f*9 + k] + FV[f*9 + 3 + k] + FV[f*9 + 6 + k]; } PL[a*4 + 3] += 3; }
+  for (let a = 0; a < 20; a++) { const n = norm([PL[a*4], PL[a*4 + 1], PL[a*4 + 2]]), m = PL[a*4 + 3] || 1;
+    PL[a*4] = n[0]; PL[a*4 + 1] = n[1]; PL[a*4 + 2] = n[2]; PL[a*4 + 3] = (n[0]*C[a*3] + n[1]*C[a*3 + 1] + n[2]*C[a*3 + 2])/m; }
+}
+// the shards: tumbling inside it, swelling on the kick
+function shards(R){
+  const T = TUNE.jewel, rr = T.r*(T.star + (1 - T.star)*st.f.k)*.75;
+  st.shard.forEach((q, i) => { const a = st.inT*(.25 + .05*i) + i, c = Math.cos(a), s = Math.sin(a), d = [q.d[0]*c - q.d[2]*s, q.d[1], q.d[0]*s + q.d[2]*c];
+    const b = st.inT*q.w, cb = Math.cos(b), sb = Math.sin(b), n = norm([q.n[0], q.n[1]*cb - q.n[2]*sb, q.n[1]*sb + q.n[2]*cb]);
+    const p = mul(R, d[0]*q.r*rr/.62, d[1]*q.r*rr/.62, d[2]*q.r*rr/.62), nn = mul(R, ...n);
+    SH.set([p[0], p[1], p[2], q.s*rr*(1 + .35*st.inKick)], i*8); SH.set([nn[0], nn[1], nn[2], st.h0 + q.h], i*8 + 4); });
+}
+// simple mode: each facet coloured by its place folded eight ways (its direction's sorted size), beads drifting in the fold
+function skin2d(f, cd){
+  const a = [Math.abs(cd[0]), Math.abs(cd[1]), Math.abs(cd[2])].sort((x, y) => y - x), qx = a[1] - a[2], qy = a[2];
+  let r = 0, g = 0, b = 0;
+  for (let i = 0; i < 4; i++) { const cx = .3 + .25*Math.sin(st.inT*(.25 + .09*i) + i*1.7), cy = .25 + .2*Math.sin(st.inT*(.3 + .07*i) + i*2.9), d = Math.hypot(qx - cx, qy - cy);
+    const k = Math.min(1, Math.max(0, 1.4 - 1.4*d/(.2 + .05*st.inKick))), c = hsv(st.h0 + i*.21, .8, k*.5); r += c[0]; g += c[1]; b += c[2]; }
+  FK[f*3] = r; FK[f*3 + 1] = g; FK[f*3 + 2] = b;
+}
 function onPhrase(){
   st.lastPhraseT = st.t;
   if (on('open')) { if (isOpen()) st.form = rand() < .6 ? 'gem' : OPEN[Math.floor(rand()*OPEN.length)]; else if (rand() < TUNE.jewel.openChance) st.form = OPEN[Math.floor(rand()*OPEN.length)]; }
@@ -125,7 +168,7 @@ function kick(){
 }
 function drop(free){
   if (free || !on('drops')) { st.act = Math.max(st.act, .25); if (on('pulse')) ring(front(), .6); return; }
-  st.ex = 1; st.exHold = .25; if (on('shapes')) nextLook(true); st.h0 += .33;
+  st.ex = 1; st.exHold = .25; if (on('shapes')) nextLook(true); st.h0 += .33; newShards(1.3);
   for (const d of ICO.slice(0, 6)) ring(d, .8);
   st.act = 1; st.lastDropAt = st.t;
   if (on('open')) st.form = isOpen() ? 'gem' : 'peaks';
@@ -187,6 +230,7 @@ function build(R){
     for (let j = 0; j < 3; j++) { const lv = G.EL[f*3 + j]; FE[f*3 + j] = lv === 0 ? 1 : clamp(fd - lv + 1, 0, 1); }
     FT[f] = on('surfaces') ? (Math.acos(clamp(dot(cd, tx.o), -1, 1))/Math.PI < txP ? tx.cur : tx.prev) : 0;
     FC[f*4] = tint[0]; FC[f*4 + 1] = tint[1]; FC[f*4 + 2] = tint[2]; FC[f*4 + 3] = lit;
+    if (st.inAmt > .01 && st.inK > 0) skin2d(f, cd);
     const nw = mul(R, nx, ny, nz); FN[f*3] = nw[0]; FN[f*3 + 1] = nw[1]; FN[f*3 + 2] = nw[2];
     for (const [k, i] of [[0, a], [1, b], [2, c]]) { const w = mul(R, P3[i] + nx*off, P3[i + 1] + ny*off, P3[i + 2] + nz*off); FV[f*9 + k*3] = w[0]; FV[f*9 + k*3 + 1] = w[1]; FV[f*9 + k*3 + 2] = w[2]; }
   }
@@ -199,17 +243,58 @@ function lights(){
 
 // ---- WebGL: the faces as glass, far side then near, lit per pixel; each corner's pixel height over its opposite edge gives
 // the edges (no derivatives needed) ----
-const VS = `attribute vec2 aS; attribute vec3 aP, aN, aD, aE; attribute vec4 aC; attribute float aT; uniform vec2 uWH;
-varying vec3 vP, vN, vD, vE; varying vec4 vC; varying float vT;
-void main(){ vP = aP; vN = aN; vD = aD; vE = aE; vC = aC; vT = aT; gl_Position = vec4(aS.x/uWH.x*2.0 - 1.0, 1.0 - aS.y/uWH.y*2.0, 0.0, 1.0); }`;
+const VS = `attribute vec2 aS; attribute vec3 aP, aN, aD, aE, aB; attribute vec4 aC; attribute float aT; uniform vec2 uWH;
+varying vec3 vP, vN, vD, vE, vB; varying vec4 vC; varying float vT;
+void main(){ vP = aP; vN = aN; vD = aD; vE = aE; vB = aB; vC = aC; vT = aT; gl_Position = vec4(aS.x/uWH.x*2.0 - 1.0, 1.0 - aS.y/uWH.y*2.0, 0.0, 1.0); }`;
 const FS = `#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
 #endif
-varying vec3 vP, vN, vD, vE; varying vec4 vC; varying float vT;
+varying vec3 vP, vN, vD, vE, vB; varying vec4 vC; varying float vT;
 uniform vec4 uCam, uL0d, uL0c, uL1d, uL1c, uL2d, uL2c, uP, uP2;
+uniform vec4 uIn, uIn2;     // its own kaleidoscope: (kind: 0 off, 1 skin, 2 mirrors, 3 tunnel; motion time; strength; hue), (kick, bounces' dimming, the glass's index, -)
+uniform vec4 uPl[20];       // the mirrors: its twenty big faces as planes (view space: normal, distance)
+uniform vec4 uSh[12];       // the shards tumbling inside: (centre, size), (normal, hue)
 float fH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }
+vec3 hue3(float h){ return 0.5 + 0.5*cos(6.2831*(h + vec3(0.0, 0.33, 0.67))); }
+// the skin: each facet's barycentric place folded into one of its six mirror sections (sorted), so neighbours mirror each
+// other and the whole gem is one kaleidoscope; coloured beads drift in the fold
+vec3 skin(vec3 b){
+  vec3 s = b; if (s.x < s.y) s.xy = s.yx; if (s.y < s.z) s.yz = s.zy; if (s.x < s.y) s.xy = s.yx;
+  vec2 q = vec2(s.y + 0.5*s.z, 0.866*s.z), col2 = vec2(0.0); vec3 col = vec3(0.0);
+  for (int i = 0; i < 5; i++) { float fi = float(i);
+    vec3 w = 0.5 + 0.5*sin(uIn.y*(0.25 + 0.09*fi) + vec3(fi*1.7, fi*2.9 + 1.0, fi*0.7 + 2.0)); w /= w.x + w.y + w.z;
+    vec2 c = w.y*vec2(0.5, 0.0) + w.z*vec2(0.5, 0.2887);
+    float r = 0.06 + 0.06*fract(fi*0.618) + 0.035*uIn2.x, d = length(q - c);
+    col += hue3(uIn.w + fi*0.13)*smoothstep(r, r*0.5, d)*0.85 + hue3(uIn.w + fi*0.13 + 0.5)*smoothstep(0.014, 0.0, abs(d - r))*0.5;
+  }
+  return col + hue3(uIn.w + 0.6)*0.06;
+}
+// the mirrors: the ray bent into the glass bounces between its faces, meeting the shards (or, the tunnel, only the seams of
+// light where two mirrors meet), each bounce a little dimmer
+vec3 inside(vec3 p, vec3 dir){
+  vec3 acc = vec3(0.0); float keep = 1.0; bool tun = uIn.x > 2.5;
+  for (int b = 0; b < 6; b++) {
+    float tn = 1e3; vec3 nn = vec3(0.0, 0.0, 1.0);
+    for (int j = 0; j < 20; j++) { vec4 pl = uPl[j]; float dn = dot(pl.xyz, dir); if (dn <= 1e-3) continue; float t = (pl.w - dot(pl.xyz, p))/dn; if (t > 1e-4 && t < tn) { tn = t; nn = pl.xyz; } }
+    if (tn > 9.0) break;
+    if (!tun) for (int i = 0; i < 6; i++) {
+      vec4 a = uSh[i*2], bb = uSh[i*2 + 1]; float dn = dot(bb.xyz, dir); if (abs(dn) < 1e-3) continue;
+      float t = dot(a.xyz - p, bb.xyz)/dn; if (t < 0.0 || t > tn) continue;
+      vec3 h = p + dir*t - a.xyz, u = normalize(cross(bb.xyz, vec3(0.3, 1.0, 0.2))), v = cross(bb.xyz, u);
+      vec2 xy = vec2(dot(h, u), dot(h, v))/a.w; float k = 1.7320508;
+      xy.x = abs(xy.x) - 1.0; xy.y += 1.0/k; if (xy.x + k*xy.y > 0.0) xy = vec2(xy.x - k*xy.y, -k*xy.x - xy.y)/2.0; xy.x -= clamp(xy.x, -2.0, 0.0);
+      float sd = -length(xy)*sign(xy.y);
+      if (sd < 0.0) { acc += keep*hue3(bb.w)*(0.55 + 0.6*smoothstep(-0.12, 0.0, sd)); keep *= 0.55; }
+    }
+    p += dir*tn;
+    float g = 1e3; for (int j = 0; j < 20; j++) { float e = abs(dot(uPl[j].xyz, p) - uPl[j].w); if (e > 2e-3) g = min(g, e); }
+    acc += keep*hue3(uIn.w + float(b)*0.11)*exp(-g*(tun ? 110.0 : 70.0))*(tun ? 0.9 : 0.35)*(1.0 + uIn2.x);
+    dir = reflect(dir, nn); keep *= uIn2.y;
+  }
+  return acc + keep*hue3(uIn.w + 0.3)*0.05;
+}
 vec3 lamp(vec3 n, vec3 V, vec3 tint, vec4 ld, vec4 lc, float fire, float sh, float kd){
   vec3 L = normalize(ld.xyz); float diff = max(dot(n, L), 0.0); vec3 R = reflect(-L, n);
   vec3 side = normalize(cross(n, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0));
@@ -234,14 +319,21 @@ void main(){
   c += lamp(n, V, tint, uL0d, uL0c, fire, sh, kd) + lamp(n, V, tint, uL1d, uL1c, fire, sh, kd) + lamp(n, V, tint, uL2d, uL2c, 0.0, sh, kd);
   c += (tint*1.5 + 0.1)*fres*uP2.y;
   if (k == 1) c *= mix(0.04, 1.0, smoothstep(lw*1.2, lw*3.0, md));
+  float inA = 0.0;
+  if (uIn.x > 0.5 && uIn.z > 0.01) {   // its own kaleidoscope
+    if (uIn.x < 1.5) { c += skin(vB)*uIn.z*(isFar ? 0.35 : 0.9)*(0.6 + 0.6*lit); inA = 0.45*uIn.z; }
+    else if (!isFar) { vec3 r = refract(-V, n, 1.0/uIn2.z); if (dot(r, r) < 0.5) r = -V;
+      c = c*(1.0 - 0.55*uIn.z) + inside(vP, r)*uIn.z*(1.0 - 0.5*fres); inA = 0.8*uIn.z; }
+    else c *= 1.0 - 0.6*uIn.z;
+  }
   vec3 line = (1.0 - smoothstep(vec3(0.5), vec3(1.6), d))*vE, glow = exp(-d/5.0)*0.3*vE;
   float e = max(max(line.x + glow.x, line.y + glow.y), line.z + glow.z);
   c += mix(vC.rgb*2.2, vec3(1.0), vec3(0.3))*(0.7 + 2.2*lit)*uP.y*e;
-  float a = clamp(uP.z + fres*0.45 + lit*0.25 + alphaAdd, 0.0, 1.0);
+  float a = clamp(max(uP.z + fres*0.45 + lit*0.25 + alphaAdd, inA), 0.0, 1.0);
   if (isFar) { c *= uP.w; a *= 0.6; }
   gl_FragColor = vec4(c*uCam.y, a*min(1.0, uCam.y));
 }`;
-const NA_ = 20, ATTRS = [['aS', 2, 0], ['aP', 3, 2], ['aN', 3, 5], ['aD', 3, 8], ['aE', 3, 11], ['aC', 4, 14], ['aT', 1, 18]];
+const NA_ = 22, ATTRS = [['aS', 2, 0], ['aP', 3, 2], ['aN', 3, 5], ['aD', 3, 8], ['aE', 3, 11], ['aC', 4, 14], ['aT', 1, 18], ['aB', 3, 19]];
 const SC = new Float32Array(NF*9), ZF = new Float32Array(NF), NEAR = new Uint8Array(NF);   // (NEAR: a face at or behind the camera, left out)
 // each corner on screen (px) and its depth; the faces sorted far to near
 function project(U, W, H){
@@ -255,7 +347,7 @@ function glDrawer(gl){
   const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, FS));
   ATTRS.forEach(([n], i) => gl.bindAttribLocation(p, i + 1, n));   // (attribute 0 stays the engine's full-screen quad)
   gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('jewel: ' + gl.getProgramInfoLog(p));
-  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2']) u[k] = gl.getUniformLocation(p, k);
+  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uPl', 'uSh']) u[k] = gl.getUniformLocation(p, k);
   const buf = gl.createBuffer(), arr = new Float32Array(NF*3*NA_);
   return (U, W, H, stage) => {
     project(U, W, H);
@@ -269,7 +361,7 @@ function glDrawer(gl){
         arr[o + 5] = FN[f*3]; arr[o + 6] = FN[f*3 + 1]; arr[o + 7] = FN[f*3 + 2];
         arr[o + 8] = k === 0 ? h[0] : 0; arr[o + 9] = k === 1 ? h[1] : 0; arr[o + 10] = k === 2 ? h[2] : 0;
         arr[o + 11] = FE[f*3]; arr[o + 12] = FE[f*3 + 1]; arr[o + 13] = FE[f*3 + 2];
-        arr[o + 14] = FC[f*4]; arr[o + 15] = FC[f*4 + 1]; arr[o + 16] = FC[f*4 + 2]; arr[o + 17] = FC[f*4 + 3]; arr[o + 18] = FT[f];
+        arr[o + 14] = FC[f*4]; arr[o + 15] = FC[f*4 + 1]; arr[o + 16] = FC[f*4 + 2]; arr[o + 17] = FC[f*4 + 3]; arr[o + 18] = FT[f]; arr[o + 19] = BARY[f*9 + k*3]; arr[o + 20] = BARY[f*9 + k*3 + 1]; arr[o + 21] = BARY[f*9 + k*3 + 2];
         o += NA_; }
     }
     gl.useProgram(p);
@@ -277,6 +369,8 @@ function glDrawer(gl){
     gl.uniform2f(u.uWH, W, H); gl.uniform4f(u.uCam, 0, U.w*T.gain, CAM, stage === 'cover' ? 1 : 0);
     ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => gl.uniform4f(u[k], Lt[i][0], Lt[i][1], Lt[i][2], 0));
     gl.uniform4f(u.uP, T.fire, 1, .2, .45);
+    const I = U.inner; gl.uniform4f(u.uIn, I.kind, I.t, I.amt, I.hue); gl.uniform4f(u.uIn2, I.kick, T.inner.dim, 1.5, 0);
+    if (I.kind >= 2 && I.amt > .01) { gl.uniform4fv(u.uPl, PL); gl.uniform4fv(u.uSh, SH); }
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
     gl.disableVertexAttribArray(0);
     ATTRS.forEach(([, n, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, NA_*4, at*4); });
@@ -301,10 +395,11 @@ function draw2d(o, U){
     let r = 0, g = 0, b = 0; const amb = .45*(.55 + .45*ny*s);
     for (let i = 0; i < 3; i++) { const l = Lt[i*2], c = Lt[i*2 + 1], d = Math.max(0, (nx*l[0] + ny*l[1] + nz*l[2])*s)*.45; r += c[0]*d; g += c[1]*d; b += c[2]*d; }
     const k = (1 - Math.abs(nz))**3*.6, m = far ? .45 : 1;
-    const cr = (FC[f*4]*(amb + lit*1.3 + r + 1.5*k) + .1*k)*m*w, cg = (FC[f*4 + 1]*(amb + lit*1.3 + g + 1.5*k) + .1*k)*m*w, cb = (FC[f*4 + 2]*(amb + lit*1.3 + b + 1.5*k) + .1*k)*m*w;
-    const a = (.2 + .45*k + lit*.25)*(far ? .6 : 1)*w;
+    const ia = U.inner && U.inner.kind > 0 ? U.inner.amt*(far ? .4 : 1) : 0;     const cr = (FC[f*4]*(amb + lit*1.3 + r + 1.5*k) + .1*k)*m*w, cg = (FC[f*4 + 1]*(amb + lit*1.3 + g + 1.5*k) + .1*k)*m*w, cb = (FC[f*4 + 2]*(amb + lit*1.3 + b + 1.5*k) + .1*k)*m*w;
+    const pk = ia > .01 ? ia*m*w : 0, ccr = cr + FK[f*3]*pk, ccg = cg + FK[f*3 + 1]*pk, ccb = cb + FK[f*3 + 2]*pk;
+    const a = Math.max((.2 + .45*k + lit*.25)*(far ? .6 : 1), ia*.5)*w;
     o.beginPath(); o.moveTo(SC[f*9], SC[f*9 + 1]); o.lineTo(SC[f*9 + 3], SC[f*9 + 4]); o.lineTo(SC[f*9 + 6], SC[f*9 + 7]); o.closePath();
-    o.fillStyle = rgba(cr/Math.max(a, .05), cg/Math.max(a, .05), cb/Math.max(a, .05), a); o.fill();
+    o.fillStyle = rgba(ccr/Math.max(a, .05), ccg/Math.max(a, .05), ccb/Math.max(a, .05), a); o.fill();
     for (let j = 0; j < 3; j++) { const e = FE[f*3 + j]; if (e < .05) continue;   // (each edge as strong as its level allows)
       const q = (.7 + 2.2*lit)*m*w*e*.5, p0 = f*9 + ((j + 1) % 3)*3, p1 = f*9 + ((j + 2) % 3)*3;
       o.strokeStyle = rgba(Math.min(1, FC[f*4]*2.2*.7 + .3)*q, Math.min(1, FC[f*4 + 1]*2.2*.7 + .3)*q, Math.min(1, FC[f*4 + 2]*2.2*.7 + .3)*q, Math.min(1, q + .15));
@@ -335,11 +430,11 @@ export default {
     st.inBreak = !!L.brk;
     st.bassLv = clamp((P.bass || 0)*(x.react ?? 1), 0, 1);
     if (w < .003) { st.off = true; st.lastDrop = J ? J.lastDrop : null; return; }
-    if (st.off) { st.off = false; st.ex = 1; st.exHold = 0; }   // arriving: it gathers out of its facets
+    if (st.off) { st.off = false; st.ex = 1; st.exHold = 0; if (st.inner < 0) newInner(); if (!st.shard.length) newShards(1); }   // arriving: it gathers out of its facets
     // the music's moments
     if (J && st.lastDrop !== undefined && J.lastDrop !== st.lastDrop && J.lastDrop != null) drop(!st.steady);
     st.lastDrop = J ? J.lastDrop : null;
-    if (J && J.on && J.type !== st.type) { st.type = J.type; if (on('surfaces') && rand() < .5) newTex(false); if (on('life')) newRule(); }
+    if (J && J.on && J.type !== st.type) { st.type = J.type; newInner(); if (on('surfaces') && rand() < .5) newTex(false); if (on('life')) newRule(); }
     if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; if (st.steady) kick(); }
     if (x.hit > .8 && st.lastHit <= .8) {   // stabs: the wedge steps on; spots and stripes seeded at five points
       if (on('patterns') && st.act > .25) { st.wedge = (st.wedge + 1) % 5; st.wedgeLit = 1; }
@@ -376,11 +471,21 @@ export default {
     st.yaw += dt*sp*st.f.yw; st.roll += dt*sp*(1 - st.f.yw)*.6;
     st.pitch += (st.f.pitch - st.pitch)*Math.min(1, dt*1.5);
     const Vw = S.view; if (Vw && Vw.key === 'jewel') { st.yaw = Vw.yaw; st.pitch = st.f.pitch + Vw.pitch; }   // (turned by hand in the Asset Viewer)
-    build(rot());
+    // its own kaleidoscope: held by hand (S.jewelInner) or the section's; mirrors and the tunnel only while it's closed
+    const ik = S.jewelInner != null ? S.jewelInner : Math.max(0, st.inner), In = T.inner;
+    if (ik !== st.inK) { st.inAmt = 0; st.inK = ik; }
+    st.inAmt += (In.amt[ik]*(ik >= 2 ? sm((st.f.k - .85)/.15) : 1) - st.inAmt)*Math.min(1, dt*1.5);
+    st.inT += dt*(.4 + .8*st.act + 1.5*st.anticip)*(st.steady ? 1 : .5); st.inKick = Math.max(st.inKick*Math.exp(-dt/.2), st.kickFlash);
+    if (x.hit > .8 && st.inHit <= .8) st.shard.forEach(q => { q.w = -q.w; q.d = norm([q.d[0] + rand() - .5, q.d[1] + rand() - .5, q.d[2] + rand() - .5]); });
+    st.inHit = x.hit;
+    const R = rot();
+    build(R);
+    if (ik >= 2 && st.inAmt > .01) { planes(); shards(R); }
     const An = P.anchor;
     P.m = P.m || {};
     P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1),
-      pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights()};
+      pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights(),
+      inner: {kind: ik, t: st.inT, amt: st.inAmt, hue: st.h0, kick: st.inKick}};
   },
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
     const U = P.m.jewel; if (!U || U.w < .003) return;

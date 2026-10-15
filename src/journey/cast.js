@@ -58,7 +58,7 @@ function chooseHit(ty, rf, fresh, avoid){
 function chooseStyle(){ const w = TUNE.objStyles.calm.map((c, i) => c + (TUNE.objStyles.intense[i] - c)*J.tension); let r = Math.random()*w.reduce((a, b) => a + b, 0);
   J.objStyle = w.findIndex(x => (r -= x) <= 0); if (J.objStyle < 0) J.objStyle = 0; }
 function chooseCentre(){ pickCentre(); J.litLook = byKey[J.centre] && byKey[J.centre].lit ? pickLook() : 0;
-  J.stage = !!J.centre && J.centre !== 'jewel' && !!byKey.room && roomRnd() < (J.centre === 'prism' ? TUNE.prism.room.chance : TUNE.prism.room.others);   // the centrepiece, sometimes in the room (worlds/room.js): the Prism most
+  J.stage = !!J.centre && J.centre !== 'jewel' && !(byKey[J.centre] || {}).noRoom && !!byKey.room && roomRnd() < (J.centre === 'prism' ? TUNE.prism.room.chance : TUNE.prism.room.others);   // the centrepiece, sometimes in the room (worlds/room.js): the Prism most
   if (J.stage) { const w = TUNE.prism.styles, ks = Object.keys(w).filter(k => J.centre === 'prism' || k !== 'mirror'); let r = roomRnd()*ks.reduce((a, k) => a + w[k], 0); J.stageStyle = ks.find(k => (r -= w[k]) < 0) || 'cove'; } }
 // the room's own random numbers, so putting a centrepiece in it leaves Journey's other draws as they were
 let roomSeed = 7; const roomRnd = () => (roomSeed = (roomSeed*16807) % 2147483647)/2147483647;

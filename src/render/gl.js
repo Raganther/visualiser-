@@ -6,6 +6,7 @@ import { resolveScene } from '../scene/graph.js';
 import { meshData, meshWarm } from './mesh.js';
 import { litWarm } from './lit.js';
 import { facetWarm } from './facet.js';
+import { sdfWarm } from './sdf.js';
 import { STALL, mark } from './stalls.js';
 import { BLUR, BRIGHT, FINISH, PFRAG, PVERT, VERT } from './shaders.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
@@ -228,11 +229,12 @@ export function warmScenes(scenes){
   const idle = window.requestIdleCallback || (f => setTimeout(f, 50)), started = [];
   try { meshWarm(gl); } catch (e) {}   // the objects' program, and each one's vertex data, one a turn
   for (const o of OBJECT_VISUALS) if (o.mesh) todo.push(['mesh', o.mesh]);
-  todo.push(['lit'], ['facet']);   // the lit objects' program (render/lit.js), the faceted objects' (render/facet.js)
+  todo.push(['lit'], ['facet'], ['sdf']);   // the lit objects' program (render/lit.js), the faceted objects' (render/facet.js)
   const next = () => {
     if (lost) return;
     if (todo.length && todo[0][0] === 'lit') { todo.shift(); litWarm(gl); idle(next); return; }
     if (todo.length && todo[0][0] === 'facet') { todo.shift(); facetWarm(gl); idle(next); return; }
+    if (todo.length && todo[0][0] === 'sdf') { todo.shift(); sdfWarm(gl, S.glGen); idle(next); return; }   // (the morphing objects' programs, render/sdf.js)
     if (todo.length && todo[0][0] === 'mesh') { try { meshData(todo.shift()[1]); } catch (e) {} idle(next); return; }
     for (const e of started) if (!e.p && !e.failed && segDone(e)) try { segLink(e); prime(e.p); } catch (err) {}   // link what's finished, and draw it once out of sight
     if (todo.length) { const [k, st, plan, wk] = todo.shift(); if (!segProgs.has(k)) try { started.push(segJob(k, st, plan, wk)); } catch (err) {} }

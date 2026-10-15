@@ -23,6 +23,7 @@ import { applySteer } from '../journey/cast.js';
 import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
 import { updateSectionUI } from './panel.js';
 import { $ } from '../util.js';
+import { INNER } from '../visuals/objects/jewel.js';
 
 const layers = LAYER_VISUALS.filter(v => !v.optIn), worlds = WORLD_VISUALS.filter(v => !v.optIn);
 const SCENE_WORDS = {plain: 'plain', between: 'between', split: 'split', among: 'among', held: 'held', reflect: 'reflect', inside: 'inside', window: 'window', glass: 'glass'};
@@ -34,7 +35,8 @@ const GROUPS = {
   o: {name: 'Objects', list: () => OBJECT_VISUALS.map((v, i) => [v.label, on(v.key, .3), i < 9 ? i + 1 : OMORE[i - 9] || '']), pick: n => one(OBJECT_VISUALS, OBJECT_VISUALS[n - 1], TUNE.mesh.level), all: OBJECT_VISUALS},
   // the kaleidoscope: a mirror fold of the picture (everything, the world, the glow, or inside the object), and its letters
   k: {name: 'Kaleidoscope: mirrors', list: () => [2, 3, 4, 5, 6, 7, 8, 9].map(n => [n + ' ways', Math.round(S.active.kal || 0) === n, n])
-      .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()])),
+      .concat(KAL_WHERE.map(([key, label], i) => [label, (S.active.kal || 0) >= 2 && Math.round(S.active.kalWhere || 0) === i, key.toUpperCase()]))
+      .concat([['inside the Prism: ' + (S.jewelInner == null ? 'auto' : INNER[S.jewelInner]), S.jewelInner > 0, 'P']]),
     pick: n => { if (n === 1) return false; edit(); S.active.kal = n; last = 'kal'; return true; }, off: () => { S.active.kal = 0; }},
   // K then M: the kaleidoscope's kind, each on its own key (the user found stepping through fourteen with M slow)
   km: {name: 'Kaleidoscope: kind', list: () => KAL_KINDS.map((n, i) => [n, kindNow() === i, KIND_KEYS[i]])},
@@ -55,7 +57,7 @@ function setKind(m){   // (while Journey runs, it keeps that kind)
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
 const WMORE = ['H', 'N', 'V', 'G', 'D', 'I'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall, the lattIce), none a group's letter, T, R, A or X
-const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R', 'X'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), the Prism, the gem oRbit, the full Prism (eXtra)); Y is the style, M the lit look
+const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R', 'X', 'F', 'D', 'V', 'N', 'A', 'Z'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), the Prism, the gem oRbit, the full Prism (eXtra), Ferrofluid, liquid metal (Droplet), bubble (Vapour), cell (Nucleus), corAl, growing crystals (Z)); Y is the style, M the lit look
 const LOOKS = ['real', 'toon', 'neon', 'chrome', 'marble'];   // the lit objects' looks (litLook), M in the objects group
 const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X', 'N', 'H', 'P', 'F'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal, guilloché (eNgraving), string art (Harp), spiral galaxy (sPiral), the rose window (F: its flower)); the mirror tunnel (media) stays on its slider
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
@@ -136,7 +138,10 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
   else if (mode === 'o' && k === 'c') setObjWorld(!S.objWorld);   // objects carried through the 3D worlds, or kept in the centre
-  else if (mode === 'k' && k === 'm') mode = 'km';   // the kinds' own list
+  else if (mode === 'k' && k === 'm') mode = 'km';
+  else if (mode === 'k' && k === 'p') {   // the Prism's own kaleidoscope: auto (Journey's sections choose), off, skin, mirrors, tunnel
+    S.jewelInner = S.jewelInner == null ? 0 : S.jewelInner >= INNER.length - 1 ? null : S.jewelInner + 1;
+    toast('Inside the Prism: ' + (S.jewelInner == null ? 'auto (each section its own)' : INNER[S.jewelInner])); }   // the kinds' own list
   else if (mode === 'km' && (k === 'm' || k === 'backspace')) mode = 'k';   // (back to the mirrors)
   else if (mode === 'km' && KIND_KEYS.includes(e.key.toUpperCase())) setKind(KIND_KEYS.indexOf(e.key.toUpperCase()));
   else if (mode === 'km' && (k === 'arrowup' || k === 'arrowdown')) { e.preventDefault(); setKind((Math.max(0, kindNow()) + (k === 'arrowdown' ? 1 : KAL_N - 1)) % KAL_N); }

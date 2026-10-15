@@ -1,5 +1,6 @@
-// Objects test: every mesh object (the wire skull, the unicorn, the maths shapes, the manta) draws and shatters in both
-// renderers, a model with a shape key (the manta) plays it with the beat, and each style draws differently;
+// Objects test: every object (the wire skull, the unicorn, the maths shapes, the manta, the lit and faceted ones, the
+// morphing ones) draws and shatters in both renderers, a model with a shape key (the manta) plays it with the beat, each
+// style draws differently, and so does each kind of the Prism's own kaleidoscope;
 // with ?lab=skull, Journey casts the skull as a centrepiece (never under a lens). Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
@@ -36,10 +37,18 @@ for (const mode of ['2d', 'gl']) {
     for (let n = 0; n < 5; n++) { set('objStyle', n); __step(${mode === 'gl' ? 30 : 45}); styles.push(${THUMB}); }
     set('objStyle', 0); set('skull', 0); __step(40);
     out.styles = styles;
+    // the Prism's own kaleidoscope (objects/jewel.js): the skin, the mirrors and the tunnel each draw it differently from none
+    set('jewel', 1); const inner = [];
+    for (let n = 0; n < 4; n++) { S.jewelInner = n; __step(${mode === 'gl' ? 40 : 60}); inner.push(${THUMB}); }
+    S.jewelInner = null; set('jewel', 0); __step(40);
+    out.inner = inner;
     return {off, out};
   })()`);
   let errors = await page.errors(); await page.close();
   const st = res.out.styles; delete res.out.styles;
+  const inn = res.out.inner; delete res.out.inner;
+  const idf = inn.slice(1).map(x => diff(inn[0], x)), iok = idf.every(d => d > .3) && !errors.length; if (!iok) failed = true;
+  console.log(`${mode}: ${iok ? 'ok' : 'FAILED'}  the Prism's own kaleidoscope draws it its own way (skin, mirrors, tunnel against none: ${idf.map(d => d.toFixed(1)).join(', ')})`);
   const sd = st.slice(1).map(x => diff(st[0], x)), sok = sd.every(d => d > .3) && !errors.length; if (!sok) failed = true;
   console.log(`${mode}: ${sok ? 'ok' : 'FAILED'}  each style draws the skull its own way (solid, outline, hologram, points against glass: ${sd.map(d => d.toFixed(1)).join(', ')})`);
   for (const [k, {on, apart, flap}] of Object.entries(res.out)) {
