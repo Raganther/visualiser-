@@ -51,3 +51,4 @@ shattering for every object; a check of the Prism's inside), golden re-recorded,
 ## Log
 
 - 2026-10-15: planned.
+- 2026-10-15: built: the engine (`render/sdf.js`, `objects/sdf-object.js`), the six objects, the Prism's skin, mirrors and tunnel, keys, presets, tuning, Journey (centrepieces, never in the room), tests. Checked by eye in both renderers: the coral's maze made finer (`freq` 19) and the crystals bigger and fewer (12) after the first stills; the skin folded over the 80 big triangles (on each of the 1,280 facets it read as lace).

@@ -62,6 +62,8 @@ function chooseCentre(){ pickCentre(); J.litLook = byKey[J.centre] && byKey[J.ce
   if (J.stage) { const w = TUNE.prism.styles, ks = Object.keys(w).filter(k => J.centre === 'prism' || k !== 'mirror'); let r = roomRnd()*ks.reduce((a, k) => a + w[k], 0); J.stageStyle = ks.find(k => (r -= w[k]) < 0) || 'cove'; } }
 // the room's own random numbers, so putting a centrepiece in it leaves Journey's other draws as they were
 let roomSeed = 7; const roomRnd = () => (roomSeed = (roomSeed*16807) % 2147483647)/2147483647;
+// which object comes in has its own too, so adding an object leaves Journey's other choices as they were
+let centreSeed = 11; const centreRnd = () => (centreSeed = (centreSeed*16807) % 2147483647)/2147483647;
 // a lit object's look (real, toon, neon, chrome, marble): the user loves the neon (TUNE.lit.looks)
 function pickLook(){ const w = TUNE.lit.looks; let r = Math.random()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; }
 function pickCentre(){
@@ -72,7 +74,7 @@ function pickCentre(){
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
   if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: Math.random()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
   J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music
