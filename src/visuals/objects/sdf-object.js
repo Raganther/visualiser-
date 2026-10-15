@@ -9,7 +9,7 @@ import { DANCE } from '../../scene/dance.js';
 import { SIG } from '../../scene/signals.js';
 import { L } from '../../audio/listen.js';
 import { facetGeo } from '../../render/facet.js';
-import { sdfRegister, sdfDraw, sdf2d, sdfPath2d } from '../../render/sdf.js';
+import { sdfRegister, sdfDraw, sdf2d, sdfPath2d, look2d } from '../../render/sdf.js';
 
 const G1 = facetGeo(1);
 const rx = a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
@@ -24,7 +24,7 @@ export function sdfObject(o){
     Bd: new Float32Array(48), D: new Float32Array(128), K: [0, 0, 0, 0], K2: [0, 0, 0, 0], br: 1, rnd: 1};
   st.rand = () => (st.rnd = (st.rnd*16807) % 2147483647)/2147483647;   // (its own numbers: Journey's draws are untouched)
   st.rnd = 1 + [...o.key].reduce((a, c) => a*31 + c.charCodeAt(0), 7) % 99991;
-  const map = (x, y, z) => o.map2d(x, y, z, st), tint = (p, n, rd, t) => o.tint2d(p, n, rd, t, st, P2.U);
+  const map = (x, y, z) => o.map2d(x, y, z, st), tint = (p, n, rd, t) => look2d(o.tint2d(p, n, rd, t, st, P2.U), p, n, rd, P2.U, P2.U.Q[2]);
   const P2 = {U: null};
   return {
     key: o.key, kind: 'object', label: o.label, words: o.words, stats: o.stats, optIn: true, sdf: true, noRoom: true, dance: o.dance,
@@ -51,6 +51,9 @@ export function sdfObject(o){
       const M = {t: st.t, dt, bp, steady, kick: st.kick, newKick, newStab, drop, bass: st.bass, hat: st.hat, stab: st.stab, ten: st.ten,
         anticip: (J && J.anticip) || 0, brk: L.brk ? 1 : 0, ex: st.ex, dropAge: st.t - st.dropAt, phase: SIG.barPhase || 0};
       o.step(st, M, dt, x, P);
+      // its look (own, chrome, glass, neon, iridescent, toon): held (TUNE.sdf.look, or its own TUNE[key].look), or a section's own
+      if (J && J.on && J.type !== st.type) { st.type = J.type; const w = T.looks; let r = st.rand()*w.reduce((a, b) => a + b); st.look = Math.max(0, w.findIndex(v => (r -= v) <= 0)); }
+      const own = (TUNE[o.key] || {}).look, lk = own != null && own >= 0 ? own : T.look >= 0 ? T.look : st.look || 0;
       // its turn: slow, slower without a steady beat, the dance on top
       st.yaw += dt*T.spin*(.4 + st.ten)*(steady ? 1 : .5);
       const d = DANCE.obj[o.key], An = P.anchor, Vw = S.view && S.view.key === o.key ? S.view : null;
@@ -62,7 +65,7 @@ export function sdfObject(o){
         size: (An && An.size || (TUNE[o.key] || {}).size || T.size)*(d ? d.s : 1)*(Vw ? Vw.zoom : 1),
         pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject + (d ? d.dx : 0), .02 + P.wind.y*TUNE.ctx.windObject + (d ? d.dy : 0)],
         M1: [st.t, st.kick*dim, st.bass, st.hat], M2: [st.stab*dim, Math.min(99, M.dropAge), st.ten, M.anticip], M3: [st.ex, M.brk],
-        K: st.K, K2: st.K2, Bd: st.Bd, D: st.D,
+        K: st.K, K2: st.K2, Bd: st.Bd, D: st.D, res: T.res, Q: [(o.steps || 80)*T.steps, T.ao, o.custom ? 0 : lk, 1],
         C0: hsv2rgb(h + pal[0], .75, 1), C1: hsv2rgb(h + pal[1], .7, 1), C2: hsv2rgb(h + pal[2], .6, 1), Ld: [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)]};
     },
     drawGL(gl, P, W, H, stage){ if (stage === 'trails') return; const U = P.m && P.m[o.key]; if (U && U.w > .003) sdfDraw(gl, S.glGen, o, U, W, H, stage); },

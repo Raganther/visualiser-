@@ -253,6 +253,7 @@ precision mediump float;
 #endif
 varying vec3 vP, vN, vD, vE, vB; varying vec4 vC; varying float vT;
 uniform vec4 uCam, uL0d, uL0c, uL1d, uL1c, uL2d, uL2c, uP, uP2;
+uniform vec4 uIn3;          // (its bounces, shards, beads, the tunnel's seams)
 uniform vec4 uIn, uIn2;     // its own kaleidoscope: (kind: 0 off, 1 skin, 2 mirrors, 3 tunnel; motion time; strength; hue), (kick, bounces' dimming, the glass's index, -)
 uniform vec4 uPl[20];       // the mirrors: its twenty big faces as planes (view space: normal, distance)
 uniform vec4 uSh[12];       // the shards tumbling inside: (centre, size), (normal, hue)
@@ -263,7 +264,7 @@ vec3 hue3(float h){ return 0.5 + 0.5*cos(6.2831*(h + vec3(0.0, 0.33, 0.67))); }
 vec3 skin(vec3 b){
   vec3 s = b; if (s.x < s.y) s.xy = s.yx; if (s.y < s.z) s.yz = s.zy; if (s.x < s.y) s.xy = s.yx;
   vec2 q = vec2(s.y + 0.5*s.z, 0.866*s.z), col2 = vec2(0.0); vec3 col = vec3(0.0);
-  for (int i = 0; i < 5; i++) { float fi = float(i);
+  for (int i = 0; i < 5; i++) { float fi = float(i); if (fi >= uIn3.z) break;
     vec3 w = 0.5 + 0.5*sin(uIn.y*(0.25 + 0.09*fi) + vec3(fi*1.7, fi*2.9 + 1.0, fi*0.7 + 2.0)); w /= w.x + w.y + w.z;
     vec2 c = w.y*vec2(0.5, 0.0) + w.z*vec2(0.5, 0.2887);
     float r = 0.06 + 0.06*fract(fi*0.618) + 0.035*uIn2.x, d = length(q - c);
@@ -275,11 +276,11 @@ vec3 skin(vec3 b){
 // light where two mirrors meet), each bounce a little dimmer
 vec3 inside(vec3 p, vec3 dir){
   vec3 acc = vec3(0.0); float keep = 1.0; bool tun = uIn.x > 2.5;
-  for (int b = 0; b < 6; b++) {
+  for (int b = 0; b < 8; b++) { if (float(b) >= uIn3.x) break;
     float tn = 1e3; vec3 nn = vec3(0.0, 0.0, 1.0);
     for (int j = 0; j < 20; j++) { vec4 pl = uPl[j]; float dn = dot(pl.xyz, dir); if (dn <= 1e-3) continue; float t = (pl.w - dot(pl.xyz, p))/dn; if (t > 1e-4 && t < tn) { tn = t; nn = pl.xyz; } }
     if (tn > 9.0) break;
-    if (!tun) for (int i = 0; i < 6; i++) {
+    if (!tun) for (int i = 0; i < 6; i++) { if (float(i) >= uIn3.y) break;
       vec4 a = uSh[i*2], bb = uSh[i*2 + 1]; float dn = dot(bb.xyz, dir); if (abs(dn) < 1e-3) continue;
       float t = dot(a.xyz - p, bb.xyz)/dn; if (t < 0.0 || t > tn) continue;
       vec3 h = p + dir*t - a.xyz, u = normalize(cross(bb.xyz, vec3(0.3, 1.0, 0.2))), v = cross(bb.xyz, u);
@@ -290,7 +291,7 @@ vec3 inside(vec3 p, vec3 dir){
     }
     p += dir*tn;
     float g = 1e3; for (int j = 0; j < 20; j++) { float e = abs(dot(uPl[j].xyz, p) - uPl[j].w); if (e > 2e-3) g = min(g, e); }
-    acc += keep*hue3(uIn.w + float(b)*0.11)*exp(-g*(tun ? 110.0 : 70.0))*(tun ? 0.9 : 0.35)*(1.0 + uIn2.x);
+    acc += keep*hue3(uIn.w + float(b)*0.11)*exp(-g*(tun ? 110.0 : 70.0))*(tun ? 0.9*uIn3.w : 0.35)*(1.0 + uIn2.x);
     dir = reflect(dir, nn); keep *= uIn2.y;
   }
   return acc + keep*hue3(uIn.w + 0.3)*0.05;
@@ -322,7 +323,7 @@ void main(){
   float inA = 0.0;
   if (uIn.x > 0.5 && uIn.z > 0.01) {   // its own kaleidoscope
     if (uIn.x < 1.5) { c += skin(vB)*uIn.z*(isFar ? 0.35 : 0.9)*(0.6 + 0.6*lit); inA = 0.45*uIn.z; }
-    else if (!isFar) { vec3 r = refract(-V, n, 1.0/uIn2.z); if (dot(r, r) < 0.5) r = -V;
+    else if (!isFar) { vec3 r = refract(-V, n, 1.0/max(1.0, uIn2.z)); if (dot(r, r) < 0.5) r = -V;
       c = c*(1.0 - 0.55*uIn.z) + inside(vP, r)*uIn.z*(1.0 - 0.5*fres); inA = 0.8*uIn.z; }
     else c *= 1.0 - 0.6*uIn.z;
   }
@@ -347,7 +348,7 @@ function glDrawer(gl){
   const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, FS));
   ATTRS.forEach(([n], i) => gl.bindAttribLocation(p, i + 1, n));   // (attribute 0 stays the engine's full-screen quad)
   gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('jewel: ' + gl.getProgramInfoLog(p));
-  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uPl', 'uSh']) u[k] = gl.getUniformLocation(p, k);
+  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uIn3', 'uPl', 'uSh']) u[k] = gl.getUniformLocation(p, k);
   const buf = gl.createBuffer(), arr = new Float32Array(NF*3*NA_);
   return (U, W, H, stage) => {
     project(U, W, H);
@@ -369,7 +370,7 @@ function glDrawer(gl){
     gl.uniform2f(u.uWH, W, H); gl.uniform4f(u.uCam, 0, U.w*T.gain, CAM, stage === 'cover' ? 1 : 0);
     ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => gl.uniform4f(u[k], Lt[i][0], Lt[i][1], Lt[i][2], 0));
     gl.uniform4f(u.uP, T.fire, 1, .2, .45);
-    const I = U.inner; gl.uniform4f(u.uIn, I.kind, I.t, I.amt, I.hue); gl.uniform4f(u.uIn2, I.kick, T.inner.dim, 1.5, 0);
+    const I = U.inner; gl.uniform4f(u.uIn, I.kind, I.t, I.amt, I.hue); gl.uniform4f(u.uIn2, I.kick, T.inner.dim, T.inner.index, 0); gl.uniform4f(u.uIn3, T.inner.bounces, T.inner.shards, T.inner.beads, T.inner.seam);
     if (I.kind >= 2 && I.amt > .01) { gl.uniform4fv(u.uPl, PL); gl.uniform4fv(u.uSh, SH); }
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
     gl.disableVertexAttribArray(0);

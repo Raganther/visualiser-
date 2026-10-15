@@ -258,13 +258,19 @@ export const TUNE = {
     turn: .05,                 // how fast its rings turn (each the other way from the last)
     hatShare: .1,              // the share of cells the hats light each 16th, at full hats
     layerBars: {stab: 4, hat: 8}},   // when the stabs' and the hats' patterns come in, in bars from the section's start
-  sdf: {size: .5, spin: .2, exSecs: 2.6, stabHue: .12, res2d: 44},   // the morphing objects (render/sdf.js, objects/sdf-object.js): size, turning, a splash's length, a stab's colour turn, simple mode's rays across
-  ferro: {chance: 0, journey: 1, spike: .32, jolt: .07, fling: .7},     // ferrofluid: the spikes' height (the bass and a run-up raise it), a kick's jolt, how far a drop flings its drops
-  mercury: {chance: 0, journey: 1, pull: 7, splash: .95},               // liquid metal: a kick's pull on its droplet, how far a drop splashes its beads
-  bubble: {chance: 0, journey: .8},                                     // the soap bubble
-  cell: {chance: 0, journey: 1},                                        // the living cell
-  coral: {chance: 0, journey: 1, freq: 19, ridge: .028},                  // brain coral: the maze's fineness (tighter through a run-up), the ridges' depth (the bass deepens them)
-  growth: {chance: 0, journey: 1, grow: 1, fling: .8},                  // growing crystals: how long they grow (with the tension), how far a drop flings them
+  sdf: {size: .5, spin: .2, exSecs: 2.6, stabHue: .12, res2d: 44,   // the morphing objects (render/sdf.js, objects/sdf-object.js): size, turning, a splash's length, a stab's colour turn, simple mode's rays across
+    res: .75, steps: 1, ao: .7,                     // speed: the share of its pixels marched (then laid over smoothed), its march steps (×), ambient occlusion (0 off)
+    look: -1, looks: [3, 1, .8, 1, 1, .6]},         // its look held (0 own, 1 chrome, 2 glass, 3 neon, 4 iridescent, 5 toon; -1: each section its own, by these weights; an object's own TUNE[key].look wins)
+  ferro: {chance: 0, journey: 1, spike: .32, jolt: .07, fling: .7,      // ferrofluid: the spikes' height (the bass and a run-up raise it), a kick's jolt, how far a drop flings its drops
+    sharp: 1, flow: .15, magnet: .8, drops: 3, ripple: .012},            // how sharp the spikes (×), how fast the field crawls over it, how far a stab pulls them to one side, orbiting drops (0–3), the bass's ripple
+  mercury: {chance: 0, journey: 1, pull: 7, splash: .95,                // liquid metal: a kick's pull on its droplet, how far a drop splashes its beads
+    wobble: .045, stretch: .12, moons: 2},                              // the bass's wobble, its stretch upright, the moons circling it (0–2, dipping in on the hats)
+  bubble: {chance: 0, journey: .8, wobble: .05, swirl: 1.3, film: 1.6, foam: 2, clear: .05},   // the soap bubble: the bass's wobble, how fast the hats swirl it, the rainbow's bands, small bubbles clinging (0–4), how clear its middle
+  cell: {chance: 0, journey: 1, organelles: 8, glow: 1, wobble: .05, drift: 1, divideBars: 0},   // the living cell: organelles (0–8), the nucleus's glow, the membrane's wobble, how fast they stir, dividing every n bars (0: only on a drop)
+  coral: {chance: 0, journey: 1, freq: 19, ridge: .028, pattern: 0,     // brain coral: the maze's fineness (tighter through a run-up), the ridges' depth (the bass deepens them), the pattern (0 maze, 1 holes, 2 diamond, 3 bands)
+    ring: 1, drift: 1, heave: .12},                                     // the kick's rings' speed, how fast the pattern drifts, a drop's heave
+  growth: {chance: 0, journey: 1, grow: 1, fling: .8,                   // growing crystals: how long they grow (with the tension), how far a drop flings them
+    count: 12, spread: .45, tip: .8, regrow: .6},                       // how many (1–16), how different their lengths, the tips' glow, how much each phrase regrows them
   jewel: {chance: 0, size: .5, journey: 1.6,      // the Prism (objects/jewel.js), as the user chose it in the WebGL test (native/prism-web.html, Layers at 8): Journey's Prism now
     on: {pulse: 1, detail: 1, shapes: 1, patterns: 1, drops: 1, open: 1, surfaces: 1, life: 1},   // its layers (the room, lasers and camera, the test's ninth, left out)
     r: .62, spin: .22, morphSecs: 3.9, breath: .14, explode: 1.25, explodeSecs: 1.2,   // its radius; turning; a new shape or form's ease; the bass's swell; the drop's shatter
@@ -272,7 +278,7 @@ export const TUNE = {
     actBase: .22, actBrk: .55, actFree: .4,                                             // how much may move: at rest, in a breakdown, without a steady beat
     star: .55, mtn: .3, mtnScale: 2.2, mtnBreath: .5, waveK: 9, waveSpeed: 2.2, openChance: .3, wedges: 5,   // opening: the flat star's size, the mountains, the waves, how often a phrase opens it
     tex: {calm: [2, .8, .3, .5, 1.2, 1, 1], live: [1, 1.2, 1.2, 1, .5, .8, 1], sweepBeats: 8, change: .3},   // surfaces (glass, stained, LED, metal, ice, mirror, iridescent): how often each, calm and intense; a new one's sweep
-    inner: {pick: [1, 1.2, 1.4, 1.1], amt: [0, .8, .85, .9], shards: 6, bounces: 6, dim: .78},   // its own kaleidoscope (off, skin, mirrors, tunnel): how often Journey's sections choose each, how strong each is, the shards tumbling inside, the mirrors' bounces and each one's dimming
+    inner: {pick: [1, 1.2, 1.4, 1.1], amt: [0, .8, .85, .9], shards: 6, bounces: 6, dim: .78, beads: 5, seam: 1, index: 1.5},   // (beads: the skin's (1–5); seam: the tunnel's light; index: the glass's bending)   // its own kaleidoscope (off, skin, mirrors, tunnel): how often Journey's sections choose each, how strong each is, the shards tumbling inside, the mirrors' bounces and each one's dimming
     cellLit: .55, fire: 1.35, gain: 1.5, line: 1.5},   // (gain: the page's own glow is gentler than the test's)                                      // life's light; the rainbow fire; its brightness; the edges' width
   prism: {chance: 0, size: .5, spin: .22, journey: 0, spinBurst: 1.4, spinBurstSecs: 1.2,   // (journey 0: Journey leaves it out; the new Prism, jewel, is Journey's) (spinBurst: three stabs in a bar spin it this much faster, easing out over spinBurstSecs)   // (journey: favoured as a centrepiece, as the user loves it) the Prism (objects/prism.js): one sheet of facets, a gem that opens into a star, mountains, a tube, a ring
     r: .45, star: .9,                               // the closed gem's radius; the open star's size against it (its points reach π × r × star)
