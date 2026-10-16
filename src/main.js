@@ -59,12 +59,13 @@ import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { KAL_N } from './journey/extras.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
+import { gearFrame } from './journey/gear.js';
 import { BASE, SPEC, curP, eff } from './presets.js';
 import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
 import { Q, gfxLevel, qualityTick } from './render/quality.js';
 import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
-import { sliders, updateSectionUI } from './ui/panel.js';
+import { sliders, updateSectionUI, gearUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
 import { stepDance } from './scene/dance.js';
@@ -134,6 +135,8 @@ function render(now){
   if (Math.abs(pv - PACE.v) > .001 || PACE.div !== paceDiv(pv)) {
     const d0 = PACE.div; setPace(pv); if (d0 !== PACE.div && J.on) updateSectionUI();
   }
+  gearFrame(dt); PACE.ts = PACE.base*S.speed;
+  if (J.gear !== render.gear) { render.gear = J.gear; gearUI(); if (J.on) updateSectionUI(); }   // the speed gear (journey/gear.js): the movement at half, normal or double time
   const mdt = dt*PACE.ts; S.MT += mdt;
   const vk = Math.min(1, .06 + .94*PACE.v);           // calm sections follow the levels more gently
   VIS.bass += (sBass - VIS.bass)*vk; VIS.mid += (sMid - VIS.mid)*vk; VIS.treb += (sTreb - VIS.treb)*vk;

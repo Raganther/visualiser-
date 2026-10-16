@@ -21,7 +21,8 @@ import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweak
 import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
 import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
-import { updateSectionUI } from './panel.js';
+import { updateSectionUI, gearUI } from './panel.js';
+import { GEARS } from '../journey/gear.js';
 import { $ } from '../util.js';
 import { INNER } from '../visuals/objects/jewel.js';
 import { morphSet } from './morph.js';
@@ -217,6 +218,10 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     else { STEER.hold = !STEER.hold; toast(STEER.hold ? 'Holding this look (; lets go)' : 'Journey moves on again'); steerLine(); }
   }
   else if (k === '[' || k === ']') { J.bias = Math.max(0, Math.min(1, J.bias + (k === ']' ? .1 : -.1))); const s = $('#jBias'); s.value = J.bias; s.dispatchEvent(new Event('input')); toast(J.bias < .35 ? 'Calmer' : J.bias > .65 ? 'More intense' : 'Balanced'); }
+  else if (k === "'") {   // the movement's speed gear: with the music, then held at half, normal or double time (journey/gear.js)
+    STEER.gear = STEER.gear == null ? 0 : STEER.gear < 2 ? STEER.gear + 1 : null; gearUI();
+    toast(STEER.gear == null ? 'Movement follows the music: half, normal or double time' : `Movement held at ${GEARS[STEER.gear].name} (' again changes it)`);
+  }
   else if (k === ',' || k === '.') { J.speed = Math.max(.25, Math.min(3, J.speed*(k === '.' ? 1.25 : .8))); const s = $('#jSpeed'); s.value = J.speed; s.dispatchEvent(new Event('input')); toast(`Evolving ${J.speed.toFixed(2)}×`); }
   else done = false;
   if (!done) return;

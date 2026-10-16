@@ -50,7 +50,7 @@ const res = await page.evaluate(async (mode) => {
       const d = __jdbg();
       secs.push({s: (f + 1)/60, bpm: d.grid.bpm && +d.grid.bpm.toFixed(1), locked: d.grid.locked, dsure: d.grid.dsure && +d.grid.dsure.toFixed(2),
         sec: d.sec, types: d.types, recipe: d.recipe, lead: d.lead, accent: d.accent, hit: d.hit, world: d.world, scene: d.scene, centre: d.centre, pal: J.type && J.type.pal, lens: d.lensOn ? (d.lens && d.lens.n) : 0,
-        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), anticip: r2(J.anticip || 0), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, pulse: r2(pulse), pulseMax: r2(pulseMax), mapKick: GR.map ? r2(GR.kick || 0) : null, beatClear: r2(J.beatClear ?? 1), drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
+        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), anticip: r2(J.anticip || 0), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, pulse: r2(pulse), pulseMax: r2(pulseMax), mapKick: GR.map ? r2(GR.kick || 0) : null, beatClear: r2(J.beatClear ?? 1), groove: r2(J.groove ?? 1), gear: J.gear, speed: r2(ST.speed ?? 1), ts: r2(d.pace.ts), drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
       kicks = 0; stabs = 0; pulse = 0; pulseMax = 0;
     }
     if (f % 1800 === 900) shots.push({s: f/60, png: document.querySelector('canvas').toDataURL('image/jpeg', .8)});
@@ -71,6 +71,6 @@ const mmss = t => `${Math.floor(t/60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
 console.log(`read ahead: ${res.readAhead.length ? res.readAhead.map(d => mmss(d.t) + (d.jump ? ' (arrives)' : '')).join(', ') : 'no drops'}; Journey dropped at ${res.drops.map(d => mmss(d.s) + (d.foreseen ? ' (seen coming)' : ' (heard live)')).join(', ') || 'none'}`);
 console.log(res.map ? `beat map: ${res.map.bpm} BPM (fit ${res.map.conf}), changes at ${res.map.changes.map(mmss).join(', ')}` : 'beat map: none (no steady beat): the live grid listened');
 console.log(`sections: ${new Set(S.map(s => s.sec)).size}; section changes: ${S.filter((s, i) => i && s.sec !== S[i - 1].sec).length}`);
-for (const k of ['world', 'recipe', 'lead', 'scene', 'hit', 'centre', 'pace']) console.log(`${k}: ${count(k)}`);
+for (const k of ['world', 'recipe', 'lead', 'scene', 'hit', 'centre', 'pace', 'gear']) console.log(`${k}: ${count(k)}`);
 console.log(`written to ${OUT}/; errors ${JSON.stringify(await page.errors())}`);
 await b.close(); srv.close();

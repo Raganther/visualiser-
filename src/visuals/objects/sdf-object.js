@@ -55,7 +55,7 @@ export function sdfObject(o){
       if (J && J.on && J.type !== st.type) { st.type = J.type; const w = T.looks; let r = st.rand()*w.reduce((a, b) => a + b); st.look = Math.max(0, w.findIndex(v => (r -= v) <= 0)); }
       const own = (TUNE[o.key] || {}).look, lk = own != null && own >= 0 ? own : T.look >= 0 ? T.look : st.look || 0;
       // its turn: slow, slower without a steady beat, the dance on top
-      st.yaw += dt*T.spin*(.4 + st.ten)*(steady ? 1 : .5);
+      st.yaw += dt*S.speed*T.spin*(.4 + st.ten)*(steady ? 1 : .5);
       // when asked (TUNE.sdf.wander.on: K then D, or the panel), under a kaleidoscope that folds everything it wanders slowly
       // round the screen, so its mirrored copies make new patterns; otherwise it stays in the centre (eased over a few seconds).
       // (Not with the fold inside the object: there it isn't mirrored, so it only drifted away)

@@ -12,6 +12,7 @@ import { L, listenBar } from './listen.js';
 import { danceBeat } from '../scene/dance.js';
 import { STEER } from '../journey/steer.js';
 import { F } from './foresee.js';
+import { gearPhrase } from '../journey/gear.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -36,7 +37,7 @@ function gridBeat(pos){
   if (down && J.groove > TUNE.grid.groove.hits) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
-  if (phrase) J.phraseNow = true;
+  if (phrase) { J.phraseNow = true; gearPhrase(); }   // (and perhaps a new speed gear: journey/gear.js)
   if (J.pending && down && !J.foreHold) newSection(J.pendStrength);   // (a known drop is near: it brings the change)
   if (down && J.accTrig === 'bar') J.accEnv = 1;
   if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase

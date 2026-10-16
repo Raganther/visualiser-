@@ -68,6 +68,26 @@ const browser = await launch('2d');
   check('K 5 keeps a five-way kaleidoscope through a new section (Journey still on), G folds the glow', r.kal && r.kalG);
   check('K 0 bans the kaleidoscope, and 0 again frees it', r.kalBan && r.kalFree);
   const errors = await page.errors(); check('no page errors (keys)', !errors.length, errors.join(' '));
+  await page.close();
+}
+// the speed gears (journey/gear.js): over a long groove the movement changes gear, half time the most; ' holds one, and
+// the pulse stays on the beat in half time
+{
+  const page = await openPage(browser, url, {noDraw: true});
+  const r = await page.evaluate(async () => {
+    const {J} = await import('/src/journey/core.js'), st = await import('/src/journey/steer.js'), {S} = await import('/src/state.js');
+    const key = k => document.body.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true}));
+    const secs = [0, 0, 0]; let changes = 0, last = null, lo = 9, hi = 0;
+    for (let i = 0; i < 360; i++) { __step(60); secs[J.gear]++; if (J.gear !== last) { changes++; last = J.gear; } if (i > 20) { lo = Math.min(lo, S.speed); hi = Math.max(hi, S.speed); } }
+    key("'"); __step(60*15); const held = st.STEER.gear === 0 && J.gear === 0 && Math.abs(S.speed - .5) < .05;
+    let beat = 0; for (let i = 0; i < 240; i++) { __step(1); beat = Math.max(beat, S.beat); }
+    for (let i = 0; i < 2; i++) { key("'"); __step(60*15); } const dbl = J.gear === 2 && S.speed > 1.5; key("'"); const free = st.STEER.gear == null;
+    return {secs, changes, lo, hi, held, beat, dbl, free, sel: document.querySelector('#jGear').value};
+  });
+  check('over six minutes the movement changes gear, half time the most', r.changes >= 4 && r.secs[0] >= r.secs[2] && r.secs[0] > 30, `${r.changes} changes; half ${r.secs[0]} s, normal ${r.secs[1]} s, double ${r.secs[2]} s; speed ${r.lo.toFixed(2)}–${r.hi.toFixed(2)}`);
+  check("' holds half time (the movement at half speed), and the pulse stays on the beat", r.held && r.beat > .3, `pulse ${r.beat.toFixed(2)}`);
+  check("' again: double time, and again: with the music", r.dbl && r.free && r.sel === '-1');
+  const errors = await page.errors(); check('no page errors (gears)', !errors.length, errors.join(' '));
 }
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

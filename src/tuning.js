@@ -47,6 +47,19 @@ export const TUNE = {
   fatigueRecipeWeight: .8,     // ...and against a recipe whose lead is tired
 
   // pace, from floating (0) to frantic (1)
+  // Journey's speed gears (journey/gear.js): the movement at half time, normal or double, changing on phrase lines
+  gear: {
+    weights: [.5, .4, .1],     // half time, normal, double: how likely each is when it changes (never the one it's in)
+    minBars: 12,               // a gear lasts at least this many bars
+    change: .4,                // after that, the chance on each phrase line that it changes
+    loopHalf: 1.6,             // a loop that's run a long while makes half time this much likelier
+    dropBars: 8,               // a drop lands at normal speed or faster, and holds it this many bars
+    afterDrop: .6,             // then, in the next phrase, the chance it settles into half time
+    buildDouble: .35,          // a drop's run-up: the chance it picks up to double time
+    floatBelow: .4,            // with less groove than this (J.grooveE) it's half time
+    easeBars: 1.5,             // a new gear eases in over about this many bars
+    scale: 1,                  // the overall movement (the panel's "Movement" slider)
+  },
   pace: {
     speed: [.3, .7],           // motion speed
     punch: [.2, .8],           // how hard the kick lands

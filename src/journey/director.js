@@ -8,6 +8,7 @@ import { OBJECT_VISUALS, OPT_IN, byKey } from '../visuals/registry.js';
 import { recast, sceneNow } from './cast.js';
 import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from './core.js';
 import { PACE, paceName, pickPace } from './pace.js';
+import { gearDrop } from './gear.js';
 import { progress } from './progression.js';
 import { MOTION, recipeMods, setLens } from './recipes.js';
 import { energyLevel, energySpan, enterType, fdist, features, matchType, newSection, newType, recipeSeeds, relFeat, resetProgress, stillness } from './sections.js';
@@ -251,7 +252,8 @@ function dropFX(){
     const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
     const sh = shocks[S.shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;
   }
-  if (J.beatClear > .5) J.groove = 1;   // (the kick is back: the groove lands with the drop, not a beat later)
+  if (J.beatClear > .5) J.groove = 1;
+  gearDrop();   // (at least normal speed: it lands with weight)   // (the kick is back: the groove lands with the drop, not a beat later)
   S.beat = 1.3; S.hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1; J.style = 'cut';
 }
 export function freshJourney(){

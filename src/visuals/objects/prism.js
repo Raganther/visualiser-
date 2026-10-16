@@ -269,7 +269,7 @@ export default {
     { const SW = T.swarm; st.sw = (st.sw || 0) + ((st.g.swarm ? 1 : 0) - (st.sw || 0))*Math.min(1, dt/SW.secs); if (st.g.swarm) st.swK = st.g.swarm;   // the swarm: shards flying to another object's panes
       st.flat = (st.flat || 0) + ((st.swap ? 1 : 0) - (st.flat || 0))*Math.min(1, dt/(st.swap ? T.swapSecs*.6 : SW.gather)); }   // changing body: its facets swirl into a disc, and out of it as the other
     st.spinV = (st.spinV || 0)*Math.exp(-dt/T.spinBurstSecs);   // (a burst eases out: it used to stop dead and snap back)
-    st.spin += dt*(T.spin*(1 - .6*TUNE.dance.amount)*(TA.spinCalm + (1 - TA.spinCalm)*st.act)*(1 - free*FR.spinCut) + st.spinV);
+    st.spin += dt*S.speed*(T.spin*(1 - .6*TUNE.dance.amount)*(TA.spinCalm + (1 - TA.spinCalm)*st.act)*(1 - free*FR.spinCut) + st.spinV);
     const b = BODY[st.body];
     if (b.kind === 'g') shapeGem(b, P, x); else shapeSheet(b, P, x);
     if (RULES.includes(pr.figure)) stepCells(b.C, pr.figure, dt, T.cells, S.beatPeriod, flyK(J), rnd);

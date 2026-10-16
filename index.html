@@ -52,7 +52,7 @@
     <tr><td><b>C</b></td><td>Cosmos camera</td><td>1–7 shots, 8 black hole, 9 pulsar, 0 twin stars, S skim, U sunrise, J jump, G galaxy, B belt, K fold, W cage, L land, T take off (C or Esc leaves)</td></tr>
   </table>
   <p>In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> the last one more or less · <b>← →</b> its speed (<b>Shift</b>: its size; on the kaleidoscope: its turning) · <b>Esc</b> leaves (a few seconds untouched does too).</p>
-  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike · <b>M</b> or 💬 comment on a part of the picture (it keeps the whole look and the point) (likes are in Adjust, under Liked)</p>
+  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>'</b> movement speed (with the music, half, normal or double time; the pulse stays on the beat) · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike · <b>M</b> or 💬 comment on a part of the picture (it keeps the whole look and the point) (likes are in Adjust, under Liked)</p>
   <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>Q</b> graphics: auto, best, balanced, fast, fastest (remembered) · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time · <b>Shift+T</b> walk-throughs: combinations, each from a clean slate</p>
 </div>
 <aside id="panel" aria-label="Adjust visuals">
@@ -68,6 +68,10 @@
       <select id="jArc" aria-label="Set arc"><option value="0">Off</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="90">90 minutes</option><option value="120">2 hours</option></select></div>
     <div class="row"><label for="jSpeed">Evolution speed</label><output id="jSpeedOut">1.00×</output>
       <input type="range" id="jSpeed" min="0.25" max="3" step="0.05" value="1"></div>
+    <div class="row"><label for="jGear">Movement speed (<b>'</b>)</label><output id="jGearOut">Normal speed</output>
+      <select id="jGear" aria-label="Movement speed"><option value="-1">With the music (half, normal, double time)</option><option value="0">Half time</option><option value="1">Normal</option><option value="2">Double time</option></select></div>
+    <div class="row"><label for="jMove">Movement overall</label><output id="jMoveOut">1.00×</output>
+      <input type="range" id="jMove" min="0.3" max="1.5" step="0.05" value="1"></div>
     <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
     <p class="note" id="jSection">Listening for sections</p>
     <p class="note" id="jGrid">Finding the beat</p>
@@ -124,7 +128,7 @@
     <b>A</b> Journey on or off (off freezes what's on screen; on carries on from it)<br>
     <b>L</b> layers · <b>W</b> worlds · <b>E</b> hits · <b>O</b> objects · <b>K</b> kaleidoscope · <b>S</b> scene · <b>C</b> cosmos camera: pick a group, then its numbers (a strip shows them)<br>
     In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> more or less · <b>← →</b> the last layer's speed (Shift: size) · <b>Esc</b> leaves. A change while Journey runs freezes it first.<br>
-    <b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey · <b>+ −</b> like or dislike · <b>?</b> every key · <b>T</b> tutorial<br>
+    <b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>'</b> movement speed · <b>R</b> randomize, or nudge Journey · <b>+ −</b> like or dislike · <b>?</b> every key · <b>T</b> tutorial<br>
     <b>Space</b> play or pause · <b>← →</b> change preset · <b>N</b> next track · <b>Hold X</b> freeze trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate<br>
     Under each slider, choose how that setting moves by itself.<br>
     Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.

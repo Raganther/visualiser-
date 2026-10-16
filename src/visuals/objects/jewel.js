@@ -469,7 +469,7 @@ export default {
     if (on('life')) { const C = TUNE.prism.cells; stepCells(st.cells, st.rule, dt, C, st.period, C.flyK + (C.flyKBuild - C.flyK)*st.anticip, rand); }
     // its turn: a slow spin (an open form round its face), tipped as its form asks
     const sp = T.spin*(.4 + st.act)*(st.steady ? 1 : .5);
-    st.yaw += dt*sp*st.f.yw; st.roll += dt*sp*(1 - st.f.yw)*.6;
+    st.yaw += dt*S.speed*sp*st.f.yw; st.roll += dt*S.speed*sp*(1 - st.f.yw)*.6;
     st.pitch += (st.f.pitch - st.pitch)*Math.min(1, dt*1.5);
     const Vw = S.view; if (Vw && Vw.key === 'jewel') { st.yaw = Vw.yaw; st.pitch = st.f.pitch + Vw.pitch; }   // (turned by hand in the Asset Viewer)
     // its own kaleidoscope: held by hand (S.jewelInner) or the section's; mirrors and the tunnel only while it's closed
