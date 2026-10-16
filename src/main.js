@@ -143,7 +143,7 @@ function render(now){
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
-  updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
+  updateSignals({bands, beat: S.beat, hit, beats: J.beats, kickOn: J.groove > TUNE.grid.groove.hits, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L, coming: J.anticip});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
