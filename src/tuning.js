@@ -435,6 +435,9 @@ export const TUNE = {
     onGrid: .12,               // a kick within this fraction of a beat counts as on the grid
     lockFit: .08,              // how tightly three kicks must fit the tempo to lock
     holdSecs: 30,              // how long the clock keeps time with no kicks
+    groove: {fall: .3, hits: .35, calm: .55, up: .6, down: 3},   // the groove: how much kick there is now (J.groove, 0..1). Each beat
+                               // without one it falls this share of the way to 0 (a kick lifts it at once); the downbeat hits wait
+                               // for this much; the pace is calmer by this share without it (eased up over up s, down over down s)
     downMinBeats: 16,          // beats heard before judging where the 1 is
     downMargin: .12,           // how much clearer a new downbeat must be to move the 1
     downHoldBeats: 8,          // ...for this many beats in a row

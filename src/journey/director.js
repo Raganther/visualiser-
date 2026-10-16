@@ -197,7 +197,9 @@ export function stepJourney(now, dt){
   if (ty.pace === undefined) ty.pace = pickPace();
   // music without a clear dance pulse (a slow song, a free intro) keeps calmer: its drums don't make it frantic
   J.beatClear += ((G.acP ? G.acConf : 1) - J.beatClear)*Math.min(1, dt/4);
-  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))));
+  // and without the kick (a breakdown, an ambient stretch) it floats: calmer, slower, until the groove comes back
+  const GR = TUNE.grid.groove; J.grooveE += (J.groove - J.grooveE)*Math.min(1, dt/(J.groove > J.grooveE ? GR.up : GR.down));
+  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))*(1 - GR.calm*(1 - J.grooveE))));
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;
@@ -249,6 +251,7 @@ function dropFX(){
     const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
     const sh = shocks[S.shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;
   }
+  if (J.beatClear > .5) J.groove = 1;   // (the kick is back: the groove lands with the drop, not a beat later)
   S.beat = 1.3; S.hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1; J.style = 'cut';
 }
 export function freshJourney(){

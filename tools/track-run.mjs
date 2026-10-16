@@ -36,7 +36,8 @@ const res = await page.evaluate(async (mode) => {
   const {F: FS, foresee} = await import('/src/audio/foresee.js'); let fclock = 0; await foresee(buf); FS.at = () => fclock;
   // 4. step through, recording
   const an2 = await import('/src/audio/analysis.js'), {J} = await import('/src/journey/core.js'), {L} = await import('/src/audio/listen.js');
-  const r2 = x => +x.toFixed(2);
+  const r2 = x => +x.toFixed(2), {S: ST} = await import('/src/state.js'), {G: GR} = await import('/src/audio/beatgrid.js');
+  let pulse = 0, pulseMax = 0;   // (the visible pulse each second: its mean and its peak)
   const secs = [], shots = []; let lb = an2.lastBeat, kicks = 0, stabs = 0, lastHit = 0;
   const drops = []; let ld = J.lastDrop;
   for (let f = 0; f < N; f++) {
@@ -44,12 +45,13 @@ const res = await page.evaluate(async (mode) => {
     if (J.lastDrop !== ld) { ld = J.lastDrop; drops.push({s: r2(fclock), foreseen: (J.foreDrops || 0) > drops.filter(d => d.foreseen).length}); }
     if (an2.lastBeat !== lb) { kicks++; lb = an2.lastBeat; }
     if (an2.hit > .8 && lastHit <= .8) stabs++; lastHit = an2.hit;
+    pulse += ST.beat/60; pulseMax = Math.max(pulseMax, ST.beat);
     if (f % 60 === 59) {
       const d = __jdbg();
       secs.push({s: (f + 1)/60, bpm: d.grid.bpm && +d.grid.bpm.toFixed(1), locked: d.grid.locked, dsure: d.grid.dsure && +d.grid.dsure.toFixed(2),
         sec: d.sec, types: d.types, recipe: d.recipe, lead: d.lead, accent: d.accent, hit: d.hit, world: d.world, scene: d.scene, centre: d.centre, pal: J.type && J.type.pal, lens: d.lensOn ? (d.lens && d.lens.n) : 0,
-        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), anticip: r2(J.anticip || 0), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
-      kicks = 0; stabs = 0;
+        pace: d.pace.name, div: d.pace.div, T: +d.T.toFixed(2), anticip: r2(J.anticip || 0), eM: +J.eM.toFixed(3), hi: +J.hi.toFixed(3), lo: +J.lo.toFixed(3), nov: +(d.nov || 0).toFixed(3), prog: d.progStep, kicks, stabs, pulse: r2(pulse), pulseMax: r2(pulseMax), mapKick: GR.map ? r2(GR.kick || 0) : null, beatClear: r2(J.beatClear ?? 1), drop: J.lastDrop, L: {hat: r2(L.hat), noise: r2(L.noise), bass: r2(L.bass), cut: r2(L.cut), width: r2(L.width), full: r2(L.full), harm: r2(L.harm), nov: r2(L.nov), loop: L.loop, brk: L.brk, drops: L.drops, key: L.key}, feats: Object.fromEntries(Object.entries(d.feats).map(([k, v]) => [k, +v.toFixed(2)]))});
+      kicks = 0; stabs = 0; pulse = 0; pulseMax = 0;
     }
     if (f % 1800 === 900) shots.push({s: f/60, png: document.querySelector('canvas').toDataURL('image/jpeg', .8)});
   }

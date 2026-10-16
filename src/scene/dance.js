@@ -72,7 +72,7 @@ function choose(d, key, menu, J, character){
   const ty = J && J.type, mem = ty && (ty.dance || (ty.dance = {}));
   if (mem && mem[key] && rnd() < TUNE.dance.remember && mem[key] !== d.move) return mem[key];   // the section's own move comes back
   const w = {};
-  const cl = clearOf(J);   // (without a steady beat, the moves tied to it give way to the flowing ones)
+  const cl = Math.min(clearOf(J), J && J.grooveE != null ? J.grooveE : 1);   // (without a steady beat, or without the kick, the moves tied to it give way to the flowing ones)
   for (const k in menu) w[k] = score(menu[k], mood)*((character && character[k]) ?? 1)*(k === d.move ? .25 : 1)*(BEATY.has(k) ? .05 + cl*cl : 1);
   const m = pick(w);
   if (mem && !mem[key]) mem[key] = m;
@@ -81,7 +81,8 @@ function choose(d, key, menu, J, character){
 
 // ---- once a beat (from the beat grid): kicks, the bar, new moves on the downbeat ----
 export function danceBeat(pos, J){
-  for (const k in D) { D[k].kick = 1; if (pos === 1 || pos === 3) D[k].flip ^= 1; }
+  const gv = J && J.groove != null ? J.groove : 1;   // (as hard as the kick there is: none in a breakdown)
+  for (const k in D) { D[k].kick = gv; if (pos === 1 || pos === 3) D[k].flip ^= 1; }
   if (pos !== 0) return;
   bar++;
   if (drops < 0 && J) drops = J.drops;   // (the first beat heard isn't a drop)

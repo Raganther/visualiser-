@@ -20,13 +20,20 @@ export function onBeatFX(){
 // one beat of the bar (pos 0 is the downbeat), from the beat grid, or from the kicks until the grid locks
 function gridBeat(pos){
   J.beats++; J.pos = pos;
-  if (pos % PACE.div === 0) firePulse(G.map ? TUNE.foresee.map.softPulse + (1 - TUNE.foresee.map.softPulse)*G.kick : 1);   // (read ahead: as hard as the kick there is)
+  // the groove: how much kick there is now. A kick lifts it at once; each beat without one it falls away, so a breakdown,
+  // an ambient stretch or a slow song without drums floats instead of pulsing on (the clock still keeps the bars)
+  const k = G.map ? G.kick : !G.locked || G.lastT - G.onAt < 1.6*G.period ? 1 : 0;   // (live: a kick on the grid in the last beat or so)
+  J.groove = k >= J.groove ? k : J.groove + (k - J.groove)*TUNE.grid.groove.fall;
+  if (pos % PACE.div === 0) {   // read ahead, as hard as the kick there is (a soft pulse for a missed one, while the groove lasts)
+    const sp = TUNE.foresee.map.softPulse*J.groove, amt = G.map ? sp + (1 - sp)*G.kick : J.groove;
+    if (amt > .02) firePulse(amt);
+  }
   for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
   danceBeat(pos, J);   // the dancers: a kick, and on the downbeat perhaps a new move (scene/dance.js)
   const down = pos === 0;
   if (down) { J.bar++; listenBar(); }   // the bar's summary, compared with the bars before (audio/listen.js)
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
-  if (down) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
+  if (down && J.groove > TUNE.grid.groove.hits) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
   if (phrase) J.phraseNow = true;
@@ -100,7 +107,7 @@ export function gridKick(t){
   // (and only when the low end has a clear pulse, once there's enough heard to say: a slow song's drums otherwise lock a
   // false dance tempo)
   if (G.fit >= 3 && (envN < 240 || G.acConf > TUNE.grid.acLock)) {
-    G.locked = true; G.conf = .5; G.miss = 0; G.next = t;
+    G.locked = true; G.conf = .5; G.miss = 0; G.next = t; G.onAt = t;
     G.n = J.upos; G.down = 0;                            // carry on counting from where the kicks had got to
     G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.win = null;
   }
