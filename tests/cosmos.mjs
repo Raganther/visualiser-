@@ -63,7 +63,7 @@ for (const mode of (process.env.COSMOS_MODES ?? '2d,gl').split(',').filter(Boole
   const r = await page.evaluate(async ({gl, thumb}) => {
     const {byKey} = await import('/src/visuals/registry.js'), {J} = await import('/src/journey/core.js'), {S} = await import('/src/state.js'), cz = byKey.cosmos, out = {};
     const lit = () => eval(thumb).filter(v => v > 12).length, f = gl ? 1 : 2;
-    (await import('/src/journey/steer.js')).STEER.gear = 1;   // (normal speed: the camera's shots are timed in frames, and half time would fly them half as far)
+    if (gl) (await import('/src/journey/steer.js')).STEER.gear = 1;   // (normal speed in WebGL: its slow frames time the camera's shots, and half time would fly them half as far)
     __step(60*3); cz.hold(600);   // the music leaves the camera alone: each shot is checked on its own
     for (const what of ['hole', 'pulsar', 'binary', 'belt']) {
       cz.visit(what); __step(60*4*f);
