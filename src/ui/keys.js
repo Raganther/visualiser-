@@ -1,7 +1,7 @@
 // The keyboard: a letter picks a group, number keys work inside it, and a strip at the bottom shows the group's list with
 // what's on. L layers, W worlds, E hits, O objects, K kaleidoscope (Shift+K the glow's own folds), S scene, C the cosmos's camera. Shift + a number solos
 // that one thing, ↑ ↓ raise or lower the last one touched, 0 turns the group off, Esc leaves it (so does a few seconds
-// idle). While Journey runs, a group's numbers steer it instead (keep it, never, free again: journey/steer.js), ; holds the
+// idle). While Journey runs, a group's numbers steer it instead (in and kept, or out; Alt: never: journey/steer.js), ; holds the
 // look, R moves on; Shift+number takes over by hand, freezing it (A hands it back). [ ] calmer or more intense, , . evolve slower or
 // faster, ? every key at once. The rest (Space, ← →, R, A, N, X, H, F, P, + −) is in ui/controls.js and ui/taste.js.
 import { S } from '../state.js';
@@ -18,7 +18,7 @@ import { FLY, flyKey } from './fly.js';
 import { toast } from './toast.js';
 import { combos, tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
-import { STEER, clearSteer, cycleSteer } from '../journey/steer.js';
+import { STEER, clearSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
 import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
 import { updateSectionUI, gearUI } from './panel.js';
@@ -81,11 +81,18 @@ const STEERS = {l: () => layers.map(v => v.key), w: () => worlds.map(v => v.key)
   o: () => OBJECT_VISUALS.map(v => v.key), s: () => TEMPLATES.map(t => t.key)};
 const ONE = {w: true, o: true, s: true};
 const labelOf = k => k === 'kal' ? (STEER.pin.kal ? `a ${STEER.pin.kal}-way kaleidoscope` : 'the kaleidoscope') : (byKey[k] && byKey[k].label) || SCENE_WORDS[k] || k;
-function steerItem(k, g){
+// while Journey runs a number puts its item into the composition and keeps it there, or, when it's already in, takes it
+// out (free: Journey may bring it back later). Alt+number: never (again: free). Pressing twice used to mean never, so
+// taking something out banned it for the rest of the visit, and Journey seemed to lose things the more it was played
+const inNow = k => STEER.pin[k] || [J.lead, J.accent, J.world, J.hit, J.centre, J.sceneKey].includes(k);
+function steerItem(k, g, alt){
   if (!k) return false;
-  const st = cycleSteer(k, ONE[g] ? STEERS[g]() : null);
+  let st;
+  if (alt) { if (STEER.ban[k]) { delete STEER.ban[k]; st = 'free'; } else { delete STEER.pin[k]; STEER.ban[k] = true; st = 'ban'; } }
+  else if (inNow(k)) { delete STEER.pin[k]; delete STEER.ban[k]; st = 'out'; }
+  else { delete STEER.ban[k]; if (ONE[g]) for (const o of STEERS[g]()) delete STEER.pin[o]; STEER.pin[k] = true; st = 'pin'; }
   if (J.on) applySteer(k, st);
-  toast(`${labelOf(k)}: ${st === 'pin' ? 'kept (Journey builds round it)' : st === 'ban' ? 'never (Journey leaves it out)' : 'free again'}`);
+  toast(`${labelOf(k)}: ${st === 'pin' ? 'in, and kept (Journey builds round it)' : st === 'ban' ? 'never (Journey leaves it out; Alt+number again frees it)' : st === 'out' ? 'taken out (Journey may bring it back later)' : 'free again'}`);
   steerLine(); return true;
 }
 // the kaleidoscope while Journey runs: a number keeps it at that many mirrors (the same again: free), 0 never (again: free),
@@ -119,7 +126,7 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fourteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: keep → never → free (Journey carries on) · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fourteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: in and kept, or out again (Journey carries on) · Alt+number never · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
     : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · C centred or carried through the 3D worlds · Esc leaves'
     : mode === 'km' ? 'a key picks that kind · ↑ ↓ the next or the one before · M back to the mirrors · Esc leaves'
@@ -132,7 +139,7 @@ function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afte
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
 addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey && !(J.on && STEERS[mode])) return;   // (Alt+number while Journey runs: never)
   const was = mode, k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
@@ -160,7 +167,7 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     const g = GROUPS[mode];
     if (e.shiftKey && g.all && digit > 0) { const v = g.all[digit - 1]; if (v) { solo(v.key); last = v.key; } }
     else if (J.on && mode === 'k') { if (digit !== 1) steerKalKey(digit); }
-    else if (J.on && STEERS[mode]) { if (digit === 0) { clearSteer(STEERS[mode]()); toast(g.name + ': Journey chooses freely again'); steerLine(); } else steerItem(STEERS[mode]()[digit - 1], mode); }
+    else if (J.on && STEERS[mode]) { if (digit === 0) { clearSteer(STEERS[mode]()); toast(g.name + ': Journey chooses freely again'); steerLine(); } else steerItem(STEERS[mode]()[digit - 1], mode, e.altKey); }
     else if (digit === 0) off(g);
     else { g.pick(digit); if (mode === 's') sceneKeyByHand = (TEMPLATES[digit - 1] || {}).key || null; }
   }
@@ -179,15 +186,15 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   else if (mode === 'l' && MORE.includes(e.key.toUpperCase()) && layers[9 + MORE.indexOf(e.key.toUpperCase())]) {
     const v = layers[9 + MORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();   // (X is also a single key outside the groups)
-    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l'); else toggle(v, TUNE.keys.layer); }
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'l', e.altKey); else toggle(v, TUNE.keys.layer); }
   else if (mode === 'w' && WMORE.includes(e.key.toUpperCase()) && worlds[9 + WMORE.indexOf(e.key.toUpperCase())]) {
     const v = worlds[9 + WMORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();
-    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'w'); else one(worlds, v, 1); }
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'w', e.altKey); else one(worlds, v, 1); }
   else if (mode === 'o' && OMORE.includes(e.key.toUpperCase()) && OBJECT_VISUALS[9 + OMORE.indexOf(e.key.toUpperCase())]) {
     const v = OBJECT_VISUALS[9 + OMORE.indexOf(e.key.toUpperCase())];
     e.stopPropagation();
-    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'o'); else one(OBJECT_VISUALS, v, TUNE.mesh.level); }
+    if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'o', e.altKey); else one(OBJECT_VISUALS, v, TUNE.mesh.level); }
   else if (k === 'm' && mode === 'o') {   // the lit objects' look: real, toon, neon, chrome, marble (Journey keeps it going)
     const n = ((J.on ? J.litLook || 0 : Math.round(S.active.litLook || 0)) + 1) % LOOKS.length;
     if (J.on) J.litLook = n; else S.active.litLook = n; curP.litLook = n;

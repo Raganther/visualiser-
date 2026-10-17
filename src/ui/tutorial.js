@@ -44,7 +44,7 @@ const STEPS = [
   {say: `${k('A')} hands back to Journey. It carries on from your look, then moves on when the music does.`, done: () => J.on},
   {say: `Steer Journey without stopping it: ${k('[')} calmer, ${k(']')} more intense, ${k(',')} ${k('.')} evolve slower or faster, ${k('R')} somewhere new.`,
     start: () => ({b: J.bias, s: J.speed}), done: s => J.bias !== s.b || J.speed !== s.s},
-  {say: `While Journey runs, a group's numbers steer it: ${k('L')} then a number keeps that layer (Journey builds round it), again never uses it, again frees it. ${k(';')} holds the look.`,
+  {say: `While Journey runs, a group's numbers steer it: ${k('L')} then a number brings that layer in and keeps it (Journey builds round it), again takes it out; Alt+number: never. ${k(';')} holds the look.`,
     done: () => STEER.hold || Object.keys(STEER.pin).length + Object.keys(STEER.ban).length > 0},
   {say: `The cosmos is a place to fly: ${k('W')} ${k('5')} puts it on, then ${k('C')} and a key: ${k('5')} an eclipse, ${k('L')} land, ${k('J')} jump to another star.`,
     done: () => curP.cosmos > .3 && keyMode() === 'c'},
@@ -121,7 +121,7 @@ const LESSONS = [
   {title: 'Steering Journey', what: 'Journey composes; you keep a world, a layer and an object, then hold the look.', steps: [
     {say: `${k('A')}: Journey on. It picks everything itself, following the music.`, done: () => J.on},
     {say: `${k('W')} then ${k('D')}: while Journey runs this means "keep the Corridor". It comes in and stays; Journey builds round it.`, done: () => pin('corridor')},
-    {say: `${k('L')} then ${k('Z')}: keep the lasers. (Press again for "never", again to free it.)`, done: () => pin('lasers')},
+    {say: `${k('L')} then ${k('Z')}: bring in the lasers and keep them. (Again takes them out.)`, done: () => pin('lasers')},
     {say: `${k('O')} then ${k('I')}: keep the tentacle as the centrepiece.`, done: () => pin('tentacle')},
     {say: `${k(';')}: hold the look. No new sections until you press it again; the music still moves everything.`, done: () => STEER.hold},
     {say: `${k(';')} lets go, ${k('0')} in a group frees it, ${k('R')} moves on. Journey keeps your steering for this visit.`, last: true},

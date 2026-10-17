@@ -8,7 +8,7 @@ import { shiftKal } from './extras.js';
 import { updateSectionUI } from '../ui/panel.js';
 
 /* progression: when the music stays the same, Journey still moves on, one step per phrase line,
-   smallest first: a new accent or hit, then a lens, kaleidoscope or colour shift, then a new recipe and lead */
+   smallest first: a new accent or hit, then a lens, kaleidoscope or colour shift, then a new recipe and lead (the rest carrying on) */
 export function progress(){
   const ty = J.type || OPENING, step = J.progStep % 3;
   J.progStep++; J.progBeats = 0; J.progT = 0;
@@ -20,6 +20,6 @@ export function progress(){
     else if (J.lens && J.lens.n > 2) J.lensShift = [-1, 1, 2][Math.floor(Math.random()*3)];
     else if (!J.lens && !(worldOn()) && Math.random() < .4) { J.lens = randomLens() || {n:2, mirror:1}; recipeMods(); }
   }
-  else J.recast = 'fresh';
+  else J.recast = 'lead';   // (a new recipe and lead: the object, hit and kaleidoscope carry on, cast.js)
   updateSectionUI();
 }

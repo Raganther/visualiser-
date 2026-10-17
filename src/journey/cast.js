@@ -1,7 +1,7 @@
 // Journey: casting the lead, accent and hit for each section.
-import { ELEMS, FEATS, J, OPENING, SUITS, worldOn } from './core.js';
+import { ELEMS, FEATS, HITS, J, OPENING, SUITS, WORLDS, worldOn } from './core.js';
 import { pickRecipe, recipeMods, setLens } from './recipes.js';
-import { relFeat } from './sections.js';
+import { relFeat, resetProgress } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
@@ -85,10 +85,13 @@ function chooseScene(rf, fresh, avoid){   // (a liked look's own template, favou
 }
 const built = new Map();
 // the scene the section wants right now (the same object each time for the same cast, so its draw plan is kept)
+const castSig = c => [c.world, c.lead, c.accent, c.centre].join('|');
 export function sceneNow(){
   const c = castOf(), t = byTemplate[J.sceneKey] || TEMPLATES[0];
+  if (J.handScene && !MEDIA.on && J.handScene.sig === castSig(c) && J.sceneKey === 'plain') return J.handScene.sc;   // the scene made by hand, while its cast lasts
+  J.handScene = null;
   if (MEDIA.on || !fits(t, c) || t.key === 'plain') return null;   // with media the mirror tunnel fills the screen as it is
-  const sig = [t.key, c.world, c.lead, c.accent, c.centre].join('|');
+  const sig = [t.key, castSig(c)].join('|');
   if (!built.has(sig)) built.set(sig, t.build(c));
   return built.get(sig);
 }
@@ -120,12 +123,51 @@ export function applySteer(k, state){
   } else if (kind === 'scene') {
     if (state === 'pin' && fits(byTemplate[k], castOf())) J.sceneKey = k; else if (state === 'ban' && J.sceneKey === k) chooseScene(rf, true);
   }
+  if (state === 'out') {   // taken out by hand: it leaves now, and Journey may bring it back later (not banned)
+    if (kind === 'layer' && J.lead === k) { J.lead = scoreElems(ty, rf, true).sort((a, b) => b.v - a.v).find(r => r.k !== k && r.k !== J.accent)?.k || J.lead; }
+    if (kind === 'layer' && J.accent === k) { J.accent = J.lead; J.accTrig = ACCENT[J.lead]; }
+    if (kind === 'world' && J.world === k) { J.world = 'none'; J.worldTime = 0; }
+    if (kind === 'hit' && J.hit === k) J.hit = null;
+    if (kind === 'object' && J.centre === k) J.centre = null;
+    if (kind === 'scene' && J.sceneKey === k) J.sceneKey = 'plain';
+  }
   saveCast(); updateSectionUI();
 }
-export function recast(fresh){
+// Journey turned back on from a look made by hand (ui/controls.js): what's on screen becomes the section's cast (its world,
+// its strongest layers as the lead and accent, its hit, its object, its kaleidoscope), so Journey carries on from it and
+// develops it a step at a time, instead of fading back to the cast it had before. s: the settings as set by hand
+export function adoptLook(s, scene){
+  const top = keys => keys.filter(k => (s[k] || 0) > .15).sort((a, b) => s[b] - s[a]);
+  const worlds = top(WORLDS), layers = top(ELEMS), hits = top(HITS), objs = top(OBJECT_VISUALS.map(v => v.key));
+  J.world = worlds[0] || 'none'; J.worldTime = 0;
+  if (layers[0]) J.lead = layers[0];
+  else { const sc = scoreElems(J.type || OPENING, relFeats(), false).sort((a, b) => b.v - a.v); J.lead = sc[0].k; }   // (Journey always has a lead: it fades in)
+  J.accent = layers[1] || J.lead; J.accTrig = ACCENT[J.accent]; J.accEnv = 0;
+  J.hit = hits[0] || null; J.centre = objs[0] || null; J.objStyle = s.objStyle || 0; J.litLook = s.litLook || 0; J.stage = false;
+  J.kal = (s.kal || 0) >= 2 ? {n: Math.round(s.kal), where: s.kalWhere || 0, turn: s.kalTurn || 0, mode: s.kalMode || 0} : null;
+  J.lens = !J.kal && (s.sym || 1) >= 2 ? {n: Math.round(s.sym), mirror: s.mirror > .5 ? 1 : 0} : null; J.lensOn = !!J.lens; J.lensShift = 0;
+  J.grain = s.grain || 0; J.mand = s.mandDetail ?? .5; J.fracV = s.fracVortex || 0; J.tw = {};
+  J.recipe = null; J.sceneKey = 'plain'; J.handScene = scene ? {sc: scene, sig: castSig(castOf())} : null;
+  J.recast = false; J.adopt = true;   // the next section grows out of it (recast below) rather than replacing it
+  resetProgress(); saveCast(); updateSectionUI();
+}
+export function recast(fresh, keep){
   const ty = J.type || OPENING, key = J.world;
   ty.casts = ty.casts || {};
   J.recast = false;
+  // a world coming in or going to rest changes only the world: the layers, the hit and the object carry on, and the scene
+  // is chosen again to relate them to it (it used to bring a whole other cast at once: lead, object and kaleidoscope)
+  if (keep === true && J.lead) { J.adopt = false; setLens(); chooseScene(relFeats(), false); saveCast(); recipeMods(); updateSectionUI(); return; }
+  // a progression step through steady music (progression.js): a new recipe and lead (and its accent), the object, the hit
+  // and the kaleidoscope carrying on, so it moves on one part at a time
+  if (keep === 'lead' && J.lead) {
+    J.adopt = false; const rf = relFeats(), prev = J.lead; J.recipe = pickRecipe(ty, rf, true); setLens();
+    const sc = scoreElems(ty, rf, true); sc.forEach(r => { if (r.k === prev) r.v -= 1; }); sc.sort((a, b) => b.v - a.v);
+    J.lead = sc[0].k; chooseAccent(sc); chooseScene(rf, true); chooseTw(); saveCast(); recipeMods(); updateSectionUI(); return;
+  }
+  // the first new section after a look handed back changes one thing about it, as a progression step would
+  if (J.adopt && !fresh) { J.adopt = false; varySmall(); updateSectionUI(); return; }   // (the look's own movers stay)
+  J.adopt = false;
   const cast = ty.casts[key];
   const steered = c => c && (banned(c.lead) || banned(c.accent) || (c.hit && banned(c.hit)) || (c.centre && banned(c.centre)) || banned(c.sceneKey)
     || Object.keys(STEER.pin).some(k => byKey[k] && byKey[k].kind === 'layer' && c.lead !== k && c.accent !== k));

@@ -3,6 +3,7 @@ import { S } from '../state.js';
 import { actx, addFiles, nextTrack, playing, prevTrack, togglePlay } from '../audio/player.js';
 import { J, jState } from '../journey/core.js';
 import { freshJourney } from '../journey/director.js';
+import { adoptLook } from '../journey/cast.js';
 import { SPEC, curP } from '../presets.js';
 import { syncSliders, updateSectionUI } from './panel.js';
 import { nextPreset, randomize, setPreset } from './presets.js';
@@ -74,6 +75,7 @@ export function setJourney(on, snapshot){
     if (snapshot === 'fresh') { freshJourney(); J.handoff = null; jState.tw = {}; }
     else if (hand) {   // it carries on from what's on screen: the same settings, movers and scene, until the music moves it on
       jState.mods = clone(hand.mods || {}); J.sceneLive = hand.scene || null; jState.tw = clone(hand.tw || {});   // (each layer's own speed, size, sound: Journey leaves them be)
+      adoptLook(jState, hand.scene);   // and takes it as its own composition, to develop from (journey/cast.js)
       J.handoff = {t: performance.now(), type: J.type, drop: J.lastDrop, step: J.progStep};
     }
     S.active = jState; $('#pName').textContent = 'Journey'; toast(J.handoff ? 'Journey: carrying on from here' : 'Journey'); syncSliders();

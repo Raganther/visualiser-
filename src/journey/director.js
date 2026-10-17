@@ -81,7 +81,9 @@ export function stepJourney(now, dt){
   J.dropGlow *= Math.pow(.35, dt);
   J.zoomFlip *= Math.pow(.25, dt);
   features(dt);
-  if (!J.on) return;
+  // while it's off, it keeps up with the music (the drops and events heard, the music now as its section's), so turning it
+  // back on doesn't fire a drop that passed long ago, or start a new section for a change it never saw
+  if (!J.on) { J.drops = L.drops; J.events = L.events; J.M = null; J.novHold = 0; J.pending = false; return; }
   // a drop we saw coming lands on the moment: new sections held for it start with it (the live rules below then stand down)
   if (drop && now - J.lastDrop > 5000) { J.lastDrop = now; J.foreDrops = (J.foreDrops || 0) + 1; dropFX(); if (J.pending) newSection(Math.max(1, J.pendStrength)); J.cutNow = true; }
   if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
@@ -144,7 +146,7 @@ export function stepJourney(now, dt){
   ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/TUNE.fatigueRecoverSecs) + dt*Math.min(1, jState[k])/TUNE.fatigueBuildSecs);
   J.stillT = (J.stillT || 0) + dt; J.progT = (J.progT || 0) + dt;
   if (J.type && !STEER.hold && now - lastBeat > TUNE.noKickMs && J.progT > TUNE.progressNoKickSecs/J.speed) progress();   // no kick to count: go by time
-  if (!J.lead || J.recast) recast(J.recast === 'fresh');
+  if (!J.lead || J.recast) recast(J.recast === 'fresh', J.recast === 'keep' || (J.recast === 'lead' && 'lead'));
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
   HITS.forEach(k => tgt[k] = 0);

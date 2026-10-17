@@ -53,7 +53,8 @@ export function matchType(F){
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
   return bd < TUNE.sameType*(1 - .4*stillness()) ? best : newType(F);
 }
-export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; resetProgress(); updateSectionUI(); } }
+export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; if (!J.adopt) chooseWorld(); J.recast = true;   // (a look just handed back keeps its world)
+    resetProgress(); updateSectionUI(); } }
 // 0 when the music has just changed, rising to 1 after about two minutes of sameness
 export function stillness(){ return sstep(TUNE.stillFrom, TUNE.stillTo, J.stillT || 0); }
 export function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.progStep = 0; }

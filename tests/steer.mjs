@@ -1,6 +1,7 @@
 // Steering test (journey/steer.js): over many sections a pinned layer is always the lead or the accent, a pinned world and
 // object always come in, banned ones never do; hold stops new sections and progression; and while Journey runs, a group's
-// number keys steer it (keep, never, free) without freezing it. Runs on index.html (reads the modules).
+// number keys steer it (in and kept, out again, Alt: never) without freezing it; and handed back after a look made by
+// hand, Journey carries on from that look (no drop fired, no jump) and grows it a step at a time. Runs on index.html (reads the modules).
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('steer: skipped for', ENTRY); process.exit(0); }
@@ -47,27 +48,50 @@ const browser = await launch('2d');
   const page = await openPage(browser, url, {noDraw: true});
   const r = await page.evaluate(async () => {
     const {J} = await import('/src/journey/core.js'), st = await import('/src/journey/steer.js');
-    const key = k => document.body.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true}));
+    const key = (k, o = {}) => document.body.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, ...o}));
     __step(60*10); J.speed = 3;
     key(';'); const held = st.STEER.hold, p0 = J.progStep, s0 = J.type; __step(60*60);
     const heldSteps = J.progStep - p0, heldType = J.type === s0; key(';');
     key('l'); key('1'); const pin = !!st.STEER.pin.ring, lead = J.lead === 'ring' || J.accent === 'ring', stillOn = J.on;
-    key('1'); const ban = !!st.STEER.ban.ring && J.lead !== 'ring' && J.accent !== 'ring';
-    key('1'); const free = !st.STEER.pin.ring && !st.STEER.ban.ring;
+    key('1'); const out = !st.STEER.pin.ring && !st.STEER.ban.ring && J.lead !== 'ring' && J.accent !== 'ring';   // in already: out, not banned
+    key('1', {altKey: true}); const ban = !!st.STEER.ban.ring && J.lead !== 'ring' && J.accent !== 'ring';
+    key('1', {altKey: true}); const free = !st.STEER.pin.ring && !st.STEER.ban.ring;
     key('w'); key('6'); const world = J.world === 'sea'; key('0'); const cleared = !st.STEER.pin.sea;
     // the kaleidoscope: K 5 keeps a five-way one (through new sections), G folds the glow, 0 bans it, 0 again frees it
     key('escape'); key('k'); key('5'); J.recast = 'fresh'; __step(60*3);
     const kal = J.on && J.kal && J.kal.n === 5 && Math.round(window.__jdbg().kal) === 5; key('g'); const kalG = J.kal && J.kal.where === 2;
     key('0'); J.recast = 'fresh'; __step(2); const kalBan = !J.kal && !!st.STEER.ban.kal; key('0'); const kalFree = !st.STEER.ban.kal && !st.STEER.pin.kal;
-    return {held, heldSteps, heldType, pin, lead, stillOn, ban, free, world, cleared, kal, kalG, kalBan, kalFree, line: document.querySelector('#jSteer').textContent};
+    return {held, heldSteps, heldType, pin, lead, stillOn, out, ban, free, world, cleared, kal, kalG, kalBan, kalFree, line: document.querySelector('#jSteer').textContent};
   });
   check('; holds: no progression and no new section for a minute', r.held && r.heldSteps === 0 && r.heldType, `${r.heldSteps} steps`);
   check('L 1 while Journey runs keeps the ring (it leads), without freezing Journey', r.pin && r.lead && r.stillOn);
-  check('again: never (it leaves its role), and again: free', r.ban && r.free);
+  check('again: out of the picture, and not banned', r.out);
+  check('Alt+number: never (it leaves its role), and again: free', r.ban && r.free);
   check('W 6 pins the night sea (it comes in), and 0 clears the group', r.world && r.cleared);
   check('K 5 keeps a five-way kaleidoscope through a new section (Journey still on), G folds the glow', r.kal && r.kalG);
   check('K 0 bans the kaleidoscope, and 0 again frees it', r.kalBan && r.kalFree);
   const errors = await page.errors(); check('no page errors (keys)', !errors.length, errors.join(' '));
+  await page.close();
+}
+// handed back: Journey off, a look made with the keys, a drop heard meanwhile, Journey on again (A). It carries on from that
+// look (the drop that passed while it was off isn't fired), and a new section grows it by one thing rather than replacing it
+{
+  const page = await openPage(browser, url, {noDraw: true});
+  const r = await page.evaluate(async () => {
+    const {J} = await import('/src/journey/core.js'), {L} = await import('/src/audio/listen.js'), {curP} = await import('/src/presets.js');
+    const reg = await import('/src/visuals/registry.js'), KEYS = [...reg.ELEMS, ...reg.WORLDS, ...reg.HITS, ...reg.OBJECT_VISUALS.map(v => v.key)];
+    const key = k => document.body.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true}));
+    const on = () => KEYS.filter(k => (curP[k] || 0) > .25);
+    __step(60*45); key('a'); __step(30);
+    for (const k of ['w', '3', 'escape', 'l', '0', '5', 'escape', 'o', '1', 'escape']) key(k);
+    __step(60*6); const hand = on(); L.drops++; __step(60*4);
+    const drop = J.lastDrop; key('a'); let kept = 0, fired = false, n = 0;
+    for (let i = 0; i < 120; i++) { __step(30); if (J.lastDrop !== drop) fired = true; const o = on(); n++; if (hand.every(k => o.includes(k))) kept++; }
+    return {hand, kept, n, fired, on: J.on, now: on()};
+  });
+  check('handed back, Journey fires no drop that passed while it was off', !r.fired);
+  check('and carries on from the look made by hand for the next minute', r.on && r.kept >= r.n*.9, `${r.hand.join(' ')} kept ${r.kept}/${r.n} s/2; now ${r.now.join(' ')}`);
+  const errors = await page.errors(); check('no page errors (handing back)', !errors.length, errors.join(' '));
   await page.close();
 }
 // the speed gears (journey/gear.js): over a long groove the movement changes gear, half time the most; ' holds one, and
