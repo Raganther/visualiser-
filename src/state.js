@@ -17,8 +17,9 @@ export const S = {
   // the explorations (the user asked to move into the kaleidoscope: more unfurling as it goes, the object coming to engulf
   // the viewer, branches growing out of branches), each on or off (the Adjust panel's Explore, kept as afterglow.explore):
   // nest the nested kaleidoscope dive (a kaleidoscope kind), near the objects coming to you, grow the growing branches (an
-  // object), kifs the kaleidoscopic fractal flown through (a world). Off, Journey leaves it out (by hand it still works)
-  explore: (() => { const d = {nest: 1, near: 1, grow: 1, kifs: 1}; try { return {...d, ...JSON.parse(localStorage.getItem('afterglow.explore') || '{}')}; } catch (e) { return d; } })(),
+  // object), kifs the kaleidoscopic fractal flown through (a world); link connects them to the kaleidoscope's symmetry
+  // (scene/sym.js; off, each keeps its own). Off, Journey leaves it out (by hand it still works)
+  explore: (() => { const d = {nest: 1, near: 1, grow: 1, kifs: 1, link: 1}; try { return {...d, ...JSON.parse(localStorage.getItem('afterglow.explore') || '{}')}; } catch (e) { return d; } })(),
   skipW: new Set(),               // worlds Journey leaves out (the panel's "3D worlds in Journey", ui/fps.js)
   active: null,                  // the preset in use (jState during Journey); set once presets load
   glGen: 0,                      // bumps when a lost WebGL context is restored, so visuals rebuild their own GL objects

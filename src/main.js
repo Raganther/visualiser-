@@ -68,7 +68,8 @@ import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
 import { sliders, updateSectionUI, gearUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
-import { stepDance } from './scene/dance.js';
+import { stepDance, DANCE } from './scene/dance.js';
+import { SYM } from './scene/sym.js';
 import { L } from './audio/listen.js';
 import { $, noise, reduceMotion } from './util.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS } from './visuals/registry.js';
@@ -202,7 +203,14 @@ function render(now){
   if (J.on && kalDrop !== null && J.lastDrop !== kalDrop) kalAs = TUNE.kal.burst; kalDrop = J.lastDrop ?? null;
   kalAs += ((J.on ? 1 - TUNE.kal.settle*(J.anticip || 0) : 1) - kalAs)*Math.min(1, mdt*.6);
   const nest = km === 14 ? kalNest() : null;
-  const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
+  const kn = eff.kal || 0; let kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
+  // the shared symmetry (scene/sym.js): the kaleidoscope's, or with none the music's own count, for the pieces that follow it
+  const kOn = kn > 1.01, kN = Math.max(2, Math.floor(kn)), Lk = TUNE.link;
+  SYM.on = kOn; SYM.n = kOn ? kN : Math.round(Lk.calm + (Lk.intense - Lk.calm)*(SIG.tension || 0)); SYM.turn = kalA - Math.PI/(2*kN);
+  SYM.dz = kalZ - SYM.z; SYM.z = kalZ; SYM.as = kalAs; SYM.kind = km; SYM.inner = nest ? nest.lv[0] : 0;
+  // connected, an object that has come near enough to fill the screen takes the kaleidoscope's fold inside it: you pass
+  // through its surface into the folded space
+  if (S.explore.link && S.explore.near && kOn && kw === 0 && DANCE.near > Lk.inside && OBJECT_VISUALS.some(v => (eff[v.key] || 0) > .3)) kw = 3;
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
     mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band], v3: [kalT, kalBar, kalAs, SIG.bass || 0], nb: nest ? nest.nb : 0, lv: nest && nest.lv};

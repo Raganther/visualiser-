@@ -1,7 +1,8 @@
 // Explore test (moving into the picture, S.explore): the nested kaleidoscope dive draws its own picture (not the plain
 // dive's) in both renderers, each band born from the one outside it; the growing branches draw in both renderers and dive
 // on with no jump as a level is shed; the fractal depths fly on; the objects come near on a drop and ease back, and stay
-// as they were with the switch off; and with each switch off Journey never uses it, with it on it does.
+// as they were with the switch off; with each switch off Journey never uses it, with it on it does; and connected, the
+// branches and the fractal depths follow the kaleidoscope's symmetry (apart, each its own).
 import { serve, launch, openPage, ENTRY, THUMB } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('explore: skipped for', ENTRY); process.exit(0); }
@@ -75,6 +76,24 @@ for (const mode of ['2d', 'gl']) {
   check('with the switches off Journey never uses them', r.offRun.nest + r.offRun.grow + r.offRun.kifs === 0, JSON.stringify(r.offRun));
   check('with them on it does', r.onRun.nest > 0 && r.onRun.grow > 0 && r.onRun.kifs > 0, JSON.stringify(r.onRun));
   const errors = await page.errors(); check('no page errors (Journey)', !errors.length, errors.join(' '));
+  await browser.close();
+}
+// connected (S.explore.link): under a kaleidoscope (six mirrors, easing in) the branches' new levels grow as many arms and turn with its
+// mirrors, the fractal depths fold round six; off, each keeps its own
+{
+  const browser = await launch('2d'), page = await openPage(browser, url, {width: 240, height: 136});
+  const r = await page.evaluate(async () => {
+    const {solo} = await import('/src/ui/presets.js'), {S} = await import('/src/state.js'), reg = await import('/src/visuals/registry.js'), {SYM} = await import('/src/scene/sym.js');
+    const kifs = (await import('/src/visuals/worlds/kifs.js')).default, {TUNE} = await import('/src/tuning.js');
+    const run = link => { S.explore.link = link; solo('branches'); S.active.kal = 6; S.active.kalWhere = 2; S.active.kalMode = 0; TUNE.branches.speed = 3; __step(60*8);
+      const st = reg.byKey.branches.state(), P = {w: {kifs: 1}, bass: 0, pal: [0, .3, .6]}; kifs.params(P, {J: null, dt: 1/60, t: 1, react: 1, dim: 1});
+      return {n: SYM.n, arms: st.lv.slice(-3).map(l => l.n), kf: P.kf5[0]}; };
+    const on = run(1), off = run(0); S.explore.link = 1; TUNE.branches.speed = .32; return {on, off};
+  });
+  check('connected, the branches grow as many arms as the kaleidoscope has mirrors', r.on.n >= 4 && r.on.arms.every(n => n === r.on.n), JSON.stringify(r.on));   // (its mirrors ease in: 5 or 6 by now)
+  check('and the fractal depths fold round them', r.on.kf === r.on.n, `${r.on.kf}`);
+  check('apart, each keeps its own', r.off.kf === 0 && r.off.arms.some(n => n !== r.off.n), JSON.stringify(r.off));
+  const errors = await page.errors(); check('no page errors (connected)', !errors.length, errors.join(' '));
   await browser.close();
 }
 srv.close();

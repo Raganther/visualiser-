@@ -11,6 +11,8 @@ import { TUNE } from '../../tuning.js';
 import { sdfObject } from './sdf-object.js';
 import { lit2d } from '../../render/sdf.js';
 import { CAM, FOCAL } from '../../render/facet.js';
+import { S } from '../../state.js';
+import { SYM } from '../../scene/sym.js';
 
 const LV = 7, ARM = 1.7, T_ARM = ARM.toFixed(2);   // levels drawn (the shader's loop); a ring's arms against the spine's step
 const glsl = `
@@ -81,10 +83,15 @@ const ss = (a, b, x) => { const q = Math.max(0, Math.min(1, (x - a)/(b - a))); r
 const m3 = (A, B) => { const C = new Array(9); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i*3 + j] = A[i*3]*B[j] + A[i*3 + 1]*B[3 + j] + A[i*3 + 2]*B[6 + j]; return C; };
 
 // a new level, born from the one before it and the music now: its branches, splay, twist and lean
+// connected (S.explore.link): as many arms as the kaleidoscope has mirrors (half as many when that's many and even, so the
+// arms and the mirrors still line up), in the nested dive the newest ring's own
+const armsFor = n => n <= 6 || n % 2 ? Math.min(9, n) : n/2;
+const linked = () => !!S.explore.link;
 function born(st, M){
   const T = TUNE.branches, prev = st.lv[st.lv.length - 1], ten = M ? M.ten : .4;
   const want = T.calm + (T.intense - T.calm)*ten, n0 = prev ? prev.n : Math.round(want);
-  const n = Math.max(2, Math.min(9, n0 + Math.max(-1, Math.min(1, Math.round(want - n0 + (st.rand() - .5)*1.5)))));
+  if (linked()) st.lean = Math.max(st.lean, Math.min(1, Math.max(0, SYM.as - 1)));   // (the kaleidoscope's symmetry broken: the ring uneven too)
+  const n = linked() ? armsFor(SYM.kind === 14 && SYM.inner ? SYM.inner : SYM.n) : Math.max(2, Math.min(9, n0 + Math.max(-1, Math.min(1, Math.round(want - n0 + (st.rand() - .5)*1.5)))));
   const sp = T.splay[0] + (T.splay[1] - T.splay[0])*Math.min(1, ten*.7 + (M ? M.bass : 0)*.5) + (st.rand() - .5)*.12;
   return {n, sp, tw: (st.rand() - .5)*2*T.twist + (st.lean > .05 ? (st.rand() - .5)*.6*st.lean : 0), asym: st.lean*T.lean*(.5 + st.rand()*.5)};
 }
@@ -92,14 +99,17 @@ export default sdfObject({key: 'branches', label: 'Growing branches', words: 'A 
   stats: 'a ray-marched branching tree, six levels, diving for ever', glsl, steps: 100, stepK: .7,
   dance: {moves: {still: 1, spin: 1, pulse: .7, breathe: .6}, sym: 5},
   onBeat(st, pos){ if (pos === 0) st.barN = (st.barN || 0) + 1; },
-  // pointing at you: it turns about the view (its dance's turn a roll), tipping only a little
-  orient(st, d){ return m3(m3(rx(.08*Math.sin(st.t*.21) + (d ? d.pitch*.3 : 0)), ry(.1*Math.sin(st.t*.17))), rz(st.yaw + (d ? d.yaw : 0))); },
+  // pointing at you: it turns about the view (its dance's turn a roll; connected under a kaleidoscope, an arm on a mirror, turning with it)
+  orient(st, d){ return m3(m3(rx(.08*Math.sin(st.t*.21) + (d ? d.pitch*.3 : 0)), ry(.1*Math.sin(st.t*.17))), rz(linked() && SYM.on ? SYM.turn : st.yaw + (d ? d.yaw : 0))); },
   step(st, M, dt){
     const T = TUNE.branches, K = st.K, K2 = st.K2;
     if (!st.lv) { st.lean = 0; st.lv = []; for (let i = 0; i < LV; i++) st.lv.push(born(st, null)); st.u = 0; st.acc = 0; st.wave = 9; }
     if (M.drop) { st.lean = 1; st.u += T.dropSurge; }   // a drop: a surge in, and its symmetry broken for a while
     st.lean *= Math.exp(-dt/(T.leanBars*4*M.bp));
-    st.u += dt*T.speed*(.35 + .9*M.ten + .6*M.anticip)*(M.brk ? .5 : 1)*(M.steady ? 1 : .6);
+    // its dive: its own pace, or connected under a diving kaleidoscope, the kaleidoscope's (its rings and the dive's
+    // bands opening out together)
+    if (linked() && SYM.on && SYM.dz > 0) st.u += SYM.dz*TUNE.kal.band/Math.log(1/T.ratio);
+    else st.u += dt*T.speed*(.35 + .9*M.ten + .6*M.anticip)*(M.brk ? .5 : 1)*(M.steady ? 1 : .6);
     while (st.u >= 1) { st.u -= 1; st.acc += st.lv[0].tw; st.lv.shift(); st.lv.push(born(st, M)); st.wave -= 1; }   // one level nearer: the outermost gone, a new one at the tips
     if (M.newKick) st.wave = 0; st.wave += dt/Math.max(.25, M.bp*.35);   // the kick's light running out along it, a level a sixteenth or so
     for (let i = 0; i < LV; i++) { const l = st.lv[i];

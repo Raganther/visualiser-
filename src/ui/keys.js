@@ -138,11 +138,11 @@ function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afte
   const c = $('#objWorld'); if (c) c.checked = v; if (!quiet) toast(v ? 'Objects travel through the 3D worlds' : 'Objects stay in the centre'); }
 { const c = $('#objWorld'); if (c) { c.checked = S.objWorld; c.addEventListener('change', e => setObjWorld(e.target.checked)); } }
 // the explorations (S.explore, state.js): each on or off from the Adjust panel, remembered on the device
-const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths'};
+const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths', link: 'Connected to the kaleidoscope'};
 for (const c of document.querySelectorAll('[data-explore]')) { const k = c.dataset.explore; c.checked = !!S.explore[k];
   c.addEventListener('change', e => { S.explore[k] = e.target.checked ? 1 : 0; try { localStorage.setItem('afterglow.explore', JSON.stringify(S.explore)); } catch (er) {}
     if (k === 'kifs' && !S.explore.kifs && J.on && J.world === 'kifs') chooseWorld(true);   // (off: Journey moves on from it now)
-    toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : 'off (Journey leaves it out)'}`); }); }
+    toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : k === 'link' ? 'off (each keeps its own symmetry)' : 'off (Journey leaves it out)'}`); }); }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
 addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)

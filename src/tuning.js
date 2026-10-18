@@ -285,6 +285,9 @@ export const TUNE = {
     ring: 1, drift: 1, heave: .12},                                     // the kick's rings' speed, how fast the pattern drifts, a drop's heave
   growth: {chance: 0, journey: 1, grow: 1, fling: .8,                   // growing crystals: how long they grow (with the tension), how far a drop flings them
     count: 12, spread: .45, tip: .8, regrow: .6},                       // how many (1–16), how different their lengths, the tips' glow, how much each phrase regrows them
+  // connected (S.explore.link, scene/sym.js): the shared symmetry's mirrors with no kaleidoscope on (calm to intense), and
+  // how near an object must come (DANCE.near) to take the kaleidoscope's fold inside it
+  link: {calm: 3, intense: 8, inside: 2.6},
   // growing branches (objects/branches.js): a tree growing towards you for ever. Branches a level, calm to intense; the
   // splay (radians, calm to intense); how far a level may twist against the last; each level against the last (size); the
   // trunk's thickness; how fast it dives (levels a second at full tension); a drop's surge (levels) and the lean it leaves

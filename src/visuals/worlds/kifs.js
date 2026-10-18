@@ -11,6 +11,7 @@ import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
 import { S } from '../../state.js';
 import { SIG } from '../../scene/signals.js';
+import { SYM } from '../../scene/sym.js';
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, roll: 0, t: 0, kickT: -9,
   a: [0, 0], aT: [0, 0], bars: 0};
@@ -33,7 +34,8 @@ export default {
     if (J && st.drop !== J.lastDrop) { if (st.drop !== null && on) { st.surge = 1; st.aT = [(Math.random() - .5)*2*T.dropTwist, (Math.random() - .5)*2*T.dropTwist]; } st.drop = J.lastDrop; }
     st.surge *= Math.exp(-x.dt/T.surgeSecs);
     // the folds' turn: towards the music's (calm: nearly none; intense: more, swaying with the bar), a drop's kick settling back
-    const tw = T.twist*(.15 + .85*ten), sw = Math.sin(2*Math.PI*(st.bars + (SIG.barPhase || 0))/8);
+    const link = !!S.explore.link;   // (connected: its folds the kaleidoscope's, twisted as much as its symmetry is broken: scene/sym.js)
+    const tw = T.twist*(.15 + .85*ten)*(link ? Math.max(.2, SYM.as) : 1), sw = Math.sin(2*Math.PI*(st.bars + (SIG.barPhase || 0))/8);
     st.aT = st.aT.map(v => v*Math.exp(-x.dt/(T.settleBars*4*Math.max(.25, S.beatPeriod))));
     const want = [tw*sw + st.aT[0], tw*.6*Math.cos(2*Math.PI*(st.bars + (SIG.barPhase || 0))/16) + st.aT[1]];
     st.a = st.a.map((v, i) => v + (want[i] - v)*Math.min(1, x.dt*1.5));
@@ -44,7 +46,8 @@ export default {
     if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; st.wave = 0; }
     st.wave += x.dt;
     const L = mix(LOOK(st.D0), LOOK(st.D1), st.tr*st.tr*(3 - 2*st.tr));   // (morphing into the section's own)
-    P.kf = [st.z, st.roll, L[0], 1 + (P.bass || 0)*x.react*T.breath];
+    P.kf = [st.z, link && SYM.on ? -SYM.turn : st.roll, L[0], 1 + (P.bass || 0)*x.react*T.breath];
+    P.kf5 = [link ? SYM.n : 0, 0, 0, 0];   // (connected: its halls folded round the kaleidoscope's mirrors)
     P.kf2 = [st.a[0], st.a[1], L[1], L[2]];
     P.kf3 = [st.wave*T.waveSpeed, Math.exp(-st.wave*T.waveFade)*x.dim, st.surge*x.dim, Math.min(1, (SIG.hat || 0)*1.4)];
     P.kf4 = [L[3], x.t, T.tunnel, T.cell];
@@ -52,13 +55,14 @@ export default {
     if (P.w.kifs > .5) { const dz = T.gate - (st.z % T.gate); if (dz < 1.5) P.anchor = {hide: true}; else P.anchor = {pos: [0, 0], size: T.heartSize/dz/1.25/.49, dist: dz}; }
   },
   glsl: {
-    uniforms: `uniform vec4 uKf, uKf2, uKf3, uKf4; uniform float uKfG;   // the fractal depths: where along it, its roll, its scale, the bass; the folds' turns, the corner; the kick's wave, the surge, the hats; the corner's depth, time, the clear way, a cell's size; the glow`,
+    uniforms: `uniform vec4 uKf, uKf2, uKf3, uKf4, uKf5; uniform float uKfG;   // the fractal depths: where along it, its roll, its scale, the bass; the folds' turns, the corner; the kick's wave, the surge, the hats; the corner's depth, time, the clear way, a cell's size; the kaleidoscope's mirrors (connected; 0 its own); the glow`,
     functions: `
 vec2 kfR(vec2 p,float a){ float c=cos(a), s=sin(a); return vec2(c*p.x-s*p.y,s*p.x+c*p.y); }
 float kfTrap;
 // the fractal: cells of a Menger sponge filling space (its holes line up into halls), each folded through the cube's
 // mirrors, turned a little (the music's twist), scaled about its corner, again and again
 float kfD(vec3 p){
+  if(uKf5.x>1.5){ float sec=6.2831853/uKf5.x, a=atan(p.y,p.x); a=abs(a-sec*floor(a/sec+0.5)); p.xy=length(p.xy)*vec2(cos(a),sin(a)); }   // (connected: round the kaleidoscope's mirrors)
   vec3 w=mod(p/uKf4.w+1.0,2.0)-1.0; float sc=uKf.z, s=uKf4.w; vec3 off=vec3(uKf2.z,uKf2.w,uKf4.x)*uKf.w; kfTrap=1e3;
   for(int i=0;i<4;i++){
     w=abs(w);
@@ -95,12 +99,12 @@ vec3 kifs(vec2 sp){
 }`,
     fn: 'kifs',
   },
-  uniforms(gl, u, P){ gl.uniform4fv(u.uKf, P.kf); gl.uniform4fv(u.uKf2, P.kf2); gl.uniform4fv(u.uKf3, P.kf3); gl.uniform4fv(u.uKf4, P.kf4); gl.uniform1f(u.uKfG, TUNE.kifs.glow); },
+  uniforms(gl, u, P){ gl.uniform4fv(u.uKf, P.kf); gl.uniform4fv(u.uKf2, P.kf2); gl.uniform4fv(u.uKf3, P.kf3); gl.uniform4fv(u.uKf4, P.kf4); gl.uniform4fv(u.uKf5, P.kf5 || [0, 0, 0, 0]); gl.uniform1f(u.uKfG, TUNE.kifs.glow); },
   // simple mode: flown through nested, folded polygons: at each depth a polygon whose corners each carry a smaller copy,
   // turned by the folds' turns (the same numbers as the shader)
   draw2d(o, P){
     const W = o.canvas.width, Hh = o.canvas.height, a = Math.min(1, P.w.kifs), [z0, roll, sc, breath] = P.kf, [a0, a1, ox, oy] = P.kf2, [wd, wb, surge, hat] = P.kf3;
-    const pal = P.pal || [0, .33, .66], N = 4 + Math.round((sc - 2.1)/.9*3), step = .55;
+    const pal = P.pal || [0, .33, .66], N = P.kf5 && P.kf5[0] > 1.5 ? P.kf5[0] : 4 + Math.round((sc - 2.1)/.9*3), step = .55;   // (connected: the kaleidoscope's mirrors)
     o.globalAlpha = a; o.fillStyle = '#000'; o.fillRect(0, 0, W, Hh); o.lineJoin = 'round';
     const poly = (cx, cy, r, ang, depth, k, fog) => {
       o.beginPath(); for (let i = 0; i <= N; i++) { const t = ang + i*2*Math.PI/N; o[i ? 'lineTo' : 'moveTo'](cx + Math.cos(t)*r, cy + Math.sin(t)*r); } o.stroke();
