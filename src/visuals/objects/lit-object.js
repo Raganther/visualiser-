@@ -15,6 +15,7 @@ import { hsv2rgb } from '../../util.js';
 import { DANCE } from '../../scene/dance.js';
 import { L } from '../../audio/listen.js';
 import { litData, litGL, lit2d, litPath2d, litLod } from '../../render/lit.js';
+import { spaceFor } from '../../scene/space.js';
 
 const ELEV = [.2, .6, 1.1, .9, .35];   // the key light's heights, a new one each bar
 export function litObject({key, label, words, asset: A, dance, motion, beat, bend}){
@@ -54,7 +55,7 @@ export function litObject({key, label, words, asset: A, dance, motion, beat, ben
       const U = P.m[key] = {
         rot: Math.sin(x.t*T.turn)*T.turnSwing + st.startle*2.5, pitch: T.pitch + Math.sin(x.t*.23)*.04 - P.beat*.02, roll: 0,
         size: (An && An.size || T.size)*zoom, pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, .02 + P.wind.y*TUNE.ctx.windObject],
-        morph: 0, w: An && An.hide ? 0 : Math.min(1, w*1.2), lights: [key0, rim, kick], amb, glow: .25 + st.glow*.8, trans: R0.trans, trail: R0.trail,
+        morph: 0, w: An && An.hide ? 0 : Math.min(1, w*1.2), lights: [key0, rim, kick], radius: .6, amb, glow: .25 + st.glow*.8, trans: R0.trans, trail: R0.trail,
         look: Math.round((x.eff && x.eff.litLook) || 0), neon: [hsv2rgb(hue + pal[0], .8, 1), hsv2rgb(hue + pal[1], .8, 1)], t: x.t,
       };
       if (motion) motion(U, P, x, st);
@@ -63,8 +64,9 @@ export function litObject({key, label, words, asset: A, dance, motion, beat, ben
       const Vw = S.view; if (Vw && Vw.key === key) { U.rot = Vw.yaw + (d ? d.yaw : 0); U.pitch += Vw.pitch; U.size *= Vw.zoom; if (Vw.morph !== null) U.morph = Vw.morph; }   // turned and held in the Asset Viewer
     },
     drawGL(gl, P, W, H, stage){ if (stage === 'trails' && !P.m[key].trail) return;
+      P.m[key].space = stage === 'screen' ? spaceFor(key) : 0;   // (lit by the space's lights while it's the subject: scene/space.js)
       if (!gl1 || glGen !== S.glGen) { gl1 = litGL(gl, A, bend); glGen = S.glGen; } if (gl1) gl1(P.m[key], W, H, stage); },   // (null: its program is still being built)
-    draw2d(o, P){ lit2d(o, lodOf(), P.m[key]); },
+    draw2d(o, P){ P.m[key].space = spaceFor(key); lit2d(o, lodOf(), P.m[key]); },
     path2d(o, P){ litPath2d(o, lodOf(), P.m[key]); },
   };
 }

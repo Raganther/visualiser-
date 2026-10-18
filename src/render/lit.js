@@ -12,6 +12,7 @@
 // the object fits a sphere of about .6), amb [r,g,b], glow (the eyes), trans (light through the thin parts), trail, look,
 // neon [[r,g,b] x2], and bend: {z: [9 angles], x: [9 angles]} (radians, at each joint, about z and about x).
 import { mark } from './stalls.js';
+import { SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
 
 const CAM = 3.2, FOCAL = 2.6, SHADOW = 1024, EXT = .78, NJ = 9;   // (the camera as in render/mesh.js); the shadow map's size and reach; the spine's joints
 
@@ -80,6 +81,7 @@ precision mediump float;
 uniform sampler2D uCol, uNrm, uEm, uShMap; uniform mat3 uR;
 uniform vec3 uLp[3], uLc[3], uAmb, uNeon[2]; uniform float uGlow, uW, uStage, uShOn, uTrans, uLook;
 varying vec2 vUV; varying vec3 vW, vSh, vO, vB0, vB1, vB2; varying float vThick, vPart;
+${SPACE_GLSL}
 vec4 pack(float d){ vec4 e=fract(d*vec4(1.0,255.0,65025.0,16581375.0)); return e-e.yzww*vec4(1.0/255.0,1.0/255.0,1.0/255.0,0.0); }
 float unpack(vec4 c){ return dot(c,vec4(1.0,1.0/255.0,1.0/65025.0,1.0/16581375.0)); }
 float shadow(vec3 s){   // the key light's shadow, softened over nine taps
@@ -146,10 +148,12 @@ void main(){
     for(int i=0;i<3;i++){ vec3 L=normalize(uLp[i]-vW); env+=uLc[i]*pow(max(dot(r,L),0.0),60.0)*0.6; }
     c=env*(metal ? vec3(1.0,0.75,0.4) : vec3(0.92,0.94,1.0))*(0.25+0.75*smoothstep(0.02,0.25,dot(alb,vec3(0.3,0.6,0.1))*3.0));
   }
+  c+=(uLook>1.5&&uLook<2.5 ? uNeon[0]*0.5+0.1 : alb*1.3+0.04)*spaceAt(vW,n)*1.4;   // the space's lights: a comet or a flare passing lights it (scene/space.js)
   c=pow(max(c,vec3(0.0)),vec3(1.0/2.2));
   gl_FragColor=vec4(c*uW,uW);
 }`;
 
+const SPN = [0, 0, 0], SPO = [0, 0, 0];
 const ATT = ['aPos', 'aMorph', 'aUV', 'aInfo'], PROGS = new WeakMap();
 // started at idle (litWarm) and read once the driver has built it; null until then, where the driver can say
 // (KHR_parallel_shader_compile): waiting for it froze the picture
@@ -247,7 +251,7 @@ export function litGL(gl, A, bend){   // null while the program is still being b
     gl.uniformMatrix3fv(u.uR, false, turn(U));
     gl.uniform3fv(u.uLp, U.lights.flatMap(l => l.p)); gl.uniform3fv(u.uLc, U.lights.flatMap(l => l.c)); gl.uniform3fv(u.uAmb, U.amb);
     gl.uniform3fv(u.uNeon, (U.neon || [[0, 1, 1], [1, 0, 1]]).flat());
-    gl.uniform1f(u.uGlow, U.glow); gl.uniform1f(u.uTrans, U.trans);
+    gl.uniform1f(u.uGlow, U.glow); gl.uniform1f(u.uTrans, U.trans); spaceUniforms(gl, u, U.space);
     texs(sm);
     gl.enable(gl.BLEND);
     if (stage === 'trails') {   // no depth in the trails: the near side only, dim, added
@@ -337,6 +341,7 @@ export function lit2d(o, M, U){
       if (look === 1 && ed < .3) c = c.map(x => x*.1);   // the ink line
       if (eye && look < 2) { c[0] += U.glow*.6; c[1] += U.glow*.3; }
     }
+    if (U.space) { SPN[0] = nx; SPN[1] = ny; SPN[2] = nz; spaceAt(F.w, SPN, SPO); for (let k = 0; k < 3; k++) c[k] += (look === 2 ? ne[0][k]*.5 + .1 : al[k]*1.3 + .04)*SPO[k]*1.4; }   // the space's lights
     const rgb = c.map(x => Math.min(255, Math.round(Math.pow(Math.max(0, x), 1/2.2)*255)));
     o.beginPath(); o.moveTo(S2[F.a*2], S2[F.a*2 + 1]); o.lineTo(S2[F.b*2], S2[F.b*2 + 1]); o.lineTo(S2[F.c*2], S2[F.c*2 + 1]); o.closePath();
     o.fillStyle = `rgb(${rgb})`; o.fill(); o.strokeStyle = o.fillStyle; o.lineWidth = .8; o.stroke();   // (its own colour round the edge: no seams)

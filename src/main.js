@@ -57,7 +57,8 @@ import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { PLAN, planWords } from './journey/plan.js';
 import { genMat, GEN } from './scene/genome.js';
-import { subjFrame } from './scene/subject.js';
+import { subjFrame, SUBJ } from './scene/subject.js';
+import { spaceBegin } from './scene/space.js';
 const OBJ_KEYS = OBJECT_VISUALS.map(v => v.key);
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
@@ -180,6 +181,7 @@ function render(now){
   // every layer and object on screen dances (scene/dance.js): its move this bar, through springs
   stepDance(dt, {J, dim: reduceMotion ? .5 : 1}, LAYER_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key),
     OBJECT_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key), DANCE_CHARS);
+  spaceBegin(SUBJ, S.explore.space && S.explore.stage);   // the space round the centrepiece, for the comets and orbits to place their lights in (scene/space.js)
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation

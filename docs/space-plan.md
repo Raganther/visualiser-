@@ -45,3 +45,4 @@ They share one camera (at z 3.2 looking down −z, focal length 2.6: `CAM`, `FOC
 
 ## Log
 - 2026-10-18: planned.
+- 2026-10-18: stages 1–3 built. `scene/space.js` holds the lights (six at most, the brightest kept), the subject's frame and what's in front of it; the comets fly their figures tilted into depth (`comet3d` in `fx/effects.js`) and the orbits' flares circle it on real orbits, each a light; every kind of object adds the lights while it's the subject, in both renderers; the heads in front are drawn over it (`render/front.js`). The bubble and the cell (their own `obj()`) aren't lit yet. Tested in `tests/space.mjs`.

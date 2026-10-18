@@ -10,6 +10,7 @@ import { meshDraw2d, meshGL, meshPath2d, meshPick, panesOf } from '../../render/
 import { DANCE } from '../../scene/dance.js';
 import { makeFx } from '../../scene/facets.js';
 import { hsv2rgb } from '../../util.js';
+import { spaceFor } from '../../scene/space.js';
 
 // motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight).
 // dance: its character as a dancer (scene/dance.js): {moves: {move: weight}, sym (its snap turns: a full turn over sym), liftPart}
@@ -71,8 +72,9 @@ export function meshObject({key, label, words, mesh, motion, dance}){
     },
     // WebGL: into the trails (edges only, so it leaves glowing ghosts), then crisp on top of the finished picture
     drawGL(gl, P, W, H, stage){ if (stage === 'trails' && !P.m[key].trail) return;   // (no ghosts: TUNE.mesh.trail 0)
+      P.m[key].space = stage === 'screen' ? spaceFor(key) : 0;   // (lit by the space's lights while it's the subject: scene/space.js)
       if (!drawGL || glGen !== S.glGen) { drawGL = meshGL(gl, mesh); glGen = S.glGen; } if (drawGL) drawGL(P.m[key], W, H, stage); },   // (null: its program is still being built)
-    draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
+    draw2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); P.m[key].space = spaceFor(key); meshDraw2d(o, panes2d, mesh.hinge, P.m[key]); },
     path2d(o, P){ if (!panes2d) panes2d = panesOf(mesh); meshPath2d(o, panes2d, mesh.hinge, P.m[key]); },   // its silhouette, for masks
   };
 }

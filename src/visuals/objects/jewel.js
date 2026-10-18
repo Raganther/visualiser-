@@ -14,6 +14,7 @@ import { gemSheetGeo, FOCAL, CAM } from '../../render/facet.js';
 import { makeCells, stepCells, touch } from './cells.js';
 import { genN, genMat } from '../../scene/genome.js';
 import { SUBJ } from '../../scene/subject.js';
+import { SPACE_GLSL, spaceUniforms, spaceAt, spaceFor } from '../../scene/space.js';
 
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
@@ -262,6 +263,7 @@ uniform vec4 uIn3;          // (its bounces, shards, beads, the tunnel's seams)
 uniform vec4 uIn, uIn2;     // its own kaleidoscope: (kind: 0 off, 1 skin, 2 mirrors, 3 tunnel; motion time; strength; hue), (kick, bounces' dimming, the glass's index, -)
 uniform vec4 uPl[20];       // the mirrors: its twenty big faces as planes (view space: normal, distance)
 uniform vec4 uSh[12];       // the shards tumbling inside: (centre, size), (normal, hue)
+${SPACE_GLSL}
 float fH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }
 vec3 hue3(float h){ return 0.5 + 0.5*cos(6.2831*(h + vec3(0.0, 0.33, 0.67))); }
 // the skin: each facet's barycentric place folded into one of its six mirror sections (sorted), so neighbours mirror each
@@ -324,6 +326,7 @@ void main(){
   vec3 c = tint*(uP2.x*(0.55 + 0.45*n.y) + lit*1.3);
   c += lamp(n, V, tint, uL0d, uL0c, fire, sh, kd) + lamp(n, V, tint, uL1d, uL1c, fire, sh, kd) + lamp(n, V, tint, uL2d, uL2c, 0.0, sh, kd);
   c += (tint*1.5 + 0.1)*fres*uP2.y;
+  c += (tint*2.2 + 0.25)*spaceAt(vP, n)*(isFar ? 0.3 : 1.0);   // the space's lights: a comet or a flare passing lights its facets (scene/space.js)
   if (k == 1) c *= mix(0.04, 1.0, smoothstep(lw*1.2, lw*3.0, md));
   float inA = 0.0;
   if (uIn.x > 0.5 && uIn.z > 0.01) {   // its own kaleidoscope
@@ -353,7 +356,7 @@ function glDrawer(gl){
   const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, FS));
   ATTRS.forEach(([n], i) => gl.bindAttribLocation(p, i + 1, n));   // (attribute 0 stays the engine's full-screen quad)
   gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('jewel: ' + gl.getProgramInfoLog(p));
-  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uIn3', 'uPl', 'uSh']) u[k] = gl.getUniformLocation(p, k);
+  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uIn3', 'uPl', 'uSh', 'uSF', 'uSL', 'uSC']) u[k] = gl.getUniformLocation(p, k);
   const buf = gl.createBuffer(), arr = new Float32Array(NF*3*NA_);
   return (U, W, H, stage) => {
     project(U, W, H);
@@ -377,6 +380,7 @@ function glDrawer(gl){
     gl.uniform4f(u.uP, T.fire, 1, .2, .45);
     const I = U.inner; gl.uniform4f(u.uIn, I.kind, I.t, I.amt, I.hue); gl.uniform4f(u.uIn2, I.kick, T.inner.dim, T.inner.index, 0); gl.uniform4f(u.uIn3, T.inner.bounces, T.inner.shards, T.inner.beads, T.inner.seam);
     if (I.kind >= 2 && I.amt > .01) { gl.uniform4fv(u.uPl, PL); gl.uniform4fv(u.uSh, SH); }
+    spaceUniforms(gl, u, U.space);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
     gl.disableVertexAttribArray(0);
     ATTRS.forEach(([, n, at], i) => { gl.enableVertexAttribArray(i + 1); gl.vertexAttribPointer(i + 1, n, gl.FLOAT, false, NA_*4, at*4); });
@@ -388,6 +392,7 @@ function glDrawer(gl){
   };
 }
 // simple mode: the faces far to near, each lit flat by the same lamps, then its edges
+const SPP = [0, 0, 0], SPN = [0, 0, 0], SPO = [0, 0, 0];
 const ORD = Uint16Array.from({length: NF}, (_, i) => i);
 const rgba = (r, g, b, a) => `rgba(${Math.min(255, r*255 | 0)},${Math.min(255, g*255 | 0)},${Math.min(255, b*255 | 0)},${clamp(a, 0, 1).toFixed(3)})`;
 function draw2d(o, U){
@@ -400,6 +405,8 @@ function draw2d(o, U){
     const nx = FN[f*3], ny = FN[f*3 + 1], nz = FN[f*3 + 2], far = nz < 0, s = far ? -1 : 1, lit = FC[f*4 + 3];
     let r = 0, g = 0, b = 0; const amb = .45*(.55 + .45*ny*s);
     for (let i = 0; i < 3; i++) { const l = Lt[i*2], c = Lt[i*2 + 1], d = Math.max(0, (nx*l[0] + ny*l[1] + nz*l[2])*s)*.45; r += c[0]*d; g += c[1]*d; b += c[2]*d; }
+    if (U.space && !far) { const i = f*9; SPP[0] = (FV[i] + FV[i + 3] + FV[i + 6])/3; SPP[1] = (FV[i + 1] + FV[i + 4] + FV[i + 7])/3; SPP[2] = (FV[i + 2] + FV[i + 5] + FV[i + 8])/3; SPN[0] = nx; SPN[1] = ny; SPN[2] = nz;
+      spaceAt(SPP, SPN, SPO); r += SPO[0]*3; g += SPO[1]*3; b += SPO[2]*3; }   // the space's lights (scene/space.js)
     const k = (1 - Math.abs(nz))**3*.6, m = far ? .45 : 1;
     const ia = U.inner && U.inner.kind > 0 ? U.inner.amt*(far ? .4 : 1) : 0;     const cr = (FC[f*4]*(amb + lit*1.3 + r + 1.5*k) + .1*k)*m*w, cg = (FC[f*4 + 1]*(amb + lit*1.3 + g + 1.5*k) + .1*k)*m*w, cb = (FC[f*4 + 2]*(amb + lit*1.3 + b + 1.5*k) + .1*k)*m*w;
     const pk = ia > .01 ? ia*m*w : 0, ccr = cr + FK[f*3]*pk, ccg = cg + FK[f*3 + 1]*pk, ccb = cb + FK[f*3 + 2]*pk;
@@ -491,14 +498,14 @@ export default {
     const An = P.anchor;
     P.m = P.m || {};
     P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1)*(DANCE.near || 1),   // (coming to you: scene/dance.js)
-      pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights(),
+      pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights(), radius: .8,   // (radius: its size in its own frame, for the space: scene/space.js)
       inner: {kind: ik, t: st.inT, amt: st.inAmt, hue: st.h0, kick: st.inKick}};
   },
   drawGL(gl, P, W, H, stage){ if (stage === 'trails') return;
-    const U = P.m.jewel; if (!U || U.w < .003) return;
+    const U = P.m.jewel; if (!U || U.w < .003) return; U.space = stage === 'screen' ? spaceFor('jewel') : 0;   // (lit by the space's lights while it's the subject: scene/space.js)
     if (!this._dr || this._gen !== S.glGen) { this._dr = glDrawer(gl); this._gen = S.glGen; }
     this._dr(U, W, H, stage); },
-  draw2d(o, P){ const U = P.m.jewel; if (U && U.w > .003) draw2d(o, U); },
+  draw2d(o, P){ const U = P.m.jewel; if (U && U.w > .003) { U.space = spaceFor('jewel'); draw2d(o, U); } },
   path2d(o, P){ const U = P.m.jewel; if (!U) return; project(U, o.canvas.width, o.canvas.height); o.beginPath();
     for (let f = 0; f < NF; f++) { o.moveTo(SC[f*9], SC[f*9 + 1]); o.lineTo(SC[f*9 + 3], SC[f*9 + 4]); o.lineTo(SC[f*9 + 6], SC[f*9 + 7]); o.closePath(); } },
 };

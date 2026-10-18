@@ -49,6 +49,11 @@ export const TUNE = {
   // goes to none, and which way a step leans
   // the subject (scene/subject.js): how fast the layers' idea of the centrepiece follows it, a mesh's radius from its middle (in its own units), how fast a touch's light fades
   lasers: {aim: .85},   // (aim: how far the beams lean in to shine at the centrepiece, scene/subject.js)
+  // the space (scene/space.js, docs/space-plan.md): the comets' and the orbits' lights on the centrepiece: how bright, how fast
+  // they fall off with distance (in its frame), the plane the comets' figures tilt into (radians, swaying), how fast its axis
+  // turns, how close to the object they may come (its radii), how bright the comets' and the flares' lights and their heads
+  // drawn in front of it
+  space: {light: .8, fall: 4, tilt: 1.1, sway: .3, axis: .05, skim: 1.2, reach: 3.5, comet: 1, orbit: .55, front: .9},
   subject: {ease: 4, radius: .45, touchFade: 3, cometR: 1.35, orbitR: 1.25},   // (cometR, orbitR: how wide the comets' figures and the orbits circle the object, in its radii)
   genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75,   // (foldBack: a step's chance of going back towards everything)
     cast: .4, liked: .25},   // (cast: how much Journey's casting leans towards pieces that suit it; liked: a new generation's chance of taking after a liked genome)

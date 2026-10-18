@@ -17,6 +17,8 @@ import { TW as TWEAK } from '../scene/tweaks.js';
 import { DANCE } from '../scene/dance.js';
 import { toast } from '../ui/toast.js';
 import { $ } from '../util.js';
+import { SPACE } from '../scene/space.js';
+import { frontGL } from './front.js';
 
 let canvas = $('#gl');
 export let gl = null;
@@ -387,7 +389,8 @@ export function drawGL(now, P){
       if (i === 0) onSurf();
       if (surf) gl.bindFramebuffer(gl.FRAMEBUFFER, surf.fb); else gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, W, H);
-      for (const o of meshesOf(P, st)) o.drawGL(gl, P, W, H, 'screen');
+      let fr = false; for (const o of meshesOf(P, st)) { o.drawGL(gl, P, W, H, 'screen'); if (o.key === SPACE.key) fr = true; }
+      if (fr) frontGL(gl, W, H);   // what's in front of the centrepiece, over it (scene/space.js)
       gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       return;
     }

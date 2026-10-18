@@ -9,6 +9,7 @@
 // style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points, 5 shaded
 // (smooth, lit like skin: each corner's normal averaged over the panes round it, lit per pixel, the wire faint over it).
 import { mark } from './stalls.js';
+import { SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // facet light switched off (an object without U.fx), and its default colours
@@ -61,6 +62,7 @@ uniform float uStyle,uRoll,uSq,uLift,uLiftPart,uMorph,uRot,uPitch,uSize,uAsp,uJa
 uniform vec2 uPos, uLightDir; uniform vec3 uHinge, uPal, uLight;   // uLight: the world's light (hue offset, saturation, strength)
 uniform vec4 uRip[4], uRipK, uSec, uSecS, uSpk; uniform vec3 uFxK, uFxS, uFxH;   // facet light (scene/facets.js): the kick's rings, the stabs' wedges or bands, the hats' sparks, a drop's run-up
 varying vec4 vCol; varying float vSide; varying vec2 vScr; varying float vFillW; varying vec3 vN, vLC; varying float vEmit, vWL;
+${SPACE_GLSL}
 vec3 hsv(float h,float s,float v){ vec3 p=abs(fract(h+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0); return v*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),s); }
 vec3 rx(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z); }
 vec3 ry(vec3 p,float a){ float c=cos(a),s=sin(a); return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z); }
@@ -127,6 +129,7 @@ void main(){
   vec3 sn=normalize(aSN+aSND*uMorph+vec3(0.0,0.0,1e-5)); if(aInfo.y>0.5) sn=rx(sn,uJaw);
   vN=rz(rx(ry(sn,uRot),uPitch),uRoll); vLC=hsv(uHue+uLight.x,uLight.y,1.0)*uLight.z; vEmit=aInfo.x>6.5 ? 1.0 : 0.0; vWL=max(dot(vN,normalize(vec3(uLightDir,0.4))),0.0);
   rgb+=fx*(uEdge>0.5 ? 1.0 : 0.55);
+  if(uSF>0.0&&aInfo.x<6.5) rgb+=spaceAt(p,nw)*(uEdge>0.5 ? 0.7 : 0.5)*(uStyle>2.5&&uStyle<3.5 ? 0.3 : 1.0);   // the space's lights: a comet or a flare passing lights the side facing it (scene/space.js)
   vCol=vec4(rgb*uBright*(1.0-gone),al*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
   vFillW=(uFillPart>0.5 ? step(abs(aInfo.x-uFillPart),0.5) : aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass (or one part), not in the holes
@@ -211,6 +214,7 @@ export function meshGL(gl, mesh){   // null while the program is still being bui
     gl.uniform1f(u.uEx, U.ex); gl.uniform1f(u.uGone, U.gone); gl.uniform1f(u.uFill, U.fill); gl.uniform1f(u.uDark, U.dark); gl.uniform1f(u.uHue, U.hue);
     gl.uniform1f(u.uPartHue, U.partHue); gl.uniform3fv(u.uPal, U.pal || [0, .33, .67]);
     const L = U.light || {amt: 0}; gl.uniform3f(u.uLight, L.hue || 0, L.sat || 0, L.amt); gl.uniform2f(u.uLightDir, L.x || 0, L.y || 0); gl.uniform1f(u.uSweep, U.sweep); gl.uniform1f(u.uSweepAmt, U.sweepAmt);
+    spaceUniforms(gl, u, U.space);
     gl.uniform1f(u.uSpark, U.spark); gl.uniform1f(u.uSparkSeed, U.sparkSeed); gl.uniform1f(u.uGlow, U.glow);
     const F = U.fx, Z4 = FX0; gl.uniform4fv(u['uRip[0]'], F ? F.rip : Z4.rip); gl.uniform4fv(u.uRipK, F ? F.ripK : Z4.k); gl.uniform4fv(u.uSec, F ? F.sec : Z4.k); gl.uniform4fv(u.uSecS, F ? F.secS : Z4.k); gl.uniform4fv(u.uSpk, F ? F.spk : Z4.spk);
     const fc = U.fxC || FX0.c; gl.uniform3fv(u.uFxK, fc[0]); gl.uniform3fv(u.uFxS, fc[1]); gl.uniform3fv(u.uFxH, fc[2]);
@@ -311,10 +315,10 @@ function project2d(o, panes, hinge, U){
       dx = ex*f; dy = ey*f; dz = ez*f;
     }
     if (lift > 0 && q.part === lp) { lx0 = 0; ly0 = .24*lift; lz0 = .1*lift; } else lx0 = ly0 = lz0 = 0;
-    const s = [], v = q.v; let zs = 0;
+    const s = [], v = q.v; let zs = 0, xs = 0, ys = 0;
     for (let i = 0; i < 3; i++) {
       place(v[i][0], v[i][1], v[i][2], q.hinged, cx, cy, cz, e, ca, sa, cb, sb, dx, dy, dz);
-      const w = sc/(CAM - out[2]); zs += out[2];
+      const w = sc/(CAM - out[2]); zs += out[2]; xs += out[0]; ys += out[1];
       s.push([Wc/2 + U.pos[0]*Hc + out[0]*w, Hc/2 - U.pos[1]*Hc - out[1]*w]);
     }
     const n0 = q.n, nx1 = cr*n0[0] + sr*n0[2], nz1 = -sr*n0[0] + cr*n0[2], nwy0 = cp*n0[1] - spi*nz1, nwz = spi*n0[1] + cp*nz1, nwy = so*nx1 + co*nwy0;   // the pane's facing
@@ -322,7 +326,7 @@ function project2d(o, panes, hinge, U){
     let ax = 0, ay = 0, az = 0; for (let i = 0; i < 3; i++) { const a = q0.sn[i], d = q0.dsn && mw ? q0.dsn[i] : null; ax += a[0] + (d ? d[0]*mw : 0); ay += a[1] + (d ? d[1]*mw : 0); az += a[2] + (d ? d[2]*mw : 0); }
     if (q.hinged) { const ay2 = cj*ay - sj*az; az = sj*ay + cj*az; ay = ay2; }
     const al = Math.hypot(ax, ay, az) || 1, sx1 = (cr*ax + sr*az)/al, sz1 = (-sr*ax + cr*az)/al, sy0 = (cp*ay/al - spi*sz1), snz = spi*ay/al + cp*sz1;
-    L.push({q, s, z: zs/3, face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt, sn: [co*sx1 - so*sy0, so*sx1 + co*sy0, snz]});
+    L.push({q, s, z: zs/3, p: [xs/3, ys/3, zs/3], nw: [co*nx1 - so*nwy0, nwy, nwz], face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt, sn: [co*sx1 - so*sy0, so*sx1 + co*sy0, snz]});
   }
   L.sort((a, b) => a.z - b.z);
   U.proj = {key, L};
@@ -336,6 +340,7 @@ export function meshPick(panes, hinge, U, W, H, x, y){
     if (!((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))) return L[i].q.part; }
   return null;
 }
+const SPO = [0, 0, 0];
 const tri = (o, s) => { o.moveTo(s[0][0], s[0][1]); o.lineTo(s[1][0], s[1][1]); o.lineTo(s[2][0], s[2][1]); o.closePath(); };
 // the object's silhouette as a path (for masks): every visible pane, holes included
 export function meshPath2d(o, panes, hinge, U){ o.beginPath(); for (const {s} of project2d(o, panes, hinge, U)) tri(o, s); }
@@ -361,6 +366,7 @@ export function meshDraw2d(o, panes, hinge, U){
     let fxr = null, fxl = 0;   // its facet light
     if (U.fx && !hole) { const c = q.c, l = Math.hypot(c[0], c[1], c[2]) || 1; FXD[0] = c[0]/l; FXD[1] = c[1]/l; FXD[2] = c[2]/l; fxAt(U.fx, FXD, q.seed, FXO);
       const fc = U.fxC || FX0.c; fxr = [0, 1, 2].map(i => (fc[0][i]*(FXO[0] + FXO[3]) + fc[1][i]*FXO[1] + fc[2][i]*FXO[2])*w); fxl = Math.max(fxr[0], fxr[1], fxr[2]); if (fxl < .04) fxr = null; }
+    if (U.space && !hole) { spaceAt(L2.p, L2.nw, SPO); if (SPO[0] + SPO[1] + SPO[2] > .03) { fxr = fxr || [0, 0, 0]; for (let k = 0; k < 3; k++) fxr[k] += SPO[k]*w*.5; } }   // the space's lights (scene/space.js)
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
     const back = face < .45 && !sweep && !spark;   // the far side: edges only (the near glass covers it)
     const rim = 1 - Math.min(1, Math.max(0, (Math.abs(face - .5)*2 - .1)/.3));   // (an outline's rim: panes turned side-on)

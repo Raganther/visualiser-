@@ -3,6 +3,8 @@ import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byK
 import { TUNE } from '../tuning.js';
 import { TW } from '../scene/tweaks.js';
 import { DANCE } from '../scene/dance.js';
+import { SPACE } from '../scene/space.js';
+import { front2d } from './front.js';
 // a layer following another sound: that level in place of its bass, mids and treble
 const own = (P, t) => t.band === null ? P : {...P, bass: t.band, mid: t.band, treb: t.band};
 
@@ -133,7 +135,8 @@ export function make2D(view){
   }
   function drawObjects(P, step){
     for (const v of OBJECT_VISUALS) if (P.o[v.key] > .01 && (step.mesh === '*' ? !P.sc.placed.has(v.key) : v.key === step.mesh)) {
-      out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore(); }
+      out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore();
+      if (v.key === SPACE.key) front2d(out); }   // what's in front of the centrepiece, over it (scene/space.js)
   }
   function drawHits(P){
     for (const v of HIT_VISUALS) if (v.draw2d) { out.save(); v.draw2d(out, P); out.restore(); }

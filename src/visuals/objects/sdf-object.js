@@ -11,6 +11,7 @@ import { L } from '../../audio/listen.js';
 import { facetGeo } from '../../render/facet.js';
 import { genPick } from '../../scene/genome.js';
 import { sdfRegister, sdfDraw, sdf2d, sdfPath2d, look2d } from '../../render/sdf.js';
+import { spaceFor } from '../../scene/space.js';
 
 const G1 = facetGeo(1);
 const rx = a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
@@ -77,8 +78,8 @@ export function sdfObject(o){
         K: st.K, K2: st.K2, Bd: st.Bd, D: st.D, res: T.res, Q: [(o.steps || 80)*T.steps, T.ao, o.custom ? 0 : lk, 1],
         C0: hsv2rgb(h + pal[0], .75, 1), C1: hsv2rgb(h + pal[1], .7, 1), C2: hsv2rgb(h + pal[2], .6, 1), Ld: [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)]};
     },
-    drawGL(gl, P, W, H, stage){ if (stage === 'trails') return; const U = P.m && P.m[o.key]; if (U && U.w > .003) sdfDraw(gl, S.glGen, o, U, W, H, stage); },
-    draw2d(c, P){ const U = P.m && P.m[o.key]; if (U && U.w > .003) { if (o.draw2d) o.draw2d(c, U, st); else sdf2d(c, U, map, tint, TUNE.sdf.res2d); } },   // (o.draw2d: its own simple-mode drawing)
+    drawGL(gl, P, W, H, stage){ if (stage === 'trails') return; const U = P.m && P.m[o.key]; if (U) U.space = stage === 'screen' ? spaceFor(o.key) : 0; if (U && U.w > .003) sdfDraw(gl, S.glGen, o, U, W, H, stage); },
+    draw2d(c, P){ const U = P.m && P.m[o.key]; if (U) U.space = spaceFor(o.key); if (U && U.w > .003) { if (o.draw2d) o.draw2d(c, U, st); else sdf2d(c, U, map, tint, TUNE.sdf.res2d); } },   // (o.draw2d: its own simple-mode drawing)
     path2d(c, P){ const U = P.m && P.m[o.key]; if (U) sdfPath2d(c, U, o.rad(st)); else c.beginPath(); },
   };
 }

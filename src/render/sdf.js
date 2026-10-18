@@ -4,6 +4,7 @@
 // normals, noise, a smooth union, three lamps and a studio reflected in the palette's colours. Simple mode marches the same
 // shape on the CPU (each object has its map in JS too) at a few dozen rays across, laid over the picture smoothed.
 import { CAM, FOCAL } from './facet.js';
+import { SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
 
 const HEAD = `#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -19,6 +20,7 @@ uniform vec3 uC0, uC1, uC2, uLd;
 uniform vec4 uBd[12];       // beads: centre, radius (0: none)
 uniform vec4 uD[32];        // directions, each with a weight
 uniform float uBR;          // its bounding sphere
+${SPACE_GLSL}
 uniform vec4 uQ;            // (the most march steps, ambient occlusion 0..1, its look: 0 own, 1 chrome, 2 glass, 3 neon, 4 iridescent, 5 toon; the look's strength)
 #define TIME uM1.x
 #define KICK uM1.y
@@ -92,6 +94,7 @@ void main(){
 const DEF_OBJ = `vec4 obj(vec3 ro, vec3 rd, float t0, float t1){ float t = march(ro, rd, t0, t1); if (t < 0.0) return vec4(0.0);
   vec3 p = ro + rd*t, n = nrm(p); vec4 c = look(shade(p, n, rd, t), p, n, rd);
   if (uQ.y > 0.01) c.rgb *= mix(1.0, occl(p, n), uQ.y);
+  c.rgb += (c.rgb*0.8 + 0.1*c.a)*spaceAt(uR*p, normalize(uR*n))*1.3;   // the space's lights: a comet or a flare passing lights it (scene/space.js)
   return c; }`;
 // (uBox: the square drawn into, in px: the screen, or a smaller picture of its own that's then laid over it)
 const VS = `attribute vec2 aQ; uniform vec4 uBox; varying vec2 vS;
@@ -104,7 +107,7 @@ void main(){ vec2 q = vec2((vS.x - uBox.x)/uBox.z, (vS.y - uBox.y)/uBox.w)*uUV.x
 export const sdfSource = (o) => `#define STEPS ${o.steps || 80}\n#define STEPK ${(o.stepK || .8).toFixed(2)}\n` + HEAD + o.glsl + (o.custom ? '' : DEF_OBJ) + MAIN;
 
 // ---- WebGL: one program an object, started at idle (sdfWarm) and used once the driver has built it ----
-const UN = ['uBox', 'uQ', 'uO', 'uRi', 'uR', 'uM1', 'uM2', 'uM3', 'uK', 'uK2', 'uC0', 'uC1', 'uC2', 'uLd', 'uBd', 'uD', 'uBR'];
+const UN = ['uBox', 'uQ', 'uO', 'uRi', 'uR', 'uM1', 'uM2', 'uM3', 'uK', 'uK2', 'uC0', 'uC1', 'uC2', 'uLd', 'uBd', 'uD', 'uBR', 'uSF', 'uSL', 'uSC'];
 const OBJS = new Map(), progs = new Map();
 let progGen = -1, quad = null, lay = null, off = null;
 export const sdfRegister = o => OBJS.set(o.key, o);
@@ -143,7 +146,7 @@ export function sdfDraw(gl, gen, o, U, W, H, stage){
   gl.uniform4f(u.uO, ox, oy, sc, CAM); gl.uniform4fv(u.uQ, U.Q || [80, 0, 0, 1]);
   gl.uniformMatrix3fv(u.uRi, false, U.R); gl.uniformMatrix3fv(u.uR, false, tr(U.R));   // (column-major: a row-major R reads as its transpose)
   gl.uniform4fv(u.uM1, U.M1); gl.uniform4fv(u.uM2, U.M2); gl.uniform4f(u.uM3, U.M3[0], U.M3[1], U.w*(small ? .5 : 1), stage === 'cover' ? 1 : 0);
-  gl.uniform4fv(u.uK, U.K); gl.uniform4fv(u.uK2, U.K2); gl.uniform3fv(u.uC0, U.C0); gl.uniform3fv(u.uC1, U.C1); gl.uniform3fv(u.uC2, U.C2); gl.uniform3fv(u.uLd, U.Ld);
+  gl.uniform4fv(u.uK, U.K); gl.uniform4fv(u.uK2, U.K2); gl.uniform3fv(u.uC0, U.C0); gl.uniform3fv(u.uC1, U.C1); gl.uniform3fv(u.uC2, U.C2); gl.uniform3fv(u.uLd, U.Ld); spaceUniforms(gl, u, U.space);
   if (u.uBd) gl.uniform4fv(u.uBd, U.Bd); if (u.uD) gl.uniform4fv(u.uD, U.D); gl.uniform1f(u.uBR, U.br);
   gl.disableVertexAttribArray(0); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
   gl.enable(gl.BLEND);
@@ -198,6 +201,7 @@ export function lit2d(n, rd, base, spec, shin, refl, U){
   const dv = 2*ndv, R = [dv*N[0] - V[0], dv*N[1] - V[1], dv*N[2] - V[2]], e = env2d(R, U), k = refl*(.25 + .75*fr);
   return [c[0] + e[0]*k, c[1] + e[1]*k, c[2] + e[2]*k];
 }
+const SPO = [0, 0, 0];
 export const fres2d = (n, rd) => (1 - Math.abs(n[0]*rd[0] + n[1]*rd[1] + n[2]*rd[2]))**3;
 // o: the canvas; map(x, y, z): the distance; tint(p, n, rd, t): [r, g, b, a], premultiplied
 export function sdf2d(o, U, map, tint, N = 44){
@@ -216,6 +220,7 @@ export function sdf2d(o, U, map, tint, N = 44){
     const x = ro[0] + rd[0]*t, y = ro[1] + rd[1]*t, z = ro[2] + rd[2]*t, e = .01;
     const n = nz([map(x + e, y, z) - map(x - e, y, z), map(x, y + e, z) - map(x, y - e, z), map(x, y, z + e) - map(x, y, z - e)]);
     const c = tint([x, y, z], n, rd, t), a = Math.min(1, c[3]*U.w*cov), q = (j*N + i)*4;
+    if (U.space) { spaceAt(ROT(U.R, [x, y, z]), ROT(U.R, n), SPO); for (let k = 0; k < 3; k++) c[k] += (c[k]*.8 + .1*c[3])*SPO[k]*1.3; }   // the space's lights
     if (a < .004) continue;
     const m = U.w*cov/a*255; D[q] = Math.min(255, c[0]*m); D[q + 1] = Math.min(255, c[1]*m); D[q + 2] = Math.min(255, c[2]*m); D[q + 3] = a*255;
   }
