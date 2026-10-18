@@ -56,7 +56,9 @@ import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { PLAN, planWords } from './journey/plan.js';
-import { genMat } from './scene/genome.js';
+import { genMat, GEN } from './scene/genome.js';
+import { subjFrame } from './scene/subject.js';
+const OBJ_KEYS = OBJECT_VISUALS.map(v => v.key);
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { KAL_N } from './journey/extras.js';
@@ -209,7 +211,7 @@ function render(now){
   const kn = eff.kal || 0; let kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   // the shared symmetry (scene/sym.js): the kaleidoscope's, or with none the music's own count, for the pieces that follow it
   const kOn = kn > 1.01, kN = Math.max(2, Math.floor(kn)), Lk = TUNE.link;
-  SYM.on = kOn; SYM.n = kOn ? kN : Math.round(Lk.calm + (Lk.intense - Lk.calm)*(SIG.tension || 0)); SYM.turn = kalA - Math.PI/(2*kN);
+  SYM.on = kOn; SYM.n = kOn ? kN : GEN.on && GEN.geo ? GEN.n : Math.round(Lk.calm + (Lk.intense - Lk.calm)*(SIG.tension || 0));   // (no kaleidoscope: the genome's symmetry, when it's on) SYM.turn = kalA - Math.PI/(2*kN);
   SYM.dz = kalZ - SYM.z; SYM.z = kalZ; SYM.as = kalAs; SYM.kind = km; SYM.inner = nest ? nest.lv[0] : 0;
   // connected, an object that has come near enough to fill the screen takes the kaleidoscope's fold inside it: you pass
   // through its surface into the folded space
@@ -235,6 +237,7 @@ function render(now){
   for (const v of [...WORLD_VISUALS, ...HIT_VISUALS]) if (v.params) v.params(P, vx);
   if (!S.objWorld) delete P.anchor;   // (objects kept in the centre: the worlds don't carry them through, S.objWorld)
   for (const v of OBJECT_VISUALS) if (v.params) v.params(P, vx);
+  subjFrame(P, S.explore.stage ? OBJ_KEYS : [], dt);   // the centrepiece on screen, for the layers to play round (scene/subject.js; the next frame's)
   // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
   // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
   if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);

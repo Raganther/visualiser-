@@ -91,6 +91,11 @@ const h = k => GEN.held[k] ? ' (held)' : '';
 export const genWords = () => !GEN.on ? '' : [GEN.geo ? `${GEN.n}-fold${h('n')}, ${MOTIFS[GEN.motif]}${h('motif')}` : '', GEN.col ? MATS[GEN.mat] + h('mat') : '', GEN.geo ? FOLDS[GEN.fold] + h('fold') : ''].filter(Boolean).join(', ');
 // what each piece takes from it (null: the piece's own choice)
 export const genN = (lo = 3, hi = 12) => GEN.on && GEN.geo ? Math.max(lo, Math.min(hi, GEN.n)) : null;
+// a count for a piece that has its own range (a galaxy's arms 2-6, a rosette's lobes 5-12): the genome's own, or one that
+// shares its symmetry (half or a third of it, or twice or three times), so it still lines up; null off
+export const genFold = (lo, hi) => { const n = genN(2, 24); if (!n) return null;
+  for (const c of [n, n/2, n*2, n/3, n*3, n/4, n*4]) if (c >= lo && c <= hi && c === Math.round(c)) return c;
+  return Math.max(lo, Math.min(hi, n)); };
 export const genMotif = () => GEN.on && GEN.geo ? GEN.motif : null;
 export const genMat = () => GEN.on && GEN.col ? GEN.mat : null;
 // a piece's own choice from a table by the genome's material, or its own (k: the piece's own)

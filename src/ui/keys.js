@@ -174,11 +174,11 @@ function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afte
 { const b = $('#phoneBtn'); if (b) b.addEventListener('click', () => { try { localStorage.setItem('afterglow.phone', '1'); } catch (e) {} location.reload(); }); }
 { const c = $('#objWorld'); if (c) { c.checked = S.objWorld; c.addEventListener('change', e => setObjWorld(e.target.checked)); } }
 // the explorations (S.explore, state.js): each on or off from the Adjust panel, remembered on the device
-const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths', link: 'Connected to the kaleidoscope'};
+const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths', link: 'Connected to the kaleidoscope', stage: 'Layers playing round the object'};
 for (const c of document.querySelectorAll('[data-explore]')) { const k = c.dataset.explore; c.checked = !!S.explore[k];
   c.addEventListener('change', e => { S.explore[k] = e.target.checked ? 1 : 0; try { localStorage.setItem('afterglow.explore', JSON.stringify(S.explore)); } catch (er) {}
     if (k === 'kifs' && !S.explore.kifs && J.on && J.world === 'kifs') chooseWorld(true);   // (off: Journey moves on from it now)
-    toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : k === 'link' ? 'off (each keeps its own symmetry)' : 'off (Journey leaves it out)'}`); }); }
+    toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : k === 'link' ? 'off (each keeps its own symmetry)' : k === 'stage' ? 'off (each keeps to itself)' : 'off (Journey leaves it out)'}`); }); }
 // the genome (scene/genome.js): on or off and what it shares, from the Adjust panel, remembered on the device
 export function setGenome(k, v, quiet){
   GEN[k] = !!v; genKeep(); if (k === 'on' && !v) J.objHand = J.litHand = null; if (k === 'on' && v || GEN.on && k !== 'line' && v) genNew(J.type);   // (a fresh genome for this section, at once)

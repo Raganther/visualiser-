@@ -47,6 +47,9 @@ export const TUNE = {
   // the genome (scene/genome.js): what its kaleidoscope folds, a fresh one's weights (everything, the world, the glow,
   // inside the Prism, none: everything the likeliest, the user's favourite); grown, how often the fold is kept, how often it
   // goes to none, and which way a step leans
+  // the subject (scene/subject.js): how fast the layers' idea of the centrepiece follows it, a mesh's radius from its middle (in its own units), how fast a touch's light fades
+  lasers: {aim: .85},   // (aim: how far the beams lean in to shine at the centrepiece, scene/subject.js)
+  subject: {ease: 4, radius: .45, touchFade: 3, cometR: 1.35, orbitR: 1.25},   // (cometR, orbitR: how wide the comets' figures and the orbits circle the object, in its radii)
   genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75,   // (foldBack: a step's chance of going back towards everything)
     cast: .4, liked: .25},   // (cast: how much Journey's casting leans towards pieces that suit it; liked: a new generation's chance of taking after a liked genome)
   plan: {on: 1, minSecs: 90, openShare: .2, openMax: 75, closeShare: .12, peakSecs: 40, headBonus: 4, hold: 3, motif: 2,

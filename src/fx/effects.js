@@ -9,6 +9,7 @@ import { CTX } from '../scene/context.js';
 import { TUNE } from '../tuning.js';
 import { TW, speedOf } from '../scene/tweaks.js';
 import { DANCE, cometTarget } from '../scene/dance.js';
+import { SUBJ, subjTouch } from '../scene/subject.js';
 
 /* comets and shockwaves */
 export const comets = [0,1,2].map(i => ({x:(i-1)*.4, y:i%2 ? .15 : -.15, dx:Math.cos(i*2.1), dy:Math.sin(i*2.1), turn:i%2 ? 1 : -1, kick:0, z:0}));
@@ -43,7 +44,9 @@ export function stepFX(dt, react, now){
     if (Math.abs(c.x) > xm) { c.x = Math.sign(c.x)*xm; c.dx *= -1; }
     if (Math.abs(c.y) > ym) { c.y = Math.sign(c.y)*ym; c.dy *= -1; }
     // dancing (scene/dance.js): they fly into the choreographer's shape, tracing it with their trails, and back to roaming
-    const tg = DANCE.comets.amt > .001 && cometTarget(i, comets.length, [0, 0], TUNE.dance.cometR);
+    // round the centrepiece when there is one (scene/subject.js): its middle, and wide enough to circle it
+    const so = SUBJ.on, R = TUNE.dance.cometR + Math.max(0, SUBJ.r*TUNE.subject.cometR - TUNE.dance.cometR)*so;
+    const tg = DANCE.comets.amt > .001 && cometTarget(i, comets.length, [SUBJ.x*so, SUBJ.y*so], R);
     if (tg) {
       const k = Math.min(1, dt*10*speedOf('comets'))*DANCE.comets.amt, nx = c.x + (tg[0] - c.x)*k, ny = c.y + (tg[1] - c.y)*k;
       const mx = nx - c.x, my = ny - c.y, ml = Math.hypot(mx, my);
@@ -51,6 +54,7 @@ export function stepFX(dt, react, now){
       c.x = nx; c.y = ny;
     }
     c.z = .5 + Math.min(1.5, e);
+    if (so > .05) { const d = Math.hypot(c.x - SUBJ.x, c.y - SUBJ.y); if (d < SUBJ.r*1.25) subjTouch(c.x, c.y, so*(1 - d/(SUBJ.r*1.25))); }   // (passing close, it lights the facets on that side)
   });
   shocks.forEach(h => {
     if (h.s <= 0) return;

@@ -15,7 +15,7 @@ import { hsv2rgb } from '../../util.js';
 // dance: its character as a dancer (scene/dance.js): {moves: {move: weight}, sym (its snap turns: a full turn over sym), liftPart}
 export function meshObject({key, label, words, mesh, motion, dance}){
   let drawGL = null, glGen = -1, panes2d = null;
-  const fx = makeFx(key.length*7.3 + key.charCodeAt(0));   // its panes' facet light, each part of the music its pattern
+  const fx = makeFx(key.length*7.3 + key.charCodeAt(0), key);   // its panes' facet light, each part of the music its pattern
   const st = {ex: 0, exT: 0, glow: 0, hue: 0, lastHit: 0, seen: false, jOn: false, bars: 0, sw: 1, spark: 0, sparkSeed: 0, off: true};
   return {
     key, kind: 'object', label, words, optIn: true, mesh, dance,   // (the mesh, so its vertex data can be worked out while the page is idle)

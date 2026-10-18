@@ -12,6 +12,7 @@ import { SIG } from './signals.js';
 import { S } from '../state.js';
 import { TUNE } from '../tuning.js';
 import { L } from '../audio/listen.js';
+import { SUBJ } from './subject.js';
 export { fxAt } from '../render/mesh.js';   // (a pane's light, worked out the same in simple mode)
 
 const hash = n => { const x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
@@ -19,7 +20,7 @@ const hashStr = s => { let h = 2166136261; for (const c of String(s)) h = Math.i
 const tids = new WeakMap(); let tidN = 0; const tid = t => t == null ? 0 : tids.get(t) || (tids.set(t, ++tidN), tidN);   // a section type's own number (types are objects)
 const dirOf = (a, b) => { const z = a*2 - 1, t = b*Math.PI*2, r = Math.sqrt(1 - z*z); return [r*Math.cos(t), z, r*Math.sin(t)]; };
 
-export function makeFx(salt){
+export function makeFx(salt, key){
   const st = {rip: [], n: 0, sec: 0, secT: -9, band: 0, bars: 0, secBars: 0, type: undefined, mode: 1, axis: [0, 1, 0], nSec: 4, t: 0, s16: -1, lastHit: 0, kickT: -9};
   // U.fx: rip (4 × origin xyz and ring angle, -1 when off), ripK (strengths), sec (axis xyz, count), secS (lit index, fade, mode, 0),
   // spk (step seed, share, amount, meter height or -2)
@@ -37,6 +38,9 @@ export function makeFx(salt){
       // the kick: a ring from a new point
       if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; st.n++;
         st.rip.push({o: dirOf(hash(st.n*3.1 + salt), hash(st.n*7.7 + salt)), t: st.t, k: .55 + ten*.5}); if (st.rip.length > 4) st.rip.shift(); }
+      // touched by a layer playing round it (a laser catching on it, a comet or firefly passing: scene/subject.js): a ring from that side
+      if (key && SUBJ.key === key && SUBJ.touch > .3 && st.t - (st.touchT ?? -9) > .3) { st.touchT = st.t; const l = Math.hypot(SUBJ.tx, SUBJ.ty, .5) || 1;
+        st.rip.push({o: [SUBJ.tx/l, SUBJ.ty/l, .5/l], t: st.t, k: .4*SUBJ.touch}); if (st.rip.length > 4) st.rip.shift(); }
       if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; }
       st.lastHit = x.hit;
       const s16 = SIG.barPhase > 0 ? Math.floor(SIG.barPhase*16) : Math.floor(st.t/(bp/4)) % 16;

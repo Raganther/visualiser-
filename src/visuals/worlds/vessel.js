@@ -8,11 +8,12 @@
 // draws the tube's rings receding, swelling with the pulse, and cells drifting past.
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { genMat } from '../../scene/genome.js';
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, flow: 0, push: 0, z2d: null};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
-// a section's vessel: its kind (0 artery, 1 vein, 2 lymph, 3 nerve), its width, a hue nudge, how many cells
-const LOOK = D => [D ? Math.floor(hh(D + .7)*4) : 0, .9 + hh(D + 2.1)*.5, (hh(D + 4.3) - .5)*.08, .5 + hh(D + 6.1)*.5];
+// a section's vessel: its kind (0 artery, 1 vein, 2 lymph, 3 nerve: the genome's neon a nerve), its width, a hue nudge, how many cells
+const LOOK = D => [genMat() === 2 ? 3 : D ? Math.floor(hh(D + .7)*4) : 0, .9 + hh(D + 2.1)*.5, (hh(D + 4.3) - .5)*.08, .5 + hh(D + 6.1)*.5];
 const path = z => [Math.sin(z*.11)*1.4 + Math.sin(z*.053)*1.1, Math.cos(z*.09)*.9 + Math.sin(z*.041)*.8, z];
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 export const vesselAt = z => { st.z = z; };   // (for tests and labs: put the camera this far along)

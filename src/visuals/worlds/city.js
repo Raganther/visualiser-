@@ -7,6 +7,7 @@
 import { dataArr } from '../../state.js';
 import { hc, rowsAbove, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { genPick } from '../../scene/genome.js';
 
 // the district on screen and the one rising (D0, D1, how far the change has got), the lights' level, the drop's leap,
 // the searchlights' angles now and where they're swinging to
@@ -41,11 +42,11 @@ export default {
     st.jump = Math.max(0, st.jump - x.dt*1.2);
     for (let k = 0; k < 2; k++) st.sw[k] += (st.swT[k] - st.sw[k])*Math.min(1, x.dt*2.5);
     P.citySeed = st.seed % 64;
-    P.cityA = [st.D0, st.D1, st.tr, st.lvl];
+    P.cityA = [st.D0, st.D1, st.tr, st.lvl]; P.cityN = genPick([.8, .55, .15, .6], .45);   // (the genome's material: neon a sign on most buildings, stone hardly any)
     P.cityB = [Math.min(1, x.hit || 0), st.jump*st.jump, st.sw[0], st.sw[1]];
   },
   glsl: {
-    uniforms: 'uniform float uCitySeed; uniform vec4 uCityA,uCityB;',
+    uniforms: 'uniform float uCitySeed, uCityN; uniform vec4 uCityA,uCityB;',
     functions: `
 // city: a building of row L at x: its top, and which building (id, its key in its district) and where across it (lx,
 // 0..1), for width w. A change of district reaches each building in turn: the old one sinks, the new one rises
@@ -118,7 +119,7 @@ vec3 cityAbove(vec2 sp){
     // neon: a sign down the front of many buildings in the nearer rows, in the palette's colours, switching on one by one
     // as the tension rises and flickering on stabs; lit harder on the beat
     float nh=hash(vec2(id,L+19.0));
-    if(i>=1 && nh>0.45){
+    if(i>=1 && nh>uCityN){   // (how many have signs: the genome's material, neon the most)
       float on=step(fract(nh*37.0),uCityA.w*1.15-0.05)*(1.0-step(0.4,uCityB.x)*step(0.5,hash(vec2(id,floor(uTime*18.0)))));
       vec2 q=vec2((u-(nh>0.72 ? 0.3 : 0.8))*w,sp.y-(h-0.1));
       vec2 d=abs(q)-vec2(0.007+0.004*fl,0.05); float sd=length(max(d,0.0))+min(max(d.x,d.y),0.0);
@@ -171,7 +172,7 @@ float cityFront(vec2 sp){
 }`,
     path2d(o, P, t){ const g = geo(o, P); for (const L of [2, 3]) buildings2d(g, L, t, P, (x0, y0, x1, y1) => o.rect(x0, y0, x1 - x0, y1 - y0)); },
   },
-  uniforms(gl, u, P){ gl.uniform1f(u.uCitySeed, P.citySeed); gl.uniform4fv(u.uCityA, P.cityA); gl.uniform4fv(u.uCityB, P.cityB); },
+  uniforms(gl, u, P){ gl.uniform1f(u.uCitySeed, P.citySeed); gl.uniform1f(u.uCityN, P.cityN ?? .45); gl.uniform4fv(u.uCityA, P.cityA); gl.uniform4fv(u.uCityB, P.cityB); },
   init2d(){ rnd2d = Array.from({length: ROWS}, () => Array.from({length: 80}, () => Array.from({length: 8}, Math.random))); },
   draw2d(o, P, t){ drawCity(o, P, t); drawStreet(o, P, t); },
 };
@@ -239,7 +240,7 @@ function drawCity(o, P, t){
         }
       }
       const nh = b.r[7];                                  // neon, switching on as the build rises, flickering on stabs
-      if (L >= 1 && nh > .45 && ((nh*37) % 1) < lvl*1.15 - .05 && !(P.cityB[0] > .4 && hs(b.id, Math.floor(t*18)) < .5)) {
+      if (L >= 1 && nh > (P.cityN ?? .45) && ((nh*37) % 1) < lvl*1.15 - .05 && !(P.cityB[0] > .4 && hs(b.id, Math.floor(t*18)) < .5)) {
         o.save(); o.strokeStyle = hc(P.hue + (nh > .72 ? P.pal[1] : P.pal[2]) + .15*b.r[1], 90, 62, a); o.lineWidth = Math.max(1.5, g.u*.005);
         o.shadowColor = o.strokeStyle; o.shadowBlur = g.u*.02*(1 + P.beat);
         const nx = fx0 + fwid*(nh > .72 ? .15 : .75), nw = .007 + .004*fl;

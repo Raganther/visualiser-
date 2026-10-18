@@ -3,6 +3,7 @@
 // they gather round the centre in its n-fold rings: each group of n follows its first, turned by a share of the circle.
 import { L } from '../../audio/listen.js';
 import { genN } from '../../scene/genome.js';
+import { SUBJ, subjTouch } from '../../scene/subject.js';
 
 const N = 20, FA = new Float32Array(N*4);   // for the shader: x, y, size, brightness
 const rnd = i => { const v = Math.sin(i*91.7)*43758.5453; return v - Math.floor(v); };
@@ -25,10 +26,12 @@ export default {
     });
     if (sym > .001) for (let i = 0; i < N; i++) {   // gathered: each the first of its group turned by j/n of the circle, round the centre
       const j = i % symN, i0 = i - j; if (i0 + symN > N) continue;
-      const lx = FA[i0*4] - (P.cx || 0), ly = FA[i0*4+1] - (P.cy || 0), r = Math.min(.45, Math.hypot(lx, ly)), a = Math.atan2(ly, lx) + j/symN*Math.PI*2;
-      FA[i*4] += ((P.cx || 0) + Math.cos(a)*r - FA[i*4])*sym; FA[i*4+1] += ((P.cy || 0) + Math.sin(a)*r - FA[i*4+1])*sym;
+      const so = SUBJ.on, cx = (P.cx || 0) + (SUBJ.x - (P.cx || 0))*so, cy = (P.cy || 0) + (SUBJ.y - (P.cy || 0))*so;   // (round the centrepiece, when there is one, and outside it)
+      const lx = FA[i0*4] - cx, ly = FA[i0*4+1] - cy, r = Math.max(SUBJ.r*1.25*so, Math.min(.45, Math.hypot(lx, ly))), a = Math.atan2(ly, lx) + j/symN*Math.PI*2;
+      FA[i*4] += (cx + Math.cos(a)*r - FA[i*4])*sym; FA[i*4+1] += (cy + Math.sin(a)*r - FA[i*4+1])*sym;
       FA[i*4+2] += (FA[i0*4+2] - FA[i*4+2])*sym; FA[i*4+3] += (FA[i0*4+3] - FA[i*4+3])*sym;
     }
+    if (SUBJ.on > .05) for (let i = 0; i < N; i++) { const d = Math.hypot(FA[i*4] - SUBJ.x, FA[i*4+1] - SUBJ.y); if (d < SUBJ.r*1.3 && FA[i*4+3] > .4) subjTouch(FA[i*4], FA[i*4+1], .5*SUBJ.on*FA[i*4+3]); }   // (one drifting close lights its side)
     P.flies = FA;
   },
   feedback: {

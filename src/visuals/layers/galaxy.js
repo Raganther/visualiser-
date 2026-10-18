@@ -3,6 +3,7 @@
 // them; the core swells with the bass, the winding tightens as the tension builds, and a drop flings the arms open before
 // they wind back. Each section its own number of arms. Rotational symmetry, calm and grand (the user's taste, principles 3
 // and 9). Simple mode draws its stars as dots along the arms, with the core's glow.
+import { genFold } from '../../scene/genome.js';
 const st = {arms: 2, type: null, wind: 0, drop: null, fling: 0, turn: 0};
 const hh = x => { const s = Math.sin(x*127.1)*43758.5453; return s - Math.floor(s); };
 const STARS = Array.from({length: 700}, (_, i) => [hh(i + .5), hh(i*1.7 + 3.1), hh(i*2.3 + 7.7), hh(i*.9 + 1.3)]);   // (simple mode's stars: where along, which arm, spread, size)
@@ -20,7 +21,7 @@ export default {
     const T = (J && J.tension) || 0;
     st.wind += ((.28 + .35*T - .25*st.fling) - st.wind)*Math.min(1, x.dt*.8);   // how tightly wound: tighter as it builds, flung open on a drop
     st.turn += x.dt*(.05 + .08*T);
-    P.gal = [st.arms, st.wind, st.turn, .03*(1 + x.sBass*x.react*.35*x.dim)];
+    P.gal = [genFold(2, 6) || st.arms, st.wind, st.turn, .03*(1 + x.sBass*x.react*.35*x.dim)];
   },
   feedback: {
     uniforms: 'uniform vec4 uGalL;   // arms, winding, turn, the core\'s size',

@@ -1,6 +1,8 @@
 // Orbits: bright flares circling the world's subject (the planet the cosmos films, space's planet, or the trails' centre)
 // on tilted orbits, leaving rings and spirals in the trails. They pass behind the planet, tighten and speed up as the music
 // builds, and a drop flings them wide, like a slingshot, before they settle back.
+import { SUBJ } from '../../scene/subject.js';
+import { genFold } from '../../scene/genome.js';
 const N = 10, O = [];
 for (let i = 0; i < N; i++) O.push({rf: 1.25 + (i % 5)*.24 + (i*.37 % 1)*.15, ph: i*2.399, tilt: .35 + (i*.61 % 1)*.5, rot: (i*.83 % 1 - .5)*.7, slot: i % 3});
 let plane = 0, sling = 0, lastDrop, T = 0;
@@ -14,14 +16,17 @@ export default {
   params(P, x){
     const out = P.orbs = OUT.fill(0), w = P.l.orbit || 0;   // (reused each frame)
     if (w < .003) return;
-    const f = P.focus || {x: 0, y: 0, r: 0, k: 0}, on = f.k > .3;   // round a world's subject, or round the trails' centre
+    const sub = SUBJ.on > .3, f = sub ? {x: SUBJ.x, y: SUBJ.y, r: SUBJ.r, k: 1} : P.focus || {x: 0, y: 0, r: 0, k: 0}, on = f.k > .3;   // round the centrepiece (scene/subject.js), a world's subject, or the trails' centre
+    const g = genFold(3, N);   // the genome's symmetry: a crown of its count on one orbit, evenly spaced
     const cx = on ? f.x : P.cx, cy = on ? f.y : P.cy, base = on ? Math.max(.035, f.r) : .09;
     if (lastDrop === undefined) lastDrop = x.J.lastDrop;
     if (x.J.lastDrop !== lastDrop) { lastDrop = x.J.lastDrop; sling = 1; }   // a drop flings them wide
     sling *= Math.exp(-x.dt/.9);
     const tight = 1 - .3*Math.max(0, x.J.tension - .4)/.6;   // a build pulls them in, and quickens them
     T += x.dt*(.6 + .8*(1 - tight)); plane += x.dt*.05;
-    O.forEach((o, i) => {
+    O.forEach((o0, i) => {
+      if (g && i >= g) { out.set([0, 0, 0, 0], i*4); return; }
+      const o = g ? {rf: 1.5, ph: i*Math.PI*2/g, tilt: .55, rot: 0, slot: i % 3} : o0;
       const rr = base*o.rf*tight*(1 + 1.6*sling*(.6 + .4*(i % 3)/2)), a = o.ph + T*1.1/Math.pow(o.rf, 1.5);
       const ex = Math.cos(a), ey = Math.sin(a)*Math.cos(o.tilt), z = Math.sin(a)*Math.sin(o.tilt), pr = plane + o.rot;
       const px = cx + rr*(ex*Math.cos(pr) - ey*Math.sin(pr)), py = cy + rr*(ex*Math.sin(pr) + ey*Math.cos(pr));

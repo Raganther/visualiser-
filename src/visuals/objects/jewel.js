@@ -13,6 +13,7 @@ import { L } from '../../audio/listen.js';
 import { gemSheetGeo, FOCAL, CAM } from '../../render/facet.js';
 import { makeCells, stepCells, touch } from './cells.js';
 import { genN, genMat } from '../../scene/genome.js';
+import { SUBJ } from '../../scene/subject.js';
 
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
@@ -428,6 +429,7 @@ export default {
   params(P, x){
     const T = TUNE.jewel, J = x.J, dt = x.dt, w = P.o.jewel || 0;
     st.t += dt;
+    if (SUBJ.key === 'jewel' && SUBJ.touch > .3 && on('pulse') && st.t - (st.touchT ?? -9) > .3) { st.touchT = st.t; const l = Math.hypot(SUBJ.tx, SUBJ.ty, .5) || 1; ring([SUBJ.tx/l, SUBJ.ty/l, .5/l], .3*SUBJ.touch); }   // (a laser or a comet touching it: a ring of light from that side, scene/subject.js)
     st.steady = (J && J.on && J.beatClear != null ? J.beatClear : 1) > .5;
     st.period = S.beatPeriod > .2 ? S.beatPeriod : .5;
     st.tension = J ? J.tension || 0 : .3;

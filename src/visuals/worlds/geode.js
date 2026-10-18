@@ -10,12 +10,13 @@ import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
 import { S } from '../../state.js';
 import { SIG } from '../../scene/signals.js';
+import { genPick } from '../../scene/genome.js';
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, grow: .5, age: 99, sec: 0, secT: -9, lastHit: 0, bars: 0, secBars: 0, t: 0, typ: null};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 const GAP = 24, R0 = 2.8, RB = 3.2;   // a cavern every GAP units along the way; the fissure's radius, and how much wider a cavern is
 // a section's crystal: its kind (0 amethyst, 1 citrine, 2 quartz, 3 emerald), how thick the points grow
-const LOOK = D => [D ? Math.floor(hh(D + .9)*4) : 0, .85 + hh(D + 2.7)*.4];
+const LOOK = D => [genPick([1, 2, 0, 3], D ? Math.floor(hh(D + .9)*4) : 0), .85 + hh(D + 2.7)*.4];   // (the genome's material: stone citrine, glass quartz, neon amethyst, metal emerald)
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 const path = z => [Math.sin(z*.09)*1.6 + Math.sin(z*.043)*1.2, Math.cos(z*.07)*1.0 + Math.sin(z*.037)*.7, z];
 const bulge = z => (.5 + .5*Math.cos(Math.PI*2*z/GAP))**4;   // 1 in a cavern's middle, 0 in the fissure
