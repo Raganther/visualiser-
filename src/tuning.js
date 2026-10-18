@@ -393,7 +393,11 @@ export const TUNE = {
   // settles over; its roll; the bass's breath; the kick's light (how fast it rushes away, how fast it fades); the clear way
   // round the flight; how bright; where the centrepiece floats (every gate units), and its size
   kifs: {speed: .9, calm: .35, surge: 2, surgeSecs: 2.5, morphSecs: 6, twist: .35, dropTwist: .6, settleBars: 8, turn: .08,
-    breath: .06, waveSpeed: 7, waveFade: .9, tunnel: .22, cell: 1.4, glow: 1, gate: 9, heartSize: .55},   // (cell: the size of the sponge's cells, which fill space)
+    breath: .06, waveSpeed: 7, waveFade: .9, tunnel: .22, cell: 1.4, glow: 1, gate: 9, heartSize: .55,   // (cell: the size of the sponge's cells, which fill space)
+    // its colours: the kick's light calm and at full tension (it was always full, and saturated: the user found it all or
+    // nothing), the bar's beats (the 1 strongest); the schemes' weights (palette, jewel, iridescent, gold, ice, depth), a new
+    // one every schemeBars bars of a section as well as with each section, easing over schemeSecs; how saturated
+    colour: {kickCalm: .15, kickFull: .6, accent: [1, .45, .7, .45], schemes: [1, 1.2, 1, .8, .7, 1], schemeBars: 16, schemeSecs: 4, sat: 1}},
   lattice: {speed: 3, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Lattice (worlds/lattice.js): its flight, a drop's surge, a new section's tunnel
     turn: .12,                 // how fast it turns (faster as the music builds and on a drop)
     breath: .05,               // how much the bass swells it
