@@ -33,7 +33,7 @@ async function record(mode, url){
     // picture differed, though the music, stepped on the test's clock, was the same)
     const wait = mode === 'gl' && s % thumbEvery === 0;
     const snap = await page.evaluate(`(async () => { __step(${wait ? 59 : 60});
-      if (${wait}) { const {segBusy} = await import('/src/render/gl.js'); for (let i = 0; i < 300 && segBusy(); i++) await new Promise(r => setTimeout(r, 100)); __step(1); }
+      if (${wait}) { for (let i = 0; i < 300 && window.__segBusy && window.__segBusy(); i++) await new Promise(r => setTimeout(r, 100)); __step(1); }
       return {t: ${s}, j: __jdbg(), sec: document.querySelector('#jSection').textContent, thumb: ${s % thumbEvery === 0} ? ${THUMB} : null}; })()`);
     if (snap.thumb) thumbs.push({t: s, px: snap.thumb});
     delete snap.thumb; timeline.push(snap);

@@ -214,7 +214,8 @@ function prime(pr){
   } catch (e) {}
 }
 export const segInfo = () => [...segProgs].map(([k, e]) => k + (e.p ? '' : e.failed ? ' (failed)' : ' (compiling)'));   // for tests and tools
-export const segBusy = () => [...segProgs.values()].some(e => e.job && !segDone(e));   // (is the driver still building any? the golden test waits for it, so its pictures don't depend on the machine's load)
+export const segBusy = () => [...segProgs.values()].some(e => e.job && !segDone(e));
+if (typeof window !== 'undefined') window.__segBusy = segBusy;   // (is the driver still building any? the golden test waits for it, on the built page too, so its pictures don't depend on the machine's load)
 // compile the segment shaders these scenes will need while the page is idle, so a scene's first bar line has them ready:
 // each run without the big worlds, and the big worlds drawn at their own size
 export function warmScenes(scenes){
