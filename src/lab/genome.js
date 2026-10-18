@@ -74,8 +74,8 @@ export default function(){
   // Apart, the kaleidoscope gets its own count and kind each section
   let sepKal = null;
   function apply(){
-    if (GEN.on && GEN.geo) { STEER.pin.kal = GEN.n; STEER.kalMode = KAL_OF[GEN.motif]; }
-    else { if (!sepKal) sepKal = {n: 3 + Math.floor(Math.random()*7), mode: Math.floor(Math.random()*14)}; STEER.pin.kal = sepKal.n; STEER.kalMode = sepKal.mode; }
+    if (GEN.on && GEN.geo) { STEER.pin.kal = GEN.n; STEER.kalMode = KAL_OF[GEN.motif]; STEER.kalWhere = 0; }   // (together it folds everything, the world, the Prism and the lights as one body; Journey's own habit round a centrepiece was inside it)
+    else { STEER.kalWhere = null; if (!sepKal) sepKal = {n: 3 + Math.floor(Math.random()*7), mode: Math.floor(Math.random()*14)}; STEER.pin.kal = sepKal.n; STEER.kalMode = sepKal.mode; }
     if (GEN.on && GEN.col) S.hueSet = GEN.hue;
     steerKal();
   }
