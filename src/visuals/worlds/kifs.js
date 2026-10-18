@@ -12,6 +12,8 @@ import { TUNE } from '../../tuning.js';
 import { S } from '../../state.js';
 import { SIG } from '../../scene/signals.js';
 import { SYM } from '../../scene/sym.js';
+import { genPick } from '../../scene/genome.js';
+
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, roll: 0, t: 0, kickT: -9,
   a: [0, 0], aT: [0, 0], bars: 0, pos: 0, kAmp: 0, sc: [0, 0], scT: 1, scN: 0, scD: null, scBar: 0, hold: null};
@@ -56,7 +58,8 @@ export default {
     // a new colour scheme with each section, and every few bars of a long one, easing across
     if (st.scD !== st.D1) { st.scD = st.D1; st.scBar = st.bars; st.sc = [st.sc[1], pickScheme(st.D1*1.37 + .2, st.sc[1])]; st.scT = st.scN++ ? 0 : 1; if (st.scT === 1) st.sc[0] = st.sc[1]; }
     else if (st.bars - st.scBar >= C.schemeBars) { st.scBar = st.bars; st.sc = [st.sc[1], pickScheme(st.D1*1.37 + st.bars*.071, st.sc[1])]; st.scT = 0; }
-    if (st.hold != null && st.sc[1] !== st.hold) { st.sc = [st.sc[1], st.hold]; st.scT = 0; }
+    const hold = st.hold ?? genPick([3, 1, 2, 4], null);   // (held, or the genome's material: stone gold, glass jewel, neon iridescent, metal ice)
+    if (hold != null && st.sc[1] !== hold) { st.sc = [st.sc[1], hold]; st.scT = 0; }
     st.scT = Math.min(1, st.scT + x.dt/C.schemeSecs);
     const L = mix(LOOK(st.D0), LOOK(st.D1), st.tr*st.tr*(3 - 2*st.tr));   // (morphing into the section's own)
     P.kf = [st.z, link && SYM.on ? -SYM.turn : st.roll, L[0], 1 + (P.bass || 0)*x.react*T.breath];

@@ -10,7 +10,7 @@ import { S } from '../state.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
 import { STEER, banned, pinned } from './steer.js';
 import { chooseWorld } from './worlds.js';
-import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal } from './extras.js';
+import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal, genKalApply } from './extras.js';
 import { crowd, fit } from './combos.js';
 import { PLAN, headObject, planBonus, planChance } from './plan.js';
 export { NAMES, OVER_WORLD };
@@ -183,7 +183,7 @@ export function recast(fresh, keep){
   if (!fresh && cast && !steered(cast)) {                         // a returning part looks the same (unless steering says otherwise)...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
     J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.litLook = cast.litLook || 0; J.stage = !!cast.stage; J.stageStyle = cast.stageStyle; J.sceneKey = cast.sceneKey || 'plain';
-    J.kal = cast.kal || null; steerKal(); J.grain = cast.grain || 0; J.tw = cast.tw || {}; applyTw(); J.mand = cast.mand ?? .5; J.fracV = cast.fracV || 0;
+    J.kal = cast.kal || null; genKalApply(); J.grain = cast.grain || 0; J.tw = cast.tw || {}; applyTw(); J.mand = cast.mand ?? .5; J.fracV = cast.fracV || 0;
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;

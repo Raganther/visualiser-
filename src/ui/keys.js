@@ -21,7 +21,8 @@ import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweak
 import { STEER, clearSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
 import { chooseWorld } from '../journey/worlds.js';
-import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
+import { KAL_KINDS, KAL_N, steerKal, genKalApply } from '../journey/extras.js';
+import { GEN, genKeep, genNew, genWords } from '../scene/genome.js';
 import { updateSectionUI, gearUI } from './panel.js';
 import { GEARS } from '../journey/gear.js';
 import { $ } from '../util.js';
@@ -143,6 +144,14 @@ for (const c of document.querySelectorAll('[data-explore]')) { const k = c.datas
   c.addEventListener('change', e => { S.explore[k] = e.target.checked ? 1 : 0; try { localStorage.setItem('afterglow.explore', JSON.stringify(S.explore)); } catch (er) {}
     if (k === 'kifs' && !S.explore.kifs && J.on && J.world === 'kifs') chooseWorld(true);   // (off: Journey moves on from it now)
     toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : k === 'link' ? 'off (each keeps its own symmetry)' : 'off (Journey leaves it out)'}`); }); }
+// the genome (scene/genome.js): on or off and what it shares, from the Adjust panel, remembered on the device
+export function setGenome(k, v, quiet){
+  GEN[k] = !!v; genKeep(); if (k === 'on' && v || GEN.on && k !== 'line' && v) genNew(J.type);   // (a fresh genome for this section, at once)
+  if (J.on) { genKalApply(); updateSectionUI(); }
+  for (const c of document.querySelectorAll('[data-gen]')) c.checked = !!GEN[c.dataset.gen];
+  if (!quiet) toast(GEN.on ? `Genome: ${genWords()}` : 'Genome off: each piece its own');
+}
+for (const c of document.querySelectorAll('[data-gen]')) { c.checked = !!GEN[c.dataset.gen]; c.addEventListener('change', e => setGenome(c.dataset.gen, e.target.checked)); }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
 addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)

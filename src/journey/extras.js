@@ -8,6 +8,16 @@ import { STEER } from './steer.js';
 import { S } from '../state.js';
 import { crowd, fit, piecesOf } from './combos.js';
 import { headKal, kalHeld, planChance } from './plan.js';
+import { GEN } from '../scene/genome.js';
+
+// the genome's kaleidoscope (scene/genome.js), while it shares its symmetry: its mirrors, a kind for its motif, and what it
+// folds (inside the centrepiece only when there is one); none for a genome that folds nothing. undefined: not the genome's
+export const KAL_OF = [0, 2, 9, 3];   // (a rose wedges, a pointed arch the dive, a hexagon tiles, a star a pinwheel)
+export function genKal(){
+  if (!GEN.on || !GEN.geo) return undefined;
+  return GEN.fold === 4 ? null : {n: GEN.n, where: GEN.fold === 3 && !J.centre ? 0 : GEN.fold, turn: .03, mode: KAL_OF[GEN.motif]};
+}
+export function genKalApply(){ const g = genKal(); if (g !== undefined) J.kal = g; steerKal(); }
 
 const lerp = ([a, b], f) => a + (b - a)*f, rnd = r => lerp(r, Math.random());
 const pickW = w => { let r = Math.random()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; };
@@ -17,7 +27,8 @@ const pickW = w => { let r = Math.random()*w.reduce((a, b) => a + b, 0); const i
 export function chooseKal(force){
   const K = TUNE.extras.kal, T = J.tension, R = J.recipe;
   J.kal = null;
-  if (STEER.pin.kal || STEER.ban.kal) { steerKal(); return; }
+  if (STEER.pin.kal || STEER.ban.kal) { genKalApply(); return; }
+  const g = genKal(); if (g !== undefined) { J.kal = g; return; }
   const head = headKal();   // the track's big moment is a kaleidoscope (journey/plan.js): it comes with the drop
   if (head != null) { J.kal = {n: Math.round(lerp(K.n, .5 + T*.5)), where: whereFor(), turn: .03, mode: head}; return; }
   if (!force && R && R.kal) { if (Math.random() < K.recipe) J.kal = {...R.kal}; return; }
@@ -67,6 +78,7 @@ export function applyTw(){
 }
 // a progression step: the kaleidoscope comes in, changes its count, or goes
 export function shiftKal(){
+  if (genKal() !== undefined) { genKalApply(); return; }   // (the genome's stays the section's)
   if (!J.kal) { if (Math.random() < .5) chooseKal(true); }
   else if (Math.random() < .3) J.kal = null;
   else J.kal = {...J.kal, n: Math.max(2, Math.min(12, J.kal.n + [-2, -1, 1, 2][Math.floor(Math.random()*4)]))};

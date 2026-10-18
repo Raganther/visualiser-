@@ -12,6 +12,8 @@ import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
 import { G } from '../audio/beatgrid.js';
 import { L } from '../audio/listen.js';
+import { genEnter } from '../scene/genome.js';
+
 
 // (over six: the fingerprint's first six features set the scale; the listening's hats and noise add to it rather than
 // thinning the others out, which made every section change harder)
@@ -53,7 +55,7 @@ export function matchType(F){
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
   return bd < TUNE.sameType*(1 - .4*stillness()) ? best : newType(F);
 }
-export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; if (!J.adopt) chooseWorld(); J.recast = true;   // (a look just handed back keeps its world)
+export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; genEnter(t); if (!J.adopt) chooseWorld(); J.recast = true;   // (its genome first, scene/genome.js; a look just handed back keeps its world)
     resetProgress(); updateSectionUI(); } }
 // 0 when the music has just changed, rising to 1 after about two minutes of sameness
 export function stillness(){ return sstep(TUNE.stillFrom, TUNE.stillTo, J.stillT || 0); }

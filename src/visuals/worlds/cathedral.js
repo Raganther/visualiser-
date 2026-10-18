@@ -9,11 +9,13 @@
 // columns, arches and the glowing oculi.
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { genPick } from '../../scene/genome.js';
+
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, y: .3, roll: 0, rollT: 0, look: 0, bars: 0, want: false, alt: null, lastD: null};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 // a section's cathedral: bay length, arch pointedness, column radius, two hues, its stone (0 warm stone, 1 marble, 2 obsidian)
-const LOOK = D => [2.6 + hh(D + .4)*1.2, .6 + hh(D + 1.1)*1.1, .2 + hh(D + 2.3)*.14, hh(D + 3.1), hh(D + 5.9), D ? Math.floor(hh(D + 7.3)*3) : 0];
+const LOOK = D => [2.6 + hh(D + .4)*1.2, .6 + hh(D + 1.1)*1.1, .2 + hh(D + 2.3)*.14, hh(D + 3.1), hh(D + 5.9), genPick([0, 1, 2, 1], D ? Math.floor(hh(D + 7.3)*3) : 0)];   // (its stone: the genome's material while it's on: stone, glass and metal marble, neon obsidian edged in neon)
 const W = 2.2, SPRING = 1.3, FLOOR = -1.2;   // half a bay's width, where the arches spring, the floor
 const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 function camera(){   // where the camera is and where it looks (its own frame, handed to the shader)

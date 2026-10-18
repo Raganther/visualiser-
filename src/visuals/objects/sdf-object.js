@@ -9,6 +9,7 @@ import { DANCE } from '../../scene/dance.js';
 import { SIG } from '../../scene/signals.js';
 import { L } from '../../audio/listen.js';
 import { facetGeo } from '../../render/facet.js';
+import { genPick } from '../../scene/genome.js';
 import { sdfRegister, sdfDraw, sdf2d, sdfPath2d, look2d } from '../../render/sdf.js';
 
 const G1 = facetGeo(1);
@@ -53,7 +54,7 @@ export function sdfObject(o){
       o.step(st, M, dt, x, P);
       // its look (own, chrome, glass, neon, iridescent, toon): held (TUNE.sdf.look, or its own TUNE[key].look), or a section's own
       if (J && J.on && J.type !== st.type) { st.type = J.type; const w = T.looks; let r = st.rand()*w.reduce((a, b) => a + b); st.look = Math.max(0, w.findIndex(v => (r -= v) <= 0)); }
-      const own = (TUNE[o.key] || {}).look, lk = own != null && own >= 0 ? own : T.look >= 0 ? T.look : st.look || 0;
+      const own = (TUNE[o.key] || {}).look, lk = own != null && own >= 0 ? own : T.look >= 0 ? T.look : genPick([0, 2, 3, 1], st.look || 0);   // (the genome's material: stone its own, glass, neon, metal chrome)
       // its turn: slow, slower without a steady beat, the dance on top
       st.yaw += dt*S.speed*T.spin*(.4 + st.ten)*(steady ? 1 : .5);
       // when asked (TUNE.sdf.wander.on: K then D, or the panel), under a kaleidoscope that folds everything it wanders slowly

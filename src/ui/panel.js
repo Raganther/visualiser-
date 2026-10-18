@@ -12,6 +12,7 @@ import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { F } from '../audio/foresee.js';
 import { TUNE } from '../tuning.js';
+import { genWords } from '../scene/genome.js';
 import { MEDIA } from '../media/source.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { solo } from './presets.js';
@@ -25,6 +26,7 @@ export function updateSectionUI(){
   el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
     + (J.recipe ? `, from the ${J.recipe.name} recipe` : '')
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
+    + (genWords() ? `. Its genome: ${genWords()}` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
     + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' + (J.worldHold ? ' The Cosmos lab is holding it here: switch it off below to let Journey move between worlds.' : '') : '')

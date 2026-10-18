@@ -11,12 +11,14 @@
 // tunnel along the same route, widening into the chambers, with the heart's glow.
 import { hc, sectionLayout } from '../../util.js';
 import { TUNE } from '../../tuning.js';
+import { genPick } from '../../scene/genome.js';
+
 
 const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: null, wave: 9, lt: null, bars: 0, lastD: null, ch: null, want: false, roll: 0, look: 0, bass: 0};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 // a section's cave: scale, how open, two hues, its labyrinth (0 gyroid, 1 Schwarz P, 2 diamond, 3 Neovius), its stuff (0 stone, 1 crystal, 2 flesh, 3 ice)
 // (always the gyroid: the user loved its honeycomb, and the other labyrinths broke into floating blobs, "an asteroid belt")
-const LOOK = D => [.75 + hh(D + .3)*.5, -.35 + hh(D + 1.7)*.35, hh(D + 3.1), hh(D + 5.9), 0, D ? Math.floor(hh(D + 9.3)*4) : 0];
+const LOOK = D => [.75 + hh(D + .3)*.5, -.35 + hh(D + 1.7)*.35, hh(D + 3.1), hh(D + 5.9), 0, genPick([0, 3, 1, 1], D ? Math.floor(hh(D + 9.3)*4) : 0)];   // (its stuff: the genome's material while it's on: stone, glass ice, neon and metal crystal)
 // the route: stretches of SEG units, each its kind, the next blended in over the last part of each
 const SEG = 40, kindOf = k => Math.floor(hh(k*1.37 + .11)*4);
 function off(kind, z){

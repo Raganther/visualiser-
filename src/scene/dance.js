@@ -11,6 +11,7 @@ import { S } from '../state.js';
 import { SIG } from './signals.js';
 import { TUNE } from '../tuning.js';
 import { L } from '../audio/listen.js';
+import { genN } from './genome.js';
 
 let seed = 0x9e3779b9;
 const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = seed; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0)/4294967296; };
@@ -91,7 +92,7 @@ export function danceBeat(pos, J){
   const phrase = bar % TUNE.dance.barsPerMove === 0, section = J && J.type !== lastType; lastType = J && J.type;
   for (const k in D) {
     const d = D[k];
-    d.turn += d.move === 'face' ? d.sign*TAU/(d.n || 4) : d.move === 'turns' ? d.sign*TAU/12 : 0;   // snap turns step round on the bar (a layer by a notch)
+    d.turn += d.move === 'face' ? d.sign*TAU/(genN(2, 12) || d.n || 4) : d.move === 'turns' ? d.sign*TAU/(genN(2, 12) || 12) : 0;   // snap turns step round on the bar (a layer by a notch; by the genome's symmetry while it's on)
     if (drop && clearOf(J) > .5) { wrap(d); d.bar = bar; if (d.reach) d.move = 'reach'; else { d.burst = clearOf(J); d.move = 'spin'; } continue; }   // a reacher reaches out at us instead of spinning (no spin without a steady beat: a band swelling isn't a drop)
     if ((phrase || section || d.move === 'still' && mood.b < .5) && !(d.move === 'reach' && bar - d.bar < 3)) {   // (a reach plays out)
       wrap(d);
@@ -190,7 +191,8 @@ export function stepDance(dt, x, layers, objects, chars){
   // in step with the bar: half a shape a bar, a little faster as the energy rises, so the three together draw it whole
   C.since += dt; C.amt = Math.min(1, C.since/T.shapeIn); C.t += dt*TAU*T.cometTurns/(4*Math.max(.25, S.beatPeriod || .5))*(1 + energy*.4);
   F.amt = Math.min(1, F.amt + dt/T.flowIn); DANCE.flow = {mode: F.mode, amt: F.amt*Math.min(1, amt)};
-  DANCE.comets = {shape: C.shape, amt: C.shape === 'free' ? 0 : C.amt*amt, t: C.t, k: C.k, a: C.a, b: C.b, kick, beat};
+  const g = genN(3, 12);   // (the genome's symmetry: a rose of its n petals, a star of its n points)
+  DANCE.comets = {shape: C.shape, amt: C.shape === 'free' ? 0 : C.amt*amt, t: C.t, k: g ? (g % 2 ? g : g/2) : C.k, m: g && g >= 5 ? g : g ? g*2 : 0, a: C.a, b: C.b, kick, beat};
 }
 
 // where comet i of n should be on the current shape (in the picture's units round centre c), or null to roam freely
@@ -208,7 +210,7 @@ function shapePoint(shape, i, n, c, R, S){
   switch (shape) {
     case 'rose': { const a = t*.4 + ph/S.k; const rr = r*Math.cos(S.k*a); return [c[0] + rr*Math.cos(a), c[1] + rr*Math.sin(a)]; }   // a flower of k petals
     case 'lissa': { const a = t*.8 + ph; return [c[0] + r*1.3*Math.sin(S.a*a + Math.PI/2), c[1] + r*Math.sin(S.b*a)]; }       // a Lissajous knot
-    case 'star': { const m = 5 + (S.k % 3)*2, q = Math.floor(m/2), f = (t*.15 + i/n)*m % m, k0 = Math.floor(f), u = f - k0;   // a star polygon {m/q}
+    case 'star': { const m = S.m || 5 + (S.k % 3)*2, q = m % 2 ? Math.floor(m/2) : m/2 - 1, f = (t*.15 + i/n)*m % m, k0 = Math.floor(f), u = f - k0;   // a star polygon {m/q}
       const p = j => [Math.cos(j*q*TAU/m + Math.PI/2), Math.sin(j*q*TAU/m + Math.PI/2)], A = p(k0), B = p(k0 + 1);
       return [c[0] + r*(A[0] + (B[0] - A[0])*u), c[1] + r*(A[1] + (B[1] - A[1])*u)]; }
     case 'spiral': { const f = (t*.25 + i/n) % 1, rr = r*(.1 + 1.1*f); return [c[0] + rr*Math.cos(t*3 + ph + f*TAU*S.a*.5), c[1] + rr*Math.sin(t*3 + ph + f*TAU*S.a*.5)]; }

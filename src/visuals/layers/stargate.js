@@ -2,6 +2,7 @@
 // flying down a tunnel of the beat. Each ring is a rounded polygon, turning slowly, in the palette's hues. Once a section has
 // run 8 bars and the music is intense, each kick's ring brings two echoes on the next 16ths: a cascade.
 import { S } from '../../state.js';
+import { genN } from '../../scene/genome.js';
 const N = 12, GA = new Float32Array(N*4);   // for the shader: radius, width, hue offset, brightness
 const rings = Array.from({length: N}, () => ({z: 1, h: 0}));
 let next = 0, bars = 0, type = null, hot = false, echo = [];   // (echoes: rings waiting for their 16th)
@@ -23,14 +24,14 @@ export default {
       const R = .02 + .75*Math.pow(r.z, 2.2);   // slow far off, rushing past up close
       GA[i*4] = R; GA[i*4+1] = .002 + R*.02; GA[i*4+2] = P.pal[r.h]; GA[i*4+3] = r.z >= 1 ? 0 : Math.min(1, r.z*8)*(1 - Math.pow(r.z, 3))*(r.e ? .6 : 1);
     });
-    P.gate = GA; P.gateTurn = x.t*.15;
+    P.gate = GA; P.gateTurn = x.t*.15; P.gateN = genN(3, 12) || 6;   // (its sides: a hexagon, or the genome's symmetry)
   },
   feedback: {
-    uniforms: 'uniform vec4 uGate[12]; uniform float uGateTurn;',
+    uniforms: 'uniform vec4 uGate[12]; uniform float uGateTurn, uGateN;',
     main: `
   {
-    vec2 q=p; float a=atan(q.y,q.x)+uGateTurn, sides=6.0, seg=6.2831853/sides;
-    float rr=length(q)*cos(mod(a,seg)-seg*0.5)/cos(seg*0.5*0.6);   // a rounded hexagon's radius in this direction
+    vec2 q=p; float a=atan(q.y,q.x)+uGateTurn, sides=uGateN, seg=6.2831853/sides;
+    float rr=length(q)*cos(mod(a,seg)-seg*0.5)/cos(seg*0.5*0.6);   // a rounded polygon's radius in this direction
     rr=mix(length(q),rr,0.6);
     for(int i=0;i<12;i++){
       vec4 g=uGate[i]; if(g.w<0.01) continue;
@@ -39,13 +40,13 @@ export default {
     }
   }`,
   },
-  fbUniforms(gl, u, P){ if (u['uGate[0]'] && P.gate) { gl.uniform4fv(u['uGate[0]'], P.gate); gl.uniform1f(u.uGateTurn, P.gateTurn); } },
+  fbUniforms(gl, u, P){ if (u['uGate[0]'] && P.gate) { gl.uniform4fv(u['uGate[0]'], P.gate); gl.uniform1f(u.uGateTurn, P.gateTurn); gl.uniform1f(u.uGateN, P.gateN || 6); } },
   trails2d(c, P, x){
     const {u, sx, sy, hsl, glowStroke} = x;
     if (!(P.l.stargate > .01) || !P.gate) return;
     const cx = sx(P.cx), cy = sy(P.cy);
     for (let i = 0; i < N; i++) { const G = P.gate, b = G[i*4+3]*Math.min(1, P.l.stargate); if (b < .01) continue;
-      c.beginPath(); for (let k = 0; k <= 6; k++) { const a = k/6*Math.PI*2 - P.gateTurn, R = G[i*4]*u; k ? c.lineTo(cx + Math.cos(a)*R, cy + Math.sin(a)*R) : c.moveTo(cx + Math.cos(a)*R, cy + Math.sin(a)*R); }
+      c.beginPath(); const m = P.gateN || 6; for (let k = 0; k <= m; k++) { const a = k/m*Math.PI*2 - P.gateTurn, R = G[i*4]*u; k ? c.lineTo(cx + Math.cos(a)*R, cy + Math.sin(a)*R) : c.moveTo(cx + Math.cos(a)*R, cy + Math.sin(a)*R); }
       glowStroke(c, al => `hsla(${hsl(P.hue + G[i*4+2])},70%,60%,${Math.min(1, al).toFixed(3)})`, b*(.5 + P.treb*P.react*.6), u*(.5 + G[i*4]*2));
     }
   },

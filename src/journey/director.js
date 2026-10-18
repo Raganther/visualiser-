@@ -22,6 +22,8 @@ import { MEDIA } from '../media/source.js';
 import { L } from '../audio/listen.js';
 import { F } from '../audio/foresee.js';
 import { PLAN, planStep } from './plan.js';
+import { GEN, genNew, genPick } from '../scene/genome.js';
+
 
 // the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
 export function arcBias(now){
@@ -245,8 +247,8 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k) || k === 'kal') ? swap : rate);   // (the kaleidoscope unfolds over about a bar)
   }
-  jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
-  jState.litLook = J.litLook || 0;     // and a lit one's look
+  jState.objStyle = genPick([1, 0, 3, 1], J.objStyle || 0);   // how the centrepiece is drawn (cast.js; the genome's material: stone solid, glass glass wire, neon a hologram, metal solid)
+  jState.litLook = genPick([4, 0, 2, 3], J.litLook || 0);     // and a lit one's look (stone marble, glass real, neon neon, metal chrome)
   if (J.kal && !MEDIA.on) jState.kalWhere = J.kal.where;   // what the kaleidoscope folds: a switch
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
@@ -279,4 +281,4 @@ export function freshJourney(){
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 window.__jdbg = () => ({pace: {v: PACE.v, name: paceName(PACE.v), div: PACE.div, ts: PACE.ts, punch: PACE.punch}, grid: {bpm: G.period && 60/G.period, locked: G.locked, conf: G.conf, down: G.down, pos: J.pos, bar: J.bar, ev: G.ev, dsure: G.dsure}, accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, extras: {kal: J.kal, grain: J.grain, tw: J.tw}, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, scene: J.sceneLive ? J.sceneKey : 'plain', centre: J.centre, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
-export function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
+export function nudge(){ J.clock += 6 + Math.random()*10; if (GEN.on) genNew(J.type); chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
