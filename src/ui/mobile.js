@@ -18,6 +18,7 @@ import { GB, loadPreset, grooveToggle, bind } from '../audio/groove.js';
 import { WORLD_VISUALS, LAYER_VISUALS, byKey } from '../visuals/registry.js';
 import { GEN, MOTIFS, MATS, FOLDS, genNew, genKeep, genWords } from '../scene/genome.js';
 import { $ } from '../util.js';
+import { genKey } from './keys.js';
 
 const DESK = matchMedia('(pointer: fine)').matches && innerWidth >= 900;   // (a computer: room for the heavier worlds)
 // a song for the groovebox: an intro, the groove, a lift, a breakdown and the drop, 64 bars round and round
@@ -129,6 +130,7 @@ export function mobilePage(o){
     el.innerHTML = `<div class="gh">${btn('play', GB.playing ? '■' : '▶', null, 'play')}<div class="st"></div>${btn('next', 'Next<kbd>N</kbd>')}${btn('min', (LS.min ? '▴' : '▾') + '<kbd>M</kbd>')}</div>
       <div><h3>${o.separate ? 'The parts' : 'Genome'}</h3><div class="seg">${btn('on:1', (o.separate ? 'Together' : 'On') + '<kbd>T</kbd>', GEN.on)}${btn('on:0', o.separate ? 'Separate' : 'Off', !GEN.on)}</div></div>
       <div><h3>What the genome shares</h3><div class="row">${btn('geo', 'Symmetry and shape<kbd>1</kbd>', GEN.on && GEN.geo)}${btn('col', 'Material and colour<kbd>2</kbd>', GEN.on && GEN.col)}${btn('line', 'Grows from the last<kbd>3</kbd>', GEN.on && GEN.line)}</div></div>
+      ${GEN.on ? `<div><h3>Steer the genome (held until let go)</h3><div class="row">${btn('gk:dn', '−')}${btn('gk:n', `${GEN.n}-fold`, !!GEN.held.n)}${btn('gk:up', '+')}${btn('gk:motif', MOTIFS[GEN.motif], !!GEN.held.motif)}${btn('gk:mat', MATS[GEN.mat], !!GEN.held.mat)}${btn('gk:hue', 'Colour', !!GEN.held.hue)}${btn('gk:back', '↶ Before')}${btn('gk:free', 'Let go')}</div></div>` : ''}
       ${o.likes ? `<div><h3>This moment</h3><div class="row">${btn('like', '👍')}${btn('dislike', '👎')}</div></div>` : ''}
       <div><h3>Graphics</h3><div class="row">${btn('gfx:fastest', 'Fastest', LS.gfx === 'fastest')}${btn('gfx:fast', 'Fast', LS.gfx === 'fast')}${btn('gfx:balanced', 'Balanced', LS.gfx === 'balanced')}${btn('gfx:best', 'Best', LS.gfx === 'best')}</div></div>
       ${o.heavy ? `<div><h3>3D worlds</h3><div class="row">${btn('heavy:all', 'All', heavy === 'all')}${btn('heavy:cosmos', 'No cosmos', heavy === 'cosmos')}${btn('heavy:none', 'Flat only', heavy === 'none')}</div></div>` : ''}
@@ -143,6 +145,10 @@ export function mobilePage(o){
     else if (id === 'geo' || id === 'col' || id === 'line') { if (!GEN.on) GEN.on = true; GEN[id] = !GEN[id]; if (id !== 'line') genNew(J.type); apply(); }
     else if (id === 'gfx') { LS.gfx = v; setGfx(v); }
     else if (id === 'heavy') { LS.heavy = v; pickHeavy(v); }
+    else if (id === 'gk') {   // the genome steered by hand (ui/keys.js, as G then its keys): what's set is held
+      if (v === 'dn' || v === 'up') genKey('n', Math.max(3, Math.min(12, GEN.n + (v === 'up' ? 1 : -1))), true);
+      else if (v === 'n') genKey('n', GEN.n, true); else genKey(v, undefined, true);
+    }
     else if (id === 'like' || id === 'dislike') { const b = $(id === 'like' ? '#likeBtn' : '#dislikeBtn'); if (b) b.click(); return; }   // (the bar's own: ui/taste.js keeps the moment)
     else if (id === 'leave') { o.leave(); return; }
     keep(); render();

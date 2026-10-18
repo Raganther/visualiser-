@@ -22,7 +22,7 @@ import { STEER, clearSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
 import { chooseWorld } from '../journey/worlds.js';
 import { KAL_KINDS, KAL_N, steerKal, genKalApply } from '../journey/extras.js';
-import { GEN, genKeep, genNew, genWords } from '../scene/genome.js';
+import { GEN, MOTIFS, MATS, FOLDS, genKeep, genNew, genWords, genSet, genFree, genBack, genRelease } from '../scene/genome.js';
 import { updateSectionUI, gearUI } from './panel.js';
 import { GEARS } from '../journey/gear.js';
 import { $ } from '../util.js';
@@ -50,11 +50,38 @@ const GROUPS = {
   s: {name: 'Scene', list: () => TEMPLATES.map(t => [SCENE_WORDS[t.key] || t.key, J.on ? J.sceneKey === t.key && !!J.sceneLive : sceneIs(t.key)]),
     pick: n => { const t = TEMPLATES[n - 1]; if (!t) return false; edit(); compose(t.key); return true; }, off: () => { S.scene = null; if (S.active) delete S.active.scene; }},
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
+  // G: the genome (scene/genome.js), steered: what's set here is held, later generations keep it, and Journey casts towards it
+  g: {name: 'Genome', list: () => !GEN.on ? [['off: any key below turns it on', false, 'O']] : [3, 4, 5, 6, 7, 8, 9].map(n => [n + '-fold', GEN.n === n, n])
+      .concat([[MOTIFS[GEN.motif], !!GEN.held.motif, 'M'], [MATS[GEN.mat], !!GEN.held.mat, 'T'], ['colour', !!GEN.held.hue, 'H'], [FOLDS[GEN.fold], !!GEN.held.fold, 'F'],
+        ['new generation', false, 'N'], ['the one before', false, '←'], ['let all go', false, 0], ['genome ' + (GEN.on ? 'on' : 'off'), GEN.on, 'O']]),
+},
 };
+// the genome's keys (G): a gene set and held (or let go: the same symmetry again), a new generation, back one, all let go
+const STYLE_MAT = [1, 0, 3, 2, 2, 0], LOOK_MAT = [null, null, 2, 3, 0];   // an object's style and a lit object's look as the genome's material
+const KIND_MOTIF = {0: 0, 2: 1, 9: 2, 3: 3};   // the kaleidoscope's kinds that are a motif: wedges a rose, the dive a pointed arch, tiles a hexagon, a pinwheel a star
+export function genKey(what, v, quiet){
+  if (!GEN.on) { setGenome('on', true, true); if (what === 'on') return; }
+  if (['n', 'motif', 'fold'].includes(what) && !GEN.geo) setGenome('geo', true, true);   // (setting a gene shares it)
+  if (['mat', 'hue'].includes(what) && !GEN.col) setGenome('col', true, true);
+  if (what === 'on') { setGenome('on', false, true); J.objHand = J.litHand = null; toast('Genome off: each piece its own'); return; }
+  if (what === 'free') { genFree(); J.objHand = J.litHand = null; toast('Genome: everything let go (it grows freely again)'); }
+  else if (what === 'new') { genNew(J.type); toast('Genome: a new generation'); }
+  else if (what === 'back') toast(genBack() ? 'Genome: back one generation' : 'Genome: nothing before this');
+  else if (what === 'n' && GEN.held.n && GEN.n === v) { genFree('n'); toast(`Genome: ${v}-fold let go`); }
+  else {
+    const val = what === 'motif' ? (GEN.motif + 1) % MOTIFS.length : what === 'mat' ? (GEN.mat + 1) % MATS.length : what === 'hue' ? GEN.hue + .09 : what === 'fold' ? (GEN.fold + 1) % FOLDS.length : v;
+    genSet(what, val);
+    if (what === 'n' && STEER.pin.kal) STEER.pin.kal = val;   // (a kaleidoscope kept by hand follows the new symmetry)
+    if (!quiet) toast('Genome: ' + genWords());
+  }
+  genLive();
+}
+// the genome changed: the kaleidoscope and the panel follow at once
+function genLive(){ if (J.on) { genKalApply(); updateSectionUI(); } steerLine(); }
 const KIND_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'H', 'D', 'C', 'T', 'N'];   // the kinds: wedges … tiles on the numbers, then Hyperbolic, Droste, Curved, Two centres, Nested dive
 const kindNow = () => J.on ? (J.kal ? J.kal.mode || 0 : -1) : (S.active.kal || 0) >= 2 ? Math.round(S.active.kalMode || 0) : -1;
 function setKind(m){   // (while Journey runs, it keeps that kind)
-  if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
+  if (J.on) { STEER.kalMode = m; if (GEN.on && GEN.geo && KIND_MOTIF[m] != null) genSet('motif', KIND_MOTIF[m], 'kal'); steerKalKey(null, J.kal ? J.kal.where : null, true); }
   else { edit(); S.active.kalMode = m; if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
   toast('Kaleidoscope: ' + KAL_KINDS[m]);
 }
@@ -105,6 +132,10 @@ function steerKalKey(n, where, quiet){
   else if (n === 0) { if (STEER.ban.kal) delete STEER.ban.kal; else { STEER.ban.kal = true; delete STEER.pin.kal; } }
   else if (STEER.pin.kal === n) { delete STEER.pin.kal; STEER.kalWhere = null; STEER.kalMode = null; }
   else { STEER.pin.kal = n; delete STEER.ban.kal; }
+  if (GEN.on && GEN.geo) {   // the genome takes the direction: the mirrors its symmetry, what it folds its fold (none, banned), and when let go so do they
+    if (!STEER.pin.kal && !STEER.ban.kal) genRelease('kal');
+    else { if (STEER.pin.kal && (n || quiet)) genSet('n', STEER.pin.kal, 'kal'); if (STEER.kalWhere != null) genSet('fold', STEER.kalWhere, 'kal'); if (STEER.ban.kal) genSet('fold', 4, 'kal'); }
+  }
   steerKal(); updateSectionUI(); steerLine();
   if (!quiet) toast(STEER.ban.kal ? 'Kaleidoscope: never (Journey leaves it out)' : STEER.pin.kal ? `Kaleidoscope: kept at ${STEER.pin.kal} mirrors, folding ${KAL_WHERE[J.kal ? J.kal.where : 0][1]}` : 'Kaleidoscope: Journey chooses freely again');
 }
@@ -112,8 +143,9 @@ function steerKalKey(n, where, quiet){
 export function steerLine(){
   const el = $('#jSteer'); if (!el) return;
   const keep = Object.keys(STEER.pin).map(labelOf), never = Object.keys(STEER.ban).map(labelOf);
-  el.textContent = !keep.length && !never.length && !STEER.hold ? '' : 'Steering: ' + [STEER.hold ? 'holding this look' : '', keep.length ? 'keeping ' + keep.join(', ') : '',
-    never.length ? 'never ' + never.join(', ') : ''].filter(Boolean).join('; ') + '.';
+  const held = GEN.on ? Object.keys(GEN.held).filter(k => GEN.held[k]).map(k => k === 'n' ? GEN.n + '-fold' : k === 'motif' ? MOTIFS[GEN.motif] : k === 'mat' ? MATS[GEN.mat] : k === 'fold' ? FOLDS[GEN.fold] : 'its colour') : [];
+  el.textContent = !keep.length && !never.length && !STEER.hold && !held.length ? '' : 'Steering: ' + [STEER.hold ? 'holding this look' : '', keep.length ? 'keeping ' + keep.join(', ') : '',
+    never.length ? 'never ' + never.join(', ') : '', held.length ? 'the genome held at ' + held.join(', ') : ''].filter(Boolean).join('; ') + '.';
 }
 
 function show(){
@@ -128,7 +160,8 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fifteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: in and kept, or out again (Journey carries on) · Alt+number never · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'g' ? '3–9 its symmetry (again: let go) · ↑ ↓ more or fewer · M motif · T material · H colour · F what the kaleidoscope folds · N a new generation · ← the one before · 0 lets everything go · O on or off · what you set is held · G or Esc leaves'
+    : mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fifteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: in and kept, or out again (Journey carries on) · Alt+number never · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
     : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · C centred or carried through the 3D worlds · Esc leaves'
     : mode === 'km' ? 'a key picks that kind · ↑ ↓ the next or the one before · M back to the mirrors · Esc leaves'
@@ -148,7 +181,7 @@ for (const c of document.querySelectorAll('[data-explore]')) { const k = c.datas
     toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : k === 'link' ? 'off (each keeps its own symmetry)' : 'off (Journey leaves it out)'}`); }); }
 // the genome (scene/genome.js): on or off and what it shares, from the Adjust panel, remembered on the device
 export function setGenome(k, v, quiet){
-  GEN[k] = !!v; genKeep(); if (k === 'on' && v || GEN.on && k !== 'line' && v) genNew(J.type);   // (a fresh genome for this section, at once)
+  GEN[k] = !!v; genKeep(); if (k === 'on' && !v) J.objHand = J.litHand = null; if (k === 'on' && v || GEN.on && k !== 'line' && v) genNew(J.type);   // (a fresh genome for this section, at once)
   if (J.on) { genKalApply(); updateSectionUI(); }
   for (const c of document.querySelectorAll('[data-gen]')) c.checked = !!GEN[c.dataset.gen];
   if (!quiet) toast(GEN.on ? `Genome: ${genWords()}` : 'Genome off: each piece its own');
@@ -161,6 +194,11 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
   const was = mode, k = e.key.toLowerCase(), digit = /^Digit[0-9]$/.test(e.code) ? +e.code.slice(5) : /^[0-9]$/.test(e.key) ? +e.key : null;
   let done = true;
   if (k === '?' || (k === '/' && e.shiftKey)) help();
+  else if (k === 'g' && !mode && !e.shiftKey) mode = 'g';   // (inside the other groups G is one of their items)
+  else if (mode === 'g' && (k === 'g' || k === 'escape')) mode = null;
+  else if (mode === 'g' && 'mthfno'.includes(k) && k.length === 1) genKey({m: 'motif', t: 'mat', h: 'hue', f: 'fold', n: 'new', o: 'on'}[k]);
+  else if (mode === 'g' && k === 'arrowleft') { e.preventDefault(); e.stopImmediatePropagation(); genKey('back'); }
+  else if (mode === 'g' && (k === 'arrowup' || k === 'arrowdown')) { e.preventDefault(); genKey('n', Math.max(3, Math.min(12, GEN.n + (k === 'arrowup' ? 1 : -1)))); }
   else if (k === 't' && mode !== 'c' && mode !== 'km') { mode = null; if (e.shiftKey) combos(); else tutorial(); }   // (Shift+T: the walk-throughs of combinations)   // (in the camera group T takes off)
   else if (k === 'escape') { if (!$('#keyHelp').hidden) help(); mode = null; }
   else if (mode === 'c' && k.length === 1 && flyKey(k)) {}   // the camera takes its own letters and numbers
@@ -180,12 +218,13 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     edit(); S.active.kalWhere = KAL_WHERE.findIndex(w => w[0] === k); if ((S.active.kal || 0) < 2) S.active.kal = 6; last = 'kal'; }
   else if (mode === 'kg' && k === 'm') { edit(); S.active.mirror = (S.active.mirror || 0) > .5 ? 0 : 1; }
   else if (k === 'k' && e.shiftKey) mode = mode === 'kg' ? null : 'kg';
-  else if (GROUPS[k] && k !== 'kg') mode = mode === k ? null : k;
+  else if (GROUPS[k] && k !== 'kg' && k !== 'g') mode = mode === k ? null : k;
+  else if (digit !== null && mode === 'g') { if (digit === 0) genKey('free'); else if (digit >= 3) genKey('n', digit); }   // (never freezes Journey)
   else if (digit !== null && mode && mode !== 'c') {
     const g = GROUPS[mode];
     if (e.shiftKey && g.all && digit > 0) { const v = g.all[digit - 1]; if (v) { solo(v.key); last = v.key; } }
     else if (J.on && mode === 'k') { if (digit !== 1) steerKalKey(digit); }
-    else if (J.on && STEERS[mode]) { if (digit === 0) { clearSteer(STEERS[mode]()); toast(g.name + ': Journey chooses freely again'); steerLine(); } else steerItem(STEERS[mode]()[digit - 1], mode, e.altKey); }
+    else if (J.on && STEERS[mode]) { if (digit === 0) { STEERS[mode]().forEach(genRelease); clearSteer(STEERS[mode]()); toast(g.name + ': Journey chooses freely again'); steerLine(); } else steerItem(STEERS[mode]()[digit - 1], mode, e.altKey); }
     else if (digit === 0) off(g);
     else { g.pick(digit); if (mode === 's') sceneKeyByHand = (TEMPLATES[digit - 1] || {}).key || null; }
   }
@@ -215,12 +254,12 @@ addEventListener('keydown', e => {   // (in the capture phase, so ← → on a l
     if (e.shiftKey) { solo(v.key); last = v.key; } else if (J.on) steerItem(v.key, 'o', e.altKey); else one(OBJECT_VISUALS, v, TUNE.mesh.level); }
   else if (k === 'm' && mode === 'o') {   // the lit objects' look: real, toon, neon, chrome, marble (Journey keeps it going)
     const n = ((J.on ? J.litLook || 0 : Math.round(S.active.litLook || 0)) + 1) % LOOKS.length;
-    if (J.on) J.litLook = n; else S.active.litLook = n; curP.litLook = n;
+    if (J.on) { J.litLook = n; if (GEN.on && GEN.col) { J.litHand = n; if (LOOK_MAT[n] != null) { genSet('mat', LOOK_MAT[n], 'look'); genLive(); } } } else S.active.litLook = n; curP.litLook = n;
     toast('Lit objects: ' + LOOKS[n]);
   }
   else if (k === 'y' && mode === 'o') {   // the objects' style: glass wire, solid, outline, hologram, points, shaded (Journey keeps it going)
     const n = ((J.on ? J.objStyle || 0 : Math.round(S.active.objStyle || 0)) + 1) % STYLES.length;
-    if (J.on) { J.objStyle = n; } else { S.active.objStyle = n; } curP.objStyle = n;
+    if (J.on) { J.objStyle = n; if (GEN.on && GEN.col) { J.objHand = n; genSet('mat', STYLE_MAT[n], 'style'); genLive(); } } else { S.active.objStyle = n; } curP.objStyle = n;   // (with the genome on, its material follows and the style is kept)
     toast('Objects: ' + STYLES[n]);
   }
   else if (k === 'b' && mode === 'l' && last && isLayer(last)) {   // what the last layer follows: its own sound, bass, mids…

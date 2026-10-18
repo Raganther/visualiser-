@@ -8,6 +8,7 @@ import { TUNE } from '../tuning.js';
 import { LIKED, DISLIKED } from '../presets.js';
 import { byKey } from '../visuals/registry.js';
 import { planRoom } from './plan.js';
+import { genFit } from '../scene/genome.js';
 
 // how much each piece fills the picture (0 sparse .. 1 dense); anything not listed counts as .5
 const DENSE = {
@@ -42,8 +43,9 @@ export function pair(a, b){
   const l = learned.get(k) || 0;
   return (table.m.get(k) || 0) + Math.max(-C.learnCap, Math.min(C.learnCap, l))*C.learned;
 }
-// a piece against everything already in the cast (pieces: keys; a kaleidoscope as 'kal' + its kind)
-export const fit = (k, pieces) => pieces.reduce((s, p) => s + pair(k, p), 0);
+// a piece against everything already in the cast (pieces: keys; a kaleidoscope as 'kal' + its kind), and against the genome
+// while it's on: pieces whose own traits suit it (scene/genome.js)
+export const fit = (k, pieces) => pieces.reduce((s, p) => s + pair(k, p), 0) + genFit(k)*TUNE.genome.cast;
 // how crowded a cast is, and what that costs: the music's intensity allows more (TUNE.combos.room, calm to intense)
 export function crowd(c, T){
   const C = TUNE.combos;

@@ -7,6 +7,7 @@
 import { S } from '../state.js';
 import { J } from '../journey/core.js';
 import { DISLIKED, LIKED, SPEC, curP, eff } from '../presets.js';
+import { GEN_LIKED, genSnap } from '../scene/genome.js';
 import { setJourney } from './controls.js';
 import { setPreset } from './presets.js';
 import { toast } from './toast.js';
@@ -48,6 +49,7 @@ export function momentOf(){
     caption: $('#caption').classList.contains('show') ? $('#caption').textContent : null,
     place: eff.cosmos > .05 && byKey.cosmos ? (({system, star, subject, shot, belt}) => ({system, star, subject, shot, belt}))(byKey.cosmos.info()) : null,
     settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb: '',
+    genome: genSnap(),   // (with the genome on, its genes: new generations now and then take after a liked one, scene/genome.js)
     // the look as drawn, to bring back: every setting (as drawn now, not a target still being eased to), movers, scene
     look: {settings: Object.fromEntries(SPEC.map(s => [s.k, r3(curP[s.k])])), mods: clone(S.active.mods || {}), tw: clone(S.active.tw || {}),
       scene: clone((J.on ? J.sceneLive : S.scene) || null), sceneKey: J.on && J.sceneLive ? J.sceneKey : null, centre},
@@ -83,6 +85,7 @@ function showDis(list){ DISLIKED.length = 0; for (const m of list.map(withLook).
 function show(list){
   liked = list.map(withLook).filter(m => m.look).slice(0, SHOWN);
   LIKED.length = 0;
+  GEN_LIKED.length = 0; for (const m of liked) if (m.genome) GEN_LIKED.push(m.genome);
   for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre === 'fold' ? 'prism' : m.look.centre || null});
   render();
 }

@@ -13,6 +13,8 @@ import { chooseWorld } from './worlds.js';
 import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal, genKalApply } from './extras.js';
 import { crowd, fit } from './combos.js';
 import { PLAN, headObject, planBonus, planChance } from './plan.js';
+import { genAdopt, genRelease } from '../scene/genome.js';
+
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -140,6 +142,7 @@ export function applySteer(k, state){
     if (kind === 'object' && J.centre === k) J.centre = null;
     if (kind === 'scene' && J.sceneKey === k) J.sceneKey = 'plain';
   }
+  if (state === 'pin') { if (genAdopt(k)) genKalApply(); } else genRelease(k);   // (a pinned piece's own traits go into the genome while it's kept: scene/genome.js)
   saveCast(); updateSectionUI();
 }
 // Journey turned back on from a look made by hand (ui/controls.js): what's on screen becomes the section's cast (its world,

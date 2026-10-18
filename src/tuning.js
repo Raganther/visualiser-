@@ -47,7 +47,8 @@ export const TUNE = {
   // the genome (scene/genome.js): what its kaleidoscope folds, a fresh one's weights (everything, the world, the glow,
   // inside the Prism, none: everything the likeliest, the user's favourite); grown, how often the fold is kept, how often it
   // goes to none, and which way a step leans
-  genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75},   // (foldBack: a step's chance of going back towards everything)
+  genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75,   // (foldBack: a step's chance of going back towards everything)
+    cast: .4, liked: .25},   // (cast: how much Journey's casting leans towards pieces that suit it; liked: a new generation's chance of taking after a liked genome)
   plan: {on: 1, minSecs: 90, openShare: .2, openMax: 75, closeShare: .12, peakSecs: 40, headBonus: 4, hold: 3, motif: 2,
     openChance: .2, closeChance: .5, openRoom: .5, closeRoom: .3,
     pieces: [{w: 'kifs', wt: 1}, {w: 'cosmos', wt: 1}, {w: 'cathedral', wt: .6}, {w: 'hollow', wt: .5}, {w: 'geode', wt: .5},

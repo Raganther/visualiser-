@@ -46,6 +46,48 @@ const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok 
   const errors = await page.errors(); check('no page errors (2d)', !errors.length, errors.join(' '));
   await browser.close();
 }
+// steering writes the genome: what's set by hand is held through new sections, a pinned piece's traits come with it and go
+// with it, G 0 lets go, G ← goes back, the object's style is kept, Journey casts towards it, and a like keeps the genome
+{
+  const browser = await launch('2d'), page = await openPage(browser, url, {noDraw: true});
+  await page.evaluate(() => __step(60*6));
+  const press = async (...keys) => { for (const k of keys) await page.keyboard.press(k); await page.evaluate(() => __step(2)); };
+  const st = () => page.evaluate(async () => { const {GEN} = await import('/src/scene/genome.js'), {J, jState} = await import('/src/journey/core.js');
+    return {n: GEN.n, mat: GEN.mat, motif: GEN.motif, held: {...GEN.held}, from: {...GEN.from}, kal: J.kal && J.kal.n, style: jState.objStyle, id: GEN.id}; });
+  const fresh = () => page.evaluate(async () => { const {J} = await import('/src/journey/core.js'), {newType, enterType} = await import('/src/journey/sections.js');
+    enterType(newType({...J.fF, lvl: Math.random()})); __step(3); });
+  await page.evaluate(async () => { const {setGenome} = await import('/src/ui/keys.js'); setGenome('on', true, true); __step(2); });
+  await press('k', '7', 'Escape'); const a = await st(); await fresh(); await fresh(); const a2 = await st();
+  check('K then 7 sets the genome 7-fold and holds it through new sections', a.n === 7 && a.held.n && a.kal === 7 && a2.n === 7 && a2.id > a.id, `${JSON.stringify(a)} → ${a2.n}-fold, generation ${a2.id}`);
+  await press('k', '7', 'Escape'); const a3 = await st();
+  check('K then 7 again lets it go', !a3.held.n, JSON.stringify(a3.held));
+  await press('g', 't'); const b = await st(); await fresh(); const b2 = await st();
+  check('G then T sets the material, held through a new section', b.held.mat && b2.mat === b.mat, `${b.mat} → ${b2.mat}`);
+  const c = await page.evaluate(async () => { const {STEER} = await import('/src/journey/steer.js'), {applySteer} = await import('/src/journey/cast.js'), {GEN} = await import('/src/scene/genome.js');
+    STEER.pin.dodeca = true; applySteer('dodeca', 'pin'); __step(2); const pinned = {n: GEN.n, from: GEN.from.n};
+    delete STEER.pin.dodeca; applySteer('dodeca', 'out'); __step(2); return {pinned, after: !!GEN.held.n}; });
+  check('pinning the dodecahedron makes it 5-fold, and taking it out lets that go', c.pinned.n === 5 && c.pinned.from === 'dodeca' && !c.after, JSON.stringify(c));
+  await press('0'); const d = await st();
+  check('G then 0 lets everything go', !Object.keys(d.held).length, JSON.stringify(d.held));
+  const before = d.id; await press('n'); await press('ArrowLeft'); const e = await st();
+  check('G then N grows a generation, ← goes back', e.n === d.n && e.mat === d.mat, `${JSON.stringify(d)} / ${JSON.stringify(e)}`);
+  await press('Escape');
+  const f = await page.evaluate(async () => { const {J, jState} = await import('/src/journey/core.js'); J.centre = 'skull'; return null; });
+  await press('o', 'y', 'Escape'); const g1 = await st(); await fresh(); await fresh(); const g2 = await st();
+  const hand = await page.evaluate(async () => (await import('/src/journey/core.js')).J.objHand);
+  check('O then Y with the genome on keeps the style and sets the material', g1.style === hand && g2.style === hand && g1.held.mat && g1.from.mat === 'style', `style ${hand}: ${g1.style} → ${g2.style}, material ${g1.mat}`);
+  // the casting leans towards pieces that suit the genome: the neon Corridor comes more often with the genome held at neon
+  const h = await page.evaluate(async () => { const {J} = await import('/src/journey/core.js'), {GEN, genSet, genFree} = await import('/src/scene/genome.js'), {chooseWorld} = await import('/src/journey/worlds.js');
+    const count = () => { let c = 0; for (let i = 0; i < 300; i++) {
+      for (const f in J.fS) { J.fS[f] = Math.random(); J.fMin[f] = 0; J.fMax[f] = 1; } J.tension = Math.random(); J.type.worldBias = null; for (const k in J.wFat) J.wFat[k] = 0;
+      chooseWorld(true); if (['corridor', 'city'].includes(J.world)) c++; } return c; };
+    genFree(); genSet('mat', 2); const on = count(); GEN.on = false; const off = count(); GEN.on = true; genFree(); return {on, off}; });
+  check('Journey casts towards the genome (neon worlds more often with neon held)', h.on > h.off*1.15, `${h.off} without, ${h.on} with (of 300)`);
+  const lk = await page.evaluate(async () => { const {momentOf} = await import('/src/ui/taste.js'); const m = momentOf(); return m.genome; });
+  check('a liked moment keeps the genome', lk && lk.n > 2, JSON.stringify(lk));
+  const errors = await page.errors(); check('no page errors (steering)', !errors.length, errors.join(' '));
+  await browser.close();
+}
 // in both renderers: the stargate with a 3-fold genome draws differently from its own hexagons
 for (const mode of ['gl', '2d']) {
   const browser = await launch(mode), page = await openPage(browser, url, {width: 320, height: 180});

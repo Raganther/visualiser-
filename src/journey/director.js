@@ -247,8 +247,8 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k) || k === 'kal') ? swap : rate);   // (the kaleidoscope unfolds over about a bar)
   }
-  jState.objStyle = genPick([1, 0, 3, 1], J.objStyle || 0);   // how the centrepiece is drawn (cast.js; the genome's material: stone solid, glass glass wire, neon a hologram, metal solid)
-  jState.litLook = genPick([4, 0, 2, 3], J.litLook || 0);     // and a lit one's look (stone marble, glass real, neon neon, metal chrome)
+  jState.objStyle = J.objHand ?? genPick([1, 0, 3, 1], J.objStyle || 0);   // how the centrepiece is drawn (cast.js; one set by hand with the genome on is kept, J.objHand; else the genome's material: stone solid, glass glass wire, neon a hologram, metal solid)
+  jState.litLook = J.litHand ?? genPick([4, 0, 2, 3], J.litLook || 0);     // and a lit one's look (stone marble, glass real, neon neon, metal chrome)
   if (J.kal && !MEDIA.on) jState.kalWhere = J.kal.where;   // what the kaleidoscope folds: a switch
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
