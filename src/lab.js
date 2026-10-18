@@ -11,7 +11,10 @@ import { TUNE } from './tuning.js';
 const q = new URLSearchParams(location.search);
 try { localStorage.removeItem('afterglow.labs'); } catch (e) {}   // (where they used to be kept)
 let stored = (() => { try { return JSON.parse(sessionStorage.getItem('afterglow.labs') || '[]'); } catch (e) { return []; } })();
-export const LABS = [...new Set([...(window.__labs || []), ...q.getAll('lab').flatMap(v => v.split(',')), ...stored])].filter(Boolean);
+// the phone view (src/lab/phone.js): chosen (afterglow.phone), or by itself on a phone until chosen; never on a page with labs of its own
+const phone = (() => { if (window.__labs) return false; try { const v = localStorage.getItem('afterglow.phone'); if (v != null) return v === '1'; } catch (e) {}
+  return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; })();
+export const LABS = [...new Set([...(window.__labs || []), ...(phone ? ['phone'] : []), ...q.getAll('lab').flatMap(v => v.split(',')), ...stored])].filter(Boolean);
 
 export function applyTune(){
   for (const t of q.getAll('tune')) {

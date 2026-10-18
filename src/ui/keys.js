@@ -137,6 +137,8 @@ function show(){
 }
 function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afterglow.objWorld', v ? '1' : '0'); } catch (e) {}
   const c = $('#objWorld'); if (c) c.checked = v; if (!quiet) toast(v ? 'Objects travel through the 3D worlds' : 'Objects stay in the centre'); }
+// the phone view (src/lab/phone.js): the simple controls, from the next load on (Full controls in it comes back)
+{ const b = $('#phoneBtn'); if (b) b.addEventListener('click', () => { try { localStorage.setItem('afterglow.phone', '1'); } catch (e) {} location.reload(); }); }
 { const c = $('#objWorld'); if (c) { c.checked = S.objWorld; c.addEventListener('change', e => setObjWorld(e.target.checked)); } }
 // the explorations (S.explore, state.js): each on or off from the Adjust panel, remembered on the device
 const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths', link: 'Connected to the kaleidoscope'};

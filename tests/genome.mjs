@@ -7,6 +7,8 @@ import { serve, launch, openPage, ENTRY } from './lib.mjs';
 if (!ENTRY.endsWith('index.html')) { console.log('genome: skipped for', ENTRY); process.exit(0); }
 const {srv, url} = await serve();
 let failed = false;
+// a page's controls (ui/mobile.js) are built a couple of frames after its lab loads, which is after the page's first frames
+const built = (page, id) => page.waitForFunction(id => { __step(2); return !!document.querySelector(`#glab button[data-id="${id}"]`); }, id, {timeout: 30000, polling: 200});
 const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
 {
   const browser = await launch('2d'), page = await openPage(browser, url, {noDraw: true});
@@ -63,13 +65,40 @@ for (const mode of ['gl', '2d']) {
 // the phone page runs: Journey on, the genome on, its controls drawn and the keys working
 {
   const browser = await launch('2d'), page = await openPage(browser, url, {query: '?lab=genome', width: 400, height: 760, noDraw: true});
-  await page.evaluate(() => __step(10));   // (its controls are built a couple of frames in)
-  await page.waitForSelector('#glab button[data-id="next"]', {timeout: 20000});
+  await built(page, 'next');
   const before = await page.evaluate(() => document.querySelector('#glab .st').textContent);
   await page.keyboard.press('n'); await page.evaluate(() => __step(30));
   const after = await page.evaluate(() => document.querySelector('#glab .st').textContent);
   check('the phone page shows the genome and N grows the next generation', /Together/.test(before) && before !== after, `${before} → ${after}`);
   const errors = await page.errors(); check('no page errors (phone page)', !errors.length, errors.join(' '));
+  await browser.close();
+}
+// the phone view of the whole visualiser: its controls, Journey free to use everything, a like kept, Full controls back
+{
+  const browser = await launch('2d'), page = await openPage(browser, url, {query: '?lab=phone', width: 390, height: 800});   // (drawn: a like is kept at the end of a drawn frame)
+  await built(page, 'like');
+  const r = await page.evaluate(async () => {
+    const {J} = await import('/src/journey/core.js'), {STEER} = await import('/src/journey/steer.js'), {S} = await import('/src/state.js');
+    const before = JSON.parse(localStorage.getItem('afterglow.moments') || '[]').length;
+    document.querySelector('#glab button[data-id="like"]').click(); __step(5); await new Promise(r => setTimeout(r, 300));   // (saved just after the frame)
+    const after = JSON.parse(localStorage.getItem('afterglow.moments') || '[]').length;
+    return {on: J.on, bans: Object.keys(STEER.ban).length, pins: Object.keys(STEER.pin).length, skip: S.skipW.size, liked: after - before,
+      bar: getComputedStyle(document.querySelector('#bar')).display, st: document.querySelector('#glab .st').textContent};
+  });
+  check('the phone view runs Journey over everything, its own bar hidden', r.on && !r.bans && !r.pins && r.bar === 'none', `${r.st}; bans ${r.bans}, pins ${r.pins}, 3D worlds left out ${r.skip}`);
+  check('a 👍 in the phone view keeps the moment', r.liked === 1, `${r.liked}`);
+  await Promise.all([page.waitForNavigation(), page.click('#glab [data-id="leave"]')]); await page.waitForTimeout(1500);
+  const back = await page.evaluate(() => [localStorage.getItem('afterglow.phone'), !!document.querySelector('#glab')]);
+  check('Full controls goes back to the whole interface, and stays there', back[0] === '0' && !back[1], JSON.stringify(back));
+  const errors = await page.errors(); check('no page errors (phone view)', !errors.length, errors.join(' '));
+  await browser.close();
+}
+// on a phone it comes on by itself
+{
+  const browser = await launch('2d'), page = await browser.newPage({viewport: {width: 390, height: 800}, isMobile: true, hasTouch: true});
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await page.goto(url + ENTRY); await page.waitForSelector('#glab button[data-id="like"]', {timeout: 30000}).catch(() => {});
+  check('on a phone the phone view comes on by itself', await page.evaluate(() => !!document.querySelector('#glab button[data-id="like"]')));
   await browser.close();
 }
 srv.close();
