@@ -16,6 +16,7 @@ import geode from './worlds/geode.js';
 import corridor from './worlds/corridor.js';
 import forest from './worlds/forest.js';
 import lattice from './worlds/lattice.js';
+import kifs from './worlds/kifs.js';
 import room from './worlds/room.js';
 import star from './hits/star.js';
 import outline from './hits/outline.js';
@@ -69,11 +70,12 @@ import bubble from './objects/bubble.js';
 import cell from './objects/cell.js';
 import coral from './objects/coral.js';
 import growth from './objects/growth.js';
+import branches from './objects/branches.js';
 
-export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice, room];
+export const WORLD_VISUALS = [land, space, aurora, city, cosmos, sea, deep, dunes, forest, hollow, cathedral, vessel, geode, corridor, lattice, kifs, room];
 export const HIT_VISUALS = [star, outline, shock, sparkle, lightning, glitch, cascade];   // Journey scores hits in this order
 export const LAYER_VISUALS = [ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbit, lasers, lines, fireflies, stargate, vectorscope, mandala, mood, rain, constellation, unfold, fractal, guilloche, chords, galaxy, rosette, tunnel];
-export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, jewel, gems, prism, ferro, mercury, bubble, cell, coral, growth];   // 3D centrepieces, drawn crisp over the picture
+export const OBJECT_VISUALS = [skull, unicorn, ...maths, manta, lotus, jelly, crystalObj, goblin, goblinLit, tentacle, hand, heart, jewel, gems, prism, ferro, mercury, bubble, cell, coral, growth, branches];   // 3D centrepieces, drawn crisp over the picture
 export const VISUALS = [...WORLD_VISUALS, ...HIT_VISUALS, ...LAYER_VISUALS, ...OBJECT_VISUALS];
 export const WORLDS = WORLD_VISUALS.filter(v => !v.optIn).map(v => v.key);
 export const HITS = HIT_VISUALS.map(v => v.key);

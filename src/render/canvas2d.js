@@ -245,7 +245,7 @@ export function make2D(view){
     const x = snapCan.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(src, 0, 0, W, H);
     return snapCan;
   }
-  const diveCan = document.createElement('canvas');
+  const diveCan = document.createElement('canvas'), nestCan = new Map();   // (the nested dive's folded copies, one per mirror count)
   function foldOnto(o, src, P){
     const [n, , amt, ang] = P.kal.v, h = Math.PI/n, A = -ang - h;   // (the canvas turns the other way)
     const x0 = W/2 + P.kal.c[0]*H, y0 = H/2 - P.kal.c[1]*H, R = Math.hypot(W, H), mode = P.kal.mode || 0;
@@ -266,6 +266,19 @@ export function make2D(view){
       for (let k = -1; k < 7; k++) { const sc = Math.exp(L*(f - k)), r = R0*sc; if (r < 2) break;
         o.save(); o.beginPath(); o.arc(x0, y0, k < 0 ? R : r, 0, Math.PI*2); o.clip(); o.translate(x0, y0); o.scale(sc, sc); o.drawImage(diveCan, -x0, -y0, W, H); o.restore(); }
       o.restore(); return;
+    }
+    if (mode === 14) {   // the nested dive: the dive's copies, each folded with its own band's mirrors (main.js, kalNest)
+      const L = P.kal.v2[3], z = P.kal.v2[2], f = z % 1, R0 = .5*H, lv = P.kal.lv, nb = P.kal.nb || 0, used = new Set();
+      o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
+      for (let k = -1; k < 7; k++) { const sc = Math.exp(L*(f - k)), r = R0*sc; if (r < 2) break;
+        const j = Math.max(0, Math.min(9, -k - Math.floor(z) - 1 - nb)), bn = lv ? lv[j*4] : n, pin = lv ? lv[j*4 + 2] : 0, key = bn + '|' + pin;
+        let c = nestCan.get(key);
+        if (!c) { c = document.createElement('canvas'); nestCan.set(key, c); }
+        if (!used.has(key)) { used.add(key); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+          const d = c.getContext('2d'); d.globalCompositeOperation = 'copy'; d.globalAlpha = 1; d.drawImage(src, 0, 0, W, H);
+          foldOnto(d, src, {kal: {...P.kal, mode: pin > .5 ? 3 : 0, v: [bn, 0, 1, ang]}}); }
+        o.save(); o.beginPath(); o.arc(x0, y0, k < 0 ? R : r, 0, Math.PI*2); o.clip(); o.translate(x0, y0); o.rotate(-(lv ? lv[j*4 + 1] : 0)); o.scale(sc, sc); o.drawImage(c, -x0, -y0, W, H); o.restore(); }
+      o.restore(); for (const k of nestCan.keys()) if (!used.has(k) && nestCan.size > 6) nestCan.delete(k); return;
     }
     // the broken symmetries (render/shaders.js, KAL), plainer: tiles as the box, hyperbolic and Droste as the dive
     if (mode === 9) return foldOnto(o, src, {kal: {...P.kal, mode: 1}});

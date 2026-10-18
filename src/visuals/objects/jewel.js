@@ -8,6 +8,7 @@
 import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { SIG } from '../../scene/signals.js';
+import { DANCE } from '../../scene/dance.js';
 import { L } from '../../audio/listen.js';
 import { gemSheetGeo, FOCAL, CAM } from '../../render/facet.js';
 import { makeCells, stepCells, touch } from './cells.js';
@@ -484,7 +485,7 @@ export default {
     if (ik >= 2 && st.inAmt > .01) { planes(); shards(R); }
     const An = P.anchor;
     P.m = P.m || {};
-    P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1),
+    P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1)*(DANCE.near || 1),   // (coming to you: scene/dance.js)
       pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights(),
       inner: {kind: ik, t: st.inT, amt: st.inAmt, hue: st.h0, kick: st.inKick}};
   },

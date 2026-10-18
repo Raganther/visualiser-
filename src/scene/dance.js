@@ -53,7 +53,7 @@ const wrap = d => { for (const k of ['rot', 'yaw']) { const s = d.s[k], n = Math
 const dancer = () => ({move: 'still', bar: 0, sign: 1, n: 3, turn: 0, flip: 0, kick: 0, stab: 0, burst: 0,
   s: {rot: spring(), dx: spring(), dy: spring(), sc: spring(), yaw: spring(), pitch: spring(), roll: spring(), sq: spring(), lift: spring()}});
 const D = {};                                     // dancers by key
-export const DANCE = {layer: {}, obj: {}, comets: {shape: 'free', p: [0, 0, 0], amt: 0, n: 3}, flow: {mode: 'field', amt: 0}, energy: 0};
+export const DANCE = {layer: {}, obj: {}, comets: {shape: 'free', p: [0, 0, 0], amt: 0, n: 3}, flow: {mode: 'field', amt: 0}, energy: 0, near: 1};   // (near: how near the objects have come, a size: the objects coming to you)
 const F = {mode: 'field', move: 'field', amt: 0};
 const C = {shape: 'free', t: 0, amt: 0, from: 'free', k: 3, a: 3, b: 2, turn: 0, since: 0};
 let bar = 0, drops = -1, lastType = null, mood = {c: 1, i: 0, b: 0}, energy = 0;
@@ -108,6 +108,24 @@ export function danceBeat(pos, J){
   }
 }
 
+// ---- the objects coming to you (S.explore.near, TUNE.dance.near): how near they are, as a size against the usual. They
+// hang back when calm or in a breakdown, draw in as the music builds and through a run-up to a drop we saw coming, fill the
+// screen on the drop and ease back over a few bars, and at full tension come slowly towards you and back
+let nearV = 1, nearDrop = null, nearAt = -1e9;
+function near(dt, J){
+  const N = TUNE.dance.near, bp = S.beatPeriod > .2 ? S.beatPeriod : .5;
+  if (!S.explore.near || !J) { nearV += (1 - nearV)*Math.min(1, dt*N.ease); DANCE.near = nearV; return; }
+  if (nearDrop !== null && J.lastDrop !== nearDrop) nearAt = performance.now(); nearDrop = J.lastDrop ?? null;
+  const T = SIG.tension || 0, since = (performance.now() - nearAt)/1000/(4*bp), calm = L.brk ? 1 : Math.max(0, 1 - (J.grooveE ?? 1));
+  let want = N.calm + (N.full - N.calm)*T;
+  want += (N.wave*T*T)*Math.max(0, Math.sin(Math.PI*2*(bar + (SIG.barPhase || 0))/N.waveBars));   // the slow approach and back
+  want = want*(1 - calm) + N.calm*calm;
+  if (J.anticip > 0) want = Math.max(want, N.calm + (N.runUp - N.calm)*J.anticip*J.anticip);   // the run-up: drawn in
+  if (since < N.holdBars) want = N.drop; else if (since < N.holdBars + N.backBars) want = Math.max(want, N.drop + (want - N.drop)*(since - N.holdBars)/N.backBars);   // the drop: engulfing, then back
+  nearV += (want - nearV)*Math.min(1, dt*N.ease*(since < .25 ? 4 : 1));   // (it surges in on the drop)
+  DANCE.near = nearV;
+}
+
 // ---- every frame: each dancer's pose from its move, through its springs ----
 // on: the keys drawing now (layers by key, objects as 'o:'+key); chars: each object's character (move weights, symmetry)
 export function stepDance(dt, x, layers, objects, chars){
@@ -117,6 +135,7 @@ export function stepDance(dt, x, layers, objects, chars){
   const want = new Set([...layers, ...objects.map(k => 'o:' + k)]);
   for (const k of want) if (!D[k]) { D[k] = dancer(); D[k].move = choose(D[k], k, k.startsWith('o:') ? OBJ_MOVES : LAYER_MOVES, J, null); }
   for (const k in D) if (!want.has(k)) delete D[k];
+  near(dt, J);
   let i = 0;
   for (const k of layers) {
     const d = D[k], t = (bar - d.bar + bp), s = d.s, g = d.sign, a = T.layer, lead = i++ % 2 ? -1 : 1;   // the second layer answers the first
@@ -163,7 +182,7 @@ export function stepDance(dt, x, layers, objects, chars){
     const k2 = T.stiff*T.objStiff;
     // the poses ease in on springs; the kick's hits go straight on, so they land on the beat (through the springs they peaked ~300 ms late)
     DANCE.obj[key] = {yaw: springTo(s.yaw, yaw*amt, dt, k2*.7), pitch: springTo(s.pitch, pitch*amt, dt, k2*2) + hp*amt, roll: springTo(s.roll, roll*amt, dt, k2),
-      dx: springTo(s.dx, dx*amt, dt, k2), dy: springTo(s.dy, dy*amt, dt, k2*2) + hy*amt, s: springTo(s.sc, 1 + (sz - 1)*amt, dt, k2*2) + hs*amt,
+      dx: springTo(s.dx, dx*amt, dt, k2), dy: springTo(s.dy, dy*amt, dt, k2*2) + hy*amt, s: (springTo(s.sc, 1 + (sz - 1)*amt, dt, k2*2) + hs*amt)*DANCE.near,
       sq: springTo(s.sq, sq*amt, dt, k2*2.5) + hq*amt, lift: springTo(s.lift, lift*amt, dt, k2), part: ch.liftPart || 1};
   }
   for (const k in DANCE.obj) if (!D['o:' + k]) delete DANCE.obj[k];

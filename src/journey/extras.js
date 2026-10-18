@@ -5,6 +5,7 @@ import { byKey } from '../visuals/registry.js';
 import { knobs } from '../scene/tweaks.js';
 import { TUNE } from '../tuning.js';
 import { STEER } from './steer.js';
+import { S } from '../state.js';
 
 const lerp = ([a, b], f) => a + (b - a)*f, rnd = r => lerp(r, Math.random());
 const pickW = w => { let r = Math.random()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; };
@@ -18,7 +19,7 @@ export function chooseKal(force){
   if (!force && R && R.kal) { if (Math.random() < K.recipe) J.kal = {...R.kal}; return; }
   const chance = (K.chance + K.intense*(T - .5))*(J.world === 'cosmos' ? K.cosmos : 1);
   if (!force && Math.random() >= chance) return;
-  J.kal = {n: Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3))), where: whereFor(), turn: +((Math.random()*2 - 1)*K.turn).toFixed(3), mode: pickW(K.mode)};
+  J.kal = {n: Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3))), where: whereFor(), turn: +((Math.random()*2 - 1)*K.turn).toFixed(3), mode: pickW(K.mode.map((w, i) => i === 14 && !S.explore.nest ? 0 : w))};   // (the nested dive only while its switch is on)
 }
 const whereFor = () => { const W = TUNE.extras.kal.where; return pickW(J.centre ? W.centre : J.world && J.world !== 'none' ? W.world : W.plain); };
 // steered from the keyboard (ui/keys.js, K while Journey runs): kept at n mirrors (STEER.pin.kal = n, folding STEER.kalWhere
@@ -59,5 +60,5 @@ export function shiftKal(){
   else J.kal = {...J.kal, n: Math.max(2, Math.min(12, J.kal.n + [-2, -1, 1, 2][Math.floor(Math.random()*4)]))};
   steerKal();
 }
-export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'], KAL_KINDS = ['kaleidoscope', 'mirror box', 'diving kaleidoscope', 'pinwheel', 'rippling kaleidoscope', 'kaleidoscope of inverted pairs', 'kaleidoscope with an odd one out', 'imperfect kaleidoscope', 'kaleidoscope of colours', 'tiled kaleidoscope', 'hyperbolic kaleidoscope', 'Droste spiral', 'kaleidoscope of curved mirrors', 'kaleidoscope with two centres'];
+export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'], KAL_KINDS = ['kaleidoscope', 'mirror box', 'diving kaleidoscope', 'pinwheel', 'rippling kaleidoscope', 'kaleidoscope of inverted pairs', 'kaleidoscope with an odd one out', 'imperfect kaleidoscope', 'kaleidoscope of colours', 'tiled kaleidoscope', 'hyperbolic kaleidoscope', 'Droste spiral', 'kaleidoscope of curved mirrors', 'kaleidoscope with two centres', 'nested kaleidoscope dive'];
 export const KAL_N = KAL_KINDS.length;

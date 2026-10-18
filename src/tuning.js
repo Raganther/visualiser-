@@ -285,6 +285,12 @@ export const TUNE = {
     ring: 1, drift: 1, heave: .12},                                     // the kick's rings' speed, how fast the pattern drifts, a drop's heave
   growth: {chance: 0, journey: 1, grow: 1, fling: .8,                   // growing crystals: how long they grow (with the tension), how far a drop flings them
     count: 12, spread: .45, tip: .8, regrow: .6},                       // how many (1–16), how different their lengths, the tips' glow, how much each phrase regrows them
+  // growing branches (objects/branches.js): a tree growing towards you for ever. Branches a level, calm to intense; the
+  // splay (radians, calm to intense); how far a level may twist against the last; each level against the last (size); the
+  // trunk's thickness; how fast it dives (levels a second at full tension); a drop's surge (levels) and the lean it leaves
+  // (how uneven the splay, fading over leanBars); where it dives to, how far behind its trunk starts, how far it reaches
+  branches: {chance: 0, journey: 1, calm: 2, intense: 4, splay: [.55, .95], twist: .35, ratio: .6, radius: .1,
+    speed: .32, dropSurge: .8, lean: .45, leanBars: 8, focus: .9, base: 1.9, reach: 2.4},
   jewel: {chance: 0, size: .5, journey: 1.6,      // the Prism (objects/jewel.js), as the user chose it in the WebGL test (native/prism-web.html, Layers at 8): Journey's Prism now
     on: {pulse: 1, detail: 1, shapes: 1, patterns: 1, drops: 1, open: 1, surfaces: 1, life: 1},   // its layers (the room, lasers and camera, the test's ninth, left out)
     r: .62, spin: .22, morphSecs: 3.9, breath: .14, explode: 1.25, explodeSecs: 1.2,   // its radius; turning; a new shape or form's ease; the bass's swell; the drop's shatter
@@ -379,6 +385,12 @@ export const TUNE = {
     wallGlow: .6,              // the glowing layers laid on its walls (WebGL)
     gate: 40, heartSize: .7,   // a centrepiece floats in the vessel this often (units), and its size at one unit away
   },
+  // the fractal depths (worlds/kifs.js): its flight (units a second at full tension, calm's share), a drop's surge, a new
+  // section's fractal morphing in; how far the folds turn at full tension (radians), a drop's new turn and how many bars it
+  // settles over; its roll; the bass's breath; the kick's light (how fast it rushes away, how fast it fades); the clear way
+  // round the flight; how bright; where the centrepiece floats (every gate units), and its size
+  kifs: {speed: .9, calm: .35, surge: 2, surgeSecs: 2.5, morphSecs: 6, twist: .35, dropTwist: .6, settleBars: 8, turn: .08,
+    breath: .06, waveSpeed: 7, waveFade: .9, tunnel: .22, cell: 1.4, glow: 1, gate: 9, heartSize: .55},   // (cell: the size of the sponge's cells, which fill space)
   lattice: {speed: 3, calm: .4, surge: 1.6, surgeSecs: 2.5, morphSecs: 4,   // the Lattice (worlds/lattice.js): its flight, a drop's surge, a new section's tunnel
     turn: .12,                 // how fast it turns (faster as the music builds and on a drop)
     breath: .05,               // how much the bass swells it
@@ -544,12 +556,17 @@ export const TUNE = {
   fractal: {speed: .22, calm: .45, octave: 2.5, surge: 4, surgeSecs: 2.5, echoSpeed: 2.5, folds: [4, 5, 6, 8, 10]},
   // the kaleidoscope's other kinds (kalMode): the mirror box's hall (how fast its copies recede toward the edges), and the
   // dive (how fast it zooms in, faster as the tension rises; each band's width in log radius: each band e^band smaller)
-  kal: {hall: 1, dive: .25, band: .8, settle: .85, burst: 1.7},   // (settle: how symmetric the broken kinds become as a drop nears; burst: how far a drop breaks them)
+  kal: {hall: 1, dive: .25, band: .8, settle: .85, burst: 1.7,   // (settle: how symmetric the broken kinds become as a drop nears; burst: how far a drop breaks them)
+    // the nested dive (kind 14): each band of the dive its own kaleidoscope, born at the centre from the band before it.
+    // Mirrors towards calm..intense, a new band moving at most step mirrors from the one before; how far each band is turned
+    // against the last; the share broken into pinwheels (more as the symmetry breaks on a drop); the share tinted, and how
+    // far; how much faster than the plain dive it dives
+    nest: {calm: 4, intense: 9, step: 1, turn: .6, pin: .2, hue: .35, hueAmt: .12, speed: 1.4}},
   // Journey's extras, chosen per section with the cast (journey/extras.js), so it uses every setting, not only the roles
   extras: {
     kal: {chance: .2, intense: .25, recipe: .8, cosmos: .5,    // the kaleidoscope: a share of sections (more when intense; a recipe with one brings it most of the time; less in the cosmos, which folds itself)
       n: [3, 8], turn: .08,                                    // mirrors calm to intense, and how fast it may turn either way
-      mode: [1, .6, .8, .7, .8, .6, .6, .6, .7, .6, .6, .5, .6, .5],   // wedges, a mirror box, a dive, pinwheel, ripple, inverted pairs, odd one out, imperfect, colour wedges, tiles, hyperbolic, Droste, curved, two centres
+      mode: [1, .6, .8, .7, .8, .6, .6, .6, .7, .6, .6, .5, .6, .5, .9],   // wedges, a mirror box, a dive, pinwheel, ripple, inverted pairs, odd one out, imperfect, colour wedges, tiles, hyperbolic, Droste, curved, two centres, the nested dive
       where: {plain: [1, 0, 1.2, 0], world: [.6, 1.2, .5, 0], centre: [.4, .4, .3, 1.2]}},   // everything, the world, the glow, inside the object: with no world, over a world, round a centrepiece
     grain: {chance: .12, amt: [.2, .55]},                      // the film grain: a share of sections, and how much
     mand: {base: .5, tension: .5, spread: .7},                 // the mandalas' detail: its middle, how much the tension raises it, how far chance spreads it
@@ -559,6 +576,11 @@ export const TUNE = {
   // the choreographer (scene/dance.js): every layer and object on screen dances, a new move every few bars to suit the music
   dance: {
     amount: 1,                 // how much everything dances (0: as before, still)
+    // the objects coming to you (S.explore.near; the user asked for the object to come up close and engulf the viewer):
+    // their size against the usual, calm or in a breakdown (hanging back), at full tension, at the end of a run-up to a known
+    // drop, on the drop (filling the screen, held holdBars then easing back over backBars), and the slow approach and back
+    // over waveBars at full tension; how quickly it follows (per second)
+    near: {calm: .8, full: 1.2, runUp: 2.2, drop: 3.6, holdBars: 1, backBars: 6, wave: .7, waveBars: 16, ease: 1.6},
     remember: .7,              // how often a returning section's dancer brings back its own move
     barsPerMove: 4,            // a dancer may change its move every this many bars (the comets' shape every twice as many)
     stiff: 30,                 // the springs' stiffness: higher snaps to each pose, lower floats

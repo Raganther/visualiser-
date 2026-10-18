@@ -17,7 +17,7 @@ const ry = a => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1,
 const rz = a => { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, s, c, 0, 0, 0, 1]; };
 const m3 = (A, B) => { const C = new Array(9); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i*3 + j] = A[i*3]*B[j] + A[i*3 + 1]*B[3 + j] + A[i*3 + 2]*B[6 + j]; return C; };
 
-// o: {key, label, words, stats, glsl, custom?, steps?, stepK?, dance, step(st, M, dt, x, P), map2d(x, y, z, st), tint2d(p, n, rd, t, st, U), rad(st), burst?(st)}
+// o: {key, label, words, stats, glsl, custom?, steps?, stepK?, dance, step(st, M, dt, x, P), map2d(x, y, z, st), tint2d(p, n, rd, t, st, U), rad(st), burst?(st), orient?(st, dance), draw2d?(c, U, st)}
 export function sdfObject(o){
   sdfRegister(o);
   const st = {t: 0, bars: 0, wan: 0, wph: 0, ex: 0, exHold: 0, kick: 0, kickT: -9, lastHit: 0, stab: 0, dropAt: -99, lastDrop: undefined, off: true, yaw: 0, bass: 0, hat: 0, ten: 0, hue: 0,
@@ -66,7 +66,7 @@ export function sdfObject(o){
       const wx = st.wan*Wn.amount*viewAsp()*.5*(.75*Math.sin(st.wph*.7 + 1.3) + .25*Math.sin(st.wph*1.9)), wy = st.wan*Wn.amount*.42*(.7*Math.sin(st.wph*1.1) + .3*Math.cos(st.wph*2.3 + .5));
       const d = DANCE.obj[o.key], An = P.anchor, Vw = S.view && S.view.key === o.key ? S.view : null;
       const yaw = Vw ? Vw.yaw : st.yaw + (d ? d.yaw : 0), pitch = .18 + Math.sin(st.t*.23)*.08 + (d ? d.pitch : 0) + (Vw ? Vw.pitch : 0), roll = d ? d.roll : 0;
-      const R = m3(m3(rx(pitch), ry(yaw)), rz(roll)), h = P.hue + st.hue, pal = P.pal || [0, .33, .67];
+      const R = o.orient && !Vw ? o.orient(st, d) : m3(m3(rx(pitch), ry(yaw)), rz(roll)), h = P.hue + st.hue, pal = P.pal || [0, .33, .67];   // (o.orient: its own way of facing, the branches pointing at you)
       const az = .55 + .5*Math.sin(st.t*.07), el = .5, dim = x.dim ?? 1;
       P.m = P.m || {};
       P2.U = P.m[o.key] = {w: An && An.hide ? 0 : Math.min(1, w*1.2), R, br: st.br,
@@ -77,7 +77,7 @@ export function sdfObject(o){
         C0: hsv2rgb(h + pal[0], .75, 1), C1: hsv2rgb(h + pal[1], .7, 1), C2: hsv2rgb(h + pal[2], .6, 1), Ld: [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)]};
     },
     drawGL(gl, P, W, H, stage){ if (stage === 'trails') return; const U = P.m && P.m[o.key]; if (U && U.w > .003) sdfDraw(gl, S.glGen, o, U, W, H, stage); },
-    draw2d(c, P){ const U = P.m && P.m[o.key]; if (U && U.w > .003) sdf2d(c, U, map, tint, TUNE.sdf.res2d); },
+    draw2d(c, P){ const U = P.m && P.m[o.key]; if (U && U.w > .003) { if (o.draw2d) o.draw2d(c, U, st); else sdf2d(c, U, map, tint, TUNE.sdf.res2d); } },   // (o.draw2d: its own simple-mode drawing)
     path2d(c, P){ const U = P.m && P.m[o.key]; if (U) sdfPath2d(c, U, o.rad(st)); else c.beginPath(); },
   };
 }

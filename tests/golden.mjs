@@ -29,7 +29,12 @@ async function record(mode, url){
   const browser = await launch(mode), page = await openPage(browser, url);
   const timeline = [], thumbs = [];
   for (let s = 1; s <= seconds; s++) {
-    const snap = await page.evaluate(`(() => { __step(60); return {t: ${s}, j: __jdbg(), sec: document.querySelector('#jSection').textContent, thumb: ${s % thumbEvery === 0} ? ${THUMB} : null}; })()`);
+    // (a thumbnail in WebGL waits, in real time, for the shaders still being built: under load a program came late and the
+    // picture differed, though the music, stepped on the test's clock, was the same)
+    const wait = mode === 'gl' && s % thumbEvery === 0;
+    const snap = await page.evaluate(`(async () => { __step(${wait ? 59 : 60});
+      if (${wait}) { const {segBusy} = await import('/src/render/gl.js'); for (let i = 0; i < 300 && segBusy(); i++) await new Promise(r => setTimeout(r, 100)); __step(1); }
+      return {t: ${s}, j: __jdbg(), sec: document.querySelector('#jSection').textContent, thumb: ${s % thumbEvery === 0} ? ${THUMB} : null}; })()`);
     if (snap.thumb) thumbs.push({t: s, px: snap.thumb});
     delete snap.thumb; timeline.push(snap);
   }

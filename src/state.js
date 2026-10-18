@@ -14,6 +14,11 @@ export const S = {
   speed: 1,   // how fast the movement runs: Journey's speed gear (journey/gear.js), times the overall movement setting
   jewelInner: null,   // the Prism's own kaleidoscope held by hand (0 off, 1 skin, 2 mirrors, 3 tunnel; null: each section its own; K then P)
   objWorld: (() => { try { return localStorage.getItem('afterglow.objWorld') === '1'; } catch (e) { return false; } })(),   // objects carried through the 3D worlds and the cosmos (true) or kept in the centre (the user's choice, O then C, remembered)
+  // the explorations (the user asked to move into the kaleidoscope: more unfurling as it goes, the object coming to engulf
+  // the viewer, branches growing out of branches), each on or off (the Adjust panel's Explore, kept as afterglow.explore):
+  // nest the nested kaleidoscope dive (a kaleidoscope kind), near the objects coming to you, grow the growing branches (an
+  // object), kifs the kaleidoscopic fractal flown through (a world). Off, Journey leaves it out (by hand it still works)
+  explore: (() => { const d = {nest: 1, near: 1, grow: 1, kifs: 1}; try { return {...d, ...JSON.parse(localStorage.getItem('afterglow.explore') || '{}')}; } catch (e) { return d; } })(),
   skipW: new Set(),               // worlds Journey leaves out (the panel's "3D worlds in Journey", ui/fps.js)
   active: null,                  // the preset in use (jState during Journey); set once presets load
   glGen: 0,                      // bumps when a lost WebGL context is restored, so visuals rebuild their own GL objects

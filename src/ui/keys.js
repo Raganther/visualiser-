@@ -20,6 +20,7 @@ import { combos, tutorial } from './tutorial.js';
 import { TW_SIZE, TW_SPEED, TW_SRC, knobs, setTweak, twOf } from '../scene/tweaks.js';
 import { STEER, clearSteer } from '../journey/steer.js';
 import { applySteer } from '../journey/cast.js';
+import { chooseWorld } from '../journey/worlds.js';
 import { KAL_KINDS, KAL_N, steerKal } from '../journey/extras.js';
 import { updateSectionUI, gearUI } from './panel.js';
 import { GEARS } from '../journey/gear.js';
@@ -49,7 +50,7 @@ const GROUPS = {
     pick: n => { const t = TEMPLATES[n - 1]; if (!t) return false; edit(); compose(t.key); return true; }, off: () => { S.scene = null; if (S.active) delete S.active.scene; }},
   c: {name: 'Cosmos camera', list: () => FLY.map(([k, l]) => [l, false, k])},
 };
-const KIND_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'H', 'D', 'C', 'T'];   // the kinds: wedges … tiles on the numbers, then Hyperbolic, Droste, Curved, Two centres
+const KIND_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'H', 'D', 'C', 'T', 'N'];   // the kinds: wedges … tiles on the numbers, then Hyperbolic, Droste, Curved, Two centres, Nested dive
 const kindNow = () => J.on ? (J.kal ? J.kal.mode || 0 : -1) : (S.active.kal || 0) >= 2 ? Math.round(S.active.kalMode || 0) : -1;
 function setKind(m){   // (while Journey runs, it keeps that kind)
   if (J.on) { STEER.kalMode = m; steerKalKey(null, J.kal ? J.kal.where : null, true); }
@@ -58,8 +59,8 @@ function setKind(m){   // (while Journey runs, it keeps that kind)
 }
 const KAL_WHERE = [['e', 'everything'], ['b', 'the world'], ['g', 'the glow'], ['i', 'inside the object']];   // kalWhere 0-3
 const STYLES = ['glass wire', 'solid', 'outline', 'hologram', 'points', 'shaded'];   // the objects' styles (render/mesh.js), Y in the objects group
-const WMORE = ['H', 'N', 'V', 'G', 'D', 'I'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall, the lattIce), none a group's letter, T, R, A or X
-const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R', 'X', 'F', 'D', 'V', 'N', 'A', 'Z'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), the Prism, the gem oRbit, the full Prism (eXtra), Ferrofluid, liquid metal (Droplet), bubble (Vapour), cell (Nucleus), corAl, growing crystals (Z)); Y is the style, M the lit look
+const WMORE = ['H', 'N', 'V', 'G', 'D', 'I', 'F'];   // worlds past the ninth: letters (the Hollow, the Cathedral's nave, the Vessel, the Geode, the Corridor: D for the dance hall, the lattIce, the Fractal depths), none a group's letter, T, R, A or X
+const OMORE = ['J', 'Q', 'G', 'U', 'I', 'H', 'B', 'P', 'R', 'X', 'F', 'D', 'V', 'N', 'A', 'Z', 'T'];   // objects past the ninth: letters (jellyfish, crystal (quartz), goblin, the lit goblin, tentacle, hand, heart (its beat), the Prism, the gem oRbit, the full Prism (eXtra), Ferrofluid, liquid metal (Droplet), bubble (Vapour), cell (Nucleus), corAl, growing crystals (Z), growing branches (Tree)); Y is the style, M the lit look
 const LOOKS = ['real', 'toon', 'neon', 'chrome', 'marble'];   // the lit objects' looks (litLook), M in the objects group
 const MORE = ['Z', 'U', 'I', 'J', 'V', 'Y', 'Q', 'D', 'G', 'M', 'X', 'N', 'H', 'P', 'F'];   // layers past the ninth: letters (lasers, waveform lines, fireflies, stargate, vectorscope, mandala, mood ring, rain, constellations, the unfolding mandala, the fractal, guilloché (eNgraving), string art (Harp), spiral galaxy (sPiral), the rose window (F: its flower)); the mirror tunnel (media) stays on its slider
 const isLayer = k => byKey[k] && byKey[k].kind === 'layer';
@@ -126,16 +127,22 @@ function show(){
     const kb = document.createElement('kbd'); kb.textContent = key ?? i + 1; s.append(kb, ' ' + label); el.append(s);
   });
   const tip = document.createElement('i');
-  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fourteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: in and kept, or out again (Journey carries on) · Alt+number never · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
+  tip.textContent = mode === 'c' ? 'C or Esc leaves' : J.on && mode === 'k' ? 'number: Journey keeps that many mirrors (again: free) · 0 never (again: free) · E B G I what it folds · M the kind (a list of fifteen) · Esc leaves' : J.on && STEERS[mode] ? 'number: in and kept, or out again (Journey carries on) · Alt+number never · Shift+number takes over by hand · 0 clears · ; holds · R moves on' + (mode === 'o' ? ' · Y style · M lit look' : '') + ' · Esc leaves'
     : mode === 'l' ? '0 all off · Shift+number alone · ↑ ↓ more or less · ← → speed · Shift+← → size · B what it follows · Esc leaves'
     : mode === 'o' ? '0 all off · Shift+number alone · Y style (glass wire, solid, outline, hologram, points, shaded) · M lit look (real, toon, neon, chrome, marble) · C centred or carried through the 3D worlds · Esc leaves'
     : mode === 'km' ? 'a key picks that kind · ↑ ↓ the next or the one before · M back to the mirrors · Esc leaves'
-    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (a list of fourteen) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
+    : mode === 'k' ? '0 off · ↑ ↓ more or fewer · ← → turning · M the kind (a list of fifteen) · Esc leaves' : '0 all off · Shift+number alone · ↑ ↓ more or less · Esc leaves';
   el.append(tip); el.classList.add('on');
 }
 function setObjWorld(v, quiet){ S.objWorld = v; try { localStorage.setItem('afterglow.objWorld', v ? '1' : '0'); } catch (e) {}
   const c = $('#objWorld'); if (c) c.checked = v; if (!quiet) toast(v ? 'Objects travel through the 3D worlds' : 'Objects stay in the centre'); }
 { const c = $('#objWorld'); if (c) { c.checked = S.objWorld; c.addEventListener('change', e => setObjWorld(e.target.checked)); } }
+// the explorations (S.explore, state.js): each on or off from the Adjust panel, remembered on the device
+const EXPLORE = {nest: 'The nested kaleidoscope dive', near: 'Objects coming to you', grow: 'Growing branches', kifs: 'Fractal depths'};
+for (const c of document.querySelectorAll('[data-explore]')) { const k = c.dataset.explore; c.checked = !!S.explore[k];
+  c.addEventListener('change', e => { S.explore[k] = e.target.checked ? 1 : 0; try { localStorage.setItem('afterglow.explore', JSON.stringify(S.explore)); } catch (er) {}
+    if (k === 'kifs' && !S.explore.kifs && J.on && J.world === 'kifs') chooseWorld(true);   // (off: Journey moves on from it now)
+    toast(`${EXPLORE[k]}: ${S.explore[k] ? 'on' : 'off (Journey leaves it out)'}`); }); }
 function help(){ const el = $('#keyHelp'); if (el) el.hidden = !el.hidden; }
 
 addEventListener('keydown', e => {   // (in the capture phase, so ← → on a layer come here before the presets take them)

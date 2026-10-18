@@ -36,7 +36,10 @@ void main(){   // 9 taps from 5 fetches, using the texture's own filtering
 // each bar); 7 imperfect mirrors (uneven wedges whose seams don't quite meet); 8 colour wedges (the same shape, each wedge
 // its own hue); 9 tiles (the plane tiled with triangles, each folded on its medians); 10 hyperbolic (Escher's Circle Limit:
 // tiles shrinking for ever towards the rim of a disc, drifting); 11 Droste (a spiral of copies, each inside the last,
-// zooming); 12 curved mirrors (bending with the bass); 13 two centres (two kaleidoscopes drifting apart and together).
+// zooming); 12 curved mirrors (bending with the bass); 13 two centres (two kaleidoscopes drifting apart and together);
+// 14 the nested dive (the user asked to move into the kaleidoscope, more unfurling as it goes): the dive's bands each their
+// own kaleidoscope (uKalL: mirrors, turn, pinwheel, hue, for the bands from uKal4.x outwards), each born at the centre
+// from the one before it and the music of that moment (main.js), so diving in reveals kaleidoscopes inside kaleidoscopes.
 // kalH is a hue turn for the point's wedge, applied once the picture is read (kalCol).
 export const KAL = `float kalH=0.0;
 vec2 kRot(vec2 p,float a){ float c=cos(a), s=sin(a); return vec2(c*p.x-s*p.y,s*p.x+c*p.y); }
@@ -64,6 +67,7 @@ vec2 kalDroste(vec2 p,float L,float z0){   // turning once round climbs one band
   float r=length(p)+1e-5, a=atan(p.y,p.x), k=L/6.2831853, u=log(r/0.5)-k*a+z0*L, w=abs(fract(u/L)*2.0-1.0)*L;   // (mirrored in each band, so no seam where the spiral wraps)
   return 0.5*exp(-w)*vec2(cos(a),sin(a));
 }
+vec4 kalLv(float j){ vec4 l=uKalL[0]; for(int i=1;i<10;i++) if(float(i)<=j) l=uKalL[i]; return l; }   // (an array read by a loop: WebGL 1)
 vec3 kalCol(vec3 c){ if(abs(kalH)<0.001) return c; float a=kalH*6.2831853, ca=cos(a); vec3 k=vec3(0.5773503);   // a hue turn about the grey axis
   return max(c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.0-ca),0.0); }
 vec2 kalUv(vec2 uv,vec2 asp){
@@ -90,12 +94,15 @@ vec2 kalUv(vec2 uv,vec2 asp){
   else if(m<10.5) f=kalHyp(p,n,ang,0.46,0.22*as*vec2(sin(t*0.13),cos(t*0.17)));
   else if(m<11.5) f=kalF(kalDroste(p,uKal2.w,uKal2.z),n,ang);
   else if(m<12.5){ float r=length(p), b=(0.35+0.9*uKal3.w)*0.2*sin(r*7.0-t*1.5)*max(0.3,as); f=kRot(kalF(kRot(p,b),n,ang),-b); }
+  else if(m>13.5){ float L=uKal2.w, r=length(p)+1e-5, u=log(r/0.5)/L-uKal2.z, v=abs(fract(u*0.5)*2.0-1.0);
+    vec4 lv=kalLv(clamp(floor(u)-uKal4.x,0.0,9.0)); vec2 g=lv.z>0.5?kalPin(p,lv.x,ang+lv.y):kalF(p,lv.x,ang+lv.y);
+    f=g*0.5*exp((v-1.0)*L)/r; kalH=lv.w; }
   else { vec2 c1=kRot(vec2(0.24*(0.55+0.45*sin(t*0.27))*max(0.4,as),0.0),t*0.11), cc=length(p-c1)<length(p+c1)?c1:-c1; f=kalF(p-cc,n,ang); }
   kalH*=uKal.z;
   vec2 q=(uKalC+mix(p,f,uKal.z))/asp+0.5;
   return 1.0-abs(1.0-mod(q,2.0));   // off the picture: mirrored back into it
 }`;
-export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal, uKal2, uKal3; uniform vec2 uKalC, uAsp;
+export const FINISH = PREC + `varying vec2 vUv; uniform sampler2D uTex, uBloom, uKalM; uniform float uAmt, uKnee, uKalOn; uniform vec4 uKal, uKal2, uKal3, uKal4, uKalL[10]; uniform vec2 uKalC, uAsp;
 uniform vec2 uGl; uniform float uGrain, uT, uHush;   // the glitch (how much, which slicing), film grain, time; the breath held before a drop
 vec3 pic(vec2 uv){ return texture2D(uTex,uv).rgb+texture2D(uBloom,uv).rgb*uAmt; }
 ${KAL}

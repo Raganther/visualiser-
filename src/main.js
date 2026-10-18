@@ -125,7 +125,27 @@ function fpsInfo(){
   return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%${gfxLevel() === 'auto' ? ', lowered for speed' : ''})` : '') + (Q.heavy && Q.world < 1 ? `, the 3D world at ${Math.round(Q.world*100)}%` : '') + ` · graphics: ${gfxLevel()} (Q)`
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
+const SWITCHES = new Set(['kalMode', 'kalWhere', 'objStyle', 'litLook']);
 let kalA = 0, kalZ = 0, kalT = 0, kalBar = 0, kalPh = 0, kalAs = 1, kalDrop = null;   // the kaleidoscope's turn, how far it has dived, its own time, the bars counted, how asymmetric
+// the nested dive (kind 14): each band of the dive its own kaleidoscope. Bands are counted outwards from the centre in
+// log radius; diving in, new ones come out of the centre, each born from the band outside it (the one before) and the
+// music of that moment: towards few mirrors when calm and many when intense, a step at a time, turned against the last,
+// some broken into pinwheels (more while the symmetry is broken after a drop), some tinted. Its own random numbers
+const NEST = new Map(), NEST_LV = new Float32Array(40); let nestSeed = 7;
+const nestRnd = () => (nestSeed = (nestSeed*16807) % 2147483647)/2147483647;
+function nestBand(k){
+  let b = NEST.get(k); if (b) return b;
+  const N = TUNE.kal.nest, out = NEST.get(k + 1), T = SIG.tension || 0, want = N.calm + (N.intense - N.calm)*T;
+  const n0 = out ? out[0] : Math.round(want), n = Math.max(2, Math.min(12, n0 + Math.max(-N.step, Math.min(N.step, Math.round(want - n0 + (nestRnd() - .5)*1.6)))));
+  b = [n, (out ? out[1] : 0) + (nestRnd() - .5)*N.turn*2*Math.PI/n, nestRnd() < N.pin*Math.max(1, kalAs) ? 1 : 0, nestRnd() < N.hue ? (nestRnd() - .5)*2*N.hueAmt : 0];
+  NEST.set(k, b); return b;
+}
+function kalNest(){
+  const L = TUNE.kal.band, top = Math.floor(Math.log(2.8)/L - kalZ), nb = top - 9;   // (the bands on screen: the edge's, and nine inside it)
+  for (let k = top; k >= nb; k--) NEST_LV.set(nestBand(k), (k - nb)*4);   // (outside in: each born from the one outside it)
+  for (const k of NEST.keys()) if (k > top + 2 || k < nb - 2) NEST.delete(k);
+  return {nb, lv: NEST_LV};
+}
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -141,7 +161,8 @@ function render(now){
   const vk = Math.min(1, .06 + .94*PACE.v);           // calm sections follow the levels more gently
   VIS.bass += (sBass - VIS.bass)*vk; VIS.mid += (sMid - VIS.mid)*vk; VIS.treb += (sTreb - VIS.treb)*vk;
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
-  for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
+  // (a switch, such as the kaleidoscope's kind, never blends, Journey or not: by hand, kind 0 to 14 swept through all between)
+  for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) || SWITCHES.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
   updateSignals({bands, beat: S.beat, hit, beats: J.beats, kickOn: J.groove > TUNE.grid.groove.hits, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L, coming: J.anticip});
@@ -174,16 +195,17 @@ function render(now){
   // eases (the share of the next), and it turns at motion time
   kalA += mdt*(eff.kalTurn || 0);
   const km = Math.max(0, Math.min(KAL_N - 1, Math.round(eff.kalMode || 0)));   // the kind (render/shaders.js, KAL): wedges, a mirror box, a dive, and the broken symmetries
-  kalZ += km === 2 || km === 11 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
+  kalZ += km === 2 || km === 11 || km === 14 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0))*(km === 14 ? TUNE.kal.nest.speed : 1) : 0;
   // the broken symmetries follow the music: a bar counted (the odd wedge moves on, the inverted pairs swap), the asymmetry
   // settling as a drop we saw coming nears (TUNE.kal.settle) and breaking on the drop (TUNE.kal.burst), easing back
   kalT += mdt; if (SIG.barPhase < kalPh - .5) kalBar++; kalPh = SIG.barPhase;
   if (J.on && kalDrop !== null && J.lastDrop !== kalDrop) kalAs = TUNE.kal.burst; kalDrop = J.lastDrop ?? null;
   kalAs += ((J.on ? 1 - TUNE.kal.settle*(J.anticip || 0) : 1) - kalAs)*Math.min(1, mdt*.6);
+  const nest = km === 14 ? kalNest() : null;
   const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
-    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band], v3: [kalT, kalBar, kalAs, SIG.bass || 0]};
+    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band], v3: [kalT, kalBar, kalAs, SIG.bass || 0], nb: nest ? nest.nb : 0, lv: nest && nest.lv};
   P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
   P.hush = J.on ? J.hush*TUNE.foresee.hush*(reduceMotion ? .5 : 1) : 0;   // the breath held before a drop we saw coming (journey/director.js)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)

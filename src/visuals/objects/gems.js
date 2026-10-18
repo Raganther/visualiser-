@@ -69,7 +69,7 @@ export default {
       g.pop *= Math.exp(-dt*6); g.flash *= Math.exp(-dt*3);
       g.mix += (g.mixT - g.mix)*Math.min(1, dt*.8);
       const a = st.orbit + g.i*Math.PI*2/NG + spin, ox = Math.cos(a)*rad, oz0 = Math.sin(a)*rad, oy = -oz0*Math.sin(tilt), oz = oz0*Math.cos(tilt);
-      const persp = 3.2/(3.2 - oz*base.size*2.2);
+      const persp = 3.2/Math.max(1, 3.2 - oz*base.size*2.2);   // (never past the camera, as the orbit comes near)
       g.U = {rot: x.t*(.35 + g.i*.07) + g.rot, pitch: .3 + Math.sin(x.t*.3 + g.i)*.25, roll: 0, sq: 0, line: TUNE.mesh.line*.8,
         size: base.size*T.gem*(1 + g.pop*.22 + (g.i === 3 ? (P.bass || 0)*x.react*.18 : 0))*persp,
         pos: [base.pos[0] + ox*base.size*2.2*persp, base.pos[1] + oy*base.size*2.2*persp], w: (An && An.hide ? 0 : Math.min(1, w*1.2))*g.on};

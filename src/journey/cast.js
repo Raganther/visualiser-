@@ -6,6 +6,7 @@ import { updateSectionUI } from '../ui/panel.js';
 import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
+import { S } from '../state.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
 import { STEER, banned, pinned } from './steer.js';
 import { chooseWorld } from './worlds.js';
@@ -74,7 +75,7 @@ function pickCentre(){
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
   if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && !(v.key === 'branches' && !S.explore.grow) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);   // (the growing branches only while their switch is on)
   J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music

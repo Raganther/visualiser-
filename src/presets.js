@@ -29,7 +29,7 @@ export const SPEC = [
   {g:'Finish', k:'grain', label:'Film grain and VHS', min:0, max:1, step:.01},
   // how the 3D objects are drawn (render/mesh.js); last, so the rest keep their places
   // the kaleidoscope's kind (last, so the rest keep their places): wedges meeting at a point, a mirror box (a hall of mirrors), a dive (zooming in through its folds)
-  {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive, 3 pinwheel, 4 ripple, 5 inverted pairs, 6 odd one out, 7 imperfect, 8 colour wedges, 9 tiles, 10 hyperbolic, 11 Droste, 12 curved, 13 two centres', min:0, max:13, step:1},
+  {g:'Kaleidoscope', k:'kalMode', label:'Kind: 0 wedges, 1 mirror box, 2 dive, 3 pinwheel, 4 ripple, 5 inverted pairs, 6 odd one out, 7 imperfect, 8 colour wedges, 9 tiles, 10 hyperbolic, 11 Droste, 12 curved, 13 two centres, 14 nested dive', min:0, max:14, step:1},
   {g:'Objects', k:'objStyle', label:'Object style: 0 glass wire, 1 solid, 2 outline, 3 hologram, 4 points, 5 shaded', min:0, max:5, step:1},
   // how intricate the mandalas are: few folds and plain rings, to many folds, doubled petals and ornament (last, so the rest keep their places)
   {g:'Mandala', k:'mandDetail', label:'Mandala detail: simple to intricate', min:0, max:1, step:.01, def:.5},
@@ -101,6 +101,7 @@ export const BASE = [
   {name:'Rose window', decay:.9, zoom:1.003, rot:.001, warp:0, sym:1, rosette:1, cascade:.6, colorSpeed:.02, hueDrift:.005, mods:{}},
   // the Lattice: a tunnel of glass facets lighting with the music, a stargate rushing down it
   {name:'The Lattice', decay:.9, zoom:1.006, rot:0, warp:0, sym:1, lattice:1, stargate:.6, colorSpeed:.03, hueDrift:.006, mods:{}},
+  {name:'Fractal depths', decay:.9, zoom:1.004, rot:0, warp:0, sym:1, kifs:1, fireflies:.6, colorSpeed:.02, hueDrift:.004, mods:{}},   // (a recipe for the kaleidoscopic fractal flown through)
   {name:'Pleasures', decay:.85, zoom:1.0, rot:0, warp:0, sym:1, lines:1, colorSpeed:.01, hueDrift:.002, mods:{}},
   // manual-mode looks that Journey doesn't use as recipes (journey:false); with media loaded, Journey brings the tunnel in itself
   {name:'Mirror tunnel', journey:false, decay:.9, zoom:1.01, rot:.004, warp:.1, sym:1, tunnel:1, comets:.4, colorSpeed:.03, hueDrift:.006,
@@ -127,6 +128,12 @@ export const BASE = [
   {name:'Living cell', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, cell:1, vessel:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Brain coral', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, coral:1, kal:8, kalWhere:0, kalMode:4, colorSpeed:.02, hueDrift:.004, mods:{}},
   {name:'Growing crystals', journey:false, decay:.9, zoom:1.002, rot:0, warp:0, sym:1, growth:1, geode:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  // moving into the picture (S.explore): the nested kaleidoscope dive over the landscape; the growing branches alone, and
+  // under the nested dive; the branches in the fractal depths
+  {name:'Nested dive', journey:false, decay:.9, zoom:1.003, rot:0, warp:0, sym:1, land:1, ring:.7, kal:6, kalWhere:0, kalMode:14, colorSpeed:.03, hueDrift:.005, mods:{}},
+  {name:'Growing branches', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, branches:1, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Into the branches', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, branches:1, kal:6, kalWhere:0, kalMode:14, colorSpeed:.02, hueDrift:.004, mods:{}},
+  {name:'Branches in the depths', journey:false, decay:.88, zoom:1.002, rot:0, warp:0, sym:1, kifs:1, branches:1, colorSpeed:.02, hueDrift:.004, mods:{}},
   // scenes (scene/graph.js): a kaleidoscope inside the skull, with the trails kept outside it; comets between the city's buildings
   {name:'Skull kaleidoscope', journey:false, decay:.92, zoom:1.006, rot:0, warp:.1, sym:1, skull:1, ring:.5, comets:.4, colorSpeed:.04, hueDrift:.006,
     mods:{ring:{src:'kick', amt:.3}},
