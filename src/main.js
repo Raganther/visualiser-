@@ -56,6 +56,7 @@ import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { PLAN, planWords } from './journey/plan.js';
+import { genMat } from './scene/genome.js';
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { KAL_N } from './journey/extras.js';
@@ -169,7 +170,8 @@ function render(now){
   updateSignals({bands, beat: S.beat, hit, beats: J.beats, kickOn: J.groove > TUNE.grid.groove.hits, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L, coming: J.anticip});
   // the shared context: the section's palette, one wind, the worlds' light
-  updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
+  updateContext({pal: genMat() != null ? TUNE.palettes.analogous : J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad,   // (a genome's shared material: one family of colours, scene/genome.js)
+    clock: S.MT, dt, bass: bands.bass,
     section: SIG.section, drop: J.dropGlow, worlds: WORLD_VISUALS.map(v => ({w: eff[v.key], light: v.light, motion: v.motion, focus: v.focus}))});
   applyMods(now, react);
   stepTweaks(mdt, react);   // each layer's own speed, size and sound (scene/tweaks.js)

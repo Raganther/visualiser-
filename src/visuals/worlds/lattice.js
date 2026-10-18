@@ -10,6 +10,7 @@
 // Cheap: one ray against a polygonal tube, no marching. A centrepiece floats in the tunnel ahead (P.anchor). Its front plane
 // is the near walls. Simple mode draws the facets as quads between rings of the polygon, far to near.
 import { hc, sectionLayout } from '../../util.js';
+import { genN } from '../../scene/genome.js';
 import { TUNE } from '../../tuning.js';
 import { S } from '../../state.js';
 import { SIG } from '../../scene/signals.js';
@@ -42,7 +43,7 @@ export default {
     if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; }
     st.lastHit = x.hit;
     st.s16 = SIG.barPhase > 0 ? Math.floor(SIG.barPhase*16) : Math.floor(st.t/(bp/4)) % 16;
-    const A = LOOK(st.D0), B = LOOK(st.D1), L0 = st.tr < .5 ? A : B, anticip = (J && J.anticip) || 0;
+    const A = LOOK(st.D0), B = LOOK(st.D1), L0 = [...(st.tr < .5 ? A : B)], gn = genN(4, 12); if (gn) L0[0] = gn; const anticip = (J && J.anticip) || 0;
     P.lt = [st.z, st.roll, L0[0], RW*(1 + (P.bass || 0)*x.react*T.breath)];
     P.lt2 = [st.wave*T.waveSpeed, Math.exp(-st.wave*T.waveFade)*x.dim, st.sec % L0[2], .35 + .65*Math.exp(-(st.t - st.secT)*2.5)];
     P.lt3 = [(st.s16 + st.bars*16) % 256, Math.min(1, SIG.hat*1.4)*T.hatShare, Math.min(1, (SIG.harm || 0) + (P.mid || 0)*x.react*.5), anticip > .02 ? (1 - anticip)*T.anticipDist : 999];

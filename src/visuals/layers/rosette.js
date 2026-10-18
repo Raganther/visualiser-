@@ -10,6 +10,7 @@
 import { S } from '../../state.js';
 import { TUNE } from '../../tuning.js';
 import { SIG } from '../../scene/signals.js';
+import { genN } from '../../scene/genome.js';
 
 const W = new Float32Array(4), K = new Float32Array(4), SS = new Float32Array(4), M = new Float32Array(4);
 const st = {waves: [], sec: 0, secT: -9, t: 0, s16: -1, bars: 0, secBars: 0, type: undefined, n: 6, per: 6, lastHit: 0, kickT: -9, turn: 0};
@@ -28,7 +29,8 @@ export default {
     st.t += dt;
     const type = J && J.on ? J.type : null;
     if (type !== st.type) { st.type = type; st.secBars = 0; const h = hashStr('r' + tid(type));
-      st.n = [3, 4, 5, 6, 8][Math.floor(hash(h*7)*5)]; st.per = [6, 8, 6, 12][Math.floor(hash(h*11)*4)]; }
+      st.n0 = [3, 4, 5, 6, 8][Math.floor(hash(h*7)*5)]; st.per = [6, 8, 6, 12][Math.floor(hash(h*11)*4)]; }
+    st.n = genN(3, 8) || st.n0 || st.n;   // (the genome's symmetry, while it's on: scene/genome.js)
     if (SIG.kick > .99 && st.t - st.kickT > .12) { st.kickT = st.t; st.waves.push(st.t); if (st.waves.length > 2) st.waves.shift(); }
     if (x.hit > .8 && st.lastHit <= .8) { st.sec++; st.secT = st.t; }
     st.lastHit = x.hit;

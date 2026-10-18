@@ -27,3 +27,8 @@ let lab = swap(html, '<title>Afterglow visualizer</title>', '<title>Prism Lab</t
 lab = swap(lab, '<script type="module">', `<script>window.__labs = ['prism'];</script>\n<script type="module">`);
 fs.writeFileSync(path.join(root, 'dist/prism-lab.html'), lab);
 console.log(`dist/prism-lab.html: ${(lab.length/1024).toFixed(0)} KB`);
+// the genome on the phone: the same page, opening straight into src/lab/genome.js
+let gen = swap(html, '<title>Afterglow visualizer</title>', '<title>Afterglow Genome</title>');
+gen = swap(gen, '<script type="module">', `<script>window.__labs = ['genome'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/genome.html'), gen);
+console.log(`dist/genome.html: ${(gen.length/1024).toFixed(0)} KB`);

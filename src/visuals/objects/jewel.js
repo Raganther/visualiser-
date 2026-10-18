@@ -12,6 +12,7 @@ import { DANCE } from '../../scene/dance.js';
 import { L } from '../../audio/listen.js';
 import { gemSheetGeo, FOCAL, CAM } from '../../render/facet.js';
 import { makeCells, stepCells, touch } from './cells.js';
+import { genN, genMat } from '../../scene/genome.js';
 
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
@@ -98,7 +99,9 @@ function nextLook(sharp){
   st.recent.push(Lk.name); if (st.recent.length > 5) st.recent.shift();
 }
 const setDetail = d => { if (Math.abs(d - st.dNext) < .01) return; st.dPrev = curDetail(); st.dNext = d; st.wave = 0; };
+const GEN_TEX = [3, 0, 2, 5];   // the genome's material as a surface: stone brushed metal, glass, neon LED panels, metal a mirror
 function newTex(vivid){
+  const gm = genMat(); if (gm != null) { const k = GEN_TEX[gm]; if (k !== st.tex.cur) st.tex = {prev: st.tex.cur, cur: k, o: ICO[Math.floor(rand()*12)], t0: st.t, dur: Math.max(2, st.period*TUNE.jewel.tex.sweepBeats)}; return; }
   const T = TUNE.jewel.tex, w = vivid ? [0, 1.5, 1.5, .5, 0, .5, 1.5] : st.act > .5 ? T.live : T.calm;
   let tot = 0; for (let i = 0; i < w.length; i++) if (i !== st.tex.cur) tot += w[i];
   let r = rand()*tot, k = 0; for (let i = 0; i < w.length; i++) { if (i === st.tex.cur) continue; r -= w[i]; if (r <= 0) { k = i; break; } }
@@ -178,7 +181,7 @@ function drop(free){
 }
 // the mountains and waves on an open form: ridged noise folded into five wedges, lower towards the rim
 function height(v){
-  const T = TUNE.jewel, f = st.f, x = SX[v], y = SY[v], r = Math.hypot(x, y), wedge = Math.PI*2/T.wedges;
+  const T = TUNE.jewel, f = st.f, x = SX[v], y = SY[v], r = Math.hypot(x, y), wedge = Math.PI*2/(genN(3, 12) || T.wedges);
   let a = Math.atan2(y, x); a = Math.abs(((a % wedge) + wedge) % wedge - wedge/2);
   const u = r*Math.cos(a)*T.mtnScale, w = r*Math.sin(a)*T.mtnScale, s = st.seed;
   let hgt = 0, amp = 1, fr = 1;

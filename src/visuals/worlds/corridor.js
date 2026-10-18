@@ -6,6 +6,7 @@
 // centrepiece stands in the hall every `gate` units, the frames nearer than it passing in front (P.anchor, with its
 // distance). Its front plane is the near frames. Simple mode draws the frames as outlines receding, mirrored in the floor.
 import { hc, sectionLayout } from '../../util.js';
+import { genMotif } from '../../scene/genome.js';
 import { TUNE } from '../../tuning.js';
 import { S } from '../../state.js';
 import { SIG } from '../../scene/signals.js';
@@ -14,7 +15,7 @@ const st = {D0: 0, D1: 0, tr: 1, ty: null, n: 0, z: 0, sp: 0, surge: 0, drop: nu
 const hh = x => { const s = Math.sin(x*91.7)*43758.5453; return s - Math.floor(s); };
 const SP = 2.4, FLOOR = -1.1, H = 1.1;   // a frame every SP units; the floor; the frames' top
 // a section's hall: its frame (0 square, 1 arch, 2 hexagon, 3 ring), how wide
-const LOOK = D => [D ? Math.floor(hh(D + .3)*4) : 1, .85 + hh(D + 1.7)*.5];
+const LOOK = D => { const m = genMotif(); return [m != null ? [3, 1, 2, 0][m] : D ? Math.floor(hh(D + .3)*4) : 1, .85 + hh(D + 1.7)*.5]; };   // (the genome's motif, while it's on: a rose a ring, a pointed arch an arch, a hexagon, a star a square)
 const path = z => [Math.sin(z*.045)*2.2 + Math.sin(z*.017)*1.5, 0, z];
 const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot3 = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 function camFrame(z){   // the camera down the middle of the hall, a little below the frames' centre, looking along it (as crRay)
