@@ -6,7 +6,7 @@
 // (LIKED in presets.js, journey/recipes.js), so what the user likes comes back when the music suits it.
 import { S } from '../state.js';
 import { J } from '../journey/core.js';
-import { LIKED, SPEC, curP, eff } from '../presets.js';
+import { DISLIKED, LIKED, SPEC, curP, eff } from '../presets.js';
 import { setJourney } from './controls.js';
 import { setPreset } from './presets.js';
 import { toast } from './toast.js';
@@ -62,10 +62,12 @@ function nameOf(d){
 async function save(m){
   if (db) { try { await db.collection('moments').add(m); return; } catch (e) {} }   // a refused write falls back to this browser
   m.id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); m.local = true;
-  const a = local(); a.push(m); keepLocal(a); if (!db) show(a.filter(x => x.v > 0).reverse());
+  const a = local(); a.push(m); keepLocal(a); if (!db) { show(a.filter(x => x.v > 0).reverse()); showDis(a.filter(x => x.v < 0)); }
 }
 // the liked moments, live from the database (or this browser's): the gallery, and Journey's liked recipes
 function watch(){
+  try { db.collection('moments').where('v', '==', -1).limit(SHOWN).onSnapshot(snap => showDis(snap.docs.map(d => ({id: d.id, ...d.data()}))), () => showDis(local().filter(x => x.v < 0))); }
+  catch (e) { showDis(local().filter(x => x.v < 0)); }
   try {
     db.collection('moments').where('v', '==', 1).orderBy('at', 'desc').limit(SHOWN).onSnapshot(snap => {
       show(snap.docs.map(d => ({id: d.id, ...d.data()})));
@@ -76,6 +78,8 @@ function watch(){
 // whole stack or the movers: it comes back as those settings over the plain stack
 const withLook = m => m.look ? m : m.settings ? {...m, name: m.name || [m.world && m.world !== 'none' ? (byKey[m.world] || {}).label : null, m.lead ? (byKey[m.lead] || {}).label : null].filter(Boolean).join(', ') || m.preset || 'Liked',
   look: {settings: m.settings, mods: {}, scene: null, sceneKey: m.scene && m.scene !== 'plain' ? m.scene : null, centre: m.centre || null}} : m;
+// the disliked ones, for Journey to learn which pairs to avoid (journey/combos.js)
+function showDis(list){ DISLIKED.length = 0; for (const m of list.map(withLook).filter(m => m.look)) DISLIKED.push(lookOf(m)); }
 function show(list){
   liked = list.map(withLook).filter(m => m.look).slice(0, SHOWN);
   LIKED.length = 0;
@@ -131,8 +135,8 @@ function render(){
     li.append(b, nm, acts); return li;
   }));
 }
-if (!(window.claude && window.claude.use)) show(local().filter(x => x.v > 0).reverse());
-else setTimeout(() => { if (!db) show(local().filter(x => x.v > 0).reverse()); }, 11000);   // (no database answered: this browser's)
+if (!(window.claude && window.claude.use)) { show(local().filter(x => x.v > 0).reverse()); showDis(local().filter(x => x.v < 0)); }
+else setTimeout(() => { if (!db) { show(local().filter(x => x.v > 0).reverse()); showDis(local().filter(x => x.v < 0)); } }, 11000);   // (no database answered: this browser's)
 render();
 $('#likeBtn').onclick = () => rate(1);
 $('#dislikeBtn').onclick = () => rate(-1);

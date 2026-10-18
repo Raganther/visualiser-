@@ -6,6 +6,8 @@ import { knobs } from '../scene/tweaks.js';
 import { TUNE } from '../tuning.js';
 import { STEER } from './steer.js';
 import { S } from '../state.js';
+import { crowd, fit, piecesOf } from './combos.js';
+import { headKal, kalHeld, planChance } from './plan.js';
 
 const lerp = ([a, b], f) => a + (b - a)*f, rnd = r => lerp(r, Math.random());
 const pickW = w => { let r = Math.random()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; };
@@ -16,10 +18,20 @@ export function chooseKal(force){
   const K = TUNE.extras.kal, T = J.tension, R = J.recipe;
   J.kal = null;
   if (STEER.pin.kal || STEER.ban.kal) { steerKal(); return; }
+  const head = headKal();   // the track's big moment is a kaleidoscope (journey/plan.js): it comes with the drop
+  if (head != null) { J.kal = {n: Math.round(lerp(K.n, .5 + T*.5)), where: whereFor(), turn: .03, mode: head}; return; }
   if (!force && R && R.kal) { if (Math.random() < K.recipe) J.kal = {...R.kal}; return; }
-  const chance = (K.chance + K.intense*(T - .5))*(J.world === 'cosmos' ? K.cosmos : 1);
+  // fewer when the picture is already full (journey/combos.js), and at a track's opening and close (journey/plan.js)
+  const cast = {world: J.world, lead: J.lead, accent: J.accent, centre: J.centre}, where = whereFor();
+  const full = crowd({...cast, kal: {where}}, T) - crowd(cast, T);
+  const chance = (K.chance + K.intense*(T - .5))*(J.world === 'cosmos' ? K.cosmos : 1)*planChance()*Math.exp(-full*TUNE.combos.kalCrowd*TUNE.combos.weight);
   if (!force && Math.random() >= chance) return;
-  J.kal = {n: Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3))), where: whereFor(), turn: +((Math.random()*2 - 1)*K.turn).toFixed(3), mode: pickW(K.mode.map((w, i) => i === 14 && !S.explore.nest ? 0 : w))};   // (the nested dive only while its switch is on)
+  // its kind: what goes with the world, the lead and the object (journey/combos.js); the nested dive only while its switch is on
+  const pcs = piecesOf(cast), W = TUNE.combos.weight;
+  const mode = pickW(K.mode.map((w, i) => i === 14 && !S.explore.nest || kalHeld(i) ? 0 : w*Math.exp(W*fit('kal' + i, pcs))));
+  let n = Math.round(lerp(K.n, Math.min(1, T*.7 + Math.random()*.3)));
+  if (J.world === 'kifs' || J.centre === 'branches') n = Math.max(4, Math.min(8, n + (n % 2)));   // (the fractal depths' square halls and the branches' rings line up with an even count)
+  J.kal = {n, where, turn: +((Math.random()*2 - 1)*K.turn).toFixed(3), mode};
 }
 const whereFor = () => { const W = TUNE.extras.kal.where; return pickW(J.centre ? W.centre : J.world && J.world !== 'none' ? W.world : W.plain); };
 // steered from the keyboard (ui/keys.js, K while Journey runs): kept at n mirrors (STEER.pin.kal = n, folding STEER.kalWhere

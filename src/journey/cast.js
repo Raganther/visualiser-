@@ -11,6 +11,8 @@ import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js
 import { STEER, banned, pinned } from './steer.js';
 import { chooseWorld } from './worlds.js';
 import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal } from './extras.js';
+import { crowd, fit } from './combos.js';
+import { PLAN, headObject, planBonus, planChance } from './plan.js';
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -25,6 +27,7 @@ function scoreElems(ty, rf, fresh){
     for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
     if (wOn) v += OVER_WORLD[k] || 0;
     v -= J.fat[k]*TUNE.fatigueWeight;                         // tired elements step back
+    v += TUNE.combos.weight*(fit(k, [J.world]) - crowd({world: J.world, lead: k}, J.tension)) + planBonus(k);   // goes with the world, doesn't crowd it (journey/combos.js); the track's plan (journey/plan.js)
     if (pinned(k)) v += 6; if (banned(k)) v -= 99;            // steered by hand (journey/steer.js)
     return {k, v};
   }).sort((a, b) => b.v - a.v);
@@ -32,7 +35,8 @@ function scoreElems(ty, rf, fresh){
 // the accent should contrast with the lead: a different kind of trigger where possible
 function chooseAccent(scored, avoid){
   const leadTrig = ACCENT[J.lead];
-  const pool = scored.filter(r => r.k !== J.lead && r.k !== avoid);
+  const W = TUNE.combos.weight, c0 = crowd({world: J.world, lead: J.lead}, J.tension);   // (and goes with the world and the lead, without crowding them)
+  const pool = scored.filter(r => r.k !== J.lead && r.k !== avoid).map(r => ({k: r.k, v: r.v + W*(fit(r.k, [J.world, J.lead]) - (crowd({world: J.world, lead: J.lead, accent: r.k}, J.tension) - c0))})).sort((a, b) => b.v - a.v);
   let pick = null, trig = null;
   for (const r of pool) {
     const opts = [ACCENT[r.k], ALT_TRIG[r.k]].filter(t => t && t !== leadTrig);
@@ -50,8 +54,10 @@ function chooseHit(ty, rf, fresh, avoid){
   for (const v of HIT_VISUALS) hsc[v.key] = v.suits(rf, wOn, hs[v.key] || 0) + jit() + (pinned(v.key) ? 99 : 0) - (banned(v.key) ? 99 : 0);   // each hit's module says what suits it (and steering)
   if (R.hit) hsc[R.hit] += .5; else hsc.none += TUNE.hitNoneNoRecipe;
   if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
+  const seen = J.hitSeen || (J.hitSeen = {});   // a hit not seen yet this visit gets a nudge, so the rare ones get their turn
+  for (const v of HIT_VISUALS) if (!seen[v.key]) hsc[v.key] += TUNE.combos.unseen;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
-  J.hit = hk === 'none' ? null : hk;
+  J.hit = hk === 'none' ? null : hk; if (J.hit) seen[J.hit] = 1;
 }
 // a 3D centrepiece in some sections (TUNE.scene.centreChance), the least tired object; an object's own chance above 0
 // (a lab's, say) takes over the draw
@@ -74,8 +80,10 @@ function pickCentre(){
   if (R && R.liked && R.centre && byKey[R.centre] && !banned(R.centre) && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
-  if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && !(v.key === 'branches' && !S.explore.grow) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);   // (the growing branches only while their switch is on)
+  const head = headObject(); if (head) { J.centre = head; return; }   // the track's big moment (journey/plan.js)
+  const cast = {world: J.world, lead: J.lead, accent: J.accent}, full = crowd({...cast, centre: 1}, J.tension) - crowd(cast, J.tension);
+  if (Math.random() >= TUNE.scene.centreChance*planChance()*Math.exp(-full*TUNE.combos.kalCrowd*TUNE.combos.weight)) return;   // (fewer at a track's opening and close, and when the picture is already full)
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && !(v.key === 'branches' && !S.explore.grow) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0) + TUNE.combos.weight*fit(v.key, [J.world, J.lead, J.accent]) + planBonus(v.key)})).sort((a, b) => b.v - a.v);   // (the growing branches only while their switch is on)
   J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music

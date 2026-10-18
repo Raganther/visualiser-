@@ -21,6 +21,7 @@ import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { L } from '../audio/listen.js';
 import { F } from '../audio/foresee.js';
+import { PLAN, planStep } from './plan.js';
 
 // the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
 export function arcBias(now){
@@ -89,6 +90,14 @@ export function stepJourney(now, dt){
   if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
   // or the bass coming back after a breakdown (audio/listen.js): the drop, even when the loudness hardly changed
   if (L.drops !== J.drops) { J.drops = L.drops; if (J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); } }
+  // the track's plan (journey/plan.js): the opening's lead becomes the motif; the headline lands with the biggest drop (a
+  // whole new cast, cut in on it); the close brings the motif back as a new lead
+  const ph = planStep();
+  if (PLAN.on && !PLAN.motif && PLAN.phase && PLAN.phase !== 'open' && J.lead) PLAN.motif = {lead: J.lead, world: J.world};
+  if (ph === 'peak') J.peakDue = true;
+  if (J.peakDue && (drop || (F.at && PLAN.peak && F.at() >= PLAN.peak.t + .5))) { J.peakDue = false;
+    if (!STEER.hold) { if (PLAN.head && PLAN.head.w) chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; } }
+  if (ph === 'close' && PLAN.motif && PLAN.motif.lead && J.lead !== PLAN.motif.lead && !STEER.hold) J.recast = J.recast || 'lead';
 
   // ---- sections: notice when the music's character changes, and recognise parts that return
   J.secAge += dt;

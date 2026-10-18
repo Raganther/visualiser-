@@ -55,6 +55,7 @@ import { comets, onHitFX, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
+import { PLAN, planWords } from './journey/plan.js';
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
 import { KAL_N } from './journey/extras.js';
@@ -260,7 +261,7 @@ function render(now){
       + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`
       + (F.map && F.map.src === 'internal' ? ` Following the sequencer${J.fore && J.fore.left < 60 ? `: the drop in ${Math.max(1, Math.ceil(J.fore.bars))} bars${J.anticip > 0 ? ', building to it' : ''}` : ''}.`
         : J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
-        : F.ready ? ` Read ahead: ${F.drops.length ? F.drops.length + (F.drops.length === 1 ? ' drop' : ' drops') + ' in this track' : 'no drops in this track'}.` : '');
+        : F.ready ? ` Read ahead: ${F.drops.length ? F.drops.length + (F.drops.length === 1 ? ' drop' : ' drops') + ' in this track' : 'no drops in this track'}.` : '') + (PLAN.on ? ' ' + planWords() + '.' : '');
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {
       const sl = sliders[k], {out, s, input} = sl, v = eff[k].toFixed(s.step < .01 ? 3 : s.step >= 1 ? 0 : 2);

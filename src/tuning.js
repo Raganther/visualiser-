@@ -13,6 +13,41 @@ export const TUNE = {
   // progression through steady music
   progressBeats: 64,           // beats without a musical change before Journey takes a step (divided by Evolution speed)
   liked: {recipe: .15, scene: .4, centre: .7},   // the user's likes as Journey's recipes: how much one is favoured, its scene template favoured, how often it brings its centrepiece
+  // what goes with what (journey/combos.js): pairs that work (a bonus) or clash (a cost), whichever way round; how much each
+  // pair learned from the user's 👍 / 👎 counts (per moment, up to learnCap moments); how crowded a cast may be (each
+  // piece's density summed, against room: calm to intense), what a centrepiece and a kaleidoscope (one folding everything
+  // more) add, and what each unit over costs; weight: how much it all counts in a choice
+  combos: {weight: 1, learned: .25, learnCap: 4, room: [1.3, 2.1], centreFill: .45, kalFill: .35, kalAll: .25, crowd: 1.6, kalCrowd: .35, unseen: .3,   // (kalCrowd: how much a full picture holds a kaleidoscope back; unseen: a nudge for a hit not yet seen this visit)
+   
+    pairs: {
+      'kifs|fireflies': .6, 'kifs|orbit': .3, 'kifs|ring': .3, 'cosmos|orbit': .7, 'cosmos|fireflies': .3, 'cosmos|constellation': .4,
+      'space|constellation': .6, 'space|orbit': .5, 'space|comets': .3, 'city|comets': .5, 'city|rain': .6, 'city|lasers': .4,
+      'aurora|fireflies': .5, 'aurora|lines': .3, 'aurora|mood': .3, 'land|fireflies': .3, 'land|horizon': .5, 'land|comets': .3,
+      'dunes|lasers': .4, 'dunes|horizon': .5, 'sea|fireflies': .3, 'sea|rain': .3, 'sea|mood': .3, 'deep|flow': .5, 'deep|fireflies': .4,
+      'forest|fireflies': .6, 'forest|rain': .4, 'hollow|fireflies': .5, 'hollow|ring': .3, 'cathedral|lasers': .5, 'cathedral|rosette': .6,
+      'cathedral|mandala': .3, 'geode|fireflies': .5, 'geode|stargate': .3, 'vessel|flow': .4, 'vessel|fireflies': .3,
+      'corridor|lasers': .6, 'corridor|stargate': .6, 'lattice|stargate': .5, 'lattice|ring': .3,
+      'kifs|plasma': -.8, 'kifs|unfold': -.6, 'kifs|fractal': -.6, 'cathedral|plasma': -.6, 'geode|plasma': -.6, 'city|plasma': -.5,
+      'cosmos|plasma': -.5, 'hollow|unfold': -.5, 'cathedral|unfold': -.4,
+      'ring|comets': .3, 'fireflies|orbit': .3, 'lasers|stargate': .3, 'constellation|fireflies': .3,
+      'mandala|unfold': -.6, 'fractal|unfold': -.6, 'plasma|flow': -.5, 'lines|scope': -.3, 'rosette|mandala': -.4, 'rosette|unfold': -.5,
+      'jewel|cathedral': .6, 'growth|geode': .7, 'cell|vessel': .7, 'heart|vessel': .6, 'mercury|hollow': .6, 'ferro|corridor': .6,
+      'branches|kifs': .6, 'gems|cosmos': .5, 'manta|deep': .6, 'jelly|deep': .6, 'coral|deep': .6, 'tentacle|deep': .5, 'tentacle|corridor': .4,
+      'hand|geode': .4, 'crystal|geode': .4, 'skull|city': .4, 'lotus|sea': .4, 'bubble|sea': .3,
+      'jewel|kal0': .5, 'jewel|kal3': .4, 'jewel|kal4': .4, 'ferro|kal3': .5, 'coral|kal4': .5, 'skull|kal0': .4, 'gems|kal0': .3,
+      'branches|kal14': .8, 'branches|kal2': .5, 'kifs|kal0': .3, 'kifs|kal14': .4, 'hollow|kal0': .3, 'corridor|kal11': .4,
+      'lattice|kal2': .4, 'space|kal10': .3, 'land|kal14': .4, 'city|kal1': .3, 'ring|kal14': .4, 'fireflies|kal0': .3,
+      'unfold|kal0': -.4, 'mandala|kal0': -.4, 'rosette|kal0': -.4,
+    }},
+  // a plan for each track read ahead (journey/plan.js): on; only tracks this long (s); the opening (sparse) lasts until the
+  // first drop, at most openShare of the track and openMax s; the close is the last closeShare; the peak lasts peakSecs from
+  // the biggest drop; the headline's bonus at the peak and how hard it's held back before; the motif's bonus at the close; a
+  // centrepiece's and a kaleidoscope's chance at the opening and the close; how much less room the picture has then; the
+  // headline set pieces and their weights
+  plan: {on: 1, minSecs: 90, openShare: .2, openMax: 75, closeShare: .12, peakSecs: 40, headBonus: 4, hold: 3, motif: 2,
+    openChance: .2, closeChance: .5, openRoom: .5, closeRoom: .3,
+    pieces: [{w: 'kifs', wt: 1}, {w: 'cosmos', wt: 1}, {w: 'cathedral', wt: .6}, {w: 'hollow', wt: .5}, {w: 'geode', wt: .5},
+      {o: 'branches', wt: .8}, {o: 'jewel', wt: .8}, {k: 14, wt: .8}, {k: 11, wt: .4}, {k: 10, wt: .4}]},
   keys: {layer: .8, idleSecs: 20},   // the keyboard (ui/keys.js): how strong a layer comes in; how long a group stays picked (and its strip shown) untouched
   handoffSecs: 12,             // turned back on from a look made by hand, Journey holds it at least this long (then moves on at a phrase line), unless the music changes first
   progressNoKickSecs: 30,      // the same, in seconds, when there's no kick to count
