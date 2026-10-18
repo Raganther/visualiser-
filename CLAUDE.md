@@ -39,6 +39,7 @@ src/ui/                    panel (sliders, narration), scene (the scene editor),
 tests/                     npm test: smoke, media, objects, scene, sync, grid, listen, foresee, beatmap, visuals, journey, quality, cosmos, dance, steer, dj, audio-engine, effects, drums, synth, sequencer, seq-journey, playlab, facets, explore, plan, genome, golden (see Testing)
 docs/composition-plan.md   the staged rebuild around composition, with its log
 docs/prism-plan.md         the plan for the prism: one sheet of facets becoming any shape, in a 3D room with lamps and lasers (stages 1 and 2 built: the sheet, and the Prism that merges the prism and the Fold)
+docs/space-plan.md     the plan for a shared 3D stage: lights, lasers and comets in the objects' own space, lighting any object and traced through it
 tools/build.mjs            the bundler for dist/afterglow.html
 native/PrismTest.swiftpm   the Prism alone, native (Swift and Metal, for Swift Playgrounds on the iPad or Xcode): a test of how it feels outside the browser, with your tracks read ahead and Jam (native/README.md)
 tools/*-mesh.mjs           make the skull's and unicorn's meshes (npm run mesh), using tools/mesh-kit.mjs
