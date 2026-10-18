@@ -44,6 +44,10 @@ export const TUNE = {
   // the biggest drop; the headline's bonus at the peak and how hard it's held back before; the motif's bonus at the close; a
   // centrepiece's and a kaleidoscope's chance at the opening and the close; how much less room the picture has then; the
   // headline set pieces and their weights
+  // the genome (scene/genome.js): what its kaleidoscope folds, a fresh one's weights (everything, the world, the glow,
+  // inside the Prism, none: everything the likeliest, the user's favourite); grown, how often the fold is kept, how often it
+  // goes to none, and which way a step leans
+  genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75},   // (foldBack: a step's chance of going back towards everything)
   plan: {on: 1, minSecs: 90, openShare: .2, openMax: 75, closeShare: .12, peakSecs: 40, headBonus: 4, hold: 3, motif: 2,
     openChance: .2, closeChance: .5, openRoom: .5, closeRoom: .3,
     pieces: [{w: 'kifs', wt: 1}, {w: 'cosmos', wt: 1}, {w: 'cathedral', wt: .6}, {w: 'hollow', wt: .5}, {w: 'geode', wt: .5},

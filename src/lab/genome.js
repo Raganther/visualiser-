@@ -14,7 +14,7 @@ import { resize } from '../render/gl.js';
 import { setGfx } from '../render/quality.js';
 import { GB, loadPreset, grooveToggle, bind } from '../audio/groove.js';
 import { WORLD_VISUALS, LAYER_VISUALS, byKey } from '../visuals/registry.js';
-import { GEN, MOTIFS, MATS, nextGenome, randGenome } from '../scene/genome.js';
+import { GEN, MOTIFS, MATS, FOLDS, nextGenome, randGenome } from '../scene/genome.js';
 
 const WORLDS = ['lattice', 'corridor', 'kifs'];   // (the worlds the genome reaches, and light enough for a phone)
 const LAYERS = ['fireflies', 'orbit', 'comets', 'rosette', 'stargate', 'mandala', 'ring'];
@@ -74,8 +74,10 @@ export default function(){
   // Apart, the kaleidoscope gets its own count and kind each section
   let sepKal = null;
   function apply(){
-    if (GEN.on && GEN.geo) { STEER.pin.kal = GEN.n; STEER.kalMode = KAL_OF[GEN.motif]; STEER.kalWhere = 0; }   // (together it folds everything, the world, the Prism and the lights as one body; Journey's own habit round a centrepiece was inside it)
-    else { STEER.kalWhere = null; if (!sepKal) sepKal = {n: 3 + Math.floor(Math.random()*7), mode: Math.floor(Math.random()*14)}; STEER.pin.kal = sepKal.n; STEER.kalMode = sepKal.mode; }
+    // together: its mirrors and kind from the symmetry and motif, and what it folds from the genome too (everything the
+    // likeliest, the user's favourite; Journey's own habit round a centrepiece was inside it); none bans it for the section
+    if (GEN.on && GEN.geo) { if (GEN.fold === 4) { STEER.ban.kal = true; delete STEER.pin.kal; } else { delete STEER.ban.kal; STEER.pin.kal = GEN.n; STEER.kalMode = KAL_OF[GEN.motif]; STEER.kalWhere = GEN.fold; } }
+    else { delete STEER.ban.kal; STEER.kalWhere = null; if (!sepKal) sepKal = {n: 3 + Math.floor(Math.random()*7), mode: Math.floor(Math.random()*14)}; STEER.pin.kal = sepKal.n; STEER.kalMode = sepKal.mode; }
     if (GEN.on && GEN.col) S.hueSet = GEN.hue;
     steerKal();
   }
@@ -102,7 +104,8 @@ export default function(){
     const w = byKey[J.world] ? byKey[J.world].label : 'the dark';
     if (!GEN.on) return {head: 'Separate: each part its own', sub: `${w}, the Prism, a ${STEER.pin.kal || '?'}-mirror kaleidoscope`};
     const g = [GEN.geo ? `${GEN.n}-fold, ${MOTIFS[GEN.motif]}` : 'own shapes', GEN.col ? MATS[GEN.mat] : 'own colours'].join(' · ');
-    return {head: `Together: ${g}`, sub: `${w} and the Prism, generation ${GEN.id + 1}`};
+    const f = GEN.geo ? FOLDS[GEN.fold] + ', ' : '';
+    return {head: `Together: ${g}`, sub: `${w} and the Prism, ${f}generation ${GEN.id + 1}`};
   };
   function status(){ const s = el.querySelector('.st'); if (!s) return; const w = words();
     s.innerHTML = `<b>${GEN.on && GEN.col ? `<span class="dot" style="background:hsl(${Math.round(GEN.hue*360)} 80% 60%)"></span>` : ''}${w.head}</b>${w.sub}`; }
@@ -112,7 +115,7 @@ export default function(){
       <div class="seg">${btn('on:1', 'Together', GEN.on)}${btn('on:0', 'Separate', !GEN.on)}</div>
       <div><h3>What the genome shares</h3><div class="row">${btn('geo', 'Symmetry and shape', GEN.on && GEN.geo)}${btn('col', 'Material and colour', GEN.on && GEN.col)}${btn('line', 'Grows from the last', GEN.on && GEN.line)}</div></div>
       <div><h3>Graphics</h3><div class="row">${btn('gfx:fastest', 'Fastest', LS.gfx === 'fastest')}${btn('gfx:fast', 'Fast', LS.gfx === 'fast')}${btn('gfx:balanced', 'Balanced', LS.gfx === 'balanced')}${btn('gfx:best', 'Best', LS.gfx === 'best')}</div></div>
-      <p class="note">Together: the Prism, the world, the rose window and the kaleidoscope share one symmetry, shape and material each section, and each section grows from the last. Separate: each picks its own. Next moves on to a new section.</p>`;
+      <p class="note">Together: the Prism, the world, the rose window and the kaleidoscope share one symmetry, shape and material each section; the genome also picks what the kaleidoscope folds (mostly everything), and each section grows from the last. Separate: each picks its own. Next moves on to a new section.</p>`;
     status(); fit();
   }
   el.addEventListener('click', e => {
