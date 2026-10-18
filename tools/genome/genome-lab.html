@@ -1,0 +1,361 @@
+<meta charset="utf-8">
+<title>Genome Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: the world fills the screen above; a control deck sits below it (scrolls on a phone). One dark look, by design:
+   it's a stage for light. */
+:root {
+  --bg: #07070b; --deck: #101018; --line: #262636; --fg: #e6e4f0; --dim: #9a97ad; --accent: #c9a0ff; --on: #f3d9a4;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); display: flex; flex-direction: column; overflow: hidden; font: 14px/1.45 system-ui, sans-serif; }
+#stage { position: relative; flex: 1; min-height: 0; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #000; }
+#tag { position: absolute; left: max(14px, env(safe-area-inset-left, 0px)); top: 12px; font: 600 12px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--on); text-shadow: 0 1px 6px #000; pointer-events: none; }
+#deck { background: var(--deck); border-top: 1px solid var(--line); padding-block: 10px 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-height: 46vh; overflow-y: auto; display: grid; gap: 10px; }
+#deck.closed > :not(.row1) { display: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+h1 { font: 600 15px/1 var(--display); letter-spacing: .08em; margin: 0 6px 0 0; text-transform: uppercase; }
+button, .file { font: 600 13px/1 var(--display); letter-spacing: .04em; color: var(--fg); background: #1a1a26; border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; cursor: pointer; }
+button:hover, .file:hover { border-color: #3c3c55; }
+button:focus-visible, .file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; color: var(--dim); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #140b22; }
+.chip { background: transparent; color: var(--dim); font-weight: 400; }
+.chip[aria-pressed="true"] { color: var(--on); border-color: #7a6440; background: #231d12; }
+.file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.file { position: relative; display: inline-block; }
+#help { color: var(--dim); max-width: 70ch; min-height: 2.9em; }
+#help b { color: var(--fg); font-weight: 600; }
+#read { font: 12px/1.5 var(--mono); color: var(--fg); background: #0b0b12; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto; white-space: pre-wrap; }
+.grow { flex: 1; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div id="stage"><canvas id="cv" aria-label="The genome world"></canvas><div id="tag">Designed together</div></div>
+<div id="deck">
+  <div class="row row1">
+    <h1>Genome lab</h1>
+    <div class="seg" role="group" aria-label="How the world is built">
+      <button id="mTog" aria-pressed="true">Designed together</button>
+      <button id="mSep" aria-pressed="false">Assembled separately</button>
+    </div>
+    <span class="grow"></span>
+    <button id="play">Play the demo beat</button>
+    <label class="file">Load a track<input id="file" type="file" accept="audio/*"></label>
+    <button id="next">Next section</button>
+    <button id="hide" aria-expanded="true">Hide</button>
+  </div>
+  <div class="row" id="chips" role="group" aria-label="Each idea on or off"></div>
+  <div id="help"></div>
+  <div id="read" aria-live="polite"></div>
+</div>
+
+<script>
+// The genome lab: one small world (a hall flown through, a gem at its heart, fireflies, a kaleidoscope) built so every
+// part reads one section "genome" (a symmetry, a motif, a material, a family of colours), with each idea of designing
+// together on its own switch, against the same parts assembled separately. Plays a built-in beat or a track you load.
+const $ = s => document.querySelector(s);
+const IDEAS = [
+  {k: 'geo', label: 'Shared geometry', help: '<b>Shared geometry:</b> one symmetry for everything: the hall\'s sides, the gem\'s facets, the windows\' petals, the fireflies\' rings and the kaleidoscope\'s mirrors. Off: each part has its own count.'},
+  {k: 'mat', label: 'Shared material', help: '<b>Shared material:</b> the hall and the gem are made of the same stuff (stone, glass, neon or metal) in one family of colours. Off: each picks its own.'},
+  {k: 'space', label: 'One space', help: '<b>One space:</b> the fireflies fly through the hall in 3D, in front of and behind the gem, hidden by the pillars. Off: a flat layer pasted on top.'},
+  {k: 'light', label: 'Shared light', help: '<b>Shared light:</b> the gem and the fireflies are the lights; they light the hall around them. Off: a neutral lamp lights the hall, unrelated to them.'},
+  {k: 'cause', label: 'Cause and effect', help: '<b>Cause and effect:</b> the kick strikes the gem, and its light travels out through the fireflies to the walls. Off: everything flashes at the same instant.'},
+  {k: 'orch', label: 'Orchestra', help: '<b>Orchestra:</b> each part plays one instrument: the kick the gem, the hats the fireflies, the bass the hall, the melody the windows and the gem\'s turn. Off: everything reacts to everything.'},
+  {k: 'line', label: 'Lineage', help: '<b>Lineage:</b> a new section grows out of the last: the camera dives into the gem and comes out in its child, a small change of the same genome. Off: a hard cut to something unrelated.'},
+  {k: 'kal', label: 'Kaleidoscope', help: '<b>Kaleidoscope:</b> the view folded into mirrored wedges. With shared geometry its mirrors line up with the hall\'s own, so it reads as part of the place.'},
+];
+const ON = {geo: 1, mat: 1, space: 1, light: 1, cause: 1, orch: 1, line: 1, kal: 1};
+const chips = $('#chips');
+for (const I of IDEAS) { const b = document.createElement('button'); b.className = 'chip'; b.id = 'c_' + I.k; b.textContent = I.label; b.setAttribute('aria-pressed', 'true');
+  b.onclick = () => { ON[I.k] = ON[I.k] ? 0 : 1; showHelp(I); sync(); }; chips.appendChild(b); }
+const showHelp = I => { $('#help').innerHTML = I.help; };
+$('#help').innerHTML = 'Each switch is one idea. <b>Designed together</b> turns them all on; <b>Assembled separately</b> turns them all off. Keys: S swaps the two, 1 to 8 flip the ideas, N moves to the next section.';
+function master(v){ for (const k in ON) if (k !== 'kal') ON[k] = v; sync(); }
+$('#mTog').onclick = () => master(1); $('#mSep').onclick = () => master(0);
+function sync(){
+  for (const I of IDEAS) $('#c_' + I.k).setAttribute('aria-pressed', ON[I.k] ? 'true' : 'false');
+  const all = IDEAS.filter(I => I.k !== 'kal').every(I => ON[I.k]), none = IDEAS.filter(I => I.k !== 'kal').every(I => !ON[I.k]);
+  $('#mTog').setAttribute('aria-pressed', all ? 'true' : 'false'); $('#mSep').setAttribute('aria-pressed', none ? 'true' : 'false');
+  $('#tag').textContent = all ? 'Designed together' : none ? 'Assembled separately' : 'Mixed';
+  placeMotes();
+}
+$('#hide').onclick = () => { const c = $('#deck').classList.toggle('closed'); $('#hide').textContent = c ? 'Show' : 'Hide'; $('#hide').setAttribute('aria-expanded', c ? 'false' : 'true'); };
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 's' || e.key === 'S') { const all = IDEAS.filter(I => I.k !== 'kal').every(I => ON[I.k]); master(all ? 0 : 1); }
+  else if (e.key === 'n' || e.key === 'N') nextSection();
+  else if (/^[1-8]$/.test(e.key)) { const I = IDEAS[+e.key - 1]; ON[I.k] = ON[I.k] ? 0 : 1; showHelp(I); sync(); }
+});
+
+// ---- the genome: a section's symmetry, motif, material and colour; its child is a small change of it
+const MOTIFS = ['rose windows', 'pointed arches', 'hexagons', 'stars'], MATS = ['stone', 'glass', 'neon', 'metal'];
+let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647)/2147483647;
+const pick = a => a[Math.floor(rnd()*a.length)];
+const randGenome = () => ({n: 3 + Math.floor(rnd()*8), motif: Math.floor(rnd()*4), mat: Math.floor(rnd()*4), hue: rnd()});
+function child(g){
+  const opts = [g.n - 1, g.n + 1, g.n*2, g.n % 2 ? g.n + 2 : g.n/2].filter(n => n >= 3 && n <= 12);
+  return {n: pick(opts), motif: rnd() < .55 ? g.motif : (g.motif + 1) % 4, mat: rnd() < .6 ? g.mat : (g.mat + 1 + Math.floor(rnd()*3)) % 4, hue: (g.hue + .07 + rnd()*.1) % 1};
+}
+let G = {n: 6, motif: 0, mat: 1, hue: .72};
+// assembled separately: each part its own genome, drawn once a section so the switches compare like with like
+let SEP = null; const newSep = () => { SEP = {w: randGenome(), o: randGenome(), kalN: 3 + Math.floor(rnd()*8), moteHue: rnd(), lightHue: rnd()}; };
+newSep();
+let section = 1;
+
+// ---- the fireflies: rings of the genome's symmetry when geometry is shared, scattered when not
+const NM = 24, MO = new Float32Array(NM*4); let motes = [];
+function placeMotes(){
+  motes = [];
+  if (ON.geo) { const n = G.n, rings = Math.max(1, Math.floor(NM/n));
+    for (let r = 0; r < rings; r++) { const rad = .55 + rnd()*.9, z = rnd()*18, off = r % 2 ? Math.PI/n : 0;
+      for (let j = 0; j < n; j++) motes.push({a: off + j*2*Math.PI/n, rad, z, ph: rnd()*6.28, sx: rnd(), sy: rnd()}); } }
+  else for (let i = 0; i < NM; i++) motes.push({a: rnd()*6.28, rad: .3 + rnd()*1.3, z: rnd()*18, ph: rnd()*6.28, sx: rnd(), sy: rnd()});
+}
+placeMotes();
+
+// ---- the music: what drives each part
+const M = {kick: 0, kickT: -9, kickStr: 0, hat: 0, bass: 0, mel: 0, energy: 0};
+const Q = [];   // events, each at its audio time {t, k, v}
+let AC = null, demo = null, track = null, an = null, fft = null, silent = true, nextSilent = 0, silentBeat = 0;
+function ensureAC(){ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; }
+const now = () => AC ? AC.currentTime : performance.now()/1000;
+
+// the demo beat: kick, hats, an acid-ish bass, an arpeggio and pads, in sections
+const BPM = 122, SPB = 60/BPM, SECTIONS = [
+  {name: 'intro', bars: 8, k: 1, h: 1, b: 0, a: 0, p: 0}, {name: 'groove', bars: 8, k: 1, h: 1, b: 1, a: 0, p: 0},
+  {name: 'full', bars: 16, k: 1, h: 1, b: 1, a: 1, p: 1}, {name: 'breakdown', bars: 8, k: 0, h: 0, b: 0, a: 1, p: 1},
+  {name: 'drop', bars: 16, k: 1, h: 1, b: 1, a: 1, p: 1}];
+const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];   // A minor, F, C, G
+const hz = m => 440*Math.pow(2, (m - 69)/12);
+let noiseBuf = null;
+function voice(type, f, t, dur, gain, cut){
+  const o = AC.createOscillator(), g = AC.createGain(), fl = AC.createBiquadFilter();
+  o.type = type; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = cut || 2000; fl.Q.value = type === 'sawtooth' ? 6 : 1;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+  o.connect(fl); fl.connect(g); g.connect(demo.out); o.start(t); o.stop(t + dur + .05); return fl;
+}
+function kickS(t){ const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+  g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(.001, t + .4); o.connect(g); g.connect(demo.out); o.start(t); o.stop(t + .45); }
+function hatS(t, open){ const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7500;
+  g.gain.setValueAtTime(open ? .16 : .1, t); g.gain.exponentialRampToValueAtTime(.001, t + (open ? .22 : .05)); s.connect(f); f.connect(g); g.connect(demo.out); s.start(t); s.stop(t + .3); }
+function startDemo(){
+  ensureAC(); stopTrack();
+  if (!noiseBuf) { noiseBuf = AC.createBuffer(1, AC.sampleRate*.5, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1; }
+  const out = AC.createGain(); out.gain.value = .7; const comp = AC.createDynamicsCompressor(); out.connect(comp); comp.connect(AC.destination);
+  demo = {out, step: 0, t: AC.currentTime + .1, sec: 0, bar: 0, timer: 0}; silent = false; Q.length = 0;
+  demo.timer = setInterval(scheduleDemo, 25); $('#play').textContent = 'Stop';
+}
+function stopDemo(){ if (!demo) return; clearInterval(demo.timer); demo.out.disconnect(); demo = null; silent = true; $('#play').textContent = 'Play the demo beat'; }
+function scheduleDemo(){
+  while (demo.t < AC.currentTime + .15) {
+    const t = demo.t, s = demo.step % 16, S = SECTIONS[demo.sec % SECTIONS.length], ch = CHORDS[demo.bar % 4];
+    if (s === 0 && demo.bar === 0 && demo.step > 0) Q.push({t, k: 'section', v: S.name});
+    if (S.k && s % 4 === 0) { kickS(t); Q.push({t, k: 'kick', v: 1}); }
+    if (S.h && s % 4 === 2) { hatS(t, true); Q.push({t, k: 'hat', v: 1}); } else if (S.h && s % 2) { hatS(t, false); Q.push({t, k: 'hat', v: .5}); }
+    if (S.b && [2, 3, 6, 10, 11, 14].includes(s)) { const n = ch[0] - 24 + (s === 11 ? 12 : 0); const f = voice('sawtooth', hz(n), t, .22, .22, 300);
+      f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1400, t + .03); f.frequency.exponentialRampToValueAtTime(250, t + .2); Q.push({t, k: 'bass', v: 1}); }
+    if (S.a && s % 2 === 0) { const n = ch[(s/2) % 3] + 12 + (s % 8 === 6 ? 12 : 0); voice('triangle', hz(n), t, .2, .1, 3000); Q.push({t, k: 'mel', v: (n - 60)/24}); }
+    if (S.p && s === 0) for (const n of ch) for (const det of [-6, 6]) { const o = voice('sawtooth', hz(n)*Math.pow(2, det/1200), t, SPB*4, .035, 900); }
+    demo.step++; demo.t += SPB/4;
+    if (demo.step % 16 === 0) { demo.bar++; if (demo.bar >= S.bars) { demo.bar = 0; demo.sec++; } }
+  }
+}
+$('#play').onclick = () => demo ? stopDemo() : startDemo();
+
+// a track of your own: its kick, hats, bass and melody heard from the spectrum; a new section every 16 bars or so
+function stopTrack(){ if (track) { try { track.src.stop(); } catch (e) {} track = null; } }
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; ensureAC(); stopDemo(); stopTrack();
+  try {
+    const buf = await AC.decodeAudioData(await f.arrayBuffer());
+    const src = AC.createBufferSource(); src.buffer = buf; an = AC.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .2; fft = new Uint8Array(an.frequencyBinCount);
+    src.connect(an); an.connect(AC.destination); src.start(); track = {src, name: f.name, kicks: 0, lastSec: AC.currentTime, prevLow: 0, prevMid: 0, lowAvg: .1, hatMax: .2, lastKick: 0};
+    src.onended = () => { if (track && track.src === src) { track = null; silent = true; } };
+    silent = false; $('#play').textContent = 'Play the demo beat';
+  } catch (err) { $('#read').textContent = 'That file could not be read as audio. Try an MP3 or WAV.'; }
+};
+function listenTrack(dt){
+  an.getByteFrequencyData(fft); const bin = hzv => Math.round(hzv/(AC.sampleRate/2)*fft.length);
+  const band = (a, b) => { let s = 0; for (let i = bin(a); i <= bin(b); i++) s += fft[i]; return s/((bin(b) - bin(a) + 1)*255); };
+  const low = band(40, 130), mid = band(300, 2000), high = band(6000, 14000), T = track, t = AC.currentTime;
+  const flux = Math.max(0, low - T.prevLow); T.prevLow = low; T.lowAvg += (flux - T.lowAvg)*Math.min(1, dt*2);
+  if (flux > T.lowAvg*2.2 + .015 && t - T.lastKick > .24) { T.lastKick = t; T.kicks++; Q.push({t, k: 'kick', v: Math.min(1, flux*8)}); }
+  T.hatMax = Math.max(high, T.hatMax*Math.exp(-dt*.05)); M.hat = Math.max(M.hat, high/T.hatMax);
+  M.bass = Math.max(M.bass, low);
+  const mf = Math.max(0, mid - T.prevMid); T.prevMid = mid; if (mf > .02) M.mel = Math.max(M.mel, Math.min(1, mf*12));
+  if (T.kicks >= 64 || t - T.lastSec > 34) { T.kicks = 0; T.lastSec = t; Q.push({t, k: 'section', v: 'track'}); }
+}
+// with nothing playing it still moves: a silent beat, so the page is alive before you press play
+function silentStep(t){
+  if (t < nextSilent) return; nextSilent = t + SPB;
+  silentBeat++; Q.push({t, k: 'kick', v: .8}); if (silentBeat % 2) Q.push({t: t + SPB/2, k: 'hat', v: .8}); Q.push({t, k: 'mel', v: (silentBeat % 8)/8});
+  if (silentBeat % 64 === 0) Q.push({t, k: 'section', v: 'silent'});
+}
+
+// ---- sections, and the dive between them (lineage)
+let dive = 0, diving = false, diveT = 0, swapped = false, cutFlash = 0;
+function nextSection(){
+  if (diving) return;
+  if (ON.line) { diving = true; diveT = 0; swapped = false; }
+  else { G = randGenome(); newSep(); section++; placeMotes(); cutFlash = 1; }
+}
+function swapGenome(){ G = child(G); newSep(); section++; placeMotes(); }
+$('#next').onclick = nextSection;
+
+// ---- WebGL
+const cv = $('#cv'), gl = cv.getContext('webgl', {antialias: false, preserveDrawingBuffer: false});
+const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
+const FS = `precision highp float;
+uniform vec2 uRes; uniform vec4 uW, uO, uL, uM, uK, uC, uX; uniform vec4 uMo[${NM}];
+#define PI 3.14159265
+vec3 hsv(float h,float s,float v){ vec3 k=clamp(abs(mod(h*6.+vec3(0.,4.,2.),6.)-3.)-1.,0.,1.); return v*mix(vec3(1.),k,s); }
+float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+vec2 rot(vec2 p,float a){ float c=cos(a),s=sin(a); return vec2(c*p.x-s*p.y,s*p.x+c*p.y); }
+// a point folded into one of n sectors round the axis: across the sector, and out from the axis to its face
+vec2 sect(vec2 xy,float n){ float s=2.*PI/n, a=atan(xy.y,xy.x); a=mod(a+s*.5,s)-s*.5; float r=length(xy); return vec2(r*sin(a),r*cos(a)); }
+// the window's shape: the genome's motif (the rose's petals and the star's points are its symmetry)
+float win(vec2 q,float m,float n){
+  float r=length(q), a=atan(q.y,q.x);
+  if(m<.5) return r-(.46+.09*cos(n*a));
+  if(m<1.5) return max(max(length(q-vec2(-.3,0.))-.62,length(q+vec2(-.3,0.))-.62),abs(q.y)-.6);
+  if(m<2.5){ q=abs(q); return max(q.x*.866+q.y*.5,q.y)-.42; }
+  return (r-(.22+.3*pow(abs(cos(a*n*.5)),3.)))*.7;
+}
+vec3 objPos(){ return vec3(0.,0.,uC.x+uX.x); }
+float gem(vec3 p){
+  vec3 q=(p-objPos())/.72; q.yz=rot(q.yz,.4); q.xy=rot(q.xy,uO.w);
+  float n=uO.x; vec2 s=sect(q.xy,n); float gh=q.z>0.?.8:.38, rr=.55*max(0.,1.-abs(q.z)/gh)+(q.z<0.?.12:0.);
+  return max((s.y-rr*cos(PI/n))*.6,abs(q.z)-gh)*.72;
+}
+// the hall: an n-sided tube, a window of the motif in each face between ribs, pillars at the corners, ribs arched by the motif
+vec4 hall(vec3 p){
+  float n=uW.x; vec2 s=sect(p.xy,n); float u=s.x, v=s.y;
+  float Rf=2.+uM.x*.12, hw=Rf*tan(PI/n);
+  float zw=mod(p.z+1.2,2.4)-1.2, zz=mod(p.z,2.4)-1.2, ws=min(1.,hw*.9);
+  float wsh=win(vec2(u,zw)/ws,uW.y,n)*ws;
+  float d=max(Rf-v,-max(wsh,v-Rf-.4));
+  float pil=length(vec2(abs(u)-hw,v-Rf))-.15;
+  float f=clamp(abs(u)/hw,0.,1.), m=uW.y, ar=m<.5?f*f:m<1.5?f:m<2.5?.55:f*f*f;
+  float rib=max(abs(zz)-.08,(Rf-.2-.5*ar)-v);
+  float id=wsh<0.&&v>Rf+.2?2.:1.; if(pil<d) id=3.; if(rib<min(d,pil)) id=4.;
+  return vec4(min(d,min(pil,rib)),id,u,v);
+}
+float map(vec3 p){ return min(hall(p).x,gem(p)); }
+vec3 nrm(vec3 p,float e){ vec2 k=vec2(1.,-1.); return normalize(k.xyy*map(p+k.xyy*e)+k.yyx*map(p+k.yyx*e)+k.yxy*map(p+k.yxy*e)+k.xxx*map(p+k.xxx*e)); }
+void main(){
+  vec2 uv0=(gl_FragCoord.xy-.5*uRes)/uRes.y, uv=uv0;
+  if(uK.x>1.5){ float w=2.*PI/uK.x, a=atan(uv.y,uv.x)-uK.y, r=length(uv); a=mod(a,w); if(a>w*.5) a=w-a; uv=r*vec2(cos(a+uK.y),sin(a+uK.y)); }   // the kaleidoscope, folding the rays themselves
+  vec3 ro=vec3(0.,0.,uC.x), rd=normalize(vec3(rot(uv,uC.y),1.25));
+  float t=.05, d=1., id=0.;
+  for(int i=0;i<110;i++){ vec3 p=ro+rd*t; d=map(p); if(d<.0012*t) break; t+=d*.85; if(t>34.) break; }
+  vec3 o=objPos(), fogc=hsv(uX.z,.6,.06), col=fogc;
+  if(t<34.){
+    vec3 p=ro+rd*t, n=nrm(p,.0015*t); vec4 H=hall(p); float g=gem(p); bool isGem=g<H.x; id=isGem?5.:H.y;
+    float mat=isGem?uO.y:uW.z, hb=isGem?uO.z:uW.w, fres=pow(1.-max(dot(n,-rd),0.),3.);
+    vec3 alb=mat<.5?hsv(hb,.28,.6):mat<1.5?hsv(hb,.55,.25):mat<2.5?hsv(hb,.2,.05):hsv(hb,.15,.38);
+    vec3 L=vec3(0.);
+    if(uL.z>.5){   // shared light: the gem and the fireflies light the hall
+      vec3 lv=o-p; float ld=length(lv); lv/=ld;
+      if(!isGem) L+=hsv(uL.y,.5,1.)*(.55+uM.z*2.6)*max(dot(n,lv),0.)/(1.+ld*ld*.16);
+      else L+=hsv(uL.y,.3,1.)*.5;
+      if(uL.w>.5) for(int i=0;i<${NM};i++){ vec3 mv=uMo[i].xyz-p; float md=dot(mv,mv); L+=hsv(uL.x,.7,1.)*uMo[i].w*max(dot(n,mv)*inversesqrt(md+1e-4),0.)*.35/(1.+md*5.); }
+      L+=hsv(uW.w,.5,1.)*.07;
+    } else { vec3 ld=normalize(vec3(.4,.8,-.3)); L+=vec3(.85,.88,1.)*(max(dot(n,ld),0.)*.75+.18); }
+    col=alb*L;
+    if(mat>2.5){ vec3 r=reflect(rd,n); col+=hsv(uL.z>.5?uL.y:.6,.45,.5)*(.25+.6*max(r.y,0.))*.6+vec3(pow(max(dot(r,normalize(o-p)),0.),28.))*(uL.z>.5?.8+uM.z:.2); }
+    if(mat>.5&&mat<1.5) col+=hsv(hb,.45,1.)*fres*.45;
+    if(mat>1.5&&mat<2.5&&id>2.5) col+=hsv(hb,.9,1.)*(.3+fres*1.2)*.75;
+    if(id>1.5&&id<2.5){ float c=h21(floor(vec2(H.z,p.z)*3.5)); col=hsv(uW.w+(c-.5)*.18,.75,1.)*(.18+uM.y*1.1); }
+    if(isGem) col+=hsv(uO.z,.6,1.)*(uM.z*1.2+.06)*(.25+fres);
+    if(uX.y>.5) col+=(alb*3.5+hsv(uL.y,.5,.7))*exp(-pow((length(p-o)-uK.z)*1.7,2.))*uK.w;   // the kick's light, travelling out
+    col=mix(fogc,col,exp(-t*.075));
+  }
+  if(uL.w>.5) for(int i=0;i<${NM};i++){ vec3 m=uMo[i].xyz; float tc=dot(m-ro,rd); if(tc>0.&&tc<t){ float dd=length(ro+rd*tc-m); col+=hsv(uL.x,.6,1.)*uMo[i].w*.006/(dd*dd+.0035)*exp(-tc*.05); } }
+  else for(int i=0;i<${NM};i++){ float dd=length(uv0-uMo[i].xy); col+=hsv(uL.x,.6,1.)*uMo[i].w*.0005/(dd*dd+.0003); }   // a flat layer on top
+  col*=1.+uC.w*1.4; col+=uC.w*.08;   // (the flash when everything goes at once)
+  col=mix(col,hsv(uO.z,.35,1.)*1.3,smoothstep(.5,1.,uC.z));   // the dive's whiteout
+  col=1.-exp(-col*1.35); col=pow(col,vec3(.4545)); col*=1.-.35*dot(uv0,uv0);
+  gl_FragColor=vec4(col,1.);
+}`;
+let prog = null, U = {};
+function build(){
+  if (!gl) { $('#read').textContent = 'This browser has no WebGL, which the genome lab needs.'; return; }
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  for (const k of ['uRes', 'uW', 'uO', 'uL', 'uM', 'uK', 'uC', 'uX', 'uMo']) U[k] = gl.getUniformLocation(prog, k);
+}
+try { build(); } catch (e) { $('#read').textContent = 'The shader did not build: ' + e.message; }
+
+// ---- each frame
+let scale = .55, camZ = 0, roll = 0, spin = 0, last = performance.now(), fpsT = 0, fpsN = 0, slow = 0, wave = {t: -9, s: 0}, flash = 0, readT = 0;
+function size(){ const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1)*scale, w = Math.max(64, Math.round(r.width*d)), h = Math.max(48, Math.round(r.height*d)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } }
+function frame(){
+  const tNow = performance.now(), dt = Math.min(.1, (tNow - last)/1000); last = tNow;
+  // keep the frame rate: draw smaller when it runs slow
+  fpsT += dt; fpsN++; if (fpsT > 1) { const fps = fpsN/fpsT; fpsT = fpsN = 0; slow = fps < 28 ? slow + 1 : 0; if (slow >= 2 && scale > .3) { scale *= .85; slow = 0; } else if (fps > 55 && scale < .55) scale = Math.min(.55, scale*1.08); }
+  const at = now();
+  if (silent) silentStep(at); else if (track && an) listenTrack(dt);
+  // the events that have reached the speakers
+  for (let i = Q.length - 1; i >= 0; i--) { const e = Q[i]; if (e.t > at) continue; Q.splice(i, 1);
+    if (e.k === 'kick') { M.kick = e.v; M.kickT = at; if (ON.cause) wave = {t: at, s: e.v}; else flash = Math.max(flash, e.v*(matchMedia('(prefers-reduced-motion: reduce)').matches ? .5 : 1)); }
+    else if (e.k === 'hat') M.hat = Math.max(M.hat, e.v); else if (e.k === 'bass') M.bass = Math.max(M.bass, e.v); else if (e.k === 'mel') M.mel = Math.max(M.mel, .5 + e.v*.5);
+    else if (e.k === 'section') nextSection(); }
+  M.kick *= Math.exp(-dt*7); M.hat *= Math.exp(-dt*10); M.bass *= Math.exp(-dt*3); M.mel *= Math.exp(-dt*3.5); flash *= Math.exp(-dt*9); cutFlash *= Math.exp(-dt*6);
+  M.energy += ((M.kick + M.hat + M.bass + M.mel)/4 - M.energy)*Math.min(1, dt*2);
+  // what each part plays: one instrument each, or everything at once
+  const all = Math.min(1.5, M.kick + M.hat*.6 + M.bass*.5 + M.mel*.5);
+  const breath = ON.orch ? M.bass : all*.8, winGlow = ON.orch ? .3 + M.mel*.8 : .3 + all*.6, gemGlow = ON.orch ? M.kick : all*.7, moteGlow = ON.orch ? .35 + M.hat*1.3 : .35 + all;
+  const spinRate = ON.orch ? .15 + M.mel*1.4 : .4 + all*.8;
+  spin += dt*spinRate; roll += dt*.04; camZ += dt*(.9 + (ON.orch ? M.bass*.6 : all*.5) + (diving ? 3 : 0));
+  // the dive into the gem and out into its child
+  let gemDist = 4.4;
+  if (diving) { diveT += dt; const k = Math.min(1, diveT/1.3); gemDist = 4.4 - 4.25*k*k; dive = k;
+    if (k >= 1 && !swapped) { swapped = true; swapGenome(); }
+    if (swapped) { dive = Math.max(0, 1 - (diveT - 1.3)/.7); gemDist = 4.4 - 4.25*dive*dive; if (diveT > 2) { diving = false; dive = 0; } } }
+  // the pieces' genomes: one, or each its own
+  const S = SEP, w = {n: ON.geo ? G.n : S.w.n, motif: ON.geo ? G.motif : S.w.motif, mat: ON.mat ? G.mat : S.w.mat, hue: ON.mat ? G.hue : S.w.hue};
+  const o = {n: ON.geo ? G.n : S.o.n, mat: ON.mat ? G.mat : S.o.mat, hue: ON.mat ? (G.hue + .04) % 1 : S.o.hue};
+  const moteHue = ON.mat ? (G.hue + .09) % 1 : S.moteHue, lightHue = ON.mat ? (G.hue + .02) % 1 : S.lightHue, kalN = ON.kal ? (ON.geo ? G.n : S.kalN) : 0;
+  // the fireflies: where they are, and how bright (the travelling light lifts each as it passes)
+  const gz = camZ + gemDist, wv = at - wave.t, waveR = wv*5, waveA = ON.cause ? wave.s*Math.exp(-wv*1.1) : 0, asp = cv.width/cv.height;
+  motes.forEach((m, i) => {
+    let b = moteGlow*(.55 + .45*Math.sin(tNow*.002 + m.ph + (ON.orch ? M.hat*3 : 0)));
+    if (ON.space) { const z = camZ + .4 + (((m.z - camZ) % 18) + 18) % 18, a = m.a + (ON.geo ? 0 : tNow*.0001), x = Math.cos(a)*m.rad, y = Math.sin(a)*m.rad;
+      const dd = Math.hypot(x, y, z - gz); b *= 1 + 4*Math.exp(-Math.pow((dd - waveR)*1.7, 2))*waveA;
+      MO.set([x, y, z, b], i*4); }
+    else MO.set([(m.sx - .5)*asp*1.7 + Math.sin(tNow*.0003 + m.ph)*.05, (m.sy - .5)*1.6 + Math.cos(tNow*.00025 + m.ph)*.05, 0, b*1.2], i*4);
+  });
+  for (let i = motes.length; i < NM; i++) MO.set([0, 0, -99, 0], i*4);
+  if (prog) {
+    size(); gl.viewport(0, 0, cv.width, cv.height);
+    gl.uniform2f(U.uRes, cv.width, cv.height);
+    gl.uniform4f(U.uW, w.n, w.motif, w.mat, w.hue); gl.uniform4f(U.uO, o.n, o.mat, o.hue, spin);
+    gl.uniform4f(U.uL, moteHue, lightHue, ON.light, ON.space);
+    gl.uniform4f(U.uM, breath, winGlow, gemGlow + (ON.cause ? 0 : flash*.5), moteGlow);
+    gl.uniform4f(U.uK, kalN, ON.geo ? -roll : tNow*.00007, waveR, waveA);
+    gl.uniform4f(U.uC, camZ, roll, dive, Math.max(ON.cause ? 0 : flash*.5, cutFlash*.6));
+    gl.uniform4f(U.uX, gemDist, ON.cause, w.hue, 0);
+    gl.uniform4fv(U.uMo, MO);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  readT -= dt; if (readT <= 0) { readT = .5; narrate(w, o, kalN); }
+  requestAnimationFrame(frame);
+}
+function narrate(w, o, kalN){
+  const src = demo ? 'Demo beat, ' + SECTIONS[demo.sec % SECTIONS.length].name : track ? 'Track: ' + track.name : 'Silent preview (press Play to hear it)';
+  const genome = ON.geo && ON.mat ? `Genome: ${G.n}-fold, ${MOTIFS[G.motif]}, ${MATS[G.mat]}, hue ${Math.round(G.hue*360)}°` :
+    `Hall: ${w.n}-fold ${MATS[w.mat]}, ${MOTIFS[w.motif]}. Gem: ${o.n}-fold ${MATS[o.mat]}. Kaleidoscope: ${kalN || 'off'}`;
+  const roles = ON.orch ? 'Kick → the gem · hats → the fireflies · bass → the hall breathes · melody → the windows and the gem\'s turn' : 'Every part reacts to every sound';
+  $('#read').textContent = `${src}  ·  section ${section}${diving ? '  ·  diving into the gem' : ''}\n${genome}\n${roles}`;
+}
+sync(); requestAnimationFrame(frame);
+</script>
