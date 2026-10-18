@@ -88,6 +88,24 @@ const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok 
   const errors = await page.errors(); check('no page errors (steering)', !errors.length, errors.join(' '));
   await browser.close();
 }
+// the subject: the layers play round the centrepiece (scene/subject.js): the lasers catch on it, the comets circle it, the
+// orbits centre on it; with its switch off they keep to themselves
+{
+  const browser = await launch('2d'), page = await openPage(browser, url, {width: 320, height: 180});
+  const r = await page.evaluate(async () => {
+    const {solo} = await import('/src/ui/presets.js'), {S} = await import('/src/state.js'), {SUBJ} = await import('/src/scene/subject.js');
+    solo('skull'); S.active.skull = .8; S.active.lasers = .9; S.active.comets = .9; S.active.orbit = .9;
+    let touch = 0; for (let i = 0; i < 60; i++) { __step(4); touch = Math.max(touch, SUBJ.touch); }
+    const on = {on: SUBJ.on, r: SUBJ.r, touch};
+    S.explore.stage = 0; __step(120); const off = SUBJ.on; S.explore.stage = 1;
+    return {...on, off};
+  });
+  check('the skull is the subject, its size on screen known', r.on > .9 && r.r > .06 && r.r < .35, JSON.stringify(r));
+  check('the layers touch it (a laser catching, a comet passing)', r.touch > .05, r.touch.toFixed(2));
+  check('with the switch off the subject goes', r.off < .05, r.off.toFixed(3));
+  const errors = await page.errors(); check('no page errors (subject)', !errors.length, errors.join(' '));
+  await browser.close();
+}
 // in both renderers: the stargate with a 3-fold genome draws differently from its own hexagons
 for (const mode of ['gl', '2d']) {
   const browser = await launch(mode), page = await openPage(browser, url, {width: 320, height: 180});
