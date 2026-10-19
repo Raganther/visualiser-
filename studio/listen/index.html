@@ -23,6 +23,13 @@ header{display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justif
 .facts{display:flex; flex-wrap:wrap; gap:6px 18px; font:13px var(--mono); color:var(--mute)}
 .facts b{color:var(--ink); font-weight:500}
 .versions{display:flex; flex-wrap:wrap; gap:6px}
+.songs{display:flex; flex-wrap:wrap; gap:6px}
+.songs .chip{font:500 13px var(--body)}
+.verdict{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.verdict button{border:1px solid var(--line); background:transparent; border-radius:6px; padding:6px 12px; font:500 14px var(--body)}
+.verdict button[aria-pressed="true"]{background:var(--cue-soft); border-color:var(--cue)}
+.verdict button.no[aria-pressed="true"]{background:var(--rec-soft); border-color:var(--rec)}
+[hidden]{display:none!important}
 button{font:inherit; color:inherit; cursor:pointer}
 button:focus-visible, textarea:focus-visible, select:focus-visible{outline:2px solid var(--cue); outline-offset:2px}
 .chip{border:1px solid var(--line); background:var(--panel); border-radius:999px; padding:5px 12px; font:500 13px var(--mono)}
@@ -81,6 +88,7 @@ tr.now td{background:var(--cue-soft)}
 </style>
 
 <div class="wrap">
+  <div class="songs" id="songs" aria-label="Songs" hidden></div>
   <header>
     <div>
       <div class="label">Studio · listening room</div>
@@ -89,6 +97,8 @@ tr.now td{background:var(--cue-soft)}
     <div class="facts" id="facts"></div>
   </header>
   <div class="versions" id="versions" aria-label="Versions"></div>
+  <div class="verdict" id="verdict" hidden><span class="label">This song</span>
+    <button data-r="1" title="I like this song">👍 Like</button><button data-r="2" title="Some of it">Maybe</button><button class="no" data-r="-1" title="Not for me">👎 No</button></div>
   <p class="changes" id="changes"></p>
 
   <section class="desk" aria-label="Player">
@@ -142,7 +152,27 @@ const barOf = s => cur ? s/(240/cur.bpm) : 0;
 const secOf = bar => bar*240/(cur?.bpm || 120);
 const sectionAt = s => cur?.sections?.find(x => barOf(s) >= x.from && barOf(s) < x.to);
 
+// every song, one chip each (its latest version), marked with the verdict given it
+let rates = {};
+function renderSongs(){
+  const el = $('songs'), titles = [...new Set(tracks.map(t => t.title))]; el.innerHTML = ''; el.hidden = titles.length < 2;
+  for (const ti of titles) { const b = document.createElement('button'), r = rates[ti]?.rating; b.className = 'chip';
+    b.textContent = (r === 1 ? '👍 ' : r === 2 ? '~ ' : r === -1 ? '👎 ' : '') + ti; b.setAttribute('aria-pressed', String(cur?.title === ti));
+    b.onclick = () => { const t = tracks.find(x => x.title === ti); if (t && t !== cur) pick(t, false); }; el.append(b); }
+  const v = $('verdict'); v.hidden = !cur; const r = cur && rates[cur.title]?.rating;
+  v.querySelectorAll('[data-r]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.r === r)));
+}
+async function rate(r){
+  if (!db || !cur) { $('status').textContent = 'Sign in to claude.ai to rate songs.'; return; }
+  const was = rates[cur.title]?.rating, rating = was === r ? 0 : r;
+  rates[cur.title] = {rating}; renderSongs();
+  try { await db.collection('notes').add({track: cur.id, tag: cur.tag, title: cur.title, t: 0, kind: 'rate', rating, at: new Date().toISOString()});
+    $('status').textContent = rating ? `${rating === 1 ? '👍' : rating === 2 ? 'Maybe' : '👎'} saved for ${cur.title}.` : `Verdict on ${cur.title} cleared.`; }
+  catch (e) { $('status').textContent = 'That wasn\'t saved (' + (e.code || e.message) + ').'; }
+}
+document.querySelectorAll('#verdict [data-r]').forEach(b => b.onclick = () => rate(+b.dataset.r));
 function renderTrack(){
+  renderSongs();
   $('versions').innerHTML = '';
   const byTitle = tracks.filter(t => !cur || t.title === cur.title);
   for (const t of byTitle) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = t.tag; b.setAttribute('aria-pressed', String(t === cur)); b.onclick = () => pick(t, true); $('versions').append(b); }
@@ -169,9 +199,9 @@ function renderRows(){
   }
 }
 function renderNotes(){
-  const list = notes.filter(n => n.kind !== 'vote').sort((a, b) => a.t - b.t);
+  const list = notes.filter(n => n.kind !== 'vote' && n.kind !== 'rate').sort((a, b) => a.t - b.t);
   $('pins').innerHTML = ''; const D = cur?.secs || 1;
-  for (const n of notes) { const p = document.createElement('div'); p.className = 'pin ' + (n.mood || ''); p.style.left = (n.t/D*100) + '%'; p.title = `${fmt(n.t)} ${n.text || n.section || ''}`; $('pins').append(p); }
+  for (const n of notes.filter(n => n.kind !== 'rate')) { const p = document.createElement('div'); p.className = 'pin ' + (n.mood || ''); p.style.left = (n.t/D*100) + '%'; p.title = `${fmt(n.t)} ${n.text || n.section || ''}`; $('pins').append(p); }
   const log = $('log'); log.innerHTML = '';
   if (!list.length) { log.innerHTML = '<p class="muted">No notes yet. Play the track and write what you hear; Claude reads every note before the next version.</p>'; return; }
   for (const n of list) { const d = document.createElement('div'); d.className = 'note ' + (n.mood || '');
@@ -182,7 +212,7 @@ function renderNotes(){
 function pick(t, keep){
   const at = keep && cur ? audio.currentTime : 0, was = !audio.paused; cur = t; audio.src = t.audio;
   audio.addEventListener('loadedmetadata', () => { audio.currentTime = Math.min(at, audio.duration || at); if (was) audio.play(); }, {once: true});
-  try { localStorage.setItem('studio.track', t.id); } catch {}
+  try { localStorage.setItem('studio.song', t.id); } catch {}
   subscribeNotes(); renderTrack();
 }
 function seek(s, play){ if (!cur) return; audio.currentTime = Math.max(0, Math.min(s, cur.secs)); tick(); if (play) audio.play(); }
@@ -226,9 +256,11 @@ function subscribeNotes(){ unsub?.(); notes = []; if (!db || !cur) return;
 (async () => {
   db = await window.claude?.use?.('db').catch(() => null) || null;
   if (!db) { $('status').textContent = 'Open this page signed in to claude.ai to hear the tracks and leave notes.'; return; }
+  db.collection('notes').where('kind', '==', 'rate').onSnapshot(q => { rates = {};
+    for (const n of q.docs.map(d => d.data()).sort((a, b) => a.at < b.at ? -1 : 1)) rates[n.title] = n; renderSongs(); }, () => {});
   db.collection('tracks').orderBy('order', 'desc').onSnapshot(q => {
     tracks = q.docs.map(d => ({id: d.id, ...d.data()}));
-    let want = null; try { want = localStorage.getItem('studio.track'); } catch {}
+    let want = null; try { want = localStorage.getItem('studio.song'); } catch {}
     const next = cur && tracks.find(t => t.id === cur.id) || tracks.find(t => t.id === want) || tracks[0];
     if (next && next !== cur && (!cur || next.id !== cur.id)) pick(next, false); else { if (next) cur = next; renderTrack(); }
     canSave();
