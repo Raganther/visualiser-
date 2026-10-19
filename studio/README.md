@@ -29,3 +29,9 @@ reads them and makes the next version.
   labs themselves to `labs`. `labs/kit.js` is the shared groove: Slow Bloom's loop split into parts (drums, bass, pad, lead),
   their defaults (what plays behind another part's lab) and `labScore(part, ideas)`. The labs: `bass` (the first sixteen),
   `bass2` (the liked motifs crossed with the liked sounds), `pads`, `leads`, `drums`, `kicks` (around the liked kick, `GOOD_KICK`), `drums2` (the liked grooves on it, and polyrhythms in metal and bells), `bells` (bells, metal and wood on the liked motifs).
+- **The jam** (`labs/jam.js`, `jam.mjs`, `listen/jam.html`, the Studio Jam artifact: https://claude.ai/artifact/4ksCPJwLWaDNysk9qHuGJM):
+  the liked (and maybe) ideas from every lab as clips in rows (kick, drums, bass, pad, lead, bells), each rendered alone
+  in time with the same 16-bar loop (`node studio/jam.mjs`: 57 stems, a level per row, one shared gain), so the page plays
+  one clip per row together and swaps any of them on the loop. The kick is rendered in each drum pattern (four to the
+  floor, or the broken beat's) and follows the drums clip picked. A level and mute per row, Shuffle (likes only), and
+  **Keep this combination** with a note, to the `combos` collection; the jam itself is a row in `jams`.
