@@ -68,7 +68,7 @@ export function desk(ctx, {bpm, swing = 0, seed = 1}){
 
   /* ---------- placing notes ---------- */
   // a hit; on the kick kit's kick it's also what the sidechain ducks to
-  d.hit = (kit, voice, bar, step, vel = 1) => { const t = d.t(bar, step); d.later(t, () => kit.play(voice, t, vel)); if (voice === 'kick' && kit.side) d.kicks.push(t); d.notes.push({t, src: kit.bus, voice, vel}); };
+  d.hit = (kit, voice, bar, step, vel = 1, lock = null) => { const t = d.t(bar, step); d.later(t, () => kit.play(voice, t, vel, lock)); if (voice === 'kick' && kit.side) d.kicks.push(t); d.notes.push({t, src: kit.bus, voice, vel}); };
   // a pattern every bar from bar a to b (not including b): 'x' a hit, 'X' an accent, 'o' a ghost, '.' none; prob thins it, at shifts it
   d.pattern = (kit, voice, str, a, b, {vel = .8, prob = 1, every = 1, skip} = {}) => {
     const n = str.length;
@@ -107,13 +107,13 @@ export function desk(ctx, {bpm, swing = 0, seed = 1}){
   d.later = (t, fn) => queue.push({t, fn});
   d.render = (AHEAD = 3, STEP = 2) => {
     queue.sort((a, b) => a.t - b.t); let i = 0; const sr = ctx.sampleRate, end = ctx.length/sr;
-    const buf = new Float32Array(32768), read = at => { const r = {t: at};
+    const buf = new Float32Array(32768), read = at => { const r = {t: at, wall: performance.now()};
       for (const [k, [l, rr]] of Object.entries(d.meters)) { l.getFloatTimeDomainData(buf); const L = buf.slice(); rr.getFloatTimeDomainData(buf);
         let m = 0, sd = 0; for (let j = 0; j < buf.length; j++) { const a = (L[j] + buf[j])/2, b = (L[j] - buf[j])/2; m += a*a; sd += b*b; } r[k] = [m/buf.length, sd/buf.length]; }
       d.reads.push(r); };
-    const feed = until => { while (i < queue.length && queue[i].t < until) queue[i++].fn(); };
+    const feed = until => { while (i < queue.length && queue[i].t < until) { const q = queue[i++]; try { q.fn(); } catch (e) { console.error(`a note at ${q.t.toFixed(2)} s: ${e.message}`); } } };
     feed(AHEAD);
-    for (let s = STEP; s < end - .1; s += STEP) { const at = Math.round(s*sr/128)*128/sr; ctx.suspend(at).then(() => { read(at); feed(at + AHEAD); ctx.resume(); }); }
+    for (let s = STEP; s < end - .1; s += STEP) { const at = Math.round(s*sr/128)*128/sr; ctx.suspend(at).then(() => { try { read(at); feed(at + AHEAD); } catch (e) { console.error(`at ${at.toFixed(1)} s: ${e.message}`); } finally { ctx.resume(); } }); }   // (always resume: an error must not stall the render)
     return ctx.startRendering();
   };
 
