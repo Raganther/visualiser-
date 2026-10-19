@@ -28,4 +28,4 @@ reads them and makes the next version.
   👍, Maybe, 👎 and a note per idea go to its `flags` collection (`<lab>__<idea>`: rating 1 like, 2 maybe, -1 dislike), the
   labs themselves to `labs`. `labs/kit.js` is the shared groove: Slow Bloom's loop split into parts (drums, bass, pad, lead),
   their defaults (what plays behind another part's lab) and `labScore(part, ideas)`. The labs: `bass` (the first sixteen),
-  `bass2` (the liked motifs crossed with the liked sounds), `pads`, `leads`, `drums`.
+  `bass2` (the liked motifs crossed with the liked sounds), `pads`, `leads`, `drums`, `kicks` (around the liked kick, `GOOD_KICK`), `drums2` (the liked grooves on it, and polyrhythms in metal and bells), `bells` (bells, metal and wood on the liked motifs).

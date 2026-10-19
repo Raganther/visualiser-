@@ -37,16 +37,20 @@ export const pat = (d, kit, voice, str, vel = .8, {every = 1, nudge = 0, lock} =
 export const synth = (d, bus, preset, set) => d.synth(bus, preset, {chord: 0, ...set});
 export const bars = fn => LOOP.forEach((bar, k) => { const c = chordAt(bar); fn(bar, k, c, ROOT[c], TONES[c]); });
 
+// the kick the user liked in the drum lab ("in the right direction, round, punchy"): the Minimal kit's, tuned down, shorter,
+// less driven, darker than the kit's own (which they found squelchy) or the 909's (aggressive)
+export const GOOD_KICK = {decay: .85, x: .5, drive: .12, tone: .42, tune: -1};
+
 /* ---------- the defaults: what plays behind another part's lab ---------- */
 export const DEFAULT = {
   // the Slow Bloom drums: accented, grooving hats, the open hat opening over four bars, clap, shaker, rim
-  drums: {id: 'groove', build(d){
-    const kick = d.kit('kick', 'Minimal', {kick: {decay: .85, x: .5, drive: .12, tone: .42, tune: -1}});
+  drums: {id: 'groove', build(d, o = {}){
+    const kick = d.kit('kick', o.kit || 'Minimal', {kick: {...GOOD_KICK, ...o.kick}});
     const hats = d.kit('hats', 'Minimal', {chh: {tone: .62, level: 1.1, decay: .7, x: .3, pan: .2}, ohh: {tone: .58, level: .85, decay: .8, pan: -.2}});
     const kit = d.kit('drums', 'Minimal', {clap: {level: .2, tone: .6, decay: 1.2}});
     const perc = d.kit('perc', 'Minimal', {rim: {level: .45, tone: .55, pan: .35}, shaker: {level: .5, tone: .5, pan: -.2}});
     for (const bar of LOOP) {
-      for (let b = 0; b < 4; b++) d.hit(kick, 'kick', bar, b*4, b ? .92 : 1);
+      if (!o.noKick) for (let b = 0; b < 4; b++) d.hit(kick, 'kick', bar, b*4, b ? .92 : 1);
       for (let s = 0; s < 16; s++) { const off = s % 4 === 2, on = s % 4 === 0, sw = .5 + .5*Math.sin((bar % 2*16 + s)/32*Math.PI*2);
         if (!off && d.rand() < (on ? .25 : .18)) continue;
         d.hit(hats, 'chh', bar, s + (s % 2 ? .1 : off ? -.04 : 0), (off ? .95 : on ? .42 : .26 + .22*sw)*(.9 + d.rand()*.2), {decay: off ? .85 : .45 + .25*sw}); }
