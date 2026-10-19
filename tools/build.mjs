@@ -32,3 +32,8 @@ let gen = swap(html, '<title>Afterglow visualizer</title>', '<title>Afterglow Ge
 gen = swap(gen, '<script type="module">', `<script>window.__labs = ['genome'];</script>\n<script type="module">`);
 fs.writeFileSync(path.join(root, 'dist/genome.html'), gen);
 console.log(`dist/genome.html: ${(gen.length/1024).toFixed(0)} KB`);
+// the bench: the systems one at a time (src/lab/bench.js), on the phone or a computer
+let bench = swap(html, '<title>Afterglow visualizer</title>', '<title>Afterglow Bench</title>');
+bench = swap(bench, '<script type="module">', `<script>window.__labs = ['bench'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/bench.html'), bench);
+console.log(`dist/bench.html: ${(bench.length/1024).toFixed(0)} KB`);

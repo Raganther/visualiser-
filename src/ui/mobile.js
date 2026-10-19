@@ -15,6 +15,7 @@ import { showFps, pickHeavy } from './fps.js';
 import { resize } from '../render/gl.js';
 import { setGfx } from '../render/quality.js';
 import { GB, loadPreset, grooveToggle, bind } from '../audio/groove.js';
+import { SONGS, playSong } from '../audio/songs.js';
 import { WORLD_VISUALS, LAYER_VISUALS, byKey } from '../visuals/registry.js';
 import { GEN, MOTIFS, MATS, FOLDS, genNew, genKeep, genWords } from '../scene/genome.js';
 import { $ } from '../util.js';
@@ -60,10 +61,10 @@ export function mobilePage(o){
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   document.body.classList.add('genlab');
   const el = document.createElement('section'); el.id = 'glab'; el.setAttribute('aria-label', 'Controls'); document.body.appendChild(el);
-  const LS = {min: false, gfx: o.gfx || 'fast', heavy: null};
+  const LS = {min: false, gfx: o.gfx || 'fast', heavy: null, song: SONGS[0].name};
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(o.save) || '{}'); } catch (e) {}
   Object.assign(LS, saved);
-  const keep = () => { try { localStorage.setItem(o.save, JSON.stringify({gfx: LS.gfx, heavy: LS.heavy, min: LS.min, on: GEN.on, geo: GEN.geo, col: GEN.col, line: GEN.line})); } catch (e) {} genKeep(); };
+  const keep = () => { try { localStorage.setItem(o.save, JSON.stringify({gfx: LS.gfx, heavy: LS.heavy, min: LS.min, song: LS.song, on: GEN.on, geo: GEN.geo, col: GEN.col, line: GEN.line})); } catch (e) {} genKeep(); };
   for (const k of ['on', 'geo', 'col', 'line']) if (k in saved) GEN[k] = saved[k]; else if (k === 'on') GEN.on = true;   // (the genome on, the first time)
   const worlds = o.pool ? [...o.pool.worlds, ...(DESK ? o.pool.desk || [] : [])] : null;
   requestAnimationFrame(() => requestAnimationFrame(start));
@@ -102,8 +103,9 @@ export function mobilePage(o){
     status();
   }
 
-  // the music: the groovebox playing a song of its starters
+  // the music: one of the songs (audio/songs.js), or the groovebox playing a song of its starters
   function song(){
+    if (playSong(LS.song)) return;
     const load = (i, name) => { GB.pat = i; loadPreset(name); };
     load(2, 'Breakdown'); load(3, 'Four to the floor'); load(0, 'Minimal'); load(1, 'Rolling acid');
     GB.pat = 0; bind(); GB.song = SONG.slice(); GB.songOn = true; GB.bpm = 126;
@@ -131,6 +133,7 @@ export function mobilePage(o){
       <div><h3>${o.separate ? 'The parts' : 'Genome'}</h3><div class="seg">${btn('on:1', (o.separate ? 'Together' : 'On') + '<kbd>T</kbd>', GEN.on)}${btn('on:0', o.separate ? 'Separate' : 'Off', !GEN.on)}</div></div>
       <div><h3>What the genome shares</h3><div class="row">${btn('geo', 'Symmetry and shape<kbd>1</kbd>', GEN.on && GEN.geo)}${btn('col', 'Material and colour<kbd>2</kbd>', GEN.on && GEN.col)}${btn('line', 'Grows from the last<kbd>3</kbd>', GEN.on && GEN.line)}</div></div>
       ${GEN.on ? `<div><h3>Steer the genome (held until let go)</h3><div class="row">${btn('gk:dn', '−')}${btn('gk:n', `${GEN.n}-fold`, !!GEN.held.n)}${btn('gk:up', '+')}${btn('gk:motif', MOTIFS[GEN.motif], !!GEN.held.motif)}${btn('gk:mat', MATS[GEN.mat], !!GEN.held.mat)}${btn('gk:hue', 'Colour', !!GEN.held.hue)}${btn('gk:back', '↶ Before')}${btn('gk:free', 'Let go')}</div></div>` : ''}
+      <div><h3>Music</h3><div class="row">${[...SONGS.map(s => s.name), 'Starters'].map(n => btn('song:' + n, n, n === LS.song)).join('')}</div></div>
       ${o.likes ? `<div><h3>This moment</h3><div class="row">${btn('like', '👍')}${btn('dislike', '👎')}</div></div>` : ''}
       <div><h3>Graphics</h3><div class="row">${btn('gfx:fastest', 'Fastest', LS.gfx === 'fastest')}${btn('gfx:fast', 'Fast', LS.gfx === 'fast')}${btn('gfx:balanced', 'Balanced', LS.gfx === 'balanced')}${btn('gfx:best', 'Best', LS.gfx === 'best')}</div></div>
       ${o.heavy ? `<div><h3>3D worlds</h3><div class="row">${btn('heavy:all', 'All', heavy === 'all')}${btn('heavy:cosmos', 'No cosmos', heavy === 'cosmos')}${btn('heavy:none', 'Flat only', heavy === 'none')}</div></div>` : ''}
@@ -143,6 +146,7 @@ export function mobilePage(o){
     else if (id === 'min') LS.min = !LS.min;
     else if (id === 'on') { GEN.on = v === '1'; sepKal = null; if (GEN.on) genNew(J.type); apply(); J.recast = 'fresh'; }
     else if (id === 'geo' || id === 'col' || id === 'line') { if (!GEN.on) GEN.on = true; GEN[id] = !GEN[id]; if (id !== 'line') genNew(J.type); apply(); }
+    else if (id === 'song') { LS.song = v; if (GB.playing) { grooveToggle(); song(); grooveToggle(); } }
     else if (id === 'gfx') { LS.gfx = v; setGfx(v); }
     else if (id === 'heavy') { LS.heavy = v; pickHeavy(v); }
     else if (id === 'gk') {   // the genome steered by hand (ui/keys.js, as G then its keys): what's set is held

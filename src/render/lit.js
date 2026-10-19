@@ -251,7 +251,7 @@ export function litGL(gl, A, bend){   // null while the program is still being b
     gl.uniformMatrix3fv(u.uR, false, turn(U));
     gl.uniform3fv(u.uLp, U.lights.flatMap(l => l.p)); gl.uniform3fv(u.uLc, U.lights.flatMap(l => l.c)); gl.uniform3fv(u.uAmb, U.amb);
     gl.uniform3fv(u.uNeon, (U.neon || [[0, 1, 1], [1, 0, 1]]).flat());
-    gl.uniform1f(u.uGlow, U.glow); gl.uniform1f(u.uTrans, U.trans); spaceUniforms(gl, u, U.space);
+    gl.uniform1f(u.uGlow, U.glow); gl.uniform1f(u.uTrans, U.trans); spaceUniforms(gl, u, U.space, U.skip || 0);
     texs(sm);
     gl.enable(gl.BLEND);
     if (stage === 'trails') {   // no depth in the trails: the near side only, dim, added
@@ -341,7 +341,7 @@ export function lit2d(o, M, U){
       if (look === 1 && ed < .3) c = c.map(x => x*.1);   // the ink line
       if (eye && look < 2) { c[0] += U.glow*.6; c[1] += U.glow*.3; }
     }
-    if (U.space) { SPN[0] = nx; SPN[1] = ny; SPN[2] = nz; spaceAt(F.w, SPN, SPO); for (let k = 0; k < 3; k++) c[k] += (look === 2 ? ne[0][k]*.5 + .1 : al[k]*1.3 + .04)*SPO[k]*1.4; }   // the space's lights
+    if (U.space) { SPN[0] = nx; SPN[1] = ny; SPN[2] = nz; spaceAt(F.w, SPN, SPO, 0, 1, U.skip || 0); for (let k = 0; k < 3; k++) c[k] += (look === 2 ? ne[0][k]*.5 + .1 : al[k]*1.3 + .04)*SPO[k]*1.4; }   // the space's lights
     const rgb = c.map(x => Math.min(255, Math.round(Math.pow(Math.max(0, x), 1/2.2)*255)));
     o.beginPath(); o.moveTo(S2[F.a*2], S2[F.a*2 + 1]); o.lineTo(S2[F.b*2], S2[F.b*2 + 1]); o.lineTo(S2[F.c*2], S2[F.c*2 + 1]); o.closePath();
     o.fillStyle = `rgb(${rgb})`; o.fill(); o.strokeStyle = o.fillStyle; o.lineWidth = .8; o.stroke();   // (its own colour round the edge: no seams)

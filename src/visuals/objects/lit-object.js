@@ -15,7 +15,7 @@ import { hsv2rgb } from '../../util.js';
 import { DANCE } from '../../scene/dance.js';
 import { L } from '../../audio/listen.js';
 import { litData, litGL, lit2d, litPath2d, litLod } from '../../render/lit.js';
-import { spaceFor } from '../../scene/space.js';
+import { SPACE, spaceFor, rigLights } from '../../scene/space.js';
 
 const ELEV = [.2, .6, 1.1, .9, .35];   // the key light's heights, a new one each bar
 export function litObject({key, label, words, asset: A, dance, motion, beat, bend}){
@@ -59,6 +59,7 @@ export function litObject({key, label, words, asset: A, dance, motion, beat, ben
         look: Math.round((x.eff && x.eff.litLook) || 0), neon: [hsv2rgb(hue + pal[0], .8, 1), hsv2rgb(hue + pal[1], .8, 1)], t: x.t,
       };
       if (motion) motion(U, P, x, st);
+      const rl = rigLights(key); if (rl) { U.lights = rl; U.skip = SPACE.rig.n; U.amb = U.amb.map(v => v*(.3 + .7*SPACE.own)); }   // the rig's key, rim and fill as its own three (the key's shadow with them: scene/space.js)
       const d = DANCE.obj[key];   // its dance, on top
       if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; }
       const Vw = S.view; if (Vw && Vw.key === key) { U.rot = Vw.yaw + (d ? d.yaw : 0); U.pitch += Vw.pitch; U.size *= Vw.zoom; if (Vw.morph !== null) U.morph = Vw.morph; }   // turned and held in the Asset Viewer

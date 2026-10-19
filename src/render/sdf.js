@@ -4,7 +4,7 @@
 // normals, noise, a smooth union, three lamps and a studio reflected in the palette's colours. Simple mode marches the same
 // shape on the CPU (each object has its map in JS too) at a few dozen rays across, laid over the picture smoothed.
 import { CAM, FOCAL } from './facet.js';
-import { SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
+import { SPACE, SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
 
 const HEAD = `#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -49,8 +49,8 @@ vec3 fillC(){ return uC2*(0.25 + 0.9*KICK); }
 vec3 lit(vec3 n, vec3 rd, vec3 base, float spec, float shin, float refl){
   vec3 N = normalize(uR*n), V = -normalize(uR*rd); float ndv = max(dot(N, V), 0.0), fr = 0.04 + 0.96*pow(1.0 - ndv, 5.0);
   vec3 c = base*(0.14 + 0.1*N.y);
-  c += lamp(N, V, base, uLd, vec3(1.4, 1.3, 1.15), spec, shin) + lamp(N, V, base, normalize(vec3(-0.4, 0.5, -0.8)), vec3(0.6, 0.75, 1.1), spec, shin)
-     + lamp(N, V, base, normalize(vec3(0.2, -0.8, 0.5)), fillC(), spec*0.5, shin);
+  c += (lamp(N, V, base, uLd, vec3(1.4, 1.3, 1.15), spec, shin) + lamp(N, V, base, normalize(vec3(-0.4, 0.5, -0.8)), vec3(0.6, 0.75, 1.1), spec, shin)
+     + lamp(N, V, base, normalize(vec3(0.2, -0.8, 0.5)), fillC(), spec*0.5, shin))*uSO;   // (its own lamps less while the rig leads: scene/space.js)
   return c + env(reflect(-V, N))*refl*mix(0.25, 1.0, fr); }
 float fres(vec3 n, vec3 rd){ return pow(1.0 - abs(dot(normalize(n), normalize(rd))), 3.0); }
 float map(vec3 p);
@@ -94,7 +94,7 @@ void main(){
 const DEF_OBJ = `vec4 obj(vec3 ro, vec3 rd, float t0, float t1){ float t = march(ro, rd, t0, t1); if (t < 0.0) return vec4(0.0);
   vec3 p = ro + rd*t, n = nrm(p); vec4 c = look(shade(p, n, rd, t), p, n, rd);
   if (uQ.y > 0.01) c.rgb *= mix(1.0, occl(p, n), uQ.y);
-  c.rgb += (c.rgb*0.8 + 0.1*c.a)*spaceAt(uR*p, normalize(uR*n))*1.3;   // the space's lights: a comet or a flare passing lights it (scene/space.js)
+  vec3 vp = uR*p, vn = normalize(uR*n); c.rgb += (c.rgb*0.8 + 0.1*c.a)*spaceAt(vp, vn)*1.3 + spaceSpec(vp, vn, -normalize(uR*rd), 60.0)*c.a*1.2;   // the space's lights: a comet or a flare passing lights it (scene/space.js)
   return c; }`;
 // (uBox: the square drawn into, in px: the screen, or a smaller picture of its own that's then laid over it)
 const VS = `attribute vec2 aQ; uniform vec4 uBox; varying vec2 vS;
@@ -107,7 +107,7 @@ void main(){ vec2 q = vec2((vS.x - uBox.x)/uBox.z, (vS.y - uBox.y)/uBox.w)*uUV.x
 export const sdfSource = (o) => `#define STEPS ${o.steps || 80}\n#define STEPK ${(o.stepK || .8).toFixed(2)}\n` + HEAD + o.glsl + (o.custom ? '' : DEF_OBJ) + MAIN;
 
 // ---- WebGL: one program an object, started at idle (sdfWarm) and used once the driver has built it ----
-const UN = ['uBox', 'uQ', 'uO', 'uRi', 'uR', 'uM1', 'uM2', 'uM3', 'uK', 'uK2', 'uC0', 'uC1', 'uC2', 'uLd', 'uBd', 'uD', 'uBR', 'uSF', 'uSL', 'uSC'];
+const UN = ['uBox', 'uQ', 'uO', 'uRi', 'uR', 'uM1', 'uM2', 'uM3', 'uK', 'uK2', 'uC0', 'uC1', 'uC2', 'uLd', 'uBd', 'uD', 'uBR', 'uSF', 'uSL', 'uSC', 'uSO', 'uSK'];
 const OBJS = new Map(), progs = new Map();
 let progGen = -1, quad = null, lay = null, off = null;
 export const sdfRegister = o => OBJS.set(o.key, o);
@@ -197,7 +197,7 @@ export function lit2d(n, rd, base, spec, shin, refl, U){
   const kick = U.M1[1], c = base.map(b => b*(.14 + .1*N[1]));
   const lamp = (L, col) => { const d = Math.max(0, N[0]*L[0] + N[1]*L[1] + N[2]*L[2]), rl = [2*d*N[0] - L[0], 2*d*N[1] - L[1], 2*d*N[2] - L[2]];
     const s = Math.max(0, rl[0]*V[0] + rl[1]*V[1] + rl[2]*V[2])**shin; for (let i = 0; i < 3; i++) c[i] += col[i]*(base[i]*d + spec*s); };
-  lamp(U.Ld, [1.4, 1.3, 1.15]); lamp(LR, [.6, .75, 1.1]); lamp(LF, U.C2.map(v => v*(.25 + .9*kick)));
+  const own = SPACE.own; lamp(U.Ld, [1.4*own, 1.3*own, 1.15*own]); lamp(LR, [.6*own, .75*own, 1.1*own]); lamp(LF, U.C2.map(v => v*(.25 + .9*kick)*own));
   const dv = 2*ndv, R = [dv*N[0] - V[0], dv*N[1] - V[1], dv*N[2] - V[2]], e = env2d(R, U), k = refl*(.25 + .75*fr);
   return [c[0] + e[0]*k, c[1] + e[1]*k, c[2] + e[2]*k];
 }
@@ -220,7 +220,7 @@ export function sdf2d(o, U, map, tint, N = 44){
     const x = ro[0] + rd[0]*t, y = ro[1] + rd[1]*t, z = ro[2] + rd[2]*t, e = .01;
     const n = nz([map(x + e, y, z) - map(x - e, y, z), map(x, y + e, z) - map(x, y - e, z), map(x, y, z + e) - map(x, y, z - e)]);
     const c = tint([x, y, z], n, rd, t), a = Math.min(1, c[3]*U.w*cov), q = (j*N + i)*4;
-    if (U.space) { spaceAt(ROT(U.R, [x, y, z]), ROT(U.R, n), SPO); for (let k = 0; k < 3; k++) c[k] += (c[k]*.8 + .1*c[3])*SPO[k]*1.3; }   // the space's lights
+    if (U.space) { spaceAt(ROT(U.R, [x, y, z]), ROT(U.R, n), SPO, 60, .9); for (let k = 0; k < 3; k++) c[k] += (c[k]*.8 + .1*c[3])*SPO[k]*1.3; }   // the space's lights
     if (a < .004) continue;
     const m = U.w*cov/a*255; D[q] = Math.min(255, c[0]*m); D[q + 1] = Math.min(255, c[1]*m); D[q + 2] = Math.min(255, c[2]*m); D[q + 3] = a*255;
   }

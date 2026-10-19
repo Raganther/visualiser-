@@ -19,7 +19,7 @@ const off = (n = MAX) => Array(n).fill(0), rest = (n = MAX) => Array.from({lengt
 // 'track:step': vel, chance, a condition, ratchets, a nudge, and locks of the voice's tune, decay and character)
 export const blank = () => ({...Object.fromEntries(KV.map(v => [v.key, off()])), bass: rest(), synth: [], len: {}, x: {}});
 const pad = (a, f) => { const r = a.slice(0, MAX); while (r.length < MAX) r.push(f()); return r; };
-const fit = p => { const q = {...blank(), ...p}; for (const v of KV) q[v.key] = pad(q[v.key] || [], () => 0); q.bass = pad(q.bass || [], () => ({on: 0, n: 7, a: 0, s: 0})); q.len = {...(p.len || {})}; q.x = {...(p.x || {})}; q.synth = [...(p.synth || [])]; return q; };
+export const fit = p => { const q = {...blank(), ...p}; for (const v of KV) q[v.key] = pad(q[v.key] || [], () => 0); q.bass = pad(q.bass || [], () => ({on: 0, n: 7, a: 0, s: 0})); q.len = {...(p.len || {})}; q.x = {...(p.x || {})}; q.synth = [...(p.synth || [])]; return q; };
 const on = (str, a = 1) => [...str].map(c => c === 'x' ? a : c === 'X' ? 2 : 0);   // 'x' a hit, 'X' accented, '.' none
 const line = (notes, acc = '', sl = '') => [...notes].map((c, i) => c === '.' ? {on: 0, n: 7, a: 0, s: 0} : {on: 1, n: +c, a: acc[i] === 'x' ? 1 : 0, s: sl[i] === 'x' ? 1 : 0});
 // starter patterns, minimal techno and around it: each a kit, a drum grid (voices left out are silent) and a bass line

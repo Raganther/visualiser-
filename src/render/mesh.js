@@ -9,7 +9,7 @@
 // style: 0 glass wire, 1 solid (lit facets), 2 outline (a black silhouette with a neon rim), 3 hologram, 4 points, 5 shaded
 // (smooth, lit like skin: each corner's normal averaged over the panes round it, lit per pixel, the wire faint over it).
 import { mark } from './stalls.js';
-import { SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
+import { SPACE, SPACE_GLSL, spaceUniforms, spaceAt } from '../scene/space.js';
 
 const CAM = 3.2, FOCAL = 2.6;   // the camera sits this far out on z; FOCAL sets how strong the perspective is
 // facet light switched off (an object without U.fx), and its default colours
@@ -96,7 +96,7 @@ void main(){
   float spark=uSpark*step(0.88,fract(aInfo.z*91.7+uSparkSeed));          // a few panes flash on stabs
   float pk=mod(aInfo.x,3.0);                             // parts take the palette's hues in turn
   vec3 col=hsv(uHue+uPartHue+(pk<0.5 ? uPal.x : pk<1.5 ? uPal.y : uPal.z)+floor(aInfo.x/3.0)*0.04,0.75,1.0);
-  float lit=max(dot(nw,normalize(vec3(uLightDir,0.6))),0.0)*uLight.z;   // the world's light on the side facing it
+  float lit=max(dot(nw,normalize(vec3(uLightDir,0.6))),0.0)*uLight.z*uSO;   // the world's light on the side facing it (less while the rig leads: scene/space.js)
   col=mix(col,hsv(uHue+uLight.x,uLight.y,1.0),lit*0.6);
   float a=uEdge>0.5 ? (0.35+0.65*face)*(0.8+uGlow*0.8)+sweep*1.5+spark*1.2
                     : (uFill*(0.3+0.7*face)*(0.4+0.6*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0))+sweep*0.5+spark*0.9+lit*0.25);
@@ -113,7 +113,7 @@ void main(){
   vec3 fx=(uFxK*(fk+fp)+uFxS*fs+uFxH*fh)*(aInfo.x>6.5 ? 0.0 : 1.0);
   vec3 rgb=mix(col,vec3(1.0),min(0.6,sweep*0.5+spark*0.4))*a; float al=uEdge>0.5 ? 1.0 : uDark;
   if(uStyle>0.5&&uStyle<1.5){                             // solid: lit facets, the edges faint
-    float lam=0.3+0.7*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0)+lit*0.3;
+    float lam=0.3*mix(0.35,1.0,uSO)+0.7*uSO*max(dot(nw,normalize(vec3(-0.4,0.6,0.7))),0.0)+lit*0.3;
     if(uEdge>0.5) rgb*=0.15; else if(aInfo.x<6.5){ rgb=col*lam*(0.55+0.45*uGlow+0.3)+vec3(sweep+spark)*0.4; al=1.0; }
   } else if(uStyle>1.5&&uStyle<2.5){                      // outline: black, rimmed where it turns away from us
     float rim=1.0-smoothstep(0.1,0.4,abs(nw.z));
@@ -127,9 +127,10 @@ void main(){
     else { rgb=aInfo.x>6.5 ? col*(aInfo.x<7.5 ? 0.15+uGlow*1.6 : 0.02) : hsv(uHue+uPartHue+(pk<0.5 ? uPal.x : pk<1.5 ? uPal.y : uPal.z)+floor(aInfo.x/3.0)*0.04,0.42,0.85)+vec3(sweep+spark)*0.5; al=1.0; }
   }
   vec3 sn=normalize(aSN+aSND*uMorph+vec3(0.0,0.0,1e-5)); if(aInfo.y>0.5) sn=rx(sn,uJaw);
-  vN=rz(rx(ry(sn,uRot),uPitch),uRoll); vLC=hsv(uHue+uLight.x,uLight.y,1.0)*uLight.z; vEmit=aInfo.x>6.5 ? 1.0 : 0.0; vWL=max(dot(vN,normalize(vec3(uLightDir,0.4))),0.0);
+  vN=rz(rx(ry(sn,uRot),uPitch),uRoll); vLC=hsv(uHue+uLight.x,uLight.y,1.0)*uLight.z*uSO; vEmit=aInfo.x>6.5 ? 1.0 : 0.0; vWL=max(dot(vN,normalize(vec3(uLightDir,0.4))),0.0);
   rgb+=fx*(uEdge>0.5 ? 1.0 : 0.55);
-  if(uSF>0.0&&aInfo.x<6.5) rgb+=spaceAt(p,nw)*(uEdge>0.5 ? 0.7 : 0.5)*(uStyle>2.5&&uStyle<3.5 ? 0.3 : 1.0);   // the space's lights: a comet or a flare passing lights the side facing it (scene/space.js)
+  if(uSF>0.0&&aInfo.x<6.5){ vec3 vv=normalize(vec3(0.0,0.0,${CAM.toFixed(1)})-p);   // the space's lights: a comet, a flare or the rig lights the side facing it, and glints off the facets turned between it and us (scene/space.js)
+    rgb+=((col*0.7+0.3)*spaceAt(p,nw)*(uEdge>0.5 ? 0.7 : 0.5)+spaceSpec(p,nw,vv,40.0)*(uEdge>0.5 ? 0.35 : 1.1))*(uStyle>2.5&&uStyle<3.5 ? 0.3 : 1.0); }
   vCol=vec4(rgb*uBright*(1.0-gone),al*uBright*(1.0-gone));
   vScr=vec2(s.x/uAsp,s.y)+0.5;                           // where on screen, for a fill
   vFillW=(uFillPart>0.5 ? step(abs(aInfo.x-uFillPart),0.5) : aInfo.x>6.5 ? 0.0 : 1.0)*uBright*(1.0-gone);   // a fill shows through the glass (or one part), not in the holes
@@ -326,7 +327,7 @@ function project2d(o, panes, hinge, U){
     let ax = 0, ay = 0, az = 0; for (let i = 0; i < 3; i++) { const a = q0.sn[i], d = q0.dsn && mw ? q0.dsn[i] : null; ax += a[0] + (d ? d[0]*mw : 0); ay += a[1] + (d ? d[1]*mw : 0); az += a[2] + (d ? d[2]*mw : 0); }
     if (q.hinged) { const ay2 = cj*ay - sj*az; az = sj*ay + cj*az; ay = ay2; }
     const al = Math.hypot(ax, ay, az) || 1, sx1 = (cr*ax + sr*az)/al, sz1 = (-sr*ax + cr*az)/al, sy0 = (cp*ay/al - spi*sz1), snz = spi*ay/al + cp*sz1;
-    L.push({q, s, z: zs/3, p: [xs/3, ys/3, zs/3], nw: [co*nx1 - so*nwy0, nwy, nwz], face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt, sn: [co*sx1 - so*sy0, so*sx1 + co*sy0, snz]});
+    L.push({q, s, z: zs/3, p: [xs/3, ys/3, zs/3], nw: [co*nx1 - so*nwy0, nwy, nwz], face: .5 + .5*nwz, lit: Math.max(0, (nx1*lx + nwy*ly + nwz*.6)/ll)*Lt.amt*SPACE.own, sn: [co*sx1 - so*sy0, so*sx1 + co*sy0, snz]});
   }
   L.sort((a, b) => a.z - b.z);
   U.proj = {key, L};
@@ -366,7 +367,7 @@ export function meshDraw2d(o, panes, hinge, U){
     let fxr = null, fxl = 0;   // its facet light
     if (U.fx && !hole) { const c = q.c, l = Math.hypot(c[0], c[1], c[2]) || 1; FXD[0] = c[0]/l; FXD[1] = c[1]/l; FXD[2] = c[2]/l; fxAt(U.fx, FXD, q.seed, FXO);
       const fc = U.fxC || FX0.c; fxr = [0, 1, 2].map(i => (fc[0][i]*(FXO[0] + FXO[3]) + fc[1][i]*FXO[1] + fc[2][i]*FXO[2])*w); fxl = Math.max(fxr[0], fxr[1], fxr[2]); if (fxl < .04) fxr = null; }
-    if (U.space && !hole) { spaceAt(L2.p, L2.nw, SPO); if (SPO[0] + SPO[1] + SPO[2] > .03) { fxr = fxr || [0, 0, 0]; for (let k = 0; k < 3; k++) fxr[k] += SPO[k]*w*.5; } }   // the space's lights (scene/space.js)
+    if (U.space && !hole) { spaceAt(L2.p, L2.nw, SPO, 40, 1.4); if (SPO[0] + SPO[1] + SPO[2] > .03) { fxr = fxr || [0, 0, 0]; for (let k = 0; k < 3; k++) fxr[k] += SPO[k]*w*.5; } }   // the space's lights (scene/space.js)
     const fa = hole ? (q.part === 7 ? U.glow*1.4 : 0) : U.fill*(.3 + .7*face) + sweep*.5 + spark*.9;
     const back = face < .45 && !sweep && !spark;   // the far side: edges only (the near glass covers it)
     const rim = 1 - Math.min(1, Math.max(0, (Math.abs(face - .5)*2 - .1)/.3));   // (an outline's rim: panes turned side-on)

@@ -14,7 +14,7 @@ import { gemSheetGeo, FOCAL, CAM } from '../../render/facet.js';
 import { makeCells, stepCells, touch } from './cells.js';
 import { genN, genMat } from '../../scene/genome.js';
 import { SUBJ } from '../../scene/subject.js';
-import { SPACE_GLSL, spaceUniforms, spaceAt, spaceFor } from '../../scene/space.js';
+import { SPACE, SPACE_GLSL, spaceUniforms, spaceAt, spaceFor } from '../../scene/space.js';
 
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
@@ -326,7 +326,7 @@ void main(){
   vec3 c = tint*(uP2.x*(0.55 + 0.45*n.y) + lit*1.3);
   c += lamp(n, V, tint, uL0d, uL0c, fire, sh, kd) + lamp(n, V, tint, uL1d, uL1c, fire, sh, kd) + lamp(n, V, tint, uL2d, uL2c, 0.0, sh, kd);
   c += (tint*1.5 + 0.1)*fres*uP2.y;
-  c += (tint*2.2 + 0.25)*spaceAt(vP, n)*(isFar ? 0.3 : 1.0);   // the space's lights: a comet or a flare passing lights its facets (scene/space.js)
+  c += ((tint*2.2 + 0.25)*spaceAt(vP, n) + spaceSpec(vP, n, V, sh)*1.6)*(isFar ? 0.3 : 1.0);   // the space's lights: a comet or a flare passing lights its facets (scene/space.js)
   if (k == 1) c *= mix(0.04, 1.0, smoothstep(lw*1.2, lw*3.0, md));
   float inA = 0.0;
   if (uIn.x > 0.5 && uIn.z > 0.01) {   // its own kaleidoscope
@@ -356,7 +356,7 @@ function glDrawer(gl){
   const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, FS));
   ATTRS.forEach(([n], i) => gl.bindAttribLocation(p, i + 1, n));   // (attribute 0 stays the engine's full-screen quad)
   gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('jewel: ' + gl.getProgramInfoLog(p));
-  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uIn3', 'uPl', 'uSh', 'uSF', 'uSL', 'uSC']) u[k] = gl.getUniformLocation(p, k);
+  const u = {}; for (const k of ['uWH', 'uCam', 'uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c', 'uP', 'uP2', 'uIn', 'uIn2', 'uIn3', 'uPl', 'uSh', 'uSF', 'uSL', 'uSC', 'uSO', 'uSK']) u[k] = gl.getUniformLocation(p, k);
   const buf = gl.createBuffer(), arr = new Float32Array(NF*3*NA_);
   return (U, W, H, stage) => {
     project(U, W, H);
@@ -376,7 +376,7 @@ function glDrawer(gl){
     gl.useProgram(p);
     const Lt = U.lights, T = TUNE.jewel;
     gl.uniform2f(u.uWH, W, H); gl.uniform4f(u.uCam, 0, U.w*T.gain, CAM, stage === 'cover' ? 1 : 0);
-    ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => gl.uniform4f(u[k], Lt[i][0], Lt[i][1], Lt[i][2], 0));
+    ['uL0d', 'uL0c', 'uL1d', 'uL1c', 'uL2d', 'uL2c'].forEach((k, i) => { const m = i % 2 ? SPACE.own : 1; gl.uniform4f(u[k], Lt[i][0]*m, Lt[i][1]*m, Lt[i][2]*m, 0); });   // (its own lamps less while the rig leads)
     gl.uniform4f(u.uP, T.fire, 1, .2, .45);
     const I = U.inner; gl.uniform4f(u.uIn, I.kind, I.t, I.amt, I.hue); gl.uniform4f(u.uIn2, I.kick, T.inner.dim, T.inner.index, 0); gl.uniform4f(u.uIn3, T.inner.bounces, T.inner.shards, T.inner.beads, T.inner.seam);
     if (I.kind >= 2 && I.amt > .01) { gl.uniform4fv(u.uPl, PL); gl.uniform4fv(u.uSh, SH); }
@@ -404,9 +404,9 @@ function draw2d(o, U){
     const f = ORD[n]; if (NEAR[f]) continue;
     const nx = FN[f*3], ny = FN[f*3 + 1], nz = FN[f*3 + 2], far = nz < 0, s = far ? -1 : 1, lit = FC[f*4 + 3];
     let r = 0, g = 0, b = 0; const amb = .45*(.55 + .45*ny*s);
-    for (let i = 0; i < 3; i++) { const l = Lt[i*2], c = Lt[i*2 + 1], d = Math.max(0, (nx*l[0] + ny*l[1] + nz*l[2])*s)*.45; r += c[0]*d; g += c[1]*d; b += c[2]*d; }
+    for (let i = 0; i < 3; i++) { const l = Lt[i*2], c = Lt[i*2 + 1], d = Math.max(0, (nx*l[0] + ny*l[1] + nz*l[2])*s)*.45*SPACE.own; r += c[0]*d; g += c[1]*d; b += c[2]*d; }
     if (U.space && !far) { const i = f*9; SPP[0] = (FV[i] + FV[i + 3] + FV[i + 6])/3; SPP[1] = (FV[i + 1] + FV[i + 4] + FV[i + 7])/3; SPP[2] = (FV[i + 2] + FV[i + 5] + FV[i + 8])/3; SPN[0] = nx; SPN[1] = ny; SPN[2] = nz;
-      spaceAt(SPP, SPN, SPO); r += SPO[0]*3; g += SPO[1]*3; b += SPO[2]*3; }   // the space's lights (scene/space.js)
+      spaceAt(SPP, SPN, SPO, 50, .6); r += SPO[0]*3; g += SPO[1]*3; b += SPO[2]*3; }   // the space's lights (scene/space.js)
     const k = (1 - Math.abs(nz))**3*.6, m = far ? .45 : 1;
     const ia = U.inner && U.inner.kind > 0 ? U.inner.amt*(far ? .4 : 1) : 0;     const cr = (FC[f*4]*(amb + lit*1.3 + r + 1.5*k) + .1*k)*m*w, cg = (FC[f*4 + 1]*(amb + lit*1.3 + g + 1.5*k) + .1*k)*m*w, cb = (FC[f*4 + 2]*(amb + lit*1.3 + b + 1.5*k) + .1*k)*m*w;
     const pk = ia > .01 ? ia*m*w : 0, ccr = cr + FK[f*3]*pk, ccg = cg + FK[f*3 + 1]*pk, ccb = cb + FK[f*3 + 2]*pk;
