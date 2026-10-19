@@ -1,0 +1,225 @@
+<title>Studio Loop Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sampler's face. The loop strip (16 bars, the chords under them) and transport on top, then the ideas as a grid of pads you swap between while it plays */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5e6776; --line:#d3d8df;
+  --strip:#131820; --amber:#c76a12; --amber-soft:#fbead6; --like:#2f7d61; --like-soft:#dcefe6; --nope:#b4385a; --nope-soft:#f7e0e7;
+  --c1:#3b5b8c; --c2:#6a4f8f; --c3:#2f7368; --c4:#8a5a2b;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f131a; --panel:#171d27; --ink:#e8ebf1; --mute:#98a1b1; --line:#283041; --strip:#0a0d12; --amber:#f0a24a; --amber-soft:#3a2810; --like:#5cc79f; --like-soft:#153328; --nope:#ff7b9e; --nope-soft:#3a1824; --c1:#4f77b3; --c2:#8a6cb8; --c3:#3f998b; --c4:#b37a40; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f131a; --panel:#171d27; --ink:#e8ebf1; --mute:#98a1b1; --line:#283041; --strip:#0a0d12; --amber:#f0a24a; --amber-soft:#3a2810; --like:#5cc79f; --like-soft:#153328; --nope:#ff7b9e; --nope-soft:#3a1824; --c1:#4f77b3; --c2:#8a6cb8; --c3:#3f998b; --c4:#b37a40; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:18px 48px}
+.wrap{max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+h1{font:700 clamp(26px, 5vw, 36px)/1.05 var(--display); margin:0; letter-spacing:-.01em; text-wrap:balance}
+.label{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+header{display:flex; flex-wrap:wrap; gap:10px 20px; align-items:flex-end; justify-content:space-between}
+.facts{display:flex; flex-wrap:wrap; gap:4px 16px; font:13px var(--mono); color:var(--mute)} .facts b{color:var(--ink); font-weight:500}
+button{font:inherit; color:inherit; cursor:pointer}
+button:focus-visible, textarea:focus-visible, input:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.labs{display:flex; flex-wrap:wrap; gap:6px}
+.chip{border:1px solid var(--line); background:var(--panel); border-radius:999px; padding:5px 12px; font:500 13px var(--mono)}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+/* the deck: transport and the loop strip, sticky so it stays in reach while you scroll the pads */
+.deck{position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top, 0px); z-index:10; background:var(--bg)}
+.row{display:flex; flex-wrap:wrap; align-items:center; gap:10px}
+.play{width:50px; height:50px; border-radius:50%; border:0; background:var(--amber); color:#fff; font-size:19px; display:grid; place-items:center; flex:none}
+.play:disabled{opacity:.4; cursor:default}
+.now{display:flex; flex-direction:column; min-width:0; flex:1}
+.now .n{font:700 20px/1.15 var(--display); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.now .w{font-size:13px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.ctl{display:flex; align-items:center; gap:6px; font:12px var(--mono); color:var(--mute)}
+.ctl input[type=range]{width:110px; accent-color:var(--amber)}
+.tog{border:1px solid var(--line); background:transparent; border-radius:6px; padding:6px 10px; font:500 12px var(--mono)}
+.tog[aria-pressed="true"]{background:var(--amber-soft); border-color:var(--amber); color:var(--amber)}
+.strip{position:relative; display:grid; grid-template-columns:repeat(16, 1fr); gap:2px; height:38px; background:var(--strip); border-radius:6px; padding:3px; overflow:hidden}
+.strip .b{border-radius:3px; opacity:.55; display:flex; align-items:flex-end; padding:0 3px 2px; font:10px var(--mono); color:#fff}
+.strip .b.on{opacity:1; box-shadow:inset 0 0 0 2px #fff6}
+.strip .head{position:absolute; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 8px #fff9; pointer-events:none; left:0}
+.status{font:12px var(--mono); color:var(--mute); min-height:1em}
+/* the pads */
+.filters{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px}
+.pad{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; min-width:0}
+.pad.sel{border-color:var(--amber); box-shadow:0 0 0 2px var(--amber)}
+.pad.up{background:linear-gradient(var(--like-soft), var(--panel) 60%)}
+.pad.down{opacity:.55}
+.pad .hit{border:0; background:transparent; padding:0; text-align:left; display:flex; flex-direction:column; gap:4px}
+.pad .k{font:500 11px var(--mono); color:var(--mute)}
+.pad .nm{font:700 17px/1.2 var(--display)}
+.pad .ws{font-size:13px; color:var(--mute)}
+.pad .acts{display:flex; gap:6px; align-items:center}
+.pad .acts button{border:1px solid var(--line); background:transparent; border-radius:6px; padding:4px 9px; font-size:14px}
+.pad .acts .rate.on.like{background:var(--like-soft); border-color:var(--like)}
+.pad .acts .rate.on.nope{background:var(--nope-soft); border-color:var(--nope)}
+.pad .acts .nt{font:500 12px var(--mono); margin-left:auto}
+.pad textarea{width:100%; min-height:54px; resize:vertical; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); padding:7px 8px; font:inherit; font-size:14px}
+.pad .note{font-size:13px; overflow-wrap:anywhere; border-left:2px solid var(--amber); padding-left:8px}
+.keys{font:12px var(--mono); color:var(--mute)}
+.keys kbd{font:inherit; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; color:var(--ink)}
+@media (max-width:560px){.ctl input[type=range]{width:80px}.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){.strip .head{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div><div class="label">Studio · loop lab</div><h1 id="title">Waiting for the first lab</h1></div>
+    <div class="facts" id="facts"></div>
+  </header>
+  <div class="labs" id="labs" aria-label="Labs"></div>
+
+  <section class="deck" aria-label="Transport">
+    <div class="row">
+      <button class="play" id="play" aria-label="Play" disabled>▶</button>
+      <div class="now"><span class="n" id="nowName">Nothing selected</span><span class="w" id="nowWords">Pick an idea below; it plays over the loop at once.</span></div>
+    </div>
+    <div class="strip" id="strip"><div class="head" id="head"></div></div>
+    <div class="row">
+      <label class="ctl" for="lvl">Part level <input type="range" id="lvl" min="-12" max="9" step="1" value="0"> <span id="lvlv">0 dB</span></label>
+      <button class="tog" id="solo" aria-pressed="false" title="Hear the part alone (S)">Part alone</button>
+      <button class="tog" id="mute" aria-pressed="false" title="Hear the loop without the part (0)">Loop only</button>
+      <button class="tog" id="cycle" aria-pressed="false" title="Move to the next idea every 4 bars (C)">Next every 4 bars</button>
+    </div>
+    <div class="status" id="status">Loading…</div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Show">
+    <button class="chip" data-f="all" aria-pressed="true">All</button>
+    <button class="chip" data-f="liked" aria-pressed="false">Liked</button>
+    <button class="chip" data-f="unrated" aria-pressed="false">Not rated yet</button>
+    <button class="chip" data-f="hide" aria-pressed="false">Hide the 👎</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <p class="keys"><kbd>Space</kbd> play · <kbd>↑</kbd><kbd>↓</kbd> or <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>L</kbd> like · <kbd>D</kbd> dislike · <kbd>N</kbd> note · <kbd>S</kbd> part alone · <kbd>0</kbd> loop only · <kbd>C</kbd> cycle</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const CHC = ['--c1', '--c2', '--c3', '--c4'];
+let db = null, labs = [], lab = null, flags = {}, sel = null, filter = 'all', openNote = null;
+let ac = null, master = null, partG = null, loopG = null, t0 = 0, playing = false, backing = null, bsrc = null, cur = null;
+const raw = {}, dec = new Map();   // fetched bytes, and decoded buffers (the most recent few)
+const L = () => lab?.loopSecs || 1;
+
+/* ---------- audio: the loop and one part over it, swapped in time ---------- */
+function audio(){ if (ac) return ac; ac = new (window.AudioContext || window.webkitAudioContext)();
+  master = ac.createGain(); master.connect(ac.destination); loopG = ac.createGain(); loopG.connect(master); partG = ac.createGain(); partG.connect(master); setLvl(); return ac; }
+async function bytes(u){ if (!raw[u]) raw[u] = fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }); return raw[u]; }
+async function buffer(u){ if (dec.has(u)) { const b = dec.get(u); dec.delete(u); dec.set(u, b); return b; }
+  const b = await audio().decodeAudioData((await bytes(u)).slice(0)); dec.set(u, b); while (dec.size > 8) dec.delete(dec.keys().next().value); return b; }
+const offsetAt = t => (((t - t0) % L()) + L()) % L();
+function startLoop(){ const at = ac.currentTime + .08; t0 = at; bsrc = ac.createBufferSource(); bsrc.buffer = backing; bsrc.loop = true; bsrc.connect(loopG); bsrc.start(at); playing = true; if (sel) swap(sel, true); }
+function stopAll(){ try { bsrc?.stop(); } catch {} bsrc = null; if (cur) { try { cur.src.stop(); } catch {} cur = null; } playing = false; }
+async function swap(id, now){
+  const idea = lab.ideas.find(i => i.id === id); if (!idea) return;
+  const b = await buffer(idea.url); if (!playing || sel !== id) return;
+  const at = ac.currentTime + (now ? .02 : .03), src = ac.createBufferSource(), g = ac.createGain(); src.buffer = b; src.loop = true;
+  src.connect(g); g.connect(partG); g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(1, at + .015); src.start(at, offsetAt(at));
+  if (cur) { const o = cur; o.g.gain.setValueAtTime(1, at); o.g.gain.linearRampToValueAtTime(0, at + .015); try { o.src.stop(at + .05); } catch {} }
+  cur = {src, g, id};
+  const i = lab.ideas.indexOf(idea), nx = lab.ideas[(i + 1) % lab.ideas.length]; if (nx) buffer(nx.url).catch(() => {});   // (the next one ready)
+}
+function setLvl(){ if (!ac) return; const v = +$('lvl').value, solo = $('solo').getAttribute('aria-pressed') === 'true', mute = $('mute').getAttribute('aria-pressed') === 'true';
+  const t = ac.currentTime; partG.gain.setTargetAtTime(mute ? 0 : Math.pow(10, v/20), t, .01); loopG.gain.setTargetAtTime(solo ? 0 : 1, t, .01); $('lvlv').textContent = (v > 0 ? '+' : '') + v + ' dB'; }
+
+/* ---------- the page ---------- */
+function renderLab(){
+  $('labs').innerHTML = ''; for (const l of labs) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = l.title; b.setAttribute('aria-pressed', String(l === lab)); b.onclick = () => pickLab(l); $('labs').append(b); }
+  if (!lab) return;
+  $('title').textContent = lab.title;
+  $('facts').innerHTML = [['Tempo', lab.bpm + ' BPM'], ['Loop', lab.bars + ' bars'], ['Ideas', lab.ideas.length], ['Over', lab.over || 'the groove']].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+  const st = $('strip'); st.querySelectorAll('.b').forEach(n => n.remove());
+  for (let i = 0; i < lab.bars; i++) { const c = (lab.chords || [])[Math.floor(i/4) % (lab.chords?.length || 1)], b = document.createElement('div'); b.className = 'b';
+    b.style.background = `var(${CHC[Math.floor(i/4) % 4]})`; b.textContent = i % 4 === 0 && c ? c : ''; st.insertBefore(b, $('head')); }
+  renderPads();
+}
+const rating = id => flags[id]?.rating || 0;
+function renderPads(){
+  const g = $('grid'); g.innerHTML = ''; if (!lab) return;
+  lab.ideas.forEach((it, i) => { const r = rating(it.id);
+    if (filter === 'liked' && r !== 1 || filter === 'unrated' && r !== 0 || filter === 'hide' && r === -1) return;
+    const p = document.createElement('article'); p.className = 'pad' + (it.id === sel ? ' sel' : '') + (r === 1 ? ' up' : r === -1 ? ' down' : '');
+    const hit = document.createElement('button'); hit.className = 'hit'; hit.setAttribute('aria-label', 'Play ' + it.name);
+    const k = document.createElement('span'); k.className = 'k'; k.textContent = (i < 9 ? `${i + 1} · ` : '') + it.id;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name; const ws = document.createElement('span'); ws.className = 'ws'; ws.textContent = it.words;
+    hit.append(k, nm, ws); hit.onclick = () => pick(it.id);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    const up = document.createElement('button'); up.className = 'rate like' + (r === 1 ? ' on' : ''); up.textContent = '👍'; up.title = 'Like (L)'; up.onclick = () => rate(it.id, r === 1 ? 0 : 1);
+    const dn = document.createElement('button'); dn.className = 'rate nope' + (r === -1 ? ' on' : ''); dn.textContent = '👎'; dn.title = 'Dislike (D)'; dn.onclick = () => rate(it.id, r === -1 ? 0 : -1);
+    const nt = document.createElement('button'); nt.className = 'nt'; nt.textContent = flags[it.id]?.note ? 'Edit note' : 'Note'; nt.onclick = () => { openNote = openNote === it.id ? null : it.id; renderPads(); if (openNote) setTimeout(() => p.querySelector('textarea')?.focus(), 0); };
+    acts.append(up, dn, nt); p.append(hit, acts);
+    if (openNote === it.id) { const ta = document.createElement('textarea'); ta.id = 'note-' + it.id; ta.value = flags[it.id]?.note || ''; ta.placeholder = 'What works, what doesn\'t: "love the slide, too bright", "keep this rhythm, darker sound"…';
+      const sv = document.createElement('button'); sv.className = 'tog'; sv.textContent = 'Save note'; sv.onclick = () => { saveNote(it.id, ta.value.trim()); openNote = null; };
+      ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sv.click(); e.stopPropagation(); }); p.append(ta, sv); }
+    else if (flags[it.id]?.note) { const n = document.createElement('div'); n.className = 'note'; n.textContent = flags[it.id].note; p.append(n); }
+    g.append(p); });
+}
+function show(id){ sel = id; const it = lab.ideas.find(i => i.id === id); $('nowName').textContent = it?.name || 'Loop only'; $('nowWords').textContent = it?.words || ''; renderPads(); }
+function pick(id){ show(id); if (!playing) toggle(); else swap(id, true); }
+async function toggle(){
+  if (!lab) return; audio(); if (ac.state !== 'running') await ac.resume();
+  if (playing) { stopAll(); $('play').textContent = '▶'; $('play').setAttribute('aria-label', 'Play'); return; }
+  $('status').textContent = 'Loading the loop…';
+  try { backing = await buffer(lab.backing); } catch (e) { $('status').textContent = 'The loop didn\'t load (' + e.message + '). Reload the page to try again.'; return; }
+  if (playing) return;   // (a second press while it loaded)
+  if (!sel) show(lab.ideas[0]?.id);
+  startLoop(); $('play').textContent = '❚❚'; $('play').setAttribute('aria-label', 'Pause'); $('status').textContent = 'Playing. Tap any idea to swap it in where the loop is.';
+}
+async function write(id, patch){
+  if (!db) { $('status').textContent = 'Sign in to claude.ai to save flags.'; return; }
+  const doc = {...(flags[id] || {rating: 0, note: ''}), ...patch, lab: lab.id, idea: id, name: lab.ideas.find(i => i.id === id)?.name, at: new Date().toISOString()};
+  flags[id] = doc; renderPads();
+  try { await db.doc(`flags/${lab.id}__${id}`).set(doc); $('status').textContent = 'Saved.'; } catch (e) { $('status').textContent = 'Not saved (' + (e.code || e.message) + '). Try again.'; }
+}
+const rate = (id, r) => write(id, {rating: r});
+const saveNote = (id, note) => write(id, {note});
+let unsub = null;
+function pickLab(l){ stopAll(); $('play').textContent = '▶'; lab = l; sel = null; flags = {}; dec.clear(); renderLab(); $('play').disabled = false;
+  for (const it of lab.ideas) bytes(it.url).catch(() => {}); bytes(lab.backing).then(() => $('status').textContent = 'Ready. Press play, then tap ideas to swap them in.').catch(() => {});
+  try { localStorage.setItem('studio.lab', l.id); } catch {}
+  unsub?.(); unsub = db.collection('flags').where('lab', '==', l.id).onSnapshot(q => { flags = {}; q.docs.forEach(d => { const x = d.data(); flags[x.idea] = x; }); renderPads(); }, () => {}); }
+
+/* ---------- the playhead, cycling, keys ---------- */
+let lastBar = -1;
+(function frame(){ if (playing && ac) { const o = offsetAt(ac.currentTime), bar = Math.floor(o/L()*lab.bars);
+  $('head').style.left = `calc(${o/L()*100}% - 1px)`;
+  if (bar !== lastBar) { $('strip').querySelectorAll('.b').forEach((n, i) => n.classList.toggle('on', i === bar));
+    if ($('cycle').getAttribute('aria-pressed') === 'true' && bar % 4 === 0 && lastBar !== -1) { const vis = lab.ideas.filter(i => !(filter === 'hide' && rating(i.id) === -1) && !(filter === 'liked' && rating(i.id) !== 1) && !(filter === 'unrated' && rating(i.id) !== 0));
+      const j = vis.findIndex(i => i.id === sel); if (vis.length) pick(vis[(j + 1) % vis.length].id); }
+    lastBar = bar; } }
+  requestAnimationFrame(frame); })();
+$('play').onclick = toggle;
+$('lvl').oninput = setLvl;
+for (const id of ['solo', 'mute', 'cycle']) $(id).onclick = () => { const b = $(id), on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on));
+  if (on && id === 'solo') $('mute').setAttribute('aria-pressed', 'false'); if (on && id === 'mute') $('solo').setAttribute('aria-pressed', 'false'); setLvl(); };
+document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; document.querySelectorAll('[data-f]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderPads(); });
+document.addEventListener('keydown', e => {
+  if (!lab || e.target.closest('textarea, input')) return; const ids = lab.ideas.map(i => i.id), i = ids.indexOf(sel);
+  if (e.key === ' ') { e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); pick(ids[(i + 1) % ids.length]); }
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); pick(ids[(i - 1 + ids.length) % ids.length]); }
+  else if (/^[1-9]$/.test(e.key) && ids[+e.key - 1]) pick(ids[+e.key - 1]);
+  else if (e.key === '0') $('mute').click();
+  else if ((e.key === 'l' || e.key === 'L') && sel) rate(sel, rating(sel) === 1 ? 0 : 1);
+  else if ((e.key === 'd' || e.key === 'D') && sel) rate(sel, rating(sel) === -1 ? 0 : -1);
+  else if ((e.key === 'n' || e.key === 'N') && sel) { e.preventDefault(); openNote = sel; renderPads(); setTimeout(() => $('note-' + sel)?.focus(), 0); }
+  else if (e.key === 's' || e.key === 'S') $('solo').click();
+  else if (e.key === 'c' || e.key === 'C') $('cycle').click();
+});
+(async () => {
+  db = await window.claude?.use?.('db').catch(() => null) || null;
+  if (!db) { $('status').textContent = 'Open this page signed in to claude.ai to hear the labs.'; return; }
+  db.collection('labs').orderBy('order', 'desc').onSnapshot(q => {
+    labs = q.docs.map(d => ({id: d.id, ...d.data()}));
+    if (!labs.length) { $('status').textContent = 'No labs yet. Claude adds each one here.'; renderLab(); return; }
+    let want = null; try { want = localStorage.getItem('studio.lab'); } catch {}
+    const next = lab && labs.find(l => l.id === lab.id) || labs.find(l => l.id === want) || labs[0];
+    if (!lab || next.id !== lab.id) pickLab(next); else { lab = next; renderLab(); }
+  }, e => { $('status').textContent = 'The labs couldn\'t be loaded (' + e.code + ').'; });
+})();
+</script>

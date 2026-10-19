@@ -13,7 +13,7 @@ const db = v => Math.pow(10, v/20);
 // a seeded random (the kit's own variation reads Math.random, which render.mjs seeds too)
 export function rng(seed = 1){ let s = seed >>> 0 || 1; return () => { s = (s*1664525 + 1013904223) >>> 0; return s/4294967296; }; }
 
-export function desk(ctx, {bpm, swing = 0, seed = 1}){
+export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   const beat = 60/bpm, six = beat/4, env = {period: () => beat};
   const d = {ctx, bpm, beat, rand: rng(seed), buses: {}, kicks: [], notes: []};
   // where a bar and 16th fall, in seconds (odd 16ths late by the swing)
@@ -24,7 +24,8 @@ export function desk(ctx, {bpm, swing = 0, seed = 1}){
   const sum = two(ctx), glue = ctx.createDynamicsCompressor(), trim = ctx.createGain(), lim = ctx.createDynamicsCompressor(), out = ctx.createGain();
   glue.threshold.value = -16; glue.ratio.value = 2; glue.knee.value = 8; glue.attack.value = .03; glue.release.value = .25;
   lim.threshold.value = -2; lim.ratio.value = 20; lim.knee.value = 0; lim.attack.value = .001; lim.release.value = .08;
-  sum.connect(glue); glue.connect(trim); trim.connect(lim); lim.connect(out);
+  // raw: no glue or limiter, so stems rendered apart sum to the mix exactly (the loop labs)
+  if (raw) sum.connect(out); else { sum.connect(glue); glue.connect(trim); trim.connect(lim); lim.connect(out); }
   out.connect(ctx.destination);
   // meters: each bus's left and right (after its level), and the master's, read at every pause of the render, so the
   // report can say how loud and wide each part is in each section
@@ -118,6 +119,8 @@ export function desk(ctx, {bpm, swing = 0, seed = 1}){
   };
 
   /* ---------- the end: the sidechain ducked to every kick, on each bus that pumps ---------- */
+  // only these buses heard (with the returns, which then carry only their sends): a stem
+  d.solo = names => { for (const [k, b] of Object.entries(d.buses)) if (!names.includes(k) && k !== 'echo' && k !== 'verb') b.lvl.disconnect(); };
   d.finish = () => {
     const ks = [...d.kicks].sort((a, b) => a - b);
     for (const b of Object.values(d.buses)) { if (!b.pump) continue; const p = b.duck.gain, depth = b.pump.depth ?? .6, rel = (b.pump.rel ?? .5)*beat;

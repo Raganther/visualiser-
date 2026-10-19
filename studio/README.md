@@ -20,3 +20,9 @@ reads them and makes the next version.
   measurements; a note box that pins to the moment you start typing; 👍 / 👎 per moment and per section. Tracks are rows in
   the artifact's `tracks` collection (the WebM and spectrogram uploaded as its assets: https://claude.ai/artifact/CXwNnssbyf5oxFNzc1r3yK); notes go to `notes`, which Claude
   reads before the next version.
+- **Loop labs** (`labs/*.js`, `lab.mjs`, `listen/lab.html`, the Studio Loop Lab artifact: https://claude.ai/artifact/B7EoLYmW46wB7JxLJBxYYW):
+  for throwing many ideas for one part at the wall. A lab is a backing loop (16 bars of a groove, the part left out) and
+  ideas for the part, each rendered as its own stem in time with it (`node studio/lab.mjs bass`: a raw desk with no master
+  chain, `d.solo` for the stems, what rings past the loop folded back onto its start, each idea matched in loudness, one
+  shared gain; AAC in MP4, in `studio/out/labs/<lab>/`). The page plays the loop and swaps the part under it in time;
+  👍 / 👎 and a note per idea go to its `flags` collection (`<lab>__<idea>`), the labs themselves to `labs`.
