@@ -57,6 +57,9 @@ body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-in
 .pad .acts button{border:1px solid var(--line); background:transparent; border-radius:6px; padding:4px 9px; font-size:14px}
 .pad .acts .rate.on.like{background:var(--like-soft); border-color:var(--like)}
 .pad .acts .rate.on.nope{background:var(--nope-soft); border-color:var(--nope)}
+.pad .acts .rate.on.maybe{background:var(--amber-soft); border-color:var(--amber)}
+.pad.maybe{background:linear-gradient(var(--amber-soft), var(--panel) 60%)}
+.chip .ct{opacity:.7; margin-left:6px}
 .pad .acts .nt{font:500 12px var(--mono); margin-left:auto}
 .pad textarea{width:100%; min-height:54px; resize:vertical; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); padding:7px 8px; font:inherit; font-size:14px}
 .pad .note{font-size:13px; overflow-wrap:anywhere; border-left:2px solid var(--amber); padding-left:8px}
@@ -91,11 +94,12 @@ body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-in
   <div class="filters" role="group" aria-label="Show">
     <button class="chip" data-f="all" aria-pressed="true">All</button>
     <button class="chip" data-f="liked" aria-pressed="false">Liked</button>
+    <button class="chip" data-f="maybe" aria-pressed="false">Maybe</button>
     <button class="chip" data-f="unrated" aria-pressed="false">Not rated yet</button>
     <button class="chip" data-f="hide" aria-pressed="false">Hide the 👎</button>
   </div>
   <div class="grid" id="grid"></div>
-  <p class="keys"><kbd>Space</kbd> play · <kbd>↑</kbd><kbd>↓</kbd> or <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>L</kbd> like · <kbd>D</kbd> dislike · <kbd>N</kbd> note · <kbd>S</kbd> part alone · <kbd>0</kbd> loop only · <kbd>C</kbd> cycle</p>
+  <p class="keys"><kbd>Space</kbd> play · <kbd>↑</kbd><kbd>↓</kbd> or <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>L</kbd> like · <kbd>M</kbd> maybe · <kbd>D</kbd> dislike · <kbd>N</kbd> note · <kbd>S</kbd> part alone · <kbd>0</kbd> loop only · <kbd>C</kbd> cycle</p>
 </div>
 
 <script>
@@ -129,7 +133,7 @@ function setLvl(){ if (!ac) return; const v = +$('lvl').value, solo = $('solo').
 
 /* ---------- the page ---------- */
 function renderLab(){
-  $('labs').innerHTML = ''; for (const l of labs) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = l.title; b.setAttribute('aria-pressed', String(l === lab)); b.onclick = () => pickLab(l); $('labs').append(b); }
+  $('labs').innerHTML = ''; for (const l of labs) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = l.title; if (l === lab) { const n = Object.values(flags).filter(f => f.rating).length, ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = `${n}/${l.ideas.length}`; b.append(ct); } b.setAttribute('aria-pressed', String(l === lab)); b.onclick = () => pickLab(l); $('labs').append(b); }
   if (!lab) return;
   $('title').textContent = lab.title;
   $('facts').innerHTML = [['Tempo', lab.bpm + ' BPM'], ['Loop', lab.bars + ' bars'], ['Ideas', lab.ideas.length], ['Over', lab.over || 'the groove']].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
@@ -142,17 +146,18 @@ const rating = id => flags[id]?.rating || 0;
 function renderPads(){
   const g = $('grid'); g.innerHTML = ''; if (!lab) return;
   lab.ideas.forEach((it, i) => { const r = rating(it.id);
-    if (filter === 'liked' && r !== 1 || filter === 'unrated' && r !== 0 || filter === 'hide' && r === -1) return;
-    const p = document.createElement('article'); p.className = 'pad' + (it.id === sel ? ' sel' : '') + (r === 1 ? ' up' : r === -1 ? ' down' : '');
+    if (!visible(it.id)) return;
+    const p = document.createElement('article'); p.className = 'pad' + (it.id === sel ? ' sel' : '') + (r === 1 ? ' up' : r === -1 ? ' down' : r === 2 ? ' maybe' : '');
     const hit = document.createElement('button'); hit.className = 'hit'; hit.setAttribute('aria-label', 'Play ' + it.name);
     const k = document.createElement('span'); k.className = 'k'; k.textContent = (i < 9 ? `${i + 1} · ` : '') + it.id;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name; const ws = document.createElement('span'); ws.className = 'ws'; ws.textContent = it.words;
     hit.append(k, nm, ws); hit.onclick = () => pick(it.id);
     const acts = document.createElement('div'); acts.className = 'acts';
     const up = document.createElement('button'); up.className = 'rate like' + (r === 1 ? ' on' : ''); up.textContent = '👍'; up.title = 'Like (L)'; up.onclick = () => rate(it.id, r === 1 ? 0 : 1);
+    const mb = document.createElement('button'); mb.className = 'rate maybe' + (r === 2 ? ' on' : ''); mb.textContent = 'Maybe'; mb.title = 'Not sure yet (M)'; mb.onclick = () => rate(it.id, r === 2 ? 0 : 2);
     const dn = document.createElement('button'); dn.className = 'rate nope' + (r === -1 ? ' on' : ''); dn.textContent = '👎'; dn.title = 'Dislike (D)'; dn.onclick = () => rate(it.id, r === -1 ? 0 : -1);
     const nt = document.createElement('button'); nt.className = 'nt'; nt.textContent = flags[it.id]?.note ? 'Edit note' : 'Note'; nt.onclick = () => { openNote = openNote === it.id ? null : it.id; renderPads(); if (openNote) setTimeout(() => p.querySelector('textarea')?.focus(), 0); };
-    acts.append(up, dn, nt); p.append(hit, acts);
+    acts.append(up, mb, dn, nt); p.append(hit, acts);
     if (openNote === it.id) { const ta = document.createElement('textarea'); ta.id = 'note-' + it.id; ta.value = flags[it.id]?.note || ''; ta.placeholder = 'What works, what doesn\'t: "love the slide, too bright", "keep this rhythm, darker sound"…';
       const sv = document.createElement('button'); sv.className = 'tog'; sv.textContent = 'Save note'; sv.onclick = () => { saveNote(it.id, ta.value.trim()); openNote = null; };
       ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sv.click(); e.stopPropagation(); }); p.append(ta, sv); }
@@ -177,19 +182,21 @@ async function write(id, patch){
   try { await db.doc(`flags/${lab.id}__${id}`).set(doc); $('status').textContent = 'Saved.'; } catch (e) { $('status').textContent = 'Not saved (' + (e.code || e.message) + '). Try again.'; }
 }
 const rate = (id, r) => write(id, {rating: r});
+// the filter: all, liked, maybe, not rated, or everything but the 👎
+const visible = id => { const r = rating(id); return filter === 'all' || filter === 'liked' && r === 1 || filter === 'maybe' && r === 2 || filter === 'unrated' && r === 0 || filter === 'hide' && r !== -1; };
 const saveNote = (id, note) => write(id, {note});
 let unsub = null;
 function pickLab(l){ stopAll(); $('play').textContent = '▶'; lab = l; sel = null; flags = {}; dec.clear(); renderLab(); $('play').disabled = false;
   for (const it of lab.ideas) bytes(it.url).catch(() => {}); bytes(lab.backing).then(() => $('status').textContent = 'Ready. Press play, then tap ideas to swap them in.').catch(() => {});
   try { localStorage.setItem('studio.lab', l.id); } catch {}
-  unsub?.(); unsub = db.collection('flags').where('lab', '==', l.id).onSnapshot(q => { flags = {}; q.docs.forEach(d => { const x = d.data(); flags[x.idea] = x; }); renderPads(); }, () => {}); }
+  unsub?.(); unsub = db.collection('flags').where('lab', '==', l.id).onSnapshot(q => { flags = {}; q.docs.forEach(d => { const x = d.data(); flags[x.idea] = x; }); renderLab(); }, () => {}); }
 
 /* ---------- the playhead, cycling, keys ---------- */
 let lastBar = -1;
 (function frame(){ if (playing && ac) { const o = offsetAt(ac.currentTime), bar = Math.floor(o/L()*lab.bars);
   $('head').style.left = `calc(${o/L()*100}% - 1px)`;
   if (bar !== lastBar) { $('strip').querySelectorAll('.b').forEach((n, i) => n.classList.toggle('on', i === bar));
-    if ($('cycle').getAttribute('aria-pressed') === 'true' && bar % 4 === 0 && lastBar !== -1) { const vis = lab.ideas.filter(i => !(filter === 'hide' && rating(i.id) === -1) && !(filter === 'liked' && rating(i.id) !== 1) && !(filter === 'unrated' && rating(i.id) !== 0));
+    if ($('cycle').getAttribute('aria-pressed') === 'true' && bar % 4 === 0 && lastBar !== -1) { const vis = lab.ideas.filter(i => visible(i.id));
       const j = vis.findIndex(i => i.id === sel); if (vis.length) pick(vis[(j + 1) % vis.length].id); }
     lastBar = bar; } }
   requestAnimationFrame(frame); })();
@@ -206,6 +213,7 @@ document.addEventListener('keydown', e => {
   else if (/^[1-9]$/.test(e.key) && ids[+e.key - 1]) pick(ids[+e.key - 1]);
   else if (e.key === '0') $('mute').click();
   else if ((e.key === 'l' || e.key === 'L') && sel) rate(sel, rating(sel) === 1 ? 0 : 1);
+  else if ((e.key === 'm' || e.key === 'M') && sel) rate(sel, rating(sel) === 2 ? 0 : 2);
   else if ((e.key === 'd' || e.key === 'D') && sel) rate(sel, rating(sel) === -1 ? 0 : -1);
   else if ((e.key === 'n' || e.key === 'N') && sel) { e.preventDefault(); openNote = sel; renderPads(); setTimeout(() => $('note-' + sel)?.focus(), 0); }
   else if (e.key === 's' || e.key === 'S') $('solo').click();

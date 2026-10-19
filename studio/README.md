@@ -25,4 +25,7 @@ reads them and makes the next version.
   ideas for the part, each rendered as its own stem in time with it (`node studio/lab.mjs bass`: a raw desk with no master
   chain, `d.solo` for the stems, what rings past the loop folded back onto its start, each idea matched in loudness, one
   shared gain; AAC in MP4, in `studio/out/labs/<lab>/`). The page plays the loop and swaps the part under it in time;
-  👍 / 👎 and a note per idea go to its `flags` collection (`<lab>__<idea>`), the labs themselves to `labs`.
+  👍, Maybe, 👎 and a note per idea go to its `flags` collection (`<lab>__<idea>`: rating 1 like, 2 maybe, -1 dislike), the
+  labs themselves to `labs`. `labs/kit.js` is the shared groove: Slow Bloom's loop split into parts (drums, bass, pad, lead),
+  their defaults (what plays behind another part's lab) and `labScore(part, ideas)`. The labs: `bass` (the first sixteen),
+  `bass2` (the liked motifs crossed with the liked sounds), `pads`, `leads`, `drums`.

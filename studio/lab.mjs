@@ -53,7 +53,7 @@ for (const id of ids) {
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', W, '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', P]);
   files[id] = P;
 }
-const lab = {title: M.title, part: M.part, bpm: M.bpm, bars: M.bars, loopSecs: +(loopN/SR).toFixed(4), gainDb: +(20*Math.log10(G)).toFixed(1),
+const lab = {title: M.title, part: M.part, over: M.over, bpm: M.bpm, bars: M.bars, loopSecs: +(loopN/SR).toFixed(4), gainDb: +(20*Math.log10(G)).toFixed(1),
   ideas: L.IDEAS.filter(i => ids.includes(i.id)).map(({id, name, words}) => ({id, name, words})), files};
 fs.writeFileSync(path.join(out, 'lab.json'), JSON.stringify(lab, null, 1));
 console.log(`${ids.length} loops of ${lab.loopSecs} s in ${((Date.now() - t0)/1000).toFixed(0)} s, shared gain ${lab.gainDb} dB → ${out}`);
