@@ -2,7 +2,8 @@
 // with nothing on screen but the object and its own light show on the beat off; picking an object solos it; the rig leads (the object's own lamps set aside) and
 // its presets move the lights; dragging on the sky map moves the chosen light; a light from the left lights the skull's
 // left in both renderers; each song loads into the groovebox (its order, its synth's pumping chain) and plays with no
-// errors; on a phone the panel fits under the picture.
+// errors; the conductor turns the object a notch at a time with the lights, and the 3D lasers strike it by its material;
+// on a phone the panel fits under the picture.
 import { serve, launch, openPage, ENTRY } from './lib.mjs';
 
 if (!ENTRY.endsWith('index.html')) { console.log('bench: skipped for', ENTRY); process.exit(0); }
@@ -19,6 +20,8 @@ for (const mode of (process.env.BENCH_MODES || '2d,gl').split(',')) {
     const {S} = await import('/src/state.js'), {SPACE} = await import('/src/scene/space.js'), {SUBJ} = await import('/src/scene/subject.js');
     const {OBJECT_VISUALS, LAYER_VISUALS, WORLD_VISUALS} = await import('/src/visuals/registry.js'), {TUNE} = await import('/src/tuning.js');
     const click = id => document.querySelector(`#bench button[data-id="${id}"]`).click();
+    const B0 = JSON.parse(localStorage.getItem('afterglow.bench') || '{}');
+    if (B0.cond !== false) click('cond'); if (B0.lasers !== false) click('las');   // (step 1 first: the rig alone, placed by hand)
     click('o:skull'); TUNE.dance.amount = 0; for (let i = 0; i < 40; i++) __step(3);
     const others = [...OBJECT_VISUALS, ...LAYER_VISUALS, ...WORLD_VISUALS].filter(v => v.key !== 'skull' && (S.active[v.key] || 0) > .01).map(v => v.key);
     const rig = {on: SPACE.rig.on, own: SPACE.own, n: SPACE.rig.n, subj: SUBJ.key};
@@ -44,8 +47,16 @@ for (const mode of (process.env.BENCH_MODES || '2d,gl').split(',')) {
       const ins = (STRIPS.get('synth') || {ins: []}).ins.map(i => i.k);
       songs.push({name: s.name, playing: g2.GB.playing, order: g2.GB.song.length === s.order.length, bpm: g2.GB.bpm === s.bpm, pump: ins[0] === 'pump', ins: ins.join(' ')}); }
     click('play');
+    // step 3, the conductor: the object turned a notch at a time and the lights with it, the 3D lasers striking it, more of
+    // them through glass (the rainbow) than into stone, glancing off metal
+    const {COND} = await import('/src/scene/conductor.js'), {BEAMS} = await import('/src/scene/lasers3d.js'), {GEN} = await import('/src/scene/genome.js');
+    click('cond'); click('las'); L0[0].c = [1, .9, .8];
+    for (let i = 0; i < 30; i++) __step(3);
+    const y0 = COND.yaw, a0 = SPACE.rig.lights[0].az, b0 = COND.beats; for (let i = 0; i < 120; i++) __step(3);
+    const cond = {on: COND.on, turned: COND.yaw - y0, lights: SPACE.rig.lights[0].az - a0, beats: COND.beats - b0, n: GEN.n};
+    const beams = {}; GEN.motif = 0; for (const m of [0, 1, 3]) { GEN.mat = m; __step(2); beams[m] = BEAMS.n; }
     const panel = document.querySelector('#bench').getBoundingClientRect();
-    return {others, rig, back, dragged, side: left - right, songs, panelH: panel.height, djH: S.djH, vh: innerHeight, show: TUNE.show.on};
+    return {others, rig, back, dragged, side: left - right, songs, panelH: panel.height, djH: S.djH, vh: innerHeight, show: TUNE.show.on, cond, beams};
   });
   check(`${mode}: the skull alone on the bench`, !r.others.length, r.others.join(' '));
   check(`${mode}: the object's own light show on the beat is off on the bench`, r.show === 0, String(r.show));
@@ -53,6 +64,8 @@ for (const mode of (process.env.BENCH_MODES || '2d,gl').split(',')) {
   check(`${mode}: a preset moves the lights, a drag on the sky map moves the chosen one`, Math.abs(r.back - 3) < .01 && Math.abs(Math.cos(r.dragged) - 1) < .2, `${r.back.toFixed(2)}, ${r.dragged.toFixed(2)}`);
   check(`${mode}: the key from the left lights the skull's left more than from the right`, r.side > 3000, String(Math.round(r.side)));
   for (const s of r.songs) check(`${mode}: ${s.name} loads and plays, the synth pumping on the kick`, s.playing && s.order && s.bpm && s.pump, JSON.stringify(s));
+  check(`${mode}: the conductor turns the object notch by notch on the beat, and the lights with it`, r.cond.on === 1 && Math.abs(r.cond.turned) > .5 && Math.abs(r.cond.lights) > .3 && r.cond.beats >= 4, JSON.stringify(r.cond));
+  check(`${mode}: the 3D lasers strike it: into stone, through glass in a rainbow, off metal`, r.beams[0] > 0 && r.beams[1] > r.beams[0] && r.beams[3] > r.beams[0], JSON.stringify(r.beams));
   check(`${mode}: the panel fits under the picture on a phone`, r.panelH <= r.vh*.57 && r.djH > 100, `${Math.round(r.panelH)} of ${r.vh}, picture ${r.vh - r.djH}`);
   const errors = await page.errors(); check(`${mode}: no page errors`, !errors.length, errors.join(' '));
   await browser.close();

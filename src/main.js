@@ -83,6 +83,7 @@ import * as registry from './visuals/registry.js';
 import { LABS, applyLabs, applyTune, bindLabToggles } from './lab.js';
 import { TUNE } from './tuning.js';
 import { F } from './audio/foresee.js';
+import { condFrame } from './scene/conductor.js';
 
 applyTune();                                          // ?tune= overrides, before anything reads TUNE
 initRenderer();
@@ -182,6 +183,7 @@ function render(now){
   stepDance(dt, {J, dim: reduceMotion ? .5 : 1}, LAYER_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key),
     OBJECT_VISUALS.filter(v => eff[v.key] > .02).map(v => v.key), DANCE_CHARS);
   spaceBegin(SUBJ, S.explore.space && S.explore.stage);   // the space round the centrepiece, for the comets and orbits to place their lights in (scene/space.js)
+  condFrame({dt, t: S.MT, J, hat: L.hat || 0, hit});   // the conductor, when it leads: the object, the rig and the lasers together (scene/conductor.js)
   stepFX(dt, react, S.MT*1000);
   const wx = {J, react, sBass, ts: PACE.ts, tStep: S.MT*1000/1000, lvl: energyLevel(), kickAgo: now - lastBeat, track: tracks[tIndex] ? tracks[tIndex].name : ''};
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation

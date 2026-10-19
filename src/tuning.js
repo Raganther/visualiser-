@@ -53,6 +53,16 @@ export const TUNE = {
   // they fall off with distance (in its frame), the plane the comets' figures tilt into (radians, swaying), how fast its axis
   // turns, how close to the object they may come (its radii), how bright the comets' and the flares' lights and their heads
   // drawn in front of it
+  // the lasers in 3D round the centrepiece (scene/lasers3d.js): on (0: the flat ones always); the emitters' distance (its
+  // radii) and a beam's length; the core's width (screen heights); how fast they sweep; the ring's tilt; how bright where
+  // they strike (a light on the object) and their flare; the glass's index (the rainbow from its spread)
+  lasers3d: {on: 1, reach: 4.2, len: 9, width: .0035, sweepRate: 1.3, tilt: .5, light: .6, flare: .7, index: 1.5},
+  // the conductor (scene/conductor.js): beats without a kick before it's a breakdown; how long the drop lasts (s); how fast
+  // the object eases into its notch, and the lights into place; the drop's tip towards you, coming in and the kick's swell;
+  // a stab's swing of the key (radians); the lights' slow drift; a build drawing them up and in; the key, rim and fill's
+  // brightness and how much the stab, the kick and the hats flash them; the lasers' sweep and brightness
+  conductor: {brkBeats: 8, dropSecs: 3, ease: 5, lightEase: 3, reach: .3, dropIn: .25, kickSwell: .03, stabSwing: .35, drift: .12, buildUp: .45, buildIn: .8,
+    key: 1, rim: .9, fill: .3, stabFlash: 1, kickFlash: 1.2, hatGlint: .8, sweep: .35, laser: 1},
   show: {on: 1},   // the objects' own light show on the beat (the wire objects' sweeps, sparks and facet light, the Prism's rings, patterns and life, the morphing objects' kick flashes); the bench turns it off
   space: {light: .8, fall: 4, tilt: 1.1, sway: .3, axis: .05, skim: 1.2, reach: 3.5, comet: 1, orbit: .55, front: .9},
   subject: {ease: 4, radius: .45, touchFade: 3, cometR: 1.35, orbitR: 1.25},   // (cometR, orbitR: how wide the comets' figures and the orbits circle the object, in its radii)

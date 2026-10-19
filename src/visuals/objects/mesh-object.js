@@ -11,6 +11,7 @@ import { DANCE } from '../../scene/dance.js';
 import { makeFx } from '../../scene/facets.js';
 import { hsv2rgb } from '../../util.js';
 import { spaceFor } from '../../scene/space.js';
+import { condTurn } from '../../scene/conductor.js';
 
 // motion(U, P, x), if given, changes the frame's settings U after they're made: its own way of moving (the manta's flight).
 // dance: its character as a dancer (scene/dance.js): {moves: {move: weight}, sym (its snap turns: a full turn over sym), liftPart}
@@ -64,6 +65,7 @@ export function meshObject({key, label, words, mesh, motion, dance}){
       if (motion) motion(P.m[key], P, x);
       const U = P.m[key], d = DANCE.obj[key];   // its dance, on top: a turn, a nod, a lean, a step, a lunge, a squash, a part lifting
       if (d) { U.rot += d.yaw; U.pitch += d.pitch; U.roll = d.roll; U.pos = [U.pos[0] + d.dx, U.pos[1] + d.dy]; U.size *= d.s; U.sq = d.sq; U.lift = d.lift; U.liftPart = d.part; }
+      const ct = condTurn(key); if (ct) { U.rot = ct.yaw; U.pitch += ct.pitch; U.size *= ct.s; }   // (the conductor's turn in place of its own: scene/conductor.js)
       if (st.poke > .005 || st.yaw || st.tilt) {   // (played by hand: src/play/)
         st.poke = (st.poke || 0)*Math.exp(-dt*3.5); if (!st.held) { st.yaw = (st.yaw || 0)*Math.exp(-dt*1.2); st.tilt = (st.tilt || 0)*Math.exp(-dt*2); }
         U.rot += st.yaw || 0; U.pitch += (st.tilt || 0) + (st.poke || 0)*.12; if (st.poke > .01) { U.lift = Math.max(U.lift || 0, st.poke*.8); U.liftPart = st.pokePart; }

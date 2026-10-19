@@ -1,5 +1,7 @@
 // The bench (?lab=bench, or the published dist/bench.html): the systems tested one at a time before they join the main
-// stage (docs/space-plan.md). Step 1: one object and the light rig (scene/space.js: a key, a rim and a fill round it, the
+// stage (docs/space-plan.md). Step 3, the conductor (scene/conductor.js): the object, the rig and the 3D lasers
+// (scene/lasers3d.js) moved together by the genome's genes (its symmetry, material, motif and motion genes, shown and set
+// here; a new genome every 16 bars, or by hand) and the music. Off, step 1: one object and the light rig (scene/space.js: a key, a rim and a fill round it, the
 // object's own lamps set aside), nothing else on screen, a song from audio/songs.js playing. The panel picks the object and
 // how it's drawn, places the lights (presets, a map of the sky round it to drag them on, or a drag across the picture),
 // sets their colour and brightness, keeps the object's own light show on the beat off (TUNE.show), compares the rig with the object's own lamps, and keeps an audit (a checklist and notes
@@ -13,6 +15,8 @@ import { setGfx } from '../render/quality.js';
 import { SPACE, RIG_PRESETS, rigPreset } from '../scene/space.js';
 import { GB, grooveToggle } from '../audio/groove.js';
 import { SONGS, playSong } from '../audio/songs.js';
+import { COND, condWords } from '../scene/conductor.js';
+import { GEN, MOTIFS, MATS, LIGHT_WAYS, genNew } from '../scene/genome.js';
 
 const OBJECTS = [['jewel', 'Prism', 'facet'], ['skull', 'Skull', 'wire'], ['knot', 'Knot', 'wire'], ['hand', 'Hand', 'lit'], ['heart', 'Heart', 'lit'],
   ['mercury', 'Liquid metal', 'sdf'], ['ferro', 'Ferrofluid', 'sdf'], ['coral', 'Coral', 'sdf']];
@@ -60,7 +64,7 @@ export default function bench(){
   const el = document.createElement('section'); el.id = 'bench'; el.setAttribute('aria-label', 'The bench'); document.body.appendChild(el);
   const R = SPACE.rig;
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEEP) || '{}'); } catch (e) {}
-  const B = {obj: 'jewel', look: {}, sel: 0, mode: 'rig', song: SONGS[0].name, min: false, audit: {}, notes: '', show: false, ...saved};
+  const B = {obj: 'jewel', look: {}, sel: 0, mode: 'rig', song: SONGS[0].name, min: false, audit: {}, notes: '', show: false, cond: true, lasers: true, evolve: true, ...saved};
   if (saved.lights) saved.lights.forEach((l, i) => Object.assign(R.lights[i], l));
   const keep = () => { try { localStorage.setItem(KEEP, JSON.stringify({...B, lights: R.lights.map(({az, el, k, c, on}) => ({az, el, k, c, on}))})); } catch (e) {} };
   requestAnimationFrame(() => requestAnimationFrame(start));
@@ -69,18 +73,23 @@ export default function bench(){
     showFps(false); S.explore.stage = 1; S.explore.space = 1;   // (the space round the object, for this visit: not saved)
     TUNE.show.on = B.show ? 1 : 0;   // (the object's own light show on the beat: off, so only the rig lights it)
     if (matchMedia('(pointer: coarse)').matches) setGfx('fast');   // (a phone: the picture lighter, so the music has time to play)
-    pick(B.obj); mode(B.mode); render();
+    GEN.on = true; GEN.geo = GEN.col = true; genNew(null);   // (the genome for this visit: not saved)
+    conduct(B.cond); pick(B.obj); mode(B.mode); render();
     new ResizeObserver(fit).observe(el); addEventListener('resize', fit); fit();
     addEventListener('keydown', keys, true);
     dragOn(window, 'pic');
-    setInterval(status, 300);
+    let genBar = 0;
+    setInterval(() => { status(); if (COND.on) { drawSky(el.querySelector('canvas.sky'));   // (the conductor moves the lights: the map follows)
+      if (B.evolve && COND.bars - genBar >= 16) { genBar = COND.bars; genNew(null); render(); } } }, 300);
   }
   // the picture sits above the panel (S.djH: the renderer draws it that much shorter)
   function fit(){ const h = Math.round(Math.min(el.offsetHeight, innerHeight*.56)); if (h === S.djH) return;
     S.djH = h; document.documentElement.style.setProperty('--djH', h + 'px'); document.body.classList.add('djopen'); resize(); }
 
   // the object alone, drawn the way chosen for its kind
-  function pick(k){ B.obj = k; solo(k); S.active[k] = .9; look(); keep(); }
+  function pick(k){ B.obj = k; solo(k); S.active[k] = .9; S.active.lasers = B.lasers ? .85 : 0; look(); keep(); }
+  // the conductor: the object, the rig and the lasers moved together by the genome's genes and the music (scene/conductor.js)
+  function conduct(on){ B.cond = on; COND.on = on ? 1 : 0; if (on) { mode('rig'); } keep(); }
   const kind = () => (OBJECTS.find(o => o[0] === B.obj) || OBJECTS[0])[2];
   function look(){ const L = LOOKS[kind()], i = B.look[kind()] || 0, l = L[i]; if (!l) return;
     if (l[1] === 'sdf') TUNE.sdf.look = l[2]; else S.active[l[1]] = l[2]; }
@@ -133,7 +142,7 @@ export default function bench(){
 
   const btn = (id, label, on, cls, kb) => `<button data-id="${id}"${on != null ? ` aria-pressed="${!!on}"` : ''}${cls ? ` class="${cls}"` : ''}>${label}${kb ? `<kbd>${kb}</kbd>` : ''}</button>`;
   function status(){ const s = el.querySelector('.st'); if (!s) return; const l = R.lights[B.sel];
-    s.innerHTML = `<b>Step 1: the object and the light rig</b>${(OBJECTS.find(o => o[0] === B.obj) || [])[1]} · ${R.on ? `${l.name} light ${where(l)}` : 'its own lamps'}${GB.playing ? ` · ♪ ${B.song}` : ''}`; }
+    s.innerHTML = `<b>${COND.on ? 'Step 3: the conductor, the object, the lights and the lasers' : 'Step 1: the object and the light rig'}</b>${(OBJECTS.find(o => o[0] === B.obj) || [])[1]} · ${R.on ? `${l.name} light ${where(l)}` : 'its own lamps'}${GB.playing ? ` · ♪ ${B.song}` : ''}`; }
   function render(){
     el.classList.toggle('min', !!B.min);
     const L = LOOKS[kind()], li = B.look[kind()] || 0, l = R.lights[B.sel];
@@ -141,6 +150,10 @@ export default function bench(){
       <div class="bh">${btn('play', GB.playing ? '■' : '▶', null, 'play')}<div class="st"></div>${btn('min', B.min ? '▴' : '▾')}</div>
       <div><h3>Object</h3><div class="row">${OBJECTS.map(([k, n]) => btn('o:' + k, n, k === B.obj)).join('')}</div>
         ${L.length ? `<div class="row" style="margin-top:8px">${L.map((x, i) => btn('look:' + i, x[0], i === li)).join('')}</div>` : ''}</div>
+      <div class="wide"><h3>The conductor</h3><div class="row">${btn('cond', `Conductor: ${B.cond ? 'on' : 'off'}`, B.cond)}${btn('las', `Lasers: ${B.lasers ? 'on' : 'off'}`, B.lasers)}${btn('evolve', `New genome every 16 bars: ${B.evolve ? 'on' : 'off'}`, B.evolve)}${btn('gnew', 'New genome')}</div>
+        <p class="note" style="margin-top:6px">${condWords()}; ${MATS[GEN.mat]}; lasers: ${['a ring round it', 'a fan from below', 'crossing', 'a star from it'][GEN.motif]}</p>
+        <div class="row" style="margin-top:6px">${btn('gn:-', '−')}<span style="min-width:60px;text-align:center">${GEN.n}-fold</span>${btn('gn:+', '+')}${MATS.map((m, i) => btn('gm:' + i, m, i === GEN.mat)).join('')}</div>
+        <div class="row" style="margin-top:6px">${['Ring', 'Fan', 'Crossing', 'Star'].map((m, i) => btn('gs:' + i, m, i === GEN.motif)).join('')}${[2, 4, 8].map(e => btn('ge:' + e, `Every ${e}`, GEN.mo.every === e)).join('')}${btn('gd', GEN.mo.dir > 0 ? '↻' : '↺')}${LIGHT_WAYS.map((w, i) => btn('gl:' + i, 'Lights ' + w, GEN.mo.lights === i)).join('')}</div></div>
       <div><h3>Light</h3><div class="row">${btn('m:rig', 'The rig', B.mode === 'rig')}${btn('m:own', 'Its own lamps', B.mode === 'own')}${btn('m:both', 'Both', B.mode === 'both')}</div>
         <div class="row" style="margin-top:8px">${Object.keys(RIG_PRESETS).map(n => btn('pre:' + n, n, n === B.preset)).join('')}</div>
         <div class="row" style="margin-top:8px">${btn('show', `Its own light show on the beat: ${B.show ? 'on' : 'off'}`, B.show)}</div></div>
@@ -163,11 +176,18 @@ export default function bench(){
     if (a === 'min') B.min = !B.min;
     else if (a === 'o') pick(v);
     else if (a === 'look') { B.look[kind()] = +v; look(); }
-    else if (a === 'm') mode(v);
+    else if (a === 'm') { mode(v); if (v !== 'rig') conduct(false); }
     else if (a === 'pre') { B.preset = v; rigPreset(v); }
     else if (a === 'sel') B.sel = +v;
     else if (a === 'onoff') l.on = l.on ? 0 : 1;
     else if (a === 'show') { B.show = !B.show; TUNE.show.on = B.show ? 1 : 0; }
+    else if (a === 'cond') conduct(!B.cond);
+    else if (a === 'las') { B.lasers = !B.lasers; S.active.lasers = B.lasers ? .85 : 0; }
+    else if (a === 'evolve') B.evolve = !B.evolve;
+    else if (a === 'gnew') genNew(null);
+    else if (a === 'gn') GEN.n = Math.max(3, Math.min(12, GEN.n + (v === '+' ? 1 : -1)));
+    else if (a === 'gm') GEN.mat = +v; else if (a === 'gs') GEN.motif = +v;
+    else if (a === 'ge') GEN.mo.every = +v; else if (a === 'gd') GEN.mo.dir = -GEN.mo.dir; else if (a === 'gl') GEN.mo.lights = +v;
     else if (a === 'k') l.k = Math.max(0, Math.min(3, +(l.k + (v === '+' ? .1 : -.1)).toFixed(2)));
     else if (a === 'col') l.c = COLOURS[v].slice();
     else if (a === 'song') return song(v);

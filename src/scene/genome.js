@@ -12,7 +12,12 @@
 // keep it while the rest grows on (genSet, genAdopt, genFree); Journey casts towards pieces that suit it (genFit, read by
 // journey/combos.js); a liked moment keeps its genome, and new generations now and then take after one (GEN_LIKED).
 import { S } from '../state.js';
-export const GEN = {on: false, geo: true, col: true, line: true, n: 6, motif: 0, mat: 1, hue: .72, fold: 0, id: 0, held: {}, from: {}};
+export const GEN = {on: false, geo: true, col: true, line: true, n: 6, motif: 0, mat: 1, hue: .72, fold: 0, mo: {every: 4, dir: 1, lights: 0}, id: 0, held: {}, from: {}};
+// the motion genes (mo), for the conductor (scene/conductor.js): a notch of the object's turn (1/n of a turn) every `every`
+// beats, which way (dir), and how the lights go with it (lights: 0 in unison with it, 1 against it, 2 one after another)
+export const LIGHT_WAYS = ['in unison', 'against it', 'one after another'];
+const freshMo = () => ({every: pick([2, 4, 4, 8]), dir: rnd() < .5 ? 1 : -1, lights: pickW([3, 2, 2])});
+const childMo = m => { m = {...(m || freshMo())}; const r = rnd(); if (r < .15) m.every = pick([2, 4, 8]); else if (r < .3) m.dir = -m.dir; else if (r < .45) m.lights = (m.lights + 1) % 3; return m; };
 export const GENES = ['n', 'motif', 'mat', 'hue', 'fold'];
 try { const s = JSON.parse(localStorage.getItem('afterglow.genome') || '{}'); for (const k of ['on', 'geo', 'col', 'line']) if (k in s) GEN[k] = !!s[k]; } catch (e) {}
 export const genKeep = () => { try { localStorage.setItem('afterglow.genome', JSON.stringify({on: GEN.on, geo: GEN.geo, col: GEN.col, line: GEN.line})); } catch (e) {} };
@@ -23,7 +28,7 @@ import { TUNE } from '../tuning.js';
 let seed = 11; const rnd = () => (seed = (seed*16807) % 2147483647)/2147483647;
 const pick = a => a[Math.floor(rnd()*a.length)];
 const pickW = w => { let r = rnd()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; };
-const fresh = () => ({n: 4 + Math.floor(rnd()*7), motif: Math.floor(rnd()*4), mat: Math.floor(rnd()*4), hue: rnd(), fold: pickW(TUNE.genome.fold)});
+const fresh = () => ({n: 4 + Math.floor(rnd()*7), motif: Math.floor(rnd()*4), mat: Math.floor(rnd()*4), hue: rnd(), fold: pickW(TUNE.genome.fold), mo: freshMo()});
 const keepHeld = g => { for (const k in GEN.held) if (GEN.held[k]) g[k] = GEN[k]; return g; };   // (what the user set stays)
 export const randGenome = () => keepHeld(fresh());
 // the fold, grown: mostly kept, else a step along everything, the world, the glow, inside the Prism; now and then none, and
@@ -36,13 +41,13 @@ const childFold = f => { const G = TUNE.genome; if (rnd() < (f === 0 ? G.foldKee
 export const GEN_LIKED = [];   // the genomes of liked moments (ui/taste.js), which new generations now and then take after
 export function child(g){
   if (GEN_LIKED.length && rnd() < TUNE.genome.liked) {   // taking after a liked genome: its symmetry, motif and material, the colour moved on
-    const l = pick(GEN_LIKED); return keepHeld({n: l.n, motif: l.motif, mat: l.mat, hue: (g.hue + .07 + rnd()*.1) % 1, fold: l.fold ?? g.fold});
+    const l = pick(GEN_LIKED); return keepHeld({n: l.n, motif: l.motif, mat: l.mat, hue: (g.hue + .07 + rnd()*.1) % 1, fold: l.fold ?? g.fold, mo: l.mo ? {...l.mo} : childMo(g.mo)});
   }
   const opts = [g.n - 1, g.n + 1, g.n*2, g.n % 2 ? g.n + 2 : g.n/2].filter(n => n >= 4 && n <= 12);
-  return keepHeld({n: pick(opts.length ? opts : [g.n]), motif: rnd() < .55 ? g.motif : (g.motif + 1) % 4, mat: rnd() < .6 ? g.mat : (g.mat + 1 + Math.floor(rnd()*3)) % 4, hue: (g.hue + .07 + rnd()*.1) % 1, fold: childFold(g.fold ?? 0)});
+  return keepHeld({n: pick(opts.length ? opts : [g.n]), motif: rnd() < .55 ? g.motif : (g.motif + 1) % 4, mat: rnd() < .6 ? g.mat : (g.mat + 1 + Math.floor(rnd()*3)) % 4, hue: (g.hue + .07 + rnd()*.1) % 1, fold: childFold(g.fold ?? 0), mo: childMo(g.mo)});
 }
 const HIST = [];   // the generations before, for going back (genBack)
-const snap = () => ({n: GEN.n, motif: GEN.motif, mat: GEN.mat, hue: GEN.hue, fold: GEN.fold, id: GEN.id});
+const snap = () => ({n: GEN.n, motif: GEN.motif, mat: GEN.mat, hue: GEN.hue, fold: GEN.fold, mo: {...GEN.mo}, id: GEN.id});
 const remember = () => { HIST.push(snap()); if (HIST.length > 24) HIST.shift(); };
 export function nextGenome(){ remember(); Object.assign(GEN, GEN.line ? child(GEN) : randGenome()); GEN.id++; }
 let cur = null;   // the section the genome now belongs to (its own is kept on it: t.gen)

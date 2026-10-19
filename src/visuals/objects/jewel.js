@@ -15,6 +15,7 @@ import { makeCells, stepCells, touch } from './cells.js';
 import { genN, genMat } from '../../scene/genome.js';
 import { SUBJ } from '../../scene/subject.js';
 import { SPACE, SPACE_GLSL, spaceUniforms, spaceAt, spaceFor } from '../../scene/space.js';
+import { condTurn, COND } from '../../scene/conductor.js';
 
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const sm = x => x <= 0 ? 0 : x >= 1 ? 1 : x*x*(3 - 2*x);
@@ -485,6 +486,7 @@ export default {
     st.yaw += dt*S.speed*sp*st.f.yw; st.roll += dt*S.speed*sp*(1 - st.f.yw)*.6;
     st.pitch += (st.f.pitch - st.pitch)*Math.min(1, dt*1.5);
     const Vw = S.view; if (Vw && Vw.key === 'jewel') { st.yaw = Vw.yaw; st.pitch = st.f.pitch + Vw.pitch; }   // (turned by hand in the Asset Viewer)
+    const ct = condTurn('jewel'); if (ct) { st.yaw = ct.yaw; st.pitch = st.f.pitch + ct.pitch; }   // (the conductor's turn in place of its own: scene/conductor.js)
     // its own kaleidoscope: held by hand (S.jewelInner) or the section's; mirrors and the tunnel only while it's closed
     const ik = S.jewelInner != null ? S.jewelInner : Math.max(0, st.inner), In = T.inner;
     if (ik !== st.inK) { st.inAmt = 0; st.inK = ik; }
@@ -497,7 +499,7 @@ export default {
     if (ik >= 2 && st.inAmt > .01) { planes(); shards(R); }
     const An = P.anchor;
     P.m = P.m || {};
-    P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1)*(DANCE.near || 1),   // (coming to you: scene/dance.js)
+    P.m.jewel = {w: An && An.hide ? 0 : Math.min(1, w*1.2)*(x.dim ?? 1), size: (An && An.size || T.size)*(Vw && Vw.key === 'jewel' ? Vw.zoom : 1)*(DANCE.near || 1)*(condTurn('jewel') ? COND.s : 1),   // (coming to you: scene/dance.js; the conductor's swell)
       pos: An && An.pos ? An.pos : [P.wind.x*TUNE.ctx.windObject, (st.f.pitch < 0 ? -.04 : .02) + P.wind.y*TUNE.ctx.windObject], lights: lights(), radius: .8,   // (radius: its size in its own frame, for the space: scene/space.js)
       inner: {kind: ik, t: st.inT, amt: st.inAmt, hue: st.h0, kick: st.inKick}};
   },

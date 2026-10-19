@@ -8,6 +8,10 @@
 import { genN, genMotif, genMat } from '../../scene/genome.js';
 import { SUBJ, subjTouch } from '../../scene/subject.js';
 import { TUNE } from '../../tuning.js';
+import { lasers3d, BEAMS } from '../../scene/lasers3d.js';
+import { COND } from '../../scene/conductor.js';
+import { SPACE } from '../../scene/space.js';
+import { hsv2rgb } from '../../util.js';
 const N = 12, LA = new Float32Array(N*4), HIT = new Float32Array(N*4);   // the beams for the shader: x, y, angle, hue (under -5: off); where each meets the object (along it, out of it, -, -)
 const MAT = [[1.8, .55, 0, 0], [1, .8, 1, 1], [1, .9, 0, 0], [.8, .25, 0, 2]];   // by the genome's material: width, saturation, rainbow split, what the object does to a beam (0 stops it, 1 glass, 2 metal)
 const PLAN = [0, 1, 2, 3], BY_MOTIF = [0, 1, 4, 2];   // the shows in turn; the genome's motif's own: a rose a fan, a pointed arch the crossing, a hexagon the ring, a star the star
@@ -20,6 +24,14 @@ export default {
   accent: 'bar', altAccent: 'hit',   // how it fires when it's the accent
   onBeat(pos){ if (pos === 0) bars++; },
   params(P, x){
+    // in 3D round the centrepiece (scene/lasers3d.js): the beams traced against it, drawn after the objects; none here
+    BEAMS.n = 0;
+    if (TUNE.lasers3d.on && SPACE.on > .02) {
+      const m = genMotif(), c = COND.on && COND.key ? COND.las : null, w3 = P.l.lasers || 0;
+      lasers3d({show: c ? c.show : m != null ? m : Math.floor(bars/4) % 3, n: c ? c.n : genN(3, 8) || 6, phase: c ? c.phase : x.t*.15, sweep: c ? c.sweep : .3, narrow: c ? c.narrow : 0,
+        bright: (c ? c.bright : .6 + (P.beat || 0)*.6)*SPACE.on, mat: genMat() ?? 1, t: x.t, w: w3, cols: [0, 1, 2].map(i => hsv2rgb((P.hue || 0) + P.pal[i], .75, 1))});
+      for (let i = 0; i < N; i++) LA[i*4 + 3] = -9; P.lasers = LA; P.lasHit = HIT.fill(0); P.lasM = MAT[1]; P.lasS = [0, 0, 0, 3]; return;
+    }
     const t = x.t, hw = x.asp/2, sw = Math.sin(t*.8), beams = [], T = TUNE.lasers, sub = SUBJ.on > .05 ? SUBJ : null;
     const g = genN(3, N), m = genMotif(), aim = sub ? sub.on*T.aim : 0;
     // the show: in turn every two bars; with the genome its motif's own every other turn; with an object the ring that aims at it every other

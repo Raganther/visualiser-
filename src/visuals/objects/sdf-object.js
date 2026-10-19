@@ -12,6 +12,7 @@ import { facetGeo } from '../../render/facet.js';
 import { genPick } from '../../scene/genome.js';
 import { sdfRegister, sdfDraw, sdf2d, sdfPath2d, look2d } from '../../render/sdf.js';
 import { spaceFor } from '../../scene/space.js';
+import { condTurn } from '../../scene/conductor.js';
 
 const G1 = facetGeo(1);
 const rx = a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
@@ -67,12 +68,13 @@ export function sdfObject(o){
       st.wph += dt*Wn.speed*(.6 + .8*st.ten)*(steady ? 1 : .6);
       const wx = st.wan*Wn.amount*viewAsp()*.5*(.75*Math.sin(st.wph*.7 + 1.3) + .25*Math.sin(st.wph*1.9)), wy = st.wan*Wn.amount*.42*(.7*Math.sin(st.wph*1.1) + .3*Math.cos(st.wph*2.3 + .5));
       const d = DANCE.obj[o.key], An = P.anchor, Vw = S.view && S.view.key === o.key ? S.view : null;
-      const yaw = Vw ? Vw.yaw : st.yaw + (d ? d.yaw : 0), pitch = .18 + Math.sin(st.t*.23)*.08 + (d ? d.pitch : 0) + (Vw ? Vw.pitch : 0), roll = d ? d.roll : 0;
+      const ct = condTurn(o.key);   // (the conductor's turn in place of its own: scene/conductor.js)
+      const yaw = Vw ? Vw.yaw : ct ? ct.yaw : st.yaw + (d ? d.yaw : 0), pitch = .18 + Math.sin(st.t*.23)*.08 + (d ? d.pitch : 0) + (Vw ? Vw.pitch : 0) + (ct ? ct.pitch : 0), roll = d ? d.roll : 0;
       const R = o.orient && !Vw ? o.orient(st, d) : m3(m3(rx(pitch), ry(yaw)), rz(roll)), h = P.hue + st.hue, pal = P.pal || [0, .33, .67];   // (o.orient: its own way of facing, the branches pointing at you)
       const az = .55 + .5*Math.sin(st.t*.07), el = .5, dim = x.dim ?? 1;
       P.m = P.m || {};
       P2.U = P.m[o.key] = {w: An && An.hide ? 0 : Math.min(1, w*1.2), R, br: st.br,
-        size: (An && An.size || (TUNE[o.key] || {}).size || T.size)*(d ? d.s : 1)*(Vw ? Vw.zoom : 1),
+        size: (An && An.size || (TUNE[o.key] || {}).size || T.size)*(d ? d.s : 1)*(Vw ? Vw.zoom : 1)*(ct ? ct.s : 1),
         pos: An && An.pos ? An.pos : [wx + P.wind.x*TUNE.ctx.windObject + (d ? d.dx : 0), wy + .02 + P.wind.y*TUNE.ctx.windObject + (d ? d.dy : 0)],
         M1: [st.t, st.kick*dim, st.bass, st.hat], M2: [st.stab*dim, Math.min(99, M.dropAge), st.ten, M.anticip], M3: [st.ex, M.brk],
         K: st.K, K2: st.K2, Bd: st.Bd, D: st.D, res: T.res, Q: [(o.steps || 80)*T.steps, T.ao, o.custom ? 0 : lk, 1],
