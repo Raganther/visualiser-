@@ -29,8 +29,8 @@ const LUSH = [['chorus', {rate: .35, depth: .55, mix: .45}], ['width', {w: 1.45,
 export const SONGS = [
   {name: 'Velvet Drift', bpm: 122, kit: 'Minimal', swing: .08,
     bass: {cut: .18, res: .2, env: .22, decay: .55, wave: 'sawtooth', oct: 0},
-    synth: {preset: 'Warm pad', set: {chord: 0, aa: .35, ad: 1.2, as: .8, ar: 1.3, cut: 1050, res: .08, fenv: .2, lamt: .15, chorus: .75, width: 1, level: .62}},
-    mix: {synth: {ins: [PUMP(.7, .55), ...LUSH], A: -20, B: -9}, groove: {ins: [['width', {w: 1.25, mono: 150}]], A: -30, B: -22}, reverb: {size: .8, damp: .6, mix: 1}, delay: {div: 5, fb: .4, tone: 2600}},
+    synth: {preset: 'Warm pad', set: {chord: 0, aa: .35, ad: 1.2, as: .8, ar: 1.3, cut: 1050, res: .08, fenv: .2, lamt: .15, chorus: 0, width: 1, level: .62}},
+    mix: {synth: {ins: [PUMP(.7, .55), ...LUSH], A: -20, B: -9}, groove: {ins: [['width', {w: 1.25, mono: 150}]], A: -30, B: -22}, reverb: {size: .62, damp: .6, mix: 1}, delay: {div: 5, fb: .4, tone: 2600}},
     pats: [
       {kick: on('x...x...x...x...'), shaker: on('..x...x...x...x.'), synth: chord('Am9')},
       {kick: on('X...x...X...x...'), rim: on('...x..x....x..x.'), chh: on('..x...x...x...x.'), clap: on('............x...'), shaker: on('.x.x.x.x.x.x.x.x'), bass: line('7..7...7..2..7..', 'x.....x.........'), synth: chord('Am9')},
@@ -44,8 +44,8 @@ export const SONGS = [
 
   {name: 'Silk Pulse', bpm: 124, kit: '909', swing: .1,
     bass: {cut: .14, res: .15, env: .18, decay: .5, wave: 'square', oct: 0},
-    synth: {preset: 'Dub chord', set: {chord: 0, cut: 950, res: .3, fenv: .3, ad: .3, ar: .35, chorus: .6, width: .9, level: .6}},
-    mix: {synth: {ins: [PUMP(.6, .45), ...LUSH], A: -8, B: -10}, groove: {ins: [['width', {w: 1.2, mono: 150}]], A: -30, B: -24}, reverb: {size: .85, damp: .55, mix: 1}, delay: {div: 4, fb: .55, tone: 2200}},
+    synth: {preset: 'Dub chord', set: {chord: 0, cut: 950, res: .3, fenv: .3, ad: .3, ar: .35, chorus: 0, width: .9, level: .6}},
+    mix: {synth: {ins: [PUMP(.6, .45), ...LUSH], A: -8, B: -10}, groove: {ins: [['width', {w: 1.2, mono: 150}]], A: -30, B: -24}, reverb: {size: .65, damp: .55, mix: 1}, delay: {div: 4, fb: .55, tone: 2200}},
     pats: [
       {kick: on('x...x...x...x...'), chh: on('..x...x...x...x.'), synth: stabs('Am9', [2, 10])},
       {kick: on('X...x...X...x...'), chh: on('..x...x...x...x.'), clap: on('....x.......x...'), ride: on('x.x.x.x.x.x.x.x.'), bass: line('..7...7...7...7.'), synth: stabs('Am9', [2, 10])},
@@ -59,8 +59,8 @@ export const SONGS = [
 
   {name: 'Lagoon', bpm: 120, kit: 'Minimal', swing: .12,
     bass: {cut: .2, res: .1, env: .15, decay: .6, wave: 'sawtooth', oct: 0},
-    synth: {preset: 'Strings', set: {chord: 0, cut: 1700, aa: .5, ad: 1.2, as: .85, ar: 1.5, chorus: .9, width: 1, level: .55}},
-    mix: {synth: {ins: [PUMP(.55, .6), ...LUSH], A: -24, B: -8}, groove: {ins: [['width', {w: 1.3, mono: 150}]], A: -26, B: -20}, reverb: {size: .9, damp: .65, mix: 1}, delay: {div: 6, fb: .35, tone: 2000}},
+    synth: {preset: 'Strings', set: {w1: 0, fine: 12, mix2: .6, w2: 0, chord: 0, cut: 1700, aa: .5, ad: 1.2, as: .85, ar: 1.5, chorus: 0, width: 1, level: .6}},
+    mix: {synth: {ins: [PUMP(.55, .6), ...LUSH], A: -24, B: -8}, groove: {ins: [['width', {w: 1.3, mono: 150}]], A: -26, B: -20}, reverb: {size: .65, damp: .65, mix: 1}, delay: {div: 6, fb: .35, tone: 2000}},
     pats: [
       {kick: on('x...x...x...x...'), shaker: on('.xxx.xxx.xxx.xxx'), synth: chord('Cmaj9')},
       {kick: on('X...x...X...x...'), shaker: on('.xxx.xxx.xxx.xxx'), clave: on('...x..x....x....'), chh: on('..x...x...x...x.'), bass: line('6...6..6...6.6..', 'x...........x...'), synth: chord('Cmaj9')},
@@ -74,8 +74,8 @@ export const SONGS = [
 
   {name: 'Afterglow', bpm: 126, kit: '909', swing: .06,
     bass: {cut: .22, res: .25, env: .3, decay: .4, wave: 'sawtooth', oct: 0},
-    synth: {preset: 'Pluck', set: {chord: 0, cut: 650, res: .25, fenv: .55, fd: .25, ar: .45, chorus: .6, width: 1, level: .9}},
-    mix: {synth: {ins: [PUMP(.6, .4), ...LUSH], A: -11, B: -10}, groove: {ins: [['width', {w: 1.2, mono: 150}]], A: -30, B: -22}, reverb: {size: .75, damp: .55, mix: 1}, delay: {div: 4, fb: .5, tone: 2800}},
+    synth: {preset: 'Pluck', set: {chord: 0, cut: 650, res: .25, fenv: .55, fd: .25, ar: .45, chorus: 0, width: 1, level: .9}},
+    mix: {synth: {ins: [PUMP(.6, .4), ...LUSH], A: -11, B: -10}, groove: {ins: [['width', {w: 1.2, mono: 150}]], A: -30, B: -22}, reverb: {size: .65, damp: .55, mix: 1}, delay: {div: 4, fb: .5, tone: 2800}},
     pats: [
       {kick: on('x...x...x...x...'), chh: on('..x...x...x...x.'), synth: arp('Am9', .4)},
       {kick: on('X...x...X...x...'), chh: on('..x...x...x...x.'), clap: on('....x.......x...'), shaker: on('.x.x.x.x.x.x.x.x'), bass: line('7.77..7.7.77..2.', 'x.......x.......', '.x.......x......'), synth: arp('Am9')},

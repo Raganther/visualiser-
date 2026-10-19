@@ -83,7 +83,7 @@ const st = {lookA: LOOKS[0], lookB: LOOKS[0], morph: 1, recent: ['ball'], dPrev:
   tension: 0, bassLv: 0, anticip: 0, inBreak: false, wasBreak: false, steady: true, period: .5,
   yaw: 0, pitch: .25, roll: 0, off: true, form: 'gem', f: {...FORMS.gem}, seed: 3.7,
   tex: {cur: 0, prev: 0, o: [0, 0, 1], t0: -100, dur: 4}, inner: -1, inAmt: 0, inT: 0, inKick: 0, shard: [], rule: 'spots', cells: makeCells(NA, G.ADJ[2], rand)};
-const on = k => !!TUNE.jewel.on[k];
+const on = k => !!TUNE.jewel.on[k] && (TUNE.show.on || !(k === 'pulse' || k === 'patterns' || k === 'life'));   // (its light show: TUNE.show)
 const curDetail = () => st.dPrev + (st.dNext - st.dPrev)*sm(st.wave);
 const isOpen = () => st.form !== 'gem';
 const rot = () => { const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch), cr = Math.cos(st.roll), sr = Math.sin(st.roll);

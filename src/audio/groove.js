@@ -9,6 +9,7 @@ import { KITS, VOICES as KV, kitParams, makeDrums } from './engine/inst/drums.js
 import { onKey, synth } from './keys.js';
 import { TUNE } from '../tuning.js';
 
+const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;   // (a phone: steps scheduled further ahead, TUNE.groove.aheadPhone)
 export const VOICES = KV.map(v => [v.key, v.label]);   // the kit's voices, a row each
 // the bass's notes: A minor pentatonic over an octave and a half up from A1 (hard to play a wrong one), highest first on screen
 export const NOTES = [['D3', 50], ['C3', 48], ['A2', 45], ['G2', 43], ['E2', 40], ['D2', 38], ['C2', 36], ['A1', 33]];
@@ -209,7 +210,7 @@ function tick(){
   wasL = !!L;
   let {t, s, dur} = next16(L || internal, now);
   plan();
-  for (; t < now + TUNE.groove.ahead; t += dur, s++) if (t > lastT + dur*.5) { if (first) { start = s - ((s % 16) + 16) % 16; GB.songPos = null; first = false; } play(s, t, dur); lastT = t; nextT = t + dur; nextS = s + 1; }
+  for (; t < now + (PHONE ? TUNE.groove.aheadPhone : TUNE.groove.ahead); t += dur, s++) if (t > lastT + dur*.5) { if (first) { start = s - ((s % 16) + 16) % 16; GB.songPos = null; first = false; } play(s, t, dur); lastT = t; nextT = t + dur; nextS = s + 1; }
 }
 export function grooveToggle(){
   if (GB.playing) { clearInterval(timer); timer = null; GB.playing = false; if (vca) vca.gain.setTargetAtTime(0, actx.currentTime, .01); return false; }

@@ -1,5 +1,5 @@
 // Bench test (?lab=bench, src/lab/bench.js; the light rig in scene/space.js; audio/songs.js): the bench builds its panel
-// with nothing on screen but the object; picking an object solos it; the rig leads (the object's own lamps set aside) and
+// with nothing on screen but the object and its own light show on the beat off; picking an object solos it; the rig leads (the object's own lamps set aside) and
 // its presets move the lights; dragging on the sky map moves the chosen light; a light from the left lights the skull's
 // left in both renderers; each song loads into the groovebox (its order, its synth's pumping chain) and plays with no
 // errors; on a phone the panel fits under the picture.
@@ -45,9 +45,10 @@ for (const mode of (process.env.BENCH_MODES || '2d,gl').split(',')) {
       songs.push({name: s.name, playing: g2.GB.playing, order: g2.GB.song.length === s.order.length, bpm: g2.GB.bpm === s.bpm, pump: ins[0] === 'pump', ins: ins.join(' ')}); }
     click('play');
     const panel = document.querySelector('#bench').getBoundingClientRect();
-    return {others, rig, back, dragged, side: left - right, songs, panelH: panel.height, djH: S.djH, vh: innerHeight};
+    return {others, rig, back, dragged, side: left - right, songs, panelH: panel.height, djH: S.djH, vh: innerHeight, show: TUNE.show.on};
   });
   check(`${mode}: the skull alone on the bench`, !r.others.length, r.others.join(' '));
+  check(`${mode}: the object's own light show on the beat is off on the bench`, r.show === 0, String(r.show));
   check(`${mode}: the rig leads, the object's own lamps set aside`, r.rig.on === 1 && r.rig.own === 0 && r.rig.n === 3 && r.rig.subj === 'skull', JSON.stringify(r.rig));
   check(`${mode}: a preset moves the lights, a drag on the sky map moves the chosen one`, Math.abs(r.back - 3) < .01 && Math.abs(Math.cos(r.dragged) - 1) < .2, `${r.back.toFixed(2)}, ${r.dragged.toFixed(2)}`);
   check(`${mode}: the key from the left lights the skull's left more than from the right`, r.side > 3000, String(Math.round(r.side)));

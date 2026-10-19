@@ -53,6 +53,7 @@ export const TUNE = {
   // they fall off with distance (in its frame), the plane the comets' figures tilt into (radians, swaying), how fast its axis
   // turns, how close to the object they may come (its radii), how bright the comets' and the flares' lights and their heads
   // drawn in front of it
+  show: {on: 1},   // the objects' own light show on the beat (the wire objects' sweeps, sparks and facet light, the Prism's rings, patterns and life, the morphing objects' kick flashes); the bench turns it off
   space: {light: .8, fall: 4, tilt: 1.1, sway: .3, axis: .05, skim: 1.2, reach: 3.5, comet: 1, orbit: .55, front: .9},
   subject: {ease: 4, radius: .45, touchFade: 3, cometR: 1.35, orbitR: 1.25},   // (cometR, orbitR: how wide the comets' figures and the orbits circle the object, in its radii)
   genome: {fold: [.45, .2, .15, .12, .08], foldKeep: .6, foldKeep0: .8, foldNone: .08, foldBack: .75,   // (foldBack: a step's chance of going back towards everything)
@@ -669,7 +670,7 @@ export const TUNE = {
   },
   // the groovebox (audio/groove.js): a drum machine and an acid bass on a 16-step sequencer
   groove: {
-    ahead: .35,                // seconds of steps scheduled ahead on the audio clock, so a stalled frame can't knock them out of time (.12 dropped steps while the cosmos stalled the page)
+    ahead: .35, aheadPhone: .8,   // (aheadPhone: on a phone, where a slow frame lasts longer: the songs cut out at .35) seconds of steps scheduled ahead on the audio clock, so a stalled frame can't knock them out of time (.12 dropped steps while the cosmos stalled the page)
     tickMs: 25,                // how often more are scheduled
     // Journey following the sequencer while it leads (audio/groove.js: its plan, read as a track's read-ahead is)
     brkBars: 2,                // bars without a kick before its return counts as a drop

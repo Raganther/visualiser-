@@ -2,13 +2,14 @@
 // stage (docs/space-plan.md). Step 1: one object and the light rig (scene/space.js: a key, a rim and a fill round it, the
 // object's own lamps set aside), nothing else on screen, a song from audio/songs.js playing. The panel picks the object and
 // how it's drawn, places the lights (presets, a map of the sky round it to drag them on, or a drag across the picture),
-// sets their colour and brightness, compares the rig with the object's own lamps, and keeps an audit (a checklist and notes
+// sets their colour and brightness, keeps the object's own light show on the beat off (TUNE.show), compares the rig with the object's own lamps, and keeps an audit (a checklist and notes
 // to copy for Claude). Laid out for a phone, the picture above; on a computer in rows, with keys.
 import { S } from '../state.js';
 import { TUNE } from '../tuning.js';
 import { solo } from '../ui/presets.js';
 import { showFps } from '../ui/fps.js';
 import { resize } from '../render/gl.js';
+import { setGfx } from '../render/quality.js';
 import { SPACE, RIG_PRESETS, rigPreset } from '../scene/space.js';
 import { GB, grooveToggle } from '../audio/groove.js';
 import { SONGS, playSong } from '../audio/songs.js';
@@ -59,13 +60,15 @@ export default function bench(){
   const el = document.createElement('section'); el.id = 'bench'; el.setAttribute('aria-label', 'The bench'); document.body.appendChild(el);
   const R = SPACE.rig;
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEEP) || '{}'); } catch (e) {}
-  const B = {obj: 'jewel', look: {}, sel: 0, mode: 'rig', song: SONGS[0].name, min: false, audit: {}, notes: '', ...saved};
+  const B = {obj: 'jewel', look: {}, sel: 0, mode: 'rig', song: SONGS[0].name, min: false, audit: {}, notes: '', show: false, ...saved};
   if (saved.lights) saved.lights.forEach((l, i) => Object.assign(R.lights[i], l));
   const keep = () => { try { localStorage.setItem(KEEP, JSON.stringify({...B, lights: R.lights.map(({az, el, k, c, on}) => ({az, el, k, c, on}))})); } catch (e) {} };
   requestAnimationFrame(() => requestAnimationFrame(start));
 
   function start(){
     showFps(false); S.explore.stage = 1; S.explore.space = 1;   // (the space round the object, for this visit: not saved)
+    TUNE.show.on = B.show ? 1 : 0;   // (the object's own light show on the beat: off, so only the rig lights it)
+    if (matchMedia('(pointer: coarse)').matches) setGfx('fast');   // (a phone: the picture lighter, so the music has time to play)
     pick(B.obj); mode(B.mode); render();
     new ResizeObserver(fit).observe(el); addEventListener('resize', fit); fit();
     addEventListener('keydown', keys, true);
@@ -139,7 +142,8 @@ export default function bench(){
       <div><h3>Object</h3><div class="row">${OBJECTS.map(([k, n]) => btn('o:' + k, n, k === B.obj)).join('')}</div>
         ${L.length ? `<div class="row" style="margin-top:8px">${L.map((x, i) => btn('look:' + i, x[0], i === li)).join('')}</div>` : ''}</div>
       <div><h3>Light</h3><div class="row">${btn('m:rig', 'The rig', B.mode === 'rig')}${btn('m:own', 'Its own lamps', B.mode === 'own')}${btn('m:both', 'Both', B.mode === 'both')}</div>
-        <div class="row" style="margin-top:8px">${Object.keys(RIG_PRESETS).map(n => btn('pre:' + n, n, n === B.preset)).join('')}</div></div>
+        <div class="row" style="margin-top:8px">${Object.keys(RIG_PRESETS).map(n => btn('pre:' + n, n, n === B.preset)).join('')}</div>
+        <div class="row" style="margin-top:8px">${btn('show', `Its own light show on the beat: ${B.show ? 'on' : 'off'}`, B.show)}</div></div>
       <div class="map"><canvas class="sky" aria-label="Where the lights stand round the object: drag the chosen one"></canvas>
         <div style="display:grid;gap:8px"><div class="row">${R.lights.map((x, i) => btn('sel:' + i, x.name[0].toUpperCase() + x.name.slice(1), i === B.sel, null, i + 1)).join('')}</div>
           <div class="row">${btn('onoff', l.on ? 'On' : 'Off', l.on)}${btn('k:-', '−')}<span style="min-width:44px;text-align:center">${Math.round(l.k*100)}%</span>${btn('k:+', '+')}</div>
@@ -163,6 +167,7 @@ export default function bench(){
     else if (a === 'pre') { B.preset = v; rigPreset(v); }
     else if (a === 'sel') B.sel = +v;
     else if (a === 'onoff') l.on = l.on ? 0 : 1;
+    else if (a === 'show') { B.show = !B.show; TUNE.show.on = B.show ? 1 : 0; }
     else if (a === 'k') l.k = Math.max(0, Math.min(3, +(l.k + (v === '+' ? .1 : -.1)).toFixed(2)));
     else if (a === 'col') l.c = COLOURS[v].slice();
     else if (a === 'song') return song(v);

@@ -50,7 +50,7 @@ export function sdfObject(o){
       st.bass += (Math.min(1, (P.bass || 0)*(x.react ?? 1)) - st.bass)*Math.min(1, dt*10);
       st.hat += ((SIG.hat || 0) - st.hat)*Math.min(1, dt*8);
       st.ten += ((J ? J.tension || 0 : .4) - st.ten)*Math.min(1, dt*.5);
-      const M = {t: st.t, dt, bp, steady, kick: st.kick, newKick, newStab, drop, bass: st.bass, hat: st.hat, stab: st.stab, ten: st.ten,
+      const M = {t: st.t, dt, bp, steady, kick: st.kick*TUNE.show.on, newKick: newKick && !!TUNE.show.on, newStab, drop, bass: st.bass, hat: st.hat, stab: st.stab, ten: st.ten,
         anticip: (J && J.anticip) || 0, brk: L.brk ? 1 : 0, ex: st.ex, dropAge: st.t - st.dropAt, phase: SIG.barPhase || 0};
       o.step(st, M, dt, x, P);
       // its look (own, chrome, glass, neon, iridescent, toon): held (TUNE.sdf.look, or its own TUNE[key].look), or a section's own
