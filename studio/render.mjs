@@ -52,6 +52,7 @@ for (let i = 0; i < L.length; i++) { wav.writeInt16LE(q(L[i]), 44 + i*4); wav.wr
 const W = path.join(out, tag + '.wav'), M = path.join(out, tag + '.mp3'), P = path.join(out, tag + '-spectrogram.png');
 fs.writeFileSync(W, wav);
 const ff = a => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a], {stdio: ['ignore', 'pipe', 'pipe']});
+ff(['-i', W, '-c:a', 'libopus', '-b:a', '160k', '-vn', M.replace(/\.mp3$/, '.webm')]);   // (for the listening page: its assets take WebM, not MP3)
 ff(['-i', W, '-codec:a', 'libmp3lame', '-b:a', kbps + 'k', '-metadata', `title=${meta.title} (${tag})`, M]);
 execFileSync('python3', [path.join(ROOT, 'studio/spectrogram.py'), W, P]);
 // the integrated loudness

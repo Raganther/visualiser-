@@ -12,11 +12,11 @@ reads them and makes the next version.
   Notes go in by bar and 16th: `d.hit`, `d.pattern('x...X...o...')`, `d.note`, `d.chord`. Kicks on the kit marked `side`
   duck every bus with `pump`.
 - **Rendering** (`render.mjs`): `node studio/render.mjs 01-slow-bloom` renders in headless Chromium and writes to
-  `studio/out/<track>/` (ignored by git): the WAV, an MP3, a spectrogram, and a report per section (level, width, low end,
+  `studio/out/<track>/` (ignored by git): the WAV, an MP3 and a WebM (Opus: what the listening page's assets take), a spectrogram, and a report per section (level, width, low end,
   brightness, pumping in dB, integrated loudness), and each part's level and width per section from meters on every bus
   (read at the render's pauses: notes are made a few seconds before they play, since Chromium processes every waiting
   node each block). `--from 48 --to 64` keeps only those bars (it renders up to `--to`). `spectrogram.py` draws the picture.
 - **Listening** (`listen/index.html`, the Studio Listening Room artifact): every version with its spectrogram, sections and
   measurements; a note box that pins to the moment you start typing; 👍 / 👎 per moment and per section. Tracks are rows in
-  the artifact's `tracks` collection (the MP3 and spectrogram uploaded as its assets); notes go to `notes`, which Claude
+  the artifact's `tracks` collection (the WebM and spectrogram uploaded as its assets: https://claude.ai/artifact/CXwNnssbyf5oxFNzc1r3yK); notes go to `notes`, which Claude
   reads before the next version.
