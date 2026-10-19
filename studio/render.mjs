@@ -27,7 +27,7 @@ const info = await page.evaluate(async ({name, SR, from, to, variant}) => {
   const beat = 60/m.bpm, bars = to != null ? Math.min(m.bars, to) : m.bars, tail = 6, secs = bars*4*beat + tail;
   const a = from != null ? from*4*beat : 0, b = to != null ? Math.min(secs, to*4*beat + 2) : secs;
   const ctx = new OfflineAudioContext(2, Math.ceil(secs*SR), SR);
-  const d = desk(ctx, {bpm: m.bpm, swing: m.swing || 0, seed: m.seed || 1}); d.variant = variant; T.score(d); d.finish();
+  const d = desk(ctx, {bpm: m.bpm, swing: m.swing || 0, seed: m.seed || 1}); d.variant = variant; d.meta = m; T.score(d); d.finish();
   const buf = await d.render();
   const i0 = Math.floor(a*SR), i1 = Math.min(buf.length, Math.ceil(b*SR));
   window.__L = buf.getChannelData(0).slice(i0, i1); window.__R = buf.getChannelData(1).slice(i0, i1);

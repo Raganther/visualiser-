@@ -2,6 +2,7 @@
 // pads, the gated and dotted chords, kalimba, vibes, music box, steel drum, woodblocks, marimba, the one-note ping, the
 // Detroit fifths), the grooves they liked (Slow Bloom's hats, broken beat, lo-fi, toms, metal and bells in polyrhythms), and
 // helpers for writing whole pieces with them in any harmony: chords by symbol, voicings, progressions, spans of bars.
+import { MIX } from '../tracks/mix.js';
 export const SAW = 0, SQUARE = 1, TRI = 2, SINE = 3, SUPER = 4;
 
 /* ---------- harmony ---------- */
@@ -52,6 +53,8 @@ export function buses(d, o = {}){
     fx: {level: -3, width: 1.5, pump: {depth: .4, rel: .5}, b: -6, hp: 300},
   };
   for (const [k, v] of Object.entries(B)) d.bus(k, {...v, ...o[k]});
+  // the piece's mix (tracks/mix.js, dB per bus, measured from its last render): on each bus's input, so level ramps keep it
+  for (const [k, v] of Object.entries(MIX[d.meta?.title] || {})) if (d.buses[k]) d.buses[k].in.gain.value = Math.pow(10, v/20);
 }
 
 /* ---------- the sounds ---------- */
