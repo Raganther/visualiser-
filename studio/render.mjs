@@ -11,7 +11,8 @@ const opt = k => { const i = args.indexOf('--' + k); return i >= 0 ? +args[i + 1
 const SR = 44100, from = opt('from'), to = opt('to'), kbps = opt('mp3') || 192;
 const {meta, SECTIONS} = await import(path.join(ROOT, 'studio/tracks', name + '.js'));
 const out = path.join(ROOT, 'studio/out', name); fs.mkdirSync(out, {recursive: true});
-const tag = `v${meta.version}${from != null ? `-bars${from}-${to}` : ''}`;
+const variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
+const tag = `v${meta.version}${variant || ''}${from != null ? `-bars${from}-${to}` : ''}`;
 
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage();
@@ -19,19 +20,19 @@ page.on('console', m => { if (m.type() === 'error') console.log('page:', m.text(
 page.on('pageerror', e => console.log('page error:', e.message));
 await page.goto(url + 'studio/');
 const t0 = Date.now();
-const info = await page.evaluate(async ({name, SR, from, to}) => {
+const info = await page.evaluate(async ({name, SR, from, to, variant}) => {
   // a seeded Math.random, so the kit's own variation is the same every render
   let s = 99991; Math.random = () => { s = (s*1664525 + 1013904223) >>> 0; return s/4294967296; };
   const {desk} = await import('/studio/lib/desk.js'), T = await import(`/studio/tracks/${name}.js`), m = T.meta;
   const beat = 60/m.bpm, bars = to != null ? Math.min(m.bars, to) : m.bars, tail = 6, secs = bars*4*beat + tail;
   const a = from != null ? from*4*beat : 0, b = to != null ? Math.min(secs, to*4*beat + 2) : secs;
   const ctx = new OfflineAudioContext(2, Math.ceil(secs*SR), SR);
-  const d = desk(ctx, {bpm: m.bpm, swing: m.swing || 0, seed: m.seed || 1}); T.score(d); d.finish();
+  const d = desk(ctx, {bpm: m.bpm, swing: m.swing || 0, seed: m.seed || 1}); d.variant = variant; T.score(d); d.finish();
   const buf = await d.render();
   const i0 = Math.floor(a*SR), i1 = Math.min(buf.length, Math.ceil(b*SR));
   window.__L = buf.getChannelData(0).slice(i0, i1); window.__R = buf.getChannelData(1).slice(i0, i1);
   return {frames: i1 - i0, secs, start: a, notes: d.notes.length, kicks: d.kicks.length, reads: d.reads};
-}, {name, SR, from, to});
+}, {name, SR, from, to, variant});
 console.log(`rendered ${info.frames/SR | 0} s (${info.notes} notes) in ${((Date.now() - t0)/1000).toFixed(1)} s`);
 // the channels back, in pieces
 const take = async ch => { const parts = [], N = 1 << 20;
