@@ -22,7 +22,7 @@ export function score(d){
   d.bus('hats', {level: 12, width: 1.25, pump: {depth: .2, rel: .35}, a: -13, b: -20, hp: 300});
   d.bus('drums', {level: 12, width: 1.1, pump: {depth: .2, rel: .35}, b: -18, filter: {cut: 20000}});
   d.bus('perc', {level: 5, width: 1.35, pump: {depth: .25, rel: .4}, a: -16, b: -12});
-  d.bus('bass', {level: -1, pump: {depth: .5, rel: .45}, filter: {cut: 1400, q: .5}});
+  d.bus('bass', {level: -6, pump: {depth: .5, rel: .45}, filter: {cut: 1400, q: .5}});
   d.bus('pad', {level: -5, width: 1.9, mono: 200, chorus: {rate: .23, depth: .7, mix: .45}, pump: {depth: .7, rel: .6}, b: -3, hp: 140, filter: {cut: 3000}});
   d.bus('stab', {level: 3, width: 1.4, pump: {depth: .6, rel: .5}, a: 0, b: -4, hp: 160, filter: {cut: 600, q: 1.1}});
   d.bus('arp', {level: 5, width: 1.3, pump: {depth: .5, rel: .45}, a: -5, b: -8, hp: 120, filter: {cut: 700, q: 1.2}});
@@ -83,7 +83,7 @@ export function score(d){
      walking the chord's 9th chord: root, third, fifth, seventh, ninth; the root alone at first, the whole walk from bar 24 ---------- */
   const TONES = {Am9: [0, 3, 7, 10, 14], Fmaj9: [0, 4, 7, 11, 14], Dm9: [0, 3, 7, 10, 14], Em7: [0, 3, 7, 10, 14]};
   const WALK = [0, 2, 4, 1, 3, 2, 0, 4, 2, 1, 3, 0, 4, 2, 0, 3];   // (which of the chord's tones, note by note)
-  const bassLine = (a, b, mode) => { for (let g = a*16; g < b*16; g += 6) { const bar = Math.floor(g/16), s = g % 16, k = g/6;
+  const bassLine = (a, b, mode) => { for (let g = Math.ceil(a*16/6)*6; g < b*16; g += 6) { const bar = Math.floor(g/16), s = g % 16, k = g/6;   // (on one dotted grid from the top)
     const c = bar >= 48 && bar < 152 ? chordAt(bar) : 'Am9', r = ROOT[c], tn = TONES[c];
     const off = mode === 'root' ? (k % 4 === 3 ? 12 : 0) : mode === 'fifth' ? [0, 7, 12, 7][k % 4] : tn[WALK[k % WALK.length]];
     d.note(bass, r + off, bar, s, 5, (k % 4 === 0 ? .9 : .7)*(.94 + d.rand()*.12)); } };

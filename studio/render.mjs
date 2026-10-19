@@ -81,7 +81,7 @@ console.log(`${meta.title} ${tag}: ${report.secs} s, ${lufs} LUFS`);
 console.table(sections);
 // the parts: each bus's level (dB, before the master) and width in each section, from the meters read at each pause
 const parts = {}, secs2 = SECTIONS || [['All', 0, meta.bars]];
-for (const k of Object.keys(info.reads[0] || {}).filter(k => k !== 't')) {
+for (const k of Object.keys(info.reads[0] || {}).filter(k => k !== 't' && k !== 'wall')) {
   parts[k] = {}; for (const [nm, a, b] of secs2) { const rs = info.reads.filter(r => r.t >= a*4*beat && r.t < b*4*beat); if (!rs.length) continue;
     const m = rs.reduce((s, r) => s + r[k][0], 0)/rs.length, sd = rs.reduce((s, r) => s + r[k][1], 0)/rs.length;
     parts[k][nm] = m + sd > 1e-10 ? `${dbs(Math.sqrt(m + sd)).toFixed(0)} ${(Math.sqrt(sd/(m || 1e-12))).toFixed(2)}` : '·'; } }
