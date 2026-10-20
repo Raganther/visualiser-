@@ -38,6 +38,9 @@ await browser.close(); srv.close();
 // matched loudness for the ideas, then one gain for everything: the loudest idea over the backing peaks at -1 dBFS
 const rms = ch => Math.sqrt(ch.reduce((s, y) => s + y.reduce((a, v) => a + v*v, 0), 0)/(ch[0].length*2));
 for (const id of ids.slice(1)) { const g = Math.pow(10, TARGET/20)/(rms(res[id]) || 1); for (const y of res[id]) for (let i = 0; i < y.length; i++) y[i] *= g; }
+// a sparse, clicky idea (a shaker) matched by its average would peak far above the rest: its peak is held to -3 dBFS
+for (const id of ids.slice(1)) { let p = 0; for (const y of res[id]) for (const v of y) p = Math.max(p, Math.abs(v)); const cap = Math.pow(10, -3/20);
+  if (p > cap) for (const y of res[id]) for (let i = 0; i < y.length; i++) y[i] *= cap/p; }
 let pk = 0; const B = res.backing;
 for (const id of ids.slice(1)) for (let c = 0; c < 2; c++) for (let i = 0; i < loopN; i++) pk = Math.max(pk, Math.abs(B[c][i] + res[id][c][i]));
 for (let c = 0; c < 2; c++) for (let i = 0; i < loopN; i++) pk = Math.max(pk, Math.abs(B[c][i]));

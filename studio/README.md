@@ -35,3 +35,10 @@ reads them and makes the next version.
   one clip per row together and swaps any of them on the loop. The kick is rendered in each drum pattern (four to the
   floor, or the broken beat's) and follows the drums clip picked. A level and mute per row, Shuffle (likes only), and
   **Keep this combination** with a note, to the `combos` collection; the jam itself is a row in `jams`.
+- **The native engine** (`lib/native/`): sounds computed from their physics instead of the visualiser's instrument models.
+  `modal.js` rings struck objects as their real modes (kalimba tine, marimba and vibraphone bars, music box, church and
+  tubular bells, steel pan, woodblock, glass, metal plate, gong: each mode its own ratio, level and decay, the mallet's
+  hardness and strike point weighting them, doublets beating); `body.js` has a struck membrane (kick, toms, hand drums),
+  a plucked string (Karplus and Strong), a shaker (beads colliding), grain clouds and rain. `index.js` names them and
+  caches each note; `d.native(bus, name, set)` on the desk plays them like a synth (`d.note`, `d.morph` on their settings).
+  `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab).
