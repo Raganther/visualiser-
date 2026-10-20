@@ -78,6 +78,19 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .big button small{font:400 11px var(--mono); color:var(--mute)}
 .big button[data-on="1"]{background:var(--acc); color:#fff; border-color:var(--acc)}
 .macro{min-height:46px !important}
+.shape{display:flex; flex-direction:column; gap:10px}
+.shapehead{display:flex; align-items:center; gap:10px}
+.tog{border:1px solid var(--line); background:transparent; border-radius:999px; padding:7px 14px; font-weight:600}
+.tog[aria-pressed="true"]{background:var(--on-soft); border-color:var(--on)}
+#notes{width:100%; height:170px; border-radius:12px; background:var(--well); display:block; touch-action:none}
+.vrow{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+#vars{display:flex; gap:6px; flex-wrap:wrap}
+.vbtn, #vars button{min-width:44px; min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--well); font-weight:700}
+#vars button[data-on="1"]{background:var(--on-soft); border-color:var(--on)}
+#vars button[data-next="1"]{border-color:var(--acc)}
+#vars button small{display:block; font:400 9px var(--mono); color:var(--mute)}
+.vbtn{padding:0 12px}
+.vbtn[data-on="1"], .big button[aria-pressed="true"]{background:var(--acc); color:#fff; border-color:var(--acc)}
 .fb{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 .fb button,.mini{border:1px solid var(--line); background:transparent; border-radius:8px; padding:4px 10px}
 .fb input,.keep input{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:0; flex:1}
@@ -150,8 +163,23 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       </div>
       <div class="keys">
         <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
-        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
       </div>
+    </div>
+  </section>
+
+  <section class="panel shape" aria-label="Shape the part">
+    <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
+      <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
+    <canvas id="notes" aria-label="The chosen part's notes"></canvas>
+    <div class="big" id="xforms" aria-label="Shape the notes"></div>
+    <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
+    <div class="big" id="grooveRow" aria-label="Groove and space">
+      <button class="macro" id="feel" title="How this part grooves (F)"></button>
+      <button class="macro" id="echoOn" title="This part into the echo (G)"></button>
+      <button class="macro" id="verbOn" title="This part into the reverb (K)"></button>
+      <button class="macro" id="throw" title="Hold: everything this part plays goes into the echo; let go and it rings on (hold J)">Throw (hold)<small>J</small></button>
+      <button class="macro" id="echoTime" title="The echo's time, for every part"></button>
     </div>
   </section>
 
