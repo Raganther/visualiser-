@@ -2,7 +2,7 @@
 // pitch, velocity and settings so a repeated note is computed once. play() places it on the desk as a buffer.
 import { modal, MODAL } from './modal.js';
 import { membrane, string, shaker, hat } from './body.js';
-import { fm, additive, breath, grainPad } from './tone.js';
+import { fm, additive, breath, grainPad, rubbed, RUBBED, sub808 } from './tone.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12);
 // the instruments: how a note is made, and its gain to sit near the poly synth's level
@@ -22,6 +22,8 @@ export const NATIVE = {
   addpad: {held: 1, make: (sr, n, vel, o) => additive(sr, hz(n), {...o, vel}), gain: .55},
   breath: {held: 1, make: (sr, n, vel, o) => breath(sr, hz(n), {...o, vel}), gain: 2.6},
   grainpad: {held: 1, make: (sr, n, vel, o) => grainPad(sr, hz(n), {...o, vel}), gain: 4},
+  ...Object.fromEntries(Object.entries(RUBBED).map(([k, p]) => [k, {held: 1, make: (sr, n, vel, o) => rubbed(sr, hz(n), p.modes, {...p, ...o, vel}), gain: .7}])),
+  sub808: {held: 1, make: (sr, n, vel, o) => sub808(sr, hz(n), {...o, vel}), gain: .35},
 };
 
 const cache = new Map(), q = (v, s) => Math.round(v/s)*s;

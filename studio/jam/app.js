@@ -3,7 +3,7 @@
 // clip on any sound over any progression. Everything changes on the next bar. No notes and no sliders: an XY pad (tone
 // across, space up), two step buttons (motion, length), jam moves (vary, mutate, build, drop, repeat, next harmony), the
 // keyboard. Record writes down what plays, for Claude to render; 👍 / 👎 on clips, sounds and harmonies.
-import { notesAt, chordOf, mutate, ROLE_NAMES, nativeSet, cutOf, LEN } from './model.js';
+import { notesAt, chordOf, mutate, ROLE_NAMES, nativeSet, cutOf, LEN, X0 } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
@@ -190,11 +190,11 @@ addEventListener('resize', drawPad);
 let db = null;
 function rateBtns(kind, id, name){ const box = h('span', {class: 'rate'});
   for (const [r, lab] of [[1, '👍'], [-1, '👎']]) box.append(h('button', {class: 'mini', title: lab === '👍' ? 'I like this' : 'Not for me', onclick: async e => { e.stopPropagation(); if (!db) { flash('Sign in to claude.ai to rate'); return; }
-    try { await db.collection('feedback').add({kind, id, name, rating: r, at: new Date().toISOString()}); flash(`${lab} ${name}`); } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }}, lab));
+    try { await db.collection('feedback').add({kind, id, name, rating: r, pack: PACK.id, at: new Date().toISOString()}); flash(`${lab} ${name}`); } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }}, lab));
   return box; }
 function rateNow(kind){ const c = selCol(); const id = kind === 'clip' ? c.clipId : kind === 'sound' ? c.sound : st.harmony.id, name = kind === 'clip' ? CLIP[c.clipId]?.name : kind === 'sound' ? SND[c.sound].name : st.harmony.name; return {id, name}; }
 for (const kind of ['clip', 'sound', 'harmony']) for (const r of [1, -1]) { const b = $(`r-${kind}-${r > 0 ? 'up' : 'down'}`); if (b) b.onclick = async () => { const {id, name} = rateNow(kind); if (!id) return; if (!db) { flash('Sign in to claude.ai to rate'); return; }
-  try { await db.collection('feedback').add({kind, id, name, rating: r, note: $('fbNote').value.trim(), at: new Date().toISOString()}); flash(`${r > 0 ? '👍' : '👎'} ${name}`); $('fbNote').value = ''; } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }; }
+  try { await db.collection('feedback').add({kind, id, name, rating: r, pack: PACK.id, note: $('fbNote').value.trim(), at: new Date().toISOString()}); flash(`${r > 0 ? '👍' : '👎'} ${name}`); $('fbNote').value = ''; } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }; }
 $('keepJam').onclick = async () => { if (!db || !lastTake) return; $('keepJam').disabled = true; $('takeNote').textContent = 'Keeping…';
   const used = [...new Set(lastTake.notes.map(n => n[2]).concat(lastTake.macros.filter(m => String(m[2]).startsWith('sound:')).map(m => m[2].slice(6))))];
   try { await db.collection('jams').add({name: $('jamName').value.trim() || `Jam at ${st.bpm} BPM`, note: $('jamNote').value.trim(), pack: PACK.id, bpm: lastTake.bpm, swing: lastTake.swing, bars: lastTake.bars,
@@ -202,11 +202,22 @@ $('keepJam').onclick = async () => { if (!db || !lastTake) return; $('keepJam').
     $('takeNote').textContent = 'Kept. Claude will render it at full quality into the listening room.'; lastTake = null; }
   catch (err) { $('takeNote').textContent = 'Not kept (' + (err.code || err.message) + '). Try again.'; $('keepJam').disabled = false; } };
 
-(async () => {
-  PACK = await (await fetch('packs/pack-1.json')).json();
+// the packs: each round of ideas Claude makes; switching stops the music and lays out the new pack's grid
+let PACKS = [];
+async function loadPack(id){ if (st.playing) stop();
+  for (const c of st.cols) { try { c.ch?.out.disconnect(); c.ch?.lfo.stop(); } catch {} }
+  PACK = await (await fetch(`packs/${id}.json`)).json(); try { localStorage.setItem('studio.jam.pack', id); } catch {}
   SND = Object.fromEntries(PACK.sounds.map(s => [s.id, s])); CLIP = Object.fromEntries(PACK.clips.map(c => [c.id, c]));
-  st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0];
-  st.cols = PACK.columns.map(c => ({...c, x: .62, y: .3, motion: 0, length: 1, level: .85, clip: null, clipId: null, start: 0}));
-  renderGrid(); renderHarmony(); scene(1); renderSel(); busy();
+  st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0]; st.hNext = null; st.sel = 0;
+  st.cols = PACK.columns.map(c => ({...c, x: X0(c.role), y: .3, motion: 0, length: 1, level: .85, clip: null, clipId: null, start: 0}));
+  if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); }
+  renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); busy(); }
+function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));
+  for (const p of PACKS) box.append(h('button', {class: 'pchip', 'data-on': p.id === PACK?.id ? '1' : '', title: p.words || '', onclick: () => p.id !== PACK.id && loadPack(p.id)}, p.name));
+  if (PACK?.words) box.append(h('span', {class: 'muted'}, PACK.words)); }
+(async () => {
+  try { PACKS = (await (await fetch('packs/index.json')).json()).packs; } catch { PACKS = [{id: 'pack-1', name: 'Pack 1'}]; }
+  let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
+  await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
   db = await window.claude?.use?.('db').catch(() => null) || null;
 })();

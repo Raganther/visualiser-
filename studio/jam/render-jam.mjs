@@ -4,15 +4,15 @@
 // node studio/jam/render-jam.mjs jam.json [name] → studio/sessions/jam-<name>.json, then node studio/render.mjs jam-<name> --session studio/sessions/jam-<name>.json
 import fs from 'node:fs';
 import path from 'node:path';
-import { nativeSet, cutOf, LEN } from './model.js';
+import { nativeSet, cutOf, LEN, X0 } from './model.js';
 import { NATIVE_OF, SOUNDS as PAL } from '../lib/palette.js';
 
 const raw = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')), J = raw.data || raw;
 const slug = (process.argv[3] || J.name || 'jam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), SND = Object.fromEntries(J.sounds.map(s => [s.id, s]));
 const role = Object.fromEntries(J.columns.map(c => [c.id, c.role]));
 // each column's state through the jam, from its macro log
-const state = Object.fromEntries(J.columns.map(c => [c.id, {x: .62, y: .3, motion: 0, length: 1, mute: 0}])), events = [...J.macros].sort((a, b) => a[0] - b[0]);
-const auto = Object.fromEntries(J.columns.map(c => [c.id, {cut: [[0, cutOf(.62)]], a: [[0, .3*.5]], b: [[0, .3*.75]], level: [[0, .85]]}]));
+const state = Object.fromEntries(J.columns.map(c => [c.id, {x: X0(c.role), y: .3, motion: 0, length: 1, mute: 0}])), events = [...J.macros].sort((a, b) => a[0] - b[0]);
+const auto = Object.fromEntries(J.columns.map(c => [c.id, {cut: [[0, cutOf(X0(c.role))]], a: [[0, .3*.5]], b: [[0, .3*.75]], level: [[0, .85]]}]));
 const push = (pts, bar, v) => { const last = pts[pts.length - 1]; if (Math.abs(last[1] - v) < 1e-6) return; if (bar > last[0]) pts.push([bar - .002, last[1]]); pts.push([bar, v]); };
 const tracks = new Map(), track = (key, t) => { if (!tracks.has(key)) tracks.set(key, {id: 't' + tracks.size, notes: [], morph: [], ...t}); return tracks.get(key); };
 let ei = 0;
@@ -33,7 +33,7 @@ for (const [step, col, sid, n, len, vel] of J.notes) {
 const bars = (J.bars || Math.ceil((J.notes.at(-1)?.[0] || 0)/16)) + 2;
 const ops = [['returns', {delay: {div: 4, fb: .45, tone: 2400}, reverb: {size: .78, damp: .65, low: 240}, echoDb: -1, verbDb: 2}]];
 for (const c of J.columns) { const r = c.role;
-  ops.push(['bus', c.id, {level: 0, filter: {cut: cutOf(.62), q: 1.2}, a: -6, b: -4, ...(r === 'kick' ? {} : {pump: {depth: r === 'chords' ? .65 : .4, rel: .4}}), ...(['chords', 'lead'].includes(r) ? {width: 1.3} : {})}]);
+  ops.push(['bus', c.id, {level: 0, filter: {cut: cutOf(X0(r)), q: 1.2}, a: -6, b: -4, ...(r === 'kick' ? {} : {pump: {depth: r === 'chords' ? .65 : .4, rel: .4}}), ...(['chords', 'lead'].includes(r) ? {width: 1.3} : {})}]);
   const A = auto[c.id]; for (const [p, pts] of Object.entries(A)) if (pts.length > 1 || p !== 'cut') ops.push(['ramp', {bus: c.id, p}, pts, p === 'cut' ? {exp: true} : {}]); }
 for (const t of tracks.values()) ops.push(['inst', t.id]);
 const session = {format: 'studio-session', v: 1, meta: {title: J.name || 'Jam', bpm: J.bpm, bars, swing: J.swing || 0, seed: 1, version: 1, key: 'a jam', words: `A jam from Studio Jam${J.note ? `: “${J.note}”` : ''}.`, from: 'jam'},

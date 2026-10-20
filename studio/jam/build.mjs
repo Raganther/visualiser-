@@ -9,4 +9,6 @@ const [app, worker] = await Promise.all([bundle(path.join(here, 'app.js')), bund
 fs.writeFileSync(path.join(listen, 'jam-live.html'), fs.readFileSync(path.join(here, 'page.html'), 'utf8').replace('/*WORKER*/', () => worker).replace('/*APP*/', () => app));
 fs.mkdirSync(path.join(listen, 'packs'), {recursive: true});
 for (const f of fs.readdirSync(path.join(here, 'packs'))) fs.copyFileSync(path.join(here, 'packs', f), path.join(listen, 'packs', f));
+const packs = fs.readdirSync(path.join(here, 'packs')).filter(f => /^pack-\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(5)) - parseInt(b.slice(5))).map(f => { const p = JSON.parse(fs.readFileSync(path.join(here, 'packs', f), 'utf8')); return {id: p.id, name: p.name, words: p.words || ''}; });
+fs.writeFileSync(path.join(listen, 'packs', 'index.json'), JSON.stringify({packs}));
 console.log('jam-live.html', (fs.statSync(path.join(listen, 'jam-live.html')).size/1024).toFixed(0), 'KB');

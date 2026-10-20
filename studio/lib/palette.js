@@ -73,6 +73,7 @@ export const SOUNDS = {
   clean: ['Sub bass', {w1: SINE, w2: TRI, mix2: .4, sub: 0, cut: 1200, ad: .15, as: .2, ar: .05, oct: 0, mode: 1, glide: .02}],
   cleanHeld: ['Sub bass', {w1: SINE, w2: TRI, mix2: .4, sub: 0, cut: 1200, ad: .3, as: .5, ar: .08, oct: 0, mode: 1, glide: .02}],
   pluck: ['Pluck', {w1: SQUARE, w2: SAW, semi: 0, mix2: .4, cut: 420, res: .4, fenv: .7, fd: .1, as: 0, ar: .06, chorus: 0, width: .1, oct: 0}],
+  reese: ['Reese bass', {cut: 420, res: .15, fenv: .08, drive: .2, lamt: .18, level: .7}],          // pack 2: two saws beating, dark
   dubSub: ['Sub bass', {w1: SINE, sub: 0, ad: .6, as: .3, ar: .2, oct: 0, drive: .25}],
   // pads and chords
   warm: ['Warm pad', {aa: 1.2, ad: 2, as: .85, ar: 2.6, cut: 1300, res: .06, fenv: .15, lamt: .12, chorus: .2, width: 1, level: .55}],
@@ -82,6 +83,7 @@ export const SOUNDS = {
   dotted: ['Stab chord', {chord: 0, aa: .004, ad: .25, as: .05, ar: .2, cut: 1100, res: .25, fenv: .4, fd: .15, chorus: .4, width: .9, level: .5}],
   dub: ['Dub chord', {chord: 0, aa: .08, ad: .6, as: .2, ar: .5, cut: 900, res: .3, chorus: .3, width: .8, level: .55}],
   dubStab: ['Dub chord', {chord: 0, cut: 900, res: .4, fenv: .4, fd: .12, ad: .2, as: 0, ar: .15, chorus: .3, width: .8, level: .55}],
+  darkStab: ['Dub chord', {chord: 0, cut: 600, res: .35, fenv: .3, fd: .1, ad: .25, as: 0, ar: .25, chorus: .3, width: .9, level: .55}],
   fifths: ['Stab chord', {chord: 0, cut: 1600, res: .2, fenv: .4, fd: .2, ad: .3, as: .1, ar: .3, chorus: .6, width: .9, level: .5}],
   // leads: short and percussive
   arp: ['Pluck', {semi: 12, mix2: .3, cut: 700, res: .3, fenv: .6, fd: .14, as: 0, ar: .2, chorus: .4, width: .8, level: .5}],

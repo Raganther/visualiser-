@@ -125,7 +125,7 @@ const SCENES = [
   ['Half time', ['kick-half', 'hats-off', 'perc-clave', 'bass-dub', 'chords-two', 'lead-one', null]],
 ];
 
-const pack = {format: 'studio-jam-pack', id: 'pack-1', name: 'Pack 1: what you liked so far', bpm: 124, swing: .06, sounds: SOUNDS, clips: CLIPS, harmonies: HARMONIES, columns: COLUMNS,
+const pack = {format: 'studio-jam-pack', id: 'pack-1', name: 'Pack 1: what you liked so far', words: 'The sounds you liked: the kalimba, the glass bass, gated chords, mallets; the songs’ harmonies.', bpm: 124, swing: .06, sounds: SOUNDS, clips: CLIPS, harmonies: HARMONIES, columns: COLUMNS,
   scenes: SCENES.map(([name, ids]) => ({name, clips: ids}))};
 const out = path.join(path.dirname(new URL(import.meta.url).pathname), 'packs'); fs.mkdirSync(out, {recursive: true});
 fs.writeFileSync(path.join(out, 'pack-1.json'), JSON.stringify(pack));

@@ -65,5 +65,9 @@ export const MODAL = {
   // a metal plate: crowded inharmonic modes, beating
   plate: {modes: [[1, 1, .9], [1.52, .7, .7], [2.0, .5, .55], [2.65, .45, .4], [3.4, .3, .3], [4.06, .2, .22], [5.2, .1, .15]], hard: .7, beat: .004, click: .12, width: .5},
   // a gong: dense, beating, its upper modes swelling in after the strike
+  // a singing bowl struck: few modes, very long, beating slowly
+  bowl: {modes: [[1, 1, 9], [2.71, .5, 6], [5.06, .25, 3.5], [7.9, .1, 2]], hard: .35, beat: .003, width: .5},
+  // a log drum: a slit of wood, its two tongues a little apart, hollow and short
+  logdrum: {modes: [[1, 1, .35], [1.06, .5, .3], [2.9, .2, .1], [4.6, .08, .05]], hard: .55, click: .1, width: .35, gain: .3},
   gong: {modes: [[1, .8, 6], [1.48, .6, 5, .3], [2.02, .5, 4, .6], [2.47, .5, 3.5, .9], [3.1, .4, 3, 1.2], [3.6, .3, 2.5, 1.5], [4.3, .2, 2, 1.8], [5.1, .15, 1.6, 2]], hard: .4, beat: .006, width: .6},
 };

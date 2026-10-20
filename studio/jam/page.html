@@ -40,6 +40,9 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 #busy{font:12px var(--mono); color:var(--mute)} #busy[data-on="1"]{color:var(--on)}
 #flash{font:500 13px var(--mono); color:var(--acc); min-height:1em}
 .spacer{flex:1}
+#packs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center}
+.pchip{border:1px solid var(--line); background:transparent; border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600}
+.pchip[data-on="1"]{border-color:var(--acc); color:var(--acc)}
 #harmonies{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
 .hchip{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px}
 .hchip[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
@@ -102,6 +105,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <span class="spacer"></span>
       <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
     </div>
+    <div id="packs" aria-label="Pack"></div>
     <div id="harmonies" aria-label="Harmony"></div>
     <div class="muted" id="hWords"></div>
   </section>

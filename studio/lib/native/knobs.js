@@ -17,8 +17,14 @@ export const INST = {
   fmbell: {label: 'FM bell', held: 1, knobs: [['index', 'Bend', .2, 5, .05], ['ratio', 'Ratio', .5, 7, .05], ['r', 'Release', .1, 2.5, .05]]},
   addpad: {label: 'Bloom pad (additive)', held: 1, knobs: [['bloom', 'Bloom', 0, 10, .1], ['wob', 'Sway', 0, .8, .02], ['tilt', 'Darkness', .6, 2.4, .02], ['a', 'Attack', .05, 3, .05]]},
   breath: {label: 'Breath pad', held: 1, knobs: [['q', 'Focus', 15, 160, 1], ['air', 'Air', 0, .3, .01], ['a', 'Attack', .05, 3, .05]]},
+  bowed: {label: 'Bowed string', held: 1, knobs: [['bright', 'Bow pressure', 0, 1, .02], ['rough', 'Roughness', 0, 1, .02], ['a', 'Attack', .05, 3, .05]]},
+  bowmetal: {label: 'Bowed metal', held: 1, knobs: [['bright', 'Bow pressure', 0, 1, .02], ['rough', 'Roughness', 0, 1, .02], ['a', 'Attack', .05, 3, .05]]},
+  glassharm: {label: 'Glass harmonica', held: 1, knobs: [['bright', 'Edge', 0, 1, .02], ['rough', 'Roughness', 0, 1, .02], ['a', 'Attack', .05, 3, .05]]},
+  rubbowl: {label: 'Singing bowl (rubbed)', held: 1, knobs: [['bright', 'Edge', 0, 1, .02], ['rough', 'Roughness', 0, 1, .02], ['a', 'Attack', .05, 3, .05]]},
+  sub808: {label: 'Deep sub', held: 1, knobs: [['drive', 'Drive', 0, 1, .02], ['drop', 'Pitch drop', 0, 3, .05], ['dec', 'Decay', .1, 3, .05], ['sus', 'Sustain', 0, 1, .02]]},
+  bowl: {label: 'Singing bowl (struck)', knobs: MODAL_K}, logdrum: {label: 'Log drum', knobs: MODAL_K}, gong: {label: 'Gong', knobs: MODAL_K},
   grainpad: {label: 'Grain pad', held: 1, knobs: [['density', 'Density', 4, 60, 1], ['a', 'Attack', .05, 3, .05]]},
 };
-export function defaultOf(inst, k, lo, hi){ const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : .25, decay: inst === 'kick' ? .45 : inst === 'hat' ? .06 : .55, body: inst === 'pluck' ? .55 : .5, tone: .6, trem: .45,
-  index: 2, ratio: inst === 'fmglass' ? 3.5 : inst === 'fmpluck' ? 2 : inst === 'fmbell' ? 1.4 : 1, dec: .25, sus: .2, fb: .3, bright: .45, damp: .993, r: .8, bloom: 3, wob: .35, tilt: 1.3, a: inst === 'addpad' ? 1.2 : .8, q: 70, air: .04, density: 26};
+export function defaultOf(inst, k, lo, hi){ const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : inst === 'sub808' ? 1 : .25, decay: inst === 'kick' ? .45 : inst === 'hat' ? .06 : .55, body: inst === 'pluck' ? .55 : .5, tone: .6, trem: .45,
+  index: 2, ratio: inst === 'fmglass' ? 3.5 : inst === 'fmpluck' ? 2 : inst === 'fmbell' ? 1.4 : 1, dec: inst === 'sub808' ? 1.2 : .25, sus: inst === 'sub808' ? .6 : .2, fb: .3, bright: inst === 'bowed' ? .75 : ['bowmetal', 'glassharm', 'rubbowl'].includes(inst) ? .1 : .45, damp: .993, r: .8, bloom: 3, wob: .35, tilt: 1.3, a: inst === 'addpad' ? 1.2 : .8, q: 70, air: .04, density: 26, rough: .35, drive: .4};
   return D[k] ?? (lo + hi)/2; }

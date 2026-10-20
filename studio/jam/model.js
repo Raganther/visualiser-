@@ -35,12 +35,16 @@ export function mutate(clip, rnd = Math.random){
 
 // the macros, shared by the page and the render of a jam: tone → the channel's filter; length → the decay (LEN times)
 export const cutOf = x => 260*Math.pow(2, x*6.2);
+// where each role's tone starts: hats and percussion bright (their sound is all above the default's 3.7 kHz)
+export const X0 = role => ({hats: .94, perc: .84}[role] ?? .62);
 export const LEN = [.45, 1, 2.2];
 // a native note's settings now: the mallet from tone, the ring from length
 export function nativeSet(c, name, base = {}){ const o = {...base};
-  if (['marimba', 'kalimba', 'steel', 'musicbox', 'vibes', 'wood', 'tubular', 'bell', 'plate', 'glass'].includes(name)) { o.hard = Math.round((.2 + .75*c.x)*4)/4; o.ring = LEN[c.length]; }
+  if (['marimba', 'kalimba', 'steel', 'musicbox', 'vibes', 'wood', 'tubular', 'bell', 'plate', 'glass', 'gong', 'bowl', 'logdrum'].includes(name)) { o.hard = Math.round((.2 + .75*c.x)*4)/4; o.ring = LEN[c.length]; }
   else if (['kick', 'tom', 'hand'].includes(name)) { o.decay = (o.decay ?? (name === 'kick' ? .45 : .5))*LEN[c.length]; o.hard = Math.round((.2 + .7*c.x)*4)/4; }
   else if (name === 'hat') o.decay = (o.decay ?? .06)*LEN[c.length];
   else if (name.startsWith('fm')) { o.index = Math.round((.4 + 3.2*c.x)*4)/4; o.dec = .25*LEN[c.length]; }
+  else if (['bowed', 'bowmetal', 'glassharm', 'rubbowl'].includes(name)) { const lo = name === 'bowed' ? .4 : 0, hi = name === 'bowed' ? 1 : .45; o.bright = Math.round((lo + (hi - lo)*c.x)*20)/20; o.r = [.4, .9, 2.2][c.length]; }
+  else if (name === 'sub808') { o.drive = Math.round((.1 + .8*c.x)*10)/10; o.dec = [.35, 1.2, 3][c.length]; }
   else if (name === 'pluck') { o.bright = Math.round((.15 + .8*c.x)*4)/4; o.damp = [.985, .993, .997][c.length]; }
   return o; }
