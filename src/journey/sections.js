@@ -1,5 +1,5 @@
 // Journey: listening to the music, detecting sections and recognising ones that return.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { LIN } from '../audio/analysis.js';
 import { shocks } from '../fx/effects.js';
 import { ELEMS, FEATS, FWEIGHT, HITS, J } from './core.js';
@@ -65,7 +65,7 @@ export function newSection(strength){
   pickStyle(strength);
   // a flourish on the bar line to mark the change
   if (eff.shock > .2) {
-    const asp = innerWidth/innerHeight, n = 2 + Math.round(Math.min(1, strength)*3);
+    const asp = viewAsp(), n = 2 + Math.round(Math.min(1, strength)*3);
     for (let i = 0; i < n; i++) { const sh = shocks[S.shockN++ % 8];
       sh.x = (Math.random() - .5)*asp*.7; sh.y = (Math.random() - .5)*.7; sh.r = .01 + i*.04; sh.s = .9; }
   } else { S.beat = Math.max(S.beat, 1); J.zoomFlip = Math.random() < .5 ? -.03 : .03; S.hueKick += .1; }

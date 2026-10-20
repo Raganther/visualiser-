@@ -13,7 +13,7 @@ export default {
     const t = x.t, pat = Math.floor(bars/2) % 4, hw = x.asp/2, sw = Math.sin(t*.8), beams = [];
     if (pat === 0) for (let i = 0; i < 7; i++) beams.push([0, -.58, Math.PI/2 + (i/6 - .5)*(1 + .25*Math.sin(t*.5)) + sw*.35, i]);   // a fan from below
     else if (pat === 1) for (let i = 0; i < 8; i++) { const s = i < 4 ? -1 : 1, k = i % 4;   // crossing from the two corners
-      beams.push([s*hw, -.56, Math.PI/2 - s*(.35 + k*.18 + sw*.2*s), i]); }
+      beams.push([s*hw, -.56, Math.PI/2 + s*(.35 + k*.18) - sw*.2, i]); }   // (leaning inward, so they cross: they leaned out, off the screen)
     else if (pat === 2) for (let i = 0; i < 8; i++) beams.push([P.cx, P.cy, t*.5 + i*Math.PI/4, i]);   // a star turning round the centre
     else for (let i = 0; i < 6; i++) beams.push([Math.sin(t*.3)*hw*.5, .58, -Math.PI/2 + (i/5 - .5)*.5 + sw*.6, i]);   // a scan from above
     for (let i = 0; i < N; i++) { const b = beams[i];

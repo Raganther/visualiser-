@@ -1,5 +1,5 @@
 // Space: nebulae, stars rushing past, and a ringed planet with two moons.
-import { S } from '../../state.js';
+import { S, viewAsp } from '../../state.js';
 import { hc } from '../../util.js';
 
 const st = {starPh:0, lightAng:0, moonAng:0, moonTarget:0, planet:null, moons:null};
@@ -14,7 +14,7 @@ export default {
     st.starPh += dt*x.ts*(.03 + x.J.tension*.25 + S.beat*.25);
     st.lightAng += dt*.05;
     st.moonAng += (st.moonTarget - st.moonAng)*Math.min(1, dt*5);
-    const R = .2 + x.sBass*react*.03, px = innerWidth/innerHeight*.18 + Math.sin(t*.05)*.05, py = .06 + Math.sin(t*.037)*.03;
+    const R = .2 + x.sBass*react*.03, px = viewAsp()*.18 + Math.sin(t*.05)*.05, py = .06 + Math.sin(t*.037)*.03;
     st.planet = [px, py, R];
     const m = new Float32Array(8);
     [[st.moonAng, 2.6, .032], [st.moonAng*.6 + 2, 3.3, .022]].forEach(([a, orbit, mr], i) => {

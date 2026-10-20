@@ -29,32 +29,43 @@ import './ui/controls.js';
 import './ui/keys.js';   // the keyboard: groups, numbers, the strip
 import './ui/assets.js';   // the Asset Viewer: every visual on its own (V)
 import './ui/transport.js';
+import './ui/morph.js';   // the morphing objects' own settings (the Adjust panel)
 import { refreshScene } from './ui/scene.js';
 import { fpsTick } from './ui/fps.js';
 import { showNow } from './ui/panel.js';
 import { tasteFrame } from './ui/taste.js';
+import './ui/comment.js';
+import './ui/dj.js';   // the DJ panel under the picture: two decks and a mixer
+import { djFrame, heardNow } from './audio/dj.js';
+import { RECENT } from './audio/engine/events.js';
+import { noteFrame } from './scene/notes.js';
+import './play/host.js';   // the play lab (opt-in: the bar's Play button)
 import { SF } from './visuals/worlds/cosmos/surface.js';   // (landed on a world, its planets aren't on screen)
 import { showCaption } from './ui/caption.js';
-import { S } from './state.js';
+import { mark, stallCheck } from './render/stalls.js';
+import { S, viewAsp } from './state.js';
 import { analyse, bands, hit, lastBeat, sBass, sMid, sTreb } from './audio/analysis.js';
 import { tIndex, tracks } from './audio/player.js';
 import { SIG, sig, updateSignals } from './scene/signals.js';
 import { CTX, updateContext } from './scene/context.js';
 import { resolveScene } from './scene/graph.js';
+const INSIDE = [{world: 'all'}, {trails: 'main'}, {objects: true}, {world: 'front'}, {hits: true}];   // an object inside a 3D world
 import { G } from './audio/beatgrid.js';
-import { comets, shocks, stepFX } from './fx/effects.js';
+import { comets, onHitFX, shocks, stepFX } from './fx/effects.js';
 import { applyMods } from './fx/movers.js';
 import { NP, parts, seedParticles, stepParts } from './fx/particles.js';
 import { J, SNAP } from './journey/core.js';
 import { energyLevel } from './journey/sections.js';
 import { stepJourney } from './journey/director.js';
+import { KAL_N } from './journey/extras.js';
 import { PACE, paceDiv, setPace } from './journey/pace.js';
+import { gearFrame } from './journey/gear.js';
 import { BASE, SPEC, curP, eff } from './presets.js';
 import { drawGL, fbInfo, gl, initRenderer, r2d, resize, warmScenes } from './render/gl.js';
-import { Q, qualityTick } from './render/quality.js';
+import { Q, gfxLevel, qualityTick } from './render/quality.js';
 import { TEMPLATES } from './scene/templates.js';
 import { keyHold, live, padBlocked, padHold, pollPad } from './ui/controls.js';
-import { sliders, updateSectionUI } from './ui/panel.js';
+import { sliders, updateSectionUI, gearUI } from './ui/panel.js';
 import { updateTimeUI } from './ui/transport.js';
 import { TW, speedOf, stepTweaks } from './scene/tweaks.js';
 import { stepDance } from './scene/dance.js';
@@ -83,22 +94,38 @@ function frame(now){
   if (frame.due === undefined) frame.due = now;
   if (now < frame.due - 3) return;   // (a tick up to 3 ms early counts: the timestamps jitter)
   frame.due = now - frame.due > 1000/60 ? now + 1000/60 : frame.due + 1000/60;   // after a stall, no burst to catch up
+  stallCheck(now, frame.ms || 0, frame.draw || 0, stallInfo, TUNE.render.freezeMs);   // (render/stalls.js: what happened in a frame that froze)
+  journeyMarks();
   const t0 = performance.now();
+  djFrame();   // the lead deck gives the beat grid its map and time (audio/dj.js)
+  // the notes played (the sequencer's, the synth's) as signals, as they're heard (scene/notes.js)
+  const ndt = Math.min(.1, (now - (frame.nt || now))/1000); frame.nt = now; noteFrame(RECENT.length ? heardNow() : null, ndt, onHitFX);
   try { render(now); } catch(e) { if (!frame.err) { frame.err = 1; showErr(e.message); } }
-  fpsTick(now, performance.now() - t0, fpsInfo);
+  frame.ms = performance.now() - t0;
+  fpsTick(now, frame.ms, fpsInfo);
   tasteFrame();   // a like or dislike takes this frame's picture
   if (now - (frame.now || 0) > 500) { frame.now = now; showNow(eff); }   // the panel's "On screen" line
   if (!window.__noDraw && qualityTick(performance.now())) resize();   // slow frames: draw smaller (render/quality.js)
+}
+// Journey's changes, for the stall log: a freeze usually comes with something new on screen
+const JM = {};
+function journeyMarks(){
+  const now = {world: J.on ? J.world : null, lead: J.lead, accent: J.accent, hit: J.hit, centre: J.centre, scene: J.on ? (J.sceneLive ? J.sceneKey : 'plain') : null, kal: J.kal ? J.kal.n : 0, type: J.type && J.type.label};
+  for (const k in now) { if (JM[k] !== undefined && JM[k] !== now[k]) mark(`${k === 'type' ? 'section' : k}: ${JM[k] ?? 'none'} → ${now[k] ?? 'none'}`); JM[k] = now[k]; }
+}
+function stallInfo(){
+  const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
+  return `${gl ? 'WebGL' : 'simple'} ${c.width}×${c.height}, graphics ${gfxLevel()}; ` + ([...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(HIT_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing');
 }
 // the fps readout's last line: the renderer and its size, and what's on screen, so a slow stretch can be matched to its scene
 function fpsInfo(){
   const c = $('#gl'), up = vs => vs.filter(v => eff[v.key] > .05).map(v => v.key);
   const what = [...up(WORLD_VISUALS), ...up(LAYER_VISUALS), ...up(OBJECT_VISUALS)].join(', ') || 'nothing';
   const sc = J.on ? (J.sceneLive ? J.sceneKey : 'plain') : S.scene ? 'custom' : 'plain';
-  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%, lowered for speed)` : '') + (Q.heavy && Q.world < 1 ? `, the cosmos at ${Math.round(Q.world*100)}%` : '')
+  return `${gl ? 'WebGL' : 'Simple mode'} ${c.width}×${c.height}` + (Q.scale < 1 ? ` (${Math.round(Q.scale*100)}%${gfxLevel() === 'auto' ? ', lowered for speed' : ''})` : '') + (Q.heavy && Q.world < 1 ? `, the 3D world at ${Math.round(Q.world*100)}%` : '') + ` · graphics: ${gfxLevel()} (Q)`
     + `\n${what}; scene ${sc}` + (gl ? `\ntrails shader: ${fbInfo()}` : '');
 }
-let kalA = 0, kalZ = 0;   // the kaleidoscope's turn, and how far it has dived
+let kalA = 0, kalZ = 0, kalT = 0, kalBar = 0, kalPh = 0, kalAs = 1, kalDrop = null;   // the kaleidoscope's turn, how far it has dived, its own time, the bars counted, how asymmetric
 function render(now){
   analyse(now);
   if (!padBlocked) pollPad();
@@ -108,13 +135,15 @@ function render(now){
   if (Math.abs(pv - PACE.v) > .001 || PACE.div !== paceDiv(pv)) {
     const d0 = PACE.div; setPace(pv); if (d0 !== PACE.div && J.on) updateSectionUI();
   }
+  gearFrame(dt); PACE.ts = PACE.base*S.speed;
+  if (J.gear !== render.gear) { render.gear = J.gear; gearUI(); if (J.on) updateSectionUI(); }   // the speed gear (journey/gear.js): the movement at half, normal or double time
   const mdt = dt*PACE.ts; S.MT += mdt;
   const vk = Math.min(1, .06 + .94*PACE.v);           // calm sections follow the levels more gently
   VIS.bass += (sBass - VIS.bass)*vk; VIS.mid += (sMid - VIS.mid)*vk; VIS.treb += (sTreb - VIS.treb)*vk;
   const morph = 1 - Math.pow(1 - (J.on ? .05 : .012), dt*60);   // same speed at any frame rate
   for (const s of SPEC) curP[s.k] += (S.active[s.k] - curP[s.k]) * (J.on && SNAP.has(s.k) ? 1 : morph);
   const react = +$('#react').value;
-  updateSignals({bands, beat: S.beat, hit, beats: J.beats, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
+  updateSignals({bands, beat: S.beat, hit, beats: J.beats, kickOn: J.groove > TUNE.grid.groove.hits, pos: J.pos, t: now/1000, next: G.next, period: G.period, locked: G.locked,
     tension: J.tension, level: (J.fS && J.fS.lvl) || 0, type: J.type, dt, L, coming: J.anticip});
   // the shared context: the section's palette, one wind, the worlds' light
   updateContext({pal: J.on && J.type && J.type.pal ? TUNE.palettes[J.type.pal] : TUNE.palettes.triad, clock: S.MT, dt, bass: bands.bass,
@@ -129,12 +158,13 @@ function render(now){
   for (const v of WORLD_VISUALS) if (v.step) v.step(dt, wx);          // worlds' own animation
   J.ribPh += mdt*speedOf('ribbons')*(.4 + J.tension*1.2 + S.beat*2 + CTX.wind.s*TUNE.ctx.windRibbons); J.horScroll += mdt*speedOf('horizon')*(.4 + J.tension*1.6 + S.beat*2.5);
   if (eff.flow > .01) stepParts(mdt*speedOf('flow'), react, S.MT*1000);
+  if (S.hueSet != null) { hueAcc = S.hueSet; S.hueSet = null; }   // (a walk-through's clean slate starts every time in the same colours)
   hueAcc += mdt*eff.colorSpeed;
-  const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = innerWidth/innerHeight;
+  const hue = hueAcc + S.hueKick + (J.on ? J.hueOff : 0), t = S.MT, asp = viewAsp();
   // the tunnel's zoom and spin are per-frame steps, so they slow with the pace too
   // (a world's camera flying in streams the trails outwards: CTX.fly.z)
   const P = {zoom: 1 + (eff.zoom - 1)*PACE.ts + live.zoom + CTX.fly.z*TUNE.ctx.flyZoom/60, rot: eff.rot*PACE.ts + live.rot, warp: eff.warp + live.warp,
-    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - (J.on ? J.wipe : 0)*.3), sym: eff.sym, mirror: eff.mirror,
+    decay: (keyHold || padHold) ? .995 : eff.decay*(1 - Math.max(J.on ? J.wipe : 0, S.wipe)*.3), sym: eff.sym, mirror: eff.mirror,
     hue, hueShift: eff.hueDrift*PACE.ts, bass: VIS.bass, mid: VIS.mid, treb: VIS.treb, beat: S.beat, hit: hit*PACE.punch, react,
     cx: live.cx + noise(t*1.6, 50)*eff.wander*asp*.5, cy: live.cy + noise(t*1.6, 57)*eff.wander*.5,   // (and towards a world's subject: below)
     l: {}, w: {}, o: {}, sc: resolveScene(J.on ? J.sceneLive : S.scene),   // Journey composes its own (journey/cast.js)
@@ -143,12 +173,17 @@ function render(now){
   // the kaleidoscope: a mirror fold of the picture round the trails' centre. Under 2 mirrors it's off; between two counts it
   // eases (the share of the next), and it turns at motion time
   kalA += mdt*(eff.kalTurn || 0);
-  const km = Math.max(0, Math.min(2, Math.round(eff.kalMode || 0)));   // the kind: wedges, a mirror box, a dive
-  kalZ += km === 2 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
+  const km = Math.max(0, Math.min(KAL_N - 1, Math.round(eff.kalMode || 0)));   // the kind (render/shaders.js, KAL): wedges, a mirror box, a dive, and the broken symmetries
+  kalZ += km === 2 || km === 11 ? mdt*TUNE.kal.dive*(.6 + .8*(SIG.tension || 0)) : 0;
+  // the broken symmetries follow the music: a bar counted (the odd wedge moves on, the inverted pairs swap), the asymmetry
+  // settling as a drop we saw coming nears (TUNE.kal.settle) and breaking on the drop (TUNE.kal.burst), easing back
+  kalT += mdt; if (SIG.barPhase < kalPh - .5) kalBar++; kalPh = SIG.barPhase;
+  if (J.on && kalDrop !== null && J.lastDrop !== kalDrop) kalAs = TUNE.kal.burst; kalDrop = J.lastDrop ?? null;
+  kalAs += ((J.on ? 1 - TUNE.kal.settle*(J.anticip || 0) : 1) - kalAs)*Math.min(1, mdt*.6);
   const kn = eff.kal || 0, kw = Math.max(0, Math.min(3, Math.round(eff.kalWhere || 0)));
   P.kal = {on: kn > 1.01, where: kw, c: [P.cx, P.cy], n: kn,
     v: [Math.max(2, Math.floor(kn)), kn >= 2 ? kn - Math.floor(kn) : 0, Math.min(1, Math.max(0, kn - 1)), kalA - Math.PI/(2*Math.max(2, Math.floor(kn)))],
-    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band]};
+    mode: km, v2: [km, TUNE.kal.hall, kalZ, TUNE.kal.band], v3: [kalT, kalBar, kalAs, SIG.bass || 0]};
   P.grain = eff.grain || 0; P.t2 = now/1000;   // the film grain (render: the finish)
   P.hush = J.on ? J.hush*TUNE.foresee.hush*(reduceMotion ? .5 : 1) : 0;   // the breath held before a drop we saw coming (journey/director.js)
   P.focus = {...CTX.focus};   // for layers that circle the subject (the orbits)
@@ -164,8 +199,16 @@ function render(now){
     if (v.horizonY !== undefined) P.horY += (v.horizonY - P.horY)*Math.min(1, eff[v.key]*2);
   }
   for (const v of OBJECT_VISUALS) P.o[v.key] = eff[v.key];
-  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS, ...OBJECT_VISUALS]) if (v.params) v.params(P, vx);
+  for (const v of [...WORLD_VISUALS, ...HIT_VISUALS]) if (v.params) v.params(P, vx);
+  if (!S.objWorld) delete P.anchor;   // (objects kept in the centre: the worlds don't carry them through, S.objWorld)
+  for (const v of OBJECT_VISUALS) if (v.params) v.params(P, vx);
+  // a 3D world that knows how far off its centrepiece stands (the Hollow's chambers, the Cathedral's altars): the walls
+  // nearer than it pass in front of it (its front plane, only that deep, drawn over the objects)
+  if (P.anchor && P.anchor.dist && !P.sc.front && OBJECT_VISUALS.some(v => P.o[v.key] > .003)) P.sc = resolveScene(INSIDE);
+  S.lastP = P;   // (the play lab reads where things were drawn: src/play/)
+  const d0 = performance.now();
   if (!window.__noDraw) { if (gl) drawGL(S.MT*1000, P); else r2d.draw(S.MT*1000, P); }   // tests that only read Journey skip drawing
+  frame.draw = performance.now() - d0;
 
   if (++frameN % 6 === 0) {
     // (the page's styles are written only when they change: each write restyles the whole document)
@@ -185,7 +228,8 @@ function render(now){
     if (hr && $('#panel').classList.contains('open')) hr.textContent = `Hearing: hi-hats ${L.hat > .45 ? 'in' : 'out'}, bass ${L.brk ? 'out (a breakdown)' : L.bass > .5 ? 'in' : 'low'}, `
       + `${L.noise > .5 ? 'noisy' : 'tonal'}, filter ${Math.round(L.cut*100)}%${L.width > .15 ? ', wide' : ''}`
       + `${L.loop >= 4 ? `, the same loop ${L.loop} bars` : ''}${L.nov > .3 ? ', something new' : ''}${L.harm > .25 ? ', the notes moved' : ''}.`
-      + (J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
+      + (F.map && F.map.src === 'internal' ? ` Following the sequencer${J.fore && J.fore.left < 60 ? `: the drop in ${Math.max(1, Math.ceil(J.fore.bars))} bars${J.anticip > 0 ? ', building to it' : ''}` : ''}.`
+        : J.fore && J.fore.left < 60 ? ` Read ahead: the drop in ${J.fore.bars < 16 ? Math.max(1, Math.ceil(J.fore.bars)) + ' bars' : Math.round(J.fore.left) + ' s'}${J.anticip > 0 ? ', building to it' : ''}.`
         : F.ready ? ` Read ahead: ${F.drops.length ? F.drops.length + (F.drops.length === 1 ? ' drop' : ' drops') + ' in this track' : 'no drops in this track'}.` : '');
     if ($('#panel').classList.contains('open')) refreshScene();
     if ($('#panel').classList.contains('open')) for (const k in sliders) {

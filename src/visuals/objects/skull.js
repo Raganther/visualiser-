@@ -5,4 +5,4 @@ import SKULL from './meshes/skull.js';
 
 export default meshObject({key: 'skull', label: 'Wire skull', words: 'The wire skull is the centrepiece',
   mesh: {pieces: [SKULL.skull, {...SKULL.jaw, hinge: true}], hinge: SKULL.hinge},
-  dance: {moves: {bang: 2.2, look: .8, face: 1, pulse: 1.2, groove: .6, lift: 1, spin: .5, float: .6, approach: 1, rise: .3}, sym: 4, liftPart: 1}});   // a head-banger, face on; the cranium lifts off
+  dance: {moves: {bang: 2.2, look: .8, face: 1, pulse: 1.2, groove: .6, lift: 1, spin: .5, float: .6, approach: 1, rise: .3}, sym: 4, reach: true, liftPart: 1}});   // a head-banger, face on; the cranium lifts off

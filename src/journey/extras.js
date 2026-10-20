@@ -59,4 +59,5 @@ export function shiftKal(){
   else J.kal = {...J.kal, n: Math.max(2, Math.min(12, J.kal.n + [-2, -1, 1, 2][Math.floor(Math.random()*4)]))};
   steerKal();
 }
-export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'], KAL_KINDS = ['kaleidoscope', 'mirror box', 'diving kaleidoscope'];
+export const KAL_WORDS = ['everything', 'the world', 'the glow', 'inside the centrepiece'], KAL_KINDS = ['kaleidoscope', 'mirror box', 'diving kaleidoscope', 'pinwheel', 'rippling kaleidoscope', 'kaleidoscope of inverted pairs', 'kaleidoscope with an odd one out', 'imperfect kaleidoscope', 'kaleidoscope of colours', 'tiled kaleidoscope', 'hyperbolic kaleidoscope', 'Droste spiral', 'kaleidoscope of curved mirrors', 'kaleidoscope with two centres'];
+export const KAL_N = KAL_KINDS.length;

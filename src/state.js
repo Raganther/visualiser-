@@ -11,6 +11,10 @@ export const scopeLR = new Float32Array(128);
 
 // variables that several modules reassign live here as properties
 export const S = {
+  speed: 1,   // how fast the movement runs: Journey's speed gear (journey/gear.js), times the overall movement setting
+  jewelInner: null,   // the Prism's own kaleidoscope held by hand (0 off, 1 skin, 2 mirrors, 3 tunnel; null: each section its own; K then P)
+  objWorld: (() => { try { return localStorage.getItem('afterglow.objWorld') === '1'; } catch (e) { return false; } })(),   // objects carried through the 3D worlds and the cosmos (true) or kept in the centre (the user's choice, O then C, remembered)
+  skipW: new Set(),               // worlds Journey leaves out (the panel's "3D worlds in Journey", ui/fps.js)
   active: null,                  // the preset in use (jState during Journey); set once presets load
   glGen: 0,                      // bumps when a lost WebGL context is restored, so visuals rebuild their own GL objects
   pIndex: 0,                     // which preset the arrows are on
@@ -18,10 +22,14 @@ export const S = {
   beatPeriod: .5,                // seconds per beat, from the beat grid once it locks
   MT: 0,                         // motion time: runs slower in calm sections
   beat: 0,                       // the visual pulse, 0..1, decaying each frame
+  hueSet: null, wipe: 0,          // a clean slate: the colour to start from, and the trails being wiped (a walk-through)
   hueKick: 0,                    // colour nudges from pulses, drops and section changes
   shockN: 0,                     // next shockwave slot to reuse
   pausedAt: 0,                   // playback position while paused
   scene: null,                   // the manual preset's scene (scene/graph.js); none means the default
   syncMs: 0,                     // the Sync slider: + draws the beat later, - earlier (for this device's speakers and screen)
+  djH: 0,                        // the DJ panel's height while it's open under the picture (ui/dj.js): the picture is that much shorter
   view: null,                    // the Asset Viewer's hold on the object it shows (ui/assets.js): {key, yaw, pitch, zoom, morph (null: the music's)}
 };
+// the picture's size on screen: the window, less the DJ panel when it's open under it (S.djH)
+export const viewH = () => Math.max(1, innerHeight - S.djH), viewAsp = () => innerWidth/viewH();

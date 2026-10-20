@@ -3,6 +3,7 @@
 // so a big universe costs no more than a small one. The camera's movement becomes the trails' wind and zoom, the star is
 // the light the objects catch, and a centrepiece stands in the space as a monument (P.anchor, read by the mesh objects).
 import { hsv2rgb } from '../../../util.js';
+import { S } from '../../../state.js';
 import { SHOTS, V, around } from '../../../scene/camera.js';
 import { C, G, flyBeat, fly, galaxyTrip, hold, jump, land, lightFrom, monument, startShot, takeoff } from './fly.js';
 import { TUNE } from '../../../tuning.js';
@@ -107,7 +108,7 @@ export default {
     P.cz.cage2 = [dr.spin, ((dr.bar + Math.min(1, C.beatPh))/4) % 1];
     P.cz.fold2 = [toStar - h/2 + x.t*TUNE.cosmos.fold.turn, f.local ? Math.max(.08, fc.r*TUNE.cosmos.fold.localR) : 0];
     // a centrepiece stands in the space as a vast monument (the mesh objects read P.anchor): where and how big it looks
-    monument(P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));
+    monument(S.objWorld && P.w.cosmos > .5 && Object.values(P.o).some(w => w > .01));   // (objects kept in the centre, S.objWorld off: no monument to fly to)
     if (C.monOn) {
       const rel = sub(sys.mon.p, cam.pos), z = dot(rel, cam.Z);
       P.anchor = z < sys.mon.r*.6 ? {hide: true} : {pos: [dot(rel, cam.X)*k2/z, dot(rel, cam.Y)*k2/z], size: Math.min(1.6, sys.mon.r*k2/z/.81)};
