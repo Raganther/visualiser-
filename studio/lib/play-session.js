@@ -20,6 +20,8 @@ export function playSession(d, s){
     else if (k === 'texture') { const t = a[0]; (t.kind === 'cloud' ? cloud : rainAt)(d, t.bus, t.bar, t.bars, t.opts); }
   }
   for (const [k, v] of Object.entries(s.trims || {})) if (d.buses[k]) d.buses[k].in.gain.value = Math.pow(10, v/20);
+  // the user's mix from the DAW: each bus's fader in dB, on top of the piece's trims
+  for (const [k, v] of Object.entries(s.mix || {})) if (d.buses[k]) d.buses[k].in.gain.value *= Math.pow(10, v/20);
   // the tracks the DAW added, or whose instrument it changed, that the ops don't make
   for (const t of s.tracks) if (!made.has(t.id) && (t.notes.length || t.morph.length) && d.buses[t.bus]) made.set(t.id, make(t));
   for (const t of s.tracks) { const syn = made.get(t.id); if (!syn || t.mute) continue;

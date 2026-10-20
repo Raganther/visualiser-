@@ -15,11 +15,13 @@ const db = v => Math.pow(10, v/20);
 import { rng } from './rng.js';
 export { rng };
 
-export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
+// live (the DAW): t0 offsets every time (bar 0 at t0 on the audio clock), meters off, and native notes from a cache
+// (nativeBuf(name, n, vel, settings) → an AudioBuffer, or null while it's still being computed)
+export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters = true, nativeBuf = null}){
   const beat = 60/bpm, six = beat/4, env = {period: () => beat};
   const d = {ctx, bpm, beat, rand: rng(seed), buses: {}, kicks: [], notes: []};
   // where a bar and 16th fall, in seconds (odd 16ths late by the swing)
-  d.t = (bar, step = 0) => (bar*16 + step)*six + (Math.floor(step) % 2 ? swing*six : 0);
+  d.t = (bar, step = 0) => t0 + (bar*16 + step)*six + (Math.floor(step) % 2 ? swing*six : 0);
   d.bars = secs => secs/(beat*4);
 
   /* ---------- the master: glue, then a limiter ---------- */
@@ -28,10 +30,10 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   lim.threshold.value = -2; lim.ratio.value = 20; lim.knee.value = 0; lim.attack.value = .001; lim.release.value = .08;
   // raw: no glue or limiter, so stems rendered apart sum to the mix exactly (the loop labs)
   if (raw) sum.connect(out); else { sum.connect(glue); glue.connect(trim); trim.connect(lim); lim.connect(out); }
-  out.connect(ctx.destination);
+  out.connect(ctx.destination); d.outNode = out;
   // meters: each bus's left and right (after its level), and the master's, read at every pause of the render, so the
   // report can say how loud and wide each part is in each section
-  const meter = node => { const sp = ctx.createChannelSplitter(2), m = [ctx.createAnalyser(), ctx.createAnalyser()];
+  const meter = node => { if (!meters) return null; const sp = ctx.createChannelSplitter(2), m = [ctx.createAnalyser(), ctx.createAnalyser()];
     m.forEach((an, i) => { an.fftSize = 32768; sp.connect(an, i); }); node.connect(sp); return m; };
   d.meters = {master: meter(out)}; d.reads = [];
 
@@ -79,8 +81,9 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   const bufs = new WeakMap();
   d.native = (bus, name, set = {}) => { const P = {...set}, g = NATIVE[name].gain*(P.gain ?? 1); delete P.gain;
     return {bus, P, set(k, v){ P[k] = v; }, play(n, t, len, vel){
-      const o = noteBuffers(ctx.sampleRate, name, n, vel, NATIVE[name].held ? {...P, len} : P); let ab = bufs.get(o);
-      if (!ab) { ab = ctx.createBuffer(2, o.L.length, ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1); bufs.set(o, ab); }
+      const set = NATIVE[name].held ? {...P, len} : P; let ab;
+      if (nativeBuf) { ab = nativeBuf(name, n, vel, set); if (!ab) return; }
+      else { const o = noteBuffers(ctx.sampleRate, name, n, vel, set); ab = bufs.get(o); if (!ab) { ab = ctx.createBuffer(2, o.L.length, ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1); bufs.set(o, ab); } }
       const src = ctx.createBufferSource(), gn = ctx.createGain(); src.buffer = ab; gn.gain.value = g*(.4 + .6*vel);
       src.connect(gn); gn.connect(d.buses[bus].in); src.start(t); src.onended = () => gn.disconnect(); }}; };
 
@@ -132,6 +135,9 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
      seconds before it plays (the render suspends every couple of seconds to make the next ones) ---------- */
   const queue = [];
   d.later = (t, fn) => queue.push({t, fn});
+  // live: sort what's queued, then feed it up to a time on the audio clock as the music plays (what's already past is skipped)
+  let li = 0; d.start = (from = -Infinity) => { queue.sort((a, b) => a.t - b.t); li = 0; while (li < queue.length && queue[li].t < from) li++; };
+  d.feedTo = until => { while (li < queue.length && queue[li].t < until) { const q = queue[li++]; try { q.fn(); } catch (e) { console.error(`a note at ${q.t.toFixed(2)} s: ${e.message}`); } } return li < queue.length; };
   d.render = (AHEAD = 3, STEP = 2) => {
     queue.sort((a, b) => a.t - b.t); let i = 0; const sr = ctx.sampleRate, end = ctx.length/sr;
     const buf = new Float32Array(32768), read = at => { const r = {t: at, wall: performance.now()};

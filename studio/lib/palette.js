@@ -115,10 +115,11 @@ function native(d, bus, name, base, over){
 const place = (d, bus, o, bar, gain = 1) => d.later(d.t(bar) - .01, () => { const ab = d.ctx.createBuffer(2, o.L.length, d.ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1);
   const s = d.ctx.createBufferSource(), g = d.ctx.createGain(); s.buffer = ab; g.gain.value = gain; s.connect(g); g.connect(d.buses[bus].in); s.start(d.t(bar)); });
 // the bell cloud (liked in the lab): grains of a struck music box bar, thin at first and thickening; pitches as ratios of f0
+const TEX = new Map(), memo = (key, make) => { if (!TEX.has(key)) TEX.set(key, make()); return TEX.get(key); };   // (computed once; the DAW plays a song many times)
 export const cloud = (d, bus, bar, bars, {f0 = 440, pitches = [1, 1.335, 1.5, 2, .667], gain = .9, seed = 5} = {}) => { const sr = d.ctx.sampleRate; d.onTexture?.({kind: 'cloud', bus, bar, bars, opts: {f0, pitches, gain, seed}});
-  place(d, bus, grains(sr, modal(sr, f0, MODAL.musicbox.modes, {...MODAL.musicbox, vel: .7, len: 1.4}), bars*4*d.beat + 2, {density: [3, 45], len: [.05, .18], pitches, seed}), bar, gain); };
+  place(d, bus, memo(`cloud|${sr}|${f0}|${pitches}|${bars*d.beat}|${seed}`, () => grains(sr, modal(sr, f0, MODAL.musicbox.modes, {...MODAL.musicbox, vel: .7, len: 1.4}), bars*4*d.beat + 2, {density: [3, 45], len: [.05, .18], pitches, seed})), bar, gain); };
 // rain (liked in the lab): droplets over a soft hiss
-export const rainAt = (d, bus, bar, bars, {gain = .7, seed = 9} = {}) => (d.onTexture?.({kind: 'rain', bus, bar, bars, opts: {gain, seed}}), place(d, bus, rainBuf(d.ctx.sampleRate, bars*4*d.beat + 2, {seed}), bar, gain));
+export const rainAt = (d, bus, bar, bars, {gain = .7, seed = 9} = {}) => (d.onTexture?.({kind: 'rain', bus, bar, bars, opts: {gain, seed}}), place(d, bus, memo(`rain|${d.ctx.sampleRate}|${bars*d.beat}|${seed}`, () => rainBuf(d.ctx.sampleRate, bars*4*d.beat + 2, {seed})), bar, gain));
 
 /* ---------- the drums: the liked grooves, as functions of a bar ---------- */
 // the toms struck skins (the native membrane, liked in the lab) instead of the kit's: the same voices, low and high
