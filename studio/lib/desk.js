@@ -44,6 +44,12 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
     d.sendA = dl.input; d.sendB = rv.input; return d;
   };
 
+  // another return of its own (a long dotted echo for washes, a second reverb for throws), fed by d.send
+  d.addReturn = (name, kind, set = {}, o = {}) => { const f = ret(name, kind === 'delay' ? delayFx : reverbFx, {mix: 1, ...(kind === 'delay' ? {ping: 1} : {kind: 0}), ...set});
+    const R = d.bus(name, o); f.output.connect(R.in); R.fxIn = f.input; R.fx = f; return R; };
+  // a send from a bus's level to a return, in dB (its gain, for ramps)
+  d.send = (from, to, dB = -60) => { const g = ctx.createGain(); g.gain.value = dB <= -60 ? 0 : db(dB); d.buses[from].lvl.connect(g); g.connect(d.buses[to].fxIn); return g.gain; };
+
   /* ---------- a bus: filter → chorus → width → pan → pump → level → master, its level feeding the two sends ---------- */
   d.bus = (name, o = {}) => {
     const b = {name, in: two(ctx)}; let at = b.in;
@@ -90,6 +96,15 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
     for (const [bb, v] of pts.slice(1)) exp && v > 0 ? param.exponentialRampToValueAtTime(v, d.t(bb)) : param.linearRampToValueAtTime(v, d.t(bb));
   };
   d.dbRamp = (param, pts) => d.ramp(param, pts.map(([b, v]) => [b, v <= -60 ? 0 : db(v)]));
+  // an LFO on any parameter: its period in beats (ramped with `beats` points), its depth ramped in the parameter's own units
+  d.lfo = (param, {beats = 8, rate, depth = [[0, 0]], type = 'sine'} = {}) => {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = 1/(beats*beat); g.gain.value = 0;
+    o.connect(g); g.connect(param); o.start(0); d.ramp(g.gain, depth); if (rate) d.ramp(o.frequency, rate.map(([b, bt]) => [b, 1/(bt*beat)]), {exp: true});
+    return {osc: o, gain: g}; };
+  // a synth's own setting moving over bars ([bar, value] points, eased between them, set at each bar line before its notes)
+  d.morph = (syn, key, pts, every = 1) => { for (let i = 0; i < pts.length - 1; i++) { const [b0, v0] = pts[i], [b1, v1] = pts[i + 1];
+    for (let bar = b0; bar < b1; bar += every) { const x = (bar - b0)/(b1 - b0), v = v0 + (v1 - v0)*(.5 - .5*Math.cos(Math.PI*x)); d.later(d.t(bar) - .001, () => syn.set(key, v)); } }
+    const [bl, vl] = pts[pts.length - 1]; d.later(d.t(bl) - .001, () => syn.set(key, vl)); };
 
   // a noise swell, band-passed and rising, into a bus (a riser before a drop, a wash in a breakdown)
   d.noise = (bus, a, b, {f0 = 300, f1 = 6000, q = 1.4, peak = -12, fade = 'in'} = {}) => d.later(d.t(a) - .1, () => {
