@@ -30,7 +30,7 @@ const perBar = motif => (d, play) => LOOP.forEach((bar, k) => motif((note, s, l,
 
 // a pair of ideas: the same part now (a poly synth sound from the palette) and native (a lib/native instrument)
 const pair = (id, name, part, now, nat, words) => [
-  {id: `${id}-now`, name: `${name} · now`, words: `As it is now: ${words.now}`, bus: 'bells', build(d){ const s = synth(d, 'bells', now.sound, now.set); part(d, (n, bar, st, l, v) => d.note(s, n + (now.shift || 0), bar, st, l, v*(.92 + d.rand()*.16))); }},
+  {id: `${id}-now`, name: `${name} · now`, words: `As it is now: ${words.now}`, bus: 'bells', build(d){ const s = synth(d, 'bells', now.sound, {...now.set, poly: 1}); part(d, (n, bar, st, l, v) => d.note(s, n + (now.shift || 0), bar, st, l, v*(.92 + d.rand()*.16))); }},
   {id: `${id}-native`, name: `${name} · native`, words: `Native: ${words.nat}`, bus: 'bells', build(d){ const s = d.native('bells', nat.name, nat.set); part(d, (n, bar, st, l, v) => d.note(s, n + (nat.shift || 0), bar, st, l, v*(.92 + d.rand()*.16))); }}];
 
 const IDEAS0 = [
@@ -57,7 +57,7 @@ const IDEAS0 = [
 ];
 // the drums: toms in threes and the shaker, the kit's against the computed skin and beads
 IDEAS0.push(
-  {id: 'toms-now', name: 'Toms in threes · now', words: "As it is now: the kit's toms (a falling sine and noise).", bus: 'perc', build(d){ const {perc} = kits(d);
+  {id: 'toms-now', name: 'Toms in threes · now', words: "As it is now: the kit's toms (a falling sine and noise).", bus: 'perc', build(d){ const {perc} = kits(d, {skins: false});
     every(W, W + 16, 6, 3, (bar, s) => d.hit(perc, 'tomL', bar, s, .65)); every(W, W + 16, 6, 0, (bar, s) => d.hit(perc, 'tomH', bar, s, .5)); }},
   {id: 'toms-native', name: 'Toms in threes · native', words: "Native: a struck skin's modes (a drum's real overtones), its pitch dropping as the strike's tension eases.", bus: 'perc', build(d){
     const t = d.native('perc', 'tom'); every(W, W + 16, 6, 3, (bar, s) => d.note(t, 43, bar, s, 1, .65)); every(W, W + 16, 6, 0, (bar, s) => d.note(t, 50, bar, s, 1, .5)); }},

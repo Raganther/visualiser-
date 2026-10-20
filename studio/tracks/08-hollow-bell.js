@@ -2,8 +2,8 @@
 // every eight bars until it's a full sixteen-step pattern, then sheds them again at the end. Ride bells in threes against it,
 // woodblocks answering, the glass bass's Detroit figure.
 import { buses, kick, kits, synth, chord, voice, scale, each, every, bar16, kickBar, hatBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Hollow Bell', bpm: 124, bars: 128, swing: .06, seed: 88, version: 1, key: 'G minor, one chord',
-  words: 'Minimal, one chord (G minor 9), built by addition: a marimba figure starts as two notes and gains one every eight bars, then sheds them at the end. Ride bells in threes, woodblocks answering, the glass bass.'};
+export const meta = {title: 'Hollow Bell', bpm: 124, bars: 128, swing: .06, seed: 88, version: 2, key: 'G minor, one chord',
+  words: 'v2: the marimba and woodblocks are now native (a rosewood bar with its tube, a block\'s modes); otherwise as v1. Minimal, one chord (G minor 9), built by addition: a marimba figure starts as two notes and gains one every eight bars, then sheds them at the end. Ride bells in threes, woodblocks answering, the glass bass.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){

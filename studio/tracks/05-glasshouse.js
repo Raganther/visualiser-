@@ -3,9 +3,9 @@
 // v2, from the user's notes on v1: no clap; no pad: the gated 16th chord they loved ("transcending into a higher
 // dimension, the openness") carries the harmony instead, from the intro, closed at first and opening, an LFO on its filter,
 // its accents and voicings moving every eight bars; the glass bass line runs the whole song.
-import { buses, kick, kits, synth, chord, cycle, voice, each, bar16, kickBar, hatBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Glasshouse', bpm: 124, bars: 128, swing: .06, seed: 55, version: 2, key: 'C major: Cmaj9, Am9, Fmaj9, G6/9',
-  words: 'v2, from your notes: no clap and no pad. The gated 16th chord you loved carries the harmony from the intro, closed at first and opening, an LFO on its filter, its accents and voicings moving every eight bars; your glass bass line runs the whole song; a rim and shaker groove off the beats.'};
+import { buses, kick, kits, synth, chord, cycle, voice, each, bar16, kickBar, hatBar, ohhBar, cloud } from '../lib/palette.js';
+export const meta = {title: 'Glasshouse', bpm: 124, bars: 128, swing: .06, seed: 55, version: 3, key: 'C major: Cmaj9, Am9, Fmaj9, G6/9',
+  words: 'v3: the music box and tubular bells are now native (struck bars and tubes computed from their physics), and a bell cloud blooms through the breakdown; otherwise as v2. v2, from your notes: no clap and no pad. The gated 16th chord you loved carries the harmony from the intro, closed at first and opening, an LFO on its filter, its accents and voicings moving every eight bars; your glass bass line runs the whole song; a rim and shaker groove off the beats.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){
@@ -50,5 +50,7 @@ export function score(d){
   d.ramp(B.bells.filter.frequency, [[48, 2500], [70, 9000], [96, 3000], [118, 9000]], {exp: true});
   // the breakdown: tubular bells on root and fifth over the gated chord
   each([[72, 88]], (bar, k) => { const c = H(bar); if (k % 2 === 0) d.note(tub, c.root + 36, bar, 0, 8, .6); else d.note(tub, c.root + 43, bar, 6, 8, .5); });
+  // v3: a bell cloud on C, D and G blooming through the breakdown
+  cloud(d, 'fx', 72, 16, {f0: 523.25, pitches: [1, 1.125, 1.5, 2]});
   d.noise('fx', 80, 88, {f0: 300, f1: 7000, peak: -7});
 }

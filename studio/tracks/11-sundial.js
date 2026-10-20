@@ -2,8 +2,8 @@
 // gives it the Lydian brightness). A kalimba arpeggio, the vibraphone on long notes, the round Detroit bass, the glass pad,
 // the groove with ride-bell accents and a shaker.
 import { buses, kick, kits, synth, chord, cycle, voice, scale, each, bar16, kickBar, hatBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Sundial', bpm: 124, bars: 128, swing: .06, seed: 121, version: 1, key: 'F Lydian: Fmaj9, Gadd9, Am7, Cadd9',
-  words: 'Lydian, open and bright: F major 9, G add 9, A minor 7, C add 9, two bars each. A kalimba arpeggio, the vibraphone on long notes, the round Detroit bass, the glass pad, ride-bell accents.'};
+export const meta = {title: 'Sundial', bpm: 124, bars: 128, swing: .06, seed: 121, version: 2, key: 'F Lydian: Fmaj9, Gadd9, Am7, Cadd9',
+  words: 'v2: the vibraphone is now native (an aluminium bar and its tremolo); otherwise as v1. Lydian, open and bright: F major 9, G add 9, A minor 7, C add 9, two bars each. A kalimba arpeggio, the vibraphone on long notes, the round Detroit bass, the glass pad, ride-bell accents.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){

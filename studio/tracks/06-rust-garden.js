@@ -2,8 +2,8 @@
 // one), toms rolling through the gaps, the octave funk on the round bass, woodblocks in threes, a metallic ping, dotted
 // chords coming in late.
 import { buses, kick, kits, synth, chord, cycle, voice, scale, each, every, hits, bar16, kickBar } from '../lib/palette.js';
-export const meta = {title: 'Rust Garden', bpm: 120, bars: 128, swing: .08, seed: 66, version: 1, key: 'F# minor: F#m11, E6/9',
-  words: 'Broken beat, nearly one chord: F# minor 11 for six bars, E 6/9 for two. The broken kick and toms rolling through the gaps, the octave funk on the round bass, woodblocks in threes, a metallic ping, dotted chords late.'};
+export const meta = {title: 'Rust Garden', bpm: 120, bars: 128, swing: .08, seed: 66, version: 2, key: 'F# minor: F#m11, E6/9',
+  words: 'v2: the woodblocks, the metallic ping (now a struck plate) and the toms are now the native ones you preferred in the lab; otherwise as v1. Broken beat, nearly one chord: F# minor 11 for six bars, E 6/9 for two. The broken kick and toms rolling through the gaps, the octave funk on the round bass, woodblocks in threes, a metallic ping, dotted chords late.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){

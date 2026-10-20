@@ -3,6 +3,8 @@
 // Detroit fifths), the grooves they liked (Slow Bloom's hats, broken beat, lo-fi, toms, metal and bells in polyrhythms), and
 // helpers for writing whole pieces with them in any harmony: chords by symbol, voicings, progressions, spans of bars.
 import { MIX } from '../tracks/mix.js';
+import { MODAL, modal } from './native/modal.js';
+import { grains, rain as rainBuf } from './native/body.js';
 export const SAW = 0, SQUARE = 1, TRI = 2, SINE = 3, SUPER = 4;
 
 /* ---------- harmony ---------- */
@@ -94,14 +96,38 @@ export const SOUNDS = {
   metal: ['Pluck', {w1: SQUARE, w2: SQUARE, semi: 6, fine: 12, mix2: .5, ft: 2, cut: 2400, res: .5, fenv: .3, fd: .08, aa: .001, ad: .25, as: 0, ar: .2, chorus: .2, width: .6, level: .55}],
   wood: ['Pluck', {w1: TRI, w2: SINE, semi: 19, mix2: .2, noise: .08, cut: 3500, res: .1, fenv: .2, fd: .03, aa: .001, ad: .09, as: 0, ar: .06, chorus: 0, width: .4, level: .75}],
 };
-export const synth = (d, bus, name, over = {}) => { const [p, s] = SOUNDS[name]; return d.synth(bus, p, {chord: 0, ...s, ...over}); };
+// the sounds the user preferred native in the lab (native-1): bars, bells, the steel pan and the metal plate computed from
+// their physics; the kalimba, the glass bass, the pluck and the shaker they preferred as they were
+const NATIVE_OF = {marimba: 'marimba', musicbox: 'musicbox', steel: 'steel', wood: 'wood', tubular: 'tubular', vibes: 'vibes', metal: 'plate'};
+export const synth = (d, bus, name, over = {}) => { const [p, s] = SOUNDS[name];
+  if (NATIVE_OF[name] && d.native && !over.poly) return native(d, bus, name, s, over);
+  return d.synth(bus, p, {chord: 0, ...s, ...over}); };
+// a native instrument standing in for a poly synth sound: its octave kept, and the synth settings a score moves mapped onto
+// the physics (a longer decay rings every mode longer; more filter envelope or resonance strikes harder, brighter)
+function native(d, bus, name, base, over){
+  const nat = NATIVE_OF[name], ins = d.native(bus, nat), H = MODAL[nat].hard, tr = 12*(base.oct || 0), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const set = (k, v) => { if (k === 'ad') ins.set('ring', clamp(v/(base.ad ?? .3), .4, 3)); else if (k === 'fenv') ins.set('hard', clamp(H + (v - (base.fenv ?? .2))*.6, .15, 1)); else if (k === 'res') ins.set('hard', clamp(H + (v - (base.res ?? 0))*.5, .15, 1)); };
+  for (const [k, v] of Object.entries(over)) set(k, v);
+  return {bus, set, native: nat, play: (n, t, len, vel) => ins.play(n + tr, t, len, vel)};
+}
+// a whole computed buffer placed on a bus at a bar (a cloud, rain)
+const place = (d, bus, o, bar, gain = 1) => d.later(d.t(bar) - .01, () => { const ab = d.ctx.createBuffer(2, o.L.length, d.ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1);
+  const s = d.ctx.createBufferSource(), g = d.ctx.createGain(); s.buffer = ab; g.gain.value = gain; s.connect(g); g.connect(d.buses[bus].in); s.start(d.t(bar)); });
+// the bell cloud (liked in the lab): grains of a struck music box bar, thin at first and thickening; pitches as ratios of f0
+export const cloud = (d, bus, bar, bars, {f0 = 440, pitches = [1, 1.335, 1.5, 2, .667], gain = .9, seed = 5} = {}) => { const sr = d.ctx.sampleRate;
+  place(d, bus, grains(sr, modal(sr, f0, MODAL.musicbox.modes, {...MODAL.musicbox, vel: .7, len: 1.4}), bars*4*d.beat + 2, {density: [3, 45], len: [.05, .18], pitches, seed}), bar, gain); };
+// rain (liked in the lab): droplets over a soft hiss
+export const rainAt = (d, bus, bar, bars, {gain = .7, seed = 9} = {}) => place(d, bus, rainBuf(d.ctx.sampleRate, bars*4*d.beat + 2, {seed}), bar, gain);
 
 /* ---------- the drums: the liked grooves, as functions of a bar ---------- */
-export function kits(d, {kit = 'Minimal', hats = {}, drums = {}, perc = {}} = {}){
+// the toms struck skins (the native membrane, liked in the lab) instead of the kit's: the same voices, low and high
+const nativeToms = (d, kit) => { if (!d.native) return kit; const tom = d.native('perc', 'tom'), play = kit.play.bind(kit);
+  kit.play = (v, t, vel, lock) => v === 'tomL' ? tom.play(43, t, 1, vel) : v === 'tomH' ? tom.play(50, t, 1, vel) : play(v, t, vel, lock); return kit; };
+export function kits(d, {kit = 'Minimal', hats = {}, drums = {}, perc = {}, skins = true} = {}){
   return {
     hats: d.kit('hats', kit, {chh: {tone: .62, level: 1.1, decay: .7, x: .3, pan: .2}, ohh: {tone: .58, level: .85, decay: .8, pan: -.2}, ride: {tone: .5, level: .4}, ...hats}),
     drums: d.kit('drums', kit, {clap: {level: .2, tone: .6, decay: 1.2}, snare: {level: .55, tone: .65}, crash: {tone: .45, level: .35, decay: 1.6}, ...drums}),
-    perc: d.kit('perc', kit, {rim: {level: .45, tone: .55, pan: .35}, shaker: {level: .5, tone: .5, pan: -.2}, tomL: {level: .85, decay: 1.05}, tomH: {level: .72, decay: .95, pan: .3}, clave: {level: .35, tone: .6, pan: -.4}, ...perc}),
+    perc: (skins ? nativeToms : (d, k) => k)(d, d.kit('perc', kit, {rim: {level: .45, tone: .55, pan: .35}, shaker: {level: .5, tone: .5, pan: -.2}, tomL: {level: .85, decay: 1.05}, tomH: {level: .72, decay: .95, pan: .3}, clave: {level: .35, tone: .6, pan: -.4}, ...perc})),
     bell: d.kit('perc', '909', {ride: {x: .92, level: .45, tone: .62, decay: .55, pan: .28}, chh: {x: 1, tone: .82, level: .6, decay: .45, pan: -.35}}),
   };
 }

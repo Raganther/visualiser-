@@ -1,7 +1,7 @@
 // Drums, strings, shakers and textures computed from their physics: a struck membrane (kick, toms, hand drums), a plucked
 // string (Karplus and Strong: a burst of noise round a tuned loop that loses its highs each time round), a shaker as beads
 // colliding (Cook's PhISEM), a cloud of grains, and rain as droplets.
-import { rng } from '../desk.js';
+import { rng } from '../rng.js';
 
 const LN1000 = Math.log(1000), out = n => ({L: new Float32Array(n), R: new Float32Array(n)});
 const fade = (o, sr, ms = 15) => { const n = o.L.length, f = Math.min(n, Math.round(ms/1000*sr)); for (let i = 0; i < f; i++) { const g = i/f; o.L[n - 1 - i] *= g; o.R[n - 1 - i] *= g; } return o; };

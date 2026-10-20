@@ -5,8 +5,8 @@
 // percussive, a note of it changing every eight bars; no clap and no pad: the stabs carry the chords, their filter
 // opening and closing on an LFO, into echo washes.
 import { buses, kick, kits, synth, cycle, voice, scale, each, every, bar16, kickBar, hatBar, ohhBar, hits } from '../lib/palette.js';
-export const meta = {title: 'Lantern', bpm: 122, bars: 128, swing: .07, seed: 44, version: 2, key: 'E Dorian: Em9, Cmaj7#11',
-  words: 'v2, from your notes: the A13 is gone for a floating Cmaj7#11; no vibes: a steel drum in threes in their place, short and percussive, a note changing every eight bars; no clap and no pad: the stabs carry the chords, their filter opening and closing on an LFO into echo washes; the bass as it was.'};
+export const meta = {title: 'Lantern', bpm: 122, bars: 128, swing: .07, seed: 44, version: 3, key: 'E Dorian: Em9, Cmaj7#11',
+  words: 'v3: the steel drum is now native, and a church bell answers at the phrase lines; otherwise as v2. v2, from your notes: the A13 is gone for a floating Cmaj7#11; no vibes: a steel drum in threes in their place, short and percussive, a note changing every eight bars; no clap and no pad: the stabs carry the chords, their filter opening and closing on an LFO into echo washes; the bass as it was.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){
@@ -45,5 +45,7 @@ export function score(d){
   d.lfo(B.bells.filter.frequency, {beats: 6, depth: [[48, 200], [64, 700], [72, 400], [96, 600], [112, 1300], [120, 0]], rate: [[48, 6], [66, 3], [76, 6], [100, 3], [110, 1.5], [116, 6]]});
   d.morph(steel, 'ad', [[48, .35], [64, .55], [76, .8], [96, .4], [112, .7]], 2);
   { const p = [[48, 0]]; for (let bar = 56; bar <= 120; bar += 8) p.push([bar - 1, .02], [bar - .25, .4], [bar + .5, .02]); d.ramp(toWash.bells, p); }
+  // v3: a church bell (native) answering at the phrase lines
+  const church = d.native('fx', 'bell'); for (const bar of [48, 64, 96, 112]) d.note(church, 64, bar, 0, 16, .55);
   d.noise('fx', 80, 88, {f0: 250, f1: 6500, peak: -8});
 }

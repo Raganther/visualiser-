@@ -5,21 +5,22 @@
 // kalimbas' loops vary a little every few phrases (a note moved, an octave flipped, a step added) and each has its own
 // filter, opening and closing on an LFO that speeds up, with resonance, decay and echo washes moving; no pad at all: the
 // breakdown is a new polyrhythm (woodblocks in sevens) in echoes and reverb, then the hats build it back up.
-import { buses, kick, kits, synth, chord, scale, each, every, bar16, kickBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Tidal Clock', bpm: 122, bars: 128, swing: .05, seed: 33, version: 2, key: 'D minor, one chord (no pad)',
-  words: 'v2, from your notes: no clap (toms and rim off the downbeats instead); the two kalimba loops vary a little every few phrases, each with its own filter opening and closing on an LFO that speeds up, resonance and echo washes; no pad: the breakdown is woodblocks in sevens in echoes and reverb, then the hats build it back up.'};
+// v3: the pad back, moving (the user missed it); the woodblocks and toms native; rain through the breakdown.
+import { buses, kick, kits, synth, chord, scale, each, every, bar16, kickBar, ohhBar, rainAt } from '../lib/palette.js';
+export const meta = {title: 'Tidal Clock', bpm: 122, bars: 128, swing: .05, seed: 33, version: 3, key: 'D minor, one chord',
+  words: 'v3: the glass pad is back (you missed it), but moving: pumping with the kick, its filter breathing on a slow LFO, its voicing shifting every eight bars; the woodblocks and toms are now native (a block\'s real modes, struck skins), and rain falls through the breakdown; otherwise as v2. v2, from your notes: no clap (toms and rim off the downbeats instead); the two kalimba loops vary a little every few phrases, each with its own filter opening and closing on an LFO that speeds up, resonance and echo washes; the breakdown is woodblocks in sevens in echoes and reverb, then the hats build it back up.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){
   const kalBus = {level: 7, width: 1.3, pump: {depth: .35, rel: .45}, a: -5, b: -6, hp: 200, filter: {cut: 2000, q: 1.5}};
-  buses(d, {bells: {...kalBus, pan: -.2}, lead: {filter: {cut: 3000, q: 1}}});
+  buses(d, {bells: {...kalBus, pan: -.2}, lead: {filter: {cut: 3000, q: 1}}, pad: {pump: {depth: .85, rel: .7}, filter: {cut: 1600, q: 1.1}}});
   d.bus('bellsB', {...kalBus, pan: .2});
   const wash = d.addReturn('wash', 'delay', {div: 3, fb: .66, tone: 2400}, {level: -3, width: 1.7, pump: {depth: .5, rel: .6}, hp: 250});
   const toWash = {a: d.send('bells', 'wash'), b: d.send('bellsB', 'wash'), wood: d.send('lead', 'wash')};
   const K = kick(d, 'round'), {hats, drums, perc} = kits(d, {perc: {tomL: {level: .9, decay: 1.1}, tomH: {level: .75, decay: .95, pan: .35}, rim: {level: .4, tone: .5, pan: -.3}}}), v = x => x*(.92 + d.rand()*.16);
   const Dm = chord('D:m11'), pen = scale(62, 'penta'), B = d.buses;
   const kalA = synth(d, 'bells', 'kalimba', {width: .3}), kalB = synth(d, 'bellsB', 'kalimba', {width: .3, fine: 4}), wood = synth(d, 'lead', 'wood');
-  const bass = synth(d, 'bass', 'clean', {ad: .2, as: .3});
+  const bass = synth(d, 'bass', 'clean', {ad: .2, as: .3}), pad = synth(d, 'pad', 'glassPad');
 
   /* ---------- the drums: no clap; toms in threes, a rim and a high tom off the downbeats ---------- */
   each([[0, 72], [88, 124]], bar => kickBar(d, K, bar));
@@ -81,6 +82,15 @@ export function score(d){
   for (let bar = 80; bar < 88; bar += 4) d.note(bass, Dm.root + 12, bar, 0, 60, .5);
   d.ramp(B.bass.filter.frequency, [[16, 1200], [48, 2400], [71, 3000], [80, 600], [88, 2400], [124, 900]], {exp: true});
 
+  // v3: rain through the breakdown
+  rainAt(d, 'fx', 72, 16);
+  // v3: the glass pad back (v1's, which the user missed), moving: D minor 11's colours in turn every eight bars (the 9th
+  // and 11th, then the 7th and 9th, then the 4th and 5th), pumping with the kick, its filter breathing on an LFO
+  const PADV = [[60, 64, 65, 69], [60, 64, 69, 72], [62, 64, 67, 69], [60, 65, 67, 72], [57, 60, 64, 69], [60, 64, 65, 69], [62, 65, 67, 72], [60, 64, 69, 72]];
+  for (let bar = 0; bar < 128; bar += 8) d.chord(pad, PADV[(bar/8) % PADV.length], bar, 0, 8*16 - 2, .5);
+  d.ramp(B.pad.level, [[0, .45], [16, .3], [72, .3], [74, .85], [88, .32], [120, .4], [128, 0]]);
+  d.ramp(B.pad.filter.frequency, [[0, 800], [16, 1400], [48, 2000], [72, 1100], [86, 4500], [88, 1800], [112, 2400], [128, 800]], {exp: true});
+  d.lfo(B.pad.filter.frequency, {beats: 8, depth: [[0, 300], [16, 500], [72, 700], [88, 600], [128, 200]]});
   d.noise('fx', 82, 88, {f0: 300, f1: 6000, peak: -8});
   d.hit(drums, 'crash', 88, 0, .55);
 }

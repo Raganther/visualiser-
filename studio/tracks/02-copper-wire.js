@@ -5,9 +5,9 @@
 // riff a few 16ths at a time, and evolves (its filter, resonance, decay and echo moving all the way); the steel drum and the
 // ping bloom under automation (filters, resonance, LFOs speeding up, echo washes, reverb throws) and the ping's one note
 // grows into a phrase over the peak.
-import { buses, kick, kits, synth, chord, cycle, each, every, hits, bar16, kickBar, hatBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Copper Wire', bpm: 125, bars: 128, swing: .06, seed: 21, version: 2, key: 'A pedal, suspended; breakdown Fmaj7#11, Gsus2, Dsus2, E7sus',
-  words: 'v2, from your notes: the pad pumps and moves, drifting through suspended chords over the A that never resolve; the breakdown leaves the A for a progression that hangs on a suspended E until the drop; the bass grows from the intro\'s notes into the riff a few at a time and keeps evolving; the steel drum and the ping bloom under automation (filters, resonance, speeding LFOs, echo washes, reverb throws), and the ping grows from one note into a phrase.'};
+import { buses, kick, kits, synth, chord, cycle, each, every, hits, bar16, kickBar, hatBar, ohhBar, cloud } from '../lib/palette.js';
+export const meta = {title: 'Copper Wire', bpm: 125, bars: 128, swing: .06, seed: 21, version: 3, key: 'A pedal, suspended; breakdown Fmaj7#11, Gsus2, Dsus2, E7sus',
+  words: 'v3: the steel drum is now the native one (a pan\'s note computed from its physics), and a bell cloud blooms through the breakdown; otherwise as v2. v2, from your notes: the pad pumps and moves, drifting through suspended chords over the A that never resolve; the breakdown leaves the A for a progression that hangs on a suspended E until the drop; the bass grows from the intro\'s notes into the riff a few at a time and keeps evolving; the steel drum and the ping bloom under automation (filters, resonance, speeding LFOs, echo washes, reverb throws), and the ping grows from one note into a phrase.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 // the pad's voicings over the A pedal: suspended, each four bars, never landing on a plain A minor
@@ -100,6 +100,8 @@ export function score(d){
   d.ramp(toWash.lead, [[96, 0], [103, 0], [104, .2], [108, .35], [111, .6], [112, .3], [116, .8], [118, 0]]);
   d.ramp(B.lead.b.gain, [[96, .5], [111.5, .5], [112, 2], [113, .6], [115, .8], [116, 2.4], [118, .5]]);
 
+  // v3: a bell cloud (grains of a struck bar on A, D and E) blooming through the breakdown
+  cloud(d, 'fx', 72, 16, {f0: 440});
   d.noise('fx', 80, 88, {f0: 250, f1: 7000, peak: -7});
   d.noise('fx', 72, 75, {f0: 4000, f1: 400, peak: -12, fade: 'out'});
   d.noise('fx', 112, 116, {f0: 600, f1: 9000, peak: -14});

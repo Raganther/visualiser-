@@ -11,8 +11,9 @@ import { bq, two } from '../../src/audio/engine/fx/kit.js';
 import { NATIVE, noteBuffers } from './native/index.js';
 
 const db = v => Math.pow(10, v/20);
-// a seeded random (the kit's own variation reads Math.random, which render.mjs seeds too)
-export function rng(seed = 1){ let s = seed >>> 0 || 1; return () => { s = (s*1664525 + 1013904223) >>> 0; return s/4294967296; }; }
+// a seeded random (lib/rng.js; the kit's own variation reads Math.random, which render.mjs seeds too)
+import { rng } from './rng.js';
+export { rng };
 
 export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   const beat = 60/bpm, six = beat/4, env = {period: () => beat};

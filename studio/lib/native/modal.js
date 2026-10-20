@@ -3,11 +3,12 @@
 // harder it is (and the harder it strikes) the more of the upper modes it reaches, and where it strikes weights them by
 // the mode's shape there. Each mode is a decaying sinusoid computed sample by sample; a doublet beats (a real bell's modes
 // come in slightly split pairs); every mode sits a little apart in the stereo.
-import { rng } from '../desk.js';
+import { rng } from '../rng.js';
 
 const LN1000 = Math.log(1000);
 // modes: [[ratio, level, T60 seconds, attack seconds?], …]; f0 in Hz; returns {L, R} Float32Arrays
-export function modal(sr, f0, modes, {vel = .8, hard = .5, pos = .27, beat = 0, width = .35, glide = 0, glideT = .05, len, click = 0, seed = 1, trem = 0, tremHz = 5.5} = {}){
+export function modal(sr, f0, modes, {vel = .8, hard = .5, pos = .27, beat = 0, width = .35, glide = 0, glideT = .05, len, click = 0, seed = 1, trem = 0, tremHz = 5.5, ring = 1} = {}){
+  modes = modes.map(([r, l, t, a]) => [r, l, t*ring, a]);   // (ring: every mode's decay lengthened or shortened)
   const R = rng(seed), b = Math.min(1, hard*(.55 + .45*vel));
   const top = sr*.45, T = len ?? Math.min(8, Math.max(...modes.map(m => m[2]))*1.05), n = Math.ceil(T*sr) + 1;
   const L = new Float32Array(n), Rr = new Float32Array(n);

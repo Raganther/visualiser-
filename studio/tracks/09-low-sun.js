@@ -2,8 +2,8 @@
 // E minor 7, then D minor 9, four bars each. Tribal toms and shaker, a kalimba pattern, a steel drum in threes at the peak,
 // the soft sequence on the round bass, dotted chords.
 import { buses, kick, kits, synth, chord, cycle, voice, scale, each, every, bar16, kickBar, ohhBar } from '../lib/palette.js';
-export const meta = {title: 'Low Sun', bpm: 126, bars: 128, swing: .05, seed: 99, version: 1, key: 'E Phrygian: Em7, Fmaj9, Em7, Dm9',
-  words: 'Phrygian, dark and a little mysterious: E minor 7, F major 9 (the half-step above), E minor 7, D minor 9. Tribal toms and shaker, a kalimba pattern, a steel drum in threes, the soft sequence on the round bass, dotted chords.'};
+export const meta = {title: 'Low Sun', bpm: 126, bars: 128, swing: .05, seed: 99, version: 2, key: 'E Phrygian: Em7, Fmaj9, Em7, Dm9',
+  words: 'v2: the steel drum and the toms are now native; otherwise as v1. Phrygian, dark and a little mysterious: E minor 7, F major 9 (the half-step above), E minor 7, D minor 9. Tribal toms and shaker, a kalimba pattern, a steel drum in threes, the soft sequence on the round bass, dotted chords.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Peak', 88, 112], ['Outro', 112, 128]];
 
 export function score(d){

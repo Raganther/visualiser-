@@ -1,8 +1,8 @@
 // Night Ferry: dub, suspended harmony that never settles: Dsus2, Bb maj7#11 (Lydian), Fsus2, Cadd9, four bars each.
 // Lazy lo-fi drums, dub chord swells into a long echo, tubular bells far off, the dub sub one note a bar, the sweeping pad.
 import { buses, kick, kits, synth, chord, cycle, voice, each, bar16, kickBar } from '../lib/palette.js';
-export const meta = {title: 'Night Ferry', bpm: 118, bars: 120, swing: .1, seed: 77, version: 1, key: 'D, suspended: Dsus2, Bbmaj7#11, Fsus2, Cadd9',
-  words: 'Dub, with suspended chords that never settle (Dsus2, B flat Lydian, Fsus2, Cadd9, four bars each). Lazy lo-fi drums, dub chord swells into a long echo, tubular bells far off, a dub sub, the sweeping pad.'};
+export const meta = {title: 'Night Ferry', bpm: 118, bars: 120, swing: .1, seed: 77, version: 2, key: 'D, suspended: Dsus2, Bbmaj7#11, Fsus2, Cadd9',
+  words: 'v2: the tubular bells are now native (a tube\'s beating partials); otherwise as v1. Dub, with suspended chords that never settle (Dsus2, B flat Lydian, Fsus2, Cadd9, four bars each). Lazy lo-fi drums, dub chord swells into a long echo, tubular bells far off, a dub sub, the sweeping pad.'};
 export const SECTIONS = [['Intro', 0, 16], ['Groove', 16, 48], ['Lift', 48, 72], ['Breakdown', 72, 88], ['Drift', 88, 112], ['Outro', 112, 120]];
 
 export function score(d){
