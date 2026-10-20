@@ -8,6 +8,7 @@ import reverbFx from '../../src/audio/engine/fx/reverb.js';
 import chorusFx from '../../src/audio/engine/fx/chorus.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { bq, two } from '../../src/audio/engine/fx/kit.js';
+import { NATIVE, noteBuffers } from './native/index.js';
 
 const db = v => Math.pow(10, v/20);
 // a seeded random (the kit's own variation reads Math.random, which render.mjs seeds too)
@@ -72,6 +73,15 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   /* ---------- instruments, each into its bus ---------- */
   d.kit = (bus, kitName = 'Minimal', over = {}) => { const k = makeDrums(ctx, d.buses[bus].in); k.load(kitName, over); k.bus = bus; return k; };
   d.synth = (bus, preset, set = {}) => { const s = makePoly(ctx, d.buses[bus].in, env); s.load({...(PRESETS[preset] || {}), ...set}); s.bus = bus; return s; };
+  // a native instrument (lib/native): each note computed from its physics into a buffer, played like a synth's note; its
+  // settings (hard, pos, decay, …) can move with d.morph, so the sound changes from note to note
+  const bufs = new WeakMap();
+  d.native = (bus, name, set = {}) => { const P = {...set}, g = NATIVE[name].gain*(P.gain ?? 1); delete P.gain;
+    return {bus, P, set(k, v){ P[k] = v; }, play(n, t, len, vel){
+      const o = noteBuffers(ctx.sampleRate, name, n, vel, P); let ab = bufs.get(o);
+      if (!ab) { ab = ctx.createBuffer(2, o.L.length, ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1); bufs.set(o, ab); }
+      const src = ctx.createBufferSource(), gn = ctx.createGain(); src.buffer = ab; gn.gain.value = g*(.4 + .6*vel);
+      src.connect(gn); gn.connect(d.buses[bus].in); src.start(t); src.onended = () => gn.disconnect(); }}; };
 
   /* ---------- placing notes ---------- */
   // a hit; on the kick kit's kick it's also what the sidechain ducks to
