@@ -44,3 +44,4 @@ before writing or changing a piece; add to it when they react.
 - 2026-10-20: Studio Jam pack 2: liked overall, but not its basses: "all kind of low sub and kind of unusable" (they sat at
   41–62 Hz, mostly sines). Basses need harmonics above the fundamental, and sit where the glass bass does. They want to
   mix and match sounds from every pack: the jam's sound picker now holds the whole library, with an octave button per column.
+- 2026-10-20: Studio Jam ratings: 👎 Dark stab (pack 2's low-filtered dub chord).

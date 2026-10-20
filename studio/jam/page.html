@@ -88,6 +88,14 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
 .snd .muted{font-size:12px}
+#snaps{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin-top:8px}
+.snap{position:relative; border:1px solid var(--line); border-radius:12px; background:var(--well); display:flex; flex-direction:column; min-height:64px}
+.snap .go, .snap.save{border:0; background:transparent; text-align:left; padding:10px 12px; display:flex; flex-direction:column; gap:3px; flex:1; min-height:64px; font:inherit; color:inherit}
+.snap.save{border:1px dashed var(--acc); color:var(--acc)}
+.snap[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.snap[data-del="1"]{border-color:var(--acc)}
+.snap .muted{font-size:12px}
+.snapbtns{position:absolute; top:4px; right:4px; display:flex; gap:2px}
 .sndgroup{grid-column:1/-1; margin-top:8px}
 .octbox{display:inline-flex; align-items:center; gap:8px; padding:0 6px}
 .octbox button{min-width:40px; min-height:40px; border-radius:8px; border:1px solid var(--line); background:transparent; font-size:18px}
@@ -117,6 +125,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 
   <section class="gridbox" aria-label="Clips"><div id="grid"></div></section>
 
+  <section class="panel" aria-label="Snapshots"><div class="lab">Snapshots: your combinations, back on the next bar</div><div id="snaps"></div></section>
+
   <section class="panel perform" aria-label="Perform">
     <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
     <div class="side">
@@ -140,7 +150,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       </div>
       <div class="keys">
         <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
-        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
       </div>
     </div>
   </section>

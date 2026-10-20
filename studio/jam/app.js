@@ -187,13 +187,56 @@ for (const [id, d] of [['bpmDown', -2], ['bpmUp', 2]]) $(id).onclick = () => { s
 // the keyboard: 1–8 scenes; Q–U a column; ↑ ↓ its clip; Shift+Q–U mute; V M B D H moves; R held repeats; Space play
 document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toUpperCase();
   if (e.key === ' ') { e.preventDefault(); st.playing ? stop() : start(); return; }
+  const dg = /^Digit([1-9])$/.exec(e.code); if (e.shiftKey && dg) { const x = SNAPS[+dg[1] - 1]; if (x) recall(x); return; }
   if (/^[1-8]$/.test(e.key)) { scene(+e.key - 1); return; }
+  if (k === 'S' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { saveSnap(); return; }
   const ci = 'QWERTYU'.indexOf(k); if (ci >= 0 && ci < st.cols.length && !e.repeat) { if (e.shiftKey) { const c = st.cols[ci]; c.mute = !c.mute; macros(c); renderCol(c); } else { st.sel = ci; renderSel(); } return; }
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const c = selCol(), ids = PACK.scenes.map(s => s.clips[st.sel]).filter(Boolean), uniq = [...new Set(ids)], i = uniq.indexOf(c.next?.id || c.clipId); launch(c, uniq[(i + (e.key === 'ArrowDown' ? 1 : -1) + uniq.length) % uniq.length]); return; }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const c = selCol(); c.x = Math.max(0, Math.min(1, c.x + (e.key === 'ArrowRight' ? .08 : -.08))); macros(c); drawPad(); return; }
   if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); });
 document.addEventListener('keyup', e => { if (e.key.toUpperCase() === 'O') repeat(false); });
 addEventListener('resize', drawPad);
+
+/* ---------- snapshots: the user's own saved combinations, recalled on the next bar ---------- */
+let SNAPS = [], snapOn = null, snapDel = null;
+const SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
+const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
+function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
+  return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
+    cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
+      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute,
+        clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
+async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x); storeSnaps(); snapOn = x.id; renderSnaps(); flash('Saved ' + x.name);
+  if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
+// sounds and settings change at once (so their notes are computed in time); clips and the harmony on the next bar
+async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id === x.pack)) { flash('That pack is gone'); return; } await loadPack(x.pack); }
+  snapOn = x.id; st.bpm = x.bpm; $('bpmOut').textContent = st.bpm; tempo();
+  x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
+    if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
+    for (const k of ['x', 'y', 'motion', 'length', 'oct']) if (c[k] !== v[k]) { c[k] = v[k]; logMacro(c, k, v[k]); }
+    if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
+    if (!v.clip) c.next = 'stop'; else { const base = CLIP[v.clip.id] || {id: v.clip.id, role: c.role, name: 'Saved clip', variations: []}; c.next = {id: v.clip.id, clip: {...base, len: v.clip.len, steps: v.clip.steps}, var: v.clip.var}; prewarm(c, c.next.clip); }
+    c.nextRow = PACK.scenes.findIndex(sc => sc.clips[i] === v.clip?.id);
+    if (!st.playing) { if (c.next === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = c.next.clip; c.clipId = c.next.id; c.var = c.next.var; c.row = c.nextRow; } delete c.next; c.start = 0; }
+    renderCol(c); });
+  if (PACK.harmonies.some(H => H.id === x.harmony)) setHarmony(x.harmony);
+  saveSounds(); renderSel(); renderSnaps(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
+async function renameSnap(x){ const name = prompt('Name this snapshot', x.name)?.trim(); if (!name || name === x.name) return; x.name = name.slice(0, 40); storeSnaps(); renderSnaps();
+  if (db) try { await db.collection('snaps').doc(x.id).update({name: x.name}); } catch {} }
+async function deleteSnap(x){ if (snapDel !== x.id) { snapDel = x.id; renderSnaps(); flash('Press ✕ again to delete ' + x.name); setTimeout(() => { if (snapDel === x.id) { snapDel = null; renderSnaps(); } }, 3000); return; }
+  SNAPS = SNAPS.filter(y => y !== x); snapDel = null; storeSnaps(); renderSnaps(); flash('Deleted ' + x.name); if (db) try { await db.collection('snaps').doc(x.id).delete(); } catch {} }
+function renderSnaps(){ const box = $('snaps'); if (!box) return; box.innerHTML = '';
+  box.append(h('button', {class: 'snap save', onclick: saveSnap, title: 'Save what’s playing (S)'}, h('b', {}, '＋ Save'), h('span', {class: 'muted'}, 'what’s playing now')));
+  const list = [...SNAPS.filter(x => x.pack === PACK?.id), ...SNAPS.filter(x => x.pack !== PACK?.id)];
+  list.forEach(x => { const k = SNAPS.indexOf(x), pk = PACKS.find(p => p.id === x.pack), H = (pk && x.pack === PACK.id ? PACK.harmonies.find(y => y.id === x.harmony)?.name : '') || '';
+    box.append(h('div', {class: 'snap', 'data-on': x.id === snapOn ? '1' : '', 'data-del': x.id === snapDel ? '1' : ''},
+      h('button', {class: 'go', onclick: () => recall(x), title: k < 9 ? `Recall (Shift+${k + 1})` : 'Recall'}, h('b', {}, (k < 9 ? k + 1 + ' · ' : '') + x.name), h('span', {class: 'muted'}, x.pack === PACK?.id ? H || ' ' : (pk?.name.split(':')[0] || x.pack))),
+      h('span', {class: 'snapbtns'}, h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch { SNAPS = []; } renderSnaps();
+  if (!db) return; try { const q = await db.collection('snaps').get(), have = new Set(SNAPS.map(x => x.id));
+    for (const d of q.docs) { const x = d.data(); if (x && !have.has(x.id)) SNAPS.push(x); }
+    for (const x of SNAPS) if (!q.docs.some(d => d.id === x.id)) try { await db.collection('snaps').doc(x.id).set(x); } catch {}
+    SNAPS.sort((a, b) => a.at < b.at ? -1 : 1); storeSnaps(); renderSnaps(); } catch {} }
 
 /* ---------- feedback and keeping (the page's database) ---------- */
 let db = null;
@@ -221,7 +264,7 @@ async function loadPack(id){ if (st.playing) stop();
   let chosen = []; try { chosen = JSON.parse(localStorage.getItem(soundsKey()) || '[]'); } catch {}
   st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, level: .85, clip: null, clipId: null, start: 0}));
   if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); }
-  renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); busy(); }
+  renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); renderSnaps(); busy(); }
 function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));
   for (const p of PACKS) box.append(h('button', {class: 'pchip', 'data-on': p.id === PACK?.id ? '1' : '', title: p.words || '', onclick: () => p.id !== PACK.id && loadPack(p.id)}, p.name));
   if (PACK?.words) box.append(h('span', {class: 'muted'}, PACK.words)); }
@@ -232,5 +275,7 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   SND = Object.fromEntries(LIB.map(s => [s.id, s]));
   let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
   await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
+  loadSnaps();
   db = await window.claude?.use?.('db').catch(() => null) || null;
+  loadSnaps();
 })();
