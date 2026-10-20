@@ -98,7 +98,7 @@ export const SOUNDS = {
 };
 // the sounds the user preferred native in the lab (native-1): bars, bells, the steel pan and the metal plate computed from
 // their physics; the kalimba, the glass bass, the pluck and the shaker they preferred as they were
-const NATIVE_OF = {marimba: 'marimba', musicbox: 'musicbox', steel: 'steel', wood: 'wood', tubular: 'tubular', vibes: 'vibes', metal: 'plate'};
+export const NATIVE_OF = {marimba: 'marimba', musicbox: 'musicbox', steel: 'steel', wood: 'wood', tubular: 'tubular', vibes: 'vibes', metal: 'plate'};
 export const synth = (d, bus, name, over = {}) => { const [p, s] = SOUNDS[name];
   if (NATIVE_OF[name] && d.native && !over.poly) return native(d, bus, name, s, over);
   const syn = d.synth(bus, p, {chord: 0, ...s, ...over}); syn.label = name; return syn; };
@@ -106,7 +106,7 @@ export const synth = (d, bus, name, over = {}) => { const [p, s] = SOUNDS[name];
 // the physics (a longer decay rings every mode longer; more filter envelope or resonance strikes harder, brighter)
 function native(d, bus, name, base, over){
   const nat = NATIVE_OF[name], ins = d.native(bus, nat), H = MODAL[nat].hard, tr = 12*(base.oct || 0), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const set = (k, v) => { if (k === 'ad') ins.set('ring', clamp(v/(base.ad ?? .3), .4, 3)); else if (k === 'fenv') ins.set('hard', clamp(H + (v - (base.fenv ?? .2))*.6, .15, 1)); else if (k === 'res') ins.set('hard', clamp(H + (v - (base.res ?? 0))*.5, .15, 1)); };
+  const set = (k, v) => { if (k === 'ad') ins.set('ring', clamp(v/(base.ad ?? .3), .4, 3)); else if (k === 'fenv') ins.set('hard', clamp(H + (v - (base.fenv ?? .2))*.6, .15, 1)); else if (k === 'res') ins.set('hard', clamp(H + (v - (base.res ?? 0))*.5, .15, 1)); else if (k !== 'poly') ins.set(k, v); };   // (a physics setting, from the DAW, goes straight through)
   for (const [k, v] of Object.entries(over)) set(k, v);
   const w = {bus, set, native: nat, label: name, play: (n, t, len, vel) => ins.play(n + tr, t, len, vel)};
   d.onInst?.(w, {engine: 'palette', bus, name, over}); return w;
