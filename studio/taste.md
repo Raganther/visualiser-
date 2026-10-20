@@ -37,3 +37,7 @@ before writing or changing a piece; add to it when they react.
 - 2026-10-20: notes on Copper Wire v1 → v2 (principles 1–6).
 - 2026-10-20: notes on Tidal Clock, Glasshouse and Lantern v1 → v2s (principles 7–10). Liked: Tidal Clock's polyrhythm,
   bass and melody; Glasshouse's bass and gated chord; Lantern's bass.
+- 2026-10-20: the native lab (`native-1`): native preferred for marimba, music box, steel drum, woodblocks, tubular bells,
+  vibraphone, metal plate (the ping), plucked string and toms; native-only church bell, bell cloud and rain liked; the
+  kalimba, glass bass and shaker kept as they were (native glass bass and shaker: no). The palette now plays the native
+  ones (`synth()` in `lib/palette.js`). Tidal Clock: the user missed its pad when v2 took it out; it's back, moving (v3).
