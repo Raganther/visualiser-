@@ -9,10 +9,12 @@ import { serve, launch, ROOT } from '../tests/lib.mjs';
 const args = process.argv.slice(2), name = args.find(a => !a.startsWith('--')) || '01-slow-bloom';
 const opt = k => { const i = args.indexOf('--' + k); return i >= 0 ? +args[i + 1] : null; };
 const SR = 44100, from = opt('from'), to = opt('to'), kbps = opt('mp3') || 192;
-const {meta, SECTIONS} = await import(path.join(ROOT, 'studio/tracks', name + '.js'));
+// --session <file>: render a session (the DAW's data, lib/play-session.js) instead of the score; it renders as tag v<version>s
+const sessionFile = args.includes('--session') ? args[args.indexOf('--session') + 1] : null, SESSION = sessionFile ? JSON.parse(fs.readFileSync(path.resolve(ROOT, sessionFile), 'utf8')) : null;
+const {meta, SECTIONS} = SESSION ? {meta: SESSION.meta, SECTIONS: SESSION.sections} : await import(path.join(ROOT, 'studio/tracks', name + '.js'));
 const out = path.join(ROOT, 'studio/out', name); fs.mkdirSync(out, {recursive: true});
 const variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
-const tag = `v${meta.version}${variant || ''}${from != null ? `-bars${from}-${to}` : ''}`;
+const tag = `v${meta.version}${variant || ''}${SESSION ? 's' : ''}${from != null ? `-bars${from}-${to}` : ''}`;
 
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage();
@@ -20,10 +22,11 @@ page.on('console', m => { if (m.type() === 'error') console.log('page:', m.text(
 page.on('pageerror', e => console.log('page error:', e.message));
 await page.goto(url + 'studio/');
 const t0 = Date.now();
-const info = await page.evaluate(async ({name, SR, from, to, variant}) => {
+const info = await page.evaluate(async ({name, SR, from, to, variant, SESSION}) => {
   // a seeded Math.random, so the kit's own variation is the same every render
   let s = 99991; Math.random = () => { s = (s*1664525 + 1013904223) >>> 0; return s/4294967296; };
-  const {desk} = await import('/studio/lib/desk.js'), T = await import(`/studio/tracks/${name}.js`), m = T.meta;
+  const {desk} = await import('/studio/lib/desk.js'), T = SESSION ? {meta: SESSION.meta} : await import(`/studio/tracks/${name}.js`), m = T.meta;
+  if (SESSION) { const {playSession} = await import('/studio/lib/play-session.js'); T.score = d => playSession(d, SESSION); }
   const beat = 60/m.bpm, bars = to != null ? Math.min(m.bars, to) : m.bars, tail = 6, secs = bars*4*beat + tail;
   const a = from != null ? from*4*beat : 0, b = to != null ? Math.min(secs, to*4*beat + 2) : secs;
   const ctx = new OfflineAudioContext(2, Math.ceil(secs*SR), SR);
@@ -32,7 +35,7 @@ const info = await page.evaluate(async ({name, SR, from, to, variant}) => {
   const i0 = Math.floor(a*SR), i1 = Math.min(buf.length, Math.ceil(b*SR));
   window.__L = buf.getChannelData(0).slice(i0, i1); window.__R = buf.getChannelData(1).slice(i0, i1);
   return {frames: i1 - i0, secs, start: a, notes: d.notes.length, kicks: d.kicks.length, reads: d.reads};
-}, {name, SR, from, to, variant});
+}, {name, SR, from, to, variant, SESSION});
 console.log(`rendered ${info.frames/SR | 0} s (${info.notes} notes) in ${((Date.now() - t0)/1000).toFixed(1)} s`);
 // the channels back, in pieces
 const take = async ch => { const parts = [], N = 1 << 20;

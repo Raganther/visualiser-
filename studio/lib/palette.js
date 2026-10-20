@@ -101,27 +101,28 @@ export const SOUNDS = {
 const NATIVE_OF = {marimba: 'marimba', musicbox: 'musicbox', steel: 'steel', wood: 'wood', tubular: 'tubular', vibes: 'vibes', metal: 'plate'};
 export const synth = (d, bus, name, over = {}) => { const [p, s] = SOUNDS[name];
   if (NATIVE_OF[name] && d.native && !over.poly) return native(d, bus, name, s, over);
-  return d.synth(bus, p, {chord: 0, ...s, ...over}); };
+  const syn = d.synth(bus, p, {chord: 0, ...s, ...over}); syn.label = name; return syn; };
 // a native instrument standing in for a poly synth sound: its octave kept, and the synth settings a score moves mapped onto
 // the physics (a longer decay rings every mode longer; more filter envelope or resonance strikes harder, brighter)
 function native(d, bus, name, base, over){
   const nat = NATIVE_OF[name], ins = d.native(bus, nat), H = MODAL[nat].hard, tr = 12*(base.oct || 0), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const set = (k, v) => { if (k === 'ad') ins.set('ring', clamp(v/(base.ad ?? .3), .4, 3)); else if (k === 'fenv') ins.set('hard', clamp(H + (v - (base.fenv ?? .2))*.6, .15, 1)); else if (k === 'res') ins.set('hard', clamp(H + (v - (base.res ?? 0))*.5, .15, 1)); };
   for (const [k, v] of Object.entries(over)) set(k, v);
-  return {bus, set, native: nat, play: (n, t, len, vel) => ins.play(n + tr, t, len, vel)};
+  const w = {bus, set, native: nat, label: name, play: (n, t, len, vel) => ins.play(n + tr, t, len, vel)};
+  d.onInst?.(w, {engine: 'palette', bus, name, over}); return w;
 }
 // a whole computed buffer placed on a bus at a bar (a cloud, rain)
 const place = (d, bus, o, bar, gain = 1) => d.later(d.t(bar) - .01, () => { const ab = d.ctx.createBuffer(2, o.L.length, d.ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1);
   const s = d.ctx.createBufferSource(), g = d.ctx.createGain(); s.buffer = ab; g.gain.value = gain; s.connect(g); g.connect(d.buses[bus].in); s.start(d.t(bar)); });
 // the bell cloud (liked in the lab): grains of a struck music box bar, thin at first and thickening; pitches as ratios of f0
-export const cloud = (d, bus, bar, bars, {f0 = 440, pitches = [1, 1.335, 1.5, 2, .667], gain = .9, seed = 5} = {}) => { const sr = d.ctx.sampleRate;
+export const cloud = (d, bus, bar, bars, {f0 = 440, pitches = [1, 1.335, 1.5, 2, .667], gain = .9, seed = 5} = {}) => { const sr = d.ctx.sampleRate; d.onTexture?.({kind: 'cloud', bus, bar, bars, opts: {f0, pitches, gain, seed}});
   place(d, bus, grains(sr, modal(sr, f0, MODAL.musicbox.modes, {...MODAL.musicbox, vel: .7, len: 1.4}), bars*4*d.beat + 2, {density: [3, 45], len: [.05, .18], pitches, seed}), bar, gain); };
 // rain (liked in the lab): droplets over a soft hiss
-export const rainAt = (d, bus, bar, bars, {gain = .7, seed = 9} = {}) => place(d, bus, rainBuf(d.ctx.sampleRate, bars*4*d.beat + 2, {seed}), bar, gain);
+export const rainAt = (d, bus, bar, bars, {gain = .7, seed = 9} = {}) => (d.onTexture?.({kind: 'rain', bus, bar, bars, opts: {gain, seed}}), place(d, bus, rainBuf(d.ctx.sampleRate, bars*4*d.beat + 2, {seed}), bar, gain));
 
 /* ---------- the drums: the liked grooves, as functions of a bar ---------- */
 // the toms struck skins (the native membrane, liked in the lab) instead of the kit's: the same voices, low and high
-const nativeToms = (d, kit) => { if (!d.native) return kit; const tom = d.native('perc', 'tom'), play = kit.play.bind(kit);
+export const nativeToms = (d, kit) => { if (!d.native) return kit; const tom = d.native('perc', 'tom'), play = kit.play.bind(kit); kit.skins = true;
   kit.play = (v, t, vel, lock) => v === 'tomL' ? tom.play(43, t, 1, vel) : v === 'tomH' ? tom.play(50, t, 1, vel) : play(v, t, vel, lock); return kit; };
 export function kits(d, {kit = 'Minimal', hats = {}, drums = {}, perc = {}, skins = true} = {}){
   return {
