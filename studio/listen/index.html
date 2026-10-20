@@ -62,6 +62,7 @@ button:focus-visible, textarea:focus-visible, select:focus-visible{outline:2px s
 .mood{border:1px solid var(--line); background:transparent; border-radius:6px; padding:7px 10px; font-size:15px}
 .mood[aria-pressed="true"]{background:var(--cue-soft); border-color:var(--cue)}
 .mood.down[aria-pressed="true"]{background:var(--rec-soft); border-color:var(--rec)}
+#mic[aria-pressed="true"]{background:var(--rec); border-color:var(--rec); color:#fff}
 .save{grid-column:2 / 4; justify-self:end; border:0; border-radius:6px; background:var(--ink); color:var(--bg); padding:8px 16px; font-weight:600}
 .save:disabled{opacity:.4; cursor:default}
 .status{font:12px var(--mono); color:var(--mute); min-height:1em}
@@ -123,6 +124,7 @@ tr.now td{background:var(--cue-soft)}
       <div class="moods">
         <button class="mood up" id="up" aria-pressed="false" title="I like this moment">👍</button>
         <button class="mood down" id="down" aria-pressed="false" title="I don't like this moment">👎</button>
+        <button class="mood" id="mic" aria-pressed="false" title="Dictate a note">🎙</button>
       </div>
       <button class="save" id="save" disabled>Save note</button>
     </div>
@@ -237,7 +239,26 @@ $('text').addEventListener('input', () => { if (pinned == null && $('text').valu
 const unpin = () => { pinned = null; $('at').textContent = 'at ' + fmt(audio.currentTime); };
 const canSave = () => { $('save').disabled = !db || !cur || !($('text').value.trim() || mood); };
 for (const m of ['up', 'down']) $(m).onclick = () => { mood = mood === m ? null : m; if (pinned == null) pinned = audio.currentTime; $('up').setAttribute('aria-pressed', String(mood === 'up')); $('down').setAttribute('aria-pressed', String(mood === 'down')); $('at').textContent = 'at ' + fmt(pinned); canSave(); };
+// dictation: the browser's speech recognition where the page may use the microphone; where it can't (pages on claude.ai
+// usually can't), the device's own dictation still types into the box: the keyboard's mic on a phone, Fn twice on a Mac, Win+H
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const dictateHelp = 'This page can\'t use the microphone itself. Tap in the box and use your keyboard\'s dictation instead: the 🎤 on a phone keyboard, Fn twice on a Mac, Win+H on Windows.';
+let rec = null, recBase = '';
+$('mic').onclick = () => {
+  if (rec) { rec.stop(); return; }
+  if (!SR) { $('status').textContent = dictateHelp; $('text').focus(); return; }
+  try { rec = new SR(); } catch { rec = null; $('status').textContent = dictateHelp; $('text').focus(); return; }
+  rec.continuous = true; rec.interimResults = true; rec.lang = navigator.language || 'en-GB';
+  if (pinned == null) { pinned = audio.currentTime; $('at').textContent = 'at ' + fmt(pinned); }
+  recBase = $('text').value ? $('text').value.replace(/\s*$/, ' ') : '';
+  rec.onresult = e => { let t = ''; for (const r of e.results) t += r[0].transcript; $('text').value = recBase + t.trim(); canSave(); };
+  rec.onerror = e => { $('status').textContent = /not-allowed|service-not-allowed|audio-capture/.test(e.error) ? dictateHelp : 'Dictation stopped (' + e.error + ').'; };
+  rec.onend = () => { rec = null; $('mic').setAttribute('aria-pressed', 'false'); if ($('text').value) $('status').textContent = 'Dictated. Check it, then Save note.'; $('text').focus(); };
+  try { rec.start(); $('mic').setAttribute('aria-pressed', 'true'); $('status').textContent = 'Listening… tap 🎙 again to stop.'; }
+  catch { rec = null; $('status').textContent = dictateHelp; $('text').focus(); }
+};
 $('save').onclick = async () => {
+  rec?.stop();
   const t = pinned ?? audio.currentTime, sec = sectionAt(t);
   $('save').disabled = true; $('status').textContent = 'Saving…';
   try { await db.collection('notes').add({track: cur.id, tag: cur.tag, title: cur.title, t: +t.toFixed(2), bar: +(barOf(t) + 1).toFixed(2), section: sec?.name || null, text: $('text').value.trim(), mood, kind: 'note', at: new Date().toISOString()});
