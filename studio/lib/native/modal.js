@@ -59,7 +59,7 @@ export const MODAL = {
   // a steel pan's note: tuned to its octave and twelfth, the octave blooming a moment after the strike
   steel: {modes: [[1, 1, .9], [2, .55, .7, .012], [3, .25, .4, .008], [4.02, .1, .2], [1.003, .25, .9]], hard: .5, click: .03, width: .4},
   // a woodblock: a few short modes and the hollow's ring
-  wood: {modes: [[1, 1, .13], [2.57, .4, .06], [4.4, .2, .035], [1.46, .25, .08]], hard: .75, click: .25, width: .3},
+  wood: {modes: [[1, 1, .13], [2.57, .4, .06], [4.4, .2, .035], [1.46, .25, .08]], hard: .75, click: .25, width: .3, gain: 1},
   // a glass bar: high, clear, slow upper modes; for the glass bass, struck softly
   glass: {modes: [[1, 1, 1.2], [2.32, .3, .7], [4.25, .12, .35], [6.63, .05, .15]], hard: .35, width: .25},
   // a metal plate: crowded inharmonic modes, beating
