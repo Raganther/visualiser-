@@ -79,7 +79,7 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false}){
   const bufs = new WeakMap();
   d.native = (bus, name, set = {}) => { const P = {...set}, g = NATIVE[name].gain*(P.gain ?? 1); delete P.gain;
     return {bus, P, set(k, v){ P[k] = v; }, play(n, t, len, vel){
-      const o = noteBuffers(ctx.sampleRate, name, n, vel, P); let ab = bufs.get(o);
+      const o = noteBuffers(ctx.sampleRate, name, n, vel, NATIVE[name].held ? {...P, len} : P); let ab = bufs.get(o);
       if (!ab) { ab = ctx.createBuffer(2, o.L.length, ctx.sampleRate); ab.copyToChannel(o.L, 0); ab.copyToChannel(o.R, 1); bufs.set(o, ab); }
       const src = ctx.createBufferSource(), gn = ctx.createGain(); src.buffer = ab; gn.gain.value = g*(.4 + .6*vel);
       src.connect(gn); gn.connect(d.buses[bus].in); src.start(t); src.onended = () => gn.disconnect(); }}; };
