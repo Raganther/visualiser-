@@ -22,11 +22,11 @@ const SOUNDS = [
   {id: 'p2-bowls', role: 'perc', name: 'Bowls and logs', words: 'Native: toms, log drums, struck bowls and a gong.', voices: PERC({})},
   {id: 'p2-hands', role: 'perc', name: 'Hands and metal', words: 'Native: hand drums, the plate, bowls higher.', voices: PERC({tomL: {native: 'hand', n: 48}, tomH: {native: 'hand', n: 55}, log: {native: 'hand', n: 43, set: {decay: .5}}, logH: {native: 'hand', n: 60}, bowl: {native: 'bowl', n: 76}})},
   {id: 'p2-iron', role: 'perc', name: 'Iron', words: 'Native: everything metal: plates, gongs, bowls.', voices: PERC({tomL: {native: 'gong', n: 52, set: {ring: .3}}, tomH: {native: 'plate', n: 64}, wood: {native: 'plate', n: 79, set: {ring: .3}}, log: {native: 'bowl', n: 57, set: {ring: .4}}, logH: {native: 'bowl', n: 64, set: {ring: .4}}})},
-  {id: 'b2-sub', role: 'bass', name: 'Deep sub', words: 'Native: a sine dropping into its note, warmed by drive. Tone is the drive.', src: {native: 'sub808', shift: -12}},
-  {id: 'b2-bowed', role: 'bass', name: 'Bowed low string', words: 'Native: a bow on a low string, rough and woody.', src: {native: 'bowed', shift: -12}},
+  {id: 'b2-sub', role: 'bass', name: 'Sub (pair with another bass)', words: 'Native: a true sub, a sine dropping into its note. Low: best under another bass, or an octave up. Tone is the drive.', src: {native: 'sub808', shift: -12}},
+  {id: 'b2-bowed', role: 'bass', name: 'Bowed low string', words: 'Native: a bow on a low string, rough and woody.', src: {native: 'bowed'}},
   {id: 'b2-reese', role: 'bass', name: 'Dark Reese', words: 'Two saws beating against each other, filtered dark.', src: {palette: 'reese'}},
-  {id: 'b2-fmdark', role: 'bass', name: 'Dark FM', words: 'Native FM, soft and long.', src: {native: 'fmround', shift: -12}},
-  {id: 'b2-log', role: 'bass', name: 'Log bass', words: 'Native: a big log drum, pitched.', src: {native: 'logdrum', shift: -12}},
+  {id: 'b2-fmdark', role: 'bass', name: 'Dark FM', words: 'Native FM, long, with a growl in it.', src: {native: 'fmround', set: {ratio: 2, indexEnd: .5}}},
+  {id: 'b2-log', role: 'bass', name: 'Log bass', words: 'Native: a big log drum, pitched.', src: {native: 'logdrum'}},
   {id: 'c2-bowmetal', role: 'chords', name: 'Bowed metal', words: 'Native: a plate bowed, its modes beating. Dark and shimmering.', src: {native: 'bowmetal'}},
   {id: 'c2-glass', role: 'chords', name: 'Glass harmonica', words: 'Native: wet glass rubbed, nearly pure.', src: {native: 'glassharm'}},
   {id: 'c2-strings', role: 'chords', name: 'Bowed strings', words: 'Native: bowed strings, a section of them.', src: {native: 'bowed'}},
@@ -110,7 +110,7 @@ const HARMONIES = [
 ];
 
 /* ---------- the grid ---------- */
-const COLUMNS = [['kick', 'k2-deep'], ['hats', 'h2-tight'], ['perc', 'p2-bowls'], ['bass', 'b2-sub'], ['chords', 'c2-bowmetal'], ['lead', 'l2-log'], ['lead', 'l2-glass']].map(([role, sound], i) => ({id: 'col' + i, role, sound}));
+const COLUMNS = [['kick', 'k2-deep'], ['hats', 'h2-tight'], ['perc', 'p2-bowls'], ['bass', 'b-glass'], ['chords', 'c2-bowmetal'], ['lead', 'l2-log'], ['lead', 'l2-glass']].map(([role, sound], i) => ({id: 'col' + i, role, sound}));
 const SCENES = [
   ['Drone', [null, null, 'p2-gong', 'b2-swell', 'c2-swell', 'l2-drone', null]],
   ['Sub', ['k2-pulse', 'h2-gaps', null, 'b2-pulse', null, null, 'l2-drone']],

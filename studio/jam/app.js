@@ -11,7 +11,7 @@ import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
-let PACK = null, SND = {}, CLIP = {};
+let PACK = null, SND = {}, CLIP = {}, LIB = [];
 const st = {bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
 
 /* ---------- audio: a channel per column (filter with an LFO, pan, the kick's pump, echo and reverb sends) ---------- */
@@ -48,7 +48,7 @@ function buildSound(c){ if (!ctx) return; const s = SND[c.sound]; c.inst = {kind
     for (const [v, m] of Object.entries(s.voices)) { if (m.native) { c.inst.voices[v] = {native: m.native, n: m.n, set: m.set || {}}; continue; }
       const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.ch.in); kits[key].load(m.kit, m.over || {}); } c.inst.voices[v] = {kit: kits[key]}; } return; }
   const src = s.src; if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.ch.in, env); syn.load({...PRESETS[p], chord: 0, ...set}); c.inst.poly = syn; c.inst.base = set; }
-  else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; }
+  else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; }
   lengthTo(c); }
 // length: a synth's decay and release stretch (a native sound's ring: nativeSet in model.js)
 function lengthTo(c){ if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[c.length]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[c.length]); } }
@@ -62,7 +62,7 @@ function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !work
 function prewarm(c, clip = c.clip){ if (!ctx || !clip) return; const H = st.hNext || st.harmony, sd = 60/st.bpm/4;
   for (let bar = 0; bar < H.bars.length; bar++) for (let p = 0; p < clip.len; p++) for (const [n, len, vel] of notesAt(clip, p, chordOf(H, bar))) {
     if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (v?.native) { const o = nativeSet(c, v.native, v.set); want(keyOf(v.native, v.n, vel, o), v.native, v.n, vel, o); } }
-    else if (c.inst.native) { const nm = c.inst.native, o = nativeSet(c, nm), set = NATIVE[nm].held ? {...o, len: Math.round(len*sd*20)/20} : o; want(keyOf(nm, n + c.inst.shift, vel, set), nm, n + c.inst.shift, vel, set); } } }
+    else if (c.inst.native) { const nm = c.inst.native, o = nativeSet(c, nm, c.inst.set), set = NATIVE[nm].held ? {...o, len: Math.round(len*sd*20)/20} : o; const m = n + c.inst.shift + 12*(c.oct || 0); want(keyOf(nm, m, vel, set), nm, m, vel, set); } } }
 function busy(){ const n = pending.size; $('busy').textContent = !ctx ? 'Press Play' : n ? `Computing ${n} sound${n > 1 ? 's' : ''}…` : st.playing ? 'Playing' : 'Ready'; $('busy').dataset.on = n ? '1' : ''; }
 
 /* ---------- the clock: steps scheduled ahead; launches, harmony and moves land on the next bar ---------- */
@@ -73,13 +73,13 @@ function playStep(step, t){
   const H = st.harmony, chord = chordOf(H, Math.floor((step - st.hStart)/16)), dropped = st.drop && step >= st.drop.at && step < st.drop.at + 16;
   for (const c of st.cols) { if (!c.clip || c.mute || dropped && c.role !== 'chords') continue;
     const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = ((eff - c.start) % c.clip.len + c.clip.len) % c.clip.len;
-    for (const [n, len, vel] of notesAt(c.clip, pos, chord)) { play(c, n, len, vel, t); if (st.rec && step >= st.rec.from) st.rec.notes.push([step - st.rec.from, c.id, c.sound, n, len, +vel.toFixed(2)]); } }
+    for (const [n0, len, vel] of notesAt(c.clip, pos, chord)) { const n = c.inst.kind === 'drums' ? n0 : n0 + 12*(c.oct || 0); play(c, n, len, vel, t); if (st.rec && step >= st.rec.from) st.rec.notes.push([step - st.rec.from, c.id, c.sound, n, len, +vel.toFixed(2)]); } }
   const s = step; setTimeout(() => light(s), Math.max(0, (t - ctx.currentTime)*1000));
 }
 function play(c, n, len, vel, t){
   if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(n, t, vel, null); else nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5);
     if (c.role === 'kick') duck(t); return; }
-  if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), vel); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native), t, len*sd()); }
+  if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), vel); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd()); }
 function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const g = c.ch.duck.gain; g.setTargetAtTime(c.role === 'chords' ? .35 : .6, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
 function barLine(step){
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
@@ -141,7 +141,7 @@ function renderCol(c){ if (!c.head) return; const i = st.cols.indexOf(c), s = SN
   if (i === st.sel) renderSel(); }
 function renderSel(){ const c = selCol(); st.cols.forEach((x, i) => x.head && (x.head.dataset.sel = i === st.sel ? '1' : ''));
   $('selName').textContent = `${ROLE_NAMES[c.role]}: ${SND[c.sound].name}`; $('selClip').textContent = c.clipId ? CLIP[c.clipId].name + (c.var ? ` (variation ${c.var})` : '') : 'not playing';
-  $('motion').textContent = 'Motion: ' + ['still', 'slow', 'fast'][c.motion]; $('length').textContent = 'Length: ' + ['short', 'normal', 'long'][c.length];
+  $('octOut').textContent = (c.oct > 0 ? '+' : '') + (c.oct || 0); $('octBox').hidden = ['kick', 'hats', 'perc'].includes(c.role); $('motion').textContent = 'Motion: ' + ['still', 'slow', 'fast'][c.motion]; $('length').textContent = 'Length: ' + ['short', 'normal', 'long'][c.length];
   drawPad(); }
 function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
   for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
@@ -153,8 +153,15 @@ let flashT = 0; function flash(t){ $('flash').textContent = t; clearTimeout(flas
 // the sound picker: the library's sounds for this column's role
 function openSounds(c){ const box = $('sounds'); box.innerHTML = ''; box.hidden = false;
   box.append(h('div', {class: 'sndhead'}, h('b', {}, `Sounds for ${ROLE_NAMES[c.role]}`), h('button', {class: 'ghost', onclick: () => box.hidden = true}, 'Close')));
-  for (const s of PACK.sounds.filter(s => s.role === c.role)) box.append(h('button', {class: 'snd', 'data-on': s.id === c.sound ? '1' : '', onclick: () => { c.locked = true; setSound(c, s.id); logMacro(c, 'sound:' + s.id, 1); openSounds(c); flash('Sound: ' + s.name); }},
-    h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), rateBtns('sound', s.id, s.name))); }
+  const mine = LIB.filter(s => s.role === c.role), groups = [PACK.id, ...new Set(mine.map(s => s.pack).filter(p => p !== PACK.id))];
+  for (const g of groups) { const list = mine.filter(s => s.pack === g); if (!list.length) continue;
+    box.append(h('div', {class: 'sndgroup lab'}, (PACKS.find(p => p.id === g)?.name || g) + (g === PACK.id ? ' (this pack)' : '')));
+    for (const s of list) box.append(h('button', {class: 'snd', 'data-on': s.id === c.sound ? '1' : '', onclick: () => { c.locked = true; setSound(c, s.id); saveSounds(); logMacro(c, 'sound:' + s.id, 1); openSounds(c); flash('Sound: ' + s.name); }},
+      h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), rateBtns('sound', s.id, s.name))); } }
+// each pack remembers the sounds chosen for its columns (from any pack); Pack sounds puts its own back
+const soundsKey = () => 'studio.jam.sounds.' + PACK.id;
+function saveSounds(){ try { localStorage.setItem(soundsKey(), JSON.stringify(st.cols.map(c => c.locked ? c.sound : null))); } catch {} }
+function packSounds(){ st.cols.forEach((c, i) => { c.locked = false; setSound(c, PACK.columns[i].sound); }); try { localStorage.removeItem(soundsKey()); } catch {} flash('Back to this pack’s own sounds'); }
 
 // the XY pad: tone across, space up; drag (mouse or finger)
 function drawPad(){ const cv = $('pad'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, H = r.height; if (!W) return;
@@ -168,6 +175,8 @@ const padAt = e => { const r = $('pad').getBoundingClientRect(), c = selCol(); c
 $('pad').addEventListener('pointerdown', e => { padDrag = true; $('pad').setPointerCapture(e.pointerId); padAt(e); });
 $('pad').addEventListener('pointermove', e => { if (padDrag) padAt(e); });
 $('pad').addEventListener('pointerup', () => padDrag = false);
+const octave = d => { const c = selCol(); if (['kick', 'hats', 'perc'].includes(c.role)) return; c.oct = Math.max(-2, Math.min(2, (c.oct || 0) + d)); logMacro(c, 'oct', c.oct); prewarm(c); renderSel(); flash(`Octave ${c.oct > 0 ? '+' : ''}${c.oct}`); };
+$('octDown').onclick = () => octave(-1); $('octUp').onclick = () => octave(1); $('packSounds').onclick = () => packSounds();
 $('motion').onclick = () => { const c = selCol(); c.motion = (c.motion + 1) % 3; macros(c); logMacro(c, 'motion', c.motion); renderSel(); };
 $('length').onclick = () => { const c = selCol(); c.length = (c.length + 1) % 3; lengthTo(c); logMacro(c, 'length', c.length); prewarm(c); renderSel(); };
 for (const [id, fn] of [['m-vary', 'vary'], ['m-mutate', 'mutate'], ['m-build', 'build'], ['m-drop', 'drop'], ['m-harm', 'harmony']]) $(id).onclick = () => MOVES[fn]();
@@ -182,7 +191,7 @@ document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.t
   const ci = 'QWERTYU'.indexOf(k); if (ci >= 0 && ci < st.cols.length && !e.repeat) { if (e.shiftKey) { const c = st.cols[ci]; c.mute = !c.mute; macros(c); renderCol(c); } else { st.sel = ci; renderSel(); } return; }
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const c = selCol(), ids = PACK.scenes.map(s => s.clips[st.sel]).filter(Boolean), uniq = [...new Set(ids)], i = uniq.indexOf(c.next?.id || c.clipId); launch(c, uniq[(i + (e.key === 'ArrowDown' ? 1 : -1) + uniq.length) % uniq.length]); return; }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const c = selCol(); c.x = Math.max(0, Math.min(1, c.x + (e.key === 'ArrowRight' ? .08 : -.08))); macros(c); drawPad(); return; }
-  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); });
+  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); });
 document.addEventListener('keyup', e => { if (e.key.toUpperCase() === 'O') repeat(false); });
 addEventListener('resize', drawPad);
 
@@ -207,9 +216,10 @@ let PACKS = [];
 async function loadPack(id){ if (st.playing) stop();
   for (const c of st.cols) { try { c.ch?.out.disconnect(); c.ch?.lfo.stop(); } catch {} }
   PACK = await (await fetch(`packs/${id}.json`)).json(); try { localStorage.setItem('studio.jam.pack', id); } catch {}
-  SND = Object.fromEntries(PACK.sounds.map(s => [s.id, s])); CLIP = Object.fromEntries(PACK.clips.map(c => [c.id, c]));
+  CLIP = Object.fromEntries(PACK.clips.map(c => [c.id, c]));
   st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0]; st.hNext = null; st.sel = 0;
-  st.cols = PACK.columns.map(c => ({...c, x: X0(c.role), y: .3, motion: 0, length: 1, level: .85, clip: null, clipId: null, start: 0}));
+  let chosen = []; try { chosen = JSON.parse(localStorage.getItem(soundsKey()) || '[]'); } catch {}
+  st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, level: .85, clip: null, clipId: null, start: 0}));
   if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); }
   renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); busy(); }
 function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));
@@ -217,6 +227,9 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   if (PACK?.words) box.append(h('span', {class: 'muted'}, PACK.words)); }
 (async () => {
   try { PACKS = (await (await fetch('packs/index.json')).json()).packs; } catch { PACKS = [{id: 'pack-1', name: 'Pack 1'}]; }
+  try { LIB = (await (await fetch('packs/library.json')).json()).sounds; } catch { LIB = []; }
+  if (!LIB.length) for (const p of PACKS) LIB.push(...(await (await fetch(`packs/${p.id}.json`)).json()).sounds.map(s => ({...s, pack: p.id})));
+  SND = Object.fromEntries(LIB.map(s => [s.id, s]));
   let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
   await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
   db = await window.claude?.use?.('db').catch(() => null) || null;

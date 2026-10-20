@@ -40,6 +40,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 #busy{font:12px var(--mono); color:var(--mute)} #busy[data-on="1"]{color:var(--on)}
 #flash{font:500 13px var(--mono); color:var(--acc); min-height:1em}
 .spacer{flex:1}
+#packs{flex:1;}
+.packrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
 #packs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center}
 .pchip{border:1px solid var(--line); background:transparent; border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600}
 .pchip[data-on="1"]{border-color:var(--acc); color:var(--acc)}
@@ -86,6 +88,9 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
 .snd .muted{font-size:12px}
+.sndgroup{grid-column:1/-1; margin-top:8px}
+.octbox{display:inline-flex; align-items:center; gap:8px; padding:0 6px}
+.octbox button{min-width:40px; min-height:40px; border-radius:8px; border:1px solid var(--line); background:transparent; font-size:18px}
 .rate{display:flex; gap:6px}
 .ghost{border:1px solid var(--line); background:transparent; border-radius:8px; padding:5px 12px}
 .keep{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
@@ -105,7 +110,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <span class="spacer"></span>
       <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
     </div>
-    <div id="packs" aria-label="Pack"></div>
+    <div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every column">Pack sounds</button></div>
     <div id="harmonies" aria-label="Harmony"></div>
     <div class="muted" id="hWords"></div>
   </section>
@@ -117,7 +122,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div class="side">
       <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
       <div class="big">
-        <button class="macro" id="motion"></button><button class="macro" id="length"></button>
+        <span class="macro octbox" id="octBox"><button id="octDown" aria-label="Octave down">−</button><span>Octave <b id="octOut">0</b></span><button id="octUp" aria-label="Octave up">+</button></span><button class="macro" id="motion"></button><button class="macro" id="length"></button>
       </div>
       <div class="big" aria-label="Jam moves">
         <button id="m-vary">Vary<small>V</small></button>
@@ -135,7 +140,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       </div>
       <div class="keys">
         <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
-        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave
       </div>
     </div>
   </section>

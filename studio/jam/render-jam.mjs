@@ -25,7 +25,7 @@ for (const [step, col, sid, n, len, vel] of J.notes) {
     else track(`${col}|${m.kit}|${JSON.stringify(m.over || {})}`, {label: S.name, engine: 'kit', bus: col, kit: m.kit, over: m.over || {}, ...(role[col] === 'kick' ? {side: true} : {})}).notes.push([bar, s16, n, vel]);
     continue; }
   const pal = S.src.palette, nat = S.src.native || NATIVE_OF[pal];
-  if (nat) { const set = nativeSet(st, nat), shift = (S.src.shift || 0) + (pal ? 12*(PAL[pal][1].oct || 0) : 0);
+  if (nat) { const set = nativeSet(st, nat, S.src.set || {}), shift = (S.src.shift || 0) + (pal ? 12*(PAL[pal][1].oct || 0) : 0);
     track(`${col}|${nat}|${JSON.stringify(set)}`, {label: S.name, engine: 'native', bus: col, name: nat, set}).notes.push([bar, s16, n + shift, len, vel]); }
   else { const b = PAL[pal][1], over = {poly: 1, ad: (b.ad ?? .3)*LEN[st.length], ar: (b.ar ?? .2)*LEN[st.length]};
     track(`${col}|${pal}|${st.length}`, {label: S.name, engine: 'palette', bus: col, name: pal, over}).notes.push([bar, s16, n, len, vel]); }

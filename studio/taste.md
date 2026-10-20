@@ -41,3 +41,6 @@ before writing or changing a piece; add to it when they react.
   vibraphone, metal plate (the ping), plucked string and toms; native-only church bell, bell cloud and rain liked; the
   kalimba, glass bass and shaker kept as they were (native glass bass and shaker: no). The palette now plays the native
   ones (`synth()` in `lib/palette.js`). Tidal Clock: the user missed its pad when v2 took it out; it's back, moving (v3).
+- 2026-10-20: Studio Jam pack 2: liked overall, but not its basses: "all kind of low sub and kind of unusable" (they sat at
+  41–62 Hz, mostly sines). Basses need harmonics above the fundamental, and sit where the glass bass does. They want to
+  mix and match sounds from every pack: the jam's sound picker now holds the whole library, with an octave button per column.
