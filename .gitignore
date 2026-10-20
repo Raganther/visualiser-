@@ -4,3 +4,4 @@ node_modules
 __pycache__/
 studio/out/
 studio/listen/sessions/
+studio/listen/packs/

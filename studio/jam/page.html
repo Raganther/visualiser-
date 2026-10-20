@@ -1,0 +1,149 @@
+<title>Studio Jam</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a launcher, like a hardware groovebox. The harmony across the top, the clip grid (scenes down the left, a column
+   a role), then the performance strip: the XY pad beside the jam moves, big targets for a finger as for a mouse. */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --well:#e4e7ec; --band:#d9dee6;
+  --on:#b8642a; --on-soft:#f3e0d2; --acc:#2f7d74; --acc-soft:#d7ece9; --rec:#c43c5a;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --acc-soft:#163330; --rec:#ff6b88; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --acc-soft:#163330; --rec:#ff6b88; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:18px 56px; -webkit-user-select:none; user-select:none}
+.wrap{max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:12px}
+h1,h2{font-family:var(--display); font-weight:700; margin:0; letter-spacing:-.01em}
+h1{font-size:clamp(26px, 4vw, 34px); line-height:1}
+h2{font-size:17px}
+.lab{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+.muted{color:var(--mute)}
+button,input{font:inherit; color:inherit}
+button{cursor:pointer; touch-action:manipulation}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; padding:0 4px; color:var(--mute)}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px}
+/* the top: transport and harmony */
+.top{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center}
+#play,#rec{height:46px; border:0; border-radius:23px; font-weight:600; padding:0 22px}
+#play{background:var(--on); color:#fff; min-width:96px}
+#play[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+#rec{background:transparent; border:2px solid var(--rec); color:var(--rec)}
+#rec[aria-pressed="true"]{background:var(--rec); color:#fff}
+.tempo{display:flex; align-items:center; gap:6px}
+.tempo button{width:34px; height:34px; border:1px solid var(--line); border-radius:8px; background:transparent; font-weight:600}
+#bpmOut{font:500 16px var(--mono); min-width:34px; text-align:center}
+.chordbox{display:flex; flex-direction:column; line-height:1.1}
+#chordNow{font:700 26px var(--display)}
+#busy{font:12px var(--mono); color:var(--mute)} #busy[data-on="1"]{color:var(--on)}
+#flash{font:500 13px var(--mono); color:var(--acc); min-height:1em}
+.spacer{flex:1}
+#harmonies{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.hchip{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px}
+.hchip[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.hchip[data-next="1"]{border-color:var(--acc); animation:blink .5s steps(2) infinite}
+#hWords{font-size:13px; margin-top:6px}
+@keyframes blink{50%{opacity:.45}}
+/* the grid */
+.gridbox{overflow-x:auto}
+#grid{display:grid; grid-template-columns:118px repeat(var(--cols), minmax(118px, 1fr)); gap:6px; min-width:max-content}
+.corner{display:flex; align-items:end; padding:4px}
+.colhead{display:flex; flex-direction:column; gap:4px; padding:8px; border-radius:10px; background:var(--well); border:2px solid transparent}
+.colhead[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)}
+.colname{border:0; background:transparent; padding:0; font-weight:600; text-align:left; font-size:14px}
+.sound{border:1px solid var(--line); background:var(--panel); border-radius:6px; padding:4px 8px; font-size:12px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mute{border:1px solid var(--line); background:transparent; border-radius:6px; padding:3px 8px; font:500 12px var(--mono)}
+.mute[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+.scene{border:0; border-radius:10px; background:var(--band); text-align:left; padding:8px 10px; font-size:13px; min-height:52px}
+.scene b{font-family:var(--mono)}
+.cell{position:relative; border:1px solid var(--line); background:var(--panel); border-radius:10px; min-height:52px; padding:6px 8px; text-align:left; font-size:13px; overflow:hidden}
+.cell::after{content:""; position:absolute; left:0; bottom:0; height:3px; width:calc(var(--p, 0)*100%); background:var(--on)}
+.cell.empty{color:var(--mute); text-align:center; font-size:11px}
+.cell[data-on="1"]{background:var(--on-soft); border-color:var(--on); font-weight:600}
+.cell[data-next="1"]{border-color:var(--acc); animation:blink .5s steps(2) infinite}
+/* the performance strip */
+.perform{display:grid; grid-template-columns:minmax(260px, 380px) minmax(0, 1fr); gap:16px}
+@media (max-width:760px){.perform{grid-template-columns:1fr}}
+#pad{width:100%; aspect-ratio:1; max-width:100%; border-radius:12px; touch-action:none; cursor:crosshair; display:block}
+.side{display:flex; flex-direction:column; gap:12px; min-width:0}
+.big{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px}
+.big button{min-height:56px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600; font-size:15px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px}
+.big button small{font:400 11px var(--mono); color:var(--mute)}
+.big button[data-on="1"]{background:var(--acc); color:#fff; border-color:var(--acc)}
+.macro{min-height:46px !important}
+.fb{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.fb button,.mini{border:1px solid var(--line); background:transparent; border-radius:8px; padding:4px 10px}
+.fb input,.keep input{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:0; flex:1}
+.keys{font:12px var(--mono); color:var(--mute); line-height:1.8}
+/* the sound picker */
+#sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
+.sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
+.snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
+.snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.snd .muted{font-size:12px}
+.rate{display:flex; gap:6px}
+.ghost{border:1px solid var(--line); background:transparent; border-radius:8px; padding:5px 12px}
+.keep{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+#keepJam{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
+#keepJam:disabled{opacity:.4; cursor:default}
+@media (prefers-reduced-motion: reduce){.cell[data-next="1"],.hchip[data-next="1"]{animation:none}}
+</style>
+
+<div class="wrap">
+  <section class="panel">
+    <div class="top">
+      <div><div class="lab">Studio · jam</div><h1>Studio Jam</h1></div>
+      <button id="play" aria-pressed="false">Play</button>
+      <button id="rec" aria-pressed="false">● Record</button>
+      <div class="tempo"><button id="bpmDown" aria-label="Slower">−</button><span id="bpmOut">124</span><button id="bpmUp" aria-label="Faster">+</button><span class="lab">BPM</span></div>
+      <div class="chordbox"><span id="chordNow">—</span><span class="lab" id="barNow"></span></div>
+      <span class="spacer"></span>
+      <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
+    </div>
+    <div id="harmonies" aria-label="Harmony"></div>
+    <div class="muted" id="hWords"></div>
+  </section>
+
+  <section class="gridbox" aria-label="Clips"><div id="grid"></div></section>
+
+  <section class="panel perform" aria-label="Perform">
+    <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
+    <div class="side">
+      <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
+      <div class="big">
+        <button class="macro" id="motion"></button><button class="macro" id="length"></button>
+      </div>
+      <div class="big" aria-label="Jam moves">
+        <button id="m-vary">Vary<small>V</small></button>
+        <button id="m-mutate">Mutate<small>M</small></button>
+        <button id="m-build">Build<small>B</small></button>
+        <button id="m-drop">Drop<small>D</small></button>
+        <button id="m-rep">Repeat (hold)<small>O</small></button>
+        <button id="m-harm">Next harmony<small>H</small></button>
+      </div>
+      <div class="fb">
+        <span class="lab">This clip</span><button id="r-clip-up">👍</button><button id="r-clip-down">👎</button>
+        <span class="lab">Sound</span><button id="r-sound-up">👍</button><button id="r-sound-down">👎</button>
+        <span class="lab">Harmony</span><button id="r-harmony-up">👍</button><button id="r-harmony-down">👎</button>
+        <input id="fbNote" placeholder="A word with your 👍 / 👎 (optional)" aria-label="Note with the rating">
+      </div>
+      <div class="keys">
+        <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony
+      </div>
+    </div>
+  </section>
+
+  <section class="panel keep" aria-label="Keep a recording">
+    <h2>Recordings</h2>
+    <span class="muted" id="takeNote" style="flex-basis:100%">Press Record, jam, press it again. Keep the take and Claude renders it at full quality into the listening room.</span>
+    <input id="jamName" placeholder="Name the take" aria-label="Name">
+    <input id="jamNote" placeholder="What you liked, where it could go…" aria-label="Note for Claude">
+    <button id="keepJam" disabled>Keep for Claude</button>
+  </section>
+  <div id="sounds" hidden aria-label="Sounds"></div>
+</div>
+<script id="worker-src" type="text/plain">/*WORKER*/</script>
+<script>/*APP*/</script>
