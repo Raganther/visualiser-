@@ -82,3 +82,12 @@ export function rain(sr, secs, {rate = [20, 60], hiss = .04, seed = 1} = {}){
   for (const ch of ['L', 'R']) { let a = 0, b = 0; for (let i = 0; i < n; i++) { a += .08*((R()*2 - 1) - a); b += .3*(a - b); o[ch][i] += b*hiss*8; } }
   return fade(o, sr, 400);
 }
+
+// a hi-hat: noise high-passed twice (the sizzle) over a few short metal modes up high (the ring), dying fast
+export function hat(sr, {vel = .8, decay = .06, tone = .6, seed = 1} = {}){
+  const n = Math.ceil((decay*3 + .02)*sr), o = out(n);
+  for (const [ch, sd] of [['L', seed], ['R', seed + 5]]) { const R = rng(sd), y = o[ch]; let p1 = 0, p2 = 0, h1 = 0;
+    for (let i = 0; i < n; i++) { const x = R()*2 - 1, d1 = x - p1; p1 = x; const d2 = d1 - p2; p2 = d1; h1 = d2*(.5 + .5*tone) + h1*(.5 - .5*tone); y[i] = h1*Math.exp(-i/(decay*sr))*vel*.35; }
+    for (const [f, a] of [[5400, .12], [7100, .09], [8900, .07], [11300, .05]]) { let ph = R()*6.28; for (let i = 0; i < n; i++) { ph += 2*Math.PI*f*(.5 + tone)/sr; y[i] += Math.sin(ph)*a*vel*Math.exp(-i/(decay*.7*sr)); } } }
+  return o;
+}

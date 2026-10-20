@@ -1,7 +1,7 @@
 // The native instruments by name: each note computed from the instrument's physics (modal.js, body.js), cached by its
 // pitch, velocity and settings so a repeated note is computed once. play() places it on the desk as a buffer.
 import { modal, MODAL } from './modal.js';
-import { membrane, string, shaker } from './body.js';
+import { membrane, string, shaker, hat } from './body.js';
 import { fm, additive, breath, grainPad } from './tone.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12);
@@ -13,6 +13,7 @@ export const NATIVE = {
   hand: {make: (sr, n, vel, o) => membrane(sr, hz(n), {decay: .3, drop: .08, dropT: .02, hard: .7, beater: .4, pos: .45, ...o, vel}), gain: .7},
   pluck: {make: (sr, n, vel, o) => string(sr, hz(n), {bright: .45, damp: .993, decay: 1.2, body: .55, ...o, vel}), gain: 1.1},
   shaker: {make: (sr, n, vel, o) => shaker(sr, {...o, vel}), gain: 2},
+  hat: {make: (sr, n, vel, o) => hat(sr, {...o, vel}), gain: .45},
   // held sounds (`held`: the note's length in seconds reaches them as o.len)
   fmglass: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 3.5, index: 2.2, indexEnd: .25, indexT: .09, dec: .25, sus: .15, r: .12, ...o, vel}), gain: .55},
   fmround: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 1, index: 1.3, indexEnd: .15, indexT: .06, dec: .2, sus: .45, r: .07, ...o, vel}), gain: .7},
