@@ -48,3 +48,7 @@ before writing or changing a piece; add to it when they react.
 - 2026-10-21: Studio Jam snapshots (pack 2, both on F minor add 9): the dub kick, tight native hats on "16ths with gaps",
   pack 1's hand drums, Dark FM on "Rolling threes", chords on "Stabs in fives" (gated chord, then the dark stab with an
   open voicing and an arp), the glass harmonica and the log drum. Pack 3 (minimal techno, every sound native) starts there.
+- 2026-10-21: Studio Jam ratings: 👍 Wood and stone (twice), Skins and wood, Bloom pad; 👎 Ticks (twice). Snapshots 4 and 5
+  (pack 3, fourths on E): round kick on four, seed hats on 16ths, Forest floor on the hand groove, Dark FM 2 on the
+  seven-step line (in Snap 5 reshaped eight times: flipped, widened, narrowed, reversed), the stab in threes; in Snap 5
+  the chords muted and the leads metal and marimba. The idea loop starts from these (round 1 in the `ideas` collection).

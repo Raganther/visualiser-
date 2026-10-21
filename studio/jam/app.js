@@ -109,13 +109,14 @@ function barLine(step){
     else if (c.follow && c.clip && c.vars?.length > 1) { const pat = FOLLOW[c.follow], b = Math.floor(step/16), n = c.vars.length;
       const i = pat === 'random' ? (Math.random() < .5 ? c.vi : Math.floor(Math.random()*n)) : Math.min(n - 1, pat.charCodeAt(b % pat.length) - 65);
       if (i !== c.vi) { c.vi = i; c.clip = {...c.clip, steps: c.vars[i].steps}; c.var = i; if (st.sel === st.cols.indexOf(c)) renderShape(); } } }
+  arrBar(step);
   if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { hp.frequency.cancelScheduledValues(ctx.currentTime); hp.frequency.setTargetAtTime(18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = st.harmony.bars[bar % st.harmony.bars.length].replace(':', ' '); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
 }
 async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; nextT = ctx.currentTime + .1;
   for (const c of st.cols) if (c.next === undefined && c.clip) c.start = 0; timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
-function stop(){ st.playing = false; clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
+function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
 /* ---------- launching ---------- */
 function launch(c, clipId, varIdx = 0, row){ const base = CLIP[clipId]; c.nextRow = row ?? PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === clipId);
@@ -344,7 +345,7 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
     if (!st.playing) { if (c.next === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = c.next.clip; c.clipId = c.next.id; c.var = c.next.var; c.row = c.nextRow; } delete c.next; c.start = 0; }
     renderCol(c); });
   if (PACK.harmonies.some(H => H.id === x.harmony)) setHarmony(x.harmony);
-  saveSounds(); renderSel(); renderSnaps(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
+  saveSounds(); renderSel(); renderSnaps(); renderIdeas(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
 async function renameSnap(x){ const name = prompt('Name this snapshot', x.name)?.trim(); if (!name || name === x.name) return; x.name = name.slice(0, 40); storeSnaps(); renderSnaps();
   if (db) try { await db.collection('snaps').doc(x.id).update({name: x.name}); } catch {} }
 async function deleteSnap(x){ if (snapDel !== x.id) { snapDel = x.id; renderSnaps(); flash('Press ✕ again to delete ' + x.name); setTimeout(() => { if (snapDel === x.id) { snapDel = null; renderSnaps(); } }, 3000); return; }
@@ -355,12 +356,52 @@ function renderSnaps(){ const box = $('snaps'); if (!box) return; box.innerHTML 
   list.forEach(x => { const k = SNAPS.indexOf(x), pk = PACKS.find(p => p.id === x.pack), H = (pk && x.pack === PACK.id ? PACK.harmonies.find(y => y.id === x.harmony)?.name : '') || '';
     box.append(h('div', {class: 'snap', 'data-on': x.id === snapOn ? '1' : '', 'data-del': x.id === snapDel ? '1' : ''},
       h('button', {class: 'go', onclick: () => recall(x), title: k < 9 ? `Recall (Shift+${k + 1})` : 'Recall'}, h('b', {}, (k < 9 ? k + 1 + ' · ' : '') + x.name), h('span', {class: 'muted'}, x.pack === PACK?.id ? H || ' ' : (pk?.name.split(':')[0] || x.pack))),
-      h('span', {class: 'snapbtns'}, h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+      h('span', {class: 'snapbtns'}, h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+/* ---------- the idea loop: Claude's ideas (written into the page's database by Claude), and the arrangement: snapshots
+   and ideas in an order, played as a sketch and sent to Claude, who makes the next round from it ---------- */
+let IDEAS = [], ARR = [], arrNote = '';
+const ARR_KEY = 'studio.jam.arr', BARS = [4, 8, 16, 32], byRef = id => SNAPS.find(x => x.id === id) || IDEAS.find(x => x.id === id);
+try { ARR = JSON.parse(localStorage.getItem(ARR_KEY) || '[]'); } catch {}
+const storeArr = () => { try { localStorage.setItem(ARR_KEY, JSON.stringify(ARR)); } catch {} };
+function renderIdeas(){ const box = $('ideas'); if (!box) return; box.innerHTML = ''; box.hidden = !IDEAS.length; if (!IDEAS.length) return;
+  const rounds = [...new Set(IDEAS.map(x => x.round || 1))].sort((a, b) => b - a);
+  for (const r of rounds) { box.append(h('div', {class: 'lab ideahead'}, `Claude’s ideas · round ${r}`)); const g = h('div', {class: 'snapgrid'}); box.append(g);
+    for (const x of IDEAS.filter(y => (y.round || 1) === r).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
+      g.append(h('div', {class: 'snap idea', 'data-on': x.id === snapOn ? '1' : ''},
+        h('button', {class: 'go', onclick: () => recall(x)}, h('span', {class: 'kind'}, x.kind || 'idea'), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
+        h('span', {class: 'ideabtns'}, h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Keep it in your snapshots', onclick: () => keepIdea(x)}, 'Keep'), rateBtns('idea', x.id, x.name)))); } }
+async function keepIdea(x){ const y = {...JSON.parse(JSON.stringify(x)), id: 's' + Date.now().toString(36), name: x.name, from: x.id, at: new Date().toISOString()}; for (const k of ['round', 'kind', 'why', 'order']) delete y[k];
+  SNAPS.push(y); storeSnaps(); renderSnaps(); flash('Kept ' + x.name + ' in your snapshots'); if (db) try { await db.collection('snaps').doc(y.id).set(y); } catch {} }
+function arrAdd(id){ ARR.push({ref: id, bars: 8}); storeArr(); renderArr(); flash('Into the arrangement: ' + byRef(id)?.name); }
+function renderArr(){ const box = $('arr'); if (!box) return; box.innerHTML = ''; const playing = st.arr ? st.arr.i : -1;
+  if (!ARR.length) box.append(h('span', {class: 'muted'}, 'Tap ＋ Arr on any snapshot or idea to put it here, in the order you want.'));
+  ARR.forEach((e, i) => { const x = byRef(e.ref);
+    box.append(h('div', {class: 'arrchip', 'data-on': i === playing ? '1' : ''},
+      h('button', {class: 'arrname', title: 'Tap to change its length', onclick: () => { e.bars = BARS[(BARS.indexOf(e.bars) + 1) % BARS.length]; storeArr(); renderArr(); }}, h('b', {}, `${i + 1} · ${x?.name || '(gone)'}`), h('span', {}, e.bars + ' bars')),
+      h('span', {class: 'arrbtns'}, h('button', {class: 'mini', 'aria-label': 'Earlier', onclick: () => { if (i) { [ARR[i - 1], ARR[i]] = [ARR[i], ARR[i - 1]]; storeArr(); renderArr(); } }}, '◀'),
+        h('button', {class: 'mini', 'aria-label': 'Later', onclick: () => { if (i < ARR.length - 1) { [ARR[i + 1], ARR[i]] = [ARR[i], ARR[i + 1]]; storeArr(); renderArr(); } }}, '▶'),
+        h('button', {class: 'mini', 'aria-label': 'Remove', onclick: () => { ARR.splice(i, 1); storeArr(); renderArr(); }}, '✕')))); });
+  $('arrPlay').textContent = st.arr ? '■ Stop arrangement' : '▶ Play arrangement'; $('arrPlay').disabled = !ARR.length; $('arrSend').disabled = !ARR.length; }
+// playing it: each entry is recalled a bar before it begins, so its clips land on its first bar
+function arrPlay(){ if (st.arr) { st.arr = null; renderArr(); flash('Arrangement stopped: carrying on with what’s playing'); return; } if (!ARR.length) return;
+  const first = byRef(ARR[0].ref); if (!first) return; recall(first);
+  const at = st.playing ? Math.ceil(st.step/16)*16 : 0; st.arr = {i: 0, next: at + ARR[0].bars*16}; if (!st.playing) start(); renderArr(); }
+function arrBar(step){ const a = st.arr; if (!a || !ARR.length) return;
+  if (step === a.next - 16) { a.p = (a.i + 1) % ARR.length; const x = byRef(ARR[a.p].ref); if (x) recall(x); }
+  if (step >= a.next) { a.i = a.p ?? (a.i + 1) % ARR.length; a.next = step + ARR[a.i].bars*16; renderArr(); } }
+async function arrSend(){ if (!ARR.length) return; if (!db) { flash('Sign in to claude.ai to send'); return; }
+  const refs = [...new Set(ARR.map(e => e.ref))], note = $('arrNote').value.trim();
+  const row = {note, pack: PACK.id, entries: ARR.map(e => ({ref: e.ref, bars: e.bars, name: byRef(e.ref)?.name || '', idea: !!IDEAS.find(x => x.id === e.ref)})), snaps: refs.map(byRef).filter(Boolean), at: new Date().toISOString()};
+  try { await db.collection('arrangements').add(row); $('arrNote').value = ''; flash('Sent to Claude: tell Claude it’s there'); $('arrMsg').textContent = `Sent ${new Date().toLocaleTimeString()}: ${ARR.length} parts. Tell Claude, and the next round of ideas will come from it.`; }
+  catch (err) { flash('Not sent (' + (err.code || err.message) + ')'); } }
+$('arrPlay').onclick = arrPlay; $('arrSend').onclick = arrSend;
+async function loadIdeas(){ if (!db) return; try { const q = await db.collection('ideas').get(); IDEAS = q.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols); renderIdeas(); renderArr(); } catch {} }
+
 async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch { SNAPS = []; } renderSnaps();
   if (!db) return; try { const q = await db.collection('snaps').get(), have = new Set(SNAPS.map(x => x.id));
     for (const d of q.docs) { const x = d.data(); if (x && !have.has(x.id)) SNAPS.push(x); }
     for (const x of SNAPS) if (!q.docs.some(d => d.id === x.id)) try { await db.collection('snaps').doc(x.id).set(x); } catch {}
-    SNAPS.sort((a, b) => a.at < b.at ? -1 : 1); storeSnaps(); renderSnaps(); } catch {} }
+    SNAPS.sort((a, b) => a.at < b.at ? -1 : 1); storeSnaps(); renderSnaps(); renderArr(); } catch {} }
 
 /* ---------- feedback and keeping (the page's database) ---------- */
 let db = null;
@@ -400,7 +441,7 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
   await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
   let tab = 'clips'; try { tab = localStorage.getItem('studio.jam.tab') || 'clips'; } catch {} setTab(tab); placeFb();
-  loadSnaps();
+  loadSnaps(); renderArr();
   db = await window.claude?.use?.('db').catch(() => null) || null;
-  loadSnaps();
+  loadSnaps(); loadIdeas();
 })();
