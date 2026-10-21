@@ -1,0 +1,366 @@
+<title>Studio Jam</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a launcher, like a hardware groovebox. The harmony across the top, the clip grid (scenes down the left, a column
+   a role), then the performance strip: the XY pad beside the jam moves, big targets for a finger as for a mouse. */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --well:#e4e7ec; --band:#d9dee6;
+  --on:#b8642a; --on-soft:#f3e0d2; --acc:#2f7d74; --acc-soft:#d7ece9; --rec:#c43c5a;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --acc-soft:#163330; --rec:#ff6b88; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --acc-soft:#163330; --rec:#ff6b88; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:18px 56px; -webkit-user-select:none; user-select:none}
+.wrap{max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:12px}
+h1,h2{font-family:var(--display); font-weight:700; margin:0; letter-spacing:-.01em}
+h1{font-size:clamp(26px, 4vw, 34px); line-height:1}
+h2{font-size:17px}
+.lab{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+.muted{color:var(--mute)}
+button,input{font:inherit; color:inherit}
+button{cursor:pointer; touch-action:manipulation}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; padding:0 4px; color:var(--mute)}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px}
+/* the top: transport and harmony */
+.top{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center}
+#play,#rec{height:46px; border:0; border-radius:23px; font-weight:600; padding:0 22px}
+#play{background:var(--on); color:#fff; min-width:96px}
+#play[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+#rec{background:transparent; border:2px solid var(--rec); color:var(--rec)}
+#rec[aria-pressed="true"]{background:var(--rec); color:#fff}
+.tempo{display:flex; align-items:center; gap:6px}
+.tempo button{width:34px; height:34px; border:1px solid var(--line); border-radius:8px; background:transparent; font-weight:600}
+#bpmOut{font:500 16px var(--mono); min-width:34px; text-align:center}
+.chordbox{display:flex; flex-direction:column; line-height:1.1}
+#chordNow{font:700 26px var(--display)}
+#busy{font:12px var(--mono); color:var(--mute)} #busy[data-on="1"]{color:var(--on)}
+#flash{font:500 13px var(--mono); color:var(--acc); min-height:1em}
+.spacer{flex:1}
+#packs{flex:1;}
+.packrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+#packs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center}
+.pchip{border:1px solid var(--line); background:transparent; border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600}
+.pchip[data-on="1"]{border-color:var(--acc); color:var(--acc)}
+#harmonies{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.hchip{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px}
+.hchip[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.hchip[data-next="1"]{border-color:var(--acc); animation:blink .5s steps(2) infinite}
+#hWords{font-size:13px; margin-top:6px}
+@keyframes blink{50%{opacity:.45}}
+/* the grid */
+.gridbox{overflow-x:auto}
+#grid{display:grid; grid-template-columns:118px repeat(var(--cols), minmax(118px, 1fr)); gap:6px; min-width:max-content}
+.corner{display:flex; align-items:end; padding:4px}
+.colhead{display:flex; flex-direction:column; gap:4px; padding:8px; border-radius:10px; background:var(--well); border:2px solid transparent}
+.colhead[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)}
+.colname{border:0; background:transparent; padding:0; font-weight:600; text-align:left; font-size:14px}
+.sound{border:1px solid var(--line); background:var(--panel); border-radius:6px; padding:4px 8px; font-size:12px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mute{border:1px solid var(--line); background:transparent; border-radius:6px; padding:3px 8px; font:500 12px var(--mono)}
+.mute[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+.scene{border:0; border-radius:10px; background:var(--band); text-align:left; padding:8px 10px; font-size:13px; min-height:52px}
+.scene b{font-family:var(--mono)}
+.cell{position:relative; border:1px solid var(--line); background:var(--panel); border-radius:10px; min-height:52px; padding:6px 8px; text-align:left; font-size:13px; overflow:hidden}
+.cell::after{content:""; position:absolute; left:0; bottom:0; height:3px; width:calc(var(--p, 0)*100%); background:var(--on)}
+.cell.empty{color:var(--mute); text-align:center; font-size:11px}
+.cell[data-on="1"]{background:var(--on-soft); border-color:var(--on); font-weight:600}
+.cell[data-next="1"]{border-color:var(--acc); animation:blink .5s steps(2) infinite}
+/* the performance strip */
+.perform{display:grid; grid-template-columns:minmax(260px, 380px) minmax(0, 1fr); gap:16px}
+@media (max-width:760px){.perform{grid-template-columns:1fr}}
+#pad{width:100%; aspect-ratio:1; max-width:100%; border-radius:12px; touch-action:none; cursor:crosshair; display:block}
+.side{display:flex; flex-direction:column; gap:12px; min-width:0}
+.big{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px}
+.big button{min-height:56px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600; font-size:15px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px}
+.big button small{font:400 11px var(--mono); color:var(--mute)}
+.big button[data-on="1"]{background:var(--acc); color:#fff; border-color:var(--acc)}
+.macro{min-height:46px !important}
+.shape{display:flex; flex-direction:column; gap:10px}
+.shapehead{display:flex; align-items:center; gap:10px}
+.tog{border:1px solid var(--line); background:transparent; border-radius:999px; padding:7px 14px; font-weight:600}
+.tog[aria-pressed="true"]{background:var(--on-soft); border-color:var(--on)}
+#notes{width:100%; height:170px; border-radius:12px; background:var(--well); display:block; touch-action:none}
+.vrow{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+#vars{display:flex; gap:6px; flex-wrap:wrap}
+.vbtn, #vars button{min-width:44px; min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--well); font-weight:700}
+#vars button[data-on="1"]{background:var(--on-soft); border-color:var(--on)}
+#vars button[data-next="1"]{border-color:var(--acc)}
+#vars button small{display:block; font:400 9px var(--mono); color:var(--mute)}
+.vbtn{padding:0 12px}
+.vbtn[data-on="1"], .big button[aria-pressed="true"]{background:var(--acc); color:#fff; border-color:var(--acc)}
+.fb{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.fb button,.mini{border:1px solid var(--line); background:transparent; border-radius:8px; padding:4px 10px}
+.fb input,.keep input{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:0; flex:1}
+.keys{font:12px var(--mono); color:var(--mute); line-height:1.8}
+/* the sound picker */
+#sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
+#sounds[hidden]{display:none !important}
+.sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
+.snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
+.snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.snd .muted{font-size:12px}
+#snaps{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin-top:8px}
+.snap{position:relative; border:1px solid var(--line); border-radius:12px; background:var(--well); display:flex; flex-direction:column; min-height:64px}
+.snap .go, .snap.save{border:0; background:transparent; text-align:left; padding:10px 12px; display:flex; flex-direction:column; gap:3px; flex:1; min-height:64px; font:inherit; color:inherit}
+.snap.save{border:1px dashed var(--acc); color:var(--acc)}
+.snap[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.snap[data-del="1"]{border-color:var(--acc)}
+.snap .muted{font-size:12px}
+.snapbtns{display:flex; gap:4px; padding:0 8px 8px}
+.snapgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; margin:6px 0 14px}
+.ideahead{margin-top:2px}
+.snap.idea{border-color:var(--acc); background:var(--acc-soft)}
+.snap.idea[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.snap.idea .go{padding-bottom:4px}
+.snap .kind{font:500 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--acc)}
+.snap .why{font-size:12px; line-height:1.35}
+.ideabtns{display:flex; gap:4px; flex-wrap:wrap; padding:0 8px 8px} .ideabtns .rate{gap:4px}
+.arrbox{margin-top:16px; border-top:1px solid var(--line); padding-top:12px}
+#arr{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; min-height:44px; align-items:center}
+.arrchip{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--well); padding:4px}
+.arrchip[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
+.arrname{border:0; background:transparent; text-align:left; padding:6px 8px; display:flex; flex-direction:column} .arrname span{font:12px var(--mono); color:var(--mute)}
+.arrbtns{display:flex; gap:4px; padding:0 4px 4px}
+.arrctl{display:flex; gap:8px; flex-wrap:wrap} .arrctl input{flex:1; min-width:200px; border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px}
+#arrSend{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600} #arrSend:disabled,#arrPlay:disabled{opacity:.4}
+.likebar{display:inline-flex; gap:4px; align-items:center}
+.likebar button{min-width:34px; min-height:32px; border:1px solid var(--line); background:transparent; border-radius:8px; padding:2px 6px; font-size:14px; line-height:1; position:relative; filter:grayscale(1); opacity:.75}
+.likebar button[aria-pressed="true"]{filter:none; opacity:1; background:var(--acc-soft); border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)}
+.likebar button.dn[aria-pressed="true"]{background:var(--on-soft); border-color:var(--on); box-shadow:inset 0 0 0 1px var(--on)}
+.likebar button.nt[data-has="1"]{filter:none; opacity:1} .likebar button.nt[data-has="1"]::after{content:""; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; background:var(--on)}
+.partlikes{display:grid; grid-template-columns:auto 1fr auto; gap:6px 10px; align-items:center; border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:var(--well)}
+.partlikes .lab{margin:0} .partlikes .what{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.hrow{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:6px; flex-wrap:wrap} .hrow #hWords{margin:0}
+.hchip[data-liked="1"]::after,.mchip[data-liked="1"] b::before{content:"♥ "; color:var(--acc)}
+.headlikes{display:flex; gap:4px} .headlikes .likebar button{min-width:28px; min-height:26px; font-size:12px; padding:1px 4px}
+.likehead{display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap} #likeSearch{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:200px}
+#likeFilters{display:flex; gap:6px; flex-wrap:wrap; margin:10px 0}
+.lchip{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px} .lchip[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)} .lchip small{color:inherit; opacity:.7; margin-left:4px}
+#likeList{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px}
+.likecard{border:1px solid var(--line); border-radius:12px; background:var(--well); padding:10px; display:flex; flex-direction:column; gap:6px}
+.likecard .kind{font:500 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--acc)} .likecard .sum{font-size:12px; color:var(--mute)}
+.likecard .note{font-size:13px; border-left:3px solid var(--on); padding-left:8px}
+.likecard .row{display:flex; gap:6px; align-items:center; flex-wrap:wrap} .likecard .use{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:6px 14px; font-weight:600; min-height:34px}
+#noteSheet{position:fixed; left:50%; top:20%; transform:translateX(-50%); width:min(440px, calc(100vw - 24px)); z-index:40; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 10px 40px #0005; display:flex; flex-direction:column; gap:8px}
+#noteSheet[hidden]{display:none} #noteText{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:10px; font:inherit; color:inherit; resize:vertical}
+.notebtns{display:flex; gap:8px; flex-wrap:wrap} #noteSave{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
+.mixbox .lab{line-height:1.5}
+#mixer{display:flex; gap:8px; overflow-x:auto; padding:8px 0 4px; scrollbar-width:thin}
+.mstrip{flex:none; width:108px; border:1px solid var(--line); border-radius:12px; background:var(--well); padding:8px 6px; display:flex; flex-direction:column; align-items:stretch; gap:6px}
+.mstrip[data-sel="1"]{border-color:var(--acc)} .mstrip.master{background:var(--panel); border-color:var(--ink); width:116px}
+.sname{border:0; background:transparent; text-align:left; padding:0 2px; display:flex; flex-direction:column; min-width:0} .sname span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ftrack{position:relative; height:170px; margin:0 auto; width:48px; border-radius:10px; background:var(--band); touch-action:none; cursor:ns-resize}
+.ffill{position:absolute; left:20px; width:8px; bottom:0; border-radius:4px; background:var(--acc); opacity:.5}
+.fmeter{position:absolute; right:4px; bottom:0; top:0; width:5px; border-radius:3px; background:var(--line); overflow:hidden; display:flex; align-items:flex-end} .fmeter i{display:block; width:100%; height:0; background:var(--acc)} .fmeter i[data-hot="1"]{background:var(--rec)}
+.fcap{position:absolute; left:4px; right:14px; height:22px; border-radius:6px; background:var(--ink); box-shadow:0 1px 3px #0005}
+.fval{font:500 12px var(--mono); text-align:center}
+.mrow{display:flex; gap:4px} .mrow .mini{flex:1; min-height:34px; font-size:16px}
+.ms[aria-pressed="true"]{background:var(--ink); color:var(--bg)} .ms.solo[aria-pressed="true"]{background:var(--on); border-color:var(--on); color:#fff}
+.mstep{display:grid; grid-template-columns:28px 26px 1fr 26px; align-items:center; gap:2px} .mstep .lab{font-size:9px; margin:0} .mstep b{font:500 10px var(--mono); text-align:center; overflow:hidden} .mstep .mini{padding:0; min-width:26px; min-height:28px}
+.duckb{min-height:34px; font-size:12px} .sidenote{font-size:11px; text-align:center}
+.sndgroup{grid-column:1/-1; margin-top:8px}
+.octbox{display:inline-flex; align-items:center; gap:8px; padding:0 6px}
+.octbox button{min-width:40px; min-height:40px; border-radius:8px; border:1px solid var(--line); background:transparent; font-size:18px}
+.rate{display:flex; gap:6px}
+.ghost{border:1px solid var(--line); background:transparent; border-radius:8px; padding:5px 12px}
+.keep{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+#keepJam{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
+#keepJam:disabled{opacity:.4; cursor:default}
+.phone{display:none !important}
+/* the phone: one page at a time (the tabs at the bottom, in reach of a thumb), a slim transport at the top */
+@media (max-width:640px){
+  .phone{display:block !important} nav.phone{display:flex !important}
+  body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
+  .wrap{gap:8px}
+  body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="play"] [data-tabs]:not([data-tabs~="play"]), body[data-tab="notes"] [data-tabs]:not([data-tabs~="notes"]),
+  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]), body[data-tab="mix"] [data-tabs]:not([data-tabs~="mix"]){display:none !important}
+  .gridbox,.keys{display:none !important}
+  .panel{padding:10px; border-radius:12px}
+  .transport{position:sticky; top:0; z-index:15; margin:0 calc(-1*max(10px, env(safe-area-inset-left, 0px))); border-radius:0; border-width:0 0 1px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
+  .top{gap:8px; flex-wrap:nowrap}
+  .top > div:first-child, .top .spacer, #rec .long{display:none}
+  #play,#rec{height:44px; padding:0 16px; min-width:0; flex:none}
+  #play{min-width:76px}
+  .chordbox{flex:1; min-width:0}
+  #chordNow{font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  #barNow{font-size:10px}
+  .top > div:last-child{flex:none; max-width:38%; text-align:right; overflow:hidden}
+  #busy,#flash{font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .tempoSlot{margin-bottom:10px} .tempoSlot .tempo{gap:8px} .tempoSlot .tempo button{width:48px; height:44px} .tempoSlot .tempo .lab{display:inline}
+  .strip, #harmonies, #packs, #vars{display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+  .strip > *, #harmonies > *, #packs > *, #vars > *{flex:none}
+  .hchip,.pchip{min-height:44px; padding:8px 14px; font-size:14px}
+  .ghost,.tog{min-height:44px}
+  .mini{min-width:36px; min-height:36px}
+  #packs{margin-top:0}
+  .lab{margin:2px 0 6px}
+  /* the clips page */
+  .mscene{min-height:44px; padding:8px 14px; border:0; border-radius:999px; background:var(--band); font-weight:600; white-space:nowrap}
+  .mscene b{font-family:var(--mono); margin-right:6px; color:var(--mute)}
+  .mchip{min-width:76px; min-height:52px; padding:6px 10px; border:2px solid transparent; border-radius:12px; background:var(--well); text-align:left; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:130px}
+  .mchip b{font-size:14px} .mchip span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mchip[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)}
+  .mchip[data-on="1"] b::after{content:" ●"; color:var(--on); font-size:10px}
+  .mchip[data-mute="1"]{opacity:.45}
+  .mcolbar{display:flex; gap:8px; margin:8px 0}
+  .mcolbar .sound{flex:1; min-height:44px; font-size:14px; padding:8px 12px}
+  .mcolbar .mute{min-width:84px; min-height:44px; font-size:13px}
+  #mClips{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  #mClips .cell{min-height:60px; font-size:14px; padding:8px 10px}
+  /* the play and notes pages */
+  .perform{gap:10px} .perform > *, .shape > *, .mslot{min-width:0; max-width:100%}
+  #pad{aspect-ratio:auto; height:min(33vh, calc(100vw - 40px))}
+  .side > .big:first-of-type{grid-template-columns:1fr 1fr}
+  .side{gap:8px} .side > div:first-child{display:none}
+  .big{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px}
+  .big button{min-height:48px; font-size:13px; border-radius:10px; padding:4px; text-align:center}
+  .big button small{display:none}
+  .macro{min-height:48px !important}
+  .octbox{grid-column:1 / -1; justify-content:space-between; padding:0}
+  .octbox button{min-width:48px; min-height:48px}
+  #m-rep,#throw{touch-action:none}
+  .shapehead{flex-wrap:wrap}
+  #notes{height:140px}
+  .vbtn, #vars button{min-width:48px; min-height:48px}
+  .fb{gap:6px} .fb button{min-width:44px; min-height:44px} .fb input{flex-basis:100%}
+  .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
+  #snaps{grid-template-columns:1fr 1fr} .snapgrid{grid-template-columns:1fr}
+  #tabs button{font-size:12px} .mstrip{width:104px} .mrow .mini{min-height:44px} .mstep .mini{min-height:40px; min-width:30px} .mstep{grid-template-columns:30px 1fr 30px; row-gap:0} .mstep .lab{grid-column:1 / -1} .mstep b{font-size:11px} .duckb{min-height:44px} .ftrack{height:150px}
+  .likebar button{min-width:44px; min-height:40px; font-size:16px} .headlikes{display:none}
+  .partlikes{padding:6px 8px; gap:4px 8px} .partlikes .likebar button{min-width:40px}
+  .likeslot{margin-bottom:4px} #likeList{grid-template-columns:1fr} #likeSearch{flex-basis:100%; min-height:44px} .lchip{min-height:40px; white-space:nowrap}
+  #likeFilters{flex-wrap:nowrap} .likecard .use{min-height:44px; padding:0 18px}
+  #noteSheet{top:auto; bottom:0; left:0; transform:none; width:100%; border-radius:16px 16px 0 0; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))} .notebtns button{flex:1; min-height:48px}
+  #arr .arrchip{flex:none} #arr > .muted{white-space:normal; flex:1}
+  .snapsbox{display:flex; flex-direction:column} .arrbox{order:-1; margin:0 0 12px; border-top:0; padding-top:0; border-bottom:1px solid var(--line); padding-bottom:12px}
+  .snap .why{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .snap.idea .go{padding:8px 10px 2px; min-height:0} .ideabtns{padding:0 8px 8px} .snapgrid{gap:6px} .arrctl input{flex-basis:100%; min-height:44px} .arrctl button{flex:1; min-height:48px}
+  .ideabtns .mini{min-height:36px}
+  .snapbtns .mini{min-width:36px; min-height:36px}
+  /* the sound picker: a sheet from the bottom, one column, closed from the bottom too */
+  #sounds{left:0; right:0; bottom:0; border-radius:16px 16px 0 0; max-height:70vh; grid-template-columns:1fr; padding:12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); z-index:30}
+  .sndclose{min-height:48px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600}
+  /* the tabs */
+  #tabs{position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--panel); border-top:1px solid var(--line); padding:0 max(6px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(6px, env(safe-area-inset-left, 0px))}
+  #tabs button{flex:1; min-height:56px; border:0; background:transparent; font-weight:600; font-size:13px; color:var(--mute); border-top:3px solid transparent}
+  #tabs button[aria-current="page"]{color:var(--ink); border-top-color:var(--on)}
+}
+@media (prefers-reduced-motion: reduce){.cell[data-next="1"],.hchip[data-next="1"]{animation:none}}
+</style>
+
+<div class="wrap">
+  <section class="panel transport">
+    <div class="top">
+      <div><div class="lab">Studio · jam</div><h1>Studio Jam</h1></div>
+      <button id="play" aria-pressed="false">Play</button>
+      <button id="rec" aria-pressed="false">●<span class="long"> Record</span></button>
+      <div class="tempo"><button id="bpmDown" aria-label="Slower">−</button><span id="bpmOut">124</span><button id="bpmUp" aria-label="Faster">+</button><span class="lab">BPM</span></div>
+      <div class="chordbox"><span id="chordNow">—</span><span class="lab" id="barNow"></span></div>
+      <span class="spacer"></span>
+      <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
+    </div>
+  </section>
+  <section class="panel" data-tabs="more" aria-label="Packs"><div class="tempoSlot phone"></div><div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every column">Pack sounds</button></div></section>
+  <section class="panel" data-tabs="clips" aria-label="Harmony">
+    <div class="lab phone">Harmony</div>
+    <div id="harmonies" aria-label="Harmony"></div>
+    <div class="hrow"><span class="muted" id="hWords"></span><span id="harmLikes"></span></div>
+  </section>
+
+  <section class="gridbox" data-tabs="clips" aria-label="Clips"><div id="grid"></div></section>
+
+  <!-- the phone's clips: scenes in a strip, the parts as chips, the chosen part's clips as big buttons -->
+  <section class="panel phone mclips" data-tabs="clips" aria-label="Scenes and clips">
+    <div class="lab">Scenes</div><div class="strip" id="mScenes"></div>
+    <div class="mslot"></div>
+    <div class="mcolbar"><button class="sound" id="mSound"></button><button class="mute" id="mMute"></button></div>
+    <div id="mClips"></div>
+  </section>
+
+  <section class="panel snapsbox" data-tabs="snaps" aria-label="Snapshots">
+    <div id="ideas" hidden></div>
+    <div class="lab">Your snapshots: back on the next bar</div><div id="snaps"></div>
+    <div class="arrbox">
+      <div class="lab">Arrange: your order, played as a sketch, sent to Claude for the next round</div>
+      <div id="arr" class="strip"></div>
+      <div class="arrctl"><input id="arrNote" placeholder="Where should it go next? (your keyboard’s 🎤 dictates)" aria-label="A note for Claude"><button id="arrPlay" class="ghost">▶ Play arrangement</button><button id="arrSend">Send to Claude</button></div>
+      <div class="muted" id="arrMsg"></div>
+    </div>
+  </section>
+
+  <section class="panel perform" data-tabs="play" aria-label="Perform">
+    <div class="mslot phone"></div>
+    <div class="likeslot phone"></div>
+    <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
+    <div class="side">
+      <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
+      <div class="big">
+        <span class="macro octbox" id="octBox"><button id="octDown" aria-label="Octave down">−</button><span>Octave <b id="octOut">0</b></span><button id="octUp" aria-label="Octave up">+</button></span><button class="macro" id="motion"></button><button class="macro" id="length"></button>
+      </div>
+      <div class="big" aria-label="Jam moves">
+        <button id="m-vary">Vary<small>V</small></button>
+        <button id="m-mutate">Mutate<small>M</small></button>
+        <button id="m-build">Build<small>B</small></button>
+        <button id="m-drop">Drop<small>D</small></button>
+        <button id="m-rep">Repeat (hold)<small>O</small></button>
+        <button id="m-harm">Next harmony<small>H</small></button>
+        <button id="m-snap" class="phone">＋ Save snapshot</button>
+      </div>
+      <div class="likeslot desk"><div id="partLikes" class="partlikes" aria-label="Like this part"></div></div>
+      <div class="keys">
+        <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
+      </div>
+    </div>
+  </section>
+
+  <section class="panel shape" data-tabs="notes" aria-label="Shape the part">
+    <div class="mslot phone"></div>
+    <div class="likeslot phone"></div>
+    <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
+      <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
+    <canvas id="notes" aria-label="The chosen part's notes"></canvas>
+    <div class="big" id="xforms" aria-label="Shape the notes"></div>
+    <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
+    <div class="big" id="grooveRow" aria-label="Groove and space">
+      <button class="macro" id="feel" title="How this part grooves (F)"></button>
+      <button class="macro" id="echoOn" title="This part into the echo (G)"></button>
+      <button class="macro" id="verbOn" title="This part into the reverb (K)"></button>
+      <button class="macro" id="throw" title="Hold: everything this part plays goes into the echo; let go and it rings on (hold J)">Throw (hold)<small>J</small></button>
+      <button class="macro" id="echoTime" title="The echo's time, for every part"></button>
+    </div>
+  </section>
+
+  <section class="panel mixbox" data-tabs="mix" aria-label="Mixer">
+    <div class="lab">Mixer: drag a fader (double-tap for 0 dB), − + for steps · M mute · S solo · EQ low, mid, high · Duck: how hard the kick pushes it down</div>
+    <div id="mixer"></div>
+  </section>
+
+  <section class="panel likesbox" data-tabs="likes" aria-label="Your likes">
+    <div class="likehead"><div class="lab">Your likes: everything you’ve liked, noted or turned down</div><input id="likeSearch" placeholder="Search names and notes" aria-label="Search your likes"></div>
+    <div id="likeFilters" class="strip"></div>
+    <div id="likeList"></div>
+  </section>
+
+  <section class="panel keep" data-tabs="more" aria-label="Keep a recording">
+    <h2>Recordings</h2>
+    <span class="muted" id="takeNote" style="flex-basis:100%">Press Record, jam, press it again. Keep the take and Claude renders it at full quality into the listening room.</span>
+    <input id="jamName" placeholder="Name the take" aria-label="Name">
+    <input id="jamNote" placeholder="What you liked, where it could go…" aria-label="Note for Claude">
+    <button id="keepJam" disabled>Keep for Claude</button>
+  </section>
+  <div id="sounds" hidden aria-label="Sounds"></div>
+  <div id="noteSheet" hidden role="dialog" aria-label="A note">
+    <div class="lab">Note on</div><b id="noteWhat"></b>
+    <textarea id="noteText" rows="3" placeholder="What you hear, what you’d change (your keyboard’s 🎤 dictates)"></textarea>
+    <div class="notebtns"><button id="noteSave">Save note</button><button id="noteDel" class="ghost">Delete note</button><button id="noteCancel" class="ghost">Cancel</button></div>
+  </div>
+</div>
+<nav id="tabs" class="phone" aria-label="Pages">
+  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="mix">Mix</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+</nav>
+<script id="worker-src" type="text/plain">/*WORKER*/</script>
+<script>/*APP*/</script>

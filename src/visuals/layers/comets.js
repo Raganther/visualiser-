@@ -1,4 +1,9 @@
-// Comets: three glowing heads that roam and turn on the pulse, leaving trails; one in each of the palette's hues.
+// Comets: three glowing heads that roam and turn on the pulse, leaving trails; one in each of the palette's hues. Round a
+// centrepiece they fly in the space (scene/space.js): lights circling it, lighting the side they pass, hidden behind it and
+// drawn over it in front.
+import { SPACE, spaceLight, spaceFront } from '../../scene/space.js';
+import { hsv2rgb } from '../../util.js';
+import { TUNE } from '../../tuning.js';
 const CA = new Float32Array(9);   // the heads for the shader, reused each frame
 export default {
   key: 'comets', kind: 'layer', label: 'Comets',
@@ -6,7 +11,11 @@ export default {
   overWorld: .3,   // how well it sits over a world
   paint: 3,   // paint order in the trails: ribbons, horizon, comets, shockwaves, flow
   accent: 'hit', altAccent: 'bar',   // how it fires when it's the accent
-  params(P, x){ P.comets = x.comets; },
+  params(P, x){ P.comets = x.comets;
+    const w = P.l.comets || 0; if (!(SPACE.on > .02) || w < .01) return;
+    x.comets.forEach((c, j) => { if (!c.p3) return; const rgb = hsv2rgb(P.hue + P.pal[j], .75, 1), b = w*Math.min(1.5, c.z);
+      spaceLight(c.p3, rgb, b*TUNE.space.comet); spaceFront(c.p3, .02, rgb, Math.min(1, b)*TUNE.space.front); });
+  },
   feedback: {
     uniforms: 'uniform vec3 uComets[3];',
     main: `

@@ -6,6 +6,7 @@
 // The detail setting (mandDetail: simple to intricate) sets how many folds and how much ornament; Journey picks one per
 // section. The user loved the mandala "as it evolves and unfolds" and asked for flowers, Indian patterns and elephants.
 // A ring's place is its log radius minus the time in bars, so each grows by the same factor a bar.
+import { genFold } from '../../scene/genome.js';
 import { TUNE } from '../../tuning.js';
 
 const L = .55, R0 = .07;   // each ring is e^L times the one inside it; the lotus at the heart
@@ -15,7 +16,7 @@ const hh = (id, s) => { const v = Math.sin(id*s + 311.7)*43758.5453; return v - 
 function ring(id, d){
   const h = hh(id, 127.1), h2 = hh(id, 269.5), cum = [.25, .37, .49, .59, .72, .82, 1];
   const kind = cum.findIndex(v => h < v);
-  const n = kind === 6 ? (d < .33 ? 6 : 8) : [[4, 6, 6, 8], [6, 8, 8, 12], [8, 12, 16, 24]][d < .33 ? 0 : d < .66 ? 1 : 2][Math.floor(h2*4)];
+  const g = genFold(3, 12), n = g ? (kind === 6 ? g*(g % 2 ? 2 : 1) : g*(d < .33 ? 1 : d < .66 ? 1 + Math.floor(h2*2) : 2)) : kind === 6 ? (d < .33 ? 6 : 8) : [[4, 6, 6, 8], [6, 8, 8, 12], [8, 12, 16, 24]][d < .33 ? 0 : d < .66 ? 1 : 2][Math.floor(h2*4)];   // (the genome's symmetry: its own folds, or twice them as the detail rises; the animals' facing pairs even)
   return {kind, n, animal: Math.floor(hh(id, 71.3)*3), hue: ((id % 3) + 3) % 3, turn: h2*Math.PI};
 }
 export default {
@@ -32,7 +33,7 @@ export default {
     P.unfT = st.t; P.unfTurn = x.t*.03; P.unfD = d; P.unfOpen = .55 + .45*Math.sin(st.t*TUNE.unfold.barsPerRing*Math.PI*2);   // the heart's lotus opens and closes with the bar
   },
   feedback: {
-    uniforms: 'uniform vec4 uUnf;   // time in bars, turn, detail, how open the lotus is',
+    uniforms: 'uniform vec4 uUnf; uniform float uUnfN;   // time in bars, turn, detail, how open the lotus is; the genome\'s folds (0: each ring its own)',
     functions: `
 float unfH(float id,float s){ return fract(sin(id*s+311.7)*43758.5453); }
 float unfE(vec2 p,vec2 r){ return (length(p/r)-1.0)*min(r.x,r.y); }                                   // an ellipse, near enough
@@ -78,6 +79,7 @@ float unfRing(vec2 p){
   float h=unfH(id,127.1), h2=unfH(id,269.5), kind=h<0.25?0.0:h<0.37?1.0:h<0.49?2.0:h<0.59?3.0:h<0.72?4.0:h<0.82?5.0:6.0;
   float band=det<0.33?0.0:det<0.66?1.0:2.0, pick=floor(h2*4.0);
   float n=kind>5.5 ? (det<0.33?6.0:8.0) : band<0.5 ? (pick<0.5?4.0:pick<2.5?6.0:8.0) : band<1.5 ? (pick<0.5?6.0:pick<2.5?8.0:12.0) : (pick<0.5?8.0:pick<1.5?12.0:pick<2.5?16.0:24.0);
+  if(uUnfN>0.5) n=kind>5.5 ? uUnfN*(mod(uUnfN,2.0)>0.5?2.0:1.0) : uUnfN*(band<0.5?1.0:band<1.5?1.0+floor(h2*2.0):2.0);   // (the genome's symmetry)
   float a=atan(p.y,p.x)+h2*3.14159+uUnf.y*(mod(id,2.0)*2.0-1.0), s=6.2831853/n, c=mod(a,s)/s-0.5;   // c: -0.5..0.5 across one fold
   float A=6.2831853/(n*${L.toFixed(2)});   // the cell's width against its depth, so shapes keep their proportions
   float grow=smoothstep(-0.1,1.3,age), fg=f/max(grow,0.05);   // a newborn ring's motifs start small and bloom open
@@ -130,7 +132,7 @@ float unfRing(vec2 p){
     col+=hsv(uHue+hue,0.6,1.0)*uL_unfold*unfRing(p)*(0.42+uBeat*0.3+uMid*uReact*0.25);
   }`,
   },
-  fbUniforms(gl, u, P){ if (u.uUnf) gl.uniform4f(u.uUnf, P.unfT || 0, P.unfTurn || 0, P.unfD ?? .5, P.unfOpen ?? 1); },
+  fbUniforms(gl, u, P){ if (u.uUnf) { gl.uniform4f(u.uUnf, P.unfT || 0, P.unfTurn || 0, P.unfD ?? .5, P.unfOpen ?? 1); gl.uniform1f(u.uUnfN, genFold(3, 12) || 0); } },
   // simple mode: the same rings, plainer (each motif as a few strokes)
   trails2d(c, P, x){
     const {u, sx, sy, hsl, glowStroke} = x;

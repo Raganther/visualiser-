@@ -4,13 +4,17 @@
 // Labs can also be switched on in the Adjust panel (an input with data-lab="name"), for hosts whose links can't carry a
 // query (the published Artifact). A switch lasts for this tab (sessionStorage), not for every visit after: the cosmos lab,
 // remembered for good, held Journey in the cosmos visit after visit without a word.
-// The build bundles every file in src/lab/, so labs work in dist/afterglow.html too (if the host passes the URL's query on).
+// The build bundles every file in src/lab/, so labs work in dist/afterglow.html too (if the host passes the URL's query on);
+// a page can name its own before the modules load (window.__labs: dist/prism-lab.html, the Prism lab).
 import { TUNE } from './tuning.js';
 
 const q = new URLSearchParams(location.search);
 try { localStorage.removeItem('afterglow.labs'); } catch (e) {}   // (where they used to be kept)
 let stored = (() => { try { return JSON.parse(sessionStorage.getItem('afterglow.labs') || '[]'); } catch (e) { return []; } })();
-export const LABS = [...new Set([...q.getAll('lab').flatMap(v => v.split(',')), ...stored])].filter(Boolean);
+// the phone view (src/lab/phone.js): chosen (afterglow.phone), or by itself on a phone until chosen; never on a page with labs of its own
+const phone = (() => { if (window.__labs || q.getAll('lab').length) return false; try { const v = localStorage.getItem('afterglow.phone'); if (v != null) return v === '1'; } catch (e) {}
+  return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; })();
+export const LABS = [...new Set([...(window.__labs || []), ...(phone ? ['phone'] : []), ...q.getAll('lab').flatMap(v => v.split(',')), ...stored])].filter(Boolean);
 
 export function applyTune(){
   for (const t of q.getAll('tune')) {

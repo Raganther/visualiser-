@@ -3,6 +3,8 @@ import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, VISUALS, WORLD_VISUALS, byK
 import { TUNE } from '../tuning.js';
 import { TW } from '../scene/tweaks.js';
 import { DANCE } from '../scene/dance.js';
+import { SPACE } from '../scene/space.js';
+import { front2d } from './front.js';
 // a layer following another sound: that level in place of its bass, mids and treble
 const own = (P, t) => t.band === null ? P : {...P, bass: t.band, mid: t.band, treb: t.band};
 
@@ -133,7 +135,8 @@ export function make2D(view){
   }
   function drawObjects(P, step){
     for (const v of OBJECT_VISUALS) if (P.o[v.key] > .01 && (step.mesh === '*' ? !P.sc.placed.has(v.key) : v.key === step.mesh)) {
-      out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore(); }
+      out.save(); out.globalCompositeOperation = 'source-over'; v.draw2d(out, P); out.restore();
+      if (v.key === SPACE.key) front2d(out); }   // what's in front of the centrepiece, over it (scene/space.js)
   }
   function drawHits(P){
     for (const v of HIT_VISUALS) if (v.draw2d) { out.save(); v.draw2d(out, P); out.restore(); }
@@ -245,7 +248,7 @@ export function make2D(view){
     const x = snapCan.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(src, 0, 0, W, H);
     return snapCan;
   }
-  const diveCan = document.createElement('canvas');
+  const diveCan = document.createElement('canvas'), nestCan = new Map();   // (the nested dive's folded copies, one per mirror count)
   function foldOnto(o, src, P){
     const [n, , amt, ang] = P.kal.v, h = Math.PI/n, A = -ang - h;   // (the canvas turns the other way)
     const x0 = W/2 + P.kal.c[0]*H, y0 = H/2 - P.kal.c[1]*H, R = Math.hypot(W, H), mode = P.kal.mode || 0;
@@ -267,12 +270,53 @@ export function make2D(view){
         o.save(); o.beginPath(); o.arc(x0, y0, k < 0 ? R : r, 0, Math.PI*2); o.clip(); o.translate(x0, y0); o.scale(sc, sc); o.drawImage(diveCan, -x0, -y0, W, H); o.restore(); }
       o.restore(); return;
     }
+    if (mode === 14) {   // the nested dive: the dive's copies, each folded with its own band's mirrors (main.js, kalNest)
+      const L = P.kal.v2[3], z = P.kal.v2[2], f = z % 1, R0 = .5*H, lv = P.kal.lv, nb = P.kal.nb || 0, used = new Set();
+      o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
+      for (let k = -1; k < 7; k++) { const sc = Math.exp(L*(f - k)), r = R0*sc; if (r < 2) break;
+        const j = Math.max(0, Math.min(9, -k - Math.floor(z) - 1 - nb)), bn = lv ? lv[j*4] : n, pin = lv ? lv[j*4 + 2] : 0, key = bn + '|' + pin;
+        let c = nestCan.get(key);
+        if (!c) { c = document.createElement('canvas'); nestCan.set(key, c); }
+        if (!used.has(key)) { used.add(key); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+          const d = c.getContext('2d'); d.globalCompositeOperation = 'copy'; d.globalAlpha = 1; d.drawImage(src, 0, 0, W, H);
+          foldOnto(d, src, {kal: {...P.kal, mode: pin > .5 ? 3 : 0, v: [bn, 0, 1, ang]}}); }
+        o.save(); o.beginPath(); o.arc(x0, y0, k < 0 ? R : r, 0, Math.PI*2); o.clip(); o.translate(x0, y0); o.rotate(-(lv ? lv[j*4 + 1] : 0)); o.scale(sc, sc); o.drawImage(c, -x0, -y0, W, H); o.restore(); }
+      o.restore(); for (const k of nestCan.keys()) if (!used.has(k) && nestCan.size > 6) nestCan.delete(k); return;
+    }
+    // the broken symmetries (render/shaders.js, KAL), plainer: tiles as the box, hyperbolic and Droste as the dive
+    if (mode === 9) return foldOnto(o, src, {kal: {...P.kal, mode: 1}});
+    if (mode === 10 || mode === 11) return foldOnto(o, src, {kal: {...P.kal, mode: 2}});
+    const [t, bar, as, bass] = P.kal.v3 || [0, 0, 1, 0];
     o.save(); o.globalCompositeOperation = 'source-over'; o.globalAlpha = amt;
-    for (let j = 0; j < 2*n; j++) { o.save(); o.beginPath(); o.moveTo(x0, y0); o.arc(x0, y0, R, A + j*h, A + (j + 1)*h + .002); o.closePath(); o.clip();
-      o.translate(x0, y0);
-      if (j & 1) { const L = A + (j + 1)*h/2; o.rotate(L); o.scale(1, -1); o.rotate(-L); } else o.rotate(j*h);
-      o.drawImage(src, -x0, -y0, W, H); o.restore(); }
+    if (mode === 13) {   // two centres: each half of the picture folded round its own, the halves split by the line between them
+      const a = t*.11, d = .24*(.55 + .45*Math.sin(t*.27))*Math.max(.4, as)*H, dx = Math.cos(a)*d, dy = -Math.sin(a)*d;
+      for (const s of [1, -1]) { o.save();
+        const pth = new Path2D(); pth.addPath(new Path2D(`M${-R} 0H${R}V${R*s}H${-R}Z`), new DOMMatrix().translate(x0, y0).rotate(Math.atan2(dy, dx)*180/Math.PI - 90)); o.clip(pth);
+        wedges(o, src, x0, y0, x0 + dx*s, y0 + dy*s, n, h, A, R, mode, t, bar, as, bass); o.restore(); }
+    } else wedges(o, src, x0, y0, x0, y0, n, h, A, R, mode, t, bar, as, bass);
     o.restore();
+  }
+  // the wedges round (cx, cy), reading the picture round its own centre (sx, sy); each kind's twist
+  const hashI = i => { const x = Math.sin(i*127.1 + 3.7)*43758.5453; return x - Math.floor(x); };
+  function wedges(o, src, sx, sy, cx, cy, n, h, A, R, mode, t, bar, as, bass){
+    if (mode === 3) {   // the pinwheel: one whole wedge, turned round, never mirrored
+      for (let i = 0; i < n; i++) { o.save(); o.beginPath(); o.moveTo(cx, cy); o.arc(cx, cy, R, A + i*2*h, A + (i + 1)*2*h + .002); o.closePath(); o.clip();
+        o.translate(cx, cy); o.rotate(i*2*h); o.drawImage(src, -sx, -sy, W, H); o.restore(); }
+      return;
+    }
+    for (let j = 0; j < 2*n; j++) { const i = j >> 1;
+      o.save(); o.beginPath(); o.moveTo(cx, cy); o.arc(cx, cy, R, A + j*h, A + (j + 1)*h + .002); o.closePath(); o.clip();
+      o.translate(cx, cy);
+      const odd = mode === 6 && i === bar % n;
+      if (odd) o.rotate(-.5*as);   // the odd one out: unfolded, turned
+      else if (j & 1) { const L = A + (j + 1)*h/2; o.rotate(L); o.scale(1, -1); o.rotate(-L); } else o.rotate(j*h);
+      if (mode === 4) o.rotate(-.13*as*Math.sin(t*2.2 - i*2*Math.PI/n));   // ripple: a wave running round
+      if (mode === 7) o.rotate((hashI(i) - .5)*.08*as);   // imperfect: seams that don't quite meet
+      if (mode === 12) o.rotate(-.2*(.35 + .9*bass)*Math.sin(t*1.5 + i)*Math.max(.3, as));   // curved: bending with the bass
+      if (mode === 5 && (i + bar) % 2) { o.rotate(Math.PI); o.filter = 'hue-rotate(180deg)'; }   // inverted pairs
+      if (mode === 8) o.filter = `hue-rotate(${Math.round(i/n*216)}deg)`;   // colour wedges
+      if (odd) o.scale(1/.85, 1/.85);
+      o.drawImage(src, -sx, -sy, W, H); o.restore(); }
   }
   function foldGlow(g, P){
     if (foldCan2.width !== W || foldCan2.height !== H) { foldCan2.width = W; foldCan2.height = H; }

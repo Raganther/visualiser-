@@ -6,7 +6,8 @@
 // (LIKED in presets.js, journey/recipes.js), so what the user likes comes back when the music suits it.
 import { S } from '../state.js';
 import { J } from '../journey/core.js';
-import { LIKED, SPEC, curP, eff } from '../presets.js';
+import { DISLIKED, LIKED, SPEC, curP, eff } from '../presets.js';
+import { GEN_LIKED, genSnap } from '../scene/genome.js';
 import { setJourney } from './controls.js';
 import { setPreset } from './presets.js';
 import { toast } from './toast.js';
@@ -21,29 +22,38 @@ const local = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || '[]
 const keepLocal = a => { try { localStorage.setItem(LOCAL, JSON.stringify(a.slice(-KEEP))); } catch (e) {} };
 count = local().length;
 
-export function rate(v){ want = v; }   // taken at the end of the next drawn frame, when the canvas still holds it
+export function rate(v){ want = v; }
+export const tasteDb = () => db;   // (the comments use the same database)   // taken at the end of the next drawn frame, when the canvas still holds it
 // called by main.js after each frame is drawn
+const snaps = [];   // others waiting for a frame's picture and state (a comment: ui/comment.js)
+export const snapNext = (w, h, cb) => snaps.push({w, h, cb});
+const copy = (w, h) => { try { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage($('#gl'), 0, 0, w, h); return c; } catch (e) { return null; } };
 export function tasteFrame(){
+  while (snaps.length) { const s = snaps.shift(); s.cb(copy(s.w, s.h), momentOf()); }
   if (!want) return;
   const v = want; want = 0;
-  let c = null;   // the picture is copied now, while the canvas holds it; encoding and saving wait until after the frame
-  try { c = document.createElement('canvas'); c.width = 160; c.height = 90; c.getContext('2d').drawImage($('#gl'), 0, 0, 160, 90); } catch (e) { c = null; }
+  const c = copy(160, 90);   // the picture is copied now, while the canvas holds it; encoding and saving wait until after the frame
+  const m = {v, ...momentOf()};
+  setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
+  count++; if (v > 0) dispatchEvent(new Event('afterglow-like'));   // (the tutorial waits for one)
+  toast(v > 0 ? `Liked (${count}): it's in Adjust, under Liked` : `Not for me (${count})`);
+}
+// everything about the moment: what's on screen, the music, every setting, and the whole look to bring it back
+export function momentOf(){
   const d = window.__jdbg ? window.__jdbg() : {}, r3 = x => typeof x === 'number' ? +x.toFixed(3) : x;
   const centre = J.on ? J.centre : (OBJECT_VISUALS.filter(o => curP[o.key] > .3).sort((a, b) => curP[b.key] - curP[a.key])[0] || {}).key || null;
-  const m = {v, at: new Date().toISOString(), track: $('#track').textContent, pos: $('#tNow').textContent, onScreen: $('#onNow').textContent,
+  return {at: new Date().toISOString(), track: $('#track').textContent, pos: $('#tNow').textContent, onScreen: $('#onNow').textContent,
     journey: J.on, preset: J.on ? null : S.active.name, recipe: d.recipe || null, lead: d.lead || null, accent: d.accent || null, hit: d.hit || null,
     world: d.world || null, scene: d.scene || null, centre: d.centre || null, lens: d.lensOn && d.lens ? d.lens.n : 0,
     section: d.sec || null, pace: d.pace ? d.pace.name : null, tension: r3(d.T), bpm: d.grid && d.grid.bpm ? r3(d.grid.bpm) : null,
     caption: $('#caption').classList.contains('show') ? $('#caption').textContent : null,
     place: eff.cosmos > .05 && byKey.cosmos ? (({system, star, subject, shot, belt}) => ({system, star, subject, shot, belt}))(byKey.cosmos.info()) : null,
     settings: Object.fromEntries(Object.entries(eff).filter(([, x]) => typeof x === 'number' && x !== 0).map(([k, x]) => [k, r3(x)])), thumb: '',
+    genome: genSnap(),   // (with the genome on, its genes: new generations now and then take after a liked one, scene/genome.js)
     // the look as drawn, to bring back: every setting (as drawn now, not a target still being eased to), movers, scene
     look: {settings: Object.fromEntries(SPEC.map(s => [s.k, r3(curP[s.k])])), mods: clone(S.active.mods || {}), tw: clone(S.active.tw || {}),
       scene: clone((J.on ? J.sceneLive : S.scene) || null), sceneKey: J.on && J.sceneLive ? J.sceneKey : null, centre},
     name: nameOf(d)};
-  setTimeout(() => { try { if (c) m.thumb = c.toDataURL('image/jpeg', .6); } catch (e) {} save(m); }, 0);
-  count++; if (v > 0) dispatchEvent(new Event('afterglow-like'));   // (the tutorial waits for one)
-  toast(v > 0 ? `Liked (${count}): it's in Adjust, under Liked` : `Not for me (${count})`);
 }
 // a short name for a like: what's on screen (the world and the lead), or the preset's
 function nameOf(d){
@@ -54,10 +64,12 @@ function nameOf(d){
 async function save(m){
   if (db) { try { await db.collection('moments').add(m); return; } catch (e) {} }   // a refused write falls back to this browser
   m.id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); m.local = true;
-  const a = local(); a.push(m); keepLocal(a); if (!db) show(a.filter(x => x.v > 0).reverse());
+  const a = local(); a.push(m); keepLocal(a); if (!db) { show(a.filter(x => x.v > 0).reverse()); showDis(a.filter(x => x.v < 0)); }
 }
 // the liked moments, live from the database (or this browser's): the gallery, and Journey's liked recipes
 function watch(){
+  try { db.collection('moments').where('v', '==', -1).limit(SHOWN).onSnapshot(snap => showDis(snap.docs.map(d => ({id: d.id, ...d.data()}))), () => showDis(local().filter(x => x.v < 0))); }
+  catch (e) { showDis(local().filter(x => x.v < 0)); }
   try {
     db.collection('moments').where('v', '==', 1).orderBy('at', 'desc').limit(SHOWN).onSnapshot(snap => {
       show(snap.docs.map(d => ({id: d.id, ...d.data()})));
@@ -68,16 +80,20 @@ function watch(){
 // whole stack or the movers: it comes back as those settings over the plain stack
 const withLook = m => m.look ? m : m.settings ? {...m, name: m.name || [m.world && m.world !== 'none' ? (byKey[m.world] || {}).label : null, m.lead ? (byKey[m.lead] || {}).label : null].filter(Boolean).join(', ') || m.preset || 'Liked',
   look: {settings: m.settings, mods: {}, scene: null, sceneKey: m.scene && m.scene !== 'plain' ? m.scene : null, centre: m.centre || null}} : m;
+// the disliked ones, for Journey to learn which pairs to avoid (journey/combos.js)
+function showDis(list){ DISLIKED.length = 0; for (const m of list.map(withLook).filter(m => m.look)) DISLIKED.push(lookOf(m)); }
 function show(list){
   liked = list.map(withLook).filter(m => m.look).slice(0, SHOWN);
   LIKED.length = 0;
-  for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre || null});
+  GEN_LIKED.length = 0; for (const m of liked) if (m.genome) GEN_LIKED.push(m.genome);
+  for (const m of liked) LIKED.push({...lookOf(m), name: 'Liked: ' + (m.name || 'untitled'), liked: true, sceneKey: m.look.sceneKey || null, centre: m.look.centre === 'fold' ? 'prism' : m.look.centre || null});
   render();
 }
 // a like's look as a preset: its settings (a setting added since reads as off, or as it is now for the motion and colour)
 function lookOf(m){
   const L = m.look, p = {name: m.name || 'Liked', mods: clone(L.mods || {}), tw: clone(L.tw || {})};
   for (const s of SPEC) p[s.k] = typeof L.settings[s.k] === 'number' ? L.settings[s.k] : PICTURE.includes(s.g) ? 0 : curP[s.k];
+  if (L.settings.fold > (p.prism || 0)) p.prism = L.settings.fold;   // (the Fold became the Prism)
   if (L.scene) p.scene = clone(L.scene);
   return p;
 }
@@ -122,13 +138,13 @@ function render(){
     li.append(b, nm, acts); return li;
   }));
 }
-if (!(window.claude && window.claude.use)) show(local().filter(x => x.v > 0).reverse());
-else setTimeout(() => { if (!db) show(local().filter(x => x.v > 0).reverse()); }, 11000);   // (no database answered: this browser's)
+if (!(window.claude && window.claude.use)) { show(local().filter(x => x.v > 0).reverse()); showDis(local().filter(x => x.v < 0)); }
+else setTimeout(() => { if (!db) { show(local().filter(x => x.v > 0).reverse()); showDis(local().filter(x => x.v < 0)); } }, 11000);   // (no database answered: this browser's)
 render();
 $('#likeBtn').onclick = () => rate(1);
 $('#dislikeBtn').onclick = () => rate(-1);
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === '+' || e.key === '=') rate(1);
   else if (e.key === '-' || e.key === '_') rate(-1);
 });

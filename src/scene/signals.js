@@ -8,7 +8,9 @@ export const SIGNALS = [['drift', 'Slow drift'], ['bass', 'Follows bass', 1], ['
   ['pulse', 'Pulses on beat'], ['jump', 'Jumps on beat'],
   ['kick', 'Every kick', 1], ['stab', 'Stabs', 1], ['level', 'Loudness', 1], ['beatPhase', 'Beat ramp'], ['barPhase', 'Bar ramp'],
   ['tension', 'Energy'], ['section', 'Section change'],
-  ['hat', 'Hi-hats', 1], ['noise', 'Noisy against tonal'], ['full', 'Fullness'], ['width', 'Stereo width', 1], ['harm', 'The notes change'], ['fresh', 'Something new'], ['coming', 'The drop is coming']];
+  ['hat', 'Hi-hats', 1], ['noise', 'Noisy against tonal'], ['full', 'Fullness'], ['width', 'Stereo width', 1], ['harm', 'The notes change'], ['fresh', 'Something new'], ['coming', 'The drop is coming'],
+  ['nKick', 'Sequencer kick', 1], ['nSnare', 'Sequencer snare and clap', 1], ['nHat', 'Sequencer hats and cymbals', 1], ['nPerc', 'Sequencer percussion', 1],
+  ['nSynth', 'Synth and bass notes', 1], ['nPitch', 'How high the synth plays']];   // (scene/notes.js: the notes played, as heard)
 const MUSICAL = new Set(SIGNALS.filter(s => s[2]).map(s => s[0]));
 // a signal's value as a mover sees it; the band followers keep their original arithmetic ((band*react)*amount)
 export const sig = (k, react) => MUSICAL.has(k) ? SIG[k]*react : SIG[k];
@@ -19,7 +21,7 @@ const last = {beats: 0, type: null, bars: 0};
 export function updateSignals(x){
   SIG.bass = x.bands.bass; SIG.mid = x.bands.mid; SIG.treb = x.bands.treb;
   SIG.pulse = x.beat; SIG.stab = x.hit; SIG.tension = x.tension; SIG.level = x.level; SIG.coming = x.coming || 0;   // (a drop read ahead: its run-up, 0..1)
-  SIG.kick = x.beats !== last.beats ? 1 : SIG.kick*Math.exp(-x.dt*9);   // every beat, sharp, whatever the pace's division
+  SIG.kick = x.beats !== last.beats && x.kickOn !== false ? 1 : SIG.kick*Math.exp(-x.dt*9);   // every beat with a kick (the groove: none in a breakdown), sharp, whatever the pace's division
   last.beats = x.beats;
   SIG.section = x.type !== last.type && last.type !== null ? 1 : SIG.section*Math.exp(-x.dt*1.5);   // a swell as a new section starts
   last.type = x.type;
