@@ -97,6 +97,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .keys{font:12px var(--mono); color:var(--mute); line-height:1.8}
 /* the sound picker */
 #sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
+#sounds[hidden]{display:none !important}
 .sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
@@ -117,30 +118,110 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .keep{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 #keepJam{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
 #keepJam:disabled{opacity:.4; cursor:default}
+.phone{display:none !important}
+/* the phone: one page at a time (the tabs at the bottom, in reach of a thumb), a slim transport at the top */
+@media (max-width:640px){
+  .phone{display:block !important} nav.phone{display:flex !important}
+  body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
+  .wrap{gap:8px}
+  body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="play"] [data-tabs]:not([data-tabs~="play"]), body[data-tab="notes"] [data-tabs]:not([data-tabs~="notes"]),
+  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]){display:none !important}
+  .gridbox,.keys{display:none !important}
+  .panel{padding:10px; border-radius:12px}
+  .transport{position:sticky; top:0; z-index:15; margin:0 calc(-1*max(10px, env(safe-area-inset-left, 0px))); border-radius:0; border-width:0 0 1px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
+  .top{gap:8px; flex-wrap:nowrap}
+  .top > div:first-child, .top .spacer, #rec .long{display:none}
+  #play,#rec{height:44px; padding:0 16px; min-width:0; flex:none}
+  #play{min-width:76px}
+  .chordbox{flex:1; min-width:0}
+  #chordNow{font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  #barNow{font-size:10px}
+  .top > div:last-child{flex:none; max-width:38%; text-align:right; overflow:hidden}
+  #busy,#flash{font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .tempoSlot{margin-bottom:10px} .tempoSlot .tempo{gap:8px} .tempoSlot .tempo button{width:48px; height:44px} .tempoSlot .tempo .lab{display:inline}
+  .strip, #harmonies, #packs, #vars{display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+  .strip > *, #harmonies > *, #packs > *, #vars > *{flex:none}
+  .hchip,.pchip{min-height:44px; padding:8px 14px; font-size:14px}
+  .ghost,.tog{min-height:44px}
+  .mini{min-width:36px; min-height:36px}
+  #packs{margin-top:0}
+  .lab{margin:2px 0 6px}
+  /* the clips page */
+  .mscene{min-height:44px; padding:8px 14px; border:0; border-radius:999px; background:var(--band); font-weight:600; white-space:nowrap}
+  .mscene b{font-family:var(--mono); margin-right:6px; color:var(--mute)}
+  .mchip{min-width:76px; min-height:52px; padding:6px 10px; border:2px solid transparent; border-radius:12px; background:var(--well); text-align:left; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:130px}
+  .mchip b{font-size:14px} .mchip span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mchip[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)}
+  .mchip[data-on="1"] b::after{content:" ●"; color:var(--on); font-size:10px}
+  .mchip[data-mute="1"]{opacity:.45}
+  .mcolbar{display:flex; gap:8px; margin:8px 0}
+  .mcolbar .sound{flex:1; min-height:44px; font-size:14px; padding:8px 12px}
+  .mcolbar .mute{min-width:84px; min-height:44px; font-size:13px}
+  #mClips{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  #mClips .cell{min-height:60px; font-size:14px; padding:8px 10px}
+  /* the play and notes pages */
+  .perform{gap:10px} .perform > *, .shape > *, .mslot{min-width:0; max-width:100%}
+  #pad{aspect-ratio:auto; height:min(33vh, calc(100vw - 40px))}
+  .side > .big:first-of-type{grid-template-columns:1fr 1fr}
+  .side{gap:8px} .side > div:first-child{display:none}
+  .big{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px}
+  .big button{min-height:48px; font-size:13px; border-radius:10px; padding:4px; text-align:center}
+  .big button small{display:none}
+  .macro{min-height:48px !important}
+  .octbox{grid-column:1 / -1; justify-content:space-between; padding:0}
+  .octbox button{min-width:48px; min-height:48px}
+  #m-rep,#throw{touch-action:none}
+  .shapehead{flex-wrap:wrap}
+  #notes{height:140px}
+  .vbtn, #vars button{min-width:48px; min-height:48px}
+  .fb{gap:6px} .fb button{min-width:44px; min-height:44px} .fb input{flex-basis:100%}
+  .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
+  #snaps{grid-template-columns:1fr 1fr}
+  .snapbtns .mini{min-width:36px; min-height:36px}
+  /* the sound picker: a sheet from the bottom, one column, closed from the bottom too */
+  #sounds{left:0; right:0; bottom:0; border-radius:16px 16px 0 0; max-height:70vh; grid-template-columns:1fr; padding:12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); z-index:30}
+  .sndclose{min-height:48px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600}
+  /* the tabs */
+  #tabs{position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--panel); border-top:1px solid var(--line); padding:0 max(6px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(6px, env(safe-area-inset-left, 0px))}
+  #tabs button{flex:1; min-height:56px; border:0; background:transparent; font-weight:600; font-size:13px; color:var(--mute); border-top:3px solid transparent}
+  #tabs button[aria-current="page"]{color:var(--ink); border-top-color:var(--on)}
+}
 @media (prefers-reduced-motion: reduce){.cell[data-next="1"],.hchip[data-next="1"]{animation:none}}
 </style>
 
 <div class="wrap">
-  <section class="panel">
+  <section class="panel transport">
     <div class="top">
       <div><div class="lab">Studio · jam</div><h1>Studio Jam</h1></div>
       <button id="play" aria-pressed="false">Play</button>
-      <button id="rec" aria-pressed="false">● Record</button>
+      <button id="rec" aria-pressed="false">●<span class="long"> Record</span></button>
       <div class="tempo"><button id="bpmDown" aria-label="Slower">−</button><span id="bpmOut">124</span><button id="bpmUp" aria-label="Faster">+</button><span class="lab">BPM</span></div>
       <div class="chordbox"><span id="chordNow">—</span><span class="lab" id="barNow"></span></div>
       <span class="spacer"></span>
       <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
     </div>
-    <div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every column">Pack sounds</button></div>
+  </section>
+  <section class="panel" data-tabs="more" aria-label="Packs"><div class="tempoSlot phone"></div><div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every column">Pack sounds</button></div></section>
+  <section class="panel" data-tabs="clips" aria-label="Harmony">
+    <div class="lab phone">Harmony</div>
     <div id="harmonies" aria-label="Harmony"></div>
     <div class="muted" id="hWords"></div>
   </section>
 
-  <section class="gridbox" aria-label="Clips"><div id="grid"></div></section>
+  <section class="gridbox" data-tabs="clips" aria-label="Clips"><div id="grid"></div></section>
 
-  <section class="panel" aria-label="Snapshots"><div class="lab">Snapshots: your combinations, back on the next bar</div><div id="snaps"></div></section>
+  <!-- the phone's clips: scenes in a strip, the parts as chips, the chosen part's clips as big buttons -->
+  <section class="panel phone mclips" data-tabs="clips" aria-label="Scenes and clips">
+    <div class="lab">Scenes</div><div class="strip" id="mScenes"></div>
+    <div class="mslot"></div>
+    <div class="mcolbar"><button class="sound" id="mSound"></button><button class="mute" id="mMute"></button></div>
+    <div id="mClips"></div>
+  </section>
 
-  <section class="panel perform" aria-label="Perform">
+  <section class="panel" data-tabs="snaps" aria-label="Snapshots"><div class="lab">Snapshots: your combinations, back on the next bar</div><div id="snaps"></div></section>
+
+  <section class="panel perform" data-tabs="play" aria-label="Perform">
+    <div class="mslot phone"></div>
     <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
     <div class="side">
       <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
@@ -154,8 +235,9 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
         <button id="m-drop">Drop<small>D</small></button>
         <button id="m-rep">Repeat (hold)<small>O</small></button>
         <button id="m-harm">Next harmony<small>H</small></button>
+        <button id="m-snap" class="phone">＋ Save snapshot</button>
       </div>
-      <div class="fb">
+      <div class="fb" data-tabs="more">
         <span class="lab">This clip</span><button id="r-clip-up">👍</button><button id="r-clip-down">👎</button>
         <span class="lab">Sound</span><button id="r-sound-up">👍</button><button id="r-sound-down">👎</button>
         <span class="lab">Harmony</span><button id="r-harmony-up">👍</button><button id="r-harmony-down">👎</button>
@@ -168,7 +250,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     </div>
   </section>
 
-  <section class="panel shape" aria-label="Shape the part">
+  <section class="panel shape" data-tabs="notes" aria-label="Shape the part">
+    <div class="mslot phone"></div>
     <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
       <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
     <canvas id="notes" aria-label="The chosen part's notes"></canvas>
@@ -183,7 +266,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     </div>
   </section>
 
-  <section class="panel keep" aria-label="Keep a recording">
+  <section class="panel phone" data-tabs="more" aria-label="Rate"><div class="fbslot"></div></section>
+  <section class="panel keep" data-tabs="more" aria-label="Keep a recording">
     <h2>Recordings</h2>
     <span class="muted" id="takeNote" style="flex-basis:100%">Press Record, jam, press it again. Keep the take and Claude renders it at full quality into the listening room.</span>
     <input id="jamName" placeholder="Name the take" aria-label="Name">
@@ -192,5 +276,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   </section>
   <div id="sounds" hidden aria-label="Sounds"></div>
 </div>
+<nav id="tabs" class="phone" aria-label="Pages">
+  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+</nav>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script>/*APP*/</script>

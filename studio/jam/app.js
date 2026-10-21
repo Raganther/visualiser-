@@ -173,15 +173,17 @@ function renderCol(c){ if (!c.head) return; const i = st.cols.indexOf(c), s = SN
     h('button', {class: 'sound', onclick: () => { st.sel = i; renderSel(); openSounds(c); }, title: 'Change the sound'}, s.name),
     h('button', {class: 'mute', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); }}, c.mute ? 'Muted' : 'Mute'));
   document.querySelectorAll(`.cell[data-col="${c.id}"]`).forEach(b => { b.dataset.on = c.clipId && +b.dataset.row === c.row ? '1' : ''; b.dataset.next = c.next && c.next !== 'stop' && +b.dataset.row === c.nextRow ? '1' : ''; });
-  if (i === st.sel) renderSel(); }
+  if (i === st.sel) renderSel(); else renderPhone(); }
 function renderSel(){ const c = selCol(); st.cols.forEach((x, i) => x.head && (x.head.dataset.sel = i === st.sel ? '1' : ''));
   $('selName').textContent = `${ROLE_NAMES[c.role]}: ${SND[c.sound].name}`; $('selClip').textContent = c.clipId ? CLIP[c.clipId].name + (c.var ? ` (variation ${c.var})` : '') : 'not playing';
   $('octOut').textContent = (c.oct > 0 ? '+' : '') + (c.oct || 0); $('octBox').hidden = ['kick', 'hats', 'perc'].includes(c.role); $('motion').textContent = 'Motion: ' + ['still', 'slow', 'fast'][c.motion]; $('length').textContent = 'Length: ' + ['short', 'normal', 'long'][c.length];
-  drawPad(); renderShape(); }
+  drawPad(); renderShape(); renderPhone(); }
 function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
   for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
   $('hWords').textContent = (st.hNext || st.harmony).words; }
-let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) drawNotes(s); for (const b of lightCells) b.style.removeProperty('--p'); lightCells = [];
+let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) drawNotes(s);
+  const mc = selCol(), mb = mc?.clip && document.querySelector(`#mClips .cell[data-on="1"]`); document.querySelectorAll('#mClips .cell').forEach(b => b !== mb && b.style.removeProperty('--p'));
+  if (mb && s >= 0) mb.style.setProperty('--p', (((s - mc.start) % mc.clip.len + mc.clip.len) % mc.clip.len + 1)/mc.clip.len); for (const b of lightCells) b.style.removeProperty('--p'); lightCells = [];
   if (s < 0) return; for (const c of st.cols) { if (!c.clip) continue; const b = document.querySelector(`.cell[data-col="${c.id}"][data-on="1"]`); if (b) { b.style.setProperty('--p', (((s - c.start) % c.clip.len + c.clip.len) % c.clip.len + 1)/c.clip.len); lightCells.push(b); } } }
 let flashT = 0; function flash(t){ $('flash').textContent = t; clearTimeout(flashT); flashT = setTimeout(() => $('flash').textContent = '', 1800); }
 
@@ -248,11 +250,41 @@ function openSounds(c){ const box = $('sounds'); box.innerHTML = ''; box.hidden 
   for (const g of groups) { const list = mine.filter(s => s.pack === g); if (!list.length) continue;
     box.append(h('div', {class: 'sndgroup lab'}, (PACKS.find(p => p.id === g)?.name || g) + (g === PACK.id ? ' (this pack)' : '')));
     for (const s of list) box.append(h('button', {class: 'snd', 'data-on': s.id === c.sound ? '1' : '', onclick: () => { c.locked = true; setSound(c, s.id); saveSounds(); logMacro(c, 'sound:' + s.id, 1); openSounds(c); flash('Sound: ' + s.name); }},
-      h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), rateBtns('sound', s.id, s.name))); } }
+      h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), rateBtns('sound', s.id, s.name))); }
+  box.append(h('button', {class: 'sndclose phone', onclick: () => box.hidden = true}, 'Close')); }
 // each pack remembers the sounds chosen for its columns (from any pack); Pack sounds puts its own back
 const soundsKey = () => 'studio.jam.sounds.' + PACK.id;
 function saveSounds(){ try { localStorage.setItem(soundsKey(), JSON.stringify(st.cols.map(c => c.locked ? c.sound : null))); } catch {} }
 function packSounds(){ st.cols.forEach((c, i) => { c.locked = false; setSound(c, PACK.columns[i].sound); }); try { localStorage.removeItem(soundsKey()); } catch {} flash('Back to this pack’s own sounds'); }
+
+/* ---------- the phone: a page at a time, picked from the tabs at the bottom ---------- */
+const SHORT = {kick: 'Kick', hats: 'Hats', perc: 'Perc', bass: 'Bass', chords: 'Chords', lead: 'Lead'};
+const mCols = h('div', {class: 'strip', id: 'mCols', 'aria-label': 'Parts'});
+function setTab(t){ document.body.dataset.tab = t; try { localStorage.setItem('studio.jam.tab', t); } catch {}
+  document.querySelectorAll('#tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  const slot = document.querySelector(`[data-tabs~="${t}"] .mslot`); if (slot) slot.append(mCols);
+  requestAnimationFrame(() => { drawPad(); drawNotes(); }); scrollTo(0, 0); }
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+// the rating row lives on the More page on a phone, under the moves elsewhere
+// on a phone the rating row and the tempo live on the More page (the rest of the time beside the moves and in the top bar)
+const phoneMQ = matchMedia('(max-width: 640px)'), placeFb = () => { const fb = document.querySelector('.fb'), tp = document.querySelector('.tempo');
+  if (phoneMQ.matches) { document.querySelector('.fbslot').append(fb); document.querySelector('.tempoSlot').append(tp); } else { document.querySelector('.side .keys').before(fb); document.querySelector('.chordbox').before(tp); } };
+phoneMQ.addEventListener?.('change', placeFb);
+function renderPhone(){ if (!PACK || !st.cols.length) return; const c = selCol();
+  const sc = $('mScenes'); sc.innerHTML = ''; PACK.scenes.forEach((x, r) => sc.append(h('button', {class: 'mscene', onclick: () => scene(r)}, h('b', {}, String(r + 1)), x.name)));
+  mCols.innerHTML = ''; st.cols.forEach((x, i) => { const b = h('button', {class: 'mchip', 'data-sel': i === st.sel ? '1' : '', 'data-on': x.clip ? '1' : '', 'data-mute': x.mute ? '1' : '', title: 'Tap to choose; hold to mute'},
+      h('b', {}, SHORT[x.role] + (x.role === 'lead' && i > 5 ? ' 2' : '')), h('span', {}, x.mute ? 'muted' : x.clipId ? (CLIP[x.clipId]?.name || 'saved clip') : '—'));
+    let held = null, long = false;
+    b.addEventListener('pointerdown', () => { long = false; held = setTimeout(() => { long = true; x.mute = !x.mute; macros(x); logMacro(x, 'mute', x.mute ? 1 : 0); renderCol(x); flash(`${SHORT[x.role]} ${x.mute ? 'muted' : 'back in'}`); navigator.vibrate?.(15); }, 450); });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => clearTimeout(held));
+    b.onclick = () => { if (long) return; st.sel = i; renderSel(); }; mCols.append(b); });
+  $('mSound').textContent = '♪ ' + SND[c.sound].name; $('mSound').onclick = () => openSounds(c);
+  $('mMute').textContent = c.mute ? 'Muted' : 'Mute'; $('mMute').setAttribute('aria-pressed', String(!!c.mute)); $('mMute').onclick = () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); };
+  const box = $('mClips'); box.innerHTML = ''; const seen = new Set();
+  PACK.scenes.forEach((x, r) => { const id = x.clips[st.sel]; if (!id || seen.has(id)) return; seen.add(id);
+    box.append(h('button', {class: 'cell', 'data-on': c.clipId === id ? '1' : '', 'data-next': c.next && c.next !== 'stop' && c.next.id === id && !c.next.keep ? '1' : '', onclick: () => launch(c, id, 0, r)}, CLIP[id].name)); });
+  box.append(h('button', {class: 'cell empty', 'data-next': c.next === 'stop' ? '1' : '', onclick: () => launch(c, null)}, '■ Stop')); }
+$('m-snap').onclick = () => saveSnap();
 
 // the XY pad: tone across, space up; drag (mouse or finger)
 function drawPad(){ const cv = $('pad'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, H = r.height; if (!W) return;
@@ -367,6 +399,7 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   SND = Object.fromEntries(LIB.map(s => [s.id, s]));
   let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
   await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
+  let tab = 'clips'; try { tab = localStorage.getItem('studio.jam.tab') || 'clips'; } catch {} setTab(tab); placeFb();
   loadSnaps();
   db = await window.claude?.use?.('db').catch(() => null) || null;
   loadSnaps();
