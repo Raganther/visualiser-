@@ -3,6 +3,7 @@
 // clip on any sound over any progression. Everything changes on the next bar. No notes and no sliders: an XY pad (tone
 // across, space up), two step buttons (motion, length), jam moves (vary, mutate, build, drop, repeat, next harmony), the
 // keyboard. Record writes down what plays, for Claude to render; 👍 / 👎 on clips, sounds and harmonies.
+import { improvise, reach, keep, PLAYS } from './play.js';
 import { notesAt, chordOf, mutate, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, XFORMS, XNAMES, FOLLOW, ARPS, ECHO } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
@@ -71,9 +72,11 @@ const chordsCol = () => st.cols.find(c => c.role === 'chords');
 const chainOf = H => st.smooth ? vlChain(H, STYLES[chordsCol()?.voicing || 0]) : null;
 function partNotes(c, clip, pos, H, bar){ const ch = chainOf(H), i = ((bar % H.bars.length) + H.bars.length) % H.bars.length;
   return notesAt(clip, pos, chordOf(H, bar), {vl: ch && ch[i], inv: c.inv || 0, walk: c.walk ? walkOf(c) : 0}); }
+// the two leads' lanes, so the improviser has them take turns resting
+const laneOf = c => st.cols.filter(x => x.role === c.role).indexOf(c);
 const walkOf = c => c.clip ? Math.floor(Math.max(0, st.step - c.start)/c.clip.len) % 4 : 0;
 // every native note a column will need with its clip over the whole harmony, computed ahead
-function prewarm(c, clip = c.clip){ if (!ctx || !clip) return; const H = st.hNext || st.harmony, sd = 60/st.bpm/4, ch = chainOf(H), arp = c.role === 'chords' && c.arp;
+function prewarm(c, clip = c.clip, also = true){ if (!ctx || !clip) return; if (also && c.play) for (const x of reach(c.role, clip)) prewarm(c, x, false); const H = st.hNext || st.harmony, sd = 60/st.bpm/4, ch = chainOf(H), arp = c.role === 'chords' && c.arp;
   for (let bar = 0; bar < H.bars.length; bar++) for (const w of c.walk ? [0, 1, 2, 3] : [0]) for (let p = 0; p < clip.len; p++)
     for (const [n, len, vel] of notesAt(clip, p, chordOf(H, bar), {vl: ch && ch[bar], inv: c.inv || 0, walk: w})) {
       if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (v?.native) { const o = nativeSet(c, v.native, v.set); want(keyOf(v.native, v.n, vel, o), v.native, v.n, vel, o); } }
@@ -93,14 +96,18 @@ function playStep(step, t0){
     const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = ((eff - c.start) % c.clip.len + c.clip.len) % c.clip.len;
     const f = FEELS[c.feel || 0], sw = step % 2 ? (f.swing ?? st.swing) : 0, fe = feelAt(f, step), off = sw + fe.dt, t = Math.max(ctx.currentTime, t0 + off*sd());
     const recOff = off - (step % 2 ? st.swing : 0), drum = c.inst.kind === 'drums';
-    let notes = partNotes(c, c.clip, pos, H, bar);
+    // Play: the improviser's events at this step (each its own timing and loudness), else the clip as written
+    let notes = c.play && c.role !== 'chords' ? improvise({role: c.role, clip: c.clip, pos, step, bar, lane: laneOf(c), a: PLAYS[c.play].a, mem: c.pm ??= {}, seed: st.pseed})
+      .flatMap(ev => { (c.heard ??= []).push({step, ...ev}); return partNotes(c, {...c.clip, steps: [ev.s]}, pos, H, bar).map(([n, len, vel]) => [n, len, vel, ev.dt, ev.fv]); })
+      : partNotes(c, c.clip, pos, H, bar);
     if (c.role === 'chords' && c.arp) { if (notes.length) c.arpSt = {until: step + Math.max(1, Math.round(notes[0][1])), vel: notes[0][2], i: c.arpSt?.i ?? 0};   // (the arp runs on across hits)
       notes = []; const a = c.arpSt; if (a && step < a.until) { const ch = chainOf(H), bi = ((bar % H.bars.length) + H.bars.length) % H.bars.length;
         const v = invert(ch ? ch[bi].voicing : notesAt({role: 'chords', steps: [[0, 'chord', 1, 1]]}, 0, chordOf(H, bar)).map(x => x[0]), c.inv || 0), m = v.length, k = a.i++;
         const j = {up: k % m, down: m - 1 - k % m, 'up and down': m < 2 ? 0 : [...Array(m).keys(), ...[...Array(m).keys()].slice(1, -1).reverse()][k % (2*m - 2)], random: Math.floor(Math.random()*m)}[ARPS[c.arp]];
         notes = [[v[j], .9, a.vel]]; } }
-    for (const [n0, len, vel] of notes) { const n = drum ? n0 : n0 + 12*(c.oct || 0); play(c, n, len, vel, t, fe.v);
-      if (st.rec && step >= st.rec.from) st.rec.notes.push([step - st.rec.from, c.id, c.sound, n, len, +Math.min(1, vel*fe.v).toFixed(2), +recOff.toFixed(3)]); } }
+    if (c.heard?.length > 600) c.heard.splice(0, c.heard.length - 400);
+    for (const [n0, len, vel, dt = 0, pv = 1] of notes) { const n = drum ? n0 : n0 + 12*(c.oct || 0); play(c, n, len, vel, Math.max(ctx.currentTime, t + dt*sd()), fe.v*pv);
+      if (st.rec && step >= st.rec.from) st.rec.notes.push([step - st.rec.from, c.id, c.sound, n, len, +Math.min(1, vel*fe.v*pv).toFixed(2), +(recOff + dt).toFixed(3)]); } }
   const s = step; setTimeout(() => light(s), Math.max(0, (t0 - ctx.currentTime)*1000));
 }
 // fv: the feel's loudness (a native note is computed at the clip's own loudness and played louder or softer, so the
@@ -116,13 +123,13 @@ function barLine(step){
     // Follow: the part's variants in turn, one a bar
     else if (c.follow && c.clip && c.vars?.length > 1) { const pat = FOLLOW[c.follow], b = Math.floor(step/16), n = c.vars.length;
       const i = pat === 'random' ? (Math.random() < .5 ? c.vi : Math.floor(Math.random()*n)) : Math.min(n - 1, pat.charCodeAt(b % pat.length) - 65);
-      if (i !== c.vi) { c.vi = i; c.clip = {...c.clip, steps: c.vars[i].steps}; c.var = i; if (st.sel === st.cols.indexOf(c)) renderShape(); } } }
+      if (i !== c.vi) { c.vi = i; c.clip = {...c.clip, steps: c.vars[i].steps, len: varLen(c, i)}; c.var = i; if (st.sel === st.cols.indexOf(c)) renderShape(); } } }
   arrBar(step);
   if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { hp.frequency.cancelScheduledValues(ctx.currentTime); hp.frequency.setTargetAtTime(18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = st.harmony.bars[bar % st.harmony.bars.length].replace(':', ' '); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
 }
-async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; nextT = ctx.currentTime + .1;
+async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
   for (const c of st.cols) if (c.next === undefined && c.clip) c.start = 0; timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
 function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
@@ -140,16 +147,25 @@ const selCol = () => st.cols[st.sel];
 /* ---------- variants: each part's versions in a strip (the pack's, and every mutation and transform made) ---------- */
 const VMAX = 12, letter = i => String.fromCharCode(65 + i);
 // a variant comes in on the next bar, keeping the part's place in its loop (so odd lengths keep drifting)
-function setVar(c, i){ if (!c.clip || !c.vars?.[i]) return; c.vi = i; const clip = {...c.clip, steps: c.vars[i].steps};
+function setVar(c, i){ if (!c.clip || !c.vars?.[i]) return; c.vi = i; const clip = {...c.clip, steps: c.vars[i].steps, len: varLen(c, i)};
   if (st.playing) c.next = {id: c.clipId, clip, var: i, keep: true}; else { c.clip = clip; c.var = i; } prewarm(c, clip); logMacro(c, 'var', i); flash(`${ROLE_NAMES[c.role]}: variant ${letter(i)}`); renderCol(c); renderShape(); }
-function addVar(c, steps, why){ if (!c.vars) c.vars = [{steps: c.clip.steps}]; const base = CLIP[c.clipId] ? 1 + CLIP[c.clipId].variations.length : 1;
-  c.vars.push({steps, made: why}); if (c.vars.length > VMAX) c.vars.splice(base, 1); setVar(c, c.vars.length - 1); flash(`${why}: variant ${letter(c.vars.length - 1)}`); }
-function transform(k){ const c = selCol(); if (!c.clip) return; addVar(c, XFORMS[k](c.clip), XNAMES[k]); }
+// a variant's length: its own (a kept improvisation), else the clip's as the pack has it
+const varLen = (c, i) => c.vars[i]?.len || CLIP[c.clipId]?.len || c.vars[0]?.len || c.clip.len;
+function addVar(c, steps, why, len){ if (!c.vars) c.vars = [{steps: c.clip.steps, len: c.clip.len}]; const base = CLIP[c.clipId] ? 1 + CLIP[c.clipId].variations.length : 1;
+  c.vars.push({steps, made: why, ...(len ? {len} : {})}); if (c.vars.length > VMAX) c.vars.splice(base, 1); setVar(c, c.vars.length - 1); flash(`${why}: variant ${letter(c.vars.length - 1)}`); }
+function transform(k){ const c = selCol(); if (!c.clip) return; addVar(c, XFORMS[k](c.clip), XNAMES[k], c.clip.len); }
+// Keep that: what the improviser played over the last two bars or so (whole times round the clip) as a new variant
+function keepPlayed(){ const c = selCol(); if (!c.clip || !c.play || !st.playing) { flash(c?.play ? 'Play it first' : 'Turn Play on first (P)'); return; }
+  const L = c.clip.len, k = L >= 32 ? 1 : Math.max(1, Math.min(Math.floor(64/L), Math.ceil(32/L))), cyc = Math.floor((st.step - c.start)/L);
+  if (cyc < k) { flash('Let it play a little longer'); return; }
+  const from = c.start + (cyc - k)*L, steps = keep(c.heard || [], from, L*k);
+  if (!steps.length) { flash('Nothing played to keep'); return; }
+  addVar(c, steps, 'Kept', L*k); }
 
 /* ---------- jam moves ---------- */
 const MOVES = {
   vary(){ const c = selCol(); if (!c.clipId || !c.vars?.length) return; setVar(c, ((c.vi || 0) + 1) % c.vars.length); },
-  mutate(){ const c = selCol(); if (!c.clip) return; addVar(c, mutate(c.clip).steps, 'Mutated'); },
+  mutate(){ const c = selCol(); if (!c.clip) return; addVar(c, mutate(c.clip).steps, 'Mutated', c.clip.len); },
   build(){ if (!st.playing || st.build) return; const at = Math.ceil(st.step/16)*16, bars = 4, t = ctx.currentTime + (at - st.step)*sd();
     hp.frequency.setValueAtTime(18, t); hp.frequency.exponentialRampToValueAtTime(1400, t + bars*16*sd()); st.build = {at, bars}; riser(t, bars*16*sd()); $('m-build').dataset.on = '1'; flash('Building for 4 bars'); },
   drop(){ if (!st.playing) return; st.drop = {at: Math.ceil(st.step/16)*16}; $('m-drop').dataset.on = '1'; flash('Drop: a bar of air, then back'); },
@@ -217,6 +233,8 @@ function renderShape(){ const c = selCol(); if (!c) return;
   const V = $('vars'); V.innerHTML = ''; (c.vars || []).forEach((v, i) => V.append(h('button', {'data-on': i === (c.vi || 0) && c.clip ? '1' : '', 'data-next': c.next?.keep && c.next.var === i ? '1' : '', title: v.made ? `Made by ${v.made}` : i ? 'One of Claude’s variations' : 'The original', onclick: () => setVar(c, i)}, letter(i), v.made ? h('small', {}, v.made.replace(/^[▲▼] /, '').slice(0, 6)) : '')));
   $('follow').textContent = 'Follow: ' + (FOLLOW[c.follow || 0] ? FOLLOW[c.follow].split('').join(' ').replace('r a n d o m', 'random') : 'off'); $('follow').dataset.on = c.follow ? '1' : '';
   $('feel').innerHTML = ''; $('feel').append('Feel: ' + FEELS[c.feel || 0].name, h('small', {}, 'F'));
+  $('playB').hidden = $('keepB').hidden = c.role === 'chords'; $('playB').innerHTML = ''; $('playB').append('Play: ' + PLAYS[c.play || 0].name, h('small', {}, 'P')); $('playB').dataset.on = c.play ? '1' : '';
+  $('keepB').disabled = !c.play;
   $('echoOn').innerHTML = ''; $('echoOn').append('Echo: ' + (c.echo ? 'on' : 'off'), h('small', {}, 'G')); $('echoOn').dataset.on = c.echo ? '1' : '';
   $('verbOn').innerHTML = ''; $('verbOn').append('Reverb: ' + (c.verb ? 'on' : 'off'), h('small', {}, 'K')); $('verbOn').dataset.on = c.verb ? '1' : '';
   $('echoTime').innerHTML = ''; $('echoTime').append('Echo time: ' + ECHO[st.echoDiv][0], h('small', {}, 'every part'));
@@ -248,10 +266,13 @@ function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(),
   if (pos >= 0) { g.fillStyle = acc; g.globalAlpha = .25; g.fillRect(L + pos*cw, 0, Math.max(2, cw), Ht); g.globalAlpha = 1; } }
 $('smooth').onclick = () => { st.smooth = !st.smooth; try { localStorage.setItem('studio.jam.smooth', st.smooth ? '1' : '0'); } catch {} for (const c of st.cols) { c.arpSt = null; prewarm(c); } renderShape(); flash(st.smooth ? 'Smooth voice leading: every part glides between chords' : 'Free: each chord voiced on its own'); };
 $('follow').onclick = () => { const c = selCol(); c.follow = ((c.follow || 0) + 1) % FOLLOW.length; logMacro(c, 'follow', c.follow); renderShape(); flash('Follow: ' + (FOLLOW[c.follow] || 'off')); };
+// Play: how much the part is improvised on (off, light, loose, wild); the chords hold the harmony as they are
+const nextPlay = () => { const c = selCol(); if (c.role === 'chords') return; c.play = ((c.play || 0) + 1) % PLAYS.length; c.pm = {}; logMacro(c, 'play', c.play); prewarm(c); renderShape();
+  flash(`${ROLE_NAMES[c.role]}: ${c.play ? 'played ' + PLAYS[c.play].name.toLowerCase() : 'as written'}`); };
 const nextFeel = () => { const c = selCol(); c.feel = ((c.feel || 0) + 1) % FEELS.length; logMacro(c, 'feel', c.feel); renderShape(); flash(`${ROLE_NAMES[c.role]} feel: ${FEELS[c.feel].name}`); };
 const sendTog = k => { const c = selCol(); c[k] = !c[k]; macros(c); logMacro(c, k, c[k] ? 1 : 0); renderShape(); flash(`${ROLE_NAMES[c.role]} ${k === 'echo' ? 'echo' : 'reverb'} ${c[k] ? 'on' : 'off'}`); };
 const throwTo = on => { const c = selCol(); if (!!c.throw === on) return; c.throw = on; macros(c); logMacro(c, 'throw', on ? 1 : 0); $('throw').dataset.on = on ? '1' : ''; };
-$('feel').onclick = nextFeel; $('echoOn').onclick = () => sendTog('echo'); $('verbOn').onclick = () => sendTog('verb');
+$('feel').onclick = nextFeel; $('playB').onclick = nextPlay; $('keepB').onclick = keepPlayed; $('echoOn').onclick = () => sendTog('echo'); $('verbOn').onclick = () => sendTog('verb');
 $('throw').addEventListener('pointerdown', e => { e.preventDefault(); throwTo(true); }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('throw').addEventListener(ev, () => throwTo(false));
 $('echoTime').onclick = () => { st.echoDiv = (st.echoDiv + 1) % ECHO.length; tempo(); if (st.rec) st.rec.macros.push([Math.max(0, st.step - st.rec.from), '*', 'echoDiv', st.echoDiv]); renderShape(); flash('Echo time: ' + ECHO[st.echoDiv][0]); };
 
@@ -330,18 +351,18 @@ document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.t
   const ci = 'QWERTYU'.indexOf(k); if (ci >= 0 && ci < st.cols.length && !e.repeat) { if (e.shiftKey) { const c = st.cols[ci]; c.mute = !c.mute; macros(c); renderCol(c); } else { st.sel = ci; renderSel(); } return; }
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const c = selCol(), ids = PACK.scenes.map(s => s.clips[st.sel]).filter(Boolean), uniq = [...new Set(ids)], i = uniq.indexOf(c.next?.id || c.clipId); launch(c, uniq[(i + (e.key === 'ArrowDown' ? 1 : -1) + uniq.length) % uniq.length]); return; }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const c = selCol(); c.x = Math.max(0, Math.min(1, c.x + (e.key === 'ArrowRight' ? .08 : -.08))); macros(c); drawPad(); return; }
-  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); if (k === 'F') nextFeel(); if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'L') $('follow').click(); if (k === 'J' && !e.repeat) throwTo(true); });
+  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); if (k === 'F') nextFeel(); if (k === 'P') nextPlay(); if (k === 'X') keepPlayed(); if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'L') $('follow').click(); if (k === 'J' && !e.repeat) throwTo(true); });
 document.addEventListener('keyup', e => { if (e.key.toUpperCase() === 'O') repeat(false); if (e.key.toUpperCase() === 'J') throwTo(false); });
 addEventListener('resize', () => { drawPad(); drawNotes(); });
 
 /* ---------- snapshots: the user's own saved combinations, recalled on the next bar ---------- */
 let SNAPS = [], snapOn = null, snapDel = null;
-const SNAP_FIELDS = ['feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
+const SNAP_FIELDS = ['play', 'feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
 const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
   return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
     cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
-      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, vars: (c.vars || []).map(v => v.steps), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
+      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, vars: (c.vars || []).map(v => v.steps), lens: (c.vars || []).map(v => v.len || null), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
         clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
 async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x); storeSnaps(); snapOn = x.id; renderSnaps(); flash('Saved ' + x.name);
   if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
@@ -351,7 +372,7 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
     for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
-    c.arpSt = null; if (v.vars) { c.vars = v.vars.map((steps, j) => ({steps, made: v.made?.[j] || undefined})); c.varsOf = v.clip?.id; c.vi = v.vi || 0; }
+    c.arpSt = null; if (v.vars) { c.vars = v.vars.map((steps, j) => ({steps, made: v.made?.[j] || undefined, ...(v.lens?.[j] ? {len: v.lens[j]} : {})})); c.varsOf = v.clip?.id; c.vi = v.vi || 0; }
     if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
     if (!v.clip) c.next = 'stop'; else { const base = CLIP[v.clip.id] || {id: v.clip.id, role: c.role, name: 'Saved clip', variations: []}; c.next = {id: v.clip.id, clip: {...base, len: v.clip.len, steps: v.clip.steps}, var: v.clip.var}; prewarm(c, c.next.clip); }
     c.nextRow = PACK.scenes.findIndex(sc => sc.clips[i] === v.clip?.id);
@@ -442,10 +463,10 @@ const soundItem = id => ({kind: 'sound', key: id, name: SND[id]?.name || id, sum
 function patternItem(c){ const cl = c.clip, nm = (CLIP[c.clipId]?.name || 'a saved pattern') + (c.vi ? ` (variant ${letter(c.vi)})` : '');
   return {kind: 'pattern', key: `${c.role}:${c.clipId || 'saved'}:${hashOf(cl.steps)}`, name: `${nm} on ${SND[c.sound]?.name}`, sum: `${ROLE_NAMES[c.role]} · ${cl.len} steps · over ${(st.hNext || st.harmony).name}`,
     data: {role: c.role, col: c.id, clipId: c.clipId, len: cl.len, steps: cl.steps, sound: c.sound, harmony: (st.hNext || st.harmony).id, vi: c.vi || 0, pack: PACK.id}}; }
-const SET_KEYS = ['x', 'y', 'motion', 'length', 'oct', 'feel', 'voicing', 'inv', 'arp', 'echo', 'verb'];
+const SET_KEYS = ['x', 'y', 'motion', 'length', 'oct', 'play', 'feel', 'voicing', 'inv', 'arp', 'echo', 'verb'];
 function settingsItem(c){ const set = Object.fromEntries(SET_KEYS.map(k => [k, typeof c[k] === 'number' ? +c[k].toFixed(2) : c[k]]));
   const words = [set.x < .35 ? 'dark' : set.x > .75 ? 'bright' : '', set.y > .6 ? 'wet' : set.y < .15 ? 'dry' : '', ['', 'slow motion', 'fast motion'][set.motion], ['short', '', 'long'][set.length], set.oct ? `octave ${set.oct > 0 ? '+' : ''}${set.oct}` : '',
-    set.feel ? FEELS[set.feel].name : '', c.role === 'chords' ? STYLES[set.voicing || 0] + (set.inv ? ` inv ${set.inv}` : '') + (set.arp ? ', arp ' + ARPS[set.arp] : '') : '', set.echo ? '' : 'no echo', set.verb ? '' : 'no reverb'].filter(Boolean);
+    set.play ? 'played ' + PLAYS[set.play].name.toLowerCase() : '', set.feel ? FEELS[set.feel].name : '', c.role === 'chords' ? STYLES[set.voicing || 0] + (set.inv ? ` inv ${set.inv}` : '') + (set.arp ? ', arp ' + ARPS[set.arp] : '') : '', set.echo ? '' : 'no echo', set.verb ? '' : 'no reverb'].filter(Boolean);
   return {kind: 'settings', key: `${c.sound}:${hashOf(set)}`, name: `${SND[c.sound]?.name} · ${words.join(', ') || 'as it comes'}`, sum: ROLE_NAMES[c.role], data: {role: c.role, sound: c.sound, set}}; }
 const harmonyItem = H => ({kind: 'harmony', key: H.id, name: H.name, sum: H.bars.filter((b, i, a) => b !== a[i - 1]).map(b => b.replace(':', ' ')).join(' → '), data: {id: H.id, name: H.name, words: H.words, bars: H.bars, pack: PACK.id}});
 // a 👍 👎 💬 group; it stays lit, and every copy of it on the page changes together
@@ -576,7 +597,7 @@ async function loadPack(id){ if (st.playing) stop();
   CLIP = Object.fromEntries(PACK.clips.map(c => [c.id, c]));
   st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0]; st.hNext = null; st.sel = 0;
   let chosen = []; try { chosen = JSON.parse(localStorage.getItem(soundsKey()) || '[]'); } catch {}
-  st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, feel: 0, echo: true, verb: true, voicing: 0, inv: 0, arp: 0, walk: false, follow: 0, vars: [], vi: 0, level: .85, mix: mixOf(c, i), clip: null, clipId: null, start: 0, ...Object.fromEntries(['feel', 'echo', 'verb', 'voicing'].filter(k => c[k] !== undefined).map(k => [k, c[k]]))}));   // (a pack can start a column on its own feel and sends)
+  st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, play: 0, feel: 0, echo: true, verb: true, voicing: 0, inv: 0, arp: 0, walk: false, follow: 0, vars: [], vi: 0, level: .85, mix: mixOf(c, i), clip: null, clipId: null, start: 0, ...Object.fromEntries(['feel', 'echo', 'verb', 'voicing'].filter(k => c[k] !== undefined).map(k => [k, c[k]]))}));   // (a pack can start a column on its own feel and sends)
   st.mx = {...MASTER0, ...(savedMix().master || {})}; if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); masterMix(); renderMix(); }
   renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); renderSnaps(); renderMix(); busy(); }
 function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));

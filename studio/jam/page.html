@@ -98,6 +98,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 /* the sound picker */
 #sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
 #sounds[hidden]{display:none !important}
+#grooveRow [hidden]{display:none !important} #grooveRow .macro:disabled{opacity:.4; cursor:default}
 .sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
@@ -327,6 +328,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
     <div class="big" id="grooveRow" aria-label="Groove and space">
       <button class="macro" id="feel" title="How this part grooves (F)"></button>
+      <button class="macro" id="playB" title="A player improvising on this part: notes left out, ghost notes, fills, the loudness moving (P)"></button>
+      <button class="macro" id="keepB" title="What the player just played, the last two bars or so, as a new variant (X)">Keep that<small>X</small></button>
       <button class="macro" id="echoOn" title="This part into the echo (G)"></button>
       <button class="macro" id="verbOn" title="This part into the reverb (K)"></button>
       <button class="macro" id="throw" title="Hold: everything this part plays goes into the echo; let go and it rings on (hold J)">Throw (hold)<small>J</small></button>

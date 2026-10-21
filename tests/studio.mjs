@@ -1,4 +1,6 @@
-// Studio Jam: the model's harmony and shapes in node (voice leading, rungs, inversions, the transforms, mutate, feel), a
+// Studio Jam: the model's harmony and shapes in node (voice leading, rungs, inversions, the transforms, mutate, feel), Play
+// (the improviser: as written when off, the bar's 1 kept, ideas held, fills in the phrase's last bar, the leads taking
+// turns, kept as a variant), a
 // jam's take turned into a session (mixer and master changes as automation on their bars, the ones after the last note
 // too), and that session's master and duck automation heard in an offline render on the desk.
 import { serve, launch } from './lib.mjs';
@@ -6,6 +8,7 @@ import { vlChain, rungFrom, invert, XFORMS, mutate, feelAt, FEELS, chordOf } fro
 import { jamSession } from '../studio/jam/render-jam.mjs';
 import { chord } from '../studio/lib/palette.js';
 import { rng } from '../studio/lib/rng.js';
+import { improvise, reach, keep, PLAYS } from '../studio/jam/play.js';
 
 let failed = false;
 const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
@@ -52,6 +55,40 @@ check('wide doubles the leaps, narrow halves them back', same(XFORMS.narrow(as(X
   const hv = Array.from({length: 200}, (_, g) => feelAt(hum, g, R));
   check('feel: straight is untouched, pushed is early, human stays near', JSON.stringify(feelAt(f, 5)) === JSON.stringify({v: 1, dt: 0}) && feelAt(push, 0).dt < 0
     && hv.every(x => Math.abs(x.v - 1) <= hum.human.v + 1e-9 && Math.abs(x.dt) <= hum.human.t + 1e-9) && new Set(hv.map(x => x.v.toFixed(3))).size > 50); }
+
+/* ---------- Play: the improviser ---------- */
+{ const hats = {role: 'hats', len: 16, steps: Array.from({length: 16}, (_, i) => [i, 'chh', i % 2 ? .45 : .8])};
+  const lead = {role: 'lead', len: 16, steps: [[0, 4, 1, .7], [3, 2, 1, .5], [6, 5, 1, .55], [11, 3, 1, .5]]};
+  // a part played for some bars: each bar's events as a string of what happened on each 16th
+  const run = (clip, a, bars, lane = 0, seed = 7) => { const mem = {}, out = [];
+    for (let b = 0; b < bars; b++) { const bar = []; for (let q = 0; q < 16; q++) { const step = b*16 + q; bar.push(improvise({role: clip.role, clip, pos: step % clip.len, step, bar: b, lane, a, mem, seed})); } out.push(bar); }
+    return out; };
+  const sig = bar => bar.map(ev => ev.map(e => `${e.s[1]}${e.s[4] || ''}@${e.dt.toFixed(2)}`).join('+') || '.').join(' ');
+  const off = run(hats, 0, 8), offL = run(lead, 0, 8);
+  check('Play off: every step as written, on time, as loud', off.every(b => b.every((ev, q) => ev.length === 1 && ev[0].s === hats.steps[q] && ev[0].dt === 0 && ev[0].fv === 1))
+    && offL.every(b => b.every((ev, q) => ev.length === lead.steps.filter(s => s[0] === q).length)));
+  for (const p of PLAYS.slice(1)) { const B = run(hats, p.a, 64), L = run(lead, p.a, 64);
+    // (a lead resting its whole bar aside)
+    check(`Play ${p.name}: the bar's first beat as written`, [...B, ...L].every((b, i) => { const ev = b[0], clip = i < 64 ? hats : lead; return i >= 64 && b.every(e => !e.length) || ev.length === 1 && ev[0].s[1] === clip.steps[0][1] && ev[0].dt === 0; })); }
+  const changed = a => { const B = run(hats, a, 64); return B.reduce((n, b) => n + b.filter((ev, q) => ev.length !== 1 || ev[0].s[1] !== 'chh').length, 0); };   // (notes left out, added, rolled or opened; not the timing's jitter)
+  const light = changed(.35), wild = changed(1);
+  check('Play: Wild changes more than Light, Light only a little', light > 10 && light < 160 && wild > 1.8*light, `${light} and ${wild} of 1024 steps`);
+  { const B = run(hats, .65, 64), byPh = [0, 0, 0, 0], fills = [0, 0, 0, 0], drops = [0, 0, 0, 0];
+    B.forEach((b, i) => { const ph = i % 4; b.forEach((ev, q) => { if (ev.length > 1) fills[ph]++; if (!ev.length) drops[ph]++; if (ev.length !== 1 || ev[0].s[1] !== 'chh') byPh[ph]++; }); });
+    check('Play: the fills come in the phrase\'s last bar, and changes grow through it', fills[3] > 0 && fills[0] + fills[1] + fills[2] === 0 && byPh[3] > byPh[0], `fills ${fills}, changes by bar ${byPh}`);
+    check('Play: a fill rolls the last beat, louder as it goes', B.filter((b, i) => i % 4 === 3).some(b => b[12].length >= 3 && b[12].every((e, j, a) => !j || e.fv > a[j - 1].fv && e.dt > a[j - 1].dt) && b.slice(13).every(ev => !ev.length))); }
+  { const B = run(hats, .65, 64), same = B.filter((b, i) => i % 4 < 3 && i % 4 && sig(b) === sig(B[i - 1])).length;
+    check('Play: an idea comes round again before the next (bars repeat inside the phrase)', same >= 6, `${same} bars the same as the bar before`); }
+  { const A = run(lead, 1, 64, 0), Bl = run(lead, 1, 64, 1), rests = A.map((b, i) => [b.every(ev => !ev.length), Bl[i].every(ev => !ev.length)]);
+    check('Play: the two leads take turns resting a bar, never both, never on the phrase\'s first', rests.some(r => r[0]) && rests.some(r => r[1]) && !rests.some(r => r[0] && r[1]) && rests.every((r, i) => i % 4 || !r[0] && !r[1]));
+    const rungs = A.flat(2).filter(e => typeof e.s[1] === 'number'), home = new Set(lead.steps.map(s => s[1]));
+    check('Play: a melody stays a chord tone from its own notes', rungs.every(e => [...home].some(k => Math.abs(e.s[1] - k) <= 1)) && rungs.some(e => !home.has(e.s[1])) && rungs.some(e => e.s[4] === 1)); }
+  { const R = reach('lead', lead), Rh = reach('hats', hats);
+    check('Play: everything it may reach is computed ahead (a tone up, down, an octave up; the open hat)', R.length === 3 && R[0].steps[0][1] === 5 && R[1].steps[0][1] === 3 && R[2].steps[0][4] === 1 && Rh[0].steps.every(s => s[1] === 'ohh')); }
+  { const mem = {}, heard = []; for (let step = 0; step < 64; step++) for (const ev of improvise({role: 'hats', clip: hats, pos: step % 16, step, bar: step >> 4, a: .65, mem, seed: 3})) heard.push({step, ...ev});
+    const k = keep(heard, 32, 32), want = new Set(heard.filter(e => e.step >= 32).map(e => ((e.step - 32 + Math.round(e.dt)) % 32 + 32) % 32 + e.s[1]));
+    check('Keep that: two bars as played become a 32-step variant', k.every(s => s[0] >= 0 && s[0] < 32) && k.length === want.size && new Set(k.map(s => s[0] + s[1])).size === k.length && k.some(s => s[2] < .45), `${k.length} notes`); }
+}
 
 /* ---------- a take as a session: the mixer and the master automated on their bars ---------- */
 const take = {name: 'test', bpm: 124, swing: 0, echoDiv: 1, columns: [{id: 'col0', role: 'kick'}, {id: 'col3', role: 'bass'}],
