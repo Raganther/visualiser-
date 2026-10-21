@@ -172,16 +172,17 @@ function renderCol(c){ if (!c.head) return; const i = st.cols.indexOf(c), s = SN
   const key = 'QWERTYU'[i];
   c.head.append(h('button', {class: 'colname', onclick: () => { st.sel = i; renderSel(); }}, h('kbd', {}, key), ' ', ROLE_NAMES[c.role] + (c.role === 'lead' && i > 5 ? ' 2' : '')),
     h('button', {class: 'sound', onclick: () => { st.sel = i; renderSel(); openSounds(c); }, title: 'Change the sound'}, s.name),
-    h('button', {class: 'mute', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); }}, c.mute ? 'Muted' : 'Mute'));
+    h('button', {class: 'mute', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); }}, c.mute ? 'Muted' : 'Mute'),
+    h('span', {class: 'headlikes', title: 'Like its sound · like its pattern'}, likeBar(soundItem(c.sound), {only: 'up', label: '♪'}), c.clip ? likeBar(patternItem(c), {only: 'up', label: '♫'}) : ''));
   document.querySelectorAll(`.cell[data-col="${c.id}"]`).forEach(b => { b.dataset.on = c.clipId && +b.dataset.row === c.row ? '1' : ''; b.dataset.next = c.next && c.next !== 'stop' && +b.dataset.row === c.nextRow ? '1' : ''; });
   if (i === st.sel) renderSel(); else renderPhone(); }
 function renderSel(){ const c = selCol(); st.cols.forEach((x, i) => x.head && (x.head.dataset.sel = i === st.sel ? '1' : ''));
   $('selName').textContent = `${ROLE_NAMES[c.role]}: ${SND[c.sound].name}`; $('selClip').textContent = c.clipId ? CLIP[c.clipId].name + (c.var ? ` (variation ${c.var})` : '') : 'not playing';
   $('octOut').textContent = (c.oct > 0 ? '+' : '') + (c.oct || 0); $('octBox').hidden = ['kick', 'hats', 'perc'].includes(c.role); $('motion').textContent = 'Motion: ' + ['still', 'slow', 'fast'][c.motion]; $('length').textContent = 'Length: ' + ['short', 'normal', 'long'][c.length];
-  drawPad(); renderShape(); renderPhone(); }
+  drawPad(); renderShape(); renderPhone(); renderPartLikes(); }
 function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
-  for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
-  $('hWords').textContent = (st.hNext || st.harmony).words; }
+  for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-liked': liked(harmonyItem(H)) ? '1' : '', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
+  $('hWords').textContent = (st.hNext || st.harmony).words; const hl = $('harmLikes'); hl.innerHTML = ''; hl.append(h('span', {class: 'lab'}, 'This harmony '), likeBar(harmonyItem(st.hNext || st.harmony))); }
 let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) drawNotes(s);
   const mc = selCol(), mb = mc?.clip && document.querySelector(`#mClips .cell[data-on="1"]`); document.querySelectorAll('#mClips .cell').forEach(b => b !== mb && b.style.removeProperty('--p'));
   if (mb && s >= 0) mb.style.setProperty('--p', (((s - mc.start) % mc.clip.len + mc.clip.len) % mc.clip.len + 1)/mc.clip.len); for (const b of lightCells) b.style.removeProperty('--p'); lightCells = [];
@@ -209,7 +210,7 @@ function renderShape(){ const c = selCol(); if (!c) return;
   $('echoOn').innerHTML = ''; $('echoOn').append('Echo: ' + (c.echo ? 'on' : 'off'), h('small', {}, 'G')); $('echoOn').dataset.on = c.echo ? '1' : '';
   $('verbOn').innerHTML = ''; $('verbOn').append('Reverb: ' + (c.verb ? 'on' : 'off'), h('small', {}, 'K')); $('verbOn').dataset.on = c.verb ? '1' : '';
   $('echoTime').innerHTML = ''; $('echoTime').append('Echo time: ' + ECHO[st.echoDiv][0], h('small', {}, 'every part'));
-  drawNotes(); }
+  drawNotes(); renderPartLikes(); }
 function inv(c, d){ c.inv = Math.max(-3, Math.min(3, (c.inv || 0) + d)); logMacro(c, 'inv', c.inv); prewarm(c); renderShape(); flash(`Inversion ${c.inv > 0 ? '+' : ''}${c.inv}`); }
 // the notes: drums as hits by voice; a line as its notes over the clip, named; chords as the voicing chain over the harmony
 function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, Ht = r.height; if (!W) return;
@@ -251,7 +252,7 @@ function openSounds(c){ const box = $('sounds'); box.innerHTML = ''; box.hidden 
   for (const g of groups) { const list = mine.filter(s => s.pack === g); if (!list.length) continue;
     box.append(h('div', {class: 'sndgroup lab'}, (PACKS.find(p => p.id === g)?.name || g) + (g === PACK.id ? ' (this pack)' : '')));
     for (const s of list) box.append(h('button', {class: 'snd', 'data-on': s.id === c.sound ? '1' : '', onclick: () => { c.locked = true; setSound(c, s.id); saveSounds(); logMacro(c, 'sound:' + s.id, 1); openSounds(c); flash('Sound: ' + s.name); }},
-      h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), rateBtns('sound', s.id, s.name))); }
+      h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''), likeBar(soundItem(s.id)))); }
   box.append(h('button', {class: 'sndclose phone', onclick: () => box.hidden = true}, 'Close')); }
 // each pack remembers the sounds chosen for its columns (from any pack); Pack sounds puts its own back
 const soundsKey = () => 'studio.jam.sounds.' + PACK.id;
@@ -264,16 +265,17 @@ const mCols = h('div', {class: 'strip', id: 'mCols', 'aria-label': 'Parts'});
 function setTab(t){ document.body.dataset.tab = t; try { localStorage.setItem('studio.jam.tab', t); } catch {}
   document.querySelectorAll('#tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   const slot = document.querySelector(`[data-tabs~="${t}"] .mslot`); if (slot) slot.append(mCols);
+  const ls = document.querySelector(`[data-tabs~="${t}"] .likeslot`); if (ls && phoneMQ.matches) ls.append($('partLikes')); if (t === 'likes') renderLikes();
   requestAnimationFrame(() => { drawPad(); drawNotes(); }); scrollTo(0, 0); }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 // the rating row lives on the More page on a phone, under the moves elsewhere
 // on a phone the rating row and the tempo live on the More page (the rest of the time beside the moves and in the top bar)
-const phoneMQ = matchMedia('(max-width: 640px)'), placeFb = () => { const fb = document.querySelector('.fb'), tp = document.querySelector('.tempo');
-  if (phoneMQ.matches) { document.querySelector('.fbslot').append(fb); document.querySelector('.tempoSlot').append(tp); } else { document.querySelector('.side .keys').before(fb); document.querySelector('.chordbox').before(tp); } };
+const phoneMQ = matchMedia('(max-width: 640px)'), placeFb = () => { const tp = document.querySelector('.tempo');
+  if (phoneMQ.matches) document.querySelector('.tempoSlot').append(tp); else { document.querySelector('.chordbox').before(tp); document.querySelector('.perform .likeslot.desk').append($('partLikes')); } };
 phoneMQ.addEventListener?.('change', placeFb);
 function renderPhone(){ if (!PACK || !st.cols.length) return; const c = selCol();
   const sc = $('mScenes'); sc.innerHTML = ''; PACK.scenes.forEach((x, r) => sc.append(h('button', {class: 'mscene', onclick: () => scene(r)}, h('b', {}, String(r + 1)), x.name)));
-  mCols.innerHTML = ''; st.cols.forEach((x, i) => { const b = h('button', {class: 'mchip', 'data-sel': i === st.sel ? '1' : '', 'data-on': x.clip ? '1' : '', 'data-mute': x.mute ? '1' : '', title: 'Tap to choose; hold to mute'},
+  mCols.innerHTML = ''; st.cols.forEach((x, i) => { const b = h('button', {class: 'mchip', 'data-liked': liked(soundItem(x.sound)) || x.clip && liked(patternItem(x)) ? '1' : '', 'data-sel': i === st.sel ? '1' : '', 'data-on': x.clip ? '1' : '', 'data-mute': x.mute ? '1' : '', title: 'Tap to choose; hold to mute'},
       h('b', {}, SHORT[x.role] + (x.role === 'lead' && i > 5 ? ' 2' : '')), h('span', {}, x.mute ? 'muted' : x.clipId ? (CLIP[x.clipId]?.name || 'saved clip') : '—'));
     let held = null, long = false;
     b.addEventListener('pointerdown', () => { long = false; held = setTimeout(() => { long = true; x.mute = !x.mute; macros(x); logMacro(x, 'mute', x.mute ? 1 : 0); renderCol(x); flash(`${SHORT[x.role]} ${x.mute ? 'muted' : 'back in'}`); navigator.vibrate?.(15); }, 450); });
@@ -356,7 +358,86 @@ function renderSnaps(){ const box = $('snaps'); if (!box) return; box.innerHTML 
   list.forEach(x => { const k = SNAPS.indexOf(x), pk = PACKS.find(p => p.id === x.pack), H = (pk && x.pack === PACK.id ? PACK.harmonies.find(y => y.id === x.harmony)?.name : '') || '';
     box.append(h('div', {class: 'snap', 'data-on': x.id === snapOn ? '1' : '', 'data-del': x.id === snapDel ? '1' : ''},
       h('button', {class: 'go', onclick: () => recall(x), title: k < 9 ? `Recall (Shift+${k + 1})` : 'Recall'}, h('b', {}, (k < 9 ? k + 1 + ' · ' : '') + x.name), h('span', {class: 'muted'}, x.pack === PACK?.id ? H || ' ' : (pk?.name.split(':')[0] || x.pack))),
-      h('span', {class: 'snapbtns'}, h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+      h('span', {class: 'snapbtns'}, likeBar({kind: 'snap', key: x.id, name: x.name, data: {id: x.id}}, {noDown: true}), h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+/* ---------- likes: one per thing (a sound, a part's pattern, a sound as shaped, a harmony, an idea, a snapshot), each
+   👍, 👎 or neither, with a note; they stay lit, live in the page's database (and this device), and gather on the Likes page ---------- */
+let LIKES = {}, likeFilter = 'all', noteFor = null;
+const LIKE_KEY = 'studio.jam.likes';
+try { LIKES = JSON.parse(localStorage.getItem(LIKE_KEY) || '{}'); } catch {}
+const storeLikes = () => { try { localStorage.setItem(LIKE_KEY, JSON.stringify(LIKES)); } catch {} };
+const hashOf = v => { let x = 2166136261; for (const ch of JSON.stringify(v)) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return (x >>> 0).toString(36); };
+const likeId = it => `${it.kind}:${it.key}`.replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 190);
+const liked = it => LIKES[likeId(it)]?.rating === 1;
+const soundItem = id => ({kind: 'sound', key: id, name: SND[id]?.name || id, sum: `${ROLE_NAMES[SND[id]?.role] || ''} · ${PACKS.find(p => p.id === SND[id]?.pack)?.name.split(':')[0] || ''}`, data: {sound: id, role: SND[id]?.role, pack: SND[id]?.pack}});
+function patternItem(c){ const cl = c.clip, nm = (CLIP[c.clipId]?.name || 'a saved pattern') + (c.vi ? ` (variant ${letter(c.vi)})` : '');
+  return {kind: 'pattern', key: `${c.role}:${c.clipId || 'saved'}:${hashOf(cl.steps)}`, name: `${nm} on ${SND[c.sound]?.name}`, sum: `${ROLE_NAMES[c.role]} · ${cl.len} steps · over ${(st.hNext || st.harmony).name}`,
+    data: {role: c.role, col: c.id, clipId: c.clipId, len: cl.len, steps: cl.steps, sound: c.sound, harmony: (st.hNext || st.harmony).id, vi: c.vi || 0, pack: PACK.id}}; }
+const SET_KEYS = ['x', 'y', 'motion', 'length', 'oct', 'feel', 'voicing', 'inv', 'arp', 'echo', 'verb'];
+function settingsItem(c){ const set = Object.fromEntries(SET_KEYS.map(k => [k, typeof c[k] === 'number' ? +c[k].toFixed(2) : c[k]]));
+  const words = [set.x < .35 ? 'dark' : set.x > .75 ? 'bright' : '', set.y > .6 ? 'wet' : set.y < .15 ? 'dry' : '', ['', 'slow motion', 'fast motion'][set.motion], ['short', '', 'long'][set.length], set.oct ? `octave ${set.oct > 0 ? '+' : ''}${set.oct}` : '',
+    set.feel ? FEELS[set.feel].name : '', c.role === 'chords' ? STYLES[set.voicing || 0] + (set.inv ? ` inv ${set.inv}` : '') + (set.arp ? ', arp ' + ARPS[set.arp] : '') : '', set.echo ? '' : 'no echo', set.verb ? '' : 'no reverb'].filter(Boolean);
+  return {kind: 'settings', key: `${c.sound}:${hashOf(set)}`, name: `${SND[c.sound]?.name} · ${words.join(', ') || 'as it comes'}`, sum: ROLE_NAMES[c.role], data: {role: c.role, sound: c.sound, set}}; }
+const harmonyItem = H => ({kind: 'harmony', key: H.id, name: H.name, sum: H.bars.filter((b, i, a) => b !== a[i - 1]).map(b => b.replace(':', ' ')).join(' → '), data: {id: H.id, name: H.name, words: H.words, bars: H.bars, pack: PACK.id}});
+// a 👍 👎 💬 group; it stays lit, and every copy of it on the page changes together
+function likeBar(it, o = {}){ const id = likeId(it), box = h('span', {class: 'likebar', 'data-like': id});
+  const up = h('button', {class: 'up', title: 'I like this', 'aria-label': 'Like ' + it.name, onclick: e => { e.stopPropagation(); setLike(it, 1); }}, o.label ? o.label + '👍' : '👍');
+  const dn = h('button', {class: 'dn', title: 'Not for me', 'aria-label': 'Dislike ' + it.name, onclick: e => { e.stopPropagation(); setLike(it, -1); }}, '👎');
+  const nt = h('button', {class: 'nt', title: 'A note on it', 'aria-label': 'Note on ' + it.name, onclick: e => { e.stopPropagation(); openNote(it); }}, '💬');
+  box.append(up); if (o.only !== 'up') { if (!o.noDown) box.append(dn); box.append(nt); } paintLike(box); return box; }
+function paintLike(box){ const L = LIKES[box.dataset.like]; box.querySelector('.up')?.setAttribute('aria-pressed', String(L?.rating === 1)); box.querySelector('.dn')?.setAttribute('aria-pressed', String(L?.rating === -1));
+  const nt = box.querySelector('.nt'); if (nt) nt.dataset.has = L?.note ? '1' : ''; }
+function likesChanged(id){ document.querySelectorAll('.likebar').forEach(b => b.dataset.like === id && paintLike(b)); renderPhone(); renderHarmony(); if (document.body.dataset.tab === 'likes' || !phoneMQ.matches) renderLikes(); }
+async function saveLike(id, L){ if (L) LIKES[id] = L; else delete LIKES[id]; storeLikes(); likesChanged(id);
+  if (db) try { if (L) await db.collection('likes').doc(id).set(L); else await db.collection('likes').doc(id).delete(); } catch (err) { flash('Kept on this device only (' + (err.code || err.message) + ')'); } }
+function setLike(it, r){ const id = likeId(it), cur = LIKES[id], rating = cur?.rating === r ? 0 : r;
+  if (!rating && !cur?.note) saveLike(id, null); else saveLike(id, {kind: it.kind, key: it.key, name: it.name, sum: it.sum || '', data: it.data || {}, rating, note: cur?.note || '', at: new Date().toISOString()});
+  flash(rating === 1 ? `👍 ${it.name}` : rating === -1 ? `👎 ${it.name}` : `Cleared: ${it.name}`); }
+function openNote(it){ noteFor = it; $('noteWhat').textContent = `${KIND_NAMES[it.kind]}: ${it.name}`; $('noteText').value = LIKES[likeId(it)]?.note || ''; $('noteSheet').hidden = false; $('noteText').focus(); }
+function closeNote(){ $('noteSheet').hidden = true; noteFor = null; }
+$('noteCancel').onclick = closeNote;
+$('noteSave').onclick = () => { const it = noteFor; if (!it) return; const id = likeId(it), cur = LIKES[id], note = $('noteText').value.trim();
+  if (!note && !cur?.rating) saveLike(id, null); else saveLike(id, {kind: it.kind, key: it.key, name: it.name, sum: it.sum || '', data: it.data || {}, rating: cur?.rating || 0, note, at: new Date().toISOString()}); closeNote(); flash('Note saved'); };
+$('noteDel').onclick = () => { const it = noteFor; if (!it) return; const id = likeId(it), cur = LIKES[id]; if (cur) saveLike(id, cur.rating ? {...cur, note: '', at: new Date().toISOString()} : null); closeNote(); };
+// the part being played: its sound, its pattern, its settings
+function renderPartLikes(){ const box = $('partLikes'), c = selCol(); if (!box || !c) return; box.innerHTML = '';
+  const row = (lab, it) => box.append(h('span', {class: 'lab'}, lab), h('span', {class: 'what', title: it ? it.name : ''}, it ? it.name : 'not playing'), it ? likeBar(it) : h('span'));
+  row('Sound', soundItem(c.sound)); row(isDrum(c) ? 'Pattern' : 'Melody', c.clip ? patternItem(c) : null); row('Settings', settingsItem(c)); }
+// the Likes page
+const KIND_NAMES = {sound: 'Sound', pattern: 'Pattern', settings: 'Settings', harmony: 'Harmony', idea: 'Idea', snap: 'Snapshot'};
+const FILTERS = [['all', 'All'], ['sound', 'Sounds'], ['pattern', 'Patterns'], ['settings', 'Settings'], ['harmony', 'Harmonies'], ['snaps', 'Ideas & snapshots'], ['notes', 'Notes'], ['down', '👎']];
+const inFilter = (L, f) => f === 'all' ? L.rating >= 0 : f === 'down' ? L.rating === -1 : f === 'notes' ? !!L.note : f === 'snaps' ? (L.kind === 'idea' || L.kind === 'snap') && L.rating >= 0 : L.kind === f && L.rating >= 0;
+function renderLikes(){ const fl = $('likeFilters'), list = $('likeList'); if (!fl) return; const all = Object.entries(LIKES), q = $('likeSearch').value.trim().toLowerCase();
+  fl.innerHTML = ''; for (const [k, lab] of FILTERS) { const n = all.filter(([, L]) => inFilter(L, k)).length; fl.append(h('button', {class: 'lchip', 'data-on': likeFilter === k ? '1' : '', onclick: () => { likeFilter = k; renderLikes(); }}, lab, h('small', {}, String(n)))); }
+  list.innerHTML = ''; const items = all.filter(([, L]) => inFilter(L, likeFilter) && (!q || (L.name + ' ' + (L.note || '') + ' ' + (L.sum || '')).toLowerCase().includes(q))).sort((a, b) => a[1].at < b[1].at ? 1 : -1);
+  if (!items.length) list.append(h('span', {class: 'muted'}, all.length ? 'Nothing here yet.' : 'Nothing liked yet. Tap 👍 on a sound, a pattern, its settings or a harmony as you play, and it gathers here.'));
+  for (const [id, L] of items) { const it = {kind: L.kind, key: L.key, name: L.name, sum: L.sum, data: L.data};
+    list.append(h('div', {class: 'likecard'}, h('span', {class: 'kind'}, KIND_NAMES[L.kind] || L.kind), h('b', {}, L.name), L.sum ? h('span', {class: 'sum'}, L.sum) : '', L.note ? h('span', {class: 'note'}, L.note) : '',
+      h('div', {class: 'row'}, canUse(L) ? h('button', {class: 'use', onclick: () => useLike(L)}, 'Use') : '', likeBar(it), h('button', {class: 'mini', title: 'Forget it', onclick: () => saveLike(id, null)}, '✕')))); } }
+$('likeSearch').oninput = () => renderLikes();
+const canUse = L => L.kind === 'sound' ? !!SND[L.key] : L.kind === 'pattern' || L.kind === 'settings' ? !!SND[L.data?.sound] : L.kind === 'harmony' ? !!L.data?.bars : !!byRef(L.key);
+// using a like: the sound, pattern or settings onto a part of its role (the chosen part if it is one), a harmony, a combination
+const partFor = role => { const c = selCol(); return c.role === role ? c : st.cols.find(x => x.role === role); };
+function useLike(L){ const d = L.data || {};
+  if (L.kind === 'sound') { const c = partFor(d.role); if (!c) return; c.locked = true; setSound(c, L.key); saveSounds(); st.sel = st.cols.indexOf(c); renderSel(); flash(`${ROLE_NAMES[c.role]}: ${L.name}`); return; }
+  if (L.kind === 'harmony') { if (!PACK.harmonies.some(H => H.id === d.id)) PACK.harmonies.push({id: d.id, name: d.name, words: d.words || '', bars: d.bars}); setHarmony(d.id); return; }
+  if (L.kind === 'idea' || L.kind === 'snap') { const x = byRef(L.key); if (x) recall(x); return; }
+  const c = st.cols.find(x => x.id === d.col && x.role === d.role) || partFor(d.role); if (!c) return; st.sel = st.cols.indexOf(c);
+  if (d.sound && SND[d.sound] && c.sound !== d.sound) { c.locked = true; setSound(c, d.sound); saveSounds(); }
+  if (L.kind === 'settings') { for (const k of SET_KEYS) if (d.set?.[k] !== undefined) c[k] = d.set[k]; c.arpSt = null; macros(c); lengthTo(c); prewarm(c); renderSel(); flash('Settings: ' + L.name); return; }
+  const base = CLIP[d.clipId] || {id: d.clipId || 'liked', role: c.role, name: 'Liked pattern', variations: []}, clip = {...base, len: d.len, steps: d.steps};
+  if (c.varsOf !== base.id) { c.vars = [{steps: d.steps}]; c.varsOf = base.id; c.vi = 0; } else if (!c.vars.some(v => hashOf(v.steps) === hashOf(d.steps))) { c.vars.push({steps: d.steps, made: 'Liked'}); c.vi = c.vars.length - 1; }
+  c.next = {id: base.id, clip, var: c.vi}; c.nextRow = PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === base.id); prewarm(c, clip);
+  if (!st.playing) { c.clip = clip; c.clipId = base.id; c.var = c.vi; c.row = c.nextRow; delete c.next; c.start = 0; }
+  renderCol(c); renderSel(); flash((st.playing ? 'Next bar: ' : '') + L.name); }
+async function loadLikes(){ if (!db) return;
+  try { const q = await db.collection('likes').get(); for (const d of q.docs) { const L = d.data(); if (L && (!LIKES[d.id] || LIKES[d.id].at <= L.at)) LIKES[d.id] = L; }
+    // the ratings given before likes stayed lit: the latest for each thing, brought in once
+    const fb = await db.collection('feedback').get(), rows = fb.docs.map(d => d.data()).filter(Boolean).sort((a, b) => a.at < b.at ? -1 : 1), latest = {};
+    for (const r of rows) latest[(r.kind === 'clip' ? 'pattern' : r.kind) + ':' + r.id] = r;
+    for (const [k, r] of Object.entries(latest)) { const kind = r.kind === 'clip' ? 'pattern' : r.kind, it = kind === 'sound' ? soundItem(r.id) : {kind, key: r.id, name: r.name, data: kind === 'harmony' ? {id: r.id} : {id: r.id}}, id = likeId(it);
+      if (!LIKES[id]) { LIKES[id] = {kind, key: it.key, name: it.name || r.name, sum: it.sum || '', data: it.data, rating: r.rating, note: r.note || '', at: r.at}; try { await db.collection('likes').doc(id).set(LIKES[id]); } catch {} } }
+    storeLikes(); document.querySelectorAll('.likebar').forEach(paintLike); renderPhone(); renderHarmony(); renderLikes(); } catch {} }
+
 /* ---------- the idea loop: Claude's ideas (written into the page's database by Claude), and the arrangement: snapshots
    and ideas in an order, played as a sketch and sent to Claude, who makes the next round from it ---------- */
 let IDEAS = [], ARR = [], arrNote = '';
@@ -369,7 +450,7 @@ function renderIdeas(){ const box = $('ideas'); if (!box) return; box.innerHTML 
     for (const x of IDEAS.filter(y => (y.round || 1) === r).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
       g.append(h('div', {class: 'snap idea', 'data-on': x.id === snapOn ? '1' : ''},
         h('button', {class: 'go', onclick: () => recall(x)}, h('span', {class: 'kind'}, x.kind || 'idea'), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
-        h('span', {class: 'ideabtns'}, h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Keep it in your snapshots', onclick: () => keepIdea(x)}, 'Keep'), rateBtns('idea', x.id, x.name)))); } }
+        h('span', {class: 'ideabtns'}, h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Keep it in your snapshots', onclick: () => keepIdea(x)}, 'Keep'), likeBar({kind: 'idea', key: x.id, name: x.name, data: {id: x.id, round: x.round}})))); } }
 async function keepIdea(x){ const y = {...JSON.parse(JSON.stringify(x)), id: 's' + Date.now().toString(36), name: x.name, from: x.id, at: new Date().toISOString()}; for (const k of ['round', 'kind', 'why', 'order']) delete y[k];
   SNAPS.push(y); storeSnaps(); renderSnaps(); flash('Kept ' + x.name + ' in your snapshots'); if (db) try { await db.collection('snaps').doc(y.id).set(y); } catch {} }
 function arrAdd(id){ ARR.push({ref: id, bars: 8}); storeArr(); renderArr(); flash('Into the arrangement: ' + byRef(id)?.name); }
@@ -405,13 +486,6 @@ async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_K
 
 /* ---------- feedback and keeping (the page's database) ---------- */
 let db = null;
-function rateBtns(kind, id, name){ const box = h('span', {class: 'rate'});
-  for (const [r, lab] of [[1, '👍'], [-1, '👎']]) box.append(h('button', {class: 'mini', title: lab === '👍' ? 'I like this' : 'Not for me', onclick: async e => { e.stopPropagation(); if (!db) { flash('Sign in to claude.ai to rate'); return; }
-    try { await db.collection('feedback').add({kind, id, name, rating: r, pack: PACK.id, at: new Date().toISOString()}); flash(`${lab} ${name}`); } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }}, lab));
-  return box; }
-function rateNow(kind){ const c = selCol(); const id = kind === 'clip' ? c.clipId : kind === 'sound' ? c.sound : st.harmony.id, name = kind === 'clip' ? CLIP[c.clipId]?.name : kind === 'sound' ? SND[c.sound].name : st.harmony.name; return {id, name}; }
-for (const kind of ['clip', 'sound', 'harmony']) for (const r of [1, -1]) { const b = $(`r-${kind}-${r > 0 ? 'up' : 'down'}`); if (b) b.onclick = async () => { const {id, name} = rateNow(kind); if (!id) return; if (!db) { flash('Sign in to claude.ai to rate'); return; }
-  try { await db.collection('feedback').add({kind, id, name, rating: r, pack: PACK.id, note: $('fbNote').value.trim(), at: new Date().toISOString()}); flash(`${r > 0 ? '👍' : '👎'} ${name}`); $('fbNote').value = ''; } catch (err) { flash('Not saved: ' + (err.code || err.message)); } }; }
 $('keepJam').onclick = async () => { if (!db || !lastTake) return; $('keepJam').disabled = true; $('takeNote').textContent = 'Keeping…';
   const used = [...new Set(lastTake.notes.map(n => n[2]).concat(lastTake.macros.filter(m => String(m[2]).startsWith('sound:')).map(m => m[2].slice(6))))];
   try { await db.collection('jams').add({name: $('jamName').value.trim() || `Jam at ${st.bpm} BPM`, note: $('jamNote').value.trim(), pack: PACK.id, bpm: lastTake.bpm, swing: lastTake.swing, echoDiv: lastTake.echoDiv, bars: lastTake.bars,
@@ -440,8 +514,8 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   SND = Object.fromEntries(LIB.map(s => [s.id, s]));
   let want = null; try { want = localStorage.getItem('studio.jam.pack'); } catch {}
   await loadPack(PACKS.some(p => p.id === want) ? want : PACKS.at(-1).id);
-  let tab = 'clips'; try { tab = localStorage.getItem('studio.jam.tab') || 'clips'; } catch {} setTab(tab); placeFb();
+  let tab = 'clips'; try { tab = localStorage.getItem('studio.jam.tab') || 'clips'; } catch {} setTab(tab); placeFb(); renderLikes();
   loadSnaps(); renderArr();
   db = await window.claude?.use?.('db').catch(() => null) || null;
-  loadSnaps(); loadIdeas();
+  loadSnaps(); loadIdeas(); loadLikes();
 })();

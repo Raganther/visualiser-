@@ -126,6 +126,27 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .arrbtns{display:flex; gap:4px; padding:0 4px 4px}
 .arrctl{display:flex; gap:8px; flex-wrap:wrap} .arrctl input{flex:1; min-width:200px; border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px}
 #arrSend{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600} #arrSend:disabled,#arrPlay:disabled{opacity:.4}
+.likebar{display:inline-flex; gap:4px; align-items:center}
+.likebar button{min-width:34px; min-height:32px; border:1px solid var(--line); background:transparent; border-radius:8px; padding:2px 6px; font-size:14px; line-height:1; position:relative; filter:grayscale(1); opacity:.75}
+.likebar button[aria-pressed="true"]{filter:none; opacity:1; background:var(--acc-soft); border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)}
+.likebar button.dn[aria-pressed="true"]{background:var(--on-soft); border-color:var(--on); box-shadow:inset 0 0 0 1px var(--on)}
+.likebar button.nt[data-has="1"]{filter:none; opacity:1} .likebar button.nt[data-has="1"]::after{content:""; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; background:var(--on)}
+.partlikes{display:grid; grid-template-columns:auto 1fr auto; gap:6px 10px; align-items:center; border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:var(--well)}
+.partlikes .lab{margin:0} .partlikes .what{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.hrow{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:6px; flex-wrap:wrap} .hrow #hWords{margin:0}
+.hchip[data-liked="1"]::after,.mchip[data-liked="1"] b::before{content:"♥ "; color:var(--acc)}
+.headlikes{display:flex; gap:4px} .headlikes .likebar button{min-width:28px; min-height:26px; font-size:12px; padding:1px 4px}
+.likehead{display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap} #likeSearch{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:200px}
+#likeFilters{display:flex; gap:6px; flex-wrap:wrap; margin:10px 0}
+.lchip{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px} .lchip[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)} .lchip small{color:inherit; opacity:.7; margin-left:4px}
+#likeList{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px}
+.likecard{border:1px solid var(--line); border-radius:12px; background:var(--well); padding:10px; display:flex; flex-direction:column; gap:6px}
+.likecard .kind{font:500 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--acc)} .likecard .sum{font-size:12px; color:var(--mute)}
+.likecard .note{font-size:13px; border-left:3px solid var(--on); padding-left:8px}
+.likecard .row{display:flex; gap:6px; align-items:center; flex-wrap:wrap} .likecard .use{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:6px 14px; font-weight:600; min-height:34px}
+#noteSheet{position:fixed; left:50%; top:20%; transform:translateX(-50%); width:min(440px, calc(100vw - 24px)); z-index:40; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 10px 40px #0005; display:flex; flex-direction:column; gap:8px}
+#noteSheet[hidden]{display:none} #noteText{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:10px; font:inherit; color:inherit; resize:vertical}
+.notebtns{display:flex; gap:8px; flex-wrap:wrap} #noteSave{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
 .sndgroup{grid-column:1/-1; margin-top:8px}
 .octbox{display:inline-flex; align-items:center; gap:8px; padding:0 6px}
 .octbox button{min-width:40px; min-height:40px; border-radius:8px; border:1px solid var(--line); background:transparent; font-size:18px}
@@ -141,7 +162,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
   .wrap{gap:8px}
   body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="play"] [data-tabs]:not([data-tabs~="play"]), body[data-tab="notes"] [data-tabs]:not([data-tabs~="notes"]),
-  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]){display:none !important}
+  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]){display:none !important}
   .gridbox,.keys{display:none !important}
   .panel{padding:10px; border-radius:12px}
   .transport{position:sticky; top:0; z-index:15; margin:0 calc(-1*max(10px, env(safe-area-inset-left, 0px))); border-radius:0; border-width:0 0 1px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
@@ -193,6 +214,11 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   .fb{gap:6px} .fb button{min-width:44px; min-height:44px} .fb input{flex-basis:100%}
   .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
   #snaps{grid-template-columns:1fr 1fr} .snapgrid{grid-template-columns:1fr}
+  .likebar button{min-width:44px; min-height:40px; font-size:16px} .headlikes{display:none}
+  .partlikes{padding:6px 8px; gap:4px 8px} .partlikes .likebar button{min-width:40px}
+  .likeslot{margin-bottom:4px} #likeList{grid-template-columns:1fr} #likeSearch{flex-basis:100%; min-height:44px} .lchip{min-height:40px; white-space:nowrap}
+  #likeFilters{flex-wrap:nowrap} .likecard .use{min-height:44px; padding:0 18px}
+  #noteSheet{top:auto; bottom:0; left:0; transform:none; width:100%; border-radius:16px 16px 0 0; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))} .notebtns button{flex:1; min-height:48px}
   #arr .arrchip{flex:none} #arr > .muted{white-space:normal; flex:1}
   .snapsbox{display:flex; flex-direction:column} .arrbox{order:-1; margin:0 0 12px; border-top:0; padding-top:0; border-bottom:1px solid var(--line); padding-bottom:12px}
   .snap .why{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
@@ -226,7 +252,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   <section class="panel" data-tabs="clips" aria-label="Harmony">
     <div class="lab phone">Harmony</div>
     <div id="harmonies" aria-label="Harmony"></div>
-    <div class="muted" id="hWords"></div>
+    <div class="hrow"><span class="muted" id="hWords"></span><span id="harmLikes"></span></div>
   </section>
 
   <section class="gridbox" data-tabs="clips" aria-label="Clips"><div id="grid"></div></section>
@@ -252,6 +278,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 
   <section class="panel perform" data-tabs="play" aria-label="Perform">
     <div class="mslot phone"></div>
+    <div class="likeslot phone"></div>
     <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
     <div class="side">
       <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
@@ -267,12 +294,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
         <button id="m-harm">Next harmony<small>H</small></button>
         <button id="m-snap" class="phone">＋ Save snapshot</button>
       </div>
-      <div class="fb" data-tabs="more">
-        <span class="lab">This clip</span><button id="r-clip-up">👍</button><button id="r-clip-down">👎</button>
-        <span class="lab">Sound</span><button id="r-sound-up">👍</button><button id="r-sound-down">👎</button>
-        <span class="lab">Harmony</span><button id="r-harmony-up">👍</button><button id="r-harmony-down">👎</button>
-        <input id="fbNote" placeholder="A word with your 👍 / 👎 (optional)" aria-label="Note with the rating">
-      </div>
+      <div class="likeslot desk"><div id="partLikes" class="partlikes" aria-label="Like this part"></div></div>
       <div class="keys">
         <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
         <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
@@ -282,6 +304,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 
   <section class="panel shape" data-tabs="notes" aria-label="Shape the part">
     <div class="mslot phone"></div>
+    <div class="likeslot phone"></div>
     <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
       <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
     <canvas id="notes" aria-label="The chosen part's notes"></canvas>
@@ -296,7 +319,12 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     </div>
   </section>
 
-  <section class="panel phone" data-tabs="more" aria-label="Rate"><div class="fbslot"></div></section>
+  <section class="panel likesbox" data-tabs="likes" aria-label="Your likes">
+    <div class="likehead"><div class="lab">Your likes: everything you’ve liked, noted or turned down</div><input id="likeSearch" placeholder="Search names and notes" aria-label="Search your likes"></div>
+    <div id="likeFilters" class="strip"></div>
+    <div id="likeList"></div>
+  </section>
+
   <section class="panel keep" data-tabs="more" aria-label="Keep a recording">
     <h2>Recordings</h2>
     <span class="muted" id="takeNote" style="flex-basis:100%">Press Record, jam, press it again. Keep the take and Claude renders it at full quality into the listening room.</span>
@@ -305,9 +333,14 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <button id="keepJam" disabled>Keep for Claude</button>
   </section>
   <div id="sounds" hidden aria-label="Sounds"></div>
+  <div id="noteSheet" hidden role="dialog" aria-label="A note">
+    <div class="lab">Note on</div><b id="noteWhat"></b>
+    <textarea id="noteText" rows="3" placeholder="What you hear, what you’d change (your keyboard’s 🎤 dictates)"></textarea>
+    <div class="notebtns"><button id="noteSave">Save note</button><button id="noteDel" class="ghost">Delete note</button><button id="noteCancel" class="ghost">Cancel</button></div>
+  </div>
 </div>
 <nav id="tabs" class="phone" aria-label="Pages">
-  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
 </nav>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script>/*APP*/</script>
