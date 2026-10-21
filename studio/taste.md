@@ -45,3 +45,6 @@ before writing or changing a piece; add to it when they react.
   41–62 Hz, mostly sines). Basses need harmonics above the fundamental, and sit where the glass bass does. They want to
   mix and match sounds from every pack: the jam's sound picker now holds the whole library, with an octave button per column.
 - 2026-10-20: Studio Jam ratings: 👎 Dark stab (pack 2's low-filtered dub chord).
+- 2026-10-21: Studio Jam snapshots (pack 2, both on F minor add 9): the dub kick, tight native hats on "16ths with gaps",
+  pack 1's hand drums, Dark FM on "Rolling threes", chords on "Stabs in fives" (gated chord, then the dark stab with an
+  open voicing and an arp), the glass harmonica and the log drum. Pack 3 (minimal techno, every sound native) starts there.

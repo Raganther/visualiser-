@@ -8,7 +8,7 @@ const fade = (o, sr, ms = 15) => { const n = o.L.length, f = Math.min(n, Math.ro
 
 // a circular membrane's modes (Bessel zeros over the first): the struck skin's pitch drops as the strike's tension eases
 const MEMB = [1, 1.594, 2.136, 2.296, 2.653, 2.918, 3.156, 3.501];
-export function membrane(sr, f0, {vel = .8, decay = .5, drop = .3, dropT = .03, hard = .5, pos = .3, beater = .3, body = 0, seed = 1, width = .2} = {}){
+export function membrane(sr, f0, {vel = .8, decay = .5, drop = .3, dropT = .03, hard = .5, pos = .3, beater = .3, body = 0, seed = 1, width = .2, drive = 0} = {}){
   const R = rng(seed), T = decay*1.4 + .05, n = Math.ceil(T*sr), o = out(n), b = hard*(.5 + .5*vel);
   MEMB.forEach((ratio, k) => {
     const w = (k ? .55*Math.pow(ratio, -2.2*(1 - b))*Math.abs(Math.sin(Math.PI*(k + 1)*pos)) : 1)*(.6 + .4*vel), t60 = decay/(1 + k*.9);
@@ -19,6 +19,8 @@ export function membrane(sr, f0, {vel = .8, decay = .5, drop = .3, dropT = .03, 
   if (beater > 0) { const cn = Math.round(.006*sr); let lp = 0; const a = .25 + .7*b; for (let i = 0; i < cn; i++) { lp += a*((R()*2 - 1) - lp); const g = beater*vel*Math.exp(-i/(.0012*sr)); o.L[i] += lp*g; o.R[i] += lp*g; } }
   // a shell's resonance: a low sine under it all (a kick's body)
   if (body > 0) { const dec = Math.exp(-LN1000/(decay*1.2*sr)); let env = body*vel, ph = 0; for (let i = 0; i < n; i++) { ph += 2*Math.PI*f0*.5*(1 + drop*.6*Math.exp(-i/(dropT*1.5*sr)))/sr; const s = Math.sin(ph)*env; o.L[i] += s; o.R[i] += s; env *= dec; } }
+  // a soft drive: the skin's body thickened, its peaks rounded (the level kept)
+  if (drive > 0) { const k = 1 + drive*4, kn = Math.tanh(k); for (let i = 0; i < n; i++) { o.L[i] = Math.tanh(k*o.L[i])/kn; o.R[i] = Math.tanh(k*o.R[i])/kn; } }
   return fade(o, sr);
 }
 

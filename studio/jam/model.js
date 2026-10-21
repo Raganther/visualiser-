@@ -47,12 +47,21 @@ export const X0 = role => ({hats: .94, perc: .84}[role] ?? .62);
 export const LEN = [.45, 1, 2.2];
 // a native note's settings now: the mallet from tone, the ring from length
 export function nativeSet(c, name, base = {}){ const o = {...base};
-  if (['marimba', 'kalimba', 'steel', 'musicbox', 'vibes', 'wood', 'tubular', 'bell', 'plate', 'glass', 'gong', 'bowl', 'logdrum'].includes(name)) { o.hard = Math.round((.2 + .75*c.x)*4)/4; o.ring = LEN[c.length]; }
+  if (['marimba', 'kalimba', 'steel', 'musicbox', 'vibes', 'wood', 'tubular', 'bell', 'plate', 'glass', 'gong', 'bowl', 'logdrum', 'bamboo', 'rim'].includes(name)) { o.hard = Math.round((.2 + .75*c.x)*4)/4; o.ring = LEN[c.length]; }
   else if (['kick', 'tom', 'hand'].includes(name)) { o.decay = (o.decay ?? (name === 'kick' ? .45 : .5))*LEN[c.length]; o.hard = Math.round((.2 + .7*c.x)*4)/4; }
   else if (name === 'hat') o.decay = (o.decay ?? .06)*LEN[c.length];
   else if (name.startsWith('fm')) { o.index = Math.round((.4 + 3.2*c.x)*4)/4; o.dec = .25*LEN[c.length]; }
   else if (['bowed', 'bowmetal', 'glassharm', 'rubbowl'].includes(name)) { const lo = name === 'bowed' ? .4 : 0, hi = name === 'bowed' ? 1 : .45; o.bright = Math.round((lo + (hi - lo)*c.x)*20)/20; o.r = [.4, .9, 2.2][c.length]; }
   else if (name === 'sub808') { o.drive = Math.round((.1 + .8*c.x)*10)/10; o.dec = [.35, 1.2, 3][c.length]; }
+  else if (name.startsWith('va')) { o.tone = Math.round(c.x*10)/10; o.stretch = LEN[c.length]; }
+  else if (['kround', 'kdub', 'ktight', 'kdeep'].includes(name)) { o.tone = Math.round((.15 + .75*c.x)*10)/10; o.decay = (o.decay ?? {kround: .32, kdub: .3, ktight: .18, kdeep: .5}[name])*LEN[c.length]; }
+  else if (name === 'rumble') { o.grit = Math.round((.15 + .5*c.x)*20)/20; o.decay = .5*LEN[c.length]; }
+  else if (name === 'formant') { o.q = Math.round(5 + 10*c.x); o.r = 1.6*LEN[c.length]; }
+  else if (name === 'hat808') { o.tone = Math.round(c.x*10)/10; o.decay = (o.decay ?? .05)*LEN[c.length]; }
+  else if (name === 'drop') { o.rise = Math.round((.3 + 1.2*c.x)*10)/10; o.decay = (o.decay ?? .035)*LEN[c.length]; }
+  else if (['twig', 'stone', 'click', 'insect'].includes(name)) { if (name !== 'insect') o.decay = (o.decay ?? {twig: .02, stone: .018, click: .006}[name])*LEN[c.length]; }
+  else if (name === 'leaf') { o.tone = Math.round(c.x*10)/10; o.secs = (o.secs ?? .25)*LEN[c.length]; }
+  else if (name === 'bird') { o.warble = Math.round(c.x*.08*100)/100; o.max = .28*LEN[c.length]; }
   else if (name === 'pluck') { o.bright = Math.round((.15 + .8*c.x)*4)/4; o.damp = [.985, .993, .997][c.length]; }
   return o; }
 

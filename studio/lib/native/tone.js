@@ -26,13 +26,13 @@ export function fm(sr, f0, {vel = .8, ratio = 1, index = 2, indexEnd = .4, index
 
 // additive: partials 1..N, each k^-tilt loud, slightly out of tune with the next (spread), arriving one by one (bloom: the
 // higher ones later), each swelling and fading on its own slow cycle (wob), alternating sides
-export function additive(sr, f0, {vel = .7, N = 18, tilt = 1.3, odd = 1, a = 1.2, bloom = 3, len = 4, r = 2, wob = .35, spread = .0025, seed = 1} = {}){
+export function additive(sr, f0, {vel = .7, N = 18, tilt = 1.3, odd = 1, a = 1.2, bloom = 3, len = 4, r = 2, wob = .35, spread = .0025, vib = .0012, seed = 1} = {}){
   const R = rng(seed), n = Math.ceil((len + r*1.2)*sr), o = out(n);
   for (let k = 1; k <= N; k++) {
     const f = f0*k*(1 + (R() - .5)*spread*Math.sqrt(k)); if (f > sr*.42) break;
     const amp = Math.pow(k, -tilt)*(k % 2 ? 1 : odd)*vel, pa = a + bloom*R()*(k - 1)/N, lr = .04 + .22*R(), lp = R()*6.28, pan = k === 1 ? 0 : (k % 2 ? -1 : 1)*(.25 + .5*R());
-    let ph = R()*6.28; const gl = (1 - pan)*.5, gr = (1 + pan)*.5;
-    for (let i = 0; i < n; i++) { ph += 2*Math.PI*f/sr; const t = i/sr, s = Math.sin(ph)*amp*env(i, sr, pa, len, r)*(1 - wob*(.5 - .5*Math.cos(2*Math.PI*lr*t + lp))); o.L[i] += s*gl; o.R[i] += s*gr; }
+    let ph = R()*6.28; const gl = (1 - pan)*.5, gr = (1 + pan)*.5, vr = .15 + .35*R(), vp = R()*6.28, vd = vib*Math.sqrt(k);
+    for (let i = 0; i < n; i++) { ph += 2*Math.PI*f*(1 + vd*Math.sin(vp + 2*Math.PI*vr*i/sr))/sr; const t = i/sr, s = Math.sin(ph)*amp*env(i, sr, pa, len, r)*(1 - wob*(.5 - .5*Math.cos(2*Math.PI*lr*t + lp))); o.L[i] += s*gl; o.R[i] += s*gr; }
   }
   return o;
 }
@@ -44,7 +44,7 @@ export function breath(sr, f0, {vel = .7, N = 8, q = 70, a = .9, len = 4, r = 1.
   for (const [y, sd] of [[o.L, seed], [o.R, seed + 11]]) {
     const R = rng(sd), x = new Float32Array(n); for (let i = 0; i < n; i++) x[i] = R()*2 - 1;
     for (let k = 1; k <= N; k++) { const f = f0*k; if (f > sr*.42) break; const w = 2*Math.PI*f/sr, al = Math.sin(w)/(2*q), a0 = 1 + al, b0 = al/a0, a1 = -2*Math.cos(w)/a0, a2 = (1 - al)/a0, g = Math.pow(k, -1)*Math.sqrt(q)*.5;
-      let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < n; i++) { const v = b0*x[i] - b0*x2 - a1*y1 - a2*y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] += v*g; } }
+      const op = a*(.25 + .2*k)*sr; let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < n; i++) { const v = b0*x[i] - b0*x2 - a1*y1 - a2*y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] += v*g*(1 - Math.exp(-i/op)); } }
     for (let i = 0; i < n; i++) y[i] = (y[i] + x[i]*air)*env(i, sr, a, len, r)*vel; }
   return o;
 }
@@ -52,7 +52,7 @@ export function breath(sr, f0, {vel = .7, N = 8, q = 70, a = .9, len = 4, r = 1.
 // a grain pad: a cloud of grains taken from a struck bar (vibes by default) at the note, steady, held, faded in and out
 export function grainPad(sr, f0, {vel = .7, src = 'vibes', density = 26, a = .7, len = 4, r = 1.5, seed = 1} = {}){
   const p = MODAL[src], s = modal(sr, f0, p.modes, {...p, trem: 0, vel: .7, len: 1.5});
-  const o = grains(sr, s, len + r, {density: [density, density], len: [.08, .26], pitches: [1, 1, 2, 1.5], spread: .006, pan: .9, seed});
+  const o = grains(sr, s, len + r, {density: [density, density], len: [.08, .26], pitches: [1, 1, 1, 2, .5], spread: .012, pan: .9, seed});
   for (let i = 0; i < o.L.length; i++) { const e = env(i, sr, a, len, r)*vel; o.L[i] *= e; o.R[i] *= e; }
   return o;
 }

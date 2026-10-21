@@ -69,5 +69,9 @@ export const MODAL = {
   bowl: {modes: [[1, 1, 9], [2.71, .5, 6], [5.06, .25, 3.5], [7.9, .1, 2]], hard: .35, beat: .003, width: .5},
   // a log drum: a slit of wood, its two tongues a little apart, hollow and short
   logdrum: {modes: [[1, 1, .35], [1.06, .5, .3], [2.9, .2, .1], [4.6, .08, .05]], hard: .55, click: .1, width: .35, gain: .3},
+  // a bamboo tube struck: harmonic, hollow and short
+  bamboo: {modes: [[1, 1, .28], [2.01, .5, .16], [3.03, .28, .1], [4.06, .14, .06], [5.1, .06, .04]], hard: .6, click: .15, width: .35, gain: .8},
+  // a rim shot: a short, bright ring and a crack
+  rim: {modes: [[1, 1, .045], [1.71, .6, .032], [2.62, .35, .022], [3.9, .15, .015]], hard: .9, click: .45, width: .25, gain: .6},
   gong: {modes: [[1, .8, 6], [1.48, .6, 5, .3], [2.02, .5, 4, .6], [2.47, .5, 3.5, .9], [3.1, .4, 3, 1.2], [3.6, .3, 2.5, 1.5], [4.3, .2, 2, 1.8], [5.1, .15, 1.6, 2]], hard: .4, beat: .006, width: .6},
 };
