@@ -2,13 +2,16 @@
 // (the improviser: as written when off, the bar's 1 kept, ideas held, fills in the phrase's last bar, the leads taking
 // turns, kept as a variant), a
 // jam's take turned into a session (mixer and master changes as automation on their bars, the ones after the last note
-// too), that session's master and duck automation heard in an offline render on the desk, and the clip card (names, kept).
+// too), that session's master and duck automation heard in an offline render on the desk, the clip card (names, kept),
+// and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
+// page: a chord held, a progression written, played and saved, the library in a key, a snapshot bringing it back).
 import { serve, launch } from './lib.mjs';
 import { vlChain, rungFrom, invert, XFORMS, mutate, feelAt, FEELS, chordOf } from '../studio/jam/model.js';
 import { jamSession } from '../studio/jam/render-jam.mjs';
 import { chord } from '../studio/lib/palette.js';
 import { rng } from '../studio/lib/rng.js';
 import { improvise, reach, keep, PLAYS } from '../studio/jam/play.js';
+import { KEYS, MODES, LIB, matrix, distance, pcs as pcsOf, inKey, spell, shortOf } from '../studio/jam/chords.js';
 import { TOOLS, newRiff, answer, sequence, develop, thin, fill, halfTime, doubleTime, longer, shorter, MAX } from '../studio/jam/riff.js';
 
 let failed = false;
@@ -116,6 +119,22 @@ check('wide doubles the leaps, narrow halves them back', same(XFORMS.narrow(as(X
   check('no tool changes the clip it was given', JSON.stringify(line) === JSON.stringify({role: 'lead', len: 16, steps: [[0, 4, 1, .7], [3, 2, 1, .5], [6, 5, 1, .55], [11, 3, 2, .5]]}));
 }
 
+/* ---------- the chord library and matrix ---------- */
+{ let bad = [];
+  for (const key of KEYS) for (const mode of Object.keys(MODES)) { const sc = MODES[mode].map(i => (KEYS.indexOf(key) + i) % 12), M = matrix(key, mode);
+    if (!M[0].cells.some(Boolean)) bad.push(`${key} ${mode}: nothing on i`);
+    for (const r of M) for (const c of r.cells) if (c && !pcsOf(c).every(p => sc.includes(p))) bad.push(`${key} ${mode}: ${c} outside the scale`); }
+  check('the matrix: every chord in its key and mode, a chord on the home degree in each', !bad.length, bad.slice(0, 3).join('; '));
+  const M = matrix('A', 'minor'), all = M.flatMap(r => r.cells.filter(Boolean));
+  check('the matrix in A minor has its chords where they belong', M[0].cells[1] === 'A:m9' && M[5].cells[0] === 'F:maj7' && M[1].numeral === 'ii' && M[2].numeral === 'III' && all.length >= 30, `${all.length} chords`);
+  check('distance: none to itself, symmetric, a shared-note move smoother than a leap', distance('A:m9', 'A:m9') === 0 && Math.abs(distance('A:m9', 'C:maj7') - distance('C:maj7', 'A:m9')) < 1e-9
+    && distance('A:m9', 'C:maj7') < distance('A:m9', 'E:m9') && distance('A:m9', 'E:m9') < distance('A:m9', 'Eb:maj7'));
+  bad = []; for (const H of LIB) for (const key of KEYS) { const T = inKey(H, key), n = (KEYS.indexOf(key) - 9 + 12) % 12;
+    T.bars.forEach((b, i) => { const a = pcsOf(H.bars[i]).map(p => (p + n) % 12).sort().join(), t = pcsOf(b).sort().join(); if (a !== t || b.split(':')[1] !== H.bars[i].split(':')[1]) bad.push(`${H.name} in ${key}: ${b}`); }); }
+  check('every library progression moves to any key with its chords intact', !bad.length && LIB.length >= 20, bad.slice(0, 3).join('; ') || `${LIB.length} progressions`);
+  check('chords are spelled for their key (flats in F minor, sharps in E minor)', inKey(LIB.find(H => H.id === 'lib-aeolian'), 'F').bars.includes('Db:maj9') && inKey(LIB.find(H => H.id === 'lib-aeolian'), 'E').bars.includes('D:add9')
+    && spell(1, 'F', 'minor') === 'Db' && spell(6, 'E', 'minor') === 'F#' && shortOf('Bb:maj7') === 'B♭maj7'); }
+
 /* ---------- a take as a session: the mixer and the master automated on their bars ---------- */
 const take = {name: 'test', bpm: 124, swing: 0, echoDiv: 1, columns: [{id: 'col0', role: 'kick'}, {id: 'col3', role: 'bass'}],
   sounds: [{id: 'k', role: 'kick', name: 'K', voices: {kick: {native: 'kdub', n: 33}}}, {id: 'b', role: 'bass', name: 'B', src: {native: 'fmround'}}],
@@ -170,5 +189,21 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
   await (await cells())[1].click(); await (await cells())[0].click(); const back = await name(); await q.waitForTimeout(500); await q.reload(); await q.waitForTimeout(2000);
   await q.keyboard.press('r'); await (await cells())[0].click(); const reloaded = [await name(), await q.textContent('#cardSub')];
   check('a name given sticks, shows in the grid, and the clip comes back as it was left (after a reload too)', named === 'Bamboo walk' && cell === 'Bamboo walk' && back === 'Bamboo walk' && reloaded[0] === 'Bamboo walk' && /4 bars/.test(reloaded[1]), [named, cell, back, ...reloaded].join(' / ')); }
+// the harmony in the jam's page: a chord held from the matrix, a progression written, played and saved, the library in a
+// key, and a snapshot bringing a library progression back
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.type() === 'prompt' ? d.accept('Night walk') : d.accept());
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  const words = () => q.textContent('#hWords');
+  await q.click('#hTabs button:has-text("Chords")'); const shown = await q.$eval('#harmonies', e => getComputedStyle(e).display), cells = await q.$$eval('#hMat .mcell:not(.empty)', x => x.length);
+  await q.click('#hMat .mcell:text-is("Fmaj9")'); const held = await words(), heldNext = await q.$$eval('#hMat .mcell[data-on="1"], #hMat .mcell[data-next="1"]', x => x.map(e => e.textContent));
+  check('the matrix: the chords of the key, the pack\'s row hidden, a chord tapped held', cells >= 30 && shown === 'none' && /Held from the matrix/.test(held) && heldNext.includes('Fmaj9'), `${cells} chords, ${heldNext}`);
+  await q.click('#hMat .mwrite .tog'); for (const c of ['Am9', 'Fmaj9', 'Cadd9']) await q.click(`#hMat .mcell:text-is("${c}")`); await q.click('#hMine .mchord >> nth=0');
+  const mine = await q.$$eval('#hMine .mchord', x => x.map(e => e.textContent.replace('✕', ''))); await q.click('#hMine button:has-text("Play it")'); const playing = await words();
+  await q.click('#hMine button:has-text("Save")'); const yours = await q.$$eval('#hYours .libitem b', x => x.map(e => e.textContent));
+  check('a progression written in the matrix plays and is saved as yours', mine.join() === 'Am9×2,Fmaj9×1,Cadd9×1' && /Written in the matrix/.test(playing) && yours.includes('Night walk'), [mine.join(' '), yours].join(' / '));
+  await q.click('#hTabs button:has-text("Library")'); await q.selectOption('#hLib select', 'F'); await q.click('#hLib .libitem:has-text("Aeolian loop")');
+  const line = await q.$eval('#hLib .libitem[data-on="1"] span', e => e.textContent); await q.keyboard.press('s'); await q.waitForTimeout(200);
+  await q.click('#hTabs button:has-text("This pack")'); await q.click('#harmonies .hchip >> nth=1'); await q.keyboard.press('Shift+Digit1'); await q.waitForTimeout(200);
+  check('the library in F minor, kept by a snapshot and brought back', /^Fm9 → D♭maj9 → A♭add9 → E♭add9/.test(line) && /minor loop/.test(await words()), line); }
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

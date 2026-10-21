@@ -5,6 +5,7 @@
 // keyboard. Record writes down what plays, for Claude to render; 👍 / 👎 on clips, sounds and harmonies.
 import { improvise, reach, keep, PLAYS } from './play.js';
 import { TOOLS, TNAMES, MAX as RIFF_MAX } from './riff.js';
+import { KEYS, MODES, MODE_WORDS, COLS, FEELS as HFEELS, LIB as PROGS, matrix, distance, shared, nameOf, shortOf, keyOf as chordKey, inKey } from './chords.js';
 import { notesAt, chordOf, mutate, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, XFORMS, XNAMES, FOLLOW, ARPS, ECHO } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
@@ -133,7 +134,7 @@ function barLine(step){
   arrBar(step);
   if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { hp.frequency.cancelScheduledValues(ctx.currentTime); hp.frequency.setTargetAtTime(18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
-  const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = st.harmony.bars[bar % st.harmony.bars.length].replace(':', ' '); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
+  const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = shortOf(st.harmony.bars[bar % st.harmony.bars.length]); if (HV.tab === 'chords') renderMatrix(); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
 }
 async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
   for (const c of st.cols) if (c.next === undefined && c.clip) c.start = 0; timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
@@ -215,7 +216,10 @@ function riser(t, dur){ const n = ctx.createBuffer(2, ctx.sampleRate*2, ctx.samp
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = n; s.loop = true; f.type = 'bandpass'; f.Q.value = 1.4; s.connect(f); f.connect(g); g.connect(master);
   f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(7000, t + dur); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.18, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .03); s.start(t); s.stop(t + dur + .05); }
 function repeat(on){ if (on && st.playing && !st.rep) { st.rep = {at: Math.floor(st.step/4)*4, len: 4}; $('m-rep').dataset.on = '1'; } if (!on && st.rep) { st.rep = null; $('m-rep').dataset.on = ''; } }
-function setHarmony(id){ const H = PACK.harmonies.find(x => x.id === id); if (!st.playing) { st.harmony = H; st.hStart = 0; } else st.hNext = H; for (const c of st.cols) prewarm(c); renderHarmony(); flash('Harmony: ' + H.name); }
+// a harmony by id (this pack's, the library's, yours or one held from the matrix) or itself: from the next bar
+const HREG = {}, regH = H => (HREG[H.id] = H);
+function setHarmony(x){ const H = typeof x === 'string' ? HREG[x] || PACK.harmonies.find(y => y.id === x) : x; if (!H) return; regH(H);
+  if (!st.playing) { st.harmony = H; st.hStart = 0; } else st.hNext = H; for (const c of st.cols) prewarm(c); renderHarmony(); flash('Harmony: ' + H.name); }
 
 /* ---------- recording: what plays, written down for Claude to render ---------- */
 function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, mix: st.cols.map(c => ({...c.mix, mute: !!c.mute})), mx: {...st.mx}, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
@@ -257,7 +261,61 @@ $('cardMute').onclick = () => { const c = selCol(); c.mute = !c.mute; macros(c);
 // naming a clip: the name sticks, and what's made of it from then on is named after it
 $('rename').onclick = () => { const c = selCol(); if (!c?.clip || !c.vars) return; const v = c.vars[c.vi || 0], name = prompt('Name this clip', clipName(c))?.trim(); if (!name) return;
   v.name = v.base = name.slice(0, 40); v.ops = []; storeClips(); renderCard(); renderCol(c); renderShape(); };
-function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
+/* ---------- the harmony: this pack's progressions, the library (by feel, in any key), the chord matrix (the chords of a key
+   and mode, the smooth moves from the one playing lit; tap to hold one from the next bar, or write them into a
+   progression of your own) and yours, saved ---------- */
+const HV = (() => { const d = {tab: 'pack', key: 'A', mode: 'minor', feel: 'all', write: false, mine: [], saved: []}; try { return {...d, ...JSON.parse(localStorage.getItem('studio.jam.harm') || '{}')}; } catch { return d; } })();
+const storeHV = () => { try { localStorage.setItem('studio.jam.harm', JSON.stringify(HV)); } catch {} };
+const TABS = [['pack', 'This pack'], ['lib', 'Library'], ['chords', 'Chords'], ['yours', 'Yours']];
+const nowChord = () => { const H = st.hNext || st.harmony; return H.bars[((st.bar % H.bars.length) + H.bars.length) % H.bars.length]; };
+// a progression's chords in a line (each once in a row) for its label
+const chordLine = bars => bars.filter((b, i) => b !== bars[i - 1]).map(shortOf).join(' → ');
+const isOn = H => (st.harmony?.id === H.id), isNext = H => st.hNext?.id === H.id;
+let OTHER = null;   // the other packs' progressions, fetched once
+async function otherPacks(){ if (OTHER) return OTHER; OTHER = [];
+  for (const p of PACKS) { if (p.id === PACK.id) continue; try { const x = await (await fetch(`packs/${p.id}.json`)).json(); for (const H of x.harmonies) OTHER.push({...H, id: H.id, from: p.name.split(':')[0]}); } catch {} }
+  renderHarmony(); return OTHER; }
+function hTab(t){ HV.tab = t; storeHV(); renderHarmony(); if (t === 'lib') otherPacks(); }
+function keyRow(box){ const sel = h('select', {'aria-label': 'Key', onchange: e => { HV.key = e.target.value; storeHV(); renderHarmony(); }}, ...KEYS.map(k => h('option', {value: k, ...(k === HV.key ? {selected: ''} : {})}, k.replace('#', '♯').replace(/b$/, '♭'))));
+  box.append(h('div', {class: 'hkey'}, h('span', {class: 'lab'}, 'Key'), sel, ...Object.keys(MODES).map(m => h('button', {class: 'mode', 'data-on': m === HV.mode ? '1' : '', title: MODE_WORDS[m], onclick: () => { HV.mode = m; storeHV(); renderHarmony(); }}, m)),
+    h('button', {class: 'mode', title: 'The key of the chord playing now', onclick: () => { HV.key = chordKey(nowChord()); storeHV(); renderHarmony(); }}, '◎ Key of now'))); }
+const libItem = H => h('button', {class: 'libitem', 'data-on': isOn(H) ? '1' : '', 'data-next': isNext(H) ? '1' : '', title: H.words || '', onclick: () => setHarmony(H)},
+  h('b', {}, H.name), h('span', {}, chordLine(H.bars) + ` · ${H.bars.length} bar${H.bars.length > 1 ? 's' : ''}`));
+function renderLib(){ const box = $('hLib'); box.innerHTML = ''; keyRow(box);
+  box.append(h('div', {class: 'feels'}, ...[['all', 'All'], ...HFEELS].map(([k, lab]) => h('button', {class: 'hchip', 'data-on': HV.feel === k ? '1' : '', onclick: () => { HV.feel = k; storeHV(); renderLib(); }}, lab))));
+  const g = h('div', {class: 'libgrid'}); for (const H of PROGS.filter(x => HV.feel === 'all' || x.feel === HV.feel)) g.append(libItem(regH(inKey(H, HV.key)))); box.append(g);
+  if (OTHER?.length && HV.feel === 'all') { box.append(h('div', {class: 'lab libhead'}, 'From the other packs (as written)')); const g2 = h('div', {class: 'libgrid'}); for (const H of OTHER) g2.append(libItem(regH(H))); box.append(g2); } }
+// the matrix: a row a degree, a column a kind of chord; the smooth moves from the chord playing (or the last you wrote) lit
+function renderMatrix(){ const box = $('hMat'); box.innerHTML = ''; keyRow(box); const M = matrix(HV.key, HV.mode), from = HV.write && HV.mine.length ? HV.mine.at(-1)[0] : nowChord(), next = st.hNext?.bars.length === 1 ? st.hNext.bars[0] : null;
+  const g = h('div', {class: 'mat'}, h('span', {}), ...COLS.map(([lab]) => h('span', {class: 'mh'}, lab)));
+  for (const r of M) { g.append(h('span', {class: 'mr'}, r.numeral));
+    for (const sym of r.cells) { if (!sym) { g.append(h('span', {class: 'mcell empty'})); continue; } const d = distance(from, sym), near = sym === from ? 0 : d < .35 ? 3 : d < .7 ? 2 : d < 1.1 ? 1 : 0;
+      g.append(h('button', {class: 'mcell', 'data-near': String(near), 'data-on': sym === nowChord() ? '1' : '', 'data-next': sym === next ? '1' : '', title: `${nameOf(sym)} · shares ${shared(from, sym)} notes with ${shortOf(from)}`, onclick: () => pickChord(sym)}, shortOf(sym))); } }
+  box.append(g, h('div', {class: 'mwrite'}, h('button', {class: 'tog', 'aria-pressed': String(HV.write), onclick: () => { HV.write = !HV.write; storeHV(); renderHarmony(); }}, HV.write ? '✎ Writing: taps add chords' : '✎ Write a progression'),
+    h('span', {class: 'muted'}, HV.write ? 'Tap chords to add them, a bar each; tap one in your row for longer.' : `Lit: smooth moves from ${shortOf(from)}. Tap a chord to hold it from the next bar.`))); }
+// a chord tapped: held from the next bar, or (writing) added to your progression
+function pickChord(sym){ if (HV.write) { HV.mine.push([sym, 1]); storeHV(); renderHarmony(); return; }
+  setHarmony({id: 'chord:' + sym, name: nameOf(sym), words: 'Held from the matrix: tap another chord to move.', bars: [sym]}); }
+const mineBars = () => HV.mine.flatMap(([s, n]) => Array(n).fill(s));
+function renderMine(){ const box = $('hMine'); box.innerHTML = ''; box.hidden = !(HV.tab === 'chords' && HV.write || HV.tab === 'yours'); if (box.hidden) return;
+  const row = h('div', {class: 'mine'}, h('span', {class: 'lab'}, 'Your progression'));
+  HV.mine.forEach((m, i) => row.append(h('button', {class: 'mchord', title: 'Tap: longer (1, 2, 4 bars)', onclick: () => { m[1] = {1: 2, 2: 4, 4: 1}[m[1]] || 1; storeHV(); renderMine(); }},
+    shortOf(m[0]), h('small', {}, `×${m[1]}`), h('span', {class: 'x', role: 'button', 'aria-label': 'Take it out', onclick: e => { e.stopPropagation(); HV.mine.splice(i, 1); storeHV(); renderHarmony(); }}, '✕'))));
+  if (!HV.mine.length) row.append(h('span', {class: 'muted'}, HV.tab === 'yours' ? 'Write one in Chords (✎ Write a progression).' : 'Nothing yet: tap chords above.'));
+  const mine = () => ({id: 'mine:' + mineBars().join(','), name: 'Your progression', words: 'Written in the matrix.', bars: mineBars()});
+  row.append(h('button', {class: 'mini', disabled: !HV.mine.length || undefined, onclick: () => setHarmony(mine())}, '▶ Play it'),
+    h('button', {class: 'mini', disabled: !HV.mine.length || undefined, onclick: () => { const name = prompt('Name this progression', 'My progression')?.trim(); if (!name) return;
+      HV.saved.push({id: 'yours-' + Date.now().toString(36), name: name.slice(0, 40), words: 'Yours, written in the matrix.', bars: mineBars()}); storeHV(); hTab('yours'); flash('Saved: ' + name); }}, 'Save'),
+    h('button', {class: 'mini', disabled: !HV.mine.length || undefined, onclick: () => { HV.mine = []; storeHV(); renderHarmony(); }}, 'Clear'));
+  box.append(row); }
+function renderYours(){ const box = $('hYours'); box.innerHTML = '';
+  if (!HV.saved.length) { box.append(h('p', {class: 'muted'}, 'Nothing saved yet. Write one in Chords, then Save.')); return; }
+  const g = h('div', {class: 'libgrid'}); for (const H of HV.saved) { const b = libItem(regH(H)); b.append(h('span', {role: 'button', 'aria-label': 'Delete', onclick: e => { e.stopPropagation(); if (!confirm(`Delete “${H.name}”?`)) return; HV.saved = HV.saved.filter(x => x !== H); storeHV(); renderYours(); }}, '✕ delete')); g.append(b); }
+  box.append(g); }
+function renderHarmony(){ const T = $('hTabs'); if (T) { T.innerHTML = ''; for (const [k, lab] of TABS) T.append(h('button', {role: 'tab', 'aria-selected': String(HV.tab === k), onclick: () => hTab(k)}, lab)); }
+  $('harmonies').hidden = HV.tab !== 'pack'; $('hLib').hidden = HV.tab !== 'lib'; $('hMat').hidden = HV.tab !== 'chords'; $('hYours').hidden = HV.tab !== 'yours';
+  if (HV.tab === 'lib') renderLib(); if (HV.tab === 'chords') renderMatrix(); if (HV.tab === 'yours') renderYours(); renderMine();
+  const box = $('harmonies'); box.innerHTML = '';
   for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-liked': liked(harmonyItem(H)) ? '1' : '', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
   $('hWords').textContent = (st.hNext || st.harmony).words; const hl = $('harmLikes'); hl.innerHTML = ''; hl.append(h('span', {class: 'lab'}, 'This harmony '), likeBar(harmonyItem(st.hNext || st.harmony))); }
 let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) { drawNotes(s); renderLoop(s); }
@@ -513,7 +571,7 @@ let SNAPS = [], snapOn = null, snapDel = null;
 const SNAP_FIELDS = ['loop', 'play', 'feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
 const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
-  return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
+  return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, harmonyName: (st.hNext || st.harmony).name, harmonyBars: (st.hNext || st.harmony).bars, at: new Date().toISOString(),
     cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
       return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, loop: c.loopNext !== undefined ? c.loopNext : c.loop || null, vars: (c.vars || []).map(v => v.steps), lens: (c.vars || []).map(v => v.len || null), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
         clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
@@ -533,7 +591,7 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
     c.nextRow = PACK.scenes.findIndex(sc => sc.clips[i] === v.clip?.id);
     if (!st.playing) { if (c.next === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = c.next.clip; c.clipId = c.next.id; c.var = c.next.var; c.row = c.nextRow; } delete c.next; c.start = 0; }
     renderCol(c); });
-  if (PACK.harmonies.some(H => H.id === x.harmony)) setHarmony(x.harmony);
+  { const H = HREG[x.harmony] || PACK.harmonies.find(y => y.id === x.harmony) || (x.harmonyBars && {id: x.harmony, name: x.harmonyName || 'Saved harmony', words: '', bars: x.harmonyBars}); if (H) setHarmony(H); }
   saveSounds(); storeMix(); renderMix(); renderSel(); renderSnaps(); renderIdeas(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
 async function renameSnap(x){ const name = prompt('Name this snapshot', x.name)?.trim(); if (!name || name === x.name) return; x.name = name.slice(0, 40); storeSnaps(); renderSnaps();
   if (db) try { await db.collection('snaps').doc(x.id).update({name: x.name}); } catch {} }
