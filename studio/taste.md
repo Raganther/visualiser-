@@ -52,3 +52,8 @@ before writing or changing a piece; add to it when they react.
   (pack 3, fourths on E): round kick on four, seed hats on 16ths, Forest floor on the hand groove, Dark FM 2 on the
   seven-step line (in Snap 5 reshaped eight times: flipped, widened, narrowed, reversed), the stab in threes; in Snap 5
   the chords muted and the leads metal and marimba. The idea loop starts from these (round 1 in the `ideas` collection).
+- 2026-10-21: Studio Jam: 👍 Snap 8 ("really like this") and Snap 9 ("no bass; I like this minimalism, natural sounds: what
+  bass might work with this?": pack 3 on the A pedal, round kick on four, minimal hats on 16ths, Forest floor on the hand
+  groove, bamboo drops and the marimba answer, the bass and strings muted). 👍 round 1's "The bass walks on" and "More on
+  the bass, hats and perc". Asked for a player's randomness (hats left out, triplets, dynamics; the two melodies too) and
+  more room to write riffs and longer clips: Play, Keep that, the riff tools and editing by hand. Round 2 answers Snap 9.
