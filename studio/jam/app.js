@@ -447,6 +447,7 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
   if (x.mx) { st.mx = {...st.mx, ...x.mx}; masterMix(); } snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
+    if (v.play === undefined) v = {...v, play: 0};   // (saved before Play: as written)
     for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
     c.arpSt = null; if (v.vars) { c.vars = v.vars.map((steps, j) => ({steps, made: v.made?.[j] || undefined, ...(v.lens?.[j] ? {len: v.lens[j]} : {})})); c.varsOf = v.clip?.id; c.vi = v.vi || 0; }
     if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
