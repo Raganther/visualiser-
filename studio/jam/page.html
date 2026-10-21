@@ -98,7 +98,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 /* the sound picker */
 #sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
 #sounds[hidden]{display:none !important}
-#grooveRow [hidden]{display:none !important} #notes.editing{touch-action:none; cursor:crosshair; outline:1px dashed var(--acc); outline-offset:2px} .riffhead{margin-top:6px} #grooveRow .macro:disabled{opacity:.4; cursor:default}
+#grooveRow [hidden], #loopRow[hidden]{display:none !important} #loopBar{width:100%; height:26px; display:block; touch-action:none; cursor:ew-resize; margin-bottom:4px} .looptools{display:flex; gap:6px; align-items:center; margin-bottom:6px; font-size:12px} .looptools .spacer{flex:1} .looptools .mini:disabled{opacity:.4} #notes.editing{touch-action:none; cursor:crosshair; outline:1px dashed var(--acc); outline-offset:2px} .riffhead{margin-top:6px} #grooveRow .macro:disabled{opacity:.4; cursor:default}
 .sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
@@ -323,6 +323,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div class="likeslot phone"></div>
     <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
       <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
+    <div id="loopRow"><canvas id="loopBar" aria-label="Loop a stretch of the clip: drag across bars"></canvas>
+      <div class="looptools"><span class="muted" id="loopNow"></span><span class="spacer"></span><button class="mini" id="loopOff" title="Play the whole clip again">Loop off</button><button class="mini" id="loopCrop" title="The loop as a variant of its own, so the riff tools work on just that stretch">✂ Crop to loop</button></div></div>
     <canvas id="notes" aria-label="The chosen part's notes"></canvas>
     <div class="big" id="xforms" aria-label="Shape the notes"></div>
     <div class="lab riffhead">Riffs <span class="muted" id="lenNow"></span></div>

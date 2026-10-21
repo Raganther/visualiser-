@@ -75,6 +75,10 @@ function partNotes(c, clip, pos, H, bar){ const ch = chainOf(H), i = ((bar % H.b
   return notesAt(clip, pos, chordOf(H, bar), {vl: ch && ch[i], inv: c.inv || 0, walk: c.walk ? walkOf(c) : 0}); }
 // the two leads' lanes, so the improviser has them take turns resting
 const laneOf = c => st.cols.filter(x => x.role === c.role).indexOf(c);
+// where a part is in its clip at the jam's 16th: round its loop when one is set (a stretch of a longer riff, [from, to)
+// in steps), else round the whole clip; a loop past the clip's end (after a shorter variant) is let be
+const loopOf = c => c.clip && c.loop && c.loop[1] <= c.clip.len && c.loop[1] > c.loop[0] ? c.loop : null;
+function posOf(c, s){ const lp = loopOf(c), n = lp ? lp[1] - lp[0] : c.clip.len; return (lp ? lp[0] : 0) + (((s - c.start) % n) + n) % n; }
 const walkOf = c => c.clip ? Math.floor(Math.max(0, st.step - c.start)/c.clip.len) % 4 : 0;
 // every native note a column will need with its clip over the whole harmony, computed ahead
 function prewarm(c, clip = c.clip, also = true){ if (!ctx || !clip) return; if (also && c.play) for (const x of reach(c.role, clip)) prewarm(c, x, false); const H = st.hNext || st.harmony, sd = 60/st.bpm/4, ch = chainOf(H), arp = c.role === 'chords' && c.arp;
@@ -94,7 +98,7 @@ function playStep(step, t0){
   if (step % 16 === 0) barLine(step);
   const H = st.harmony, bar = Math.floor((step - st.hStart)/16), dropped = st.drop && step >= st.drop.at && step < st.drop.at + 16;
   for (const c of st.cols) { if (!c.clip || c.mute || dropped && c.role !== 'chords') continue;
-    const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = ((eff - c.start) % c.clip.len + c.clip.len) % c.clip.len;
+    const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = posOf(c, eff);
     const f = FEELS[c.feel || 0], sw = step % 2 ? (f.swing ?? st.swing) : 0, fe = feelAt(f, step), off = sw + fe.dt, t = Math.max(ctx.currentTime, t0 + off*sd());
     const recOff = off - (step % 2 ? st.swing : 0), drum = c.inst.kind === 'drums';
     // Play: the improviser's events at this step (each its own timing and loudness), else the clip as written
@@ -119,6 +123,7 @@ function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, v
   if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
 function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
 function barLine(step){
+  for (const c of st.cols) if (c.loopNext !== undefined) { c.loop = c.loopNext; delete c.loopNext; if (st.cols.indexOf(c) === st.sel) renderLoop(); }
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
   for (const c of st.cols) { if (c.next !== undefined) { const nx = c.next; delete c.next; if (nx === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = nx.clip; c.clipId = nx.id; c.var = nx.var || 0; if (!nx.keep) { c.start = step; c.row = c.nextRow; } } renderCol(c); }
     // Follow: the part's variants in turn, one a bar
@@ -135,7 +140,7 @@ async function start(){ initAudio(); await ctx.resume(); if (st.playing) return;
 function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
 /* ---------- launching ---------- */
-function launch(c, clipId, varIdx = 0, row){ const base = CLIP[clipId]; c.nextRow = row ?? PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === clipId);
+function launch(c, clipId, varIdx = 0, row){ const base = CLIP[clipId]; if (clipId !== c.clipId) { c.loop = null; delete c.loopNext; } c.nextRow = row ?? PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === clipId);
   if (!clipId) c.next = 'stop'; else { if (c.varsOf !== clipId) { c.vars = [base.steps, ...base.variations].map(steps => ({steps})); c.varsOf = clipId; }
     const steps = c.vars[varIdx]?.steps || base.steps; c.vi = varIdx; c.next = {id: clipId, clip: {...base, steps}, var: varIdx};
     if (base.sound && !c.locked && SND[base.sound]?.role === SND[c.sound].role && c.sound !== base.sound) setSound(c, base.sound); prewarm(c, c.next.clip); }
@@ -175,7 +180,7 @@ function riffTool(k){ const c = selCol(); if (!c) return;
 function transform(k){ const c = selCol(); if (!c.clip) return; addVar(c, XFORMS[k](c.clip), XNAMES[k], c.clip.len); }
 // Keep that: what the improviser played over the last two bars or so (whole times round the clip) as a new variant
 function keepPlayed(){ const c = selCol(); if (!c.clip || !c.play || !st.playing) { flash(c?.play ? 'Play it first' : 'Turn Play on first (P)'); return; }
-  const L = c.clip.len, k = L >= 32 ? 1 : Math.max(1, Math.min(Math.floor(64/L), Math.ceil(32/L))), cyc = Math.floor((st.step - c.start)/L);
+  const lp = loopOf(c), L = lp ? lp[1] - lp[0] : c.clip.len, k = L >= 32 ? 1 : Math.max(1, Math.min(Math.floor(64/L), Math.ceil(32/L))), cyc = Math.floor((st.step - c.start)/L);
   if (cyc < k) { flash('Let it play a little longer'); return; }
   const from = c.start + (cyc - k)*L, steps = keep(c.heard || [], from, L*k);
   if (!steps.length) { flash('Nothing played to keep'); return; }
@@ -228,7 +233,7 @@ function renderSel(){ const c = selCol(); st.cols.forEach((x, i) => x.head && (x
 function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
   for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-liked': liked(harmonyItem(H)) ? '1' : '', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
   $('hWords').textContent = (st.hNext || st.harmony).words; const hl = $('harmLikes'); hl.innerHTML = ''; hl.append(h('span', {class: 'lab'}, 'This harmony '), likeBar(harmonyItem(st.hNext || st.harmony))); }
-let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) drawNotes(s);
+let lightCells = []; function light(s){ if (s >= 0 && s % 2 === 0) { drawNotes(s); renderLoop(s); }
   const mc = selCol(), mb = mc?.clip && document.querySelector(`#mClips .cell[data-on="1"]`); document.querySelectorAll('#mClips .cell').forEach(b => b !== mb && b.style.removeProperty('--p'));
   if (mb && s >= 0) mb.style.setProperty('--p', (((s - mc.start) % mc.clip.len + mc.clip.len) % mc.clip.len + 1)/mc.clip.len); for (const b of lightCells) b.style.removeProperty('--p'); lightCells = [];
   if (s < 0) return; for (const c of st.cols) { if (!c.clip) continue; const b = document.querySelector(`.cell[data-col="${c.id}"][data-on="1"]`); if (b) { b.style.setProperty('--p', (((s - c.start) % c.clip.len + c.clip.len) % c.clip.len + 1)/c.clip.len); lightCells.push(b); } } }
@@ -264,7 +269,7 @@ function renderShape(){ const c = selCol(); if (!c) return;
   $('echoOn').innerHTML = ''; $('echoOn').append('Echo: ' + (c.echo ? 'on' : 'off'), h('small', {}, 'G')); $('echoOn').dataset.on = c.echo ? '1' : '';
   $('verbOn').innerHTML = ''; $('verbOn').append('Reverb: ' + (c.verb ? 'on' : 'off'), h('small', {}, 'K')); $('verbOn').dataset.on = c.verb ? '1' : '';
   $('echoTime').innerHTML = ''; $('echoTime').append('Echo time: ' + ECHO[st.echoDiv][0], h('small', {}, 'every part'));
-  drawNotes(); renderPartLikes(); }
+  drawNotes(); renderLoop(); renderPartLikes(); }
 function inv(c, d){ c.inv = Math.max(-3, Math.min(3, (c.inv || 0) + d)); logMacro(c, 'inv', c.inv); prewarm(c); renderShape(); flash(`Inversion ${c.inv > 0 ? '+' : ''}${c.inv}`); }
 /* ---------- editing by hand: the chosen part's notes on a grid (a line by chord tone, so it still follows the harmony;
    drums by voice; chords as hits). Tap a gap to add, tap a note to take it away, drag it across or up and down, drag
@@ -289,6 +294,7 @@ function drawEdit(g, c, W, Ht, pos, css){ const G = editGrid(c, W, Ht), H = st.h
   for (const s of c.clip.steps) { const r = s[1]; if (!G.rows.includes(r)) continue; const vel = s[typeof r === 'number' || r === 'chord' ? 3 : 2], l = typeof r === 'number' || r === 'chord' ? Math.max(.5, s[2]) : 1;
     g.fillStyle = s[0] === pos ? css('--on') : css('--ink'); g.globalAlpha = .35 + .65*vel; g.fillRect(G.L + s[0]*G.cw + 1, G.yOf(r) + 2, Math.max(3, Math.min(l, G.len - s[0])*G.cw - 2), G.rh - 4); g.globalAlpha = 1;
     if (s[4]) { g.fillStyle = css('--bg'); g.fillText('↑', G.L + s[0]*G.cw + 3, G.yOf(r) + G.rh/2); } }
+  dimOutside(g, c, G.L, G.cw, Ht, css);
   if (pos >= 0) { g.fillStyle = css('--acc'); g.globalAlpha = .25; g.fillRect(G.L + pos*G.cw, 0, Math.max(2, G.cw), Ht); g.globalAlpha = 1; } }
 // an edit: the first since Edit was turned on (or since another tool) makes an "Edited" variant, the rest change it in place
 function editSteps(c, steps){ pushUndo(c); steps.sort((a, b) => a[0] - b[0]);
@@ -315,13 +321,56 @@ $('notes').addEventListener('pointerup', endDrag); $('notes').addEventListener('
 function accent(c, s){ const vi = typeof s[1] === 'number' || s[1] === 'chord' ? 3 : 2, steps = c.clip.steps.map(t => t.slice()), t = steps[c.clip.steps.indexOf(s)]; if (!t) return;
   t[vi] = VELS[(VELS.findIndex(v => v >= t[vi] - .05) + 1) % VELS.length]; editSteps(c, steps); flash(['Soft', 'Normal', 'Loud'][VELS.indexOf(t[vi])]); }
 
+/* ---------- the loop strip: drag across the clip's bars (to the beat) to loop that stretch inside a longer riff, tap a
+   bar to loop it alone, tap the loop again (or Loop off) to play the whole clip; Crop to loop makes it a variant ---------- */
+const LOOP_L = 46;
+function loopGrid(c, W){ const len = c.clip.len, cw = (W - LOOP_L - 8)/len, snap = len % 4 ? 1 : 4, bar = len % 16 ? snap : 16;
+  return {len, cw, snap, bar, at: x => Math.max(0, Math.min(len - 1, Math.floor((x - LOOP_L)/cw)))}; }
+function renderLoop(step){ const cv = $('loopBar'), c = selCol(); if (!cv) return; const on = !!c?.clip && c.role !== 'chords'; $('loopRow').hidden = !on; if (!on) return; const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, Ht = r.height; if (!W) return;
+  if (cv.width !== Math.round(W*dpr)) { cv.width = W*dpr; cv.height = Ht*dpr; } const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const G = loopGrid(c, W), lp = c.loopNext !== undefined ? c.loopNext : loopOf(c), pend = c.loopNext !== undefined, sel = drag?.loop;
+  g.font = '11px "IBM Plex Mono", monospace'; g.textBaseline = 'middle'; g.fillStyle = css('--mute'); g.fillText('Loop', 4, Ht/2);
+  // the bars, numbered, and the beats
+  for (let p = 0; p < G.len; p += G.bar) { g.fillStyle = css('--well'); g.fillRect(LOOP_L + p*G.cw + 1, 2, G.bar*G.cw - 2, Ht - 4);
+    g.fillStyle = css('--mute'); if (G.bar === 16) g.fillText(String(p/16 + 1), LOOP_L + p*G.cw + 5, Ht/2); }
+  g.fillStyle = css('--line'); for (let p = G.snap; p < G.len; p += G.snap) if (p % G.bar) g.fillRect(LOOP_L + p*G.cw, Ht - 7, 1, 5);
+  const span = sel ? [Math.min(sel[0], sel[1]), Math.max(sel[0], sel[1]) + G.snap] : lp;
+  if (span) { g.fillStyle = css('--acc'); g.globalAlpha = pend || sel ? .35 : .55; g.fillRect(LOOP_L + span[0]*G.cw + 1, 2, (span[1] - span[0])*G.cw - 2, Ht - 4); g.globalAlpha = 1;
+    g.strokeStyle = css('--acc'); g.lineWidth = 2; g.strokeRect(LOOP_L + span[0]*G.cw + 1, 2, (span[1] - span[0])*G.cw - 2, Ht - 4); g.lineWidth = 1; }
+  if (step != null && st.playing && c.clip) { const p = posOf(c, step); g.fillStyle = css('--on'); g.fillRect(LOOP_L + p*G.cw, 0, Math.max(2, G.cw), Ht); }
+  const words = !lp ? (G.len > 16 ? `the whole ${G.len/16 % 1 ? G.len + ' steps' : G.len/16 + ' bars'}: drag across bars to loop some` : 'drag across to loop a stretch') : `${pend ? 'next bar: ' : ''}looping ${loopWords(lp, G)}`;
+  $('loopNow').textContent = words; $('loopOff').disabled = $('loopCrop').disabled = !lp; }
+const loopWords = (lp, G) => G.bar === 16 ? (lp[0] % 16 || lp[1] % 16 ? `beats ${lp[0]/4 + 1}–${lp[1]/4}` : lp[1] - lp[0] === 16 ? `bar ${lp[0]/16 + 1}` : `bars ${lp[0]/16 + 1}–${lp[1]/16}`) : `steps ${lp[0] + 1}–${lp[1]}`;
+// a loop set: heard from the next bar while playing (so it lands in time), at once when stopped
+function setLoop(c, lp){ if (lp && (lp[0] <= 0 && lp[1] >= c.clip.len)) lp = null;
+  if (st.playing) c.loopNext = lp; else { c.loop = lp; delete c.loopNext; }
+  renderLoop(); drawNotes(); flash(lp ? `Looping ${loopWords(lp, loopGrid(c, $('loopBar').getBoundingClientRect().width || 400))}` : 'The whole clip again'); }
+$('loopBar').addEventListener('pointerdown', e => { const c = selCol(); if (!c?.clip) return; const r = $('loopBar').getBoundingClientRect(), G = loopGrid(c, r.width), x = e.clientX - r.left; if (x < LOOP_L) return;
+  e.preventDefault(); $('loopBar').setPointerCapture(e.pointerId); const p = Math.floor(G.at(x)/G.snap)*G.snap; drag = {loop: [p, p], x, G}; renderLoop(); });
+$('loopBar').addEventListener('pointermove', e => { if (!drag?.loop) return; const r = $('loopBar').getBoundingClientRect(), x = e.clientX - r.left;
+  if (!drag.moved && Math.abs(x - drag.x) < 6) return; drag.moved = true; drag.loop[1] = Math.floor(drag.G.at(x)/drag.G.snap)*drag.G.snap; renderLoop(); });
+$('loopBar').addEventListener('pointerup', () => { const c = selCol(), d = drag; if (!d?.loop || !c?.clip) { drag = null; return; } drag = null; const G = d.G;
+  if (!d.moved) { const b = Math.floor(d.loop[0]/G.bar)*G.bar, bar = [b, Math.min(G.len, b + G.bar)], cur = c.loopNext !== undefined ? c.loopNext : loopOf(c);
+    // a tap: that bar alone, or (on the loop already set) the whole clip again
+    setLoop(c, cur && cur[0] <= d.loop[0] && d.loop[0] < cur[1] ? null : bar); return; }
+  setLoop(c, [Math.min(...d.loop), Math.max(...d.loop) + G.snap]); });
+$('loopOff').onclick = () => { const c = selCol(); if (c?.clip) setLoop(c, null); };
+// the loop as a variant of its own (so the riff tools work on just that stretch)
+$('loopCrop').onclick = () => { const c = selCol(), lp = c && (c.loopNext !== undefined ? c.loopNext : loopOf(c)); if (!lp) return;
+  const steps = c.clip.steps.filter(s => s[0] >= lp[0] && s[0] < lp[1]).map(s => { const t = s.slice(); t[0] -= lp[0]; return t; });
+  if (!steps.length) { flash('Nothing in the loop'); return; } c.loop = null; delete c.loopNext; addVar(c, steps, 'Cropped', lp[1] - lp[0]); renderLoop(); };
+
+// the bars outside a part's loop dimmed, so the notes show what's playing
+function dimOutside(g, c, x0, cw, Ht, css){ const lp = c.loopNext !== undefined ? c.loopNext : loopOf(c); if (!lp) return; g.fillStyle = css('--well'); g.globalAlpha = .7;
+  g.fillRect(x0, 0, lp[0]*cw, Ht); g.fillRect(x0 + lp[1]*cw, 0, (c.clip.len - lp[1])*cw, Ht); g.globalAlpha = 1; }
 // the notes: drums as hits by voice; a line as its notes over the clip, named; chords as the voicing chain over the harmony
 function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, Ht = r.height; if (!W) return;
   if (cv.width !== Math.round(W*dpr)) { cv.width = W*dpr; cv.height = Ht*dpr; } const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim(), ink = css('--ink'), mute = css('--mute'), on = css('--on'), acc = css('--acc'), line = css('--line');
   const c = selCol(), H = st.hNext || st.harmony; g.font = '11px "IBM Plex Mono", monospace'; g.textBaseline = 'middle';
   if (!c.clip) { g.fillStyle = mute; g.fillText('Not playing: launch a clip above.', 12, Ht/2); return; }
-  const L = 46, pw = W - L - 8, pos = step == null ? -1 : ((step - c.start) % c.clip.len + c.clip.len) % c.clip.len;
+  const L = 46, pw = W - L - 8, pos = step == null ? -1 : posOf(c, step);
   if (st.edit) { drawEdit(g, c, W, Ht, pos, css); return; }
   if (c.role === 'chords') { const ch = chainOf(H), nb = Math.min(H.bars.length, 16), vs = [...Array(nb).keys()].map(b => invert(ch ? ch[b].voicing : notesAt({role: 'chords', steps: [[0, 'chord', 1, 1]]}, 0, chordOf(H, b)).map(x => x[0]), c.inv || 0)).map(v => v.map(n => n + 12*(c.oct || 0)));
     const all = vs.flat(), lo = Math.min(...all) - 2, hi = Math.max(...all) + 2, y = n => 8 + (hi - n)/(hi - lo)*(Ht - 30), bw = pw/nb, cur = ((st.bar % H.bars.length) + H.bars.length) % H.bars.length;
@@ -339,6 +388,7 @@ function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(),
     if (!ns.length) return; const lo = Math.min(...ns.map(x => x[1])) - 1, hi = Math.max(...ns.map(x => x[1])) + 1, y = n => 6 + (hi - n)/(hi - lo || 1)*(Ht - 14);
     for (const n of new Set(ns.map(x => x[1]))) { g.fillStyle = mute; g.fillText(nname(n), 4, y(n)); g.strokeStyle = line; g.beginPath(); g.moveTo(L, y(n)); g.lineTo(W - 8, y(n)); g.stroke(); }
     for (const [p, n, len] of ns) { g.fillStyle = p === pos ? on : ink; g.fillRect(L + p*cw + 1, y(n) - 4, Math.max(3, Math.min(len, c.clip.len - p)*cw - 2), 8); } }
+  dimOutside(g, c, L, cw, Ht, css);
   if (pos >= 0) { g.fillStyle = acc; g.globalAlpha = .25; g.fillRect(L + pos*cw, 0, Math.max(2, cw), Ht); g.globalAlpha = 1; } }
 $('smooth').onclick = () => { st.smooth = !st.smooth; try { localStorage.setItem('studio.jam.smooth', st.smooth ? '1' : '0'); } catch {} for (const c of st.cols) { c.arpSt = null; prewarm(c); } renderShape(); flash(st.smooth ? 'Smooth voice leading: every part glides between chords' : 'Free: each chord voiced on its own'); };
 $('follow').onclick = () => { const c = selCol(); c.follow = ((c.follow || 0) + 1) % FOLLOW.length; logMacro(c, 'follow', c.follow); renderShape(); flash('Follow: ' + (FOLLOW[c.follow] || 'off')); };
@@ -433,12 +483,12 @@ addEventListener('resize', () => { drawPad(); drawNotes(); });
 
 /* ---------- snapshots: the user's own saved combinations, recalled on the next bar ---------- */
 let SNAPS = [], snapOn = null, snapDel = null;
-const SNAP_FIELDS = ['play', 'feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
+const SNAP_FIELDS = ['loop', 'play', 'feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
 const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
   return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
     cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
-      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, vars: (c.vars || []).map(v => v.steps), lens: (c.vars || []).map(v => v.len || null), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
+      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, loop: c.loopNext !== undefined ? c.loopNext : c.loop || null, vars: (c.vars || []).map(v => v.steps), lens: (c.vars || []).map(v => v.len || null), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
         clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
 async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x); storeSnaps(); snapOn = x.id; renderSnaps(); flash('Saved ' + x.name);
   if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
@@ -447,8 +497,9 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
   if (x.mx) { st.mx = {...st.mx, ...x.mx}; masterMix(); } snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
-    if (v.play === undefined) v = {...v, play: 0};   // (saved before Play: as written)
-    for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
+    if (v.play === undefined) v = {...v, play: 0}; if (v.loop === undefined) v = {...v, loop: null};   // (saved before Play or loops: as written)
+    for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'loop') { if (st.playing) c.loopNext = v.loop; else { c.loop = v.loop; delete c.loopNext; } continue; }
+      if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
     c.arpSt = null; if (v.vars) { c.vars = v.vars.map((steps, j) => ({steps, made: v.made?.[j] || undefined, ...(v.lens?.[j] ? {len: v.lens[j]} : {})})); c.varsOf = v.clip?.id; c.vi = v.vi || 0; }
     if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
     if (!v.clip) c.next = 'stop'; else { const base = CLIP[v.clip.id] || {id: v.clip.id, role: c.role, name: 'Saved clip', variations: []}; c.next = {id: v.clip.id, clip: {...base, len: v.clip.len, steps: v.clip.steps}, var: v.clip.var}; prewarm(c, c.next.clip); }
