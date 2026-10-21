@@ -9,6 +9,7 @@ import { jamSession } from '../studio/jam/render-jam.mjs';
 import { chord } from '../studio/lib/palette.js';
 import { rng } from '../studio/lib/rng.js';
 import { improvise, reach, keep, PLAYS } from '../studio/jam/play.js';
+import { TOOLS, newRiff, answer, sequence, develop, thin, fill, halfTime, doubleTime, longer, shorter, MAX } from '../studio/jam/riff.js';
 
 let failed = false;
 const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
@@ -88,6 +89,31 @@ check('wide doubles the leaps, narrow halves them back', same(XFORMS.narrow(as(X
   { const mem = {}, heard = []; for (let step = 0; step < 64; step++) for (const ev of improvise({role: 'hats', clip: hats, pos: step % 16, step, bar: step >> 4, a: .65, mem, seed: 3})) heard.push({step, ...ev});
     const k = keep(heard, 32, 32), want = new Set(heard.filter(e => e.step >= 32).map(e => ((e.step - 32 + Math.round(e.dt)) % 32 + 32) % 32 + e.s[1]));
     check('Keep that: two bars as played become a 32-step variant', k.every(s => s[0] >= 0 && s[0] < 32) && k.length === want.size && new Set(k.map(s => s[0] + s[1])).size === k.length && k.some(s => s[2] < .45), `${k.length} notes`); }
+}
+
+/* ---------- the riff tools ---------- */
+{ const line = {role: 'lead', len: 16, steps: [[0, 4, 1, .7], [3, 2, 1, .5], [6, 5, 1, .55], [11, 3, 2, .5]]}, hats = {role: 'hats', len: 16, steps: [[2, 'chh', .8], [6, 'chh', .8], [10, 'chh', .8], [14, 'chh', .5]]};
+  const R = rng(11), ok = (r, len) => r && r.len === len && r.steps.every(s => s[0] >= 0 && s[0] < r.len) && new Set(r.steps.map(s => s[0] + '|' + s[1])).size === r.steps.length;
+  const half = (r, i, L) => JSON.stringify(r.steps.filter(s => s[0] >= i*L && s[0] < (i + 1)*L).map(s => [s[0] - i*L, ...s.slice(1)]));
+  let good = true, why = '';
+  for (const role of ['kick', 'hats', 'perc', 'bass', 'chords', 'lead']) for (const len of [16, 32, 64]) for (let i = 0; i < 20; i++) { const r = newRiff(role, len, R, ['chh', 'ohh', 'rim']);
+    if (!ok(r, len) || !r.steps.length) { good = false; why = `${role} ${len}`; }
+    if (role === 'bass' && r.steps.some(s => s[1] < 0 || s[1] > 4)) { good = false; why = 'bass out of range'; }
+    if (role === 'lead' && r.steps.at(-1)[1] !== r.steps[0][1]) { good = false; why = 'a lead not coming home'; } }
+  check('a new riff for every part fits its length, one note a step, a lead coming home', good, why);
+  { const a = answer(line); check('answer: two bars, the riff then its answer on the same rhythm, coming home', ok(a, 32) && half(a, 0, 16) === JSON.stringify(line.steps)
+    && JSON.stringify(a.steps.filter(s => s[0] >= 16).map(s => s[0] - 16)) === JSON.stringify(line.steps.map(s => s[0])) && a.steps.at(-1)[1] === line.steps[0][1] && half(a, 1, 16) !== half(a, 0, 16)); }
+  { const q = sequence(line); check('sequence: four times round, a chord tone higher, then home', ok(q, 64) && [0, 1, 2, 0].every((d, i) => half(q, i, 16) === JSON.stringify(line.steps.map(s => [s[0], s[1] + d, ...s.slice(2)])))); }
+  { const d = develop(line, rng(2)), d2 = develop({...line, len: 32}, rng(2)), dh = develop(hats, rng(2));
+    check('develop: A A′ A B in four bars (A B when longer), on drums too', ok(d, 64) && half(d, 0, 16) === half(d, 2, 16) && half(d, 0, 16) === JSON.stringify(line.steps) && half(d, 1, 16) !== half(d, 0, 16) && half(d, 3, 16) !== half(d, 0, 16) && ok(d2, 64) && ok(dh, 64) && half(dh, 1, 16) !== half(dh, 0, 16)); }
+  { const t = thin(line, rng(3)), f = fill(line, rng(3)), fh = fill(hats, rng(3)), str = s => JSON.stringify(s);
+    check('thin keeps the first note and takes some away; fill only adds, softly, in the gaps', ok(t, 16) && t.steps.length < line.steps.length && t.steps.length >= 2 && t.steps[0][0] === 0 && t.steps.every(s => line.steps.some(x => str(x) === str(s)))
+      && line.steps.every(x => f.steps.some(s => str(s) === str(x))) && f.steps.length > line.steps.length && f.steps.filter(s => !line.steps.some(x => str(x) === str(s))).every(s => s[3] < .5) && fh.steps.length > hats.steps.length); }
+  { const h2 = halfTime(line), d2 = doubleTime(line);
+    check('half time stretches it over two bars; double time plays it twice as fast, twice; an odd length can\'t double', ok(h2, 32) && h2.steps.every((s, i) => s[0] === 2*line.steps[i][0] && s[2] === 2*line.steps[i][2])
+      && ok(d2, 16) && half(d2, 0, 8) === half(d2, 1, 8) && doubleTime({...line, len: 7}) === null); }
+  check('longer and shorter undo each other; four bars at most', JSON.stringify(shorter(longer(line))) === JSON.stringify({len: 16, steps: line.steps}) && longer({...line, len: MAX}) === null && shorter({...line, len: 7}) === null);
+  check('no tool changes the clip it was given', JSON.stringify(line) === JSON.stringify({role: 'lead', len: 16, steps: [[0, 4, 1, .7], [3, 2, 1, .5], [6, 5, 1, .55], [11, 3, 2, .5]]}));
 }
 
 /* ---------- a take as a session: the mixer and the master automated on their bars ---------- */

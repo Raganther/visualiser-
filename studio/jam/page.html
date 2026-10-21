@@ -98,7 +98,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 /* the sound picker */
 #sounds{position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); right:max(12px, env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); max-height:55vh; overflow:auto; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; box-shadow:0 10px 40px #0004}
 #sounds[hidden]{display:none !important}
-#grooveRow [hidden]{display:none !important} #grooveRow .macro:disabled{opacity:.4; cursor:default}
+#grooveRow [hidden]{display:none !important} #notes.editing{touch-action:none; cursor:crosshair; outline:1px dashed var(--acc); outline-offset:2px} .riffhead{margin-top:6px} #grooveRow .macro:disabled{opacity:.4; cursor:default}
 .sndhead{grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center}
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
@@ -325,6 +325,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
     <canvas id="notes" aria-label="The chosen part's notes"></canvas>
     <div class="big" id="xforms" aria-label="Shape the notes"></div>
+    <div class="lab riffhead">Riffs <span class="muted" id="lenNow"></span></div>
+    <div class="big" id="riffs" aria-label="Riff tools"></div>
     <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
     <div class="big" id="grooveRow" aria-label="Groove and space">
       <button class="macro" id="feel" title="How this part grooves (F)"></button>

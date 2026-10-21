@@ -4,6 +4,7 @@
 // across, space up), two step buttons (motion, length), jam moves (vary, mutate, build, drop, repeat, next harmony), the
 // keyboard. Record writes down what plays, for Claude to render; 👍 / 👎 on clips, sounds and harmonies.
 import { improvise, reach, keep, PLAYS } from './play.js';
+import { TOOLS, TNAMES, MAX as RIFF_MAX } from './riff.js';
 import { notesAt, chordOf, mutate, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, XFORMS, XNAMES, FOLLOW, ARPS, ECHO } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
@@ -151,8 +152,26 @@ function setVar(c, i){ if (!c.clip || !c.vars?.[i]) return; c.vi = i; const clip
   if (st.playing) c.next = {id: c.clipId, clip, var: i, keep: true}; else { c.clip = clip; c.var = i; } prewarm(c, clip); logMacro(c, 'var', i); flash(`${ROLE_NAMES[c.role]}: variant ${letter(i)}`); renderCol(c); renderShape(); }
 // a variant's length: its own (a kept improvisation), else the clip's as the pack has it
 const varLen = (c, i) => c.vars[i]?.len || CLIP[c.clipId]?.len || c.vars[0]?.len || c.clip.len;
-function addVar(c, steps, why, len){ if (!c.vars) c.vars = [{steps: c.clip.steps, len: c.clip.len}]; const base = CLIP[c.clipId] ? 1 + CLIP[c.clipId].variations.length : 1;
-  c.vars.push({steps, made: why, ...(len ? {len} : {})}); if (c.vars.length > VMAX) c.vars.splice(base, 1); setVar(c, c.vars.length - 1); flash(`${why}: variant ${letter(c.vars.length - 1)}`); }
+// a variant onto the part's strip (the oldest of its own made ones dropping off past VMAX)
+function pushVar(c, v){ if (!c.vars) c.vars = [{steps: c.clip.steps, len: c.clip.len}]; const base = CLIP[c.clipId] ? 1 + CLIP[c.clipId].variations.length : 1;
+  c.vars.push(v); if (c.vars.length > VMAX) c.vars.splice(base, 1); return c.vars.length - 1; }
+// (while editing it's heard at once, so the grid and what plays stay the same clip; otherwise on the next bar)
+function addVar(c, steps, why, len){ pushUndo(c); const i = pushVar(c, {steps, made: why, ...(len ? {len} : {})}); if (st.edit) { c.editVar = null; now(c, i); } else setVar(c, i); flash(`${why}: variant ${letter(i)}`); }
+// undo: the strip and the variant chosen as they were before the last tool or edit
+function pushUndo(c){ (c.undo ??= []).push({vars: (c.vars || []).map(v => ({...v})), vi: c.vi || 0}); if (c.undo.length > 40) c.undo.shift(); }
+function undo(){ const c = selCol(), u = c?.undo?.pop(); if (!u) { flash('Nothing to undo'); return; } c.vars = u.vars; c.editVar = null; now(c, u.vi); flash('Undone'); }
+// a variant at once (an edit is heard straight away, not on the next bar)
+function now(c, i){ c.vi = i; c.clip = {...c.clip, steps: c.vars[i].steps, len: varLen(c, i)}; c.var = i; delete c.next; prewarm(c); logMacro(c, 'var', i); renderCol(c); renderShape(); }
+// a riff tool on the chosen part: a new variant (a new riff keeps the part's length, at least a bar)
+function riffTool(k){ const c = selCol(); if (!c) return;
+  // a new riff on a part with nothing playing starts it, on the next bar
+  if (!c.clip) { if (k !== 'riff') { flash('Launch a clip first, or N for a new riff'); return; }
+    const R = TOOLS.riff(c.role, 16, Math.random, isDrum(c) ? Object.keys(SND[c.sound]?.voices || {chh: 1}) : []), id = 'riff-' + c.id + '-' + Date.now().toString(36);
+    const clip = {id, role: c.role, name: 'New riff', len: R.len, steps: R.steps, variations: []}; c.vars = [{steps: R.steps, len: R.len, made: 'New riff'}]; c.varsOf = id; c.vi = 0; c.next = {id, clip, var: 0};
+    if (!st.playing) { c.clip = clip; c.clipId = id; c.var = 0; delete c.next; c.start = 0; } prewarm(c, clip); renderCol(c); renderShape(); flash((st.playing ? 'Next bar: ' : '') + 'a new riff'); return; }
+  const voices = isDrum(c) ? Object.keys(SND[c.sound]?.voices || {chh: 1}) : [], R = k === 'riff' ? TOOLS.riff(c.role, Math.max(16, Math.min(RIFF_MAX, c.clip.len - c.clip.len % 16 || 16)), Math.random, voices) : TOOLS[k](c.clip);
+  if (!R) { flash(k === 'double' ? '2× time needs an even length' : k === 'shorter' ? 'Too short to halve' : 'Four bars at most'); return; }
+  if (!R.steps.length) { flash('Nothing to keep'); return; } addVar(c, R.steps, TNAMES[k], R.len); }
 function transform(k){ const c = selCol(); if (!c.clip) return; addVar(c, XFORMS[k](c.clip), XNAMES[k], c.clip.len); }
 // Keep that: what the improviser played over the last two bars or so (whole times round the clip) as a new variant
 function keepPlayed(){ const c = selCol(); if (!c.clip || !c.play || !st.playing) { flash(c?.play ? 'Play it first' : 'Turn Play on first (P)'); return; }
@@ -230,6 +249,13 @@ function renderShape(){ const c = selCol(); if (!c) return;
   else { for (const k of ['up', 'down']) btn(XNAMES[k], '', () => transform(k));
     btn('Walk' + (c.walk ? ': on' : ''), '', () => { c.walk = !c.walk; logMacro(c, 'walk', c.walk ? 1 : 0); prewarm(c); renderShape(); flash(c.walk ? 'Walk: climbing a chord tone each time round' : 'Walk off'); }, c.walk);
     for (const k of ['flip', 'wide', 'narrow', 'reverse', 'rotate']) btn(XNAMES[k], '', () => transform(k)); }
+  const RF = $('riffs'); RF.innerHTML = ''; const rb = (lab, fn, on, title) => RF.append(h('button', {class: 'macro', 'data-on': on ? '1' : '', title: title || '', onclick: fn}, lab));
+  rb(st.edit ? '✎ Editing' : '✎ Edit notes', () => { st.edit = !st.edit; c.editVar = null; c.edRange = null; if (st.edit && c.next?.keep) now(c, c.next.var); $('notes').classList.toggle('editing', st.edit); renderShape(); flash(st.edit ? 'Tap to add or take away, drag to move, drag the end for length, hold for loudness' : 'Editing off'); }, st.edit, 'Edit the notes by hand on the grid');
+  rb('↶ Undo', undo, false, 'Undo the last tool or edit (Z)');
+  const tools = c.role === 'chords' ? ['riff', 'thin', 'half', 'double', 'longer', 'shorter'] : isDrum(c) ? ['riff', 'answer', 'develop', 'thin', 'fill', 'half', 'double', 'longer', 'shorter'] : ['riff', 'answer', 'sequence', 'develop', 'thin', 'fill', 'half', 'double', 'longer', 'shorter'];
+  const TT = {riff: 'A new riff for this part (N)', answer: 'Two bars: the riff, then its answer coming home', sequence: 'The riff again a chord tone higher each time round', develop: 'A A′ A B: the riff, a variation, the riff, an answer', thin: 'Fewer notes', fill: 'A soft note in the gaps', half: 'Everything twice as long', double: 'Twice as fast, played twice', longer: 'The clip twice as long, to change the second half', shorter: 'Only its first half'};
+  for (const k of tools) rb(TNAMES[k], () => riffTool(k), false, TT[k]);
+  const cl = c.next?.clip || c.clip; $('lenNow').textContent = cl ? `${cl.len} steps${cl.len % 16 === 0 ? ` · ${cl.len/16} bar${cl.len > 16 ? 's' : ''}` : ''}${c.next?.clip ? ', from the next bar' : ''}` : '';
   const V = $('vars'); V.innerHTML = ''; (c.vars || []).forEach((v, i) => V.append(h('button', {'data-on': i === (c.vi || 0) && c.clip ? '1' : '', 'data-next': c.next?.keep && c.next.var === i ? '1' : '', title: v.made ? `Made by ${v.made}` : i ? 'One of Claude’s variations' : 'The original', onclick: () => setVar(c, i)}, letter(i), v.made ? h('small', {}, v.made.replace(/^[▲▼] /, '').slice(0, 6)) : '')));
   $('follow').textContent = 'Follow: ' + (FOLLOW[c.follow || 0] ? FOLLOW[c.follow].split('').join(' ').replace('r a n d o m', 'random') : 'off'); $('follow').dataset.on = c.follow ? '1' : '';
   $('feel').innerHTML = ''; $('feel').append('Feel: ' + FEELS[c.feel || 0].name, h('small', {}, 'F'));
@@ -240,6 +266,55 @@ function renderShape(){ const c = selCol(); if (!c) return;
   $('echoTime').innerHTML = ''; $('echoTime').append('Echo time: ' + ECHO[st.echoDiv][0], h('small', {}, 'every part'));
   drawNotes(); renderPartLikes(); }
 function inv(c, d){ c.inv = Math.max(-3, Math.min(3, (c.inv || 0) + d)); logMacro(c, 'inv', c.inv); prewarm(c); renderShape(); flash(`Inversion ${c.inv > 0 ? '+' : ''}${c.inv}`); }
+/* ---------- editing by hand: the chosen part's notes on a grid (a line by chord tone, so it still follows the harmony;
+   drums by voice; chords as hits). Tap a gap to add, tap a note to take it away, drag it across or up and down, drag
+   its end for its length, hold it (or Shift) for how hard it's played ---------- */
+const VELS = [.45, .7, 1];
+function editGrid(c, W, Ht){ const L = 46, len = c.clip.len, cw = (W - L - 8)/len;
+  let rows; if (isDrum(c)) rows = [...new Set([...Object.keys(SND[c.sound]?.voices || {}), ...c.clip.steps.map(s => s[1])])];
+  else if (c.role === 'chords') rows = ['chord'];
+  // a line's chord tones over a steady range, so rows don't move under the finger as notes are added (it only grows)
+  else { const rs = c.clip.steps.filter(s => typeof s[1] === 'number').map(s => s[1]), base = c.role === 'bass' ? [-2, 6] : [-1, 9], E = c.edRange ??= [...base];
+    E[0] = Math.min(E[0], ...rs); E[1] = Math.max(E[1], ...rs); rows = []; for (let r = E[1]; r >= E[0]; r--) rows.push(r); }
+  const rh = (Ht - 10)/rows.length;
+  return {L, cw, rows, rh, len, col: x => Math.floor((x - L)/cw), row: y => rows[Math.max(0, Math.min(rows.length - 1, Math.floor((y - 5)/rh)))], yOf: r => 5 + rows.indexOf(r)*rh}; }
+// the note under a cell: one starting there or held through it
+const spanOf = s => typeof s[1] === 'number' || s[1] === 'chord' ? Math.max(1, Math.ceil(s[2])) : 1;
+const noteAt = (c, p, r) => c.clip.steps.find(s => s[1] === r && s[0] <= p && p < s[0] + spanOf(s));
+function drawEdit(g, c, W, Ht, pos, css){ const G = editGrid(c, W, Ht), H = st.hNext || st.harmony, bar = st.playing ? st.bar : 0, line = typeof G.rows[0] === 'number';
+  g.globalAlpha = .5; for (let p = 0; p <= G.len; p++) { g.fillStyle = css('--line'); g.fillRect(G.L + p*G.cw, 4, p % 16 === 0 ? 2 : p % 4 === 0 ? 1 : .5, Ht - 8); } g.globalAlpha = 1;
+  G.rows.forEach((r, i) => { const y = 5 + i*G.rh; g.fillStyle = css('--mute');
+    const nm = line ? (x => x ? nname(x[0] + 12*(c.oct || 0)) : '')(partNotes(c, {...c.clip, steps: [[0, r, 1, .7]]}, 0, H, bar)[0]) : r; g.fillText(nm, 4, y + G.rh/2);
+    g.fillStyle = css('--line'); g.globalAlpha = .4; g.fillRect(G.L, y + G.rh - .5, W - G.L - 8, .5); g.globalAlpha = 1; });
+  for (const s of c.clip.steps) { const r = s[1]; if (!G.rows.includes(r)) continue; const vel = s[typeof r === 'number' || r === 'chord' ? 3 : 2], l = typeof r === 'number' || r === 'chord' ? Math.max(.5, s[2]) : 1;
+    g.fillStyle = s[0] === pos ? css('--on') : css('--ink'); g.globalAlpha = .35 + .65*vel; g.fillRect(G.L + s[0]*G.cw + 1, G.yOf(r) + 2, Math.max(3, Math.min(l, G.len - s[0])*G.cw - 2), G.rh - 4); g.globalAlpha = 1;
+    if (s[4]) { g.fillStyle = css('--bg'); g.fillText('↑', G.L + s[0]*G.cw + 3, G.yOf(r) + G.rh/2); } }
+  if (pos >= 0) { g.fillStyle = css('--acc'); g.globalAlpha = .25; g.fillRect(G.L + pos*G.cw, 0, Math.max(2, G.cw), Ht); g.globalAlpha = 1; } }
+// an edit: the first since Edit was turned on (or since another tool) makes an "Edited" variant, the rest change it in place
+function editSteps(c, steps){ pushUndo(c); steps.sort((a, b) => a[0] - b[0]);
+  if (!c.editVar || c.vars?.[c.vi] !== c.editVar) { c.editVar = {steps, made: 'Edited', len: c.clip.len}; now(c, pushVar(c, c.editVar)); }
+  else { c.editVar.steps = steps; now(c, c.vi); } }
+let drag = null;
+$('notes').addEventListener('pointerdown', e => { const c = selCol(); if (!st.edit || !c?.clip) return; const r = $('notes').getBoundingClientRect(), G = editGrid(c, r.width, r.height), x = e.clientX - r.left, y = e.clientY - r.top, p = G.col(x), row = G.row(y);
+  if (p < 0 || p >= G.len) return; e.preventDefault(); $('notes').setPointerCapture(e.pointerId); const s = noteAt(c, p, row);
+  if (!s) { const add = typeof row === 'number' ? [p, row, 1, .7] : row === 'chord' ? [p, 'chord', 2, .6] : [p, row, .7]; editSteps(c, [...c.clip.steps.map(t => t.slice()), add]); drag = {s: add, x, y, p0: p, r0: row, moved: true, fresh: true, G}; return; }
+  // (a line's or a chord's end, grabbed, stretches it)
+  const edge = (typeof s[1] === 'number' || s[1] === 'chord') && x > G.L + (s[0] + spanOf(s))*G.cw - Math.min(10, G.cw*.4);
+  drag = {s, x, y, p0: s[0], r0: s[1], l0: s[2], edge, moved: false, G, held: setTimeout(() => { if (drag && !drag.moved) { drag.accent = true; accent(c, s); } }, 450), shift: e.shiftKey}; });
+$('notes').addEventListener('pointermove', e => { const c = selCol(); if (!drag || !c?.clip) return; const r = $('notes').getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, G = drag.G;
+  if (!drag.moved && Math.hypot(x - drag.x, y - drag.y) < 6) return; if (!drag.moved) { drag.moved = true; clearTimeout(drag.held); }
+  const steps = c.clip.steps.map(t => t.slice()), i = c.clip.steps.indexOf(drag.cur || drag.s); if (i < 0) return; const t = steps[i];
+  if (drag.edge) t[2] = Math.max(1, Math.min(G.len - t[0], Math.round(drag.l0 + (x - drag.x)/G.cw)));
+  else { t[0] = Math.max(0, Math.min(G.len - 1, drag.p0 + Math.round((x - drag.x)/G.cw))); if (typeof drag.r0 !== 'string' || isDrum(c)) { const ri = Math.max(0, Math.min(G.rows.length - 1, G.rows.indexOf(drag.r0) + Math.round((y - drag.y)/G.rh))); if (G.rows[ri] !== 'chord') t[1] = G.rows[ri]; } }
+  if (JSON.stringify(t) === JSON.stringify(c.clip.steps[i])) return;
+  editSteps(c, steps); drag.cur = c.clip.steps.find(q => q === t) || t; });
+const endDrag = () => { const c = selCol(); if (!drag) return; clearTimeout(drag.held); const d = drag; drag = null; if (!c?.clip || d.moved || d.accent) return;
+  if (d.shift) accent(c, d.s); else editSteps(c, c.clip.steps.filter(t => t !== d.s).map(t => t.slice())); };
+$('notes').addEventListener('pointerup', endDrag); $('notes').addEventListener('pointercancel', () => { if (drag) clearTimeout(drag.held); drag = null; });
+// how hard a note is played: soft, normal, loud, round again
+function accent(c, s){ const vi = typeof s[1] === 'number' || s[1] === 'chord' ? 3 : 2, steps = c.clip.steps.map(t => t.slice()), t = steps[c.clip.steps.indexOf(s)]; if (!t) return;
+  t[vi] = VELS[(VELS.findIndex(v => v >= t[vi] - .05) + 1) % VELS.length]; editSteps(c, steps); flash(['Soft', 'Normal', 'Loud'][VELS.indexOf(t[vi])]); }
+
 // the notes: drums as hits by voice; a line as its notes over the clip, named; chords as the voicing chain over the harmony
 function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, Ht = r.height; if (!W) return;
   if (cv.width !== Math.round(W*dpr)) { cv.width = W*dpr; cv.height = Ht*dpr; } const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
@@ -247,6 +322,7 @@ function drawNotes(step){ const cv = $('notes'), r = cv.getBoundingClientRect(),
   const c = selCol(), H = st.hNext || st.harmony; g.font = '11px "IBM Plex Mono", monospace'; g.textBaseline = 'middle';
   if (!c.clip) { g.fillStyle = mute; g.fillText('Not playing: launch a clip above.', 12, Ht/2); return; }
   const L = 46, pw = W - L - 8, pos = step == null ? -1 : ((step - c.start) % c.clip.len + c.clip.len) % c.clip.len;
+  if (st.edit) { drawEdit(g, c, W, Ht, pos, css); return; }
   if (c.role === 'chords') { const ch = chainOf(H), nb = Math.min(H.bars.length, 16), vs = [...Array(nb).keys()].map(b => invert(ch ? ch[b].voicing : notesAt({role: 'chords', steps: [[0, 'chord', 1, 1]]}, 0, chordOf(H, b)).map(x => x[0]), c.inv || 0)).map(v => v.map(n => n + 12*(c.oct || 0)));
     const all = vs.flat(), lo = Math.min(...all) - 2, hi = Math.max(...all) + 2, y = n => 8 + (hi - n)/(hi - lo)*(Ht - 30), bw = pw/nb, cur = ((st.bar % H.bars.length) + H.bars.length) % H.bars.length;
     for (let n = lo; n <= hi; n++) if ([0, 5, 7].includes(n % 12) || all.includes(n)) { g.fillStyle = all.includes(n) ? ink : mute; g.globalAlpha = all.includes(n) ? .8 : .35; g.fillText(nname(n), 4, y(n)); } g.globalAlpha = 1;
@@ -351,7 +427,7 @@ document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.t
   const ci = 'QWERTYU'.indexOf(k); if (ci >= 0 && ci < st.cols.length && !e.repeat) { if (e.shiftKey) { const c = st.cols[ci]; c.mute = !c.mute; macros(c); renderCol(c); } else { st.sel = ci; renderSel(); } return; }
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const c = selCol(), ids = PACK.scenes.map(s => s.clips[st.sel]).filter(Boolean), uniq = [...new Set(ids)], i = uniq.indexOf(c.next?.id || c.clipId); launch(c, uniq[(i + (e.key === 'ArrowDown' ? 1 : -1) + uniq.length) % uniq.length]); return; }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const c = selCol(); c.x = Math.max(0, Math.min(1, c.x + (e.key === 'ArrowRight' ? .08 : -.08))); macros(c); drawPad(); return; }
-  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); if (k === 'F') nextFeel(); if (k === 'P') nextPlay(); if (k === 'X') keepPlayed(); if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'L') $('follow').click(); if (k === 'J' && !e.repeat) throwTo(true); });
+  if (k === 'V') MOVES.vary(); if (k === 'M') MOVES.mutate(); if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1); if (k === 'F') nextFeel(); if (k === 'P') nextPlay(); if (k === 'X') keepPlayed(); if (k === 'N') riffTool('riff'); if (k === 'Z') undo(); if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'L') $('follow').click(); if (k === 'J' && !e.repeat) throwTo(true); });
 document.addEventListener('keyup', e => { if (e.key.toUpperCase() === 'O') repeat(false); if (e.key.toUpperCase() === 'J') throwTo(false); });
 addEventListener('resize', () => { drawPad(); drawNotes(); });
 
