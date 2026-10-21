@@ -8,6 +8,7 @@ import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
+import widthFx from '../../src/audio/engine/fx/width.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
@@ -15,13 +16,17 @@ let PACK = null, SND = {}, CLIP = {}, LIB = [];
 const st = {smooth: (() => { try { return localStorage.getItem('studio.jam.smooth') !== '0'; } catch { return true; } })(), echoDiv: 0, bar: 0, bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
 
 /* ---------- audio: a channel per column (filter with an LFO, pan, the kick's pump, echo and reverb sends) ---------- */
-let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0;
+let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0, mstr = null;
 const cache = new Map(), pending = new Set();
 function initAudio(){ if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'playback'});
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 12; lim.attack.value = .003; lim.release.value = .12;
   hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 18; master = ctx.createGain(); master.gain.value = .85;
-  master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
+  // the master: EQ (low and high shelves), width (mid and side, the bass kept mono), the glue compressor, then the build's
+  // high-pass, the limiter, the master volume and its meter
+  mstr = {lo: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), width: widthFx.make(ctx), glue: ctx.createDynamicsCompressor(), vol: ctx.createGain(), meter: ctx.createAnalyser(), lim};
+  mstr.lo.type = 'lowshelf'; mstr.lo.frequency.value = 110; mstr.hi.type = 'highshelf'; mstr.hi.frequency.value = 7000; mstr.width.set('mono', 150); mstr.meter.fftSize = 1024;
+  master.connect(mstr.lo); mstr.lo.connect(mstr.hi); mstr.hi.connect(mstr.width.input); mstr.width.output.connect(mstr.glue); mstr.glue.connect(hp); hp.connect(lim); lim.connect(mstr.vol); mstr.vol.connect(ctx.destination); mstr.vol.connect(mstr.meter);
   delay = {in: ctx.createGain(), d: ctx.createDelay(2), fb: ctx.createGain(), lp: ctx.createBiquadFilter()};
   delay.lp.frequency.value = 2400; delay.fb.gain.value = .45; delay.in.connect(delay.d); delay.d.connect(delay.lp); delay.lp.connect(delay.fb); delay.fb.connect(delay.d); delay.lp.connect(master);
   verb = ctx.createConvolver(); const L = 2.8*ctx.sampleRate, ir = ctx.createBuffer(2, L, ctx.sampleRate);
@@ -29,15 +34,18 @@ function initAudio(){ if (ctx) return;
   verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg); vg.connect(master);
   worker = new Worker(URL.createObjectURL(new Blob([$('worker-src').textContent], {type: 'text/javascript'})));
   worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } busy(); };
-  for (const c of st.cols) { makeChan(c); buildSound(c); } tempo();
+  for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); masterMix(); renderMix();
 }
-function makeChan(c){ const x = {in: ctx.createGain(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain(), lfo: ctx.createOscillator(), lfoG: ctx.createGain()};
-  x.in.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
-  x.lfo.connect(x.lfoG); x.lfoG.connect(x.f.frequency); x.lfo.start(); x.f.Q.value = 1.2; x.pan.pan.value = [0, .15, -.2, 0, 0, -.3, .3][st.cols.indexOf(c)] || 0; c.ch = x; macros(c); }
+function makeChan(c){ const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain(), lfo: ctx.createOscillator(), lfoG: ctx.createGain(), meter: ctx.createAnalyser()};
+  // the channel: its EQ (low shelf, a bell in the middle, a high shelf), the tone filter, pan, the sidechain duck, the fader
+  x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.meter.fftSize = 512;
+  x.in.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.out.connect(x.meter); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
+  x.lfo.connect(x.lfoG); x.lfoG.connect(x.f.frequency); x.lfo.start(); x.f.Q.value = 1.2; c.ch = x; macros(c); }
 // the macros: tone (the channel's filter, and a native sound's mallet), space (echo and reverb), motion (the LFO), length
 function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s = .05;
   x.f.frequency.setTargetAtTime(cutOf(c.x), now, s); x.echo.gain.setTargetAtTime(c.throw ? .95 : c.echo ? c.y*.5 : 0, now, c.throw ? .005 : s); x.verb.gain.setTargetAtTime(c.verb ? c.y*.75 : 0, now, s);
-  x.out.gain.setTargetAtTime(c.mute ? 0 : c.level, now, .01);
+  const M = c.mix, solo = st.cols.some(y => y.mix.solo); x.out.gain.setTargetAtTime(c.mute || solo && !M.solo ? 0 : c.level*Math.pow(10, M.vol/20), now, .02);
+  x.pan.pan.setTargetAtTime(M.pan, now, .02); x.lo.gain.setTargetAtTime(M.lo, now, .02); x.mid.gain.setTargetAtTime(M.mid, now, .02); x.hi.gain.setTargetAtTime(M.hi, now, .02);
   const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm)][c.motion]; x.lfo.frequency.setTargetAtTime(rate || .1, now, s); x.lfoG.gain.setTargetAtTime([0, .45, .35][c.motion]*cutOf(c.x), now, s); }
 function tempo(){ if (!ctx) return; delay.d.delayTime.setTargetAtTime(ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) macros(c); }
 
@@ -101,7 +109,7 @@ function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, v
   if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(n, t, v2, null); else nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv);
     if (c.role === 'kick') duck(t); return; }
   if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
-function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const g = c.ch.duck.gain; g.setTargetAtTime(c.role === 'chords' ? .35 : .6, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
+function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
 function barLine(step){
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
   for (const c of st.cols) { if (c.next !== undefined) { const nx = c.next; delete c.next; if (nx === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = nx.clip; c.clipId = nx.id; c.var = nx.var || 0; if (!nx.keep) { c.start = step; c.row = c.nextRow; } } renderCol(c); }
@@ -154,7 +162,7 @@ function repeat(on){ if (on && st.playing && !st.rep) { st.rep = {at: Math.floor
 function setHarmony(id){ const H = PACK.harmonies.find(x => x.id === id); if (!st.playing) { st.harmony = H; st.hStart = 0; } else st.hNext = H; for (const c of st.cols) prewarm(c); renderHarmony(); flash('Harmony: ' + H.name); }
 
 /* ---------- recording: what plays, written down for Claude to render ---------- */
-function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
+function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, mix: st.cols.map(c => ({...c.mix, mute: !!c.mute})), mx: {...st.mx}, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
   const r = st.rec; st.rec = null; $('rec').setAttribute('aria-pressed', 'false'); r.bars = Math.ceil((st.step - r.from)/16); lastTake = r; $('keepJam').disabled = !db || !r.notes.length;
   $('takeNote').textContent = r.notes.length ? `Take: ${r.bars} bars, ${r.notes.length} notes. Keep it for Claude to render, or record again.` : 'Nothing was recorded.'; }
 let lastTake = null; window.__jamTake = () => lastTake && {...lastTake, columns: st.cols.map(c => ({id: c.id, role: c.role}))};   // (for tests)
@@ -265,6 +273,7 @@ const mCols = h('div', {class: 'strip', id: 'mCols', 'aria-label': 'Parts'});
 function setTab(t){ document.body.dataset.tab = t; try { localStorage.setItem('studio.jam.tab', t); } catch {}
   document.querySelectorAll('#tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   const slot = document.querySelector(`[data-tabs~="${t}"] .mslot`); if (slot) slot.append(mCols);
+  if (t === 'mix') renderMix();
   const ls = document.querySelector(`[data-tabs~="${t}"] .likeslot`); if (ls && phoneMQ.matches) ls.append($('partLikes')); if (t === 'likes') renderLikes();
   requestAnimationFrame(() => { drawPad(); drawNotes(); }); scrollTo(0, 0); }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -325,10 +334,10 @@ addEventListener('resize', () => { drawPad(); drawNotes(); });
 
 /* ---------- snapshots: the user's own saved combinations, recalled on the next bar ---------- */
 let SNAPS = [], snapOn = null, snapDel = null;
-const SNAP_FIELDS = ['feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
+const SNAP_FIELDS = ['feel', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'follow', 'mix'], SNAP_KEY = 'studio.jam.snaps', pitchedRole = r => !['kick', 'hats', 'perc'].includes(r);
 const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
-  return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
+  return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
     cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
       return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), vars: (c.vars || []).map(v => v.steps), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
         clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
@@ -336,10 +345,10 @@ async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x)
   if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
 // sounds and settings change at once (so their notes are computed in time); clips and the harmony on the next bar
 async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id === x.pack)) { flash('That pack is gone'); return; } await loadPack(x.pack); }
-  snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
+  if (x.mx) { st.mx = {...st.mx, ...x.mx}; masterMix(); } snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
-    for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
+    for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
     c.arpSt = null; if (v.vars) { c.vars = v.vars.map((steps, j) => ({steps, made: v.made?.[j] || undefined})); c.varsOf = v.clip?.id; c.vi = v.vi || 0; }
     if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
     if (!v.clip) c.next = 'stop'; else { const base = CLIP[v.clip.id] || {id: v.clip.id, role: c.role, name: 'Saved clip', variations: []}; c.next = {id: v.clip.id, clip: {...base, len: v.clip.len, steps: v.clip.steps}, var: v.clip.var}; prewarm(c, c.next.clip); }
@@ -347,7 +356,7 @@ async function recall(x){ if (x.pack !== PACK.id) { if (!PACKS.some(p => p.id ==
     if (!st.playing) { if (c.next === 'stop') { c.clip = null; c.clipId = null; } else { c.clip = c.next.clip; c.clipId = c.next.id; c.var = c.next.var; c.row = c.nextRow; } delete c.next; c.start = 0; }
     renderCol(c); });
   if (PACK.harmonies.some(H => H.id === x.harmony)) setHarmony(x.harmony);
-  saveSounds(); renderSel(); renderSnaps(); renderIdeas(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
+  saveSounds(); storeMix(); renderMix(); renderSel(); renderSnaps(); renderIdeas(); flash((st.playing ? 'Next bar: ' : '') + x.name); }
 async function renameSnap(x){ const name = prompt('Name this snapshot', x.name)?.trim(); if (!name || name === x.name) return; x.name = name.slice(0, 40); storeSnaps(); renderSnaps();
   if (db) try { await db.collection('snaps').doc(x.id).update({name: x.name}); } catch {} }
 async function deleteSnap(x){ if (snapDel !== x.id) { snapDel = x.id; renderSnaps(); flash('Press ✕ again to delete ' + x.name); setTimeout(() => { if (snapDel === x.id) { snapDel = null; renderSnaps(); } }, 3000); return; }
@@ -359,6 +368,64 @@ function renderSnaps(){ const box = $('snaps'); if (!box) return; box.innerHTML 
     box.append(h('div', {class: 'snap', 'data-on': x.id === snapOn ? '1' : '', 'data-del': x.id === snapDel ? '1' : ''},
       h('button', {class: 'go', onclick: () => recall(x), title: k < 9 ? `Recall (Shift+${k + 1})` : 'Recall'}, h('b', {}, (k < 9 ? k + 1 + ' · ' : '') + x.name), h('span', {class: 'muted'}, x.pack === PACK?.id ? H || ' ' : (pk?.name.split(':')[0] || x.pack))),
       h('span', {class: 'snapbtns'}, likeBar({kind: 'snap', key: x.id, name: x.name, data: {id: x.id}}, {noDown: true}), h('button', {class: 'mini', title: 'Into the arrangement', onclick: () => arrAdd(x.id)}, '＋ Arr'), h('button', {class: 'mini', title: 'Rename', onclick: () => renameSnap(x)}, '✎'), h('button', {class: 'mini', title: 'Delete', onclick: () => deleteSnap(x)}, '✕')))); }); }
+/* ---------- the mixer: each part's fader, pan, mute and solo, EQ and how hard the kick ducks it; the master's volume, EQ,
+   width and glue; all remembered per pack, kept in snapshots and recorded for the render ---------- */
+const DUCKS = [['Off', 0], ['Light', .25], ['Medium', .4], ['Heavy', .65]];
+const GLUE = [['Off', null], ['Gentle', {thr: -14, ratio: 1.8, att: .03, rel: .25}], ['Glue', {thr: -20, ratio: 3, att: .01, rel: .2}], ['Punch', {thr: -24, ratio: 4, att: .03, rel: .12}]];
+const WIDTHS = [['Mono', 0], ['Narrow', .6], ['Normal', 1], ['Wide', 1.35], ['Wider', 1.7]];
+const MASTER0 = {vol: 0, lo: 0, hi: 0, glue: 1, width: 2}, PAN0 = [0, .15, -.2, 0, 0, -.3, .3];
+const mixKey = () => 'studio.jam.mix.' + PACK.id, savedMix = () => { try { return JSON.parse(localStorage.getItem(mixKey()) || '{}'); } catch { return {}; } };
+function mixOf(c, i){ const saved = savedMix().cols?.[i]; return {vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false, ...(saved || {}), ...(c.mix || {})}; }
+const storeMix = () => { try { localStorage.setItem(mixKey(), JSON.stringify({cols: st.cols.map(c => ({...c.mix, solo: false})), master: st.mx})); } catch {} };
+function masterMix(){ if (!mstr) return; const M = st.mx, now = ctx.currentTime, g = GLUE[M.glue][1];
+  mstr.lo.gain.setTargetAtTime(M.lo, now, .02); mstr.hi.gain.setTargetAtTime(M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width][1]); mstr.vol.gain.setTargetAtTime(Math.pow(10, M.vol/20), now, .02);
+  const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; } }
+const fmtDb = v => v <= -40 ? '−∞' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
+const fmtPan = v => Math.abs(v) < .01 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100);
+// a change from the mixer: applied, remembered, recorded (master changes on the '*' column)
+function mixSet(c, k, v){ if (c) { c.mix[k] = v; if (k === 'solo') st.cols.forEach(macros); else macros(c); logMacro(c, 'mix.' + k, typeof v === 'boolean' ? +v : v); }
+  else { st.mx[k] = v; masterMix(); if (st.rec) st.rec.macros.push([Math.max(0, st.step - st.rec.from), '*', 'master.' + k, v]); }
+  storeMix(); renderMix(); }
+// a fader: drag up and down (mouse or finger), − and + for 1.5 dB steps, a double tap back to 0 dB
+const faderPos = v => v <= -40 ? 0 : Math.pow((v + 40)/46, 1.6), faderVal = p => p <= .01 ? -40 : Math.round((Math.pow(p, 1/1.6)*46 - 40)*2)/2;
+function fader(val, set){ const track = h('div', {class: 'ftrack', role: 'slider', 'aria-valuemin': '-40', 'aria-valuemax': '6', 'aria-valuenow': String(val), 'aria-label': 'Volume', tabindex: '0'}),
+    cap = h('div', {class: 'fcap'}), fill = h('div', {class: 'ffill'}), meter = h('div', {class: 'fmeter'}, h('i'));
+  track.append(meter, fill, cap); const place = v => { const p = faderPos(v); cap.style.bottom = `calc(${p*100}% - ${p*22}px)`; fill.style.height = p*100 + '%'; }; place(val);
+  let drag = false, last = 0; const at = e => { const r = track.getBoundingClientRect(); return faderVal(Math.max(0, Math.min(1, (r.bottom - e.clientY)/r.height))); };
+  track.addEventListener('pointerdown', e => { const now = Date.now(); if (now - last < 300) { set(0); return; } last = now; drag = true; track.setPointerCapture(e.pointerId); const v = at(e); place(v); set(v, true); });
+  track.addEventListener('pointermove', e => { if (!drag) return; const v = at(e); place(v); set(v, true); });
+  track.addEventListener('pointerup', () => { if (drag) { drag = false; set(+track.getAttribute('aria-valuenow'), false, true); } });
+  track.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); set(Math.max(-40, Math.min(6, val + (e.key === 'ArrowUp' ? 1.5 : -1.5)))); } });
+  track.meter = meter.firstChild; return track; }
+const step = (lab, txt, dn, up) => h('div', {class: 'mstep'}, h('span', {class: 'lab'}, lab), h('button', {class: 'mini', 'aria-label': lab + ' down', onclick: dn}, '−'), h('b', {}, txt), h('button', {class: 'mini', 'aria-label': lab + ' up', onclick: up}, '+'));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+let meters = [];
+function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) return; box.innerHTML = ''; meters = [];
+  st.cols.forEach((c, i) => { const M = c.mix, f = fader(M.vol, (v, live, end) => { if (live) { c.mix.vol = v; macros(c); f.setAttribute('aria-valuenow', String(v)); f.parentNode.querySelector('.fval').textContent = fmtDb(v); } else { if (end) logMacro(c, 'mix.vol', c.mix.vol); if (!end) mixSet(c, 'vol', v); else { storeMix(); } } });
+    meters.push([c.ch?.meter, f.meter]);
+    box.append(h('div', {class: 'mstrip', 'data-sel': i === st.sel ? '1' : ''},
+      h('button', {class: 'sname', onclick: () => { st.sel = i; renderSel(); renderMix(); }}, h('b', {}, SHORT[c.role] + (c.role === 'lead' && i > 5 ? ' 2' : '')), h('span', {}, SND[c.sound]?.name || '')),
+      f, h('span', {class: 'fval'}, fmtDb(M.vol)),
+      h('div', {class: 'mrow'}, h('button', {class: 'mini', 'aria-label': 'Quieter', onclick: () => mixSet(c, 'vol', clamp(M.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', 'aria-label': 'Louder', onclick: () => mixSet(c, 'vol', clamp(M.vol + 1.5, -40, 6))}, '+')),
+      h('div', {class: 'mrow'}, h('button', {class: 'mini ms', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); renderMix(); }}, 'M'),
+        h('button', {class: 'mini ms solo', 'aria-pressed': String(!!M.solo), onclick: () => mixSet(c, 'solo', !M.solo)}, 'S')),
+      step('Pan', fmtPan(M.pan), () => mixSet(c, 'pan', clamp(Math.round((M.pan - .25)*4)/4, -1, 1)), () => mixSet(c, 'pan', clamp(Math.round((M.pan + .25)*4)/4, -1, 1))),
+      ...[['lo', 'Low'], ['mid', 'Mid'], ['hi', 'High']].map(([k, lab]) => step(lab, (M[k] > 0 ? '+' : '') + M[k], () => mixSet(c, k, clamp(M[k] - 1.5, -15, 9)), () => mixSet(c, k, clamp(M[k] + 1.5, -15, 9)))),
+      c.role === 'kick' ? h('span', {class: 'muted sidenote'}, 'drives the duck') : h('button', {class: 'mini duckb', title: 'How far the kick ducks this part (sidechain)', onclick: () => mixSet(c, 'duck', (M.duck + 1) % DUCKS.length)}, 'Duck: ' + DUCKS[M.duck][0]))); });
+  const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = fmtDb(v); } else if (!end) mixSet(null, 'vol', v); else storeMix(); });
+  meters.push([mstr?.meter, mf.meter]);
+  box.append(h('div', {class: 'mstrip master'}, h('div', {class: 'sname'}, h('b', {}, 'Master'), h('span', {}, 'limiter always on')), mf, h('span', {class: 'fval'}, fmtDb(X.vol)),
+    h('div', {class: 'mrow'}, h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol + 1.5, -40, 6))}, '+')),
+    h('button', {class: 'mini duckb', title: 'The glue compressor on the whole mix', onclick: () => mixSet(null, 'glue', (X.glue + 1) % GLUE.length)}, 'Glue: ' + GLUE[X.glue][0]),
+    h('button', {class: 'mini duckb', title: 'Stereo width (the bass stays mono)', onclick: () => mixSet(null, 'width', (X.width + 1) % WIDTHS.length)}, 'Width: ' + WIDTHS[X.width][0]),
+    ...[['lo', 'Low'], ['hi', 'High']].map(([k, lab]) => step(lab, (X[k] > 0 ? '+' : '') + X[k], () => mixSet(null, k, clamp(X[k] - 1.5, -12, 6)), () => mixSet(null, k, clamp(X[k] + 1.5, -12, 6)))),
+    h('button', {class: 'mini duckb', onclick: () => { st.cols.forEach((c, i) => { c.mix = {...mixOf({role: c.role}, i), vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false}; macros(c); }); st.mx = {...MASTER0}; masterMix(); storeMix(); renderMix(); flash('Mix reset'); }}, 'Reset mix'))); }
+// the meters: each fader's peak, while the mixer shows
+const buf = new Float32Array(1024);
+(function meterLoop(){ requestAnimationFrame(meterLoop); if (!ctx || !st.playing || !meters.length || (phoneMQ.matches && document.body.dataset.tab !== 'mix')) return;
+  for (const [an, el] of meters) { if (!an || !el) continue; an.getFloatTimeDomainData(buf.subarray(0, an.fftSize)); let pk = 0; for (let i = 0; i < an.fftSize; i++) pk = Math.max(pk, Math.abs(buf[i]));
+    const dB = 20*Math.log10(pk || 1e-6), p = Math.max(0, Math.min(1, (dB + 48)/48)), held = Math.max(p, (+el.dataset.p || 0) - .02); el.dataset.p = held; el.style.height = held*100 + '%'; el.dataset.hot = dB > -1 ? '1' : ''; } })();
+
 /* ---------- likes: one per thing (a sound, a part's pattern, a sound as shaped, a harmony, an idea, a snapshot), each
    👍, 👎 or neither, with a note; they stay lit, live in the page's database (and this device), and gather on the Likes page ---------- */
 let LIKES = {}, likeFilter = 'all', noteFor = null;
@@ -488,7 +555,7 @@ async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_K
 let db = null;
 $('keepJam').onclick = async () => { if (!db || !lastTake) return; $('keepJam').disabled = true; $('takeNote').textContent = 'Keeping…';
   const used = [...new Set(lastTake.notes.map(n => n[2]).concat(lastTake.macros.filter(m => String(m[2]).startsWith('sound:')).map(m => m[2].slice(6))))];
-  try { await db.collection('jams').add({name: $('jamName').value.trim() || `Jam at ${st.bpm} BPM`, note: $('jamNote').value.trim(), pack: PACK.id, bpm: lastTake.bpm, swing: lastTake.swing, echoDiv: lastTake.echoDiv, bars: lastTake.bars,
+  try { await db.collection('jams').add({name: $('jamName').value.trim() || `Jam at ${st.bpm} BPM`, note: $('jamNote').value.trim(), pack: PACK.id, bpm: lastTake.bpm, swing: lastTake.swing, echoDiv: lastTake.echoDiv, mix: lastTake.mix, mx: lastTake.mx, bars: lastTake.bars,
       columns: st.cols.map(c => ({id: c.id, role: c.role})), sounds: used.map(id => SND[id]).filter(Boolean), notes: lastTake.notes, macros: lastTake.macros, at: new Date().toISOString()});
     $('takeNote').textContent = 'Kept. Claude will render it at full quality into the listening room.'; lastTake = null; }
   catch (err) { $('takeNote').textContent = 'Not kept (' + (err.code || err.message) + '). Try again.'; $('keepJam').disabled = false; } };
@@ -501,9 +568,9 @@ async function loadPack(id){ if (st.playing) stop();
   CLIP = Object.fromEntries(PACK.clips.map(c => [c.id, c]));
   st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0]; st.hNext = null; st.sel = 0;
   let chosen = []; try { chosen = JSON.parse(localStorage.getItem(soundsKey()) || '[]'); } catch {}
-  st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, feel: 0, echo: true, verb: true, voicing: 0, inv: 0, arp: 0, walk: false, follow: 0, vars: [], vi: 0, level: .85, clip: null, clipId: null, start: 0, ...Object.fromEntries(['feel', 'echo', 'verb', 'voicing'].filter(k => c[k] !== undefined).map(k => [k, c[k]]))}));   // (a pack can start a column on its own feel and sends)
-  if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); }
-  renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); renderSnaps(); busy(); }
+  st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, feel: 0, echo: true, verb: true, voicing: 0, inv: 0, arp: 0, walk: false, follow: 0, vars: [], vi: 0, level: .85, mix: mixOf(c, i), clip: null, clipId: null, start: 0, ...Object.fromEntries(['feel', 'echo', 'verb', 'voicing'].filter(k => c[k] !== undefined).map(k => [k, c[k]]))}));   // (a pack can start a column on its own feel and sends)
+  st.mx = {...MASTER0, ...(savedMix().master || {})}; if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); masterMix(); renderMix(); }
+  renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); renderSnaps(); renderMix(); busy(); }
 function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));
   for (const p of PACKS) box.append(h('button', {class: 'pchip', 'data-on': p.id === PACK?.id ? '1' : '', title: p.words || '', onclick: () => p.id !== PACK.id && loadPack(p.id)}, p.name));
   if (PACK?.words) box.append(h('span', {class: 'muted'}, PACK.words)); }

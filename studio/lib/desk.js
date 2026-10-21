@@ -38,6 +38,12 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
   d.meters = {master: meter(out)}; d.reads = [];
 
   d.master = {in: sum, trim: trim.gain, out: out.gain};
+  // the master as a jam's mixer set it: shelves, width before the glue, the glue's setting, the volume after the limiter
+  d.masterSet = (o = {}) => { if (raw) return; sum.disconnect(); let at = sum; const link = n => { at.connect(n.input || n); at = n.output || n; };
+    if (o.lo) { const f = bq(ctx, 'lowshelf', 110, .7); f.gain.value = o.lo; link(f); } if (o.hi) { const f = bq(ctx, 'highshelf', 7000, .7); f.gain.value = o.hi; link(f); }
+    if (o.width != null && o.width !== 1) { const w = widthFx.make(ctx); w.set('w', o.width); w.set('mono', 150); link(w); }
+    link(glue); if (o.glue === null) { glue.threshold.value = 0; glue.ratio.value = 1; } else if (o.glue) { glue.threshold.value = o.glue.thr; glue.ratio.value = o.glue.ratio; glue.attack.value = o.glue.att; glue.release.value = o.glue.rel; }
+    if (o.vol) out.gain.value = Math.pow(10, o.vol/20); };
 
   /* ---------- the returns: an echo and a reverb, each a bus of its own (so they can pump too) ---------- */
   const ret = (name, fx, set) => { const f = fx.make(ctx, env); for (const [k, v] of Object.entries(set)) f.set(k, v); f.tick?.(0); f.now?.(); return f; };
@@ -60,6 +66,9 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
     const link = n => { at.connect(n.input || n); at = n.output || n; };
     b.filter = bq(ctx, o.filter?.type || 'lowpass', o.filter?.cut ?? 20000, o.filter?.q ?? .7); link(b.filter);
     if (o.hp) { b.hp = bq(ctx, 'highpass', o.hp, .7); link(b.hp); }
+    // a three-band EQ (a jam's mixer): low shelf, a bell in the middle, high shelf, each in dB
+    if (o.eq) { b.eqLo = bq(ctx, 'lowshelf', 120, .7); b.eqMid = bq(ctx, 'peaking', 1000, .8); b.eqHi = bq(ctx, 'highshelf', 6000, .7);
+      b.eqLo.gain.value = o.eq.lo || 0; b.eqMid.gain.value = o.eq.mid || 0; b.eqHi.gain.value = o.eq.hi || 0; link(b.eqLo); link(b.eqMid); link(b.eqHi); }
     if (o.chorus) { const c = chorusFx.make(ctx, env); for (const [k, v] of Object.entries({rate: .35, depth: .5, mix: .4, ...o.chorus})) c.set(k, v); link(c); }
     if (o.width != null) { const w = widthFx.make(ctx); w.set('w', o.width); w.set('mono', o.mono ?? 150); link(w); }
     b.pan = ctx.createStereoPanner(); b.pan.pan.value = o.pan || 0; link(b.pan);

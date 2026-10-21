@@ -147,6 +147,20 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 #noteSheet{position:fixed; left:50%; top:20%; transform:translateX(-50%); width:min(440px, calc(100vw - 24px)); z-index:40; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 10px 40px #0005; display:flex; flex-direction:column; gap:8px}
 #noteSheet[hidden]{display:none} #noteText{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:10px; font:inherit; color:inherit; resize:vertical}
 .notebtns{display:flex; gap:8px; flex-wrap:wrap} #noteSave{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
+.mixbox .lab{line-height:1.5}
+#mixer{display:flex; gap:8px; overflow-x:auto; padding:8px 0 4px; scrollbar-width:thin}
+.mstrip{flex:none; width:108px; border:1px solid var(--line); border-radius:12px; background:var(--well); padding:8px 6px; display:flex; flex-direction:column; align-items:stretch; gap:6px}
+.mstrip[data-sel="1"]{border-color:var(--acc)} .mstrip.master{background:var(--panel); border-color:var(--ink); width:116px}
+.sname{border:0; background:transparent; text-align:left; padding:0 2px; display:flex; flex-direction:column; min-width:0} .sname span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ftrack{position:relative; height:170px; margin:0 auto; width:48px; border-radius:10px; background:var(--band); touch-action:none; cursor:ns-resize}
+.ffill{position:absolute; left:20px; width:8px; bottom:0; border-radius:4px; background:var(--acc); opacity:.5}
+.fmeter{position:absolute; right:4px; bottom:0; top:0; width:5px; border-radius:3px; background:var(--line); overflow:hidden; display:flex; align-items:flex-end} .fmeter i{display:block; width:100%; height:0; background:var(--acc)} .fmeter i[data-hot="1"]{background:var(--rec)}
+.fcap{position:absolute; left:4px; right:14px; height:22px; border-radius:6px; background:var(--ink); box-shadow:0 1px 3px #0005}
+.fval{font:500 12px var(--mono); text-align:center}
+.mrow{display:flex; gap:4px} .mrow .mini{flex:1; min-height:34px; font-size:16px}
+.ms[aria-pressed="true"]{background:var(--ink); color:var(--bg)} .ms.solo[aria-pressed="true"]{background:var(--on); border-color:var(--on); color:#fff}
+.mstep{display:grid; grid-template-columns:28px 26px 1fr 26px; align-items:center; gap:2px} .mstep .lab{font-size:9px; margin:0} .mstep b{font:500 10px var(--mono); text-align:center; overflow:hidden} .mstep .mini{padding:0; min-width:26px; min-height:28px}
+.duckb{min-height:34px; font-size:12px} .sidenote{font-size:11px; text-align:center}
 .sndgroup{grid-column:1/-1; margin-top:8px}
 .octbox{display:inline-flex; align-items:center; gap:8px; padding:0 6px}
 .octbox button{min-width:40px; min-height:40px; border-radius:8px; border:1px solid var(--line); background:transparent; font-size:18px}
@@ -162,7 +176,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
   .wrap{gap:8px}
   body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="play"] [data-tabs]:not([data-tabs~="play"]), body[data-tab="notes"] [data-tabs]:not([data-tabs~="notes"]),
-  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]){display:none !important}
+  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]), body[data-tab="mix"] [data-tabs]:not([data-tabs~="mix"]){display:none !important}
   .gridbox,.keys{display:none !important}
   .panel{padding:10px; border-radius:12px}
   .transport{position:sticky; top:0; z-index:15; margin:0 calc(-1*max(10px, env(safe-area-inset-left, 0px))); border-radius:0; border-width:0 0 1px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
@@ -214,6 +228,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   .fb{gap:6px} .fb button{min-width:44px; min-height:44px} .fb input{flex-basis:100%}
   .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
   #snaps{grid-template-columns:1fr 1fr} .snapgrid{grid-template-columns:1fr}
+  #tabs button{font-size:12px} .mstrip{width:104px} .mrow .mini{min-height:44px} .mstep .mini{min-height:40px; min-width:30px} .mstep{grid-template-columns:30px 1fr 30px; row-gap:0} .mstep .lab{grid-column:1 / -1} .mstep b{font-size:11px} .duckb{min-height:44px} .ftrack{height:150px}
   .likebar button{min-width:44px; min-height:40px; font-size:16px} .headlikes{display:none}
   .partlikes{padding:6px 8px; gap:4px 8px} .partlikes .likebar button{min-width:40px}
   .likeslot{margin-bottom:4px} #likeList{grid-template-columns:1fr} #likeSearch{flex-basis:100%; min-height:44px} .lchip{min-height:40px; white-space:nowrap}
@@ -319,6 +334,11 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     </div>
   </section>
 
+  <section class="panel mixbox" data-tabs="mix" aria-label="Mixer">
+    <div class="lab">Mixer: drag a fader (double-tap for 0 dB), − + for steps · M mute · S solo · EQ low, mid, high · Duck: how hard the kick pushes it down</div>
+    <div id="mixer"></div>
+  </section>
+
   <section class="panel likesbox" data-tabs="likes" aria-label="Your likes">
     <div class="likehead"><div class="lab">Your likes: everything you’ve liked, noted or turned down</div><input id="likeSearch" placeholder="Search names and notes" aria-label="Search your likes"></div>
     <div id="likeFilters" class="strip"></div>
@@ -340,7 +360,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   </div>
 </div>
 <nav id="tabs" class="phone" aria-label="Pages">
-  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="mix">Mix</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
 </nav>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script>/*APP*/</script>
