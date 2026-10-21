@@ -2,7 +2,7 @@
 // (the improviser: as written when off, the bar's 1 kept, ideas held, fills in the phrase's last bar, the leads taking
 // turns, kept as a variant), a
 // jam's take turned into a session (mixer and master changes as automation on their bars, the ones after the last note
-// too), and that session's master and duck automation heard in an offline render on the desk.
+// too), that session's master and duck automation heard in an offline render on the desk, and the clip card (names, kept).
 import { serve, launch } from './lib.mjs';
 import { vlChain, rungFrom, invert, XFORMS, mutate, feelAt, FEELS, chordOf } from '../studio/jam/model.js';
 import { jamSession } from '../studio/jam/render-jam.mjs';
@@ -158,5 +158,17 @@ const r = await page.evaluate(async () => {
 check('the master\'s volume drops 12 dB on its bar', Math.abs(r.db + 12) < 1, r.db.toFixed(2) + ' dB');
 check('the master goes mono on its bar', r.sideBefore > .3 && r.sideAfter < .02, `side/mid ${r.sideBefore.toFixed(3)} → ${r.sideAfter.toFixed(3)}`);
 check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r.dip0.toFixed(2)} → ${r.dip1.toFixed(2)}`);
+// the clip card, in the jam's own page: a riff developed is named after it, a name given sticks, and a clip launched
+// again (or after a reload) comes back as it was left
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1200}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.accept('Bamboo walk'));
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  const name = () => q.textContent('#cardName'), cells = () => q.$$('.cell[data-col="col3"]:not(.empty)');
+  await q.keyboard.press('r'); await q.keyboard.press('n'); const riff = await name();
+  await q.click('#riffs button:has-text("Develop")'); const dev = await name(); await q.click('#riffs button:has-text("Thin")'); const thin = await name();
+  check('the clip card names a riff after what was done to it', riff === 'New bass riff' && dev === 'New bass riff, developed' && thin === 'New bass riff, developed, thinned', [riff, dev, thin].join(' / '));
+  await (await cells())[0].click(); await q.click('#riffs button:has-text("Develop")'); await q.click('#rename'); const named = await name(), cell = await (await cells())[0].textContent();
+  await (await cells())[1].click(); await (await cells())[0].click(); const back = await name(); await q.waitForTimeout(500); await q.reload(); await q.waitForTimeout(2000);
+  await q.keyboard.press('r'); await (await cells())[0].click(); const reloaded = [await name(), await q.textContent('#cardSub')];
+  check('a name given sticks, shows in the grid, and the clip comes back as it was left (after a reload too)', named === 'Bamboo walk' && cell === 'Bamboo walk' && back === 'Bamboo walk' && reloaded[0] === 'Bamboo walk' && /4 bars/.test(reloaded[1]), [named, cell, back, ...reloaded].join(' / ')); }
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

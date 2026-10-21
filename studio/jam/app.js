@@ -140,13 +140,17 @@ async function start(){ initAudio(); await ctx.resume(); if (st.playing) return;
 function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
 /* ---------- launching ---------- */
-function launch(c, clipId, varIdx = 0, row){ const base = CLIP[clipId]; if (clipId !== c.clipId) { c.loop = null; delete c.loopNext; } c.nextRow = row ?? PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === clipId);
-  if (!clipId) c.next = 'stop'; else { if (c.varsOf !== clipId) { c.vars = [base.steps, ...base.variations].map(steps => ({steps})); c.varsOf = clipId; }
-    const steps = c.vars[varIdx]?.steps || base.steps; c.vi = varIdx; c.next = {id: clipId, clip: {...base, steps}, var: varIdx};
+// a clip launched comes back as it was left: how it evolved (its variants), the one chosen and its loop (varIdx: one of
+// them instead)
+function launch(c, clipId, varIdx, row){ const base = CLIP[clipId]; c.nextRow = row ?? PACK.scenes.findIndex(sc => sc.clips[st.cols.indexOf(c)] === clipId);
+  if (clipId !== c.clipId) { c.loop = c.varsBy?.[clipId]?.loop || null; delete c.loopNext; }
+  if (!clipId) c.next = 'stop'; else { if (c.varsOf !== clipId) { c.varsBy ??= {}; if (c.varsOf && c.vars) c.varsBy[c.varsOf] = {vars: c.vars, vi: c.vi || 0, loop: c.loop};
+      const kept = c.varsBy[clipId]; c.vars = kept ? kept.vars : [base.steps, ...base.variations].map(steps => ({steps})); varIdx ??= kept?.vi; c.varsOf = clipId; }
+    varIdx = Math.min(varIdx ?? 0, c.vars.length - 1); const steps = c.vars[varIdx]?.steps || base.steps; c.vi = varIdx; c.next = {id: clipId, clip: {...base, steps, len: c.vars[varIdx]?.len || base.len}, var: varIdx};
     if (base.sound && !c.locked && SND[base.sound]?.role === SND[c.sound].role && c.sound !== base.sound) setSound(c, base.sound); prewarm(c, c.next.clip); }
   if (!st.playing) { if (c.next !== 'stop') { c.clip = c.next.clip; c.clipId = c.next.id; c.var = c.next.var; c.row = c.nextRow; } else { c.clip = null; c.clipId = null; } delete c.next; c.start = 0; }
   renderCol(c); }
-function scene(i){ const sc = PACK.scenes[i]; if (!sc) return; st.cols.forEach((c, j) => launch(c, sc.clips[j] || null, 0, i)); flash('Scene: ' + sc.name); }
+function scene(i){ const sc = PACK.scenes[i]; if (!sc) return; st.cols.forEach((c, j) => launch(c, sc.clips[j] || null, undefined, i)); flash('Scene: ' + sc.name); }
 function setSound(c, id){ c.sound = id; if (ctx) { buildSound(c); prewarm(c); } renderCol(c); }
 const selCol = () => st.cols[st.sel];
 
@@ -154,17 +158,29 @@ const selCol = () => st.cols[st.sel];
 const VMAX = 12, letter = i => String.fromCharCode(65 + i);
 // a variant comes in on the next bar, keeping the part's place in its loop (so odd lengths keep drifting)
 function setVar(c, i){ if (!c.clip || !c.vars?.[i]) return; c.vi = i; const clip = {...c.clip, steps: c.vars[i].steps, len: varLen(c, i)};
-  if (st.playing) c.next = {id: c.clipId, clip, var: i, keep: true}; else { c.clip = clip; c.var = i; } prewarm(c, clip); logMacro(c, 'var', i); flash(`${ROLE_NAMES[c.role]}: variant ${letter(i)}`); renderCol(c); renderShape(); }
+  if (st.playing) c.next = {id: c.clipId, clip, var: i, keep: true}; else { c.clip = clip; c.var = i; } prewarm(c, clip); logMacro(c, 'var', i); storeClips(); flash(`${ROLE_NAMES[c.role]}: ${clipName(c, i)}`); renderCol(c); renderShape(); }
 // a variant's length: its own (a kept improvisation), else the clip's as the pack has it
 const varLen = (c, i) => c.vars[i]?.len || CLIP[c.clipId]?.len || c.vars[0]?.len || c.clip.len;
+// a clip's name now: the variant's own (given, or after what was done to it), else the pack's
+const baseName = c => CLIP[c.clipId]?.name || c.clip?.name || 'Saved clip';
+function clipName(c, i = c.vi || 0){ const v = c.vars?.[i]; return v?.name || baseName(c) + (i && !v?.made ? ` (variation ${letter(i)})` : ''); }
+const PHRASE = {'New riff': 'a new riff', Answer: 'answered', Sequence: 'sequenced', Develop: 'developed', Thin: 'thinned', Fill: 'filled', '½ time': 'half time', '2× time': 'double time', '×2 length': 'doubled', '÷2 length': 'halved', Edited: 'edited', Kept: 'as played', Mutated: 'mutated', Flip: 'flipped', Wide: 'wider', Narrow: 'narrower', Reverse: 'reversed', 'Rotate →': 'turned', '▲ Up': 'up a step', '▼ Down': 'down a step'};
+// (each variant keeps the name it grows from: the pack's, a new riff's or one given, so what's made of it is named after it)
+function nameFor(c, why, phrase){ if (why === 'New riff') { const n = `New ${ROLE_NAMES[c.role].toLowerCase().replace('bells and leads', 'lead')} riff`; return {name: n, base: n, ops: []}; }
+  const cur = c.vars?.[c.vi || 0], base = cur?.base || baseName(c), ops = [...(cur?.ops || []), phrase || PHRASE[why] || why.toLowerCase()].slice(-2);
+  return {name: `${base}, ${ops.join(', ')}`, base, ops}; }
+// what's been made of each clip, kept on this device per pack (a clip comes back evolved after a reload)
+const clipsKey = () => 'studio.jam.clips.' + PACK.id;
+function storeClips(){ clearTimeout(storeClips.t); storeClips.t = setTimeout(() => { try { localStorage.setItem(clipsKey(), JSON.stringify(st.cols.map(c => { const all = {...(c.varsBy || {})}; if (c.varsOf && c.vars) all[c.varsOf] = {vars: c.vars, vi: c.vi || 0, loop: c.loop || null};
+    return Object.fromEntries(Object.entries(all).filter(([, x]) => x.vars?.some(v => v.made || v.name))); }))); } catch {} }, 300); }
 // a variant onto the part's strip (the oldest of its own made ones dropping off past VMAX)
 function pushVar(c, v){ if (!c.vars) c.vars = [{steps: c.clip.steps, len: c.clip.len}]; const base = CLIP[c.clipId] ? 1 + CLIP[c.clipId].variations.length : 1;
   c.vars.push(v); if (c.vars.length > VMAX) c.vars.splice(base, 1); return c.vars.length - 1; }
 // (while editing it's heard at once, so the grid and what plays stay the same clip; otherwise on the next bar)
-function addVar(c, steps, why, len){ pushUndo(c); const i = pushVar(c, {steps, made: why, ...(len ? {len} : {})}); if (st.edit) { c.editVar = null; now(c, i); } else setVar(c, i); flash(`${why}: variant ${letter(i)}`); }
+function addVar(c, steps, why, len, phrase){ pushUndo(c); const nm = nameFor(c, why, phrase), i = pushVar(c, {steps, made: why, ...nm, ...(len ? {len} : {})}); storeClips(); if (st.edit) { c.editVar = null; now(c, i); } else setVar(c, i); flash(`${why}: variant ${letter(i)}`); }
 // undo: the strip and the variant chosen as they were before the last tool or edit
 function pushUndo(c){ (c.undo ??= []).push({vars: (c.vars || []).map(v => ({...v})), vi: c.vi || 0}); if (c.undo.length > 40) c.undo.shift(); }
-function undo(){ const c = selCol(), u = c?.undo?.pop(); if (!u) { flash('Nothing to undo'); return; } c.vars = u.vars; c.editVar = null; now(c, u.vi); flash('Undone'); }
+function undo(){ const c = selCol(), u = c?.undo?.pop(); if (!u) { flash('Nothing to undo'); return; } c.vars = u.vars; c.editVar = null; now(c, u.vi); storeClips(); flash('Undone'); }
 // a variant at once (an edit is heard straight away, not on the next bar)
 function now(c, i){ c.vi = i; c.clip = {...c.clip, steps: c.vars[i].steps, len: varLen(c, i)}; c.var = i; delete c.next; prewarm(c); logMacro(c, 'var', i); renderCol(c); renderShape(); }
 // a riff tool on the chosen part: a new variant (a new riff keeps the part's length, at least a bar)
@@ -215,7 +231,7 @@ function renderGrid(){ const g = $('grid'); g.innerHTML = ''; g.style.setPropert
   g.append(h('div', {class: 'corner'}, h('span', {class: 'lab'}, 'Scenes')));
   st.cols.forEach((c, i) => g.append(c.head = h('div', {class: 'colhead', id: 'head-' + c.id})));
   PACK.scenes.forEach((sc, r) => { g.append(h('button', {class: 'scene', onclick: () => scene(r), title: `Launch ${sc.name} (key ${r + 1})`}, h('b', {}, String(r + 1)), ' ', sc.name));
-    st.cols.forEach(c => { const id = sc.clips[st.cols.indexOf(c)]; g.append(h('button', {class: 'cell' + (id ? '' : ' empty'), 'data-col': c.id, 'data-clip': id || '', 'data-row': r, onclick: () => { st.sel = st.cols.indexOf(c); launch(c, id || null, 0, r); renderSel(); }}, id ? CLIP[id].name : '■ stop')); }); });
+    st.cols.forEach(c => { const id = sc.clips[st.cols.indexOf(c)]; g.append(h('button', {class: 'cell' + (id ? '' : ' empty'), 'data-col': c.id, 'data-clip': id || '', 'data-row': r, onclick: () => { st.sel = st.cols.indexOf(c); launch(c, id || null, undefined, r); renderSel(); }}, id ? CLIP[id].name : '■ stop')); }); });
   st.cols.forEach(renderCol); }
 function renderCol(c){ if (!c.head) return; const i = st.cols.indexOf(c), s = SND[c.sound];
   c.head.innerHTML = ''; c.head.dataset.sel = i === st.sel ? '1' : '';
@@ -224,12 +240,23 @@ function renderCol(c){ if (!c.head) return; const i = st.cols.indexOf(c), s = SN
     h('button', {class: 'sound', onclick: () => { st.sel = i; renderSel(); openSounds(c); }, title: 'Change the sound'}, s.name),
     h('button', {class: 'mute', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); }}, c.mute ? 'Muted' : 'Mute'),
     h('span', {class: 'headlikes', title: 'Like its sound · like its pattern'}, likeBar(soundItem(c.sound), {only: 'up', label: '♪'}), c.clip ? likeBar(patternItem(c), {only: 'up', label: '♫'}) : ''));
-  document.querySelectorAll(`.cell[data-col="${c.id}"]`).forEach(b => { b.dataset.on = c.clipId && +b.dataset.row === c.row ? '1' : ''; b.dataset.next = c.next && c.next !== 'stop' && +b.dataset.row === c.nextRow ? '1' : ''; });
+  document.querySelectorAll(`.cell[data-col="${c.id}"]`).forEach(b => { b.dataset.on = c.clipId && +b.dataset.row === c.row ? '1' : ''; if (b.dataset.clip) b.textContent = b.dataset.clip === c.clipId ? clipName(c) : CLIP[b.dataset.clip].name; b.dataset.next = c.next && c.next !== 'stop' && +b.dataset.row === c.nextRow ? '1' : ''; });
   if (i === st.sel) renderSel(); else renderPhone(); }
 function renderSel(){ const c = selCol(); st.cols.forEach((x, i) => x.head && (x.head.dataset.sel = i === st.sel ? '1' : ''));
-  $('selName').textContent = `${ROLE_NAMES[c.role]}: ${SND[c.sound].name}`; $('selClip').textContent = c.clipId ? CLIP[c.clipId].name + (c.var ? ` (variation ${c.var})` : '') : 'not playing';
+  renderCard();
   $('octOut').textContent = (c.oct > 0 ? '+' : '') + (c.oct || 0); $('octBox').hidden = ['kick', 'hats', 'perc'].includes(c.role); $('motion').textContent = 'Motion: ' + ['still', 'slow', 'fast'][c.motion]; $('length').textContent = 'Length: ' + ['short', 'normal', 'long'][c.length];
   drawPad(); renderShape(); renderPhone(); renderPartLikes(); }
+// the clip card's head: the part, the clip's name now, what it is, its sound and mute
+function renderCard(){ const c = selCol(); if (!c) return; const i = st.cols.indexOf(c), cl = c.next?.clip || c.clip, n = c.vars?.length || 0;
+  $('cardPart').textContent = `${ROLE_NAMES[c.role]}${c.role === 'lead' && i > 5 ? ' 2' : ''} · key ${'QWERTYU'[i]}`;
+  $('cardName').textContent = cl ? clipName(c) : 'Not playing';
+  $('cardSub').textContent = !cl ? 'Launch a clip above, or N for a new riff' : [`${cl.len % 16 ? cl.len + ' steps' : cl.len/16 + (cl.len > 16 ? ' bars' : ' bar')}`, n > 1 ? `variant ${letter(c.vi || 0)} of ${n}` : '', c.play ? 'played ' + PLAYS[c.play].name.toLowerCase() : '', c.mute ? 'muted' : ''].filter(Boolean).join(' · ');
+  $('rename').disabled = !cl; $('cardSound').textContent = '♪ ' + SND[c.sound].name; $('cardMute').textContent = c.mute ? 'Muted' : 'Mute'; $('cardMute').setAttribute('aria-pressed', String(!!c.mute)); }
+$('cardSound').onclick = () => openSounds(selCol());
+$('cardMute').onclick = () => { const c = selCol(); c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); renderCard(); };
+// naming a clip: the name sticks, and what's made of it from then on is named after it
+$('rename').onclick = () => { const c = selCol(); if (!c?.clip || !c.vars) return; const v = c.vars[c.vi || 0], name = prompt('Name this clip', clipName(c))?.trim(); if (!name) return;
+  v.name = v.base = name.slice(0, 40); v.ops = []; storeClips(); renderCard(); renderCol(c); renderShape(); };
 function renderHarmony(){ const box = $('harmonies'); box.innerHTML = '';
   for (const H of PACK.harmonies) box.append(h('button', {class: 'hchip', 'data-liked': liked(harmonyItem(H)) ? '1' : '', 'data-on': H === st.harmony ? '1' : '', 'data-next': H === st.hNext ? '1' : '', title: H.words, onclick: () => setHarmony(H.id)}, H.name));
   $('hWords').textContent = (st.hNext || st.harmony).words; const hl = $('harmLikes'); hl.innerHTML = ''; hl.append(h('span', {class: 'lab'}, 'This harmony '), likeBar(harmonyItem(st.hNext || st.harmony))); }
@@ -243,14 +270,14 @@ let flashT = 0; function flash(t){ $('flash').textContent = t; clearTimeout(flas
 const NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nname = n => NN[n % 12] + (Math.floor(n/12) - 1);
 const isDrum = c => ['kick', 'hats', 'perc'].includes(c.role);
 function renderShape(){ const c = selCol(); if (!c) return;
-  $('shapeName').textContent = `${ROLE_NAMES[c.role]}${c.clipId ? ': ' + (CLIP[c.clipId]?.name || 'saved clip') : ''}`;
+  renderCard();
   $('smooth').setAttribute('aria-pressed', String(st.smooth));
   const X = $('xforms'); X.innerHTML = ''; const btn = (lab, key, fn, on) => X.append(h('button', {class: 'macro', 'data-on': on ? '1' : '', onclick: fn}, lab, key ? h('small', {}, key) : ''));
   if (c.role === 'chords') { btn('Voicing: ' + STYLES[c.voicing || 0], '', () => { c.voicing = ((c.voicing || 0) + 1) % STYLES.length; logMacro(c, 'voicing', c.voicing); for (const x of st.cols) prewarm(x); renderShape(); flash('Voicing: ' + STYLES[c.voicing]); });
     btn('▲ Inversion', '', () => inv(c, 1)); btn('▼ Inversion', '', () => inv(c, -1));
     btn('Arp: ' + (ARPS[c.arp || 0] || 'off'), '', () => { c.arp = ((c.arp || 0) + 1) % ARPS.length; c.arpSt = null; logMacro(c, 'arp', c.arp); prewarm(c); renderShape(); flash('Arp: ' + (ARPS[c.arp] || 'off')); }, c.arp);
     btn(XNAMES.rotate, '', () => transform('rotate')); btn(XNAMES.reverse, '', () => transform('reverse')); }
-  else if (isDrum(c)) { btn(XNAMES.rotate, '', () => transform('rotate')); btn(XNAMES.reverse, '', () => transform('reverse')); btn('Mutate', 'M', () => MOVES.mutate()); }
+  else if (isDrum(c)) { btn(XNAMES.rotate, '', () => transform('rotate')); btn(XNAMES.reverse, '', () => transform('reverse')); }
   else { for (const k of ['up', 'down']) btn(XNAMES[k], '', () => transform(k));
     btn('Walk' + (c.walk ? ': on' : ''), '', () => { c.walk = !c.walk; logMacro(c, 'walk', c.walk ? 1 : 0); prewarm(c); renderShape(); flash(c.walk ? 'Walk: climbing a chord tone each time round' : 'Walk off'); }, c.walk);
     for (const k of ['flip', 'wide', 'narrow', 'reverse', 'rotate']) btn(XNAMES[k], '', () => transform(k)); }
@@ -298,8 +325,8 @@ function drawEdit(g, c, W, Ht, pos, css){ const G = editGrid(c, W, Ht), H = st.h
   if (pos >= 0) { g.fillStyle = css('--acc'); g.globalAlpha = .25; g.fillRect(G.L + pos*G.cw, 0, Math.max(2, G.cw), Ht); g.globalAlpha = 1; } }
 // an edit: the first since Edit was turned on (or since another tool) makes an "Edited" variant, the rest change it in place
 function editSteps(c, steps){ pushUndo(c); steps.sort((a, b) => a[0] - b[0]);
-  if (!c.editVar || c.vars?.[c.vi] !== c.editVar) { c.editVar = {steps, made: 'Edited', len: c.clip.len}; now(c, pushVar(c, c.editVar)); }
-  else { c.editVar.steps = steps; now(c, c.vi); } }
+  if (!c.editVar || c.vars?.[c.vi] !== c.editVar) { c.editVar = {steps, made: 'Edited', len: c.clip.len, ...nameFor(c, 'Edited')}; now(c, pushVar(c, c.editVar)); }
+  else { c.editVar.steps = steps; now(c, c.vi); } storeClips(); }
 let drag = null;
 $('notes').addEventListener('pointerdown', e => { const c = selCol(); if (!st.edit || !c?.clip) return; const r = $('notes').getBoundingClientRect(), G = editGrid(c, r.width, r.height), x = e.clientX - r.left, y = e.clientY - r.top, p = G.col(x), row = G.row(y);
   if (p < 0 || p >= G.len) return; e.preventDefault(); $('notes').setPointerCapture(e.pointerId); const s = noteAt(c, p, row);
@@ -359,7 +386,7 @@ $('loopOff').onclick = () => { const c = selCol(); if (c?.clip) setLoop(c, null)
 // the loop as a variant of its own (so the riff tools work on just that stretch)
 $('loopCrop').onclick = () => { const c = selCol(), lp = c && (c.loopNext !== undefined ? c.loopNext : loopOf(c)); if (!lp) return;
   const steps = c.clip.steps.filter(s => s[0] >= lp[0] && s[0] < lp[1]).map(s => { const t = s.slice(); t[0] -= lp[0]; return t; });
-  if (!steps.length) { flash('Nothing in the loop'); return; } c.loop = null; delete c.loopNext; addVar(c, steps, 'Cropped', lp[1] - lp[0]); renderLoop(); };
+  if (!steps.length) { flash('Nothing in the loop'); return; } const words = loopWords(lp, loopGrid(c, $('loopBar').getBoundingClientRect().width || 400)); c.loop = null; delete c.loopNext; addVar(c, steps, 'Cropped', lp[1] - lp[0], words); renderLoop(); };
 
 // the bars outside a part's loop dimmed, so the notes show what's playing
 function dimOutside(g, c, x0, cw, Ht, css){ const lp = c.loopNext !== undefined ? c.loopNext : loopOf(c); if (!lp) return; g.fillStyle = css('--well'); g.globalAlpha = .7;
@@ -419,7 +446,7 @@ function packSounds(){ st.cols.forEach((c, i) => { c.locked = false; setSound(c,
 /* ---------- the phone: a page at a time, picked from the tabs at the bottom ---------- */
 const SHORT = {kick: 'Kick', hats: 'Hats', perc: 'Perc', bass: 'Bass', chords: 'Chords', lead: 'Lead'};
 const mCols = h('div', {class: 'strip', id: 'mCols', 'aria-label': 'Parts'});
-function setTab(t){ document.body.dataset.tab = t; try { localStorage.setItem('studio.jam.tab', t); } catch {}
+function setTab(t){ if (t === 'play' || t === 'notes') t = 'clip'; document.body.dataset.tab = t; try { localStorage.setItem('studio.jam.tab', t); } catch {}
   document.querySelectorAll('#tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   const slot = document.querySelector(`[data-tabs~="${t}"] .mslot`); if (slot) slot.append(mCols);
   if (t === 'mix') renderMix();
@@ -429,12 +456,12 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setTab(
 // the rating row lives on the More page on a phone, under the moves elsewhere
 // on a phone the rating row and the tempo live on the More page (the rest of the time beside the moves and in the top bar)
 const phoneMQ = matchMedia('(max-width: 640px)'), placeFb = () => { const tp = document.querySelector('.tempo');
-  if (phoneMQ.matches) document.querySelector('.tempoSlot').append(tp); else { document.querySelector('.chordbox').before(tp); document.querySelector('.perform .likeslot.desk').append($('partLikes')); } };
+  if (phoneMQ.matches) document.querySelector('.tempoSlot').append(tp); else { document.querySelector('.chordbox').before(tp); document.querySelector('.card .likeslot').append($('partLikes')); } };
 phoneMQ.addEventListener?.('change', placeFb);
 function renderPhone(){ if (!PACK || !st.cols.length) return; const c = selCol();
   const sc = $('mScenes'); sc.innerHTML = ''; PACK.scenes.forEach((x, r) => sc.append(h('button', {class: 'mscene', onclick: () => scene(r)}, h('b', {}, String(r + 1)), x.name)));
   mCols.innerHTML = ''; st.cols.forEach((x, i) => { const b = h('button', {class: 'mchip', 'data-liked': liked(soundItem(x.sound)) || x.clip && liked(patternItem(x)) ? '1' : '', 'data-sel': i === st.sel ? '1' : '', 'data-on': x.clip ? '1' : '', 'data-mute': x.mute ? '1' : '', title: 'Tap to choose; hold to mute'},
-      h('b', {}, SHORT[x.role] + (x.role === 'lead' && i > 5 ? ' 2' : '')), h('span', {}, x.mute ? 'muted' : x.clipId ? (CLIP[x.clipId]?.name || 'saved clip') : '—'));
+      h('b', {}, SHORT[x.role] + (x.role === 'lead' && i > 5 ? ' 2' : '')), h('span', {}, x.mute ? 'muted' : x.clipId ? clipName(x) : '—'));
     let held = null, long = false;
     b.addEventListener('pointerdown', () => { long = false; held = setTimeout(() => { long = true; x.mute = !x.mute; macros(x); logMacro(x, 'mute', x.mute ? 1 : 0); renderCol(x); flash(`${SHORT[x.role]} ${x.mute ? 'muted' : 'back in'}`); navigator.vibrate?.(15); }, 450); });
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => clearTimeout(held));
@@ -443,7 +470,7 @@ function renderPhone(){ if (!PACK || !st.cols.length) return; const c = selCol()
   $('mMute').textContent = c.mute ? 'Muted' : 'Mute'; $('mMute').setAttribute('aria-pressed', String(!!c.mute)); $('mMute').onclick = () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderCol(c); };
   const box = $('mClips'); box.innerHTML = ''; const seen = new Set();
   PACK.scenes.forEach((x, r) => { const id = x.clips[st.sel]; if (!id || seen.has(id)) return; seen.add(id);
-    box.append(h('button', {class: 'cell', 'data-on': c.clipId === id ? '1' : '', 'data-next': c.next && c.next !== 'stop' && c.next.id === id && !c.next.keep ? '1' : '', onclick: () => launch(c, id, 0, r)}, CLIP[id].name)); });
+    box.append(h('button', {class: 'cell', 'data-on': c.clipId === id ? '1' : '', 'data-next': c.next && c.next !== 'stop' && c.next.id === id && !c.next.keep ? '1' : '', onclick: () => { if (c.clipId === id && !c.next) { setTab('clip'); return; } launch(c, id, undefined, r); }}, c.clipId === id ? clipName(c) : CLIP[id].name)); });
   box.append(h('button', {class: 'cell empty', 'data-next': c.next === 'stop' ? '1' : '', onclick: () => launch(c, null)}, '■ Stop')); }
 $('m-snap').onclick = () => saveSnap();
 
@@ -726,6 +753,7 @@ async function loadPack(id){ if (st.playing) stop();
   st.bpm = PACK.bpm; st.swing = PACK.swing; $('bpmOut').textContent = st.bpm; st.harmony = PACK.harmonies[0]; st.hNext = null; st.sel = 0;
   let chosen = []; try { chosen = JSON.parse(localStorage.getItem(soundsKey()) || '[]'); } catch {}
   st.cols = PACK.columns.map((c, i) => ({...c, ...(SND[chosen[i]] ? {sound: chosen[i], locked: true} : {}), x: X0(c.role), y: .3, motion: 0, length: 1, oct: 0, play: 0, feel: 0, echo: true, verb: true, voicing: 0, inv: 0, arp: 0, walk: false, follow: 0, vars: [], vi: 0, level: .85, mix: mixOf(c, i), clip: null, clipId: null, start: 0, ...Object.fromEntries(['feel', 'echo', 'verb', 'voicing'].filter(k => c[k] !== undefined).map(k => [k, c[k]]))}));   // (a pack can start a column on its own feel and sends)
+  { let kept = []; try { kept = JSON.parse(localStorage.getItem(clipsKey()) || '[]'); } catch {} st.cols.forEach((c, i) => c.varsBy = kept[i] || {}); }   // (what was made of its clips)
   st.mx = {...MASTER0, ...(savedMix().master || {})}; if (ctx) { for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); masterMix(); renderMix(); }
   renderPacks(); renderGrid(); renderHarmony(); scene(1); renderSel(); renderSnaps(); renderMix(); busy(); }
 function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h('span', {class: 'lab'}, 'Pack'));

@@ -68,10 +68,17 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .cell.empty{color:var(--mute); text-align:center; font-size:11px}
 .cell[data-on="1"]{background:var(--on-soft); border-color:var(--on); font-weight:600}
 .cell[data-next="1"]{border-color:var(--acc); animation:blink .5s steps(2) infinite}
-/* the performance strip */
-.perform{display:grid; grid-template-columns:minmax(260px, 380px) minmax(0, 1fr); gap:16px}
-@media (max-width:760px){.perform{grid-template-columns:1fr}}
-#pad{width:100%; aspect-ratio:1; max-width:100%; border-radius:12px; touch-action:none; cursor:crosshair; display:block}
+/* the clip card: its head, then the notes (and their tools) beside its tone and space */
+.card{display:flex; flex-direction:column; gap:12px; border-color:var(--acc)}
+.cardhead{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.cardtitle h2{margin:0; font-size:20px; line-height:1.2} .cardtitle .muted{font-size:12px}
+.cardhead .sound{min-height:36px; padding:6px 12px; font-size:13px} .cardhead .mute{min-height:36px; padding:6px 12px; font-size:13px}
+.cardbody{display:grid; grid-template-columns:minmax(0, 1fr) minmax(220px, 300px); gap:16px; align-items:start}
+.cardnotes{display:flex; flex-direction:column; gap:10px; min-width:0}
+.cardside{display:flex; flex-direction:column; gap:10px; min-width:0}
+@media (max-width:900px){.cardbody{grid-template-columns:1fr}}
+.moves .big{grid-template-columns:repeat(5, minmax(0, 1fr))}
+#pad{width:100%; aspect-ratio:1; max-width:340px; border-radius:12px; touch-action:none; cursor:crosshair; display:block}
 .side{display:flex; flex-direction:column; gap:12px; min-width:0}
 .big{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px}
 .big button{min-height:56px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600; font-size:15px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px}
@@ -176,7 +183,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   .phone{display:block !important} nav.phone{display:flex !important}
   body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
   .wrap{gap:8px}
-  body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="play"] [data-tabs]:not([data-tabs~="play"]), body[data-tab="notes"] [data-tabs]:not([data-tabs~="notes"]),
+  body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="clip"] [data-tabs]:not([data-tabs~="clip"]),
   body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]), body[data-tab="mix"] [data-tabs]:not([data-tabs~="mix"]){display:none !important}
   .gridbox,.keys{display:none !important}
   .panel{padding:10px; border-radius:12px}
@@ -211,11 +218,10 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   .mcolbar .mute{min-width:84px; min-height:44px; font-size:13px}
   #mClips{display:grid; grid-template-columns:1fr 1fr; gap:8px}
   #mClips .cell{min-height:60px; font-size:14px; padding:8px 10px}
-  /* the play and notes pages */
-  .perform{gap:10px} .perform > *, .shape > *, .mslot{min-width:0; max-width:100%}
+  /* the clip page */
+  .card{gap:10px} .card *, .mslot{min-width:0; max-width:100%} .cardhead .likeslot{flex-basis:100%} .moves .big{grid-template-columns:repeat(3, minmax(0, 1fr))}
   #pad{aspect-ratio:auto; height:min(33vh, calc(100vw - 40px))}
-  .side > .big:first-of-type{grid-template-columns:1fr 1fr}
-  .side{gap:8px} .side > div:first-child{display:none}
+  .cardside > .big{grid-template-columns:1fr 1fr}
   .big{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px}
   .big button{min-height:48px; font-size:13px; border-radius:10px; padding:4px; text-align:center}
   .big button small{display:none}
@@ -268,7 +274,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   <section class="panel" data-tabs="clips" aria-label="Harmony">
     <div class="lab phone">Harmony</div>
     <div id="harmonies" aria-label="Harmony"></div>
-    <div class="hrow"><span class="muted" id="hWords"></span><span id="harmLikes"></span></div>
+    <div class="hrow"><span class="muted" id="hWords"></span><span id="harmLikes"></span>      <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
   </section>
 
   <section class="gridbox" data-tabs="clips" aria-label="Clips"><div id="grid"></div></section>
@@ -281,55 +287,28 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div id="mClips"></div>
   </section>
 
-  <section class="panel snapsbox" data-tabs="snaps" aria-label="Snapshots">
-    <div id="ideas" hidden></div>
-    <div class="lab">Your snapshots: back on the next bar</div><div id="snaps"></div>
-    <div class="arrbox">
-      <div class="lab">Arrange: your order, played as a sketch, sent to Claude for the next round</div>
-      <div id="arr" class="strip"></div>
-      <div class="arrctl"><input id="arrNote" placeholder="Where should it go next? (your keyboard’s 🎤 dictates)" aria-label="A note for Claude"><button id="arrPlay" class="ghost">▶ Play arrangement</button><button id="arrSend">Send to Claude</button></div>
-      <div class="muted" id="arrMsg"></div>
-    </div>
-  </section>
 
-  <section class="panel perform" data-tabs="play" aria-label="Perform">
+  <!-- the clip card: everything about the chosen part's clip in one place (its name, sound, notes, loop, riff tools,
+       variants, how it's played and its tone and space) -->
+  <section class="panel card" data-tabs="clip" aria-label="The clip">
     <div class="mslot phone"></div>
-    <div class="likeslot phone"></div>
-    <div><canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas></div>
-    <div class="side">
-      <div><div class="lab">Playing with</div><h2 id="selName"></h2><div class="muted" id="selClip"></div></div>
-      <div class="big">
-        <span class="macro octbox" id="octBox"><button id="octDown" aria-label="Octave down">−</button><span>Octave <b id="octOut">0</b></span><button id="octUp" aria-label="Octave up">+</button></span><button class="macro" id="motion"></button><button class="macro" id="length"></button>
-      </div>
-      <div class="big" aria-label="Jam moves">
-        <button id="m-vary">Vary<small>V</small></button>
-        <button id="m-mutate">Mutate<small>M</small></button>
-        <button id="m-build">Build<small>B</small></button>
-        <button id="m-drop">Drop<small>D</small></button>
-        <button id="m-rep">Repeat (hold)<small>O</small></button>
-        <button id="m-harm">Next harmony<small>H</small></button>
-        <button id="m-snap" class="phone">＋ Save snapshot</button>
-      </div>
-      <div class="likeslot desk"><div id="partLikes" class="partlikes" aria-label="Like this part"></div></div>
-      <div class="keys">
-        <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
-        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
-      </div>
+    <div class="cardhead">
+      <div class="cardtitle"><div class="lab" id="cardPart"></div><h2 id="cardName"></h2><div class="muted" id="cardSub"></div></div>
+      <button class="mini" id="rename" title="Name this clip">✎ Name</button>
+      <button class="sound" id="cardSound" title="Change the sound"></button>
+      <button class="mute" id="cardMute"></button>
+      <span class="spacer"></span>
+      <div class="likeslot"><div id="partLikes" class="partlikes" aria-label="Like this part"></div></div>
     </div>
-  </section>
-
-  <section class="panel shape" data-tabs="notes" aria-label="Shape the part">
-    <div class="mslot phone"></div>
-    <div class="likeslot phone"></div>
-    <div class="shapehead"><div><div class="lab">Notes and groove</div><b id="shapeName"></b></div><span class="spacer"></span>
-      <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
+    <div class="cardbody">
+      <div class="cardnotes">
     <div id="loopRow"><canvas id="loopBar" aria-label="Loop a stretch of the clip: drag across bars"></canvas>
       <div class="looptools"><span class="muted" id="loopNow"></span><span class="spacer"></span><button class="mini" id="loopOff" title="Play the whole clip again">Loop off</button><button class="mini" id="loopCrop" title="The loop as a variant of its own, so the riff tools work on just that stretch">✂ Crop to loop</button></div></div>
     <canvas id="notes" aria-label="The chosen part's notes"></canvas>
-    <div class="big" id="xforms" aria-label="Shape the notes"></div>
     <div class="lab riffhead">Riffs <span class="muted" id="lenNow"></span></div>
     <div class="big" id="riffs" aria-label="Riff tools"></div>
     <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
+    <div class="big" id="xforms" aria-label="Shape the notes"></div>
     <div class="big" id="grooveRow" aria-label="Groove and space">
       <button class="macro" id="feel" title="How this part grooves (F)"></button>
       <button class="macro" id="playB" title="A player improvising on this part: notes left out, ghost notes, fills, the loudness moving (P)"></button>
@@ -338,6 +317,41 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <button class="macro" id="verbOn" title="This part into the reverb (K)"></button>
       <button class="macro" id="throw" title="Hold: everything this part plays goes into the echo; let go and it rings on (hold J)">Throw (hold)<small>J</small></button>
       <button class="macro" id="echoTime" title="The echo's time, for every part"></button>
+    </div>
+      </div>
+      <div class="cardside">
+        <canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas>
+        <div class="big">
+          <span class="macro octbox" id="octBox"><button id="octDown" aria-label="Octave down">−</button><span>Octave <b id="octOut">0</b></span><button id="octUp" aria-label="Octave up">+</button></span><button class="macro" id="motion"></button><button class="macro" id="length"></button>
+          <button class="macro" id="m-vary">Vary<small>V</small></button><button class="macro" id="m-mutate">Mutate<small>M</small></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the jam's own moves (not one clip's) -->
+  <section class="panel moves" data-tabs="clips" aria-label="Jam moves">
+    <div class="big" aria-label="Jam moves">
+      <button id="m-build">Build<small>B</small></button>
+      <button id="m-drop">Drop<small>D</small></button>
+      <button id="m-rep">Repeat (hold)<small>O</small></button>
+      <button id="m-harm">Next harmony<small>H</small></button>
+      <button id="m-snap">＋ Save snapshot<small>S</small></button>
+    </div>
+    <div class="keys">
+        <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
+        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
+    </div>
+  </section>
+
+  <section class="panel snapsbox" data-tabs="snaps" aria-label="Snapshots">
+    <div id="ideas" hidden></div>
+    <div class="lab">Your snapshots: back on the next bar</div><div id="snaps"></div>
+    <div class="arrbox">
+      <div class="lab">Arrange: your order, played as a sketch, sent to Claude for the next round</div>
+      <div id="arr" class="strip"></div>
+      <div class="arrctl"><input id="arrNote" placeholder="Where should it go next? (your keyboard’s 🎤 dictates)" aria-label="A note for Claude"><button id="arrPlay" class="ghost">▶ Play arrangement</button><button id="arrSend">Send to Claude</button></div>
+      <div class="muted" id="arrMsg"></div>
     </div>
   </section>
 
@@ -367,7 +381,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   </div>
 </div>
 <nav id="tabs" class="phone" aria-label="Pages">
-  <button data-tab="clips">Clips</button><button data-tab="play">Play</button><button data-tab="notes">Notes</button><button data-tab="mix">Mix</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+  <button data-tab="clips">Clips</button><button data-tab="clip">Clip</button><button data-tab="mix">Mix</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
 </nav>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script>/*APP*/</script>
