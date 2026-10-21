@@ -38,12 +38,17 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
   d.meters = {master: meter(out)}; d.reads = [];
 
   d.master = {in: sum, trim: trim.gain, out: out.gain};
-  // the master as a jam's mixer set it: shelves, width before the glue, the glue's setting, the volume after the limiter
+  // the master as a jam's mixer set it: shelves, width before the glue, the glue's setting, the volume after the limiter;
+  // `at` holds the changes made during the take ([bar, {lo, hi, width, glue, vol}]), each set on its bar
   d.masterSet = (o = {}) => { if (raw) return; sum.disconnect(); let at = sum; const link = n => { at.connect(n.input || n); at = n.output || n; };
-    if (o.lo) { const f = bq(ctx, 'lowshelf', 110, .7); f.gain.value = o.lo; link(f); } if (o.hi) { const f = bq(ctx, 'highshelf', 7000, .7); f.gain.value = o.hi; link(f); }
-    if (o.width != null && o.width !== 1) { const w = widthFx.make(ctx); w.set('w', o.width); w.set('mono', 150); link(w); }
-    link(glue); if (o.glue === null) { glue.threshold.value = 0; glue.ratio.value = 1; } else if (o.glue) { glue.threshold.value = o.glue.thr; glue.ratio.value = o.glue.ratio; glue.attack.value = o.glue.att; glue.release.value = o.glue.rel; }
-    if (o.vol) out.gain.value = Math.pow(10, o.vol/20); };
+    const ch = o.at || [], any = (k, off) => (o[k] != null && o[k] !== off) || ch.some(([, x]) => x[k] != null && x[k] !== off);
+    const lo = any('lo', 0) && bq(ctx, 'lowshelf', 110, .7), hi = any('hi', 0) && bq(ctx, 'highshelf', 7000, .7), w = any('width', 1) && widthFx.make(ctx);
+    if (lo) link(lo); if (hi) link(hi); if (w) { w.set('mono', 150); link(w); } link(glue);
+    const set = (x, t) => { if (lo && x.lo != null) lo.gain.setValueAtTime(x.lo, t); if (hi && x.hi != null) hi.gain.setValueAtTime(x.hi, t); if (w && x.width != null) w.at('w', x.width, t);
+      if (x.glue === null) { glue.threshold.setValueAtTime(0, t); glue.ratio.setValueAtTime(1, t); }
+      else if (x.glue) { glue.threshold.setValueAtTime(x.glue.thr, t); glue.ratio.setValueAtTime(x.glue.ratio, t); glue.attack.setValueAtTime(x.glue.att, t); glue.release.setValueAtTime(x.glue.rel, t); }
+      if (x.vol != null) out.gain.setValueAtTime(Math.pow(10, x.vol/20), t); };
+    set({width: 1, ...o}, 0); for (const [bar, x] of ch) set(x, d.t(bar)); };
 
   /* ---------- the returns: an echo and a reverb, each a bus of its own (so they can pump too) ---------- */
   const ret = (name, fx, set) => { const f = fx.make(ctx, env); for (const [k, v] of Object.entries(set)) f.set(k, v); f.tick?.(0); f.now?.(); return f; };
@@ -164,9 +169,11 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
   d.solo = names => { for (const [k, b] of Object.entries(d.buses)) if (!names.includes(k) && k !== 'echo' && k !== 'verb') b.lvl.disconnect(); };
   d.finish = () => {
     const ks = [...d.kicks].sort((a, b) => a - b);
-    for (const b of Object.values(d.buses)) { if (!b.pump) continue; const p = b.duck.gain, depth = b.pump.depth ?? .6, rel = (b.pump.rel ?? .5)*beat;
+    for (const b of Object.values(d.buses)) { if (!b.pump) continue; const p = b.duck.gain, rel = (b.pump.rel ?? .5)*beat;
+      // the depth can change on bars (`at`: [bar, depth], a jam's Duck button during the take)
+      const steps = (b.pump.at || []).map(([bar, v]) => [d.t(bar), v]).sort((x, y) => x[0] - y[0]); let depth = b.pump.depth ?? .6, si = 0;
       p.setValueAtTime(1, 0);
-      for (const t of ks) { p.setTargetAtTime(1 - depth, t, .004); p.setTargetAtTime(1, t + .02, rel/3); } }
+      for (const t of ks) { while (si < steps.length && steps[si][0] <= t) depth = steps[si++][1]; if (!depth) continue; p.setTargetAtTime(1 - depth, t, .004); p.setTargetAtTime(1, t + .02, rel/3); } }
   };
   return d;
 }

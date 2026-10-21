@@ -167,6 +167,8 @@ function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math
   $('takeNote').textContent = r.notes.length ? `Take: ${r.bars} bars, ${r.notes.length} notes. Keep it for Claude to render, or record again.` : 'Nothing was recorded.'; }
 let lastTake = null; window.__jamTake = () => lastTake && {...lastTake, columns: st.cols.map(c => ({id: c.id, role: c.role}))};   // (for tests)
 const logMacro = (c, k, v) => st.rec?.macros.push([Math.max(0, st.step - st.rec.from), c.id, k, +(+v).toFixed(3)]);
+// a master change, on the '*' column
+const logMaster = (k, v) => st.rec?.macros.push([Math.max(0, st.step - st.rec.from), '*', 'master.' + k, v]);
 
 /* ---------- the page ---------- */
 function renderGrid(){ const g = $('grid'); g.innerHTML = ''; g.style.setProperty('--cols', st.cols.length);
@@ -339,7 +341,7 @@ const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(S
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1;
   return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), name: `Snap ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: (st.hNext || st.harmony).id, at: new Date().toISOString(),
     cols: st.cols.map(c => { const cl = c.next === 'stop' ? null : c.next ? c.next : c.clipId ? {id: c.clipId, clip: c.clip, var: c.var} : null;
-      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), vars: (c.vars || []).map(v => v.steps), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
+      return {role: c.role, sound: c.sound, locked: !!c.locked, x: +c.x.toFixed(3), y: +c.y.toFixed(3), motion: c.motion, length: c.length, oct: c.oct || 0, mute: !!c.mute, ...Object.fromEntries(SNAP_FIELDS.map(k => [k, c[k]])), mix: {...c.mix, solo: false}, vars: (c.vars || []).map(v => v.steps), made: (c.vars || []).map(v => v.made || null), vi: c.vi || 0,
         clip: cl && {id: cl.id, var: cl.var || 0, len: cl.clip.len, steps: cl.clip.steps}}; })}; }
 async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x); storeSnaps(); snapOn = x.id; renderSnaps(); flash('Saved ' + x.name);
   if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
@@ -384,7 +386,7 @@ const fmtDb = v => v <= -40 ? '−∞' : (v > 0 ? '+' : v < 0 ? '−' : '') + Ma
 const fmtPan = v => Math.abs(v) < .01 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100);
 // a change from the mixer: applied, remembered, recorded (master changes on the '*' column)
 function mixSet(c, k, v){ if (c) { c.mix[k] = v; if (k === 'solo') st.cols.forEach(macros); else macros(c); logMacro(c, 'mix.' + k, typeof v === 'boolean' ? +v : v); }
-  else { st.mx[k] = v; masterMix(); if (st.rec) st.rec.macros.push([Math.max(0, st.step - st.rec.from), '*', 'master.' + k, v]); }
+  else { st.mx[k] = v; masterMix(); logMaster(k, v); }
   storeMix(); renderMix(); }
 // a fader: drag up and down (mouse or finger), − and + for 1.5 dB steps, a double tap back to 0 dB
 const faderPos = v => v <= -40 ? 0 : Math.pow((v + 40)/46, 1.6), faderVal = p => p <= .01 ? -40 : Math.round((Math.pow(p, 1/1.6)*46 - 40)*2)/2;
@@ -400,7 +402,7 @@ function fader(val, set){ const track = h('div', {class: 'ftrack', role: 'slider
 const step = (lab, txt, dn, up) => h('div', {class: 'mstep'}, h('span', {class: 'lab'}, lab), h('button', {class: 'mini', 'aria-label': lab + ' down', onclick: dn}, '−'), h('b', {}, txt), h('button', {class: 'mini', 'aria-label': lab + ' up', onclick: up}, '+'));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 let meters = [];
-function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) return; box.innerHTML = ''; meters = [];
+function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) return; const fi = [...box.querySelectorAll('.ftrack')].indexOf(document.activeElement); box.innerHTML = ''; meters = [];
   st.cols.forEach((c, i) => { const M = c.mix, f = fader(M.vol, (v, live, end) => { if (live) { c.mix.vol = v; macros(c); f.setAttribute('aria-valuenow', String(v)); f.parentNode.querySelector('.fval').textContent = fmtDb(v); } else { if (end) logMacro(c, 'mix.vol', c.mix.vol); if (!end) mixSet(c, 'vol', v); else { storeMix(); } } });
     meters.push([c.ch?.meter, f.meter]);
     box.append(h('div', {class: 'mstrip', 'data-sel': i === st.sel ? '1' : ''},
@@ -412,14 +414,15 @@ function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) retur
       step('Pan', fmtPan(M.pan), () => mixSet(c, 'pan', clamp(Math.round((M.pan - .25)*4)/4, -1, 1)), () => mixSet(c, 'pan', clamp(Math.round((M.pan + .25)*4)/4, -1, 1))),
       ...[['lo', 'Low'], ['mid', 'Mid'], ['hi', 'High']].map(([k, lab]) => step(lab, (M[k] > 0 ? '+' : '') + M[k], () => mixSet(c, k, clamp(M[k] - 1.5, -15, 9)), () => mixSet(c, k, clamp(M[k] + 1.5, -15, 9)))),
       c.role === 'kick' ? h('span', {class: 'muted sidenote'}, 'drives the duck') : h('button', {class: 'mini duckb', title: 'How far the kick ducks this part (sidechain)', onclick: () => mixSet(c, 'duck', (M.duck + 1) % DUCKS.length)}, 'Duck: ' + DUCKS[M.duck][0]))); });
-  const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = fmtDb(v); } else if (!end) mixSet(null, 'vol', v); else storeMix(); });
+  const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = fmtDb(v); } else if (!end) mixSet(null, 'vol', v); else { logMaster('vol', st.mx.vol); storeMix(); } });
   meters.push([mstr?.meter, mf.meter]);
   box.append(h('div', {class: 'mstrip master'}, h('div', {class: 'sname'}, h('b', {}, 'Master'), h('span', {}, 'limiter always on')), mf, h('span', {class: 'fval'}, fmtDb(X.vol)),
     h('div', {class: 'mrow'}, h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol + 1.5, -40, 6))}, '+')),
     h('button', {class: 'mini duckb', title: 'The glue compressor on the whole mix', onclick: () => mixSet(null, 'glue', (X.glue + 1) % GLUE.length)}, 'Glue: ' + GLUE[X.glue][0]),
     h('button', {class: 'mini duckb', title: 'Stereo width (the bass stays mono)', onclick: () => mixSet(null, 'width', (X.width + 1) % WIDTHS.length)}, 'Width: ' + WIDTHS[X.width][0]),
     ...[['lo', 'Low'], ['hi', 'High']].map(([k, lab]) => step(lab, (X[k] > 0 ? '+' : '') + X[k], () => mixSet(null, k, clamp(X[k] - 1.5, -12, 6)), () => mixSet(null, k, clamp(X[k] + 1.5, -12, 6)))),
-    h('button', {class: 'mini duckb', onclick: () => { st.cols.forEach((c, i) => { c.mix = {...mixOf({role: c.role}, i), vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false}; macros(c); }); st.mx = {...MASTER0}; masterMix(); storeMix(); renderMix(); flash('Mix reset'); }}, 'Reset mix'))); }
+    h('button', {class: 'mini duckb', onclick: () => { st.cols.forEach((c, i) => { c.mix = {...mixOf({role: c.role}, i), vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false}; macros(c); }); st.mx = {...MASTER0}; masterMix(); storeMix(); renderMix(); flash('Mix reset'); }}, 'Reset mix')));
+  if (fi >= 0) box.querySelectorAll('.ftrack')[fi]?.focus(); }
 // the meters: each fader's peak, while the mixer shows
 const buf = new Float32Array(1024);
 (function meterLoop(){ requestAnimationFrame(meterLoop); if (!ctx || !st.playing || !meters.length || (phoneMQ.matches && document.body.dataset.tab !== 'mix')) return;
@@ -454,8 +457,10 @@ function likeBar(it, o = {}){ const id = likeId(it), box = h('span', {class: 'li
 function paintLike(box){ const L = LIKES[box.dataset.like]; box.querySelector('.up')?.setAttribute('aria-pressed', String(L?.rating === 1)); box.querySelector('.dn')?.setAttribute('aria-pressed', String(L?.rating === -1));
   const nt = box.querySelector('.nt'); if (nt) nt.dataset.has = L?.note ? '1' : ''; }
 function likesChanged(id){ document.querySelectorAll('.likebar').forEach(b => b.dataset.like === id && paintLike(b)); renderPhone(); renderHarmony(); if (document.body.dataset.tab === 'likes' || !phoneMQ.matches) renderLikes(); }
-async function saveLike(id, L){ if (L) LIKES[id] = L; else delete LIKES[id]; storeLikes(); likesChanged(id);
-  if (db) try { if (L) await db.collection('likes').doc(id).set(L); else await db.collection('likes').doc(id).delete(); } catch (err) { flash('Kept on this device only (' + (err.code || err.message) + ')'); } }
+// a cleared like stays as a marker (`cleared`, with its time), so neither an older copy on another device or in the
+// database nor the old ratings bring it back
+async function saveLike(id, L){ LIKES[id] = L || {cleared: true, at: new Date().toISOString()}; storeLikes(); likesChanged(id);
+  if (db) try { await db.collection('likes').doc(id).set(LIKES[id]); } catch (err) { flash('Kept on this device only (' + (err.code || err.message) + ')'); } }
 function setLike(it, r){ const id = likeId(it), cur = LIKES[id], rating = cur?.rating === r ? 0 : r;
   if (!rating && !cur?.note) saveLike(id, null); else saveLike(id, {kind: it.kind, key: it.key, name: it.name, sum: it.sum || '', data: it.data || {}, rating, note: cur?.note || '', at: new Date().toISOString()});
   flash(rating === 1 ? `👍 ${it.name}` : rating === -1 ? `👎 ${it.name}` : `Cleared: ${it.name}`); }
@@ -473,7 +478,7 @@ function renderPartLikes(){ const box = $('partLikes'), c = selCol(); if (!box |
 const KIND_NAMES = {sound: 'Sound', pattern: 'Pattern', settings: 'Settings', harmony: 'Harmony', idea: 'Idea', snap: 'Snapshot'};
 const FILTERS = [['all', 'All'], ['sound', 'Sounds'], ['pattern', 'Patterns'], ['settings', 'Settings'], ['harmony', 'Harmonies'], ['snaps', 'Ideas & snapshots'], ['notes', 'Notes'], ['down', '👎']];
 const inFilter = (L, f) => f === 'all' ? L.rating >= 0 : f === 'down' ? L.rating === -1 : f === 'notes' ? !!L.note : f === 'snaps' ? (L.kind === 'idea' || L.kind === 'snap') && L.rating >= 0 : L.kind === f && L.rating >= 0;
-function renderLikes(){ const fl = $('likeFilters'), list = $('likeList'); if (!fl) return; const all = Object.entries(LIKES), q = $('likeSearch').value.trim().toLowerCase();
+function renderLikes(){ const fl = $('likeFilters'), list = $('likeList'); if (!fl) return; const all = Object.entries(LIKES).filter(([, L]) => !L.cleared), q = $('likeSearch').value.trim().toLowerCase();
   fl.innerHTML = ''; for (const [k, lab] of FILTERS) { const n = all.filter(([, L]) => inFilter(L, k)).length; fl.append(h('button', {class: 'lchip', 'data-on': likeFilter === k ? '1' : '', onclick: () => { likeFilter = k; renderLikes(); }}, lab, h('small', {}, String(n)))); }
   list.innerHTML = ''; const items = all.filter(([, L]) => inFilter(L, likeFilter) && (!q || (L.name + ' ' + (L.note || '') + ' ' + (L.sum || '')).toLowerCase().includes(q))).sort((a, b) => a[1].at < b[1].at ? 1 : -1);
   if (!items.length) list.append(h('span', {class: 'muted'}, all.length ? 'Nothing here yet.' : 'Nothing liked yet. Tap 👍 on a sound, a pattern, its settings or a harmony as you play, and it gathers here.'));
@@ -497,7 +502,10 @@ function useLike(L){ const d = L.data || {};
   if (!st.playing) { c.clip = clip; c.clipId = base.id; c.var = c.vi; c.row = c.nextRow; delete c.next; c.start = 0; }
   renderCol(c); renderSel(); flash((st.playing ? 'Next bar: ' : '') + L.name); }
 async function loadLikes(){ if (!db) return;
-  try { const q = await db.collection('likes').get(); for (const d of q.docs) { const L = d.data(); if (L && (!LIKES[d.id] || LIKES[d.id].at <= L.at)) LIKES[d.id] = L; }
+  try { const q = await db.collection('likes').get(), there = {};
+    for (const d of q.docs) { const L = d.data(); if (!L) continue; there[d.id] = L.at; if (!LIKES[d.id] || LIKES[d.id].at <= L.at) LIKES[d.id] = L; }
+    // what changed here while the database couldn't be written (a like or a clear), sent now
+    for (const [id, L] of Object.entries(LIKES)) if (!there[id] || there[id] < L.at) try { await db.collection('likes').doc(id).set(L); } catch {}
     // the ratings given before likes stayed lit: the latest for each thing, brought in once
     const fb = await db.collection('feedback').get(), rows = fb.docs.map(d => d.data()).filter(Boolean).sort((a, b) => a.at < b.at ? -1 : 1), latest = {};
     for (const r of rows) latest[(r.kind === 'clip' ? 'pattern' : r.kind) + ':' + r.id] = r;
