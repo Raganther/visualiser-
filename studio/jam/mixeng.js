@@ -3,17 +3,19 @@
 // reverb) while 600 Hz–2.5 kHz was nearly empty, and the bass sat 12 dB under the kick in its own range with nothing above
 // it. So: a high-pass on every part, the kick and the bass each given their own range (the kick 50–70 Hz, the bass 80–160),
 // the low-mid box taken out of the kick and the mallets, an exciter (the part rectified: even harmonics, warm, at a level
-// that doesn't depend on how loud it plays) giving the bass and the mallets something in the middle, the reverb and echo
+// that doesn't depend on how loud it plays) giving the bass something in the middle, the mallets lifted where they speak, the reverb and echo
 // kept out of the low end, and the kick ducking the returns a little so the space breathes with it. Used by the jam's
 // channels (app.js) and the desk (render-jam.mjs), so a take renders as it was heard.
 export const ENG = {
   kick: {hp: 28, bells: [[140, 1.2, -3], [350, 1, -3]]},
   hats: {hp: 300, bells: [[5000, 1, -1]], air: [12000, 2]},
   perc: {hp: 70, bells: [[2500, .8, 2]]},
-  bass: {hp: 35, ex: [400, 2500, .5], trim: 3},
-  chords: {hp: 180, bells: [[350, 1, -2]], ex: [800, 5000, .3]},
-  lead: {hp: 150, bells: [[380, 1, -3], [1800, .8, 4]], ex: [700, 5000, .6]},
-  lead2: {hp: 120, bells: [[300, 1, -3], [1400, .8, 4]], ex: [600, 4000, .6], trim: 1},
+  // (the exciter only on the bass, a single line, and lightly: on chords and ringing mallets it made intermodulation that
+  // sounded like clipping, and at .5 it doubled the bass's peaks)
+  bass: {hp: 35, ex: [400, 1800, .2], trim: 3},
+  chords: {hp: 180, bells: [[350, 1, -2], [3000, .7, 2]]},
+  lead: {hp: 150, bells: [[380, 1, -3], [2000, .7, 4]]},
+  lead2: {hp: 120, bells: [[300, 1, -3], [1400, .7, 4]], trim: 1},
 };
 // the returns: kept out of the low end and the very top, and ducked a little by the kick
 export const RET = {verb: {hp: 350, lp: 8000, duck: .25}, echo: {hp: 300, lp: 6000, duck: .25}};

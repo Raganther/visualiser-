@@ -81,3 +81,6 @@ before writing or changing a piece; add to it when they react.
   (`studio/jam/mixeng.js`, on by default, A or the Mix button for the plain one): high-passes, the kick 50–70 Hz and the
   bass 80–160, the kick's and mallets' low-mid box cut, an exciter (even harmonics) on the bass, mallets and strings, the
   returns kept out of the low end and ducked a little by the kick. Same loudness, for a fair A/B.
+- 2026-10-22: Claude's mix "clipping": the recordings had no overs (peaks .82), so it was the exciter: rectifying chords and
+  ringing mallets makes intermodulation that sounds like distortion, and at .5 it doubled the bass's peaks. Now only on the
+  bass, at .2; the mallets and strings get presence bells instead. The three songs exported as MP3s for listening.

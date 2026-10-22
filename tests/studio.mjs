@@ -224,7 +224,7 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
       const x = (await d.render()).getChannelData(0); let s = 0; for (let i = SR/2; i < x.length; i++) s += x[i]*x[i]; return 10*Math.log10(s + 1e-12); };
     return {b0, b1, k0, k1, l0, l1, v0: await verbLow(false), v1: await verbLow(true)}; });
   check('Claude\'s mix off passes a part unchanged', Math.abs(e.b0.f - 20*Math.log10(.3)) < .3 && Math.abs(e.l0.f - e.l1.f) > 0 && Math.abs(e.k0.f - 20*Math.log10(.3)) < .3, `${e.b0.f.toFixed(1)} dB`);
-  check('on, the bass is lifted and gains harmonics above its note', e.b1.f - e.b0.f > 2 && e.b1.h - e.b0.h > 30 && e.b1.h > e.b1.f - 30, `+${(e.b1.f - e.b0.f).toFixed(1)} dB, harmonics ${e.b0.h.toFixed(0)} → ${e.b1.h.toFixed(0)} dB`);
+  check('on, the bass is lifted and gains harmonics above its note', e.b1.f - e.b0.f > 2 && e.b1.h - e.b0.h > 30 && e.b1.h > e.b1.f - 45 && e.b1.h < e.b1.f - 15, `+${(e.b1.f - e.b0.f).toFixed(1)} dB, harmonics ${e.b0.h.toFixed(0)} → ${e.b1.h.toFixed(0)} dB`);
   check('on, the kick is dipped where the bass sits, the lead\'s low-mid box cut', e.k1.f - e.k0.f < -2 && e.l1.f - e.l0.f < -.5, `kick 140 Hz ${(e.k1.f - e.k0.f).toFixed(1)} dB, lead 300 Hz ${(e.l1.f - e.l0.f).toFixed(1)} dB`);
   check('on the desk, the reverb return loses its low end', e.v0 - e.v1 > 10, `${(e.v0 - e.v1).toFixed(1)} dB less at 120 Hz`); }
 // the A/B in the jam's page: the button and A switch it, and it's remembered
