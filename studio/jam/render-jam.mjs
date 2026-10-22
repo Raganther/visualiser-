@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { nativeSet, cutOf, LEN, X0, ECHO } from './model.js';
+import { engOf, RET } from './mixeng.js';
 // the jam's mixer (as app.js has them): how far the kick ducks each part, the master's glue and width
 const DUCKS = [0, .25, .4, .65], GLUE = [null, {thr: -14, ratio: 1.8, att: .03, rel: .25}, {thr: -20, ratio: 3, att: .01, rel: .2}, {thr: -24, ratio: 4, att: .03, rel: .12}], WIDTHS = [0, .6, 1, 1.35, 1.7];
 import { NATIVE_OF, SOUNDS as PAL } from '../lib/palette.js';
@@ -52,10 +53,13 @@ export function jamSession(J){
   }
   until(Infinity);   // the changes after the last note too
   const bars = (J.bars || Math.ceil((J.notes.at(-1)?.[0] || 0)/16)) + 2;
-  const ops = [['returns', {delay: {div: ECHO[J.echoDiv || 0][2], fb: .45, tone: 2400}, reverb: {size: .78, damp: .65, low: 240}, echoDb: -1, verbDb: 2}]];
+  // Claude's mix, if the take was made with it on (mixeng.js): each part's chain, the returns filtered and ducked a little
+  const E = J.eng === true, ops = [['returns', {delay: {div: ECHO[J.echoDiv || 0][2], fb: .45, tone: 2400}, reverb: {size: .78, damp: .65, low: 240}, echoDb: -1, verbDb: 2,
+    ...(E ? {eng: RET, echoPump: {depth: RET.echo.duck, rel: .6}, verbPump: {depth: RET.verb.duck, rel: .6}} : {})}]];
   ops.push(['master', {lo: MX.lo, hi: MX.hi, width: WIDTHS[MX.width], glue: GLUE[MX.glue], vol: MX.vol, at: MXat}]);
   for (const c of J.columns) { const r = c.role, m = MIX0(c, J.columns.indexOf(c)), depth = r === 'kick' ? 0 : DUCKS[m.duck], dat = r === 'kick' ? [] : DUCKat[c.id];
-    ops.push(['bus', c.id, {level: 0, filter: {cut: cutOf(X0(r)), q: 1.2}, eq: {lo: m.lo, mid: m.mid, hi: m.hi}, a: -6, b: -4, ...(depth || dat.some(([, v]) => v) ? {pump: {depth, rel: .4, ...(dat.length ? {at: dat} : {})}} : {}), ...(['chords', 'lead'].includes(r) ? {width: 1.3} : {})}]);
+    const lane = J.columns.filter(x => x.role === r).indexOf(c);
+    ops.push(['bus', c.id, {level: 0, ...(E ? {eng: engOf(r, lane)} : {}), filter: {cut: cutOf(X0(r)), q: 1.2}, eq: {lo: m.lo, mid: m.mid, hi: m.hi}, a: -6, b: -4, ...(depth || dat.some(([, v]) => v) ? {pump: {depth, rel: .4, ...(dat.length ? {at: dat} : {})}} : {}), ...(['chords', 'lead'].includes(r) ? {width: 1.3} : {})}]);
     const A = auto[c.id]; for (const [p, pts] of Object.entries(A)) if (pts.length > 1 || p !== 'cut') ops.push(['ramp', {bus: c.id, p}, pts, p === 'cut' ? {exp: true} : {}]); }
   for (const t of tracks.values()) ops.push(['inst', t.id]);
   return {format: 'studio-session', v: 1, meta: {title: J.name || 'Jam', bpm: J.bpm, bars, swing: J.swing || 0, seed: 1, version: 1, key: 'a jam', words: `A jam from Studio Jam${J.note ? `: “${J.note}”` : ''}.`, from: 'jam'},

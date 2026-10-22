@@ -30,6 +30,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .top{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center}
 #play,#rec{height:46px; border:0; border-radius:23px; font-weight:600; padding:0 22px}
 #play{background:var(--on); color:#fff; min-width:96px}
+#engAB{min-height:36px; font-size:13px} #engAB[aria-pressed="true"]{background:var(--acc); color:#fff; border-color:var(--acc)}
 #play[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
 #rec{background:transparent; border:2px solid var(--rec); color:var(--rec)}
 #rec[aria-pressed="true"]{background:var(--rec); color:#fff}
@@ -309,6 +310,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <div><div class="lab">Studio · jam</div><h1>Studio Jam</h1></div>
       <button id="play" aria-pressed="false">Play</button>
       <button id="rec" aria-pressed="false">●<span class="long"> Record</span></button>
+      <button id="engAB" class="mini" aria-pressed="true" title="Claude’s mix (each part carved and enriched) or the plain one: A">Mix: Claude’s</button>
       <div class="tempo"><button id="bpmDown" aria-label="Slower">−</button><span id="bpmOut">124</span><button id="bpmUp" aria-label="Faster">+</button><span class="lab">BPM</span></div>
       <div class="chordbox"><span id="chordNow">—</span><span class="lab" id="barNow"></span></div>
       <span class="spacer"></span>

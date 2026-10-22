@@ -9,6 +9,7 @@ import chorusFx from '../../src/audio/engine/fx/chorus.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { bq, two } from '../../src/audio/engine/fx/kit.js';
 import { NATIVE, noteBuffers } from './native/index.js';
+import { engChain, retChain } from '../jam/mixeng.js';
 
 const db = v => Math.pow(10, v/20);
 // a seeded random (lib/rng.js; the kit's own variation reads Math.random, which render.mjs seeds too)
@@ -55,7 +56,9 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
   d.returns = (o = {}) => {
     const dl = ret('delay', delayFx, {mix: 1, div: 6, fb: .42, tone: 2400, ping: 1, ...o.delay}), rv = ret('reverb', reverbFx, {mix: 1, kind: 0, size: .7, damp: .6, low: 220, pre: .02, ...o.reverb});
     const A = d.bus('echo', {level: o.echoDb ?? -6, pump: o.echoPump}), B = d.bus('verb', {level: o.verbDb ?? -6, pump: o.verbPump, width: o.verbWidth});
-    A.fxIn = dl.input; dl.output.connect(A.in); B.fxIn = rv.input; rv.output.connect(B.in);
+    // (Claude's mix from a jam: the returns kept out of the low end, jam/mixeng.js)
+    const out = (f, bus, r) => { if (!r) return f.output.connect(bus.in); const c = retChain(ctx, r); c.on(true, 0, .001); f.output.connect(c.input); c.output.connect(bus.in); };
+    A.fxIn = dl.input; out(dl, A, o.eng?.echo); B.fxIn = rv.input; out(rv, B, o.eng?.verb);
     d.sendA = dl.input; d.sendB = rv.input; return d;
   };
 
@@ -69,6 +72,8 @@ export function desk(ctx, {bpm, swing = 0, seed = 1, raw = false, t0 = 0, meters
   d.bus = (name, o = {}) => {
     const b = {name, in: two(ctx)}; let at = b.in;
     const link = n => { at.connect(n.input || n); at = n.output || n; };
+    // Claude's mix from a jam (jam/mixeng.js): the part's own carving ahead of everything else
+    if (o.eng) { b.eng = engChain(ctx, o.eng); b.eng.on(true, 0, .001); link(b.eng); }
     b.filter = bq(ctx, o.filter?.type || 'lowpass', o.filter?.cut ?? 20000, o.filter?.q ?? .7); link(b.filter);
     if (o.hp) { b.hp = bq(ctx, 'highpass', o.hp, .7); link(b.hp); }
     // a three-band EQ (a jam's mixer): low shelf, a bell in the middle, high shelf, each in dB

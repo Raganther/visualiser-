@@ -5,7 +5,7 @@
 // too), that session's master and duck automation heard in an offline render on the desk, parts (a clip taken apart into
 // its rhythm and notes and put together again; mixed: notes going round a rhythm of another length, a hats rhythm on the
 // bass; the tools), the part card in the page (names, the library, editing, undo, a scene, a reload),
-// and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
+// Claude's mix (each part's chain off and on, the returns on the desk, the A/B in the page), and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
 // page: a chord held, a progression written, played and saved, the library in a key, a snapshot bringing it back).
 import { serve, launch } from './lib.mjs';
 import { vlChain, rungFrom, invert, XFORMS, mutate, feelAt, FEELS, chordOf } from '../studio/jam/model.js';
@@ -208,6 +208,31 @@ const r = await page.evaluate(async () => {
 check('the master\'s volume drops 12 dB on its bar', Math.abs(r.db + 12) < 1, r.db.toFixed(2) + ' dB');
 check('the master goes mono on its bar', r.sideBefore > .3 && r.sideAfter < .02, `side/mid ${r.sideBefore.toFixed(3)} → ${r.sideAfter.toFixed(3)}`);
 check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r.dip0.toFixed(2)} → ${r.dip1.toFixed(2)}`);
+// Claude's mix (studio/jam/mixeng.js), rendered offline: off it passes the sound unchanged; on, the bass is lifted and given
+// harmonics above its notes, the kick's low-mid dipped to make room for it; on the desk the returns lose their low end
+{ const e = await page.evaluate(async () => {
+    const {engChain, engOf, RET} = await import('/studio/jam/mixeng.js'), {desk} = await import('/studio/lib/desk.js'), SR = 22050;
+    // a tone through a part's chain: its level at f, and how much lies at the harmonics h
+    const tone = async (role, f, on, hs = []) => { const ctx = new OfflineAudioContext(1, SR, SR), o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.value = .3;
+      const c = engChain(ctx, engOf(role)); c.on(on, 0, .001); o.connect(g); g.connect(c.input); c.output.connect(ctx.destination); o.start(0); const x = (await ctx.startRendering()).getChannelData(0).subarray(SR/2);
+      const at = q => { let re = 0, im = 0; for (let i = 0; i < x.length; i++) { re += x[i]*Math.cos(2*Math.PI*q*i/SR); im += x[i]*Math.sin(2*Math.PI*q*i/SR); } return 20*Math.log10(Math.hypot(re, im)*2/x.length + 1e-9); };
+      return {f: at(f), h: Math.max(...hs.map(at), -200)}; };
+    const b0 = await tone('bass', 110, false, [440, 660, 880]), b1 = await tone('bass', 110, true, [440, 660, 880]), k0 = await tone('kick', 140, false), k1 = await tone('kick', 140, true), l0 = await tone('lead', 300, false), l1 = await tone('lead', 300, true);
+    // the desk: a 120 Hz tone sent to the reverb, with and without Claude's mix on the returns
+    const verbLow = async eng => { const ctx = new OfflineAudioContext(2, SR*2, SR), d = desk(ctx, {bpm: 120, meters: false}); d.returns(eng ? {eng: RET} : {});
+      const o = ctx.createOscillator(), g = ctx.createGain(); g.gain.value = .3; o.frequency.value = 120; o.connect(g); g.connect(d.sendB); o.start(0); o.stop(1); d.masterSet({glue: null}); d.finish();
+      const x = (await d.render()).getChannelData(0); let s = 0; for (let i = SR/2; i < x.length; i++) s += x[i]*x[i]; return 10*Math.log10(s + 1e-12); };
+    return {b0, b1, k0, k1, l0, l1, v0: await verbLow(false), v1: await verbLow(true)}; });
+  check('Claude\'s mix off passes a part unchanged', Math.abs(e.b0.f - 20*Math.log10(.3)) < .3 && Math.abs(e.l0.f - e.l1.f) > 0 && Math.abs(e.k0.f - 20*Math.log10(.3)) < .3, `${e.b0.f.toFixed(1)} dB`);
+  check('on, the bass is lifted and gains harmonics above its note', e.b1.f - e.b0.f > 2 && e.b1.h - e.b0.h > 30 && e.b1.h > e.b1.f - 30, `+${(e.b1.f - e.b0.f).toFixed(1)} dB, harmonics ${e.b0.h.toFixed(0)} → ${e.b1.h.toFixed(0)} dB`);
+  check('on, the kick is dipped where the bass sits, the lead\'s low-mid box cut', e.k1.f - e.k0.f < -2 && e.l1.f - e.l0.f < -.5, `kick 140 Hz ${(e.k1.f - e.k0.f).toFixed(1)} dB, lead 300 Hz ${(e.l1.f - e.l0.f).toFixed(1)} dB`);
+  check('on the desk, the reverb return loses its low end', e.v0 - e.v1 > 10, `${(e.v0 - e.v1).toFixed(1)} dB less at 120 Hz`); }
+// the A/B in the jam's page: the button and A switch it, and it's remembered
+{ const q = await browser.newPage(); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(1500);
+  const ab = () => q.$eval('#engAB', b => b.getAttribute('aria-pressed') + ' ' + b.textContent); const a0 = await ab(); await q.keyboard.press('a'); const a1 = await ab(); await q.reload(); await q.waitForTimeout(1500); const a2 = await ab();
+  await q.click('#engAB'); const a3 = await ab();
+  check('Claude\'s mix is on at first, A switches it to plain, it\'s remembered, the button switches it back', /^true/.test(a0) && /^false/.test(a1) && /^false/.test(a2) && /^true/.test(a3), [a0, a1, a2, a3].join(' / ')); await q.close(); }
 // the part card, in the jam's own page: a rhythm tool names the rhythm after what was done, the notes keep theirs; the
 // hats' off-beats from the library onto the bass keep the bass's notes, going round them; a hit tapped in by hand carries
 // its note (linked) and Undo takes it back; a scene saved and recalled brings the modules back; the part comes back after

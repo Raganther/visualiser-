@@ -12,15 +12,16 @@ import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
+import { engOf, engChain, retChain, RET } from './mixeng.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
 const clone = x => JSON.parse(JSON.stringify(x));
 let PACK = null, SND = {}, CLIP = {}, LIB = [], ALLPACKS = [];
-const st = {smooth: (() => { try { return localStorage.getItem('studio.jam.smooth') !== '0'; } catch { return true; } })(), echoDiv: 0, bar: 0, bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, tab: 'rhythm', playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
+const st = {eng: (() => { try { return localStorage.getItem('studio.jam.eng') !== '0'; } catch { return true; } })(), smooth: (() => { try { return localStorage.getItem('studio.jam.smooth') !== '0'; } catch { return true; } })(), echoDiv: 0, bar: 0, bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, tab: 'rhythm', playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
 
 /* ---------- audio: a channel per part (EQ, the tone filter with an LFO, pan, the kick's duck, echo and reverb sends) ---------- */
-let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0, mstr = null;
+let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0, mstr = null, rets = null;
 const cache = new Map(), pending = new Set();
 function initAudio(){ if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'playback'});
@@ -32,18 +33,23 @@ function initAudio(){ if (ctx) return;
   mstr.lo.type = 'lowshelf'; mstr.lo.frequency.value = 110; mstr.hi.type = 'highshelf'; mstr.hi.frequency.value = 7000; mstr.width.set('mono', 150); mstr.meter.fftSize = 1024;
   master.connect(mstr.lo); mstr.lo.connect(mstr.hi); mstr.hi.connect(mstr.width.input); mstr.width.output.connect(mstr.glue); mstr.glue.connect(hp); hp.connect(lim); lim.connect(mstr.vol); mstr.vol.connect(ctx.destination); mstr.vol.connect(mstr.meter);
   delay = {in: ctx.createGain(), d: ctx.createDelay(2), fb: ctx.createGain(), lp: ctx.createBiquadFilter()};
-  delay.lp.frequency.value = 2400; delay.fb.gain.value = .45; delay.in.connect(delay.d); delay.d.connect(delay.lp); delay.lp.connect(delay.fb); delay.fb.connect(delay.d); delay.lp.connect(master);
+  delay.lp.frequency.value = 2400; delay.fb.gain.value = .45; delay.in.connect(delay.d); delay.d.connect(delay.lp); delay.lp.connect(delay.fb); delay.fb.connect(delay.d); 
   verb = ctx.createConvolver(); const L = 2.8*ctx.sampleRate, ir = ctx.createBuffer(2, L, ctx.sampleRate);
   for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); let lp = 0; for (let i = 0; i < L; i++) { lp += (.3 - .25*i/L)*((Math.random()*2 - 1) - lp); x[i] = lp*Math.pow(1 - i/L, 2.2); } }
-  verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg); vg.connect(master);
+  verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg);
+  // the returns through Claude's mix (out of the low end, ducked a little by the kick) into the master
+  rets = Object.fromEntries([['echo', delay.lp], ['verb', vg]].map(([k, from]) => { const r = retChain(ctx, RET[k]), d = ctx.createGain(); from.connect(r.input); r.output.connect(d); d.connect(master); return [k, {...r, duck: d}]; }));
   worker = new Worker(URL.createObjectURL(new Blob([$('worker-src').textContent], {type: 'text/javascript'})));
   worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } busy(); };
-  for (const c of st.cols) { makeChan(c); buildSound(c); } tempo(); masterMix(); renderMix();
+  for (const c of st.cols) { makeChan(c); buildSound(c); } engSet(st.eng, true); tempo(); masterMix(); renderMix();
 }
+// Claude's mix on or off (mixeng.js): every channel's chain and the returns, eased over a moment, so you can A/B it as it plays
+function engSet(v, quiet){ st.eng = v; try { localStorage.setItem('studio.jam.eng', v ? '1' : '0'); } catch {} const b = $('engAB'); if (b) { b.setAttribute('aria-pressed', String(v)); b.textContent = v ? 'Mix: Claude’s' : 'Mix: plain'; }
+  if (ctx) { for (const c of st.cols) c.ch?.eng.on(v); for (const r of Object.values(rets || {})) r.on(v); } if (st.rec) st.rec.eng = v; if (!quiet) flash(v ? 'Claude’s mix: each part carved and enriched' : 'Plain mix: as it was'); }
 function makeChan(c){ const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain(), lfo: ctx.createOscillator(), lfoG: ctx.createGain(), meter: ctx.createAnalyser()};
   x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.meter.fftSize = 512;
-  x.in.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.out.connect(x.meter); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
-  x.lfo.connect(x.lfoG); x.lfoG.connect(x.f.frequency); x.lfo.start(); x.f.Q.value = 1.2; c.ch = x; macros(c); }
+  x.eng = engChain(ctx, engOf(c.role, laneOf(c))); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.out.connect(x.meter); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
+  x.lfo.connect(x.lfoG); x.lfoG.connect(x.f.frequency); x.lfo.start(); x.f.Q.value = 1.2; x.eng.on(st.eng); c.ch = x; macros(c); }
 // a part's settings onto its channel: tone (the filter, and a native sound's mallet), space (echo and reverb), motion (the
 // LFO), its level, pan and EQ
 function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s = .05;
@@ -124,7 +130,8 @@ function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, v
       const h = nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv); if (n === 'ohh' && h) c.open = h; }
     if (c.role === 'kick') duck(t); return; }
   if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
-function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
+function duck(t){ if (st.eng && rets) for (const [k, r] of Object.entries(rets)) { const g = r.duck.gain; g.setTargetAtTime(1 - RET[k].duck, t, .004); g.setTargetAtTime(1, t + .03, .1); }
+  for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
 function barLine(step){
   for (const c of st.cols) if (c.loopNext !== undefined) { c.loop = c.loopNext; delete c.loopNext; }
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
@@ -211,7 +218,7 @@ function riser(t, dur){ const n = ctx.createBuffer(2, ctx.sampleRate*2, ctx.samp
 function repeat(on){ if (on && st.playing && !st.rep) { st.rep = {at: Math.floor(st.step/4)*4, len: 4}; $('m-rep').dataset.on = '1'; } if (!on && st.rep) { st.rep = null; $('m-rep').dataset.on = ''; } }
 
 /* ---------- recording: what plays, written down for Claude to render ---------- */
-function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, mix: st.cols.map(c => ({...c.mix, mute: !!c.mute})), mx: {...st.mx}, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
+function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, mix: st.cols.map(c => ({...c.mix, mute: !!c.mute})), mx: {...st.mx}, eng: st.eng, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
   const r = st.rec; st.rec = null; $('rec').setAttribute('aria-pressed', 'false'); r.bars = Math.ceil((st.step - r.from)/16); lastTake = r; $('keepJam').disabled = !db || !r.notes.length;
   $('takeNote').textContent = r.notes.length ? `Take: ${r.bars} bars, ${r.notes.length} notes. Keep it for Claude to render, or record again.` : 'Nothing was recorded.'; }
 let lastTake = null; window.__jamTake = () => lastTake && {...lastTake, columns: st.cols.map(c => ({id: c.id, role: c.role}))};   // (for tests)
@@ -849,6 +856,7 @@ async function arrSend(){ if (!ARR.length) return; if (!db) { flash('Sign in to 
   catch (err) { flash('Not sent (' + (err.code || err.message) + ')'); } }
 $('arrPlay').onclick = () => arrPlay(); $('arrSend').onclick = arrSend;
 async function loadIdeas(){ if (!db) return; try { const q2 = await db.collection('ideas').get(); IDEAS = q2.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols || x.sections); renderIdeas(); renderArr(); renderSongBar(); } catch {} }
+window.__jamAudio = () => ctx && {ctx, master, out: mstr.vol, echo: rets.echo.duck, verb: rets.verb.duck, cols: st.cols};   // (for the mix tools)
 window.__jamIdeas = list => { IDEAS = list; renderIdeas(); renderSongBar(); };   // (for tests)
 async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch { SNAPS = []; } renderSnaps();
   if (!db) return; try { const q2 = await db.collection('snaps').get(), have = new Set(SNAPS.map(x => x.id));
@@ -892,11 +900,11 @@ for (const [id, fn] of [['m-build', 'build'], ['m-drop', 'drop'], ['m-harm', 'ha
 $('m-rep').addEventListener('pointerdown', () => repeat(true)); for (const ev of ['pointerup', 'pointerleave']) $('m-rep').addEventListener(ev, () => repeat(false));
 $('m-snap').onclick = () => saveSnap();
 $('play').onclick = () => st.playing ? stop() : start();
-$('rec').onclick = () => record();
+$('rec').onclick = () => record(); $('engAB').onclick = () => engSet(!st.eng); engSet(st.eng, true);
 for (const [id, d] of [['bpmDown', -2], ['bpmUp', 2]]) $(id).onclick = () => { st.bpm = Math.max(100, Math.min(140, st.bpm + d)); $('bpmOut').textContent = st.bpm; tempo(); };
 // the keyboard: Space play; 1–8 the pack's scenes, Shift+1–9 yours; Q–U a part (Shift mutes); ↑ ↓ the pack's parts for it;
 // ← → its tone; N new and V vary (the tab's module, Shift for its notes); P life; X keep that; Z undo; F feel; B D H O moves;
-// S save a scene; G K echo and reverb; hold J throw; [ ] octave
+// S save a scene; G K echo and reverb; hold J throw; [ ] octave; A Claude's mix or the plain one
 const tabMod = () => st.tab === 'notes' ? 'n' : 'r';
 document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toUpperCase();
   if (e.key === ' ') { e.preventDefault(); st.playing ? stop() : start(); return; }
@@ -910,7 +918,7 @@ document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.t
   if (k === 'N') (mod === 'n' ? nTool : rTool)('new'); if (k === 'V') (mod === 'n' ? nTool : rTool)('vary');
   if (k === 'B') MOVES.build(); if (k === 'D') MOVES.drop(); if (k === 'H') MOVES.harmony(); if (k === 'O') repeat(true); if (e.key === '[') octave(-1); if (e.key === ']') octave(1);
   if (k === 'F') nextFeel(); if (k === 'P') { const c = selCol(); setLife(c, ((c.play || 0) + 1) % PLAYS.length); } if (k === 'X') keepPlayed(); if (k === 'Z') undo();
-  if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'J' && !e.repeat) throwTo(true); });
+  if (k === 'A') engSet(!st.eng); if (k === 'G') sendTog('echo'); if (k === 'K') sendTog('verb'); if (k === 'J' && !e.repeat) throwTo(true); });
 document.addEventListener('keyup', e => { if (e.key.toUpperCase() === 'O') repeat(false); if (e.key.toUpperCase() === 'J') throwTo(false); });
 addEventListener('resize', () => renderCard());
 

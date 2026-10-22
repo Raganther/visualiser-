@@ -74,3 +74,10 @@ before writing or changing a piece; add to it when they react.
   shows the chords under the part, each time round its loop. The hats "fine, but thin, not rich and lush and dynamic":
   Soft hats rebuilt as a pair of cymbals (body under the sizzle, accents opening up, the open hat choked by the next);
   the first kept as "Soft hats (the first, thin)".
+- 2026-10-22: Asked whether the songs could sound better: richer sounds or a better mix, "rich and full and spacious, full
+  of body, while remaining clear". Measured Clearing as the jam plays it (each part's channel recorded): everything in
+  150–500 Hz (the kick's tail, the bass, both mallets, the strings, the reverb and echo), 600 Hz–2.5 kHz 5–14 dB under a
+  techno balance, the bass 12 dB under the kick in its own range with nothing above 1 kHz. Claude's mix
+  (`studio/jam/mixeng.js`, on by default, A or the Mix button for the plain one): high-passes, the kick 50–70 Hz and the
+  bass 80–160, the kick's and mallets' low-mid box cut, an exciter (even harmonics) on the bass, mallets and strings, the
+  returns kept out of the low end and ducked a little by the kick. Same loudness, for a fair A/B.
