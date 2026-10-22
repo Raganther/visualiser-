@@ -3,8 +3,10 @@
 // musical lengths, in beats: a delay's time or an LFO's cycle follows the master's tempo (· is dotted)
 export const DIVS = [['1/32', .125], ['1/16', .25], ['1/16·', .375], ['1/8', .5], ['1/8·', .75], ['1/4', 1], ['1/4·', 1.5], ['1/2', 2], ['1 bar', 4], ['2 bars', 8], ['4 bars', 16]];
 export const beatsOf = i => DIVS[Math.max(0, Math.min(DIVS.length - 1, Math.round(i)))][1];
-// a short glide to a new value (no zipper noise as a knob turns)
-export const ease = (ctx, p, v, tc = .015) => p.setTargetAtTime(v, ctx.currentTime, tc);
+// a short glide to a new value (no zipper noise as a knob turns) that then stops: an open-ended setTargetAtTime keeps a
+// filter recomputing its coefficients every sample for ever, which costs enough to crackle on a slow device
+export const ease = (ctx, p, v, tc = .015) => { const t = ctx.currentTime; if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); }
+  p.linearRampToValueAtTime(v, t + 3*tc); };
 // input and output, with the effect's own sound (wet) mixed against the untouched (dry) at equal power
 export function shell(ctx){
   const input = ctx.createGain(), output = ctx.createGain(), dry = ctx.createGain(), wet = ctx.createGain();

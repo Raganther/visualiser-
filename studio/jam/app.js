@@ -12,7 +12,7 @@ import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
-import { engOf, engChain, retChain, RET } from './mixeng.js';
+import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
@@ -49,15 +49,18 @@ function engSet(v, quiet){ st.eng = v; try { localStorage.setItem('studio.jam.en
 function makeChan(c){ const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain(), lfo: ctx.createOscillator(), lfoG: ctx.createGain(), meter: ctx.createAnalyser()};
   x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.meter.fftSize = 512;
   x.eng = engChain(ctx, engOf(c.role, laneOf(c))); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.out.connect(x.meter); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
-  x.lfo.connect(x.lfoG); x.lfoG.connect(x.f.frequency); x.lfo.start(); x.f.Q.value = 1.2; x.eng.on(st.eng); c.ch = x; macros(c); }
+  x.lfo.connect(x.lfoG); x.lfo.start(); x.f.Q.value = 1.2; x.eng.on(st.eng); c.ch = x; macros(c); }
 // a part's settings onto its channel: tone (the filter, and a native sound's mallet), space (echo and reverb), motion (the
 // LFO), its level, pan and EQ
 function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s = .05;
-  x.f.frequency.setTargetAtTime(cutOf(c.x), now, s); x.echo.gain.setTargetAtTime(c.throw ? .95 : c.echo ? c.y*.5 : 0, now, c.throw ? .005 : s); x.verb.gain.setTargetAtTime(c.verb ? c.y*.75 : 0, now, s);
-  const M = c.mix, solo = st.cols.some(y => y.mix.solo); x.out.gain.setTargetAtTime(c.mute || solo && !M.solo ? 0 : c.level*Math.pow(10, M.vol/20), now, .02);
-  x.pan.pan.setTargetAtTime(M.pan, now, .02); x.lo.gain.setTargetAtTime(M.lo, now, .02); x.mid.gain.setTargetAtTime(M.mid, now, .02); x.hi.gain.setTargetAtTime(M.hi, now, .02);
-  const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm)][c.motion]; x.lfo.frequency.setTargetAtTime(rate || .1, now, s); x.lfoG.gain.setTargetAtTime([0, .45, .35][c.motion]*cutOf(c.x), now, s); }
-function tempo(){ if (!ctx) return; delay.d.delayTime.setTargetAtTime(ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) macros(c); }
+  // (every move glides and then stops: see glide in mixeng.js)
+  glide(x.f.frequency, cutOf(c.x), now, s); glide(x.echo.gain, c.throw ? .95 : c.echo ? c.y*.5 : 0, now, c.throw ? .005 : s); glide(x.verb.gain, c.verb ? c.y*.75 : 0, now, s);
+  const M = c.mix, solo = st.cols.some(y => y.mix.solo); glide(x.out.gain, c.mute || solo && !M.solo ? 0 : c.level*Math.pow(10, M.vol/20), now, .02);
+  glide(x.pan.pan, M.pan, now, .02); glide(x.lo.gain, M.lo, now, .02); glide(x.mid.gain, M.mid, now, .02); glide(x.hi.gain, M.hi, now, .02);
+  // the LFO on the tone filter only while there's motion (a connected modulator makes the filter work every sample)
+  const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm)][c.motion]; glide(x.lfo.frequency, rate || .1, now, s); glide(x.lfoG.gain, [0, .45, .35][c.motion]*cutOf(c.x), now, s);
+  if (!!c.motion !== !!x.lfoOn) { x.lfoOn = !!c.motion; if (x.lfoOn) x.lfoG.connect(x.f.frequency); else x.lfoG.disconnect(); } }
+function tempo(){ if (!ctx) return; glide(delay.d.delayTime, ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) macros(c); }
 
 /* ---------- sounds: a part's sound built on its channel (poly synth, drum kits, native instruments) ---------- */
 const env = {period: () => 60/st.bpm};
@@ -130,14 +133,14 @@ function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, v
       const h = nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv); if (n === 'ohh' && h) c.open = h; }
     if (c.role === 'kick') duck(t); return; }
   if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
-function duck(t){ if (st.eng && rets) for (const [k, r] of Object.entries(rets)) { const g = r.duck.gain; g.setTargetAtTime(1 - RET[k].duck, t, .004); g.setTargetAtTime(1, t + .03, .1); }
-  for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
+function duck(t){ if (st.eng && rets) for (const [k, r] of Object.entries(rets)) { duckAt(r.duck.gain, RET[k].duck, t); }
+  for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; duckAt(c.ch.duck.gain, d, t); } }
 function barLine(step){
   for (const c of st.cols) if (c.loopNext !== undefined) { c.loop = c.loopNext; delete c.loopNext; }
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
   let changed = false; for (const c of st.cols) if (c.next) { applyNext(c, step); changed = true; }
   arrBar(step);
-  if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { hp.frequency.cancelScheduledValues(ctx.currentTime); hp.frequency.setTargetAtTime(18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
+  if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { glide(hp.frequency, 18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = shortOf(st.harmony.bars[bar % st.harmony.bars.length]); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
   renderGround(); if (HV.tab === 'chords' && HV.open) renderMatrix(); if (changed) { renderParts(); renderCard(); } else renderPartGround(); }
@@ -610,7 +613,7 @@ const mixKey = () => 'studio.jam.mix.' + PACK.id, savedMix = () => { try { retur
 function mixOf(c, i){ const saved = savedMix().cols?.[i]; return {vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false, ...(saved || {}), ...(c.mix || {})}; }
 const storeMix = () => { try { localStorage.setItem(mixKey(), JSON.stringify({cols: st.cols.map(c => ({...c.mix, solo: false})), master: st.mx})); } catch {} };
 function masterMix(){ if (!mstr) return; const M = st.mx, now = ctx.currentTime, g = GLUE[M.glue][1];
-  mstr.lo.gain.setTargetAtTime(M.lo, now, .02); mstr.hi.gain.setTargetAtTime(M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width][1]); mstr.vol.gain.setTargetAtTime(Math.pow(10, M.vol/20), now, .02);
+  glide(mstr.lo.gain, M.lo, now, .02); glide(mstr.hi.gain, M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width][1]); glide(mstr.vol.gain, Math.pow(10, M.vol/20), now, .02);
   const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; } }
 const fmtDb = v => v <= -40 ? '−∞' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
 const fmtPan = v => Math.abs(v) < .01 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100);

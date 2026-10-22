@@ -84,3 +84,9 @@ before writing or changing a piece; add to it when they react.
 - 2026-10-22: Claude's mix "clipping": the recordings had no overs (peaks .82), so it was the exciter: rectifying chords and
   ringing mallets makes intermodulation that sounds like distortion, and at .5 it doubled the bass's peaks. Now only on the
   bass, at .2; the mallets and strings get presence bells instead. The three songs exported as MP3s for listening.
+- 2026-10-22: Still crackling, "like the buffer size": the exported MP3s were clean (no more clicks than the plain mix),
+  so it was the page running out of time on the audio thread. Every eased setting (setTargetAtTime, never ending) kept its
+  filter recomputing every sample for ever: the mix's chains tripled a part's cost, and the page's own EQ, tone filter and
+  the master's width had it too. Now settings glide and stop, the duck is a ramp that ends, the tone filter's LFO is
+  connected only while it moves, and Claude's mix is disconnected while off: the plain page renders ~40% faster than
+  before, and with Claude's mix costs about what the plain page did.
