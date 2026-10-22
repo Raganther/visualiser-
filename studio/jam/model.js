@@ -50,6 +50,8 @@ export function nativeSet(c, name, base = {}){ const o = {...base};
   if (['marimba', 'kalimba', 'steel', 'musicbox', 'vibes', 'wood', 'tubular', 'bell', 'plate', 'glass', 'gong', 'bowl', 'logdrum', 'bamboo', 'rim'].includes(name)) { o.hard = Math.round((.2 + .75*c.x)*4)/4; o.ring = LEN[c.length]; }
   else if (['kick', 'tom', 'hand'].includes(name)) { o.decay = (o.decay ?? (name === 'kick' ? .45 : .5))*LEN[c.length]; o.hard = Math.round((.2 + .7*c.x)*4)/4; }
   else if (name === 'hat') o.decay = (o.decay ?? .06)*LEN[c.length];
+  // the cymbal pair: tone from the part's tone (round its bright default), Length opening it a little more or less
+  else if (name === 'hihat') { o.tone = Math.round(Math.max(0, Math.min(1, (o.tone ?? .45) + (c.x - X0('hats'))*.7))*10)/10; o.open = Math.round(Math.min(1, (o.open ?? 0)*[.7, 1, 1.4][c.length])*50)/50; }
   else if (name.startsWith('fm')) { o.index = Math.round((.4 + 3.2*c.x)*4)/4; o.dec = .25*LEN[c.length]; }
   else if (['bowed', 'bowmetal', 'glassharm', 'rubbowl'].includes(name)) { const lo = name === 'bowed' ? .4 : 0, hi = name === 'bowed' ? 1 : .45; o.bright = Math.round((lo + (hi - lo)*c.x)*20)/20; o.r = [.4, .9, 2.2][c.length]; }
   else if (name === 'sub808') { o.drive = Math.round((.1 + .8*c.x)*10)/10; o.dec = [.35, 1.2, 3][c.length]; }

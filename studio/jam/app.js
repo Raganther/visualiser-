@@ -68,7 +68,7 @@ const q = (v, s) => Math.round(v/s)*s;
 const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
 function nativeNote(c, name, n, vel, o, t, lenSec, fv = 1){ const set = NATIVE[name].held ? {...o, len: Math.round(lenSec*20)/20} : o, k = keyOf(name, n, vel, set), b = cache.get(k);
   if (!b) { want(k, name, n, vel, set); return; }
-  const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; g.gain.value = NATIVE[name].gain*(.4 + .6*vel)*fv; s.connect(g); g.connect(c.ch.in); s.start(t); s.onended = () => g.disconnect(); }
+  const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; g.gain.value = NATIVE[name].gain*(.4 + .6*vel)*fv; s.connect(g); g.connect(c.ch.in); s.start(t); s.onended = () => g.disconnect(); return {g, t}; }
 function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !worker) return; pending.add(k); worker.postMessage({key: k, name, n, vel: q(vel, .1), o: set, sr: ctx.sampleRate}); busy(); }
 // the ground's voice-leading chain (smooth), in the chords part's voicing; a part's notes at a step and bar
 const chordsCol = () => st.cols.find(c => c.role === 'chords');
@@ -118,7 +118,10 @@ function playStep(step, t0){
 // fv: the feel's loudness (a native note is computed at its own loudness and played louder or softer, so the feel never
 // waits on a new note being computed)
 function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, vel*fv));
-  if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(n, t, v2, null); else nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv);
+  if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(n, t, v2, null); else {
+      // a hat closed (or hit again) while the open one rings stops it, as a real pair of cymbals does
+      if ((n === 'chh' || n === 'ohh') && c.open && t > c.open.t) { c.open.g.gain.setTargetAtTime(0, t, .012); c.open = null; }
+      const h = nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv); if (n === 'ohh' && h) c.open = h; }
     if (c.role === 'kick') duck(t); return; }
   if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
 function duck(t){ for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; const g = c.ch.duck.gain; g.setTargetAtTime(1 - d, t, .004); g.setTargetAtTime(1, t + .03, .1); } }
@@ -130,7 +133,7 @@ function barLine(step){
   if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { hp.frequency.cancelScheduledValues(ctx.currentTime); hp.frequency.setTargetAtTime(18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = shortOf(st.harmony.bars[bar % st.harmony.bars.length]); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
-  renderGround(); if (HV.tab === 'chords' && HV.open) renderMatrix(); if (changed) { renderParts(); renderCard(); } }
+  renderGround(); if (HV.tab === 'chords' && HV.open) renderMatrix(); if (changed) { renderParts(); renderCard(); } else renderPartGround(); }
 async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
   for (const c of st.cols) { if (c.next) applyNext(c, 0); c.start = 0; } timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
 function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
@@ -242,6 +245,7 @@ function renderCard(){ const c = selCol(); if (!c) return; const s = shown(c);
   const T = $('ctabs'); T.innerHTML = ''; for (const [k, lab, w] of TABS4) T.append(h('button', {role: 'tab', 'aria-selected': String(st.tab === k), onclick: () => { st.tab = k; try { localStorage.setItem('studio.jam.ctab', k); } catch {} renderCard(); }},
     h('b', {}, lab), h('small', {}, k === 'rhythm' ? s.R ? `${s.R.hits.length} hits · ${lenWords(s.R.len)}` : 'resting' : k === 'notes' ? c.role === 'chords' ? 'the ground' : s.N ? `${s.N.seq.length} notes` : '—' : k === 'sound' ? SND[c.sound]?.name || '' : w)));
   for (const [k] of TABS4) $('p-' + k).hidden = st.tab !== k;
+  renderPartGround();
   renderPartLikes();
   if (st.tab === 'rhythm') renderRhythm(c); else if (st.tab === 'notes') renderNotes(c); else if (st.tab === 'sound') renderSound(c); else renderSpace(c); }
 const lenWords = n => n % 16 ? n + ' steps' : n/16 + (n > 16 ? ' bars' : ' bar');
@@ -280,6 +284,26 @@ const octave = d => { const c = selCol(); if (isDrum(c.role)) return; c.oct = Ma
 function toggleSmooth(){ st.smooth = !st.smooth; try { localStorage.setItem('studio.jam.smooth', st.smooth ? '1' : '0'); } catch {} for (const c of st.cols) { c.arpSt = null; prewarm(c); } renderCard(); renderHarmony(); flash(st.smooth ? 'Smooth voice leading: every part glides between chords' : 'Free: each chord voiced on its own'); }
 function toggleEdit(){ st.edit = !st.edit; const c = selCol(); if (st.edit && c.next) applyNext(c, null); c.edRange = null; renderCard(); flash(st.edit ? (st.tab === 'notes' ? 'Tap a cell to set a note; hold a note for an octave up' : 'Tap to add or take away, drag to move, drag the end for length, hold for loudness') : 'Editing off'); }
 
+// the ground under the chosen part: the chord each of its bars lands on, and when its loop is shorter than the ground,
+// each time round (now, next …) till the chords line up again, the bar playing lit
+const gcd2 = (a, b) => b ? gcd2(b, a % b) : a;
+function renderPartGround(){ const box = $('partGround'), c = selCol(); if (!box || !c || !st.harmony) return; box.innerHTML = '';
+  const H = st.hNext || st.harmony, G = H.bars.length, clip = c.next?.clip || c.clip, live = st.playing && c.clip && !c.next;
+  const lab = h('span', {class: 'lab'}, 'Chords under it'); if (!clip) { box.append(lab, h('span', {class: 'muted'}, 'Resting.')); return; }
+  const cell = (sym, on, w = 1) => h('span', {class: 'pgc', 'data-on': on ? '1' : '', style: `flex:${w}`, title: nameOf(sym)}, shortOf(sym));
+  if (clip.len % 16) { const gb = ((Math.floor(((st.playing ? st.step : 0) - st.hStart)/16) % G) + G) % G;
+    box.append(h('div', {class: 'pghead'}, lab, h('span', {class: 'muted'}, `${lenWords(clip.len)}: not whole bars, so it drifts across the chords, meeting each one at a new place every time round`)),
+      h('div', {class: 'pgrow'}, h('span', {class: 'pgr'}, ''), ...H.bars.map((sym, i) => cell(sym, st.playing && i === gb)))); return; }
+  const B = clip.len/16, rounds = Math.min(4, B*G/gcd2(B, G)/B), pos = live ? posOf(c, st.step) : 0, start = (st.playing ? st.step : 0) - pos;
+  const gb0 = Math.floor((start - st.hStart)/16), cur = Math.floor(pos/16), at = k => H.bars[((gb0 + k) % G + G) % G];
+  box.append(h('div', {class: 'pghead'}, lab, h('span', {class: 'muted'}, G === 1 ? `one chord, ${shortOf(H.bars[0])}, under all of it` : rounds === 1 ? `its ${B} bar${B > 1 ? 's' : ''} meet the same chords every time round` :
+    `its ${B}-bar loop over the ground's ${G} bars: the same notes meet new chords, ${rounds} times round before they line up again${B*G/gcd2(B, G)/B > 4 ? ' (the first 4 shown)' : ''}`)));
+  // (a loop of a bar or two goes round too often for rows: one row across the ground, a mark where it starts again)
+  if (B <= 2 && rounds > 1) { const L = Math.min(16, B*G/gcd2(B, G)), k0 = live ? Math.floor(pos/16) : -1;
+    box.lastChild.lastChild.textContent = `its ${B}-bar loop goes round across the ground's ${G} bars, meeting a new chord each time`;
+    box.append(h('div', {class: 'pgrow'}, h('span', {class: 'pgr'}, st.playing ? 'from now' : ''), ...Array.from({length: L}, (_, k) => { const e = cell(at(k), live && k === k0); if (k && k % B === 0) e.dataset.loop = '1'; return e; }))); return; }
+  for (let r = 0; r < rounds; r++) box.append(h('div', {class: 'pgrow', 'data-now': r === 0 && st.playing ? '1' : ''}, h('span', {class: 'pgr'}, rounds === 1 ? '' : r === 0 ? (st.playing ? 'now' : '1st') : r === 1 ? (st.playing ? 'next' : '2nd') : ['', '', '3rd', '4th'][r]),
+    ...Array.from({length: B}, (_, b) => cell(at(r*B + b), live && r === 0 && b === cur)))); }
 // sound: the library's sounds for this role, and its tone, length and motion
 function renderSound(c){ const box = $('soundList'); box.innerHTML = ''; $('sHead').innerHTML = ''; nameRow($('sHead'), {name: SND[c.sound]?.name}, null, soundItem(c.sound)); $('sHead').querySelectorAll('.mini').forEach(b => b.remove());
   const mine = LIB.filter(s => s.role === c.role), groups = [PACK.id, ...new Set(mine.map(s => s.pack).filter(p => p !== PACK.id))];

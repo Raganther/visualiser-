@@ -171,6 +171,18 @@ const take = {name: 'test', bpm: 124, swing: 0, echoDiv: 1, columns: [{id: 'col0
   check('notes answered come home, and are named after it', ans.seq.length === 6 && ans.seq.at(-1)[0] === 2 && ans.name === 'Rise, answered', JSON.stringify(ans.seq));
   const ev = P.spread('kick', 3, 8); check('an even rhythm: 3 over 8 is the tresillo', ev.hits.map(h => h[0]).join() === '0,2,5', ev.hits.map(h => h[0]).join()); }
 
+/* ---------- the hi-hat as a pair of cymbals (lib/native/hats.js): closed tight, open ringing, harder brighter and longer, a body
+   under the sizzle, a little wide ---------- */
+{ const {hihat} = await import('../studio/lib/native/hats.js'), SR = 48000;
+  const len = o => { let pk = 0; for (const v of o.L) pk = Math.max(pk, Math.abs(v)); let e = o.L.length; while (e > 0 && Math.abs(o.L[e - 1]) < pk*.01) e--; return e/SR; };
+  // how much of it sits below 6 kHz (a one-pole split), and how wide (side against mid)
+  const low = o => { let lp = 0, a = 0, b = 0; const c = Math.exp(-2*Math.PI*6000/SR); for (const v of o.L) { lp = v + (lp - v)*c; a += lp*lp; b += v*v; } return a/b; };
+  const wid = o => { let s = 0, m = 0; for (let i = 0; i < o.L.length; i++) { s += (o.L[i] - o.R[i])**2; m += (o.L[i] + o.R[i])**2; } return Math.sqrt(s/m); };
+  const closed = hihat(SR, {vel: .8}), soft = hihat(SR, {vel: .45}), half = hihat(SR, {vel: .8, open: .4}), open = hihat(SR, {vel: .8, open: .85});
+  check('the hi-hat: closed tight, half open longer, open ringing', len(closed) < .1 && len(half) > 2*len(closed) && len(open) > 2*len(half), [closed, half, open].map(o => len(o).toFixed(2) + ' s').join(', '));
+  check('the hi-hat: a soft hit shorter and darker than an accent', len(soft) < len(closed) && low(soft) > low(closed), `${len(soft).toFixed(3)} vs ${len(closed).toFixed(3)} s; below 6 kHz ${low(soft).toFixed(2)} vs ${low(closed).toFixed(2)}`);
+  check('the hi-hat: a body under the sizzle, a little wide', low(closed) > .1 && wid(closed) > .15 && wid(closed) < .7, `below 6 kHz ${low(closed).toFixed(2)}, width ${wid(closed).toFixed(2)}`); }
+
 /* ---------- heard: the desk renders the master's and the duck's automation ---------- */
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage();
@@ -246,6 +258,14 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
   check('going to a song\'s parts changes nothing', none === '', none);
   check('a sound changed on a part is kept as your version, marked and said', kept === 'u.1' && said.includes(pick) && marked === 1 && other !== pick && back === pick, `${kept}: ${said}; others ${other}, back ${back}`);
   check('Claude\'s part heard without losing yours, and Revert puts it back', orig[0] === other && orig[1] === 'u.1' && yours === pick && reverted[0] === '' && reverted[1] === other, JSON.stringify({orig, yours, reverted})); await q.close(); }
+// the chords under a part, in its card: a one-bar bass over the eight-bar A pedal meets a new chord each bar round; a
+// four-bar one shows each time round
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  await q.click('#harmonies .hchip:has-text("A pedal")'); await q.keyboard.press('r');
+  const lane = () => q.$$eval('#partGround .pgrow', rows => rows.map(r => [...r.querySelectorAll('.pgc')].map(e => e.textContent).join(' ')));
+  const one = await lane(); for (let k = 0; k < 2; k++) await q.click('#rTools button:has-text("×2 length")'); const four = await lane();
+  check('a one-bar part shows the ground\'s eight chords it meets; a four-bar one each time round', one.length === 1 && one[0].split(' ').length === 8 && four.length === 2 && four.every(r => r.split(' ').length === 4) && four[0] !== four[1], JSON.stringify({one, four})); await q.close(); }
 // the harmony in the jam's page: a chord held from the matrix, a progression written, played and saved, the library in a
 // key, and a snapshot bringing a library progression back
 { const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.type() === 'prompt' ? d.accept('Night walk') : d.accept());

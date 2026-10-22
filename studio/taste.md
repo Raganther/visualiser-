@@ -70,3 +70,7 @@ before writing or changing a piece; add to it when they react.
   arrangement and revert it (their changes hadn't been kept: they only changed what was playing). Notes the same day:
   the 16th hats 👍 but "hi hat sound needs work, crisper richer tone", and to simulate a hat opening and closing, hit as
   it opens, like a real kit; Snap 8 👍 but "bus bass feels off".
+- 2026-10-22: Asked to see the chords each part plays over (a 4-bar bass loop cycling over different chords): the card now
+  shows the chords under the part, each time round its loop. The hats "fine, but thin, not rich and lush and dynamic":
+  Soft hats rebuilt as a pair of cymbals (body under the sizzle, accents opening up, the open hat choked by the next);
+  the first kept as "Soft hats (the first, thin)".

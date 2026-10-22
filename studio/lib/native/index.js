@@ -5,6 +5,7 @@ import { membrane, string, shaker, hat } from './body.js';
 import { fm, additive, breath, grainPad, rubbed, RUBBED, sub808 } from './tone.js';
 import { va, VA, akick, KICKS, rumble, formant, hat808 } from './analog.js';
 import { drop, twig, stone, leaf, insect, click, bird } from './natural.js';
+import { hihat } from './hats.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12);
 // the instruments: how a note is made, and its gain to sit near the poly synth's level
@@ -31,6 +32,8 @@ export const NATIVE = {
   rumble: {held: 1, make: (sr, n, vel, o) => rumble(sr, hz(n), {...o, vel}), gain: .5},
   formant: {held: 1, make: (sr, n, vel, o) => formant(sr, hz(n), {...o, vel}), gain: 3},
   hat808: {make: (sr, n, vel, o) => hat808(sr, {...o, vel}), gain: 1.2},
+  // the hi-hat as two cymbals clashing (hats.js): open from a chick to a wash, brighter and longer the harder it's hit
+  hihat: {make: (sr, n, vel, o) => hihat(sr, {...o, vel}), gain: .18},
   // nature
   drop: {make: (sr, n, vel, o) => drop(sr, hz(n), {...o, vel}), gain: .8},
   twig: {make: (sr, n, vel, o) => twig(sr, {...o, vel}), gain: 2.5},

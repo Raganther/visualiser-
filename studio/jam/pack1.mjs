@@ -14,7 +14,12 @@ const SOUNDS = [
   {id: 'k-low', role: 'kick', name: 'Low round kick', words: 'Two semitones lower: weightier.', voices: {kick: kit('Minimal', {kick: {...GOOD_KICK, tune: -3, drive: 0, tone: .32}})}},
   {id: 'k-skin', role: 'kick', name: 'Struck skin kick', words: 'Native: a big drum skin struck, its pitch falling.', voices: {kick: {native: 'kick', n: 33}}},
   {id: 'k-808', role: 'kick', name: 'Round 808', words: 'The 808’s long round kick, tamed.', voices: {kick: kit('808', {kick: {...GOOD_KICK, decay: 1.6, x: .3, drive: 0, tone: .38, tune: -2}})}},
-  {id: 'h-minimal', role: 'hats', name: 'Soft hats', words: 'Slow Bloom’s hats: rounded, grooving.', voices: Object.fromEntries(['chh', 'ohh', 'ride'].map(v => [v, kit('Minimal', {chh: {tone: .62, level: 1.1, decay: .7, x: .3, pan: .2}, ohh: {tone: .58, level: .85, decay: .8, pan: -.2}, ride: {tone: .5, level: .4}})]))},
+  // (the first Soft hats, from the kit: thin, the user found, all of it high up and short; kept to compare)
+  {id: 'h-minimal-kit', role: 'hats', name: 'Soft hats (the first, thin)', words: 'The kit’s hats Soft hats used to be: high, short and narrow.', voices: Object.fromEntries(['chh', 'ohh', 'ride'].map(v => [v, kit('Minimal', {chh: {tone: .62, level: 1.1, decay: .7, x: .3, pan: .2}, ohh: {tone: .58, level: .85, decay: .8, pan: -.2}, ride: {tone: .5, level: .4}})]))},
+  // Soft hats as a real pair of cymbals (lib/native/hats.js): a body under the sizzle, accents opening up, the open hat
+  // closed by the next hit
+  {id: 'h-minimal', role: 'hats', name: 'Soft hats', words: 'Slow Bloom’s hats, now a real pair of cymbals: a body under the sizzle, accents opening up, the open hat choked by the next.', voices: {
+    chh: {native: 'hihat', n: 60, set: {open: .04, tone: .45, body: .55}}, ohh: {native: 'hihat', n: 60, set: {open: .8, tone: .42, body: .5}}, ride: {native: 'hihat', n: 60, set: {open: .38, tone: .5, body: .45}}}},
   {id: 'h-native', role: 'hats', name: 'Native hats', words: 'Native: noise and high metal, computed.', voices: {chh: {native: 'hat', n: 60, set: {decay: .045, tone: .6}}, ohh: {native: 'hat', n: 60, set: {decay: .2, tone: .55}}, ride: {native: 'plate', n: 88, set: {hard: .6, ring: .5}}}},
   {id: 'h-lofi', role: 'hats', name: 'Dusty hats', words: 'The lo-fi kit’s hats.', voices: Object.fromEntries(['chh', 'ohh', 'ride'].map(v => [v, kit('Lo-fi')]))},
   {id: 'p-skins', role: 'perc', name: 'Skins and wood', words: 'Native toms and woodblock, the kit’s rim, shaker and clave.', voices: {
