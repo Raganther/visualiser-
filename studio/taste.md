@@ -61,3 +61,7 @@ before writing or changing a piece; add to it when they react.
   modules to mix and match. Studio Jam v2: each part a rhythm, notes, a sound and a space, the same verbs on each (New,
   Vary, Develop, tools, Undo, the library, 👍); Feel and Play folded into a rhythm's feel and the part's Life; the clip grid,
   variants and Follow gone (the first jam is kept as `jam-v1.html`).
+- 2026-10-22: Snap 10 (after round 2): Snap 9 with the FM pluck bass (`b-fmpluck`) on the off-beat line from "A woody thump",
+  developed to four bars, on D minor 7 ↔ 9, glue and a wider master: "a bass sound I particularly like". Asked for round 3:
+  three whole songs in Snap 9's sounds, the bass coming in and out, each a different structure. Clearing (an arc with a
+  hush), Two rivers (a rondo: the bass and the wood take turns), Undertow (the bass leads and leaves for a bass-less peak).

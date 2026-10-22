@@ -695,20 +695,29 @@ async function loadLikes(){ if (!db) return;
 /* ---------- Claude's ideas (written into the page's database by Claude), and the song: scenes and ideas in an order,
    played as a sketch and sent to Claude, who makes the next round from it ---------- */
 let IDEAS = [], ARR = [];
-const ARR_KEY = 'studio.jam.arr', BARS = [4, 8, 16, 32], byRef = id => SNAPS.find(x => x.id === id) || IDEAS.find(x => x.id === id);
+const ARR_KEY = 'studio.jam.arr', BARS = [4, 8, 16, 32], byRef = id => SNAPS.find(x => x.id === id) || IDEAS.find(x => x.id === id) || IDEAS.flatMap(x => x.sections || []).find(x => x.id === id);
 try { ARR = JSON.parse(localStorage.getItem(ARR_KEY) || '[]'); } catch {}
 const storeArr = () => { try { localStorage.setItem(ARR_KEY, JSON.stringify(ARR)); } catch {} };
 function renderIdeas(){ const box = $('ideas'); if (!box) return; box.innerHTML = ''; box.hidden = !IDEAS.length; if (!IDEAS.length) return;
   const rounds = [...new Set(IDEAS.map(x => x.round || 1))].sort((a, b) => b - a);
   for (const r of rounds) { box.append(h('div', {class: 'lab ideahead'}, `Claude’s ideas · round ${r}`)); const g = h('div', {class: 'snapgrid'}); box.append(g);
-    for (const x of IDEAS.filter(y => (y.round || 1) === r).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
+    for (const x of IDEAS.filter(y => (y.round || 1) === r).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) if (x.sections) g.append(songCard(x)); else
       g.append(h('div', {class: 'snap idea', 'data-on': x.id === snapOn ? '1' : ''},
         h('button', {class: 'go', onclick: () => recall(x)}, h('span', {class: 'kind'}, x.kind || 'idea'), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
         h('span', {class: 'ideabtns'}, h('button', {class: 'mini', title: 'Into the song', onclick: () => arrAdd(x.id)}, '＋ Song'), h('button', {class: 'mini', title: 'Keep it in your scenes', onclick: () => keepIdea(x)}, 'Keep'), likeBar({kind: 'idea', key: x.id, name: x.name, data: {id: x.id, round: x.round}})))); } }
+// one of Claude's songs: its sections in order, each a scene held for its bars; played through once, or made your song
+function songCard(x){ const on = st.arr?.song === x.id, bars = x.sections.reduce((n, y) => n + y.bars, 0), secs = Math.round(bars*4*60/(x.bpm || st.bpm));
+  return h('div', {class: 'snap idea song', 'data-on': on ? '1' : ''},
+    h('div', {class: 'go'}, h('span', {class: 'kind'}, `song · ${bars} bars · ${Math.floor(secs/60)}:${String(secs % 60).padStart(2, '0')}`), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
+    h('div', {class: 'secs'}, ...x.sections.map((y, i) => h('button', {class: 'sec', 'data-on': on && st.arr.i === i ? '1' : '', title: (y.why || '') + ' (tap: this section now)', onclick: () => recall(y)}, h('b', {}, y.name.split(': ').slice(1).join(': ') || y.name), h('small', {}, `${y.bars}`)))),
+    h('span', {class: 'ideabtns'}, h('button', {class: 'mini', onclick: () => songPlay(x)}, on ? '■ Stop' : '▶ Play the song'),
+      h('button', {class: 'mini', title: 'Its sections into your song, to change and send back', onclick: () => { ARR = x.sections.map(y => ({ref: y.id, bars: y.bars})); storeArr(); renderArr(); flash(x.name + ' is your song now'); }}, 'Make it my song'),
+      likeBar({kind: 'idea', key: x.id, name: x.name, data: {id: x.id, round: x.round}}))); }
+function songPlay(x){ if (st.arr?.song === x.id) { st.arr = null; renderIdeas(); flash('Song stopped'); return; } arrPlay(x.sections.map(y => ({ref: y.id, bars: y.bars})), x.id); }
 async function keepIdea(x){ const y = {...clone(x), id: 's' + Date.now().toString(36), name: x.name, from: x.id, at: new Date().toISOString()}; for (const k of ['round', 'kind', 'why', 'order']) delete y[k];
   SNAPS.push(y); storeSnaps(); renderSnaps(); flash('Kept ' + x.name + ' in your scenes'); if (db) try { await db.collection('snaps').doc(y.id).set(y); } catch {} }
 function arrAdd(id){ ARR.push({ref: id, bars: 8}); storeArr(); renderArr(); flash('Into the song: ' + byRef(id)?.name); }
-function renderArr(){ const box = $('arr'); if (!box) return; box.innerHTML = ''; const playing = st.arr ? st.arr.i : -1;
+function renderArr(){ const box = $('arr'); if (!box) return; box.innerHTML = ''; const playing = st.arr && !st.arr.song ? st.arr.i : -1;
   if (!ARR.length) box.append(h('span', {class: 'muted'}, 'Tap ＋ Song on any scene or idea to put it here, in the order you want.'));
   ARR.forEach((e, i) => { const x = byRef(e.ref);
     box.append(h('div', {class: 'arrchip', 'data-on': i === playing ? '1' : ''},
@@ -716,21 +725,24 @@ function renderArr(){ const box = $('arr'); if (!box) return; box.innerHTML = ''
       h('span', {class: 'arrbtns'}, h('button', {class: 'mini', 'aria-label': 'Earlier', onclick: () => { if (i) { [ARR[i - 1], ARR[i]] = [ARR[i], ARR[i - 1]]; storeArr(); renderArr(); } }}, '◀'),
         h('button', {class: 'mini', 'aria-label': 'Later', onclick: () => { if (i < ARR.length - 1) { [ARR[i + 1], ARR[i]] = [ARR[i], ARR[i + 1]]; storeArr(); renderArr(); } }}, '▶'),
         h('button', {class: 'mini', 'aria-label': 'Remove', onclick: () => { ARR.splice(i, 1); storeArr(); renderArr(); }}, '✕')))); });
-  $('arrPlay').textContent = st.arr ? '■ Stop the song' : '▶ Play the song'; $('arrPlay').disabled = !ARR.length; $('arrSend').disabled = !ARR.length; }
+  $('arrPlay').textContent = st.arr && !st.arr.song ? '■ Stop the song' : '▶ Play the song'; $('arrPlay').disabled = !ARR.length; $('arrSend').disabled = !ARR.length; }
 // playing it: each scene is recalled a bar before it begins, so its parts land on its first bar
-function arrPlay(){ if (st.arr) { st.arr = null; renderArr(); flash('Song stopped: carrying on with what’s playing'); return; } if (!ARR.length) return;
-  const first = byRef(ARR[0].ref); if (!first) return; recall(first);
-  const at = st.playing ? Math.ceil(st.step/16)*16 : 0; st.arr = {i: 0, next: at + ARR[0].bars*16}; if (!st.playing) start(); renderArr(); }
-function arrBar(step){ const a = st.arr; if (!a || !ARR.length) return;
-  if (step === a.next - 16) { a.p = (a.i + 1) % ARR.length; const x = byRef(ARR[a.p].ref); if (x) recall(x); }
-  if (step >= a.next) { a.i = a.p ?? (a.i + 1) % ARR.length; a.next = step + ARR[a.i].bars*16; renderArr(); } }
+// list: your song (going round), or one of Claude's (song: its id; played through once, then it stops)
+function arrPlay(list = ARR, song = null){ if (st.arr && !song) { st.arr = null; renderArr(); renderIdeas(); flash('Song stopped: carrying on with what’s playing'); return; } if (!list.length) return;
+  const first = byRef(list[0].ref); if (!first) return; recall(first);
+  const at = st.playing ? Math.ceil(st.step/16)*16 : 0; st.arr = {list, song, i: 0, next: at + list[0].bars*16}; if (!st.playing) start(); renderArr(); renderIdeas(); }
+function arrBar(step){ const a = st.arr; if (!a || !a.list.length) return; const L = a.list, end = a.song && a.i === L.length - 1;
+  if (step === a.next - 16 && !end) { a.p = (a.i + 1) % L.length; const x = byRef(L[a.p].ref); if (x) recall(x); }
+  if (step >= a.next) { if (end) { st.arr = null; renderIdeas(); flash('The end'); setTimeout(() => st.playing && stop(), 0); return; }
+    a.i = a.p ?? (a.i + 1) % L.length; a.next = step + L[a.i].bars*16; renderArr(); if (a.song) { renderIdeas(); flash(byRef(L[a.i].ref)?.name || ''); } } }
 async function arrSend(){ if (!ARR.length) return; if (!db) { flash('Sign in to claude.ai to send'); return; }
   const refs = [...new Set(ARR.map(e => e.ref))], note = $('arrNote').value.trim();
   const row = {note, pack: PACK.id, entries: ARR.map(e => ({ref: e.ref, bars: e.bars, name: byRef(e.ref)?.name || '', idea: !!IDEAS.find(x => x.id === e.ref)})), snaps: refs.map(byRef).filter(Boolean), at: new Date().toISOString()};
   try { await db.collection('arrangements').add(row); $('arrNote').value = ''; flash('Sent to Claude: tell Claude it’s there'); $('arrMsg').textContent = `Sent ${new Date().toLocaleTimeString()}: ${ARR.length} scenes. Tell Claude, and the next round of ideas will come from it.`; }
   catch (err) { flash('Not sent (' + (err.code || err.message) + ')'); } }
-$('arrPlay').onclick = arrPlay; $('arrSend').onclick = arrSend;
-async function loadIdeas(){ if (!db) return; try { const q2 = await db.collection('ideas').get(); IDEAS = q2.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols); renderIdeas(); renderArr(); } catch {} }
+$('arrPlay').onclick = () => arrPlay(); $('arrSend').onclick = arrSend;
+async function loadIdeas(){ if (!db) return; try { const q2 = await db.collection('ideas').get(); IDEAS = q2.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols || x.sections); renderIdeas(); renderArr(); } catch {} }
+window.__jamIdeas = list => { IDEAS = list; renderIdeas(); };   // (for tests)
 async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch { SNAPS = []; } renderSnaps();
   if (!db) return; try { const q2 = await db.collection('snaps').get(), have = new Set(SNAPS.map(x => x.id));
     for (const d of q2.docs) { const x = d.data(); if (x && !have.has(x.id)) SNAPS.push(x); }

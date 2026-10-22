@@ -1,12 +1,15 @@
 // A round of ideas for Studio Jam's idea loop: built from the user's snapshots (and, from round 2, the order they
 // arranged them in), each a full combination in the snapshot format, with a line on why. Clips come from the packs and
 // the user's own variants, changed with the model's transforms; sounds from the library, steered by their ratings.
-// Usage: node studio/jam/ideas.mjs <dir of exported snaps> <round> <out.json> (round 1 from Snaps 4 and 5, round 2 from Snap 9)
+// Usage: node studio/jam/ideas.mjs <dir of exported snaps> <round> <out.json> (round 1 from Snaps 4 and 5, round 2 from Snap 9,
+// round 3 three whole songs from Snap 10: each a list of sections, every section a scene in the v2 format)
 // (export: ArtifactData list snaps → out_dir; write: ArtifactData batch set into `ideas`)
 import fs from 'node:fs';
 import path from 'node:path';
 import { XFORMS, mutate } from './model.js';
 import { develop, sequence, thin } from './riff.js';
+import { split, join, rhythmTool, notesTool, fresh } from './part.js';
+import { LIB, inKey } from './chords.js';
 import { rng } from '../lib/rng.js';
 
 const here = path.dirname(new URL(import.meta.url).pathname), [dir, roundArg, outFile] = process.argv.slice(2), ROUND = +roundArg || 1;
@@ -90,8 +93,72 @@ function round2(){ const S9 = SNAPS['Snap 9']; if (!S9) throw new Error('needs S
     idea(S9, 'Build up', 'Strings underneath', 'The bamboo bass, and your strings back in quietly and wet on their stabs in five, the hats loose: Snap 9 at its fullest without leaving its colour.', x => {
       bass(x, 'b3-bamboo', 'b3-and', {length: 1}); const ch = x.cols[COL.chords]; ch.mute = false; ch.mix = {...ch.mix, vol: -6}; ch.y = .7; x.cols[COL.hats].play = 2; }),
   ]; }
-const ideas = {1: round1, 2: round2}[ROUND]();
+// round 3: three whole songs from Snap 10 (Snap 9's natural sounds with the FM pluck bass you found, on your four-bar
+// off-beat line), each a different shape, the bass coming and going. A song is its sections in order; a section is a
+// scene (every part a rhythm and notes, or resting) held for its bars
+function round3(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('needs Snap 10 in ' + dir);
+  const PK = PACKS[S10.pack], GROUND = Object.fromEntries(PK.harmonies.map(H => [H.id, H]));
+  for (const H of LIB) GROUND[H.id] = inKey(H, 'A');
+  // the base: Snap 10 with every part taken apart into its rhythm and notes (its own feel kept on the rhythm)
+  const base = clone(S10); delete base.id;
+  base.cols.forEach(c => { for (const k of ['vars', 'made', 'lens', 'vi', 'follow']) delete c[k]; c.play = 0; c.mute = false;
+    if (c.clip) { const nm = PK.clips.find(k => k.id === c.clip.id)?.name || 'Saved part', sp = split(c.role, c.clip, nm); c.rhythm = {...sp.rhythm, feel: c.feel || 0}; c.notes = sp.notes; c.preset = PK.clips.some(k => k.id === c.clip.id) ? c.clip.id : null; } });
+  const line = base.cols[COL.bass]; line.rhythm = fresh(line.rhythm, 'Your off-beat line'); line.notes = fresh(line.notes, 'Your off-beat line'); line.preset = null;
+  const LINE = {R: line.rhythm, N: line.notes}, R3 = rng(303);
+  // a pack clip as a part; tools on parts
+  const pack = (role, id) => { const cl = PK.clips.find(k => k.id === id), sp = split(role, cl, cl.name), col = base.cols.find(c => c.role === role);
+    return {R: {...sp.rhythm, feel: col?.feel || 0}, N: sp.notes, preset: id}; };
+  const rt = (role, k, m) => { const o = rhythmTool(k, role, m.R, m.N, R3); return {R: o.rhythm, N: o.notes || m.N}; };
+  const nt = (role, k, m) => ({R: m.R, N: notesTool(k, role, m.N, R3)});
+  const BAR1 = rt('bass', 'shorter', rt('bass', 'shorter', LINE));                    // one bar of your line
+  const of = col => ({R: base.cols[COL[col]].rhythm, N: base.cols[COL[col]].notes, preset: base.cols[COL[col]].preset});
+  const HATS = of('hats'), HANDS = of('perc'), DROPS = of('lead'), MARIMBA = of('lead2');
+  // a section: Snap 10 with its parts as given (null rests; a missing part rests too, so each section says what plays)
+  let n = 0; const song = (id, name, why, bpm, list) => ({id, kind: 'song', name, why, bpm, round: ROUND, pack: S10.pack,
+    sections: list.map(([sname, bars, ground, parts, swhy = '', set = {}]) => { const x = clone(base), H = GROUND[ground];
+      Object.assign(x, {id: `${id}.${++n}`, name: `${name}: ${sname}`, bars, why: swhy, bpm, harmony: H.id, harmonyName: H.name, harmonyBars: H.bars, v: 2, ...set});
+      x.cols.forEach((c, i) => { const key = Object.keys(COL).find(k => COL[k] === i), m = parts[key];
+        if (!m) { c.rhythm = c.notes = c.clip = null; c.preset = null; return; }
+        const {R, N, preset = null, ...more} = m; c.rhythm = clone(R); c.notes = N ? clone(N) : null; c.preset = preset; Object.assign(c, more);
+        const j = join(c.role, c.rhythm, c.notes); c.clip = {id: preset || 'part', var: 0, len: j.len, steps: j.steps}; });
+      return x; })});
+  const bassLong = {...pack('bass', 'b3-and'), length: 2, y: .45}, strings = {...pack('chords', 'c3-phrase'), mix: {...base.cols[COL.chords].mix, vol: -7}, y: .7};
+  const n0 = () => (n = 0);
+  return [
+    (n0(), song('r3-1', 'Clearing', 'An arc in nine parts: the wood and the hands at first light, the kick walking in, your bass arriving and stepping out for the undergrowth, back changed on D minor, a hush with strings, everything at the clearing, then the light going. The bass is there for half of it.', 120, [
+      ['First light', 8, 'a-pedal-3', {perc: rt('perc', 'thin', HANDS), lead: DROPS, lead2: MARIMBA}, 'No kick: the hands thinned, the drops and the marimba.'],
+      ['Footsteps', 8, 'a-pedal-3', {kick: pack('kick', 'k3-sparse'), perc: HANDS, lead: DROPS, lead2: MARIMBA}, 'The kick on one and three.'],
+      ['The path', 16, 'a-pedal-3', {kick: pack('kick', 'k3-four'), hats: HATS, perc: HANDS, lead: DROPS, lead2: MARIMBA}, 'Snap 9: four on the floor, your 16ths.'],
+      ['The bass arrives', 16, 'a-pedal-3', {kick: pack('kick', 'k3-four'), hats: HATS, perc: HANDS, bass: LINE, lead: DROPS}, 'Your FM pluck line; the marimba steps back to give it room.'],
+      ['Undergrowth', 8, 'a-pedal-3', {kick: pack('kick', 'k3-four'), hats: pack('hats', 'h3-open'), perc: HANDS, lead2: nt('lead', 'sequence', MARIMBA)}, 'The bass out; open hats; the marimba climbing.'],
+      ['Back, changed', 16, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: {...HATS, play: 1}, perc: HANDS, bass: rt('bass', 'develop', BAR1), lead: DROPS}, 'Your line\'s first bar developed into a new four-bar phrase, on D minor (your Snap 10 ground); the hats played lightly.'],
+      ['Hush', 8, 'd-m7m9', {perc: {...pack('perc', 'p3-air')}, chords: strings, lead: DROPS, lead2: MARIMBA}, 'A breakdown: no kick, no bass; the air swelling, strings low and wet.'],
+      ['The clearing', 16, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: {...HATS, play: 2}, perc: HANDS, bass: {...LINE, play: 1}, lead: DROPS, lead2: MARIMBA}, 'Everything, the hats loose and the bass played lightly.'],
+      ['Last light', 8, 'a-pedal-3', {kick: pack('kick', 'k3-sparse'), perc: rt('perc', 'thin', HANDS), bass: bassLong, lead: DROPS, lead2: MARIMBA}, 'The kick thins, the bass holds long notes on the and, back on the pedal.'],
+    ])),
+    (n0(), song('r3-2', 'Two rivers', 'A rondo (A B A C A B, then the sea): the bass and the wood take turns, never together until they meet. The bass\'s river on D minor, the wood\'s on the A pedal, and where they meet a darker turn, a semitone up and back.', 120, [
+      ['Bass river', 8, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: HATS, perc: HANDS, bass: LINE}, 'The drums and your bass, no melody.'],
+      ['Wood river', 8, 'a-pedal-3', {kick: pack('kick', 'k3-four'), hats: pack('hats', 'h3-off'), perc: pack('perc', 'p3-seven'), lead: DROPS, lead2: MARIMBA}, 'No bass: the drops and the marimba, a rim in sevens against the four.'],
+      ['Bass river, rolling', 8, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: {...HATS, play: 1}, perc: HANDS, bass: {R: pack('bass', 'b3-roll').R, N: LINE.N}}, 'Your line\'s notes on the rolling-threes rhythm: the same notes, a new way of walking.'],
+      ['Where they meet', 16, 'phryg-3', {kick: pack('kick', 'k3-broken'), hats: pack('hats', 'h3-gaps'), perc: HANDS, bass: LINE, lead2: nt('lead', 'sequence', MARIMBA)}, 'Bass and marimba together for the first time, on E minor 7 to F major 7; the kick broken.'],
+      ['Bass river', 8, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: HATS, perc: HANDS, bass: LINE}, 'The theme again, as it was.'],
+      ['Wood river, no kick', 8, 'a-pedal-3', {hats: pack('hats', 'h3-off'), perc: HANDS, lead: rt('lead', 'develop', DROPS), lead2: MARIMBA}, 'The kick drops out; the drops developed over four bars.'],
+      ['The sea', 16, 'd-m7m9', {kick: pack('kick', 'k3-four'), hats: {...HATS, play: 2}, perc: HANDS, bass: {...LINE, play: 1}, chords: strings, lead: DROPS, lead2: MARIMBA}, 'Both rivers at once, strings under them.'],
+    ])),
+    (n0(), song('r3-3', 'Undertow', 'The bass leads from the start and leaves for the peak: the peak is Snap 9\'s groove, the minimal, bass-less one you liked, on its own pedal. Then the bass comes back in half time and is the last thing left.', 120, [
+      ['Low water', 8, 'lib-twomin', {bass: bassLong}, 'The bass alone, long notes on the and, A minor 9 to E minor 9.'],
+      ['Hands', 8, 'lib-twomin', {perc: HANDS, bass: bassLong}, 'The hand groove joins.'],
+      ['Pulse', 8, 'lib-twomin', {kick: pack('kick', 'k3-sparse'), perc: HANDS, bass: LINE}, 'The kick on one and three; the bass starts walking your line.'],
+      ['Current', 16, 'lib-twomin', {kick: pack('kick', 'k3-four'), hats: {...HATS, play: 1}, perc: HANDS, bass: LINE, lead: DROPS}, 'The groove, with the drops.'],
+      ['Surface', 16, 'a-pedal-3', {kick: pack('kick', 'k3-four'), hats: HATS, perc: HANDS, lead: DROPS, lead2: MARIMBA}, 'Snap 9\'s groove: the bass gone, the wood and the marimba on top.'],
+      ['Under again', 8, 'lib-twomin', {kick: pack('kick', 'k3-four'), hats: pack('hats', 'h3-ride'), perc: HANDS, bass: rt('bass', 'half', BAR1)}, 'The bass back in half time: your line\'s first bar, twice as slow.'],
+      ['Ebb', 8, 'lib-twomin', {perc: HANDS, bass: {...BAR1, play: 2}, lead2: MARIMBA}, 'No kick: the bass played loose, the hands and the marimba.'],
+      ['Still', 8, 'lib-twomin', {perc: pack('perc', 'p3-air'), bass: bassLong}, 'Long bass notes and the air.'],
+    ])),
+  ]; }
+const ideas = {1: round1, 2: round2, 3: round3}[ROUND]();
 ideas.forEach((x, i) => { x.order = i; x.id = `r${ROUND}-${i + 1}`; x.at = new Date().toISOString(); });
-for (const x of ideas) for (const c of x.cols) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }
+for (const x of ideas) for (const y of x.sections || []) y.at = x.at;
+for (const x of ideas) for (const c of x.cols || []) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }
 fs.writeFileSync(outFile, JSON.stringify(ideas));
-console.log(ideas.map(x => `${x.id} [${x.kind}] ${x.name}`).join('\n'), `\n${ideas.length} ideas, ${(fs.statSync(outFile).size/1024).toFixed(0)} KB`);
+console.log(ideas.map(x => `${x.id} [${x.kind}] ${x.name}` + (x.sections ? ': ' + x.sections.map(y => `${y.name.split(': ')[1]} ${y.bars}`).join(', ') : '')).join('\n'), `\n${ideas.length} ideas, ${(fs.statSync(outFile).size/1024).toFixed(0)} KB`);

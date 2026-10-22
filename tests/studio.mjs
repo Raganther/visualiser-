@@ -217,6 +217,17 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
   check('a scene saved and recalled brings the part\'s modules back', other.sub !== took.sub && back.sub === took.sub, [other.sub, back.sub].join(' / '));
   await q.waitForTimeout(500); await q.reload(); await q.waitForTimeout(2000); await q.keyboard.press('r'); const reloaded = await mods();
   check('the part comes back as it was left, after a reload', reloaded.sub === took.sub, reloaded.sub); await q.close(); }
+// one of Claude's songs in the page: its sections recalled one after another on the bar, played through once, then it
+// stops (two one-bar sections at 140 BPM, the second without the kick)
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  await q.keyboard.press('s'); const scene = await q.evaluate(() => JSON.parse(localStorage.getItem('studio.jam.snaps'))[0]);
+  const sec = (i, kick) => ({...scene, id: 't.' + i, name: `Test: part ${i}`, bars: 1, bpm: 140, cols: scene.cols.map(c => c.role === 'kick' && !kick ? {...c, rhythm: null, notes: null, clip: null} : c)});
+  await q.evaluate(x => window.__jamIdeas([x]), {id: 't', kind: 'song', name: 'Test', round: 9, bpm: 140, sections: [sec(1, true), sec(2, false)]});
+  await q.click('.snap.song button:has-text("Play the song")'); const seen = [];
+  for (let k = 0; k < 14; k++) { await q.waitForTimeout(250); const on = await q.$eval('.snap.song', e => e.querySelector('.sec[data-on="1"] b')?.textContent || '—'); if (seen.at(-1) !== on) seen.push(on); }
+  const kick = await q.$eval('#parts .prow', e => e.dataset.rest), playing = await q.getAttribute('#play', 'aria-pressed');
+  check('a song plays its sections in turn on the bar and stops at its end', seen.join() === 'part 1,part 2,—' && kick === '1' && playing === 'false', `${seen.join(' → ')}, kick resting: ${kick}, playing: ${playing}`); await q.close(); }
 // the harmony in the jam's page: a chord held from the matrix, a progression written, played and saved, the library in a
 // key, and a snapshot bringing a library progression back
 { const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.type() === 'prompt' ? d.accept('Night walk') : d.accept());
