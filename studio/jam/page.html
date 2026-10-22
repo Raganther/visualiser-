@@ -3,8 +3,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a launcher, like a hardware groovebox. The harmony across the top, the clip grid (scenes down the left, a column
-   a role), then the performance strip: the XY pad beside the jam moves, big targets for a finger as for a mouse. */
+/* Layout: the ground (the harmony) across the top, the parts down the left beside the chosen part's card (its rhythm,
+   notes, sound and space on tabs), then the form (scenes, moves, yours, the song), the library, the mixer and likes. Big
+   targets for a finger as for a mouse; on a phone a page at a time. */
 :root{
   --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --well:#e4e7ec; --band:#d9dee6;
   --on:#b8642a; --on-soft:#f3e0d2; --acc:#2f7d74; --acc-soft:#d7ece9; --rec:#c43c5a;
@@ -130,7 +131,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .snd{border:1px solid var(--line); background:var(--well); border-radius:10px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:4px}
 .snd[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
 .snd .muted{font-size:12px}
-#snaps{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin-top:8px}
+#snaps{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; margin-top:8px}
 .snap{position:relative; border:1px solid var(--line); border-radius:12px; background:var(--well); display:flex; flex-direction:column; min-height:64px}
 .snap .go, .snap.save{border:0; background:transparent; text-align:left; padding:10px 12px; display:flex; flex-direction:column; gap:3px; flex:1; min-height:64px; font:inherit; color:inherit}
 .snap.save{border:1px dashed var(--acc); color:var(--acc)}
@@ -198,84 +199,99 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 #keepJam{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:9px 16px; font-weight:600}
 #keepJam:disabled{opacity:.4; cursor:default}
 .phone{display:none !important}
+
+/* v2: the ground strip, the parts, the card's tabs, the tools, the library */
+.groundhead{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+#groundBars{display:flex; gap:4px; flex:1; min-width:240px}
+.gbar{border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:600 13px var(--body); background:var(--well); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.gbar small{color:var(--mute); font-weight:400} .gbar[data-on="1"]{background:var(--ink); color:var(--bg); border-color:var(--ink)} .gbar[data-on="1"] small{color:inherit}
+.stage{display:grid; grid-template-columns:minmax(220px, 290px) minmax(0, 1fr); gap:12px; align-items:start}
+.stage > *{min-width:0}
+@media (max-width:900px){.stage{grid-template-columns:minmax(0, 1fr)}}
+#parts{display:flex; flex-direction:column; gap:6px}
+.prow{position:relative; display:flex; align-items:stretch; gap:4px; border:2px solid transparent; border-radius:12px; background:var(--well); overflow:hidden}
+.prow[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)} .prow[data-rest="1"] .psk{color:var(--mute); font-style:italic} .prow[data-mute="1"]{opacity:.5}
+.prow[data-next="1"] .psk{color:var(--acc); animation:blink .5s steps(2) infinite}
+.pname{flex:1; min-width:0; border:0; background:transparent; text-align:left; padding:8px 10px; display:flex; flex-direction:column; gap:2px}
+.pk b{font-size:14px} .life{color:var(--on)} .psk{font:12px/1 var(--mono); letter-spacing:.06em; color:var(--ink)} .psub{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pnav{display:flex; align-items:center; gap:3px; padding-right:6px} .pnav .mini{min-width:30px; min-height:32px; padding:0} .mbtn[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+.ph{position:absolute; left:0; bottom:0; height:3px; width:0; background:var(--on)}
+.lifebar{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.seg{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; min-height:36px}
+.seg[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+#life{display:inline-flex; gap:4px; align-items:center; flex-wrap:wrap} #life[hidden]{display:none}
+.ctabs{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; border-bottom:1px solid var(--line); padding-bottom:6px}
+.ctabs button{border:0; background:transparent; border-radius:10px; padding:8px 6px; display:flex; flex-direction:column; align-items:flex-start; gap:1px; text-align:left; min-width:0}
+.ctabs button b{font:700 15px var(--display)} .ctabs button small{font:11px var(--mono); color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.ctabs button[aria-selected="true"]{background:var(--on-soft); box-shadow:inset 0 -3px 0 var(--on)}
+.mpanel{display:flex; flex-direction:column; gap:10px} .mpanel[hidden]{display:none}
+.mhead{display:flex; align-items:center; gap:8px; flex-wrap:wrap} .mname{font:700 17px var(--display)}
+#rgrid{width:100%; height:120px; display:block; border-radius:12px; touch-action:none} #ngrid{width:100%; height:170px; display:block; border-radius:12px; background:var(--well); touch-action:none}
+.words{font-size:13px; color:var(--mute)}
+.tools{display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:6px}
+.tool{min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--well); font-weight:600; font-size:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 8px}
+.tool small{font:400 10px var(--mono); color:var(--mute)} .tool[data-on="1"]{background:var(--acc); color:#fff; border-color:var(--acc)} .tool[data-on="1"] small{color:#fff} .tool:disabled{opacity:.4}
+.inforow, .toolrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center} .inforow .tool, .toolrow .tool{min-width:110px}
+.stepper{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:10px; padding:4px 8px; min-height:44px} .stepper b{font:500 14px var(--mono); min-width:22px; text-align:center} .stepper .mini{min-width:32px; min-height:32px}
+.slider{display:grid; grid-template-columns:100px 1fr; align-items:center; gap:4px 12px} .slider input{width:100%; accent-color:var(--on)} .slider .ends{grid-column:2; display:flex; justify-content:space-between; font-size:11px; color:var(--mute)} .sval{font:500 12px var(--mono); color:var(--ink)}
+.segs{display:flex; gap:4px; align-items:center; flex-wrap:wrap} .segs .lab{width:100px}
+#soundList{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:6px; max-height:300px; overflow:auto; padding:2px}
+.knobs{display:flex; flex-direction:column; gap:12px}
+#scenes{display:flex; flex-wrap:wrap; gap:6px} #scenes .scene{min-height:44px; border:1px solid transparent} #scenes .scene[data-on="1"]{background:var(--on-soft); border-color:var(--on)}
+.formrow{display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between}
+.moves{display:flex; gap:6px; flex-wrap:wrap} .moves .tool{min-width:96px}
+.libtop{display:flex; gap:10px; align-items:center; flex-wrap:wrap} #libSearch{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:8px 10px; min-width:200px} #libFor{font-weight:600}
+#libFilters{display:flex; gap:6px; flex-wrap:wrap; margin:10px 0}
+.libcard{border:1px solid var(--line); border-radius:12px; background:var(--well); padding:10px; display:flex; flex-direction:column; gap:5px}
+.libcard .kind{font:500 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--acc)} .libcard .sk{font:12px var(--mono); color:var(--mute); letter-spacing:.05em}
+.libcard .row{display:flex; gap:6px; flex-wrap:wrap} .libcard .use{border:0; border-radius:8px; background:var(--ink); color:var(--bg); padding:6px 12px; font-weight:600; min-height:34px}
+.cardgrid{display:grid; grid-template-columns:minmax(0, 1fr); gap:10px}
+.partlikes{display:inline-flex; gap:6px; align-items:center; border:0; background:transparent; padding:0}
 /* the phone: one page at a time (the tabs at the bottom, in reach of a thumb), a slim transport at the top */
 @media (max-width:640px){
   .phone{display:block !important} nav.phone{display:flex !important}
   body{font-size:14px; padding:0 max(10px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px))}
   .wrap{gap:8px}
-  body[data-tab="clips"] [data-tabs]:not([data-tabs~="clips"]), body[data-tab="clip"] [data-tabs]:not([data-tabs~="clip"]),
-  body[data-tab="snaps"] [data-tabs]:not([data-tabs~="snaps"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]), body[data-tab="likes"] [data-tabs]:not([data-tabs~="likes"]), body[data-tab="mix"] [data-tabs]:not([data-tabs~="mix"]){display:none !important}
-  .gridbox,.keys{display:none !important}
+  body[data-tab="parts"] [data-tabs]:not([data-tabs~="parts"]), body[data-tab="ground"] [data-tabs]:not([data-tabs~="ground"]), body[data-tab="scenes"] [data-tabs]:not([data-tabs~="scenes"]),
+  body[data-tab="library"] [data-tabs]:not([data-tabs~="library"]), body[data-tab="mix"] [data-tabs]:not([data-tabs~="mix"]), body[data-tab="more"] [data-tabs]:not([data-tabs~="more"]){display:none !important}
+  .keys{display:none !important}
+  body[data-tab="parts"] #groundPanel > :not(.groundhead){display:none !important}
+  .card .cardhead .spacer{display:none}
   .panel{padding:10px; border-radius:12px}
   .transport{position:sticky; top:0; z-index:15; margin:0 calc(-1*max(10px, env(safe-area-inset-left, 0px))); border-radius:0; border-width:0 0 1px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
   .top{gap:8px; flex-wrap:nowrap}
   .top > div:first-child, .top .spacer, #rec .long{display:none}
-  #play,#rec{height:44px; padding:0 16px; min-width:0; flex:none}
-  #play{min-width:76px}
-  .chordbox{flex:1; min-width:0}
-  #chordNow{font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  #barNow{font-size:10px}
+  #play,#rec{height:44px; padding:0 16px; min-width:0; flex:none} #play{min-width:76px}
+  .chordbox{flex:1; min-width:0} #chordNow{font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} #barNow{font-size:10px}
   .top > div:last-child{flex:none; max-width:38%; text-align:right; overflow:hidden}
   #busy,#flash{font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .tempoSlot{margin-bottom:10px} .tempoSlot .tempo{gap:8px} .tempoSlot .tempo button{width:48px; height:44px} .tempoSlot .tempo .lab{display:inline}
-  .strip, #harmonies, #packs, #vars{display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none; -webkit-overflow-scrolling:touch}
-  .strip > *, #harmonies > *, #packs > *, #vars > *{flex:none}
-  .hchip,.pchip{min-height:44px; padding:8px 14px; font-size:14px}
-  .ghost,.tog{min-height:44px}
-  .mini{min-width:36px; min-height:36px}
-  #packs{margin-top:0}
-  .lab{margin:2px 0 6px}
-  /* the clips page */
-  .mscene{min-height:44px; padding:8px 14px; border:0; border-radius:999px; background:var(--band); font-weight:600; white-space:nowrap}
-  .mscene b{font-family:var(--mono); margin-right:6px; color:var(--mute)}
-  .mchip{min-width:76px; min-height:52px; padding:6px 10px; border:2px solid transparent; border-radius:12px; background:var(--well); text-align:left; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:130px}
-  .mchip b{font-size:14px} .mchip span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .mchip[data-sel="1"]{border-color:var(--acc); background:var(--acc-soft)}
-  .mchip[data-on="1"] b::after{content:" ●"; color:var(--on); font-size:10px}
-  .mchip[data-mute="1"]{opacity:.45}
-  .mcolbar{display:flex; gap:8px; margin:8px 0}
-  .mcolbar .sound{flex:1; min-height:44px; font-size:14px; padding:8px 12px}
-  .mcolbar .mute{min-width:84px; min-height:44px; font-size:13px}
-  #mClips{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-  #mClips .cell{min-height:60px; font-size:14px; padding:8px 10px}
-  /* the clip page */
-  .card{gap:10px} .card *, .mslot{min-width:0; max-width:100%} .cardhead .likeslot{flex-basis:100%} .moves .big{grid-template-columns:repeat(3, minmax(0, 1fr))}
-  #pad{aspect-ratio:auto; height:min(33vh, calc(100vw - 40px))}
-  .cardside > .big{grid-template-columns:1fr 1fr}
-  .big{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px}
-  .big button{min-height:48px; font-size:13px; border-radius:10px; padding:4px; text-align:center}
-  .big button small{display:none}
-  .macro{min-height:48px !important}
-  .octbox{grid-column:1 / -1; justify-content:space-between; padding:0}
-  .octbox button{min-width:48px; min-height:48px}
-  #m-rep,#throw{touch-action:none}
-  .shapehead{flex-wrap:wrap}
-  #notes{height:140px}
-  .vbtn, #vars button{min-width:48px; min-height:48px}
-  .fb{gap:6px} .fb button{min-width:44px; min-height:44px} .fb input{flex-basis:100%}
-  .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
+  .tempoSlot{margin-bottom:10px} .tempoSlot .tempo{display:flex; gap:8px} .tempoSlot .tempo button{width:48px; height:44px}
+  #parts{flex-direction:row; overflow-x:auto; scrollbar-width:none; padding-bottom:2px} .prow{flex:none; width:136px; flex-direction:column} .pnav{padding:0 6px 6px} .pname{padding:8px 8px 4px}
+  #harmonies, #packs, #libFilters, #likeFilters{display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none}
+  #harmonies > *, #packs > *, #libFilters > *, #likeFilters > *{flex:none}
+  .hchip,.pchip,.lchip{min-height:44px; padding:8px 14px; font-size:14px; white-space:nowrap}
+  .ghost,.tog{min-height:44px} .mini{min-width:36px; min-height:36px}
+  #groundBars{min-width:0; overflow-x:auto} .gbar{flex:none !important}
+  .ctabs button b{font-size:14px} .ctabs button{padding:8px 4px}
+  .tools{grid-template-columns:repeat(3, minmax(0, 1fr))} .tool{min-height:48px; font-size:13px} .tool small{display:none}
+  .inforow .tool, .toolrow .tool{min-width:0; flex:1}
+  .slider{grid-template-columns:1fr} .slider .ends{grid-column:1} .segs .lab{width:100%}
+  #rgrid{height:110px} #ngrid{height:150px} #soundList{grid-template-columns:1fr; max-height:none}
+  .moves .tool{flex:1}
   #snaps{grid-template-columns:1fr 1fr} .snapgrid{grid-template-columns:1fr}
   #tabs button{font-size:12px} .mstrip{width:104px} .mrow .mini{min-height:44px} .mstep .mini{min-height:40px; min-width:30px} .mstep{grid-template-columns:30px 1fr 30px; row-gap:0} .mstep .lab{grid-column:1 / -1} .mstep b{font-size:11px} .duckb{min-height:44px} .ftrack{height:150px}
-  .likebar button{min-width:44px; min-height:40px; font-size:16px} .headlikes{display:none}
-  .partlikes{padding:6px 8px; gap:4px 8px} .partlikes .likebar button{min-width:40px}
-  .likeslot{margin-bottom:4px} #likeList{grid-template-columns:1fr} #likeSearch{flex-basis:100%; min-height:44px} .lchip{min-height:40px; white-space:nowrap}
-  #likeFilters{flex-wrap:nowrap} .likecard .use{min-height:44px; padding:0 18px}
+  .likebar button{min-width:44px; min-height:40px; font-size:16px}
+  #likeList, #libList .libgrid{grid-template-columns:1fr} #likeSearch, #libSearch{flex-basis:100%; min-height:44px} .likecard .use, .libcard .use{min-height:44px; padding:0 18px}
   #noteSheet{top:auto; bottom:0; left:0; transform:none; width:100%; border-radius:16px 16px 0 0; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))} .notebtns button{flex:1; min-height:48px}
   #arr .arrchip{flex:none} #arr > .muted{white-space:normal; flex:1}
-  .snapsbox{display:flex; flex-direction:column} .arrbox{order:-1; margin:0 0 12px; border-top:0; padding-top:0; border-bottom:1px solid var(--line); padding-bottom:12px}
   .snap .why{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-  .snap.idea .go{padding:8px 10px 2px; min-height:0} .ideabtns{padding:0 8px 8px} .snapgrid{gap:6px} .arrctl input{flex-basis:100%; min-height:44px} .arrctl button{flex:1; min-height:48px}
-  .ideabtns .mini{min-height:36px}
-  .snapbtns .mini{min-width:36px; min-height:36px}
-  /* the sound picker: a sheet from the bottom, one column, closed from the bottom too */
-  #sounds{left:0; right:0; bottom:0; border-radius:16px 16px 0 0; max-height:70vh; grid-template-columns:1fr; padding:12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); z-index:30}
-  .sndclose{min-height:48px; border:1px solid var(--line); border-radius:12px; background:var(--well); font-weight:600}
-  /* the tabs */
+  .arrctl input{flex-basis:100%; min-height:44px} .arrctl button{flex:1; min-height:48px}
+  .keep input{flex-basis:100%; min-height:44px} #keepJam{min-height:44px; flex-basis:100%}
   #tabs{position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--panel); border-top:1px solid var(--line); padding:0 max(6px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(6px, env(safe-area-inset-left, 0px))}
-  #tabs button{flex:1; min-height:56px; border:0; background:transparent; font-weight:600; font-size:13px; color:var(--mute); border-top:3px solid transparent}
+  #tabs button{flex:1; min-height:56px; border:0; background:transparent; font-weight:600; font-size:12px; color:var(--mute); border-top:3px solid transparent}
   #tabs button[aria-current="page"]{color:var(--ink); border-top-color:var(--on)}
 }
-@media (prefers-reduced-motion: reduce){.cell[data-next="1"],.hchip[data-next="1"]{animation:none}}
+@media (prefers-reduced-motion: reduce){.hchip[data-next="1"],.prow[data-next="1"] .psk{animation:none}}
 </style>
 
 <div class="wrap">
@@ -290,94 +306,81 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
       <div style="text-align:right"><div id="busy" aria-live="polite"></div><div id="flash" aria-live="polite"></div></div>
     </div>
   </section>
-  <section class="panel" data-tabs="more" aria-label="Packs"><div class="tempoSlot phone"></div><div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every column">Pack sounds</button></div></section>
-  <section class="panel" data-tabs="clips" aria-label="Harmony">
-    <div class="lab phone">Harmony</div>
-    <div class="htabs" id="hTabs" role="tablist" aria-label="Harmony"></div>
-    <div id="harmonies" aria-label="This pack's harmonies"></div>
+
+  <!-- the ground: the harmony every line reads -->
+  <section class="panel" id="groundPanel" data-tabs="ground parts" aria-label="Ground">
+    <div class="groundhead"><span class="lab">Ground</span><div id="groundBars" aria-label="The ground's chords, bar by bar"></div><span id="harmLikes"></span></div>
+    <div class="hrow"><span class="muted" id="hWords"></span><button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
+    <div class="htabs" id="hTabs" role="tablist" aria-label="Choose the ground"></div>
+    <div id="harmonies" aria-label="This pack's progressions"></div>
     <div id="hLib" hidden aria-label="The library of progressions"></div>
     <div id="hMat" hidden aria-label="The chord matrix"></div>
     <div id="hYours" hidden aria-label="Your progressions"></div>
     <div id="hMine" hidden aria-label="The progression you're writing"></div>
-    <div class="hrow"><span class="muted" id="hWords"></span><span id="harmLikes"></span>      <button class="tog" id="smooth" aria-pressed="true" title="Every part glides between chords: shared notes held, the rest by the nearest step">Smooth voice leading</button></div>
   </section>
 
-  <section class="gridbox" data-tabs="clips" aria-label="Clips"><div id="grid"></div></section>
-
-  <!-- the phone's clips: scenes in a strip, the parts as chips, the chosen part's clips as big buttons -->
-  <section class="panel phone mclips" data-tabs="clips" aria-label="Scenes and clips">
-    <div class="lab">Scenes</div><div class="strip" id="mScenes"></div>
-    <div class="mslot"></div>
-    <div class="mcolbar"><button class="sound" id="mSound"></button><button class="mute" id="mMute"></button></div>
-    <div id="mClips"></div>
-  </section>
-
-
-  <!-- the clip card: everything about the chosen part's clip in one place (its name, sound, notes, loop, riff tools,
-       variants, how it's played and its tone and space) -->
-  <section class="panel card" data-tabs="clip" aria-label="The clip">
-    <div class="mslot phone"></div>
-    <div class="cardhead">
-      <div class="cardtitle"><div class="lab" id="cardPart"></div><h2 id="cardName"></h2><div class="muted" id="cardSub"></div></div>
-      <button class="mini" id="rename" title="Name this clip">✎ Name</button>
-      <button class="sound" id="cardSound" title="Change the sound"></button>
-      <button class="mute" id="cardMute"></button>
-      <span class="spacer"></span>
-      <div class="likeslot"><div id="partLikes" class="partlikes" aria-label="Like this part"></div></div>
-    </div>
-    <div class="cardbody">
-      <div class="cardnotes">
-    <div id="loopRow"><canvas id="loopBar" aria-label="Loop a stretch of the clip: drag across bars"></canvas>
-      <div class="looptools"><span class="muted" id="loopNow"></span><span class="spacer"></span><button class="mini" id="loopOff" title="Play the whole clip again">Loop off</button><button class="mini" id="loopCrop" title="The loop as a variant of its own, so the riff tools work on just that stretch">✂ Crop to loop</button></div></div>
-    <canvas id="notes" aria-label="The chosen part's notes"></canvas>
-    <div class="lab riffhead">Riffs <span class="muted" id="lenNow"></span></div>
-    <div class="big" id="riffs" aria-label="Riff tools"></div>
-    <div class="vrow"><span class="lab">Variants</span><div id="vars"></div><button class="vbtn" id="follow" title="Play the variants in turn, a bar each (L)"></button></div>
-    <div class="big" id="xforms" aria-label="Shape the notes"></div>
-    <div class="big" id="grooveRow" aria-label="Groove and space">
-      <button class="macro" id="feel" title="How this part grooves (F)"></button>
-      <button class="macro" id="playB" title="A player improvising on this part: notes left out, ghost notes, fills, the loudness moving (P)"></button>
-      <button class="macro" id="keepB" title="What the player just played, the last two bars or so, as a new variant (X)">Keep that<small>X</small></button>
-      <button class="macro" id="echoOn" title="This part into the echo (G)"></button>
-      <button class="macro" id="verbOn" title="This part into the reverb (K)"></button>
-      <button class="macro" id="throw" title="Hold: everything this part plays goes into the echo; let go and it rings on (hold J)">Throw (hold)<small>J</small></button>
-      <button class="macro" id="echoTime" title="The echo's time, for every part"></button>
-    </div>
+  <!-- the parts, and the chosen one's card: its rhythm, notes, sound and space -->
+  <div class="stage" data-tabs="parts">
+    <section class="panel" aria-label="Parts"><div class="lab" style="margin-bottom:8px">Parts · ‹ › the pack’s parts</div><div id="parts"></div></section>
+    <section class="panel card" id="card" aria-label="The chosen part">
+      <div class="cardhead">
+        <div class="cardtitle"><div class="lab" id="cardPart"></div><h2 id="cardName"></h2><div class="muted" id="cardSub"></div></div>
+        <span class="spacer"></span>
+        <div id="partLikes" class="partlikes"></div>
+        <button class="mute" id="cardMute"></button>
+        <button class="mini" id="savePart" title="This part (its rhythm and notes) into your library">＋ Save part</button>
       </div>
-      <div class="cardside">
-        <canvas id="pad" aria-label="Tone (across) and space (up) for the chosen column"></canvas>
-        <div class="big">
-          <span class="macro octbox" id="octBox"><button id="octDown" aria-label="Octave down">−</button><span>Octave <b id="octOut">0</b></span><button id="octUp" aria-label="Octave up">+</button></span><button class="macro" id="motion"></button><button class="macro" id="length"></button>
-          <button class="macro" id="m-vary">Vary<small>V</small></button><button class="macro" id="m-mutate">Mutate<small>M</small></button>
-        </div>
+      <div class="lifebar"><span id="life" aria-label="Life: how much the part is played on"></span><button class="seg" id="keepB" title="What Life just played, the last two bars or so, as the part's rhythm and notes (X)">Keep that</button></div>
+      <div class="ctabs" id="ctabs" role="tablist" aria-label="The part's modules"></div>
+      <div class="mpanel" id="p-rhythm">
+        <div id="rHead"></div>
+        <canvas id="rgrid" aria-label="The rhythm: when the part plays"></canvas>
+        <div id="loopRow"><canvas id="loopBar" aria-label="Loop a stretch: drag across bars"></canvas>
+          <div class="looptools"><span class="muted" id="loopNow"></span><span class="spacer"></span><button class="mini" id="loopOff" title="Play the whole part again">Loop off</button><button class="mini" id="loopCrop" title="Keep just the loop">✂ Crop to loop</button></div></div>
+        <div class="words" id="rWords"></div>
+        <div class="inforow" id="rInfo"></div>
+        <div class="tools" id="rTools" aria-label="Rhythm tools"></div>
       </div>
+      <div class="mpanel" id="p-notes" hidden>
+        <div id="nHead"></div>
+        <canvas id="ngrid" aria-label="The notes, in the order they play"></canvas>
+        <div class="words" id="nWords"></div>
+        <div class="inforow" id="nInfo"></div>
+        <div class="tools" id="nTools" aria-label="Notes tools"></div>
+      </div>
+      <div class="mpanel" id="p-sound" hidden>
+        <div id="sHead"></div>
+        <div class="knobs" id="sKnobs"></div>
+        <div id="soundList" aria-label="Sounds for this part"></div>
+      </div>
+      <div class="mpanel" id="p-space" hidden><div class="knobs" id="spKnobs"></div></div>
+    </section>
+  </div>
+
+  <!-- the form: scenes, the moves, yours, Claude's ideas, the song -->
+  <section class="panel" data-tabs="parts scenes" aria-label="Scenes and moves">
+    <div class="formrow"><div><div class="lab" style="margin-bottom:6px">The pack’s scenes</div><div id="scenes"></div></div>
+      <div class="moves"><button class="tool" id="m-build">Build<small>B</small></button><button class="tool" id="m-drop">Drop<small>D</small></button><button class="tool" id="m-rep" style="touch-action:none">Repeat (hold)<small>O</small></button><button class="tool" id="m-harm">Next ground<small>H</small></button><button class="tool" id="m-snap">＋ Save scene<small>S</small></button></div></div>
+    <div class="keys" style="margin-top:8px">
+      <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> a part · <kbd>↑</kbd><kbd>↓</kbd> the pack’s parts for it · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>N</kbd> new · <kbd>V</kbd> vary (the tab’s module; <kbd>Shift</kbd> its notes) ·
+      <kbd>P</kbd> life · <kbd>X</kbd> keep that · <kbd>Z</kbd> undo · <kbd>F</kbd> feel · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>B</kbd> build · <kbd>D</kbd> drop · hold <kbd>O</kbd> repeat · <kbd>H</kbd> next ground · <kbd>S</kbd> save a scene · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> yours
     </div>
   </section>
-
-  <!-- the jam's own moves (not one clip's) -->
-  <section class="panel moves" data-tabs="clips" aria-label="Jam moves">
-    <div class="big" aria-label="Jam moves">
-      <button id="m-build">Build<small>B</small></button>
-      <button id="m-drop">Drop<small>D</small></button>
-      <button id="m-rep">Repeat (hold)<small>O</small></button>
-      <button id="m-harm">Next harmony<small>H</small></button>
-      <button id="m-snap">＋ Save snapshot<small>S</small></button>
-    </div>
-    <div class="keys">
-        <kbd>Space</kbd> play · <kbd>1</kbd>–<kbd>8</kbd> scenes · <kbd>Q</kbd>–<kbd>U</kbd> choose a column · <kbd>↑</kbd><kbd>↓</kbd> its next clip · <kbd>←</kbd><kbd>→</kbd> its tone · <kbd>Shift</kbd>+<kbd>Q</kbd>–<kbd>U</kbd> mute ·
-        <kbd>V</kbd> vary · <kbd>M</kbd> mutate · <kbd>B</kbd> build · <kbd>D</kbd> drop · <kbd>O</kbd> hold to repeat · <kbd>H</kbd> next harmony · <kbd>[</kbd><kbd>]</kbd> octave · <kbd>F</kbd> feel · <kbd>G</kbd> echo · <kbd>K</kbd> reverb · hold <kbd>J</kbd> throw · <kbd>L</kbd> follow · <kbd>S</kbd> save a snapshot · <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> recall one
-    </div>
-  </section>
-
-  <section class="panel snapsbox" data-tabs="snaps" aria-label="Snapshots">
+  <section class="panel snapsbox" data-tabs="scenes" aria-label="Your scenes and the song">
+    <div class="lab">Your scenes: everything as it was, back on the next bar</div><div id="snaps"></div>
     <div id="ideas" hidden></div>
-    <div class="lab">Your snapshots: back on the next bar</div><div id="snaps"></div>
     <div class="arrbox">
-      <div class="lab">Arrange: your order, played as a sketch, sent to Claude for the next round</div>
+      <div class="lab">The song: scenes in your order, played as a sketch, sent to Claude for the next round</div>
       <div id="arr" class="strip"></div>
-      <div class="arrctl"><input id="arrNote" placeholder="Where should it go next? (your keyboard’s 🎤 dictates)" aria-label="A note for Claude"><button id="arrPlay" class="ghost">▶ Play arrangement</button><button id="arrSend">Send to Claude</button></div>
+      <div class="arrctl"><input id="arrNote" placeholder="Where should it go next? (your keyboard’s 🎤 dictates)" aria-label="A note for Claude"><button id="arrPlay" class="ghost">▶ Play the song</button><button id="arrSend">Send to Claude</button></div>
       <div class="muted" id="arrMsg"></div>
     </div>
+  </section>
+
+  <section class="panel" data-tabs="library" aria-label="Library">
+    <div class="libtop"><h2>Library</h2><span class="muted">Take a rhythm, notes or both onto the chosen part.</span><span class="spacer"></span><span id="libFor"></span><input id="libSearch" placeholder="Search" aria-label="Search the library"></div>
+    <div id="libFilters"></div>
+    <div id="libList"></div>
   </section>
 
   <section class="panel mixbox" data-tabs="mix" aria-label="Mixer">
@@ -385,12 +388,11 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div id="mixer"></div>
   </section>
 
-  <section class="panel likesbox" data-tabs="likes" aria-label="Your likes">
+  <section class="panel likesbox" data-tabs="more" aria-label="Your likes">
     <div class="likehead"><div class="lab">Your likes: everything you’ve liked, noted or turned down</div><input id="likeSearch" placeholder="Search names and notes" aria-label="Search your likes"></div>
     <div id="likeFilters" class="strip"></div>
     <div id="likeList"></div>
   </section>
-
   <section class="panel keep" data-tabs="more" aria-label="Keep a recording">
     <h2>Recordings</h2>
     <span class="muted" id="takeNote" style="flex-basis:100%">Press Record, jam, press it again. Keep the take and Claude renders it at full quality into the listening room.</span>
@@ -398,7 +400,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <input id="jamNote" placeholder="What you liked, where it could go…" aria-label="Note for Claude">
     <button id="keepJam" disabled>Keep for Claude</button>
   </section>
-  <div id="sounds" hidden aria-label="Sounds"></div>
+  <section class="panel" data-tabs="more" aria-label="Packs"><div class="tempoSlot phone"></div><div class="packrow"><div id="packs" aria-label="Pack"></div><button class="ghost" id="packSounds" title="Put this pack’s own sounds back on every part">Pack sounds</button></div>
+    <p class="muted" style="margin:8px 0 0">The first Studio Jam (a clip grid) is kept as it was: <a href="jam-v1.html">jam-v1.html</a>.</p></section>
   <div id="noteSheet" hidden role="dialog" aria-label="A note">
     <div class="lab">Note on</div><b id="noteWhat"></b>
     <textarea id="noteText" rows="3" placeholder="What you hear, what you’d change (your keyboard’s 🎤 dictates)"></textarea>
@@ -406,7 +409,7 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
   </div>
 </div>
 <nav id="tabs" class="phone" aria-label="Pages">
-  <button data-tab="clips">Clips</button><button data-tab="clip">Clip</button><button data-tab="mix">Mix</button><button data-tab="likes">Likes</button><button data-tab="snaps">Snaps</button><button data-tab="more">More</button>
+  <button data-tab="parts">Parts</button><button data-tab="ground">Ground</button><button data-tab="scenes">Scenes</button><button data-tab="library">Library</button><button data-tab="mix">Mix</button><button data-tab="more">More</button>
 </nav>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script>/*APP*/</script>

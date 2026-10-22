@@ -57,3 +57,7 @@ before writing or changing a piece; add to it when they react.
   groove, bamboo drops and the marimba answer, the bass and strings muted). 👍 round 1's "The bass walks on" and "More on
   the bass, hats and perc". Asked for a player's randomness (hats left out, triplets, dynamics; the two melodies too) and
   more room to write riffs and longer clips: Play, Keep that, the riff tools and editing by hand. Round 2 answers Snap 9.
+- 2026-10-22: Asked for the studio rethought from first principles, "intuitive and simplicity", the musical aspects as
+  modules to mix and match. Studio Jam v2: each part a rhythm, notes, a sound and a space, the same verbs on each (New,
+  Vary, Develop, tools, Undo, the library, 👍); Feel and Play folded into a rhythm's feel and the part's Life; the clip grid,
+  variants and Follow gone (the first jam is kept as `jam-v1.html`).

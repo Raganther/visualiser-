@@ -2,7 +2,9 @@
 // (the improviser: as written when off, the bar's 1 kept, ideas held, fills in the phrase's last bar, the leads taking
 // turns, kept as a variant), a
 // jam's take turned into a session (mixer and master changes as automation on their bars, the ones after the last note
-// too), that session's master and duck automation heard in an offline render on the desk, the clip card (names, kept),
+// too), that session's master and duck automation heard in an offline render on the desk, parts (a clip taken apart into
+// its rhythm and notes and put together again; mixed: notes going round a rhythm of another length, a hats rhythm on the
+// bass; the tools), the part card in the page (names, the library, editing, undo, a scene, a reload),
 // and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
 // page: a chord held, a progression written, played and saved, the library in a key, a snapshot bringing it back).
 import { serve, launch } from './lib.mjs';
@@ -152,6 +154,23 @@ const take = {name: 'test', bpm: 124, swing: 0, echoDiv: 1, columns: [{id: 'col0
 { const plain = jamSession({...take, macros: []}), M = plain.ops.find(o => o[0] === 'master')[1], bus = plain.ops.find(o => o[0] === 'bus' && o[1] === 'col3')[2];
   check('a take with no changes has a still master and a steady duck', M.at.length === 0 && bus.pump && !bus.pump.at); }
 
+/* ---------- parts: a clip taken apart into its rhythm and notes and put together again, mixed and matched ---------- */
+{ const P = await import('../studio/jam/part.js'), fs = await import('node:fs'); let bad = 0, n = 0;
+  const norm = (role, st) => JSON.stringify([...st].map(x => x.slice(0, role === 'chords' ? 4 : 5).filter((v, i) => !(i === 4 && !v))).sort((a, b) => a[0] - b[0] || String(a[1]).localeCompare(String(b[1]))));
+  for (const f of ['pack-1', 'pack-2', 'pack-3']) for (const c of JSON.parse(fs.readFileSync(new URL(`../studio/jam/packs/${f}.json`, import.meta.url))).clips) { n++;
+    const s = P.split(c.role, c, c.name), j = P.join(c.role, s.rhythm, s.notes); if (norm(c.role, j.steps) !== norm(c.role, c.steps) || j.len !== c.len) bad++; }
+  check('every pack clip taken apart and put together again is the same clip', !bad && n > 100, `${bad} of ${n} differ`);
+  const R = P.spread('bass', 5, 16), N = P.notesTool('new', 'bass', null, rng(4), {n: 7}), J = P.join('bass', R, N);
+  check('7 notes over 5 hits go round 7 times (7 bars), each hit the next note', P.cycles(R, N) === 7 && J.len === 112 && J.steps.length === 35 && J.steps[5][1] === N.seq[5][0] && J.steps[7][1] === N.seq[0][0], `${J.len} steps, ${J.steps.length} notes`);
+  const linkedN = {...N, seq: N.seq.slice(0, 5)}, th = P.rhythmTool('thin', 'bass', R, linkedN, rng(2)), un = P.rhythmTool('thin', 'bass', R, N, rng(2));
+  check('a rhythm tool carries linked notes with their hits, and leaves notes going round alone', th.notes && th.notes.seq.length === th.rhythm.hits.length && th.notes.seq.every(x => linkedN.seq.some(y => y[0] === x[0])) && !un.notes, `${th.rhythm.hits.length} hits, ${th.notes?.seq.length} notes`);
+  const hats = {len: 16, steps: [[2, 'chh', .7], [6, 'ohh', .7], [10, 'chh', .7], [14, 'chh', .7]]}, H = P.split('hats', hats), onBass = P.join('bass', H.rhythm, N);
+  check('a hats rhythm carries the bass\'s notes', onBass.steps.every(s => [2, 6, 10, 14].includes(s[0] % 16)) && typeof onBass.steps[0][1] === 'number', JSON.stringify(onBass.steps.slice(0, 4)));
+  check('drum notes can\'t go on a line, and voices a sound hasn\'t got become its main one', P.fitNotes('bass', H.notes) === null && P.fitNotes('hats', H.notes, ['chh', 'ride']).seq.join() === 'chh,chh,chh,chh');
+  const ans = P.notesTool('answer', 'lead', {seq: [[2, 0], [3, 0], [4, 0]], name: 'Rise', base: 'Rise', ops: []});
+  check('notes answered come home, and are named after it', ans.seq.length === 6 && ans.seq.at(-1)[0] === 2 && ans.name === 'Rise, answered', JSON.stringify(ans.seq));
+  const ev = P.spread('kick', 3, 8); check('an even rhythm: 3 over 8 is the tresillo', ev.hits.map(h => h[0]).join() === '0,2,5', ev.hits.map(h => h[0]).join()); }
+
 /* ---------- heard: the desk renders the master's and the duck's automation ---------- */
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage();
@@ -177,18 +196,27 @@ const r = await page.evaluate(async () => {
 check('the master\'s volume drops 12 dB on its bar', Math.abs(r.db + 12) < 1, r.db.toFixed(2) + ' dB');
 check('the master goes mono on its bar', r.sideBefore > .3 && r.sideAfter < .02, `side/mid ${r.sideBefore.toFixed(3)} → ${r.sideAfter.toFixed(3)}`);
 check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r.dip0.toFixed(2)} → ${r.dip1.toFixed(2)}`);
-// the clip card, in the jam's own page: a riff developed is named after it, a name given sticks, and a clip launched
-// again (or after a reload) comes back as it was left
-{ const q = await browser.newPage({viewport: {width: 1300, height: 1200}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.accept('Bamboo walk'));
+// the part card, in the jam's own page: a rhythm tool names the rhythm after what was done, the notes keep theirs; the
+// hats' off-beats from the library onto the bass keep the bass's notes, going round them; a hit tapped in by hand carries
+// its note (linked) and Undo takes it back; a scene saved and recalled brings the modules back; the part comes back after
+// a reload
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.accept('Bamboo walk'));
   await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
-  const name = () => q.textContent('#cardName'), cells = () => q.$$('.cell[data-col="col3"]:not(.empty)');
-  await q.keyboard.press('r'); await q.keyboard.press('n'); const riff = await name();
-  await q.click('#riffs button:has-text("Develop")'); const dev = await name(); await q.click('#riffs button:has-text("Thin")'); const thin = await name();
-  check('the clip card names a riff after what was done to it', riff === 'New bass riff' && dev === 'New bass riff, developed' && thin === 'New bass riff, developed, thinned', [riff, dev, thin].join(' / '));
-  await (await cells())[0].click(); await q.click('#riffs button:has-text("Develop")'); await q.click('#rename'); const named = await name(), cell = await (await cells())[0].textContent();
-  await (await cells())[1].click(); await (await cells())[0].click(); const back = await name(); await q.waitForTimeout(500); await q.reload(); await q.waitForTimeout(2000);
-  await q.keyboard.press('r'); await (await cells())[0].click(); const reloaded = [await name(), await q.textContent('#cardSub')];
-  check('a name given sticks, shows in the grid, and the clip comes back as it was left (after a reload too)', named === 'Bamboo walk' && cell === 'Bamboo walk' && back === 'Bamboo walk' && reloaded[0] === 'Bamboo walk' && /4 bars/.test(reloaded[1]), [named, cell, back, ...reloaded].join(' / ')); }
+  const mods = () => q.evaluate(async () => { const r = document.querySelector('#rHead .mname')?.textContent; return {sub: document.querySelector('#cardSub').textContent, r, rw: document.querySelector('#ctabs button small').textContent}; });
+  await q.keyboard.press('r'); const n0 = (await mods()).sub.split(' · ')[1];
+  await q.click('#rTools button:has-text("Thin")'); const thin = await mods();
+  check('a rhythm tool names the rhythm after it, and (linked) the notes come along', /, thinned$/.test(thin.r) && thin.sub.split(' · ')[1] === n0 + ', thinned', JSON.stringify(thin));
+  await q.click('#ctabs button:has-text("Notes")'); await q.click('#nTools button:has-text("Sequence")'); const nw = await q.textContent('#nWords');
+  check('notes sequenced run four times as long as the rhythm, and say so', /round 4 times/.test(nw), nw);
+  await q.click('#libFilters button:has-text("From every part")'); await q.fill('#libSearch', 'Off-beats'); await q.click('#libList .libcard:has(.kind:text-is("Hats")) button:has-text("Rhythm")'); const took = await mods();
+  check('the hats\' off-beats onto the bass keep the bass\'s notes', took.sub.startsWith('Off-beats · ') && took.sub.includes(', sequenced') && /4 hits/.test(took.rw), took.sub);
+  await q.click('#ctabs button:has-text("Rhythm")'); await q.click('#rInfo button:has-text("Edit")'); const box = await q.$eval('#rgrid', e => { const r = e.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; });
+  await q.mouse.click(box.x + 8 + (box.w - 16)*(.5/16), box.y + box.h - 20); const added = await mods(); await q.keyboard.press('z'); const undone = await mods();
+  check('a hit tapped in by hand, and Undo takes it out', /5 hits/.test(added.rw) && /, edited/.test(added.r) && /4 hits/.test(undone.rw), [added.rw, undone.rw].join(' / '));
+  await q.click('#rInfo button:has-text("Editing")'); await q.keyboard.press('s'); await q.keyboard.press('1'); const other = await mods(); await q.keyboard.press('Shift+Digit1'); await q.waitForTimeout(200); const back = await mods();
+  check('a scene saved and recalled brings the part\'s modules back', other.sub !== took.sub && back.sub === took.sub, [other.sub, back.sub].join(' / '));
+  await q.waitForTimeout(500); await q.reload(); await q.waitForTimeout(2000); await q.keyboard.press('r'); const reloaded = await mods();
+  check('the part comes back as it was left, after a reload', reloaded.sub === took.sub, reloaded.sub); await q.close(); }
 // the harmony in the jam's page: a chord held from the matrix, a progression written, played and saved, the library in a
 // key, and a snapshot bringing a library progression back
 { const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.type() === 'prompt' ? d.accept('Night walk') : d.accept());
