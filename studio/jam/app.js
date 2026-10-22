@@ -161,7 +161,7 @@ function preset(c, id){ if (!id) { setPart(c, {R: null, N: null}, {keep: false, 
   const cl = CLIP[id]; if (cl.sound && !c.locked && SND[cl.sound]?.role === SND[c.sound].role && c.sound !== cl.sound) setSound(c, cl.sound);
   setPart(c, fromClip(c, cl, cl.name), {keep: false, preset: id}); flash(`${PART(c)}: ${cl.name}${st.playing ? ', next bar' : ''}`); }
 function stepPreset(c, d){ const ids = [...presetsOf(c), null], i = ids.indexOf(c.preset === undefined ? null : c.preset); preset(c, ids[(i + d + ids.length) % ids.length]); }
-function scene(i){ const sc = PACK.scenes[i]; if (!sc) return; st.cols.forEach((c, j) => { const id = sc.clips[j] || null;
+function scene(i){ const sc = PACK.scenes[i]; if (!sc) return; if (st.cur) { keepEdit(); st.cur = null; renderSongBar(); } st.cols.forEach((c, j) => { const id = sc.clips[j] || null;
     if (!id) { setPart(c, {R: null, N: null}, {keep: false, preset: null}); return; } const cl = CLIP[id]; if (cl.sound && !c.locked && SND[cl.sound]?.role === SND[c.sound].role && c.sound !== cl.sound) setSound(c, cl.sound);
     setPart(c, fromClip(c, cl, cl.name), {keep: false, preset: id}); }); st.scene = i; renderScenes(); flash('Scene: ' + sc.name + (st.playing ? ', next bar' : '')); }
 function setSound(c, id){ c.sound = id; if (ctx) { buildSound(c); prewarm(c); } renderParts(); if (c === selCol()) renderCard(); }
@@ -497,7 +497,9 @@ async function saveSnap(){ if (!PACK) return; const x = capture(); SNAPS.push(x)
   if (db) try { await db.collection('snaps').doc(x.id).set(x); } catch (err) { flash('Saved here only (' + (err.code || err.message) + ')'); } }
 // sounds and settings change at once (so their notes are computed in time); the parts and the ground on the next bar. A
 // scene saved before parts had modules (or one of Claude's ideas) brings its clips back taken apart
-async function recall(x){ if (x.pack !== PACK.id) { if (!ALLPACKS.some(p => p.id === x.pack)) { flash('That pack is gone'); return; } await loadPack(x.pack); }
+async function recall(x, o = {}){ if (!o.keepCur && st.cur) { keepEdit(); st.cur = null; renderSongBar(); }
+  st.recalling = true; try { await recallNow(x); } finally { st.recalling = false; } }
+async function recallNow(x){ if (x.pack !== PACK.id) { if (!ALLPACKS.some(p => p.id === x.pack)) { flash('That pack is gone'); return; } await loadPack(x.pack); }
   if (x.mx) { st.mx = {...st.mx, ...x.mx}; masterMix(); } snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
@@ -663,9 +665,9 @@ $('noteSave').onclick = () => { const it = noteFor; if (!it) return; const id = 
 $('noteDel').onclick = () => { const it = noteFor; if (!it) return; const id = likeId(it), cur = LIKES[id]; if (cur) saveLike(id, cur.rating ? {...cur, note: '', at: new Date().toISOString()} : null); closeNote(); };
 // the part's likes: the whole part as it sounds (its rhythm, notes and sound together)
 function renderPartLikes(){ const box = $('partLikes'), c = selCol(); if (!box || !c) return; box.innerHTML = ''; if (shown(c).R) box.append(h('span', {class: 'lab'}, 'This part '), likeBar(patternItem(c))); }
-const KIND_NAMES = {sound: 'Sound', pattern: 'Part', rhythm: 'Rhythm', notes: 'Notes', settings: 'Settings', harmony: 'Ground', idea: 'Idea', snap: 'Scene'};
-const FILTERS = [['all', 'All'], ['pattern', 'Parts'], ['rhythm', 'Rhythms'], ['notes', 'Notes'], ['sound', 'Sounds'], ['harmony', 'Grounds'], ['snaps', 'Ideas & scenes'], ['notesOn', 'With a note'], ['down', '👎']];
-const inFilter = (L, f) => f === 'all' ? L.rating >= 0 : f === 'down' ? L.rating === -1 : f === 'notesOn' ? !!L.note : f === 'snaps' ? (L.kind === 'idea' || L.kind === 'snap') && L.rating >= 0 : L.kind === f && L.rating >= 0;
+const KIND_NAMES = {sound: 'Sound', pattern: 'Part', rhythm: 'Rhythm', notes: 'Notes', settings: 'Settings', harmony: 'Ground', idea: 'Idea', snap: 'Scene', section: 'Song part'};
+const FILTERS = [['all', 'All'], ['pattern', 'Parts'], ['rhythm', 'Rhythms'], ['notes', 'Notes'], ['sound', 'Sounds'], ['harmony', 'Grounds'], ['snaps', 'Songs, ideas & scenes'], ['notesOn', 'With a note'], ['down', '👎']];
+const inFilter = (L, f) => f === 'all' ? L.rating >= 0 : f === 'down' ? L.rating === -1 : f === 'notesOn' ? !!L.note : f === 'snaps' ? (L.kind === 'idea' || L.kind === 'snap' || L.kind === 'section') && L.rating >= 0 : L.kind === f && L.rating >= 0;
 function renderLikes(){ const fl = $('likeFilters'), list = $('likeList'); if (!fl) return; const all = Object.entries(LIKES).filter(([, L]) => !L.cleared), q2 = $('likeSearch').value.trim().toLowerCase();
   fl.innerHTML = ''; for (const [k, lab] of FILTERS) { const n = all.filter(([, L]) => inFilter(L, k)).length; fl.append(h('button', {class: 'lchip', 'data-on': likeFilter === k ? '1' : '', onclick: () => { likeFilter = k; renderLikes(); }}, lab, h('small', {}, String(n)))); }
   list.innerHTML = ''; const items = all.filter(([, L]) => inFilter(L, likeFilter) && (!q2 || (L.name + ' ' + (L.note || '') + ' ' + (L.sum || '')).toLowerCase().includes(q2))).sort((a, b) => a[1].at < b[1].at ? 1 : -1);
@@ -679,6 +681,7 @@ const partFor = role => { const c = selCol(); return c.role === role || role && 
 function useLike(L){ const d = L.data || {};
   if (L.kind === 'sound') { const c = partFor(d.role); if (!c) return; c.locked = true; setSound(c, L.key); saveSounds(); st.sel = st.cols.indexOf(c); renderParts(); renderCard(); flash(`${PART(c)}: ${L.name}`); return; }
   if (L.kind === 'harmony') { if (!PACK.harmonies.some(H => H.id === d.id)) PACK.harmonies.push({id: d.id, name: d.name, words: d.words || '', bars: d.bars}); setHarmony(d.id); return; }
+  if (L.kind === 'section') { const x = songOf(L.key); if (x) goSection(x, x.sections.findIndex(y => y.id === L.key)); return; }
   if (L.kind === 'idea' || L.kind === 'snap') { const x = byRef(L.key); if (x) recall(x); return; }
   if (L.kind === 'rhythm') { useLib({name: L.name, R: d.R}, 'rhythm'); return; }
   if (L.kind === 'notes') { const c = partFor(d.role); if (c) { st.sel = st.cols.indexOf(c); renderParts(); } useLib({name: L.name, N: d.N, role: d.role}, 'notes'); return; }
@@ -695,7 +698,7 @@ async function loadLikes(){ if (!db) return;
 /* ---------- Claude's ideas (written into the page's database by Claude), and the song: scenes and ideas in an order,
    played as a sketch and sent to Claude, who makes the next round from it ---------- */
 let IDEAS = [], ARR = [];
-const ARR_KEY = 'studio.jam.arr', BARS = [4, 8, 16, 32], byRef = id => SNAPS.find(x => x.id === id) || IDEAS.find(x => x.id === id) || IDEAS.flatMap(x => x.sections || []).find(x => x.id === id);
+const ARR_KEY = 'studio.jam.arr', BARS = [4, 8, 16, 32], byRef = id => SNAPS.find(x => x.id === id) || IDEAS.find(x => x.id === id) || secNow(id);
 try { ARR = JSON.parse(localStorage.getItem(ARR_KEY) || '[]'); } catch {}
 const storeArr = () => { try { localStorage.setItem(ARR_KEY, JSON.stringify(ARR)); } catch {} };
 function renderIdeas(){ const box = $('ideas'); if (!box) return; box.innerHTML = ''; box.hidden = !IDEAS.length; if (!IDEAS.length) return;
@@ -705,15 +708,91 @@ function renderIdeas(){ const box = $('ideas'); if (!box) return; box.innerHTML 
       g.append(h('div', {class: 'snap idea', 'data-on': x.id === snapOn ? '1' : ''},
         h('button', {class: 'go', onclick: () => recall(x)}, h('span', {class: 'kind'}, x.kind || 'idea'), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
         h('span', {class: 'ideabtns'}, h('button', {class: 'mini', title: 'Into the song', onclick: () => arrAdd(x.id)}, '＋ Song'), h('button', {class: 'mini', title: 'Keep it in your scenes', onclick: () => keepIdea(x)}, 'Keep'), likeBar({kind: 'idea', key: x.id, name: x.name, data: {id: x.id, round: x.round}})))); } }
-// one of Claude's songs: its sections in order, each a scene held for its bars; played through once, or made your song
-function songCard(x){ const on = st.arr?.song === x.id, bars = x.sections.reduce((n, y) => n + y.bars, 0), secs = Math.round(bars*4*60/(x.bpm || st.bpm));
+/* ---------- Claude's songs: sections in order, each a scene held for its bars. You move to any section (playing, the song
+   carries on from there), and what you change while you're on a section is kept as your version of it: the sections
+   you've changed are marked, each says what changed against Claude's, the original can be heard again, and a section or
+   the whole song reverts. Your versions live on this device and in the page's database (`songs`, one per song), so
+   Claude reads them for the next round ---------- */
+let EDITS = {}; const EDITS_KEY = 'studio.jam.songedits';
+try { EDITS = JSON.parse(localStorage.getItem(EDITS_KEY) || '{}'); } catch {}
+const storeEdits = () => { try { localStorage.setItem(EDITS_KEY, JSON.stringify(EDITS)); } catch {} };
+const songOf = id => IDEAS.find(x => x.sections?.some(y => y.id === id) || x.id === id);
+const origSec = id => IDEAS.flatMap(x => x.sections || []).find(y => y.id === id);
+const secNow = id => EDITS[id]?.scene || origSec(id);
+const shortName = y => y.name.split(': ').slice(1).join(': ') || y.name;
+// what a section as you have it changes against Claude's: [[part, [what, …]], …]
+const COLNAME = (i, role) => role === 'lead' && i > 5 ? 'Lead 2' : (ROLE_NAMES[role] || role).replace('Bells and leads', 'Lead');
+const sig = m => m ? JSON.stringify([m.len, m.hits || m.seq, m.feel || 0]) : '';
+function changes(a, b){ const out = [], near = (x, y, d) => Math.abs((x ?? 0) - (y ?? 0)) <= d;
+  if ((a.harmony !== b.harmony)) out.push(['Ground', [`${a.harmonyName || a.harmony} → ${b.harmonyName || b.harmony}`]]);
+  if (a.bpm !== b.bpm) out.push(['Tempo', [`${a.bpm} → ${b.bpm} BPM`]]);
+  a.cols.forEach((ca, i) => { const cb = b.cols[i]; if (!cb) return; const w = [], on = !!ca.rhythm, on2 = !!cb.rhythm;
+    if (on !== on2) w.push(on2 ? 'comes in' : 'rests');
+    if (ca.sound !== cb.sound) w.push(`sound: ${SND[cb.sound]?.name || cb.sound}`);
+    if (on && on2) { if (sig(ca.rhythm) !== sig(cb.rhythm)) w.push(`rhythm: ${cb.rhythm.name}`); if (sig(ca.notes) !== sig(cb.notes) && ca.role !== 'chords') w.push(`notes: ${cb.notes?.name || '—'}`); }
+    if ((ca.play || 0) !== (cb.play || 0)) w.push(`life: ${PLAYS[cb.play || 0].name.toLowerCase()}`);
+    if (!!ca.mute !== !!cb.mute) w.push(cb.mute ? 'muted' : 'unmuted');
+    const ma = ca.mix || {}, mb = cb.mix || {}; if (!near(ma.vol, mb.vol, .4)) w.push(`level ${fmtDb(mb.vol ?? 0)}`); if (!near(ma.pan, mb.pan, .04)) w.push(`pan ${fmtPan(mb.pan ?? 0)}`);
+    if (['lo', 'mid', 'hi'].some(k => !near(ma[k], mb[k], .4))) w.push('EQ'); if ((ma.duck ?? 0) !== (mb.duck ?? 0)) w.push(`duck ${DUCKS[mb.duck ?? 0][0].toLowerCase()}`);
+    if (!near(ca.x, cb.x, .03)) w.push(cb.x > ca.x ? 'brighter' : 'darker'); if (!near(ca.y, cb.y, .03)) w.push(cb.y > ca.y ? 'further' : 'nearer');
+    if (ca.length !== cb.length) w.push(['short', 'normal', 'long'][cb.length] + ' notes'); if ((ca.motion || 0) !== (cb.motion || 0)) w.push('motion ' + ['still', 'slow', 'fast'][cb.motion]);
+    if ((ca.oct || 0) !== (cb.oct || 0)) w.push(`octave ${cb.oct > 0 ? '+' : ''}${cb.oct}`); if (!!ca.echo !== !!cb.echo) w.push(cb.echo ? 'echo on' : 'echo off'); if (!!ca.verb !== !!cb.verb) w.push(cb.verb ? 'reverb on' : 'reverb off');
+    if ((ca.voicing || 0) !== (cb.voicing || 0) || (ca.inv || 0) !== (cb.inv || 0) || (ca.arp || 0) !== (cb.arp || 0)) w.push('voicing');
+    if (w.length) out.push([COLNAME(i, ca.role), w]); });
+  return out; }
+// the section you're on, kept as your version when it differs from Claude's (and forgotten again when it's back as it was);
+// not while you're hearing the original
+function keepEdit(){ const c = st.cur; if (!c || c.orig || !PACK || st.recalling) return; const y = origSec(c.sec); if (!y || y.pack !== PACK.id) return;
+  const now = capture(), sc = {...clone(y), harmony: now.harmony, harmonyName: now.harmonyName, harmonyBars: now.harmonyBars, bpm: now.bpm, smooth: now.smooth, echoDiv: now.echoDiv, mx: now.mx, cols: now.cols};
+  const had = EDITS[c.sec], diff = changes(y, sc).length;
+  if (!diff) { if (had) { delete EDITS[c.sec]; editsChanged(c.sec); } return; }
+  if (had && !changes(had.scene, sc).length) return;
+  EDITS[c.sec] = {scene: sc, at: new Date().toISOString()}; editsChanged(c.sec); }
+setInterval(keepEdit, 1500); addEventListener('visibilitychange', () => document.hidden && keepEdit());
+function editsChanged(secId){ storeEdits(); renderIdeas(); renderSongBar(); const x = songOf(secId); if (!x || !db) return; clearTimeout(editsChanged.t[x.id]);
+  editsChanged.t[x.id] = setTimeout(() => db.collection('songs').doc(x.id).set({song: x.id, name: x.name, round: x.round, edits: Object.fromEntries(x.sections.filter(y => EDITS[y.id]).map(y => [y.id, EDITS[y.id]])), at: new Date().toISOString()}).catch(() => {}), 2000); }
+editsChanged.t = {};
+async function loadEdits(){ if (!db) return; try { const q2 = await db.collection('songs').get();
+  for (const d of q2.docs) { const r = d.data(); for (const [id, e] of Object.entries(r?.edits || {})) if (!EDITS[id] || EDITS[id].at < e.at) EDITS[id] = e; }
+  storeEdits(); renderIdeas(); renderSongBar(); } catch {} }
+// to a section: heard from the next bar; while its song plays, the song carries on from there
+function goSection(x, i, o = {}){ const y = x.sections[i]; if (!y) return; keepEdit(); st.cur = {song: x.id, sec: y.id, orig: !!o.orig};
+  recall(o.orig ? y : secNow(y.id), {keepCur: true});
+  if (st.arr?.song === x.id) { st.arr.i = i; st.arr.next = (st.playing ? Math.ceil(st.step/16)*16 : 0) + y.bars*16; delete st.arr.p; }
+  renderIdeas(); renderSongBar(); }
+const curIn = x => st.cur && songOf(st.cur.sec)?.id === x.id ? x.sections.findIndex(y => y.id === st.cur.sec) : -1;
+// (the part you're on is left first, so what's playing isn't kept again as your version)
+function revertSec(id){ const here = st.cur?.sec === id; if (here) st.cur = null; delete EDITS[id]; editsChanged(id); const x = songOf(id), i = x.sections.findIndex(y => y.id === id); if (here) goSection(x, i); flash('Back to Claude’s version'); }
+function revertSong(x){ if (!confirm(`Put every part of “${x.name}” back as Claude wrote it?`)) return; const i = curIn(x); if (i >= 0) st.cur = null; for (const y of x.sections) delete EDITS[y.id]; storeEdits(); editsChanged(x.sections[0].id);
+  if (i >= 0) goSection(x, i); flash(x.name + ': back to Claude’s version'); }
+const secItem = (x, y) => ({kind: 'section', key: y.id, name: y.name, sum: `${x.name} · ${y.bars} bars${EDITS[y.id] ? ' · changed by you' : ''}`, data: {song: x.id, section: y.id}});
+// a section's detail: where it is, what it is, what you've changed, and its likes
+function secDetail(x, i, compact){ const y = x.sections[i], e = EDITS[y.id], ch = e ? changes(y, e.scene) : [], orig = st.cur?.orig;
+  return h('div', {class: 'secdetail'},
+    h('div', {class: 'sdhead'}, h('button', {class: 'mini', 'aria-label': 'The section before', disabled: i ? undefined : '', onclick: () => goSection(x, i - 1)}, '‹'),
+      h('b', {}, `${compact ? x.name + ' › ' : ''}${i + 1}. ${shortName(y)}`), h('small', {class: 'muted'}, ` ${y.bars} bars`),
+      h('button', {class: 'mini', 'aria-label': 'The next section', disabled: i < x.sections.length - 1 ? undefined : '', onclick: () => goSection(x, i + 1)}, '›'), h('span', {class: 'spacer'}), likeBar(secItem(x, y))),
+    compact ? '' : h('div', {class: 'muted why'}, y.why || ''),
+    h('div', {class: 'sdchanges', 'data-orig': orig ? '1' : ''}, orig ? 'Hearing Claude’s original. Your changes aren’t kept while you do.' : !ch.length ? 'As Claude wrote it. Change anything and it’s kept as your version of this part.' :
+      h('span', {}, h('b', {}, 'Your changes: '), ch.map(([p, w]) => `${p} ${w.join(', ')}`).join(' · '))),
+    h('div', {class: 'sdbtns'}, e || orig ? h('button', {class: 'mini', onclick: () => goSection(x, i, {orig: !orig})}, orig ? 'Back to yours' : 'Hear Claude’s') : '',
+      e ? h('button', {class: 'mini', onclick: () => revertSec(y.id)}, 'Revert this part') : '',
+      st.arr?.song === x.id ? h('button', {class: 'mini', 'aria-pressed': String(!!st.arr.hold), title: 'Stay on this part instead of moving on', onclick: () => { st.arr.hold = !st.arr.hold; renderIdeas(); renderSongBar(); }}, st.arr.hold ? '⟲ Staying here' : '⟲ Stay here') : '')); }
+function songCard(x){ const on = st.arr?.song === x.id, bars = x.sections.reduce((n, y) => n + y.bars, 0), secs = Math.round(bars*4*60/(x.bpm || st.bpm)), cur = curIn(x), nEd = x.sections.filter(y => EDITS[y.id]).length;
   return h('div', {class: 'snap idea song', 'data-on': on ? '1' : ''},
-    h('div', {class: 'go'}, h('span', {class: 'kind'}, `song · ${bars} bars · ${Math.floor(secs/60)}:${String(secs % 60).padStart(2, '0')}`), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
-    h('div', {class: 'secs'}, ...x.sections.map((y, i) => h('button', {class: 'sec', 'data-on': on && st.arr.i === i ? '1' : '', title: (y.why || '') + ' (tap: this section now)', onclick: () => recall(y)}, h('b', {}, y.name.split(': ').slice(1).join(': ') || y.name), h('small', {}, `${y.bars}`)))),
-    h('span', {class: 'ideabtns'}, h('button', {class: 'mini', onclick: () => songPlay(x)}, on ? '■ Stop' : '▶ Play the song'),
-      h('button', {class: 'mini', title: 'Its sections into your song, to change and send back', onclick: () => { ARR = x.sections.map(y => ({ref: y.id, bars: y.bars})); storeArr(); renderArr(); flash(x.name + ' is your song now'); }}, 'Make it my song'),
+    h('div', {class: 'go'}, h('span', {class: 'kind'}, `song · ${bars} bars · ${Math.floor(secs/60)}:${String(secs % 60).padStart(2, '0')}${nEd ? ` · ${nEd} part${nEd > 1 ? 's' : ''} changed by you` : ''}`), h('b', {}, x.name), h('span', {class: 'muted why'}, x.why || '')),
+    h('div', {class: 'secs'}, ...x.sections.map((y, i) => h('button', {class: 'sec', 'data-on': on && st.arr.i === i ? '1' : '', 'data-cur': cur === i ? '1' : '', 'data-ed': EDITS[y.id] ? '1' : '', title: (y.why || '') + (EDITS[y.id] ? ' (changed by you)' : '') + ' — tap to go to it', onclick: () => goSection(x, i)},
+      h('b', {}, shortName(y)), h('small', {}, `${y.bars}`)))),
+    cur >= 0 ? secDetail(x, cur) : '',
+    h('span', {class: 'ideabtns'}, h('button', {class: 'mini', onclick: () => songPlay(x)}, on ? '■ Stop' : cur > 0 ? `▶ Play from ${shortName(x.sections[cur])}` : '▶ Play the song'),
+      h('button', {class: 'mini', title: 'Its sections (with your changes) into your song, to reorder and send back', onclick: () => { ARR = x.sections.map(y => ({ref: y.id, bars: y.bars})); storeArr(); renderArr(); flash(x.name + ' is your song now'); }}, 'Make it my song'),
+      nEd ? h('button', {class: 'mini', onclick: () => revertSong(x)}, 'Revert the whole song') : '',
       likeBar({kind: 'idea', key: x.id, name: x.name, data: {id: x.id, round: x.round}}))); }
-function songPlay(x){ if (st.arr?.song === x.id) { st.arr = null; renderIdeas(); flash('Song stopped'); return; } arrPlay(x.sections.map(y => ({ref: y.id, bars: y.bars})), x.id); }
+// the song you're in, over the parts (where you change things): the section, what's changed, its likes
+function renderSongBar(){ const box = $('songBar'); if (!box) return; const x = st.cur && songOf(st.cur.sec); box.innerHTML = ''; box.hidden = !x; if (!x) return;
+  box.append(secDetail(x, curIn(x), true)); }
+function songPlay(x){ if (st.arr?.song === x.id) { st.arr = null; renderIdeas(); renderSongBar(); flash('Song stopped'); return; } const from = Math.max(0, curIn(x));
+  arrPlay(x.sections.map(y => ({ref: y.id, bars: y.bars})), x.id, from); }
 async function keepIdea(x){ const y = {...clone(x), id: 's' + Date.now().toString(36), name: x.name, from: x.id, at: new Date().toISOString()}; for (const k of ['round', 'kind', 'why', 'order']) delete y[k];
   SNAPS.push(y); storeSnaps(); renderSnaps(); flash('Kept ' + x.name + ' in your scenes'); if (db) try { await db.collection('snaps').doc(y.id).set(y); } catch {} }
 function arrAdd(id){ ARR.push({ref: id, bars: 8}); storeArr(); renderArr(); flash('Into the song: ' + byRef(id)?.name); }
@@ -726,23 +805,27 @@ function renderArr(){ const box = $('arr'); if (!box) return; box.innerHTML = ''
         h('button', {class: 'mini', 'aria-label': 'Later', onclick: () => { if (i < ARR.length - 1) { [ARR[i + 1], ARR[i]] = [ARR[i], ARR[i + 1]]; storeArr(); renderArr(); } }}, '▶'),
         h('button', {class: 'mini', 'aria-label': 'Remove', onclick: () => { ARR.splice(i, 1); storeArr(); renderArr(); }}, '✕')))); });
   $('arrPlay').textContent = st.arr && !st.arr.song ? '■ Stop the song' : '▶ Play the song'; $('arrPlay').disabled = !ARR.length; $('arrSend').disabled = !ARR.length; }
-// playing it: each scene is recalled a bar before it begins, so its parts land on its first bar
-// list: your song (going round), or one of Claude's (song: its id; played through once, then it stops)
-function arrPlay(list = ARR, song = null){ if (st.arr && !song) { st.arr = null; renderArr(); renderIdeas(); flash('Song stopped: carrying on with what’s playing'); return; } if (!list.length) return;
-  const first = byRef(list[0].ref); if (!first) return; recall(first);
-  const at = st.playing ? Math.ceil(st.step/16)*16 : 0; st.arr = {list, song, i: 0, next: at + list[0].bars*16}; if (!st.playing) start(); renderArr(); renderIdeas(); }
-function arrBar(step){ const a = st.arr; if (!a || !a.list.length) return; const L = a.list, end = a.song && a.i === L.length - 1;
-  if (step === a.next - 16 && !end) { a.p = (a.i + 1) % L.length; const x = byRef(L[a.p].ref); if (x) recall(x); }
-  if (step >= a.next) { if (end) { st.arr = null; renderIdeas(); flash('The end'); setTimeout(() => st.playing && stop(), 0); return; }
-    a.i = a.p ?? (a.i + 1) % L.length; a.next = step + L[a.i].bars*16; renderArr(); if (a.song) { renderIdeas(); flash(byRef(L[a.i].ref)?.name || ''); } } }
+// playing it: each scene is recalled a bar before it begins, so its parts land on its first bar. list: your song (going
+// round), or one of Claude's (song: its id; played through once from `from`, then it stops; a section held with Stay here)
+const goRef = ref => { if (origSec(ref)) { keepEdit(); st.cur = {song: songOf(ref).id, sec: ref, orig: false}; recall(secNow(ref), {keepCur: true}); renderSongBar(); return true; }
+  const z = byRef(ref); if (z) { recall(z); return true; } return false; };
+function arrPlay(list = ARR, song = null, from = 0){ if (st.arr && !song) { st.arr = null; renderArr(); renderIdeas(); flash('Song stopped: carrying on with what’s playing'); return; } if (!list.length) return;
+  if (!goRef(list[from].ref)) return;
+  const at = st.playing ? Math.ceil(st.step/16)*16 : 0; st.arr = {list, song, i: from, next: at + list[from].bars*16}; if (!st.playing) start(); renderArr(); renderIdeas(); }
+function arrBar(step){ const a = st.arr; if (!a || !a.list.length) return; const L = a.list;
+  if (a.hold) { if (step >= a.next) a.next = step + L[a.i].bars*16; return; }
+  const end = a.song && a.i === L.length - 1;
+  if (step === a.next - 16 && !end) { a.p = (a.i + 1) % L.length; goRef(L[a.p].ref); }
+  if (step >= a.next) { if (end) { st.arr = null; renderIdeas(); renderSongBar(); flash('The end'); setTimeout(() => st.playing && stop(), 0); return; }
+    a.i = a.p ?? (a.i + 1) % L.length; delete a.p; a.next = step + L[a.i].bars*16; renderArr(); if (a.song) { renderIdeas(); renderSongBar(); flash(byRef(L[a.i].ref)?.name || ''); } } }
 async function arrSend(){ if (!ARR.length) return; if (!db) { flash('Sign in to claude.ai to send'); return; }
   const refs = [...new Set(ARR.map(e => e.ref))], note = $('arrNote').value.trim();
   const row = {note, pack: PACK.id, entries: ARR.map(e => ({ref: e.ref, bars: e.bars, name: byRef(e.ref)?.name || '', idea: !!IDEAS.find(x => x.id === e.ref)})), snaps: refs.map(byRef).filter(Boolean), at: new Date().toISOString()};
   try { await db.collection('arrangements').add(row); $('arrNote').value = ''; flash('Sent to Claude: tell Claude it’s there'); $('arrMsg').textContent = `Sent ${new Date().toLocaleTimeString()}: ${ARR.length} scenes. Tell Claude, and the next round of ideas will come from it.`; }
   catch (err) { flash('Not sent (' + (err.code || err.message) + ')'); } }
 $('arrPlay').onclick = () => arrPlay(); $('arrSend').onclick = arrSend;
-async function loadIdeas(){ if (!db) return; try { const q2 = await db.collection('ideas').get(); IDEAS = q2.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols || x.sections); renderIdeas(); renderArr(); } catch {} }
-window.__jamIdeas = list => { IDEAS = list; renderIdeas(); };   // (for tests)
+async function loadIdeas(){ if (!db) return; try { const q2 = await db.collection('ideas').get(); IDEAS = q2.docs.map(d => ({...d.data(), id: d.id})).filter(x => x.cols || x.sections); renderIdeas(); renderArr(); renderSongBar(); } catch {} }
+window.__jamIdeas = list => { IDEAS = list; renderIdeas(); renderSongBar(); };   // (for tests)
 async function loadSnaps(){ try { SNAPS = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch { SNAPS = []; } renderSnaps();
   if (!db) return; try { const q2 = await db.collection('snaps').get(), have = new Set(SNAPS.map(x => x.id));
     for (const d of q2.docs) { const x = d.data(); if (x && !have.has(x.id)) SNAPS.push(x); }
@@ -836,5 +919,5 @@ function renderPacks(){ const box = $('packs'); box.innerHTML = ''; box.append(h
   let tab = 'parts'; try { tab = localStorage.getItem('studio.jam.tab2') || 'parts'; } catch {} setTab(tab); renderLikes();
   loadSnaps(); renderArr();
   db = await window.claude?.use?.('db').catch(() => null) || null;
-  loadSnaps(); loadIdeas(); loadLikes(); loadLib();
+  loadSnaps(); loadIdeas(); loadLikes(); loadLib(); loadEdits();
 })();

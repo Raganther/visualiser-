@@ -145,7 +145,10 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .snap.idea[data-on="1"]{border-color:var(--on); background:var(--on-soft)}
 .snap.idea .go{padding-bottom:4px}
 .snap.song{grid-column:1 / -1} .secs{display:flex; gap:4px; flex-wrap:wrap; padding:0 10px 8px} .sec{border:1px solid var(--line); background:var(--panel); border-radius:8px; padding:4px 8px; font-size:12px; display:flex; gap:6px; align-items:baseline}
-.sec small{font:11px var(--mono); color:var(--mute)} .sec[data-on="1"]{background:var(--on); color:#fff; border-color:var(--on)} .sec[data-on="1"] small{color:#fff}
+.sec small{font:11px var(--mono); color:var(--mute)} .sec[data-cur="1"]{outline:2px solid var(--acc); outline-offset:1px} .sec[data-ed="1"] b::after{content:" ●"; color:var(--on)}
+.secdetail{margin:0 10px 8px; border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:8px 10px; display:flex; flex-direction:column; gap:6px}
+.sdhead{display:flex; align-items:center; gap:6px; flex-wrap:wrap} .sdhead .mini{min-width:34px} .sdchanges{font-size:13px} .sdchanges[data-orig="1"]{color:var(--on)} .sdbtns{display:flex; gap:6px; flex-wrap:wrap} .sdbtns .mini[aria-pressed="true"]{background:var(--acc); color:#fff; border-color:var(--acc)}
+.songbar[hidden]{display:none} .songbar{border-color:var(--acc); padding:4px} .songbar .secdetail{margin:0; border:0} .sec[data-on="1"]{background:var(--on); color:#fff; border-color:var(--on)} .sec[data-on="1"] small{color:#fff}
 .snap .kind{font:500 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--acc)}
 .snap .why{font-size:12px; line-height:1.35}
 .ideabtns{display:flex; gap:4px; flex-wrap:wrap; padding:0 8px 8px} .ideabtns .rate{gap:4px}
@@ -321,6 +324,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
     <div id="hMine" hidden aria-label="The progression you're writing"></div>
   </section>
 
+  <!-- the song part you're on (one of Claude's songs): where it is, what you've changed, back to Claude's -->
+  <section class="panel songbar" id="songBar" hidden data-tabs="parts scenes" aria-label="The song part you're on"></section>
   <!-- the parts, and the chosen one's card: its rhythm, notes, sound and space -->
   <div class="stage" data-tabs="parts">
     <section class="panel" aria-label="Parts"><div class="lab" style="margin-bottom:8px">Parts · ‹ › the pack’s parts</div><div id="parts"></div></section>

@@ -228,6 +228,24 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
   for (let k = 0; k < 14; k++) { await q.waitForTimeout(250); const on = await q.$eval('.snap.song', e => e.querySelector('.sec[data-on="1"] b')?.textContent || '—'); if (seen.at(-1) !== on) seen.push(on); }
   const kick = await q.$eval('#parts .prow', e => e.dataset.rest), playing = await q.getAttribute('#play', 'aria-pressed');
   check('a song plays its sections in turn on the bar and stops at its end', seen.join() === 'part 1,part 2,—' && kick === '1' && playing === 'false', `${seen.join(' → ')}, kick resting: ${kick}, playing: ${playing}`); await q.close(); }
+// a song's parts as you change them: going to a part changes nothing; a sound changed there is kept as your version of
+// that part (marked, and said what changed), comes back when you return to it, Claude's can be heard without losing
+// yours, and Revert puts Claude's back
+{ const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  await q.keyboard.press('s'); const scene = await q.evaluate(() => JSON.parse(localStorage.getItem('studio.jam.snaps'))[0]);
+  await q.evaluate(x => window.__jamIdeas([x]), {id: 'u', kind: 'song', name: 'Edit me', round: 9, bpm: scene.bpm, sections: [1, 2].map(i => ({...scene, id: 'u.' + i, name: `Edit me: part ${i}`, bars: 4}))});
+  const edits = () => q.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('studio.jam.songedits') || '{}')).join()), sound = () => q.$eval('#parts .prow[data-part="col3"] .psub', e => e.textContent);
+  const chip = i => q.click(`.snap.song .sec >> nth=${i}`);
+  await chip(1); await chip(0); await q.waitForTimeout(1700); const none = await edits();
+  await q.keyboard.press('r'); await q.click('#ctabs button:has-text("Sound")'); const pick = await q.$eval('#soundList .snd:not([data-on="1"]) b', e => e.textContent);
+  await q.click(`#soundList .snd:has-text("${pick}")`); await q.waitForTimeout(1700); const kept = await edits(), said = await q.textContent('#songBar .sdchanges'), marked = await q.$$eval('.sec[data-ed="1"]', x => x.length);
+  await chip(1); await q.waitForTimeout(100); const other = await sound(); await chip(0); await q.waitForTimeout(100); const back = await sound();
+  await q.click('#songBar button:has-text("Hear Claude")'); await q.waitForTimeout(1700); const orig = [await sound(), await edits()]; await q.click('#songBar button:has-text("Back to yours")'); const yours = await sound();
+  await q.click('#songBar button:has-text("Revert this part")'); await q.waitForTimeout(1700); const reverted = [await edits(), await sound()];
+  check('going to a song\'s parts changes nothing', none === '', none);
+  check('a sound changed on a part is kept as your version, marked and said', kept === 'u.1' && said.includes(pick) && marked === 1 && other !== pick && back === pick, `${kept}: ${said}; others ${other}, back ${back}`);
+  check('Claude\'s part heard without losing yours, and Revert puts it back', orig[0] === other && orig[1] === 'u.1' && yours === pick && reverted[0] === '' && reverted[1] === other, JSON.stringify({orig, yours, reverted})); await q.close(); }
 // the harmony in the jam's page: a chord held from the matrix, a progression written, played and saved, the library in a
 // key, and a snapshot bringing a library progression back
 { const q = await browser.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); }); q.on('dialog', d => d.type() === 'prompt' ? d.accept('Night walk') : d.accept());

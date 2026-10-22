@@ -65,3 +65,8 @@ before writing or changing a piece; add to it when they react.
   developed to four bars, on D minor 7 ↔ 9, glue and a wider master: "a bass sound I particularly like". Asked for round 3:
   three whole songs in Snap 9's sounds, the bass coming in and out, each a different structure. Clearing (an arc with a
   hush), Two rivers (a rondo: the bass and the wood take turns), Undertow (the bass leads and leaves for a bass-less peak).
+- 2026-10-22: On the songs: "now we're getting somewhere"; likes clicking into each part of a song and swapping sounds and
+  riffs per layer. Asked to move to any part, like and comment each part, and see what they've changed from Claude's
+  arrangement and revert it (their changes hadn't been kept: they only changed what was playing). Notes the same day:
+  the 16th hats 👍 but "hi hat sound needs work, crisper richer tone", and to simulate a hat opening and closing, hit as
+  it opens, like a real kit; Snap 8 👍 but "bus bass feels off".
