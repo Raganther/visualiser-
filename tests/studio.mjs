@@ -5,7 +5,7 @@
 // too), that session's master and duck automation heard in an offline render on the desk, parts (a clip taken apart into
 // its rhythm and notes and put together again; mixed: notes going round a rhythm of another length, a hats rhythm on the
 // bass; the tools), the part card in the page (names, the library, editing, undo, a scene, a reload),
-// Claude's mix (each part's chain off and on, the returns on the desk, the A/B in the page), and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
+// singing a part in (a hummed phrase and a beatbox read, a voice memo and the microphone in the page), Claude's mix (each part's chain off and on, the returns on the desk, the A/B in the page), and the harmony's library and chord matrix (in node: every chord in its scale, distances, keys and spelling; in the
 // page: a chord held, a progression written, played and saved, the library in a key, a snapshot bringing it back).
 import { serve, launch } from './lib.mjs';
 import { vlChain, rungFrom, invert, XFORMS, mutate, feelAt, FEELS, chordOf } from '../studio/jam/model.js';
@@ -14,6 +14,11 @@ import { chord } from '../studio/lib/palette.js';
 import { rng } from '../studio/lib/rng.js';
 import { improvise, reach, keep, PLAYS } from '../studio/jam/play.js';
 import { KEYS, MODES, LIB, matrix, distance, pcs as pcsOf, inKey, spell, shortOf } from '../studio/jam/chords.js';
+import { track, notesOf, hitsOf, grid } from '../studio/jam/sing.js';
+import { voices, wav, MEL, BOX } from './fixtures/voice.js';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
 import { TOOLS, newRiff, answer, sequence, develop, thin, fill, halfTime, doubleTime, longer, shorter, MAX } from '../studio/jam/riff.js';
 
 let failed = false;
@@ -183,6 +188,12 @@ const take = {name: 'test', bpm: 124, swing: 0, echoDiv: 1, columns: [{id: 'col0
   check('the hi-hat: a soft hit shorter and darker than an accent', len(soft) < len(closed) && low(soft) > low(closed), `${len(soft).toFixed(3)} vs ${len(closed).toFixed(3)} s; below 6 kHz ${low(soft).toFixed(2)} vs ${low(closed).toFixed(2)}`);
   check('the hi-hat: a body under the sizzle, a little wide', low(closed) > .1 && wid(closed) > .15 && wid(closed) < .7, `below 6 kHz ${low(closed).toFixed(2)}, width ${wid(closed).toFixed(2)}`); }
 
+/* ---------- singing a part in (sing.js): a hummed phrase read into its notes on the 16ths, a beatbox into its kinds ---------- */
+{ const V = voices(120, .3), fr = track(V.sung, V.sr), ns = notesOf(fr), g = grid(ns, {six: V.six, t0: ns[0].t, steps: 32}), want = [...MEL, ...MEL.map(([s, m, l]) => [s + 16, m, l])];
+  check('a hummed phrase is read into its notes, on their 16ths and lengths', g.ev.length === want.length && g.ev.every((e, i) => e.step === want[i][0] && e.midi === want[i][1] && e.len === want[i][2]), g.ev.map(e => `${e.step}:${e.midi}x${e.len}`).join(' '));
+  const hs = hitsOf(V.box, V.sr), gh = grid(hs, {six: V.six, t0: hs[0].t, steps: 16}), kind = {k: 'lo', s: 'mid', h: 'hi'};
+  check('a beatbox is read into its hits: boom low, ka between, tss high', gh.ev.length === BOX.length && gh.ev.every((e, i) => e.step === BOX[i][0] && e.kind === kind[BOX[i][1]]), gh.ev.map(e => `${e.step}:${e.kind}`).join(' ')); }
+
 /* ---------- heard: the desk renders the master's and the duck's automation ---------- */
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage();
@@ -227,6 +238,25 @@ check('the duck pumps, then stops on its bar', r.dip0 < .7 && r.dip1 > .95, `${r
   check('on, the bass is lifted and gains harmonics above its note', e.b1.f - e.b0.f > 2 && e.b1.h - e.b0.h > 30 && e.b1.h > e.b1.f - 45 && e.b1.h < e.b1.f - 15, `+${(e.b1.f - e.b0.f).toFixed(1)} dB, harmonics ${e.b0.h.toFixed(0)} → ${e.b1.h.toFixed(0)} dB`);
   check('on, the kick is dipped where the bass sits, the lead\'s low-mid box cut', e.k1.f - e.k0.f < -2 && e.l1.f - e.l0.f < -.5, `kick 140 Hz ${(e.k1.f - e.k0.f).toFixed(1)} dB, lead 300 Hz ${(e.l1.f - e.l0.f).toFixed(1)} dB`);
   check('on the desk, the reverb return loses its low end', e.v0 - e.v1 > 10, `${(e.v0 - e.v1).toFixed(1)} dB less at 120 Hz`); }
+// singing a part in, in the jam's page: a hummed phrase loaded as a voice memo becomes the bass's rhythm (its hits on the
+// sung 16ths) and notes (rungs of the chords); a beatbox into the hats becomes closed hats; then the microphone (Chromium's
+// fake one, playing the phrase round) counts in on the bar, records over the jam and hears the phrase's notes
+{ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sing-')), V = voices(124); wav(path.join(dir, 'sung.wav'), V.sung, V.sr); wav(path.join(dir, 'box.wav'), V.box, V.sr);
+  const mic = await launch('2d', ['--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${path.join(dir, 'sung.wav')}`]);
+  const q = await mic.newPage({viewport: {width: 1300, height: 1300}}); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
+  await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(2000);
+  const part = i => q.evaluate(i => { const c = window.__jamAudio().cols[i]; return {hits: c.R?.hits.map(h => h[0]), seq: c.N?.seq, name: c.R?.name}; }, i);
+  await q.click('#play'); await q.waitForTimeout(300); await q.click('#play');
+  await q.keyboard.press('r'); await q.click('#singB'); await q.setInputFiles('#singBar input[type=file]', path.join(dir, 'sung.wav')); await q.waitForTimeout(1500);
+  const bass = await part(3), heard = await q.textContent('.singheard'), steps = [...MEL, ...MEL.map(([s, m, l]) => [s + 16, m, l])].map(x => x[0]);
+  check('a hummed voice memo becomes the bass\'s rhythm and notes', bass.name === 'Sung' && JSON.stringify(bass.hits) === JSON.stringify(steps) && bass.seq.length === steps.length && /A3 C4 E4 D4 C4 G3 A3/.test(heard), `${bass.hits} · ${heard.slice(0, 60)}`);
+  await q.keyboard.press('w'); await q.setInputFiles('#singBar input[type=file]', path.join(dir, 'box.wav')); await q.waitForTimeout(1200); const hats = await part(1);
+  check('a beatbox into the hats becomes its hits', JSON.stringify(hats.hits) === JSON.stringify(BOX.map(x => x[0])) && hats.seq.every(v => v === 'chh'), JSON.stringify(hats));
+  await q.keyboard.press('r'); await q.click('#singBar button:has-text("Sing on the next bar")'); const said = [];
+  for (let k = 0; k < 60; k++) { await q.waitForTimeout(250); const m = await q.textContent('#singMsg'); if (said.at(-1) !== m) said.push(m); if (/next bar|Done|isn’t allowed/.test(m)) break; }
+  const micHeard = await q.textContent('.singheard'), names = new Set((micHeard.match(/notes: ([^,;]+)/)?.[1] || '').split(' '));
+  check('the microphone counts in on the bar, records over the jam and hears the phrase', said.some(m => /Sing in/.test(m)) && said.some(m => /Singing: bar 2 of 2/.test(m)) && /next bar/.test(said.at(-1)) && ['A3', 'C4', 'E4', 'G3'].every(n => names.has(n)), `${said.join(' / ')} · ${[...names]}`);
+  await mic.close(); fs.rmSync(dir, {recursive: true}); }
 // the A/B in the jam's page: the button and A switch it, and it's remembered
 { const q = await browser.newPage(); q.on('pageerror', e => { failed = true; console.log('FAIL jam page error:', e.message); });
   await q.goto(url + 'studio/listen/jam-live.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(1500);

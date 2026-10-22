@@ -223,6 +223,8 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
 .pnav{display:flex; align-items:center; gap:3px; padding-right:6px} .pnav .mini{min-width:30px; min-height:32px; padding:0} .mbtn[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
 .ph{position:absolute; left:0; bottom:0; height:3px; width:0; background:var(--on)}
 .lifebar{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.singbar{border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin:8px 0; display:grid; gap:6px} .singrow{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.singbar .tool.sing{background:var(--on); color:#fff; border-color:var(--on)} .singheard{color:var(--on)} .singb[aria-pressed="true"]{background:var(--acc); color:#fff; border-color:var(--acc)}
 .seg{border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; min-height:36px}
 .seg[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
 #life{display:inline-flex; gap:4px; align-items:center; flex-wrap:wrap} #life[hidden]{display:none}
@@ -340,10 +342,12 @@ kbd{font:500 10px var(--mono); border:1px solid var(--line); border-radius:4px; 
         <div class="cardtitle"><div class="lab" id="cardPart"></div><h2 id="cardName"></h2><div class="muted" id="cardSub"></div></div>
         <span class="spacer"></span>
         <div id="partLikes" class="partlikes"></div>
+        <button class="mini singb" id="singB" aria-pressed="false" title="Sing, hum or beatbox this part in">🎤 Sing</button>
         <button class="mute" id="cardMute"></button>
         <button class="mini" id="savePart" title="This part (its rhythm and notes) into your library">＋ Save part</button>
       </div>
       <div class="lifebar"><span id="life" aria-label="Life: how much the part is played on"></span><button class="seg" id="keepB" title="What Life just played, the last two bars or so, as the part's rhythm and notes (X)">Keep that</button></div>
+      <div class="singbar" id="singBar" hidden aria-label="Sing this part in"></div>
       <div class="ctabs" id="ctabs" role="tablist" aria-label="The part's modules"></div>
       <div class="pground" id="partGround" aria-label="The chords under this part"></div>
       <div class="mpanel" id="p-rhythm">

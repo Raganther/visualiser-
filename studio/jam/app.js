@@ -6,19 +6,23 @@
 import { improvise, reach, keep, PLAYS } from './play.js';
 import { split, join, linked, cycles, rhythmTool, notesTool, noteTools, spread, fitNotes, sketch, fresh, named, isDrum, family, VOICE0, RHYTHM_TOOLS, NOTE_TOOLS } from './part.js';
 import { KEYS, MODES, MODE_WORDS, COLS, FEELS as HFEELS, LIB as PROGS, matrix, distance, shared, nameOf, shortOf, keyOf as chordKey, inKey } from './chords.js';
-import { notesAt, chordOf, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, ARPS, ECHO } from './model.js';
+import { notesAt, chordOf, REGISTER, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, ARPS, ECHO } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
+import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
 
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
 const clone = x => JSON.parse(JSON.stringify(x));
 let PACK = null, SND = {}, CLIP = {}, LIB = [], ALLPACKS = [];
 const st = {eng: (() => { try { return localStorage.getItem('studio.jam.eng') !== '0'; } catch { return true; } })(), smooth: (() => { try { return localStorage.getItem('studio.jam.smooth') !== '0'; } catch { return true; } })(), echoDiv: 0, bar: 0, bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, tab: 'rhythm', playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
+
+// singing a part in (below): the take's length, what it said, what it heard
+const SG = {bars: 2, busy: false, msg: '', heard: '', open: false};
 
 /* ---------- audio: a channel per part (EQ, the tone filter with an LFO, pan, the kick's duck, echo and reverb sends) ---------- */
 let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0, mstr = null, rets = null;
@@ -156,12 +160,12 @@ const voicesOf = c => isDrum(c.role) ? Object.keys(SND[c.sound]?.voices || {}) :
 function fromClip(c, clip, name){ const s = split(c.role, clip, name); s.rhythm.feel = c.feel0 || 0; return {R: s.rhythm, N: s.notes}; }
 // a change: R or N left out keeps what's there; keep: the part carries on from where it is in its loop (else it starts
 // again on the bar); now: heard straight away (an edit)
-function setPart(c, ch, {keep = true, now = false, undo = true, preset} = {}){ const cur = shown(c), R = ch.R === undefined ? cur.R : ch.R, N = ch.N === undefined ? cur.N : ch.N;
+function setPart(c, ch, {keep = true, now = false, undo = true, preset, start} = {}){ const cur = shown(c), R = ch.R === undefined ? cur.R : ch.R, N = ch.N === undefined ? cur.N : ch.N;
   if (undo) pushUndo(c); if (preset !== undefined) c.preset = preset;
-  c.next = {R, N, keep, clip: R ? join(c.role, R, N) : null}; prewarm(c);
+  c.next = {R, N, keep, start, clip: R ? join(c.role, R, N) : null}; prewarm(c);
   if (!st.playing || now) applyNext(c, st.playing ? null : 0); storeParts(); renderParts(); renderCard(); }
 function applyNext(c, step){ const x = c.next; if (!x) return; delete c.next; c.R = x.R; c.N = x.N; c.clip = x.clip; c.pm = {};
-  if (!x.keep) c.start = step ?? Math.floor(st.step/16)*16; }
+  if (x.start != null) c.start = x.start; else if (!x.keep) c.start = step ?? Math.floor(st.step/16)*16; }
 // undo: the modules as they were before the last change
 function pushUndo(c){ const s = shown(c); (c.undo ??= []).push({R: s.R, N: s.N, preset: c.preset}); if (c.undo.length > 40) c.undo.shift(); }
 function undo(){ const c = selCol(), u = c?.undo?.pop(); if (!u) { flash('Nothing to undo'); return; } c.preset = u.preset; setPart(c, {R: u.R, N: u.N}, {undo: false, now: !!st.edit}); flash('Undone'); }
@@ -207,6 +211,81 @@ function keepPlayed(){ const c = selCol(); if (!c.clip || !c.play || !st.playing
 // a module named by hand: the name sticks, and what's made of it is named after it
 function rename(k){ const c = selCol(), m = shown(c)[k]; if (!m) return; const name = prompt(`Name this ${k === 'R' ? 'rhythm' : 'set of notes'}`, m.name)?.trim(); if (!name) return;
   setPart(c, {[k]: fresh({...m}, name.slice(0, 40))}, {now: true}); }
+
+/* ---------- singing a part in (sing.js): the microphone on the bar while the jam plays, or a voice memo ---------- */
+// The take starts on a bar line after a beat's count-in and lasts the bars chosen; the part being sung is muted meanwhile.
+// A pitched part's notes become rungs of the chords under each bar (so they follow the harmony, as every part does), moved
+// by octaves into the part's register; a drum part's hits become its voices by where their energy lies. Undo takes it back.
+function singOpen(v = !SG.open){ SG.open = v; renderSing(); }
+function renderSing(){ const box = $('singBar'), c = selCol(); if (!box) return; box.hidden = !SG.open || !c; $('singB').setAttribute('aria-pressed', String(SG.open)); if (box.hidden) return; box.innerHTML = '';
+  const drum = isDrum(c.role), what = c.role === 'chords' ? null : drum ? 'Beatbox it: “boom” low, “tss” high, “ka” in between' : 'Sing or hum it: one note at a time';
+  if (!what) { box.append(h('span', {class: 'muted'}, 'The chords part plays the ground’s chords: sing into the bass or a lead.')); return; }
+  box.append(h('div', {class: 'singrow'}, h('b', {}, '🎤 ' + PART(c)), h('span', {class: 'muted'}, what)),
+    h('div', {class: 'singrow'}, h('span', {class: 'lab'}, 'Bars'), ...[1, 2, 4, 8].map(b => h('button', {class: 'seg', 'aria-pressed': String(SG.bars === b), onclick: () => { SG.bars = b; renderSing(); }}, String(b))),
+      h('button', {class: 'tool sing', disabled: SG.busy ? '' : null, onclick: singMic}, SG.rec ? '● Singing…' : '● Sing on the next bar'),
+      h('label', {class: 'tool'}, 'Voice memo…', h('input', {type: 'file', accept: 'audio/*', hidden: '', onchange: e => { const f = e.target.files[0]; e.target.value = ''; if (f) singFile(f); }})),
+      SG.rec ? h('button', {class: 'mini', onclick: () => singStop(true)}, 'Cancel') : ''),
+    h('div', {class: 'words', id: 'singMsg'}, SG.msg || 'Headphones help: the jam keeps playing while you sing, and the microphone should hear only you.'),
+    SG.heard ? h('div', {class: 'words singheard'}, SG.heard) : ''); }
+const singSay = m => { SG.msg = m; const e = $('singMsg'); if (e) e.textContent = m; };
+async function singMic(){ const c = selCol(); if (SG.rec || !c || c.role === 'chords') return; initAudio(); await ctx.resume();
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: false, autoGainControl: false}}); }
+  catch (e) { singSay(`The microphone isn’t allowed here (${e.name === 'NotAllowedError' ? 'inside claude.ai a page never gets it' : e.message}). Record a voice memo on your phone, in time with the jam, and load it with Voice memo….`); return; }
+  if (!st.playing) await start();
+  // the bar it starts on: after at least a beat of count-in; the scheduler's nextT is when its step st.step plays
+  const B = Math.ceil((st.step + 4)/16)*16, barT = nextT + (B - st.step)*sd(), dur = SG.bars*16*sd(), tr = stream.getAudioTracks()[0], inLat = tr.getSettings?.().latency ?? .02;
+  const lat = (ctx.outputLatency || ctx.baseLatency || 0) + inLat, src = ctx.createMediaStreamSource(stream), sp = ctx.createScriptProcessor(2048, 1, 1), sink = ctx.createGain(); sink.gain.value = 0;
+  const chunks = []; sp.onaudioprocess = e => chunks.push({t: e.playbackTime - 2048/ctx.sampleRate, x: e.inputBuffer.getChannelData(0).slice()});
+  src.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
+  const wasMute = c.mute; c.mute = true; macros(c); renderParts();
+  SG.rec = {c, stream, src, sp, sink, wasMute, B, barT, dur, lat, chunks}; renderSing();
+  const tick = () => { if (!SG.rec) return; const now = ctx.currentTime, beat = 4*sd();
+    if (now < barT) singSay(`Sing in ${Math.max(1, Math.ceil((barT - now)/beat))}…`); else if (now < barT + dur) singSay(`● Singing: bar ${Math.floor((now - barT)/(16*sd())) + 1} of ${SG.bars}`);
+    else if (now > barT + dur + lat + .3) { singStop(false); return; } SG.rec.tm = setTimeout(tick, 60); }; tick(); }
+function singStop(cancel){ const R = SG.rec; if (!R) return; SG.rec = null; clearTimeout(R.tm); try { R.sp.disconnect(); R.src.disconnect(); R.sink.disconnect(); } catch {} R.stream.getTracks().forEach(t => t.stop());
+  R.c.mute = R.wasMute; macros(R.c); renderParts();
+  if (cancel) { singSay('Cancelled'); renderSing(); return; }
+  // the take from a little before its bar to a little after, as heard by the singer (the speakers' and the microphone's delay)
+  const sr = ctx.sampleRate, from = R.barT + R.lat - .1, n = Math.ceil((R.dur + .35)*sr), x = new Float32Array(n);
+  for (const k of R.chunks) { const o = Math.round((k.t - from)*sr); for (let i = 0; i < k.x.length; i++) { const j = o + i; if (j >= 0 && j < n) x[j] = k.x[i]; } }
+  singRead(R.c, x, sr, {t0: .1, bars: SG.bars, B: R.B}); }
+async function singFile(f){ const c = selCol(); if (!c || c.role === 'chords') return; initAudio(); singSay('Reading the memo…');
+  try { const ab = await ctx.decodeAudioData(await f.arrayBuffer()), x = new Float32Array(ab.length);
+    for (let ch = 0; ch < ab.numberOfChannels; ch++) { const y = ab.getChannelData(ch); for (let i = 0; i < x.length; i++) x[i] += y[i]/ab.numberOfChannels; }
+    singRead(c, x, ab.sampleRate, {}); }
+  catch (e) { singSay('Couldn’t read that file (' + e.message + ')'); } }
+// what was heard, into the part: a memo starts on its first note and fills whole bars; a take from the microphone is placed
+// on the bar it was sung over, so its notes meet the chords they were sung against
+function singRead(c, x, sr, {t0, bars, B}){ const six = sd(), drum = isDrum(c.role);
+  let ev = drum ? hitsOf(x, sr) : notesOf(track(x, sr));
+  if (!ev.length) { singSay(drum ? 'No hits heard: nearer the microphone, and sharper (“boom”, “tss”, “ka”)' : 'No notes heard: sing or hum a little louder, one note at a time'); return; }
+  if (t0 == null) { t0 = ev[0].t; bars = Math.min(16, barsFor(Math.max(...ev.map(e => e.t + (e.dur || 0))) - t0, 16*six)); }
+  const steps = bars*16, g = grid(ev, {six, t0, steps}); ev = g.ev; if (!ev.length) { singSay('Nothing landed inside the bars'); return; }
+  if (B == null) B = st.playing ? Math.ceil(st.step/16)*16 : 0;
+  const top = Math.max(...ev.map(e => e.rms)), vel = e => +(.4 + .6*e.rms/top).toFixed(2), R = {len: steps, hits: ev.map(e => [e.step, drum ? 1 : e.len, vel(e)]), feel: 0, name: drum ? 'Beatboxed' : 'Sung', base: drum ? 'Beatboxed' : 'Sung', ops: []};
+  let seq, heard;
+  if (drum) { seq = ev.map(e => drumVoice(c, e)); const n = k => ev.filter(e => e.kind === k).length; heard = `Heard ${ev.length} hits: ${n('lo')} low, ${n('mid')} middle, ${n('hi')} high`; }
+  else { const H = st.harmony, hb = j => Math.floor((B - st.hStart)/16) + j;
+    // the whole line moved by octaves to sit where the part plays (round its rung 2), then each note to its nearest rung
+    const ms = ev.map(e => e.midi).sort((a, b) => a - b), mid = ms[ms.length >> 1], c0 = chordOf(H, hb(0)), want = REGISTER[c.role](c0) + 4 + 12*(c.oct || 0), shift = 12*Math.round((want - mid)/12);
+    seq = ev.map(e => [rungFor(c, e.midi + shift - 12*(c.oct || 0), hb(Math.floor(e.step/16))), 0]);
+    const off = ev.filter(e => Math.abs(e.cents) > 35).length;
+    heard = `Heard ${ev.length} notes: ${ev.map(e => noteName(e.midi)).join(' ')}${shift ? `, moved ${Math.abs(shift/12)} octave${Math.abs(shift) > 12 ? 's' : ''} ${shift > 0 ? 'up' : 'down'}` : ''}; each snapped to the nearest chord tone under it${off ? ` (${off} sung between two notes)` : ''}`; }
+  const N = {seq, name: R.name, base: R.name, ops: []};
+  setPart(c, {R, N}, {start: B, now: !st.playing}); SG.heard = heard + ` · ${bars} bar${bars > 1 ? 's' : ''}, nudged ${Math.round(g.nudge*1000)} ms onto the 16ths. Undo (Z) takes it back.`;
+  singSay(st.playing ? 'In from the next bar' : 'Done: press Play to hear it'); renderSing(); flash(drum ? 'Beatboxed in' : 'Sung in'); }
+// the rung whose note, over this bar's chord as the part plays it, is nearest the sung one
+function rungFor(c, midi, bar){ const H = st.harmony, ch = chainOf(H), i = ((bar % H.bars.length) + H.bars.length) % H.bars.length, chd = chordOf(H, bar); let best = 0, bd = 1e9;
+  for (let k = -12; k <= 24; k++) { const n = notesAt({role: c.role, steps: [[0, k, 1, 1]]}, 0, chd, {vl: ch && ch[i], inv: c.inv || 0, walk: 0})[0]?.[0]; if (n == null) continue; const dd = Math.abs(n - midi) + (k < 0 ? .01 : 0); if (dd < bd) { bd = dd; best = k; } }
+  return best; }
+// a hit's voice in a drum part: the kick's kick, the hats' closed or (rung long) open hat, the percussion's lowest, middle or
+// highest voice by where the hit's energy lay
+const PITCH = {gong: 0, tomL: 1, log: 1, bowl: 2, tomH: 3, logH: 3, hand: 3, wood: 4, rim: 4, clave: 5, metal: 6, shaker: 7};
+function drumVoice(c, e){ const vs = Object.keys(SND[c.sound]?.voices || {});
+  if (c.role === 'kick') return 'kick';
+  if (c.role === 'hats') return e.dur > .14 && vs.includes('ohh') ? 'ohh' : 'chh';
+  const ord = vs.filter(v => v in PITCH).sort((a, b) => PITCH[a] - PITCH[b]); if (!ord.length) return VOICE0.perc;
+  return e.kind === 'lo' ? ord[0] : e.kind === 'hi' ? ord[ord.length - 1] : ord[Math.floor((ord.length - 1)/2)]; }
 
 /* ---------- moves ---------- */
 const MOVES = {
@@ -256,7 +335,7 @@ function renderCard(){ const c = selCol(); if (!c) return; const s = shown(c);
     h('b', {}, lab), h('small', {}, k === 'rhythm' ? s.R ? `${s.R.hits.length} hits · ${lenWords(s.R.len)}` : 'resting' : k === 'notes' ? c.role === 'chords' ? 'the ground' : s.N ? `${s.N.seq.length} notes` : '—' : k === 'sound' ? SND[c.sound]?.name || '' : w)));
   for (const [k] of TABS4) $('p-' + k).hidden = st.tab !== k;
   renderPartGround();
-  renderPartLikes();
+  renderPartLikes(); renderSing();
   if (st.tab === 'rhythm') renderRhythm(c); else if (st.tab === 'notes') renderNotes(c); else if (st.tab === 'sound') renderSound(c); else renderSpace(c); }
 const lenWords = n => n % 16 ? n + ' steps' : n/16 + (n > 16 ? ' bars' : ' bar');
 const btn = (lab, fn, o = {}) => h('button', {class: 'tool' + (o.cls ? ' ' + o.cls : ''), title: o.title || '', 'data-on': o.on ? '1' : '', ...(o.disabled ? {disabled: ''} : {}), onclick: fn}, lab, o.key ? h('small', {}, o.key) : '');
@@ -897,7 +976,7 @@ const placeTempo = () => { const tp = document.querySelector('.tempo'); if (phon
 phoneMQ.addEventListener?.('change', placeTempo); placeTempo();
 
 /* ---------- buttons and keys ---------- */
-$('cardMute').onclick = () => { const c = selCol(); c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderParts(); renderCard(); };
+$('singB').onclick = () => singOpen(); $('cardMute').onclick = () => { const c = selCol(); c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderParts(); renderCard(); };
 $('keepB').onclick = keepPlayed; $('savePart').onclick = () => saveModule('P'); $('packSounds').onclick = packSounds;
 for (const [id, fn] of [['m-build', 'build'], ['m-drop', 'drop'], ['m-harm', 'harmony']]) $(id).onclick = () => MOVES[fn]();
 $('m-rep').addEventListener('pointerdown', () => repeat(true)); for (const ev of ['pointerup', 'pointerleave']) $('m-rep').addEventListener(ev, () => repeat(false));

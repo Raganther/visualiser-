@@ -90,3 +90,8 @@ before writing or changing a piece; add to it when they react.
   the master's width had it too. Now settings glide and stop, the duck is a ramp that ends, the tone filter's LFO is
   connected only while it moves, and Claude's mix is disconnected while off: the plain page renders ~40% faster than
   before, and with Claude's mix costs about what the plain page did.
+- 2026-10-22: Asked to sing ideas into the jam, live, to jam with the parts. Sing it in (`studio/jam/sing.js`, 🎤 Sing on a
+  part's card): the microphone on the next bar after a count-in while the jam plays (the part muted meanwhile), or a voice
+  memo; a hummed or sung line becomes the part's rhythm and notes (snapped to the chord tones under each bar, moved by
+  octaves into the part's register), a beatbox becomes a drum part's hits ("boom" low, "ka" between, "tss" high). Inside
+  claude.ai the page isn't allowed the microphone, so there it's the voice memo.
