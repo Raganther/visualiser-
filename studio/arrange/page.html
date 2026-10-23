@@ -70,7 +70,9 @@ select{background:var(--panel2); border:1px solid var(--line); border-radius:7px
 #sdLib,#sdEdit{flex:1; min-height:0; display:flex; flex-direction:column} #sdList,#sdBody{flex:1; min-height:0; overflow:auto} #sdLib[hidden],#sdEdit[hidden]{display:none}
 .sideHead{display:flex; justify-content:space-between; align-items:flex-start; gap:8px} .sideHead b{font-size:15px}
 .tabs{display:flex; gap:4px} .tabs button{flex:1}
-#sdRoles button{min-height:26px; font-size:12px; padding:0 6px}
+#sdRoles button,#sdBy button{min-height:26px; font-size:12px; padding:0 6px} #sdLib{gap:6px}
+#sdSyn{display:flex; flex-wrap:wrap; gap:4px} #sdSyn button{min-height:24px; font-size:11.5px; padding:0 8px; border-radius:12px}
+.fam-words{font-size:11.5px; color:var(--mute); padding:3px 4px 4px; line-height:1.3} .yours{font:600 9.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--acc); border:1px solid var(--acc); border-radius:4px; padding:0 4px; margin-left:6px; vertical-align:1px}
 #sdSearch,#sdName,#sdAskT{width:100%; background:#0f1114; border:1px solid var(--line); border-radius:7px; padding:6px 8px; color:var(--ink)}
 #sdName{font-weight:600} #sdName:disabled{opacity:1; border-color:transparent; padding-left:0; background:none}
 .fam{display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); border-radius:0; padding:8px 2px 4px; font-weight:600; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--mute); min-height:0}
@@ -129,7 +131,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
   <aside id="side" hidden aria-label="Sounds">
     <div class="sideHead"><div style="min-width:0"><b id="sdTrack">Track</b><div class="small muted" id="sdScope"></div></div><button id="sdClose" title="Close (Y)">✕</button></div>
     <div class="tabs"><button id="tabLib" aria-pressed="true">Library</button><button id="tabEdit" aria-pressed="false">Edit the sound</button></div>
-    <div id="sdLib"><div class="tabs" id="sdRoles" hidden></div><input id="sdSearch" type="search" placeholder="Search: glass, bowed, FM, analog…" aria-label="Search the sounds"><div class="small muted" style="margin:4px 0 6px">Click a sound to hear it on this track’s notes; Use (or double-click) to choose it.</div><div id="sdList"></div></div>
+    <div id="sdLib"><div class="tabs" id="sdBy"></div><div class="tabs" id="sdRoles" hidden></div><div id="sdSyn" hidden></div><input id="sdSearch" type="search" placeholder="Search: glass, bowed, FM, analog…" aria-label="Search the sounds"><div class="small muted" style="margin:4px 0 6px">Click a sound to hear it on this track’s notes; Use (or double-click) to choose it.</div><div id="sdList"></div></div>
     <div id="sdEdit" hidden>
       <input id="sdName" aria-label="The sound’s name"><div class="small muted" id="sdFrom"></div>
       <div style="display:flex; gap:6px; margin:6px 0"><button id="sdTry">▶ Try it</button><button id="sdReset" title="Back to the library sound it came from">Back to the original</button></div>

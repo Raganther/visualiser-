@@ -17,6 +17,24 @@ const NOTPITCHED = ['kick', 'hat', 'hihat', 'hat808', 'shaker', 'twig', 'leaf', 
 // the families, in the order the library shows them
 export const FAMS = ['Your sounds', 'Struck: mallets, bells and bars', 'Plucked', 'Bowed and rubbed', 'FM', 'Analog circuits', 'Pads and breath', 'Poly synth', 'Drum machine', 'Acoustic drums (modelled)', 'Nature'];
 const nativeOf = s => s.src ? s.src.native || NATIVE_OF[s.src.palette] || null : null;
+// the synthesizers: each an engine with its own settings, its sounds the presets made on it (and your own copies of them)
+export const SYNTHS = [
+  ['resonator', 'Resonator', 'Struck and rubbed objects: bars, tines, bells, bowls, gongs, glass. A set of resonances that ring.'],
+  ['fm', 'FM', 'One sine bending another: glassy, round and plucked basses, bells.'],
+  ['analog', 'Analog', 'A subtractive analog voice, computed sample by sample: gated and dub chords, stabs, pads, subs, plucks.'],
+  ['poly', 'Poly Synth', 'The live analog poly synth: two oscillators or a supersaw, drifting, through a ladder filter.'],
+  ['string', 'String', 'Strings, plucked and bowed.'],
+  ['pads', 'Pads', 'Additive, breath, grain and formant pads: sounds that bloom.'],
+  ['skin', 'Skin', 'Struck skins: kicks, toms and hand drums.'],
+  ['akick', 'Analog Kick', 'Analog kick circuits: round, dub, tight, deep.'],
+  ['cymbal', 'Cymbal', 'Hi-hats, cymbals and shakers.'],
+  ['nature', 'Nature', 'Water drops, stones, leaves, twigs, insects and birds.'],
+  ['kit', 'Drum Machine', 'The drum machine’s kits: 909, 808, Minimal, Industrial, Lo-fi.']];
+const SYNTH_OF = n => !n ? null : n.startsWith('fm') ? 'fm' : /^k(round|dub|tight|deep)$/.test(n) ? 'akick' : /^va/.test(n) || n === 'sub808' || n === 'rumble' ? 'analog'
+  : PADS.includes(n) ? 'pads' : n === 'pluck' || n === 'bowed' ? 'string' : ['kick', 'tom', 'hand'].includes(n) ? 'skin' : ['hihat', 'hat', 'hat808', 'shaker'].includes(n) ? 'cymbal'
+  : NATURE.includes(n) && n !== 'bamboo' ? 'nature' : 'resonator';
+// the synthesizer a sound is made on (a drum sound: its first voice's)
+export function synthOf(s){ if (s.voices) { const v = Object.values(s.voices)[0]; return v.kit ? 'kit' : SYNTH_OF(v.native); } return SYNTH_OF(nativeOf(s)) || 'poly'; }
 export function famOf(s){ if (s.mine) return FAMS[0];
   if (s.voices) { const vs = Object.values(s.voices); if (vs.every(v => v.kit)) return 'Drum machine'; if (vs.some(v => NATURE.includes(v.native))) return 'Nature';
     if (vs.some(v => ANALOG.test(v.native || ''))) return 'Analog circuits'; return 'Acoustic drums (modelled)'; }
@@ -29,7 +47,8 @@ const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', t
 
 export function makeSounds(A){
   const {ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE} = A;
-  const UI = {open: false, tab: 'lib', pick: null, q: '', voice: null, fold: new Set(), role: 'all', seen: null};
+  const UI = {open: false, tab: 'lib', pick: null, q: '', voice: null, fold: new Set(), role: 'all', seen: null, by: 'synth', synth: 'all'};
+  try { UI.by = localStorage.getItem('studio.daw.by') || 'synth'; } catch {}
   let MY = {}; try { MY = JSON.parse(localStorage.getItem('studio.daw.sounds') || '{}'); } catch {}
   const adopt = defs => { for (const d of Object.values(defs || {})) if (d?.id) SND[d.id] = {...d, mine: true}; };
   adopt(MY);
@@ -76,13 +95,21 @@ export function makeSounds(A){
     if (!drum) for (const [r, t] of [['all', 'All'], ['bass', 'Bass'], ['chords', 'Chords'], ['lead', 'Lead']]) roles.append(h('button', {'aria-pressed': String(UI.role === r), onclick: () => { UI.role = r; renderLib(); }}, t));
     const fits = s => drum ? s.role === T.role : !isDrum(s.role) && (UI.role === 'all' || s.role === UI.role);
     const names = {}; for (const s of Object.values(SND)) names[s.name] = (names[s.name] || 0) + 1;
-    const all = Object.values(SND).filter(s => fits(s) && (!UI.q || `${s.name} ${s.words || ''} ${engineOf(s)} ${famOf(s)}`.toLowerCase().includes(UI.q)));
-    for (const fam of FAMS) { const list = all.filter(s => famOf(s) === fam).sort((a, b) => a.name.localeCompare(b.name)); if (!list.length) continue;
-      const shut = UI.fold.has(fam) && !UI.q, head = h('button', {class: 'fam', 'aria-expanded': String(!shut), onclick: () => { shut ? UI.fold.delete(fam) : UI.fold.add(fam); renderLib(); }}, `${shut ? '▸' : '▾'} ${fam}`, h('span', {class: 'muted'}, ` ${list.length}`));
-      box.append(head); if (shut) continue;
+    // browsed by synthesizer (each its presets, your copies among them) or by what kind of sound it is
+    const by = $('sdBy'); by.innerHTML = ''; for (const [k, t] of [['synth', 'By synth'], ['kind', 'By kind']]) by.append(h('button', {'aria-pressed': String(UI.by === k), onclick: () => { UI.by = k; try { localStorage.setItem('studio.daw.by', k); } catch {} renderLib(); }}, t));
+    const syn = UI.by === 'synth', name = k => SYNTHS.find(x => x[0] === k)?.[1] || k;
+    const all = Object.values(SND).filter(s => fits(s) && (!UI.q || `${s.name} ${s.words || ''} ${engineOf(s)} ${famOf(s)} ${name(synthOf(s))}`.toLowerCase().includes(UI.q)));
+    // by synth: a chip for each synth this part can use, to show one alone
+    const chips = $('sdSyn'); chips.innerHTML = ''; chips.hidden = !syn;
+    const have = SYNTHS.filter(([k]) => all.some(s => synthOf(s) === k)); if (UI.synth !== 'all' && !have.some(x => x[0] === UI.synth)) UI.synth = 'all';
+    if (syn) for (const [k, t] of [['all', 'All synths'], ...have]) chips.append(h('button', {'aria-pressed': String(UI.synth === k), onclick: () => { UI.synth = k; box.scrollTop = 0; renderLib(); }}, t));
+    const groups = syn ? SYNTHS.filter(([k]) => UI.synth === 'all' || k === UI.synth).map(([k, t, w]) => [k, t, w, all.filter(s => synthOf(s) === k)]) : FAMS.map(f => [f, f, null, all.filter(s => famOf(s) === f)]);
+    for (const [fam, title, words, items] of groups) { const list = items.sort((a, b) => (a.mine ? 1 : 0) - (b.mine ? 1 : 0) || a.name.localeCompare(b.name)); if (!list.length) continue;
+      const shut = UI.fold.has(fam) && !UI.q && !(syn && UI.synth !== 'all'), head = h('button', {class: 'fam', 'aria-expanded': String(!shut), onclick: () => { shut ? UI.fold.delete(fam) : UI.fold.add(fam); renderLib(); }}, `${shut ? '▸' : '▾'} ${title}`, h('span', {class: 'muted'}, ` ${list.length}`));
+      box.append(head); if (shut) continue; if (words) box.append(h('div', {class: 'fam-words'}, words));
       for (const s of list) { const on = s.id === cur, picked = s.id === UI.pick;
         const row = h('div', {class: 'snd-row', 'data-on': on ? '1' : '', 'data-pick': picked ? '1' : '', 'data-id': s.id, tabindex: '0', title: s.words || ''},
-          h('div', {class: 'snd-txt'}, h('div', {class: 'snd-nm'}, (on ? '● ' : '') + s.name), h('div', {class: 'snd-eng'}, engineOf(s) + (names[s.name] > 1 && s.pack ? ` · ${s.pack === 'mine' ? 'yours' : s.pack.replace('pack-', 'pack ')}` : '') + (!drum && s.role !== T.role ? ` · a ${s.role === 'chords' ? 'chord' : s.role} sound` : ''))),
+          h('div', {class: 'snd-txt'}, h('div', {class: 'snd-nm'}, (on ? '● ' : '') + s.name, syn && s.mine ? h('span', {class: 'yours'}, 'yours') : ''), h('div', {class: 'snd-eng'}, engineOf(s) + (names[s.name] > 1 && s.pack ? ` · ${s.pack === 'mine' ? 'yours' : s.pack.replace('pack-', 'pack ')}` : '') + (!drum && s.role !== T.role ? ` · a ${s.role === 'chords' ? 'chord' : s.role} sound` : ''))),
           picked && !on ? h('button', {class: 'use', onclick: e => { e.stopPropagation(); use(s.id); }}, 'Use') : '');
         row.onclick = () => { UI.pick = s.id; tryIt(s.id); renderLib(); }; row.ondblclick = () => use(s.id);
         row.onkeydown = e => { if (e.key === 'Enter') use(s.id); };
@@ -159,5 +186,5 @@ export function makeSounds(A){
   $('sdAskB').onclick = async () => { const t = $('sdAskT').value.trim(); if (!t) return; const T = track();
     await addNote(0, t, {kind: 'sound', tracks: [T.name], role: T.role, sound: current(), desc: `A sound for the ${T.name.toLowerCase()}`}); $('sdAskT').value = ''; flash('Asked Claude for the sound: it’s in your notes'); };
 
-  return {show, render, isOpen: () => UI.open, loadDb, adopt, keep, model, change, setVoice, current, track, scopeText, famOf, engineOf, onChange: f => HOOKS.push(f), reset: () => $('sdReset').onclick(), tryIt: () => tryIt(current()), VNAME};
+  return {synthOf, show, render, isOpen: () => UI.open, loadDb, adopt, keep, model, change, setVoice, current, track, scopeText, famOf, engineOf, onChange: f => HOOKS.push(f), reset: () => $('sdReset').onclick(), tryIt: () => tryIt(current()), VNAME};
 }

@@ -146,7 +146,18 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
 { await page.reload(); await page.waitForTimeout(1500); const bi = await D(() => window.__daw.ST.P.tracks.findIndex(T => T.role === 'bass'));
   await page.locator('.trk').nth(bi).locator('.snd').click(); await page.waitForTimeout(300);
   const lib = await D(() => ({open: !document.getElementById('side').hidden, fams: [...document.querySelectorAll('.fam')].map(f => f.textContent.replace(/[▾▸]\s*/, '').replace(/\s*\d+$/, '')), rows: document.querySelectorAll('.snd-row').length, on: document.querySelector('.snd-row[data-on="1"]')?.dataset.id, cur: window.__daw.ST.P.tracks[3].sound}));
-  check('the bass’s sound opens the panel: every pitched sound, grouped by how it’s made, the one in use marked', lib.open && lib.rows > 40 && lib.fams.includes('FM') && lib.fams.includes('Bowed and rubbed') && lib.fams.includes('Poly synth') && lib.on === lib.cur, JSON.stringify(lib));
+  const syn = await D(() => ({by: [...document.querySelectorAll('#sdBy button')].map(b => [b.textContent, b.getAttribute('aria-pressed')]), words: document.querySelectorAll('.fam-words').length,
+    fm: (() => { const out = []; let f = null; for (const el of document.getElementById('sdList').children) { if (el.classList.contains('fam')) f = el.textContent; else if (el.dataset.id && /FM/.test(f)) out.push(window.__daw.SND[el.dataset.id].src?.native); } return out; })()}));
+  check('the bass’s sound opens the panel by synthesizer: every pitched sound under the synth it’s made on (FM, Resonator, Analog, Poly Synth, String, Pads), each with what it is, the one in use marked',
+    lib.open && lib.rows > 40 && ['FM', 'Resonator', 'Analog', 'Poly Synth', 'String', 'Pads'].every(f => lib.fams.includes(f)) && syn.words === lib.fams.length && syn.fm.length && syn.fm.every(n => /^fm/.test(n)) && lib.on === lib.cur && syn.by[0][1] === 'true', JSON.stringify({lib, syn}));
+  await page.locator('#sdSyn button', {hasText: /^Resonator$/}).click();
+  const only = await D(() => ({fams: [...document.querySelectorAll('.fam')].map(f => f.textContent), ids: [...document.querySelectorAll('.snd-row')].map(r => r.dataset.id)}));
+  check('a synth’s chip shows that synth alone (Resonator: the marimba, the bells …)', only.fams.length === 1 && /Resonator/.test(only.fams[0]) && only.ids.includes('l-marimba') && await D(`${JSON.stringify(only.ids)}.every(id => window.__daw.SB.synthOf(window.__daw.SND[id]) === 'resonator')`), JSON.stringify(only.fams));
+  await page.locator('#sdSyn button', {hasText: 'All synths'}).click();
+  await page.locator('#sdBy button', {hasText: 'By kind'}).click();
+  const kinds = await D(() => [...document.querySelectorAll('.fam')].map(f => f.textContent.replace(/[▾▸]\s*/, '').replace(/\s*\d+$/, '')));
+  check('By kind groups them by what they are (struck, bowed, FM, analog …) instead', kinds.includes('Bowed and rubbed') && kinds.includes('Poly synth') && kinds.includes('FM'), JSON.stringify(kinds));
+  await page.locator('#sdBy button', {hasText: 'By synth'}).click();
   await page.locator('#sdRoles button', {hasText: 'Bass'}).click(); const nb = await D(() => [...document.querySelectorAll('.snd-row')].every(r => window.__daw.SND[r.dataset.id].role === 'bass'));
   check('the Bass filter leaves only bass sounds', nb); await page.locator('#sdRoles button', {hasText: 'All'}).click();
   await page.fill('#sdSearch', 'marimba'); const found = await D(() => [...document.querySelectorAll('.snd-row')].map(r => r.dataset.id)); check('searching finds the marimba', found.includes('l-marimba'), JSON.stringify(found)); await page.fill('#sdSearch', '');
@@ -178,7 +189,11 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const back = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, SND[id]?.name, SND[id]?.mine]; });
   check('after a reload the bass plays your sound, by its name', back[0] === mine.id && back[1] === 'Glassy FM' && back[2], JSON.stringify(back));
   await page.locator('.trk').nth(3).locator('.snd').click(); await page.click('#tabLib');
-  check('it’s listed under Your sounds', await D(() => { const f = [...document.querySelectorAll('.fam')][0]; return f.textContent.includes('Your sounds'); }));
+  const under = await D(() => { let f = null; for (const el of document.getElementById('sdList').children) { if (el.classList.contains('fam')) f = el.textContent; else if (el.dataset?.id && window.__daw.SND[el.dataset.id].name === 'Glassy FM') return [f, !!el.querySelector('.yours')]; } return null; });
+  check('by synth it’s under FM, the synth it was made on, marked as yours', under && /FM/.test(under[0]) && under[1], JSON.stringify(under));
+  await page.locator('#sdBy button', {hasText: 'By kind'}).click();
+  check('and by kind under Your sounds', await D(() => { const f = [...document.querySelectorAll('.fam')][0]; return f.textContent.includes('Your sounds'); }));
+  await page.locator('#sdBy button', {hasText: 'By synth'}).click();
   // the hats: each voice its own settings; the chords on the poly synth: its oscillators, filter and envelopes
   await page.locator('.trk').nth(1).locator('.snd').click(); await page.click('#tabEdit');
   const hv = await D(() => [[...document.querySelectorAll('.voices button')].map(b => b.textContent), [...document.querySelectorAll('#sdBody .knob .kl')].map(k => k.textContent)]);
