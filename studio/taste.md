@@ -122,3 +122,8 @@ before writing or changing a piece; add to it when they react.
   spectrum, the poly synth's filter curve and envelopes drawn as they turn, a keyboard to play it with the mouse or the
   computer's keys, pads for a kit. The poly synth and drum machines answer while a knob turns; a native model is
   computed again when it's let go.
+- 2026-10-23: Asked what's truly native for Claude, and for synths computed from the ground up that respond to knobs in
+  real time. The FM and the Resonator (marimba, bamboo, bells…) now run live in an AudioWorklet in the DAW: the same
+  maths as before, sample by sample as they play, so knobs are heard in sounding notes and held keys hold notes. The FM
+  gained Bend (held) and Bend fall (Bend alone only shapes the strike). Next, if it holds up: the other native engines,
+  then the poly synth and the drum machine rebuilt as native.

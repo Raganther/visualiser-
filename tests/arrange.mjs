@@ -166,7 +166,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   // the designer: a physical model's own settings, a change making your copy
   await page.click('#tabEdit'); const knobs = await D(() => [...document.querySelectorAll('#sdBody .knob .kl')].map(k => k.textContent));
   check('Edit shows the instrument’s own settings (FM: bend, ratio, decay)', knobs.includes('Instrument') && knobs.includes('Bend') && knobs.includes('Ratio'), knobs.join(', '));
-  const r = page.locator('#sdBody .knob', {hasText: 'Bend'}).locator('input'), rb = await r.boundingBox(); await page.mouse.click(rb.x + rb.width*.95, rb.y + rb.height/2); await page.waitForTimeout(300);
+  const r = page.locator('#sdBody .knob', {hasText: /^Bend[0-9.]/}).locator('input'), rb = await r.boundingBox(); await page.mouse.click(rb.x + rb.width*.95, rb.y + rb.height/2); await page.waitForTimeout(300);
   const mine = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound, s = SND[id]; return {id, name: s.name, base: s.base, knobs: s.src.knobs, kept: !!ST.P.sounds?.[id], lib: !!JSON.parse(localStorage.getItem('studio.daw.sounds') || '{}')[id]}; });
   check('moving Bend makes your own copy, with the setting, kept with the song and in your sounds', mine.id.startsWith('u-') && mine.base === lib.cur && mine.knobs?.index > 4 && mine.kept && mine.lib, JSON.stringify(mine));
   check('the library’s own sound is unchanged', await D(`!window.__daw.SND['${lib.cur}'].src.knobs`));
@@ -198,13 +198,13 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await page.locator('.trk').nth(3).click(); await page.keyboard.press('b');
   for (let k = 0; k < 60 && !(await D(() => !!window.__daw.SI.state().buf)); k++) await page.waitForTimeout(100);
   const st = await D(() => { const s = window.__daw.SI.state(); return {kind: s.M?.kind, buf: s.buf?.length || 0, cap: s.cap, mods: [...document.querySelectorAll('#iMods .mod h3')].map(x => x.textContent), knobs: [...document.querySelectorAll('#iMods .kn .kn-lab')].map(x => x.textContent), keys: document.querySelectorAll('#iKeys .wk').length, notes: getComputedStyle(document.getElementById('edWrap')).display}; });
-  check('B shows the bass’s instrument: its model’s knobs, one note of it computed and drawn, a keyboard, in the notes’ place', st.kind === 'native' && st.buf > 1000 && /computed by the model/.test(st.cap) && st.knobs.includes('Bend') && st.keys === 15 && st.notes === 'none', JSON.stringify(st));
+  check('B shows the bass’s instrument: its model’s knobs, one note of it computed and drawn, a keyboard, in the notes’ place', st.kind === 'native' && st.buf > 1000 && /the model/.test(st.cap) && st.knobs.includes('Bend') && st.keys === 15 && st.notes === 'none', JSON.stringify(st));
   const was = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, JSON.stringify(SND[id].src)]; });
-  const bend = page.locator('#iMods .kn', {hasText: 'Bend'}), kb = await bend.boundingBox();
+  const bend = page.locator('#iMods .kn', {hasText: /^Bend[0-9.]/}), kb = await bend.boundingBox();
   await page.mouse.move(kb.x + kb.width/2, kb.y + 20); await page.mouse.down(); await page.mouse.move(kb.x + kb.width/2, kb.y - 120, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(400);
   const k1 = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[3].sound]; return [s.mine, s.src.knobs?.index]; });
   check('dragging the Bend knob up turns it up, on your own copy', k1[0] && k1[1] > 3 && k1[1] > (JSON.parse(was[1]).knobs?.index ?? 0), JSON.stringify(k1));
-  for (let k = 0; k < 60 && !(await D(() => /computed/.test(window.__daw.SI.state().cap))); k++) await page.waitForTimeout(100);
+  for (let k = 0; k < 60 && !(await D(() => /the model/.test(window.__daw.SI.state().cap))); k++) await page.waitForTimeout(100);
   check('and the note is drawn again from the changed model', await D(() => window.__daw.SI.state().buf?.length > 1000));
   await page.keyboard.press('Meta+z'); const und = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, JSON.stringify(SND[id].src)]; });
   check('undo puts the library’s sound back', und[0] === was[0] && was[0] === 'b-fmpluck' && und[1] === was[1], JSON.stringify([was, und]));
@@ -231,6 +231,48 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   // a clip double-clicked goes back to its notes
   const [cx, cy] = await at(1, (await clips(1))[0].start + .5); await page.mouse.dblclick(cx, cy);
   check('double-clicking a clip shows its notes again', await D(() => !window.__daw.SI.isOn() && getComputedStyle(document.getElementById('edWrap')).display !== 'none')); }
+
+// live: the FM and the Resonator computed sample by sample as they play (an AudioWorklet), the same maths as the notes
+// computed ahead; a key held holds the note, a knob turned is heard in the note sounding, and letting go keeps it ringing
+{ await page.reload(); await page.waitForTimeout(1500);
+  const lv = await D(() => new Promise(r => { const {E, ST} = window.__daw; E.init(); const t0 = Date.now(), w = () => E.liveOK || Date.now() - t0 > 6000 ? r({ok: E.liveOK, err: E.liveErr, t: ST.P.tracks.map((T, i) => [T.name, E.isLive(i)])}) : setTimeout(w, 50); w(); }));
+  const L = Object.fromEntries(lv.t);
+  check('the FM bass, the bamboo and the marimba play live; the bowed strings and the drums are still computed ahead', lv.ok && L.Bass && L.Lead && L['Lead 2'] && !L.Chords && !L.Kick, JSON.stringify(lv));
+  const eq = await D(async () => { const {NATIVE} = await import('/studio/lib/native/index.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), out = {};
+    for (const [name, engine, n, vel, len, params] of [['fmpluck', 'fm', 40, .8, .3, {index: 2.5}], ['fmround', 'fm', 36, .6, .6, {}], ['bamboo', 'md', 57, .9, null, {ring: 1.4}], ['marimba', 'md', 60, .7, null, {hard: .8}]]) {
+      const sr = 44100, ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u);
+      const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'load', engine, name, gain: NATIVE[name].gain, params}, {type: 'on', id: 1, n, vel, t: .1}, ...(len ? [{type: 'off', id: 1, t: .1 + len}] : [])]}});
+      node.connect(ctx.destination); const b = await ctx.startRendering(), ref = NATIVE[name].make(sr, n, vel, len ? {...params, len} : params), g = NATIVE[name].gain*(.4 + .6*vel), off = Math.round(.1*sr);
+      let e = 0, s = 0; const m = Math.min(ref.L.length, sr*2 - off); for (let i = 0; i < m; i++) for (const [x, y] of [[ref.L[i]*g, b.getChannelData(0)[off + i]], [ref.R[i]*g, b.getChannelData(1)[off + i]]]) { e += (x - y)**2; s += x*x; }
+      out[name] = +(10*Math.log10(e/s)).toFixed(1); } return out; });
+  check('played live, each note is the same as computed ahead (the difference far below hearing)', Object.values(eq).every(v => v < -50), JSON.stringify(eq));
+  // held: the round FM bass's note, a key held two seconds sounds on (computed ahead it would end after a beat)
+  await D(() => { const {ST, E} = window.__daw; ST.P.tracks[3].sound = 'b-fmround'; E.refresh(); const a = E.ctx.createAnalyser(); a.fftSize = 4096; E.out.connect(a); window.__an = a; });
+  await page.locator('.trk').nth(3).click(); if (!(await D(() => window.__daw.SI.isOn()))) await page.keyboard.press('b'); await page.waitForTimeout(400);
+  check('the Instrument view says it plays live', await D(() => !document.getElementById('iLive').hidden));
+  const rms = () => D(() => { const x = new Float32Array(4096); window.__an.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); });
+  // (the spectrum's centre of mass, in Hz)
+  const bright = () => D(() => { const a = window.__an, f = new Float32Array(a.frequencyBinCount); a.getFloatFrequencyData(f); let m = 0, all = 0; f.forEach((db, i) => { const p = Math.pow(10, db/10); all += p; m += p*i*a.context.sampleRate/a.fftSize; }); return m/all; });
+  await page.keyboard.down('a'); await page.waitForTimeout(1800); const held = await rms(), b0 = await bright();
+  // turned while it sounds: the held bend up, the held note brighter at once, before the knob is let go
+  const kn = await page.locator('#iMods .kn', {hasText: 'Bend (held)'}).boundingBox(); await page.mouse.move(kn.x + kn.width/2, kn.y + 20); await page.mouse.down();
+  await page.mouse.move(kn.x + kn.width/2, kn.y - 140, {steps: 8}); await page.waitForTimeout(250); const b1 = await bright();
+  await page.mouse.up(); await page.waitForTimeout(500); const after = await rms(); await page.keyboard.up('a'); await page.waitForTimeout(700); const gone = await rms();
+  check('a key held holds the note (still sounding after almost two seconds), and letting go ends it', held > .01 && gone < held/8, `${held.toFixed(4)} → ${gone.toFixed(4)}`);
+  check('Bend (held) turned while the note is held makes it brighter at once', b1 > b0*1.3, `${Math.round(b0)} Hz → ${Math.round(b1)} Hz`);
+  check('and letting go of the knob (your copy made, the instrument rebuilt) keeps the held note ringing', after > held*.3, `${after.toFixed(4)}`);
+  // the Resonator: a marimba note struck, then Ring turned up while it rings: it rings on longer than the same note left alone
+  const ringTail = async ring => { await page.locator('.trk').nth(6).click(); await page.waitForTimeout(300);
+    // (heard at the instrument itself, before the track's echo and reverb, whose repeats would hide its tail)
+    await D(() => { const {E, ST} = window.__daw; E.kbOn(6, ST.P.tracks[6].sound, 72, .8); const a = E.ctx.createAnalyser(); a.fftSize = 4096; E.kb.c.inst.live.connect(a); window.__an2 = a; });
+    await page.waitForTimeout(150); if (ring) await D(`window.__daw.E.live(6, {native: 'ring'}, ${ring})`); await page.waitForTimeout(1300);
+    const r = await D(() => { const x = new Float32Array(4096); window.__an2.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); });
+    await D(() => { const {E} = window.__daw; E.kbOff(6, 72); E.live(6, {native: 'ring'}, 1); }); await page.waitForTimeout(2500); return r; };
+  const plain = await ringTail(0), longer = await ringTail(3);
+  check('the marimba’s Ring turned up while a note rings makes that note ring on', longer > plain*10, `${plain.toFixed(4)} → ${longer.toFixed(4)}`);
+
+  await D(() => { const {E} = window.__daw; E.play(32); }); await page.waitForTimeout(1500); const song = await rms(); await D(() => window.__daw.E.stop());
+  check('the song plays with the live bass', song > .01, song.toFixed(4)); await page.keyboard.press('b'); }
 
 // on a phone: the picture fits, a section tapped loops it, a drag pans, a clip can't be dragged, a like still works
 { const ph = await browser.newPage({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2});

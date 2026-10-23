@@ -29,7 +29,8 @@ export function makeSynthUI(A){
     paint();
     const move = nu => { u = clamp(nu, 0, 1); cur = snap(fromU(u)); paint(); it.live?.(cur); graphs(it.key, cur); };
     let setT = 0; const later = () => { clearTimeout(setT); setT = setTimeout(() => set(cur), 450); };
-    const set = v => { const note = noteFor(); if (!SB.change(it, v, {note})) { u = toU(it.value); cur = it.value; paint(); } };
+    // (let go: one undo step; a note plays to hear it, unless one is being held on the keys already)
+    const set = v => { const note = V.held.size ? null : noteFor(); if (!SB.change(it, v, {note, quiet: !!V.held.size})) { u = toU(it.value); cur = it.value; paint(); } };
     el.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); el.focus(); if (!editable()) return; el.setPointerCapture(e.pointerId); let y = e.clientY, moved = false;
       const mm = ev => { const dy = y - ev.clientY; y = ev.clientY; if (dy) { moved = true; move(u + dy/(ev.shiftKey ? 600 : 160)); } };
       const uu = () => { el.removeEventListener('pointermove', mm); el.removeEventListener('pointerup', uu); el.removeEventListener('pointercancel', uu); if (moved) set(cur); };
@@ -89,7 +90,7 @@ export function makeSynthUI(A){
     g.lineTo(W, top); g.lineTo(0, top); g.closePath(); g.fillStyle = 'rgba(224,163,58,.22)'; g.fill(); g.strokeStyle = css('--acc'); g.lineWidth = 1; g.stroke();
     g.fillStyle = css('--mute'); g.font = '10px system-ui'; for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) g.fillText(t, Math.log(f/30)/Math.log(16000/30)*W + 2, H - 6);
     g.fillText(`${(end/sr).toFixed(2)} s`, W - 40, 12);
-    const n = M.note; $('iCap').textContent = `${typeof n.p === 'number' ? nn(n.p) : SB.VNAME[n.p] || n.p} · ${M.kind === 'poly' || M.s.voices && !M.s.voices[n.p]?.native ? 'rendered by the synth' : 'computed by the model, as you’ll hear it'}`; }
+    const n = M.note; $('iCap').textContent = `${typeof n.p === 'number' ? nn(n.p) : SB.VNAME[n.p] || n.p} · ${M.kind === 'poly' || M.s.voices && !M.s.voices[n.p]?.native ? 'rendered by the synth' : E.isLive(ST.sel.track) ? 'the model, played live (drawn from the same maths)' : 'computed by the model, as you’ll hear it'}`; }
   function fft(re, im){ const n = re.length; for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
     for (let len = 2; len <= n; len <<= 1) { const a = -2*Math.PI/len, wr = Math.cos(a), wi = Math.sin(a); for (let i = 0; i < n; i += len) { let xr = 1, xi = 0; for (let j = 0; j < len/2; j++) {
       const k = i + j, l = k + len/2, tr = re[l]*xr - im[l]*xi, ti = re[l]*xi + im[l]*xr; re[l] = re[k] - tr; im[l] = im[k] - ti; re[k] += tr; im[k] += ti; const t = xr*wr - xi*wi; xi = xr*wi + xi*wr; xr = t; } } } }
@@ -127,6 +128,7 @@ export function makeSynthUI(A){
   /* ---------- the panel ---------- */
   function render(){ if (!V.on || !ST.P) return; const t = T(); M = SB.model(); G = {}; if (!M) return; const s = M.s;
     $('iName').textContent = s.name; $('iFrom').textContent = `${t.name} · ${SB.famOf(s)} · ${SB.engineOf(s)}${s.mine ? '' : ' · changing it makes your own copy'}`; $('iScope').textContent = 'Changes ' + SB.scopeText();
+    const live = E.isLive(ST.sel.track); $('iLive').hidden = !live; $('iLive').title = live ? 'Played live: turn a knob while a note sounds, hold a key to hold the note' : '';
     $('iReset').hidden = !s.mine || !s.base; const mods = $('iMods'); mods.innerHTML = '';
     for (const g of M.groups) { const card = h('section', {class: 'mod'}, h('h3', {}, g.name));
       if (M.kind === 'poly' && g.name === 'Filter') { const a = h('canvas', {class: 'graph', 'aria-label': 'The filter’s response'}), b = h('canvas', {class: 'graph', 'aria-label': 'The filter’s envelope'}); card.append(h('div', {class: 'graphs'}, a, b)); G.filter = a; G.fenv = b; }

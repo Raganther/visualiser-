@@ -24,7 +24,7 @@ const ST = {id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, p
 let db = null;
 
 /* ---------- the engine, the songs ---------- */
-const E = makeEngine({SND, workerSrc: $('worker-src').textContent, onBusy: () => status(), onTick: () => {}});
+const E = makeEngine({SND, workerSrc: $('worker-src').textContent, workletSrc: $('worklet-src')?.textContent, onBusy: () => status(), onTick: () => {}});
 const colorOf = (T, i) => T.role === 'lead' && ST.P.tracks.findIndex(x => x.role === 'lead') !== i ? COLORS.lead2 : COLORS[T.role] || '#888';
 const songById = id => SONGS.find(s => s.id === id);
 const keyOf = id => 'studio.daw.v1.' + id;

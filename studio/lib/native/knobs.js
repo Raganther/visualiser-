@@ -1,5 +1,8 @@
 // The native instruments' knobs: for each instrument the page and the DAW offer, which of its physics a knob moves (the
 // setting's key, its label, its range and step), and a sensible starting value for each.
+import { FMP } from './fmp.js';
+// the FM's bend after the strike: where it settles while the note is held, and how fast it falls there
+const FM_HELD = [['indexEnd', 'Bend (held)', 0, 3, .02], ['indexT', 'Bend fall', .01, .6, .01]];
 const MODAL_K = [['hard', 'Hardness', .1, 1, .01], ['pos', 'Strike point', .05, .5, .01], ['ring', 'Ring', .3, 3, .05]];
 export const INST = {
   kick: {label: 'Kick (struck skin)', knobs: [['drop', 'Pitch drop', .3, 3, .05], ['decay', 'Decay', .2, 1.2, .02], ['body', 'Body', 0, 1, .02], ['hard', 'Beater', .1, 1, .02]]},
@@ -10,11 +13,11 @@ export const INST = {
   musicbox: {label: 'Music box', knobs: MODAL_K}, vibes: {label: 'Vibraphone', knobs: [...MODAL_K, ['trem', 'Tremolo', 0, .9, .02]]},
   wood: {label: 'Woodblock', knobs: MODAL_K}, tubular: {label: 'Tubular bell', knobs: MODAL_K}, bell: {label: 'Church bell', knobs: MODAL_K},
   plate: {label: 'Metal plate', knobs: MODAL_K}, glass: {label: 'Glass bar', knobs: MODAL_K},
-  fmglass: {label: 'FM glass bass', held: 1, knobs: [['index', 'Bend', .2, 6, .05], ['ratio', 'Ratio', .5, 7, .05], ['dec', 'Decay', .05, .8, .01], ['sus', 'Sustain', 0, 1, .02]]},
-  fmround: {label: 'FM round bass', held: 1, knobs: [['index', 'Bend', .2, 4, .05], ['ratio', 'Ratio', .5, 4, .05], ['dec', 'Decay', .05, .8, .01], ['sus', 'Sustain', 0, 1, .02]]},
-  fmpluck: {label: 'FM pluck bass', held: 1, knobs: [['index', 'Bend', .2, 6, .05], ['ratio', 'Ratio', .5, 7, .05], ['dec', 'Decay', .03, .5, .01], ['fb', 'Feedback', 0, 1, .02]]},
+  fmglass: {label: 'FM glass bass', held: 1, knobs: [['index', 'Bend', .2, 6, .05], ['ratio', 'Ratio', .5, 7, .05], ['dec', 'Decay', .05, .8, .01], ['sus', 'Sustain', 0, 1, .02], ...FM_HELD]},
+  fmround: {label: 'FM round bass', held: 1, knobs: [['index', 'Bend', .2, 4, .05], ['ratio', 'Ratio', .5, 4, .05], ['dec', 'Decay', .05, .8, .01], ['sus', 'Sustain', 0, 1, .02], ...FM_HELD]},
+  fmpluck: {label: 'FM pluck bass', held: 1, knobs: [['index', 'Bend', .2, 6, .05], ['ratio', 'Ratio', .5, 7, .05], ['dec', 'Decay', .03, .5, .01], ['fb', 'Feedback', 0, 1, .02], ...FM_HELD]},
   pluck: {label: 'Plucked string', knobs: [['bright', 'Brightness', .05, 1, .02], ['damp', 'Sustain', .98, .999, .0005], ['body', 'Body', 0, 1, .02]]},
-  fmbell: {label: 'FM bell', held: 1, knobs: [['index', 'Bend', .2, 5, .05], ['ratio', 'Ratio', .5, 7, .05], ['r', 'Release', .1, 2.5, .05]]},
+  fmbell: {label: 'FM bell', held: 1, knobs: [['index', 'Bend', .2, 5, .05], ['ratio', 'Ratio', .5, 7, .05], ['r', 'Release', .1, 2.5, .05], ...FM_HELD]},
   addpad: {label: 'Bloom pad (additive)', held: 1, knobs: [['bloom', 'Bloom', 0, 10, .1], ['wob', 'Sway', 0, .8, .02], ['tilt', 'Darkness', .6, 2.4, .02], ['a', 'Attack', .05, 3, .05]]},
   breath: {label: 'Breath pad', held: 1, knobs: [['q', 'Focus', 15, 160, 1], ['air', 'Air', 0, .3, .01], ['a', 'Attack', .05, 3, .05]]},
   bowed: {label: 'Bowed string', held: 1, knobs: [['bright', 'Bow pressure', 0, 1, .02], ['rough', 'Roughness', 0, 1, .02], ['a', 'Attack', .05, 3, .05]]},
@@ -42,6 +45,6 @@ export const INST = {
   insect: {label: 'Insect', knobs: [['count', 'Chirps', 1, 30, 1], ['rate', 'Speed', 10, 120, 1], ['f', 'Pitch', 2000, 9000, 50], ['q', 'Ring', 3, 30, .5]]},
   click: {label: 'Click', knobs: [['q', 'Ring', 1, 20, .5], ['decay', 'Decay', .001, .03, .0005]]},
 };
-export function defaultOf(inst, k, lo, hi){ const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : inst === 'sub808' ? 1 : .25, decay: {kick: .45, hat: .06, twig: .02, click: .006, drop: .04, stone: .02}[inst] ?? .55, body: inst === 'pluck' ? .55 : .5, tone: inst === 'hihat' || inst === 'leaf' ? .5 : .6, trem: .45,
+export function defaultOf(inst, k, lo, hi){ if (FMP[inst]?.[k] != null) return FMP[inst][k]; const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : inst === 'sub808' ? 1 : .25, decay: {kick: .45, hat: .06, twig: .02, click: .006, drop: .04, stone: .02}[inst] ?? .55, body: inst === 'pluck' ? .55 : .5, tone: inst === 'hihat' || inst === 'leaf' ? .5 : .6, trem: .45,
   index: 2, ratio: inst === 'fmglass' ? 3.5 : inst === 'fmpluck' ? 2 : inst === 'fmbell' ? 1.4 : 1, dec: inst === 'sub808' ? 1.2 : .25, sus: inst === 'sub808' ? .6 : .2, fb: .3, bright: inst === 'bowed' ? .75 : ['bowmetal', 'glassharm', 'rubbowl'].includes(inst) ? .1 : .45, damp: .993, r: .8, bloom: 3, wob: .35, tilt: 1.3, a: inst === 'addpad' ? 1.2 : .8, q: {shaker: 7, insect: 12, click: 6}[inst] ?? 70, air: .04, density: inst === 'leaf' ? 900 : 26, rough: .35, drive: .4, start: 3.6, boom: 0, grit: .35, drift: .5, breathy: .15, sizzle: .25, open: 0, width: .6, secs: inst === 'leaf' ? .25 : .12, beads: 40, cracks: 5, spread: .014, count: 9, rate: 55, f: 6200, rise: .8, gap: .006, warble: .03, from: .7, wrate: 38, fenv: 1, stretch: 1};
   return D[k] ?? (lo + hi)/2; }

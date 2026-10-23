@@ -6,7 +6,8 @@ import { nativeSet, cutOf, LEN, ECHO } from '../jam/model.js';
 import { isDrum } from '../jam/part.js';
 import { engOf, engChain, retChain, RET, glide, duckAt } from '../jam/mixeng.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
-import { NATIVE } from '../lib/native/index.js';
+import { NATIVE, FMP } from '../lib/native/index.js';
+import { MODAL } from '../lib/native/modal.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
@@ -16,7 +17,10 @@ const GLUE = [null, {thr: -14, ratio: 1.8, att: .03, rel: .25}, {thr: -20, ratio
 const q = (v, s) => Math.round(v/s)*s;
 const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1).toFixed(1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
 
-export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}}){
+// the native instruments played live, sample by sample as they sound (voices.worklet.js): the FM and the Resonator
+export const liveEngine = name => FMP[name] ? 'fm' : MODAL[name] ? 'md' : null;
+
+export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTick = () => {}}){
   const E = {ctx: null, P: null, playing: false, cycle: false, loop: [0, 4], eng: true, slot: 0, nextT: 0, timer: 0, when: [], ch: [], by: [], starts: [], at: []};
   const cache = new Map(), pending = new Set(); let master, mstr, delay, verb, rets, worker;
   const sd = () => 60/E.P.bpm/4;
@@ -33,6 +37,10 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); let lp = 0; for (let i = 0; i < L; i++) { lp += (.3 - .25*i/L)*((Math.random()*2 - 1) - lp); x[i] = lp*Math.pow(1 - i/L, 2.2); } }
     verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg);
     rets = Object.fromEntries([['echo', delay.lp], ['verb', vg]].map(([k, from]) => { const r = retChain(ctx, RET[k]), d = ctx.createGain(); from.connect(r.input); r.output.connect(d); d.connect(master); return [k, {...r, duck: d}]; }));
+    // the live voices: once the audio engine has them, the tracks on those instruments play live (until then, and where a
+    // browser can't, their notes are computed ahead as before)
+    if (workletSrc && ctx.audioWorklet) ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSrc], {type: 'text/javascript'})))
+      .then(() => { E.liveOK = true; if (E.P) { E.refresh(); E.kb = null; } onBusy(pending.size); }).catch(e => { E.liveErr = String(e?.message || e); });
     worker = new Worker(URL.createObjectURL(new Blob([workerSrc], {type: 'text/javascript'})));
     worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } onBusy(pending.size); };
     if (E.P) E.load(E.P); return ctx; };
@@ -44,16 +52,25 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     x.eng = engChain(ctx, engOf(T.role, lane)); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck); x.duck.connect(x.clip); x.clip.connect(x.out);
     x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb); x.eng.on(E.eng);
     return {T, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
-  function build(c, id){ const ctx = E.ctx, s = SND[id]; c.sound = id; c.inst = {kind: 'pitched'}; if (!s) return;
-    if (s.voices) { const kits = {}; c.inst = {kind: 'drums', voices: {}};
+  function build(c, id){ const ctx = E.ctx, s = SND[id], prev = c.inst; c.sound = id; c.inst = {kind: 'pitched'}; if (!s) { drop(prev); return; }
+    if (s.voices) { drop(prev); const kits = {}; c.inst = {kind: 'drums', voices: {}};
       for (const [v, m] of Object.entries(s.voices)) { if (m.native) { c.inst.voices[v] = {native: m.native, n: m.n, set: m.set || {}, knobs: m.knobs || {}}; continue; }
         const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.x.in); kits[key].load(m.kit, m.over || {}); } c.inst.voices[v] = {kit: kits[key]}; } return; }
     const src = s.src; if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.x.in, {period: () => 4*sd()}); syn.load({...PRESETS[p], chord: 0, ...set, ...src.poly}); c.inst.poly = syn; c.inst.base = {...set, ...src.poly}; }
-    else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; c.inst.knobs = src.knobs || {}; } }
+    else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; c.inst.knobs = src.knobs || {};
+      const le = E.liveOK && liveEngine(name);
+      if (le) { if (prev?.live && prev.native === name) c.inst.live = prev.live;   // (the same instrument: its voices ring on, with the new settings)
+        else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: le, name, gain: NATIVE[name].gain, params: liveParams(c)}); }
+        c.inst.engine = le; liveSet(c); return; } }
+    if (prev?.live && prev.live !== c.inst.live) drop(prev); }
+  const drop = inst => { if (inst?.live) { inst.live.port.postMessage({type: 'stop'}); const n = inst.live; setTimeout(() => { try { n.disconnect(); } catch {} }, 100); } };
+  // what a live instrument plays with now: the section's tone and length as the instrument's settings, your knobs over them
+  const liveParams = c => ({...nativeSet(c.s || {}, c.inst.native, c.inst.set), ...c.inst.knobs});
+  const liveSet = (c, t) => { if (c.inst?.live) c.inst.live.port.postMessage({type: 'set', params: liveParams(c), t}); };
   // a clip's settings onto its track's channel (the section's tone, space, motion, ramp; its level and duck)
   function settle(c, clip, t = E.ctx.currentTime){ const s = c.s = {...c.T.set, ...(clip?.set || {})}; if ((s.sound || c.T.sound) !== c.sound) build(c, s.sound || c.T.sound);
     c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[s.length ?? 1]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[s.length ?? 1]); }
-    glide(c.x.clip.gain, Math.pow(10, (s.vol || 0)/20), t, .02); macros(c, t); }
+    glide(c.x.clip.gain, Math.pow(10, (s.vol || 0)/20), t, .02); macros(c, t); liveSet(c, t); }
   function macros(c, t = E.ctx.currentTime){ const x = c.x, s = c.s, M = c.T.mix, solo = E.P.tracks.some(y => y.mix.solo);
     glide(x.f.frequency, cutOf(s.x ?? .62), t, c.ramp ? 15*sd()/3 : .05); glide(x.echo.gain, s.echo ? (s.y ?? .3)*.5 : 0, t, .05); glide(x.verb.gain, s.verb ? (s.y ?? .3)*.75 : 0, t, .05);
     glide(x.out.gain, c.T.mute || solo && !M.solo ? 0 : .85*Math.pow(10, (M.vol || 0)/20), t, .02); glide(x.pan.pan, M.pan || 0, t, .02);
@@ -79,7 +96,7 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     for (const cl of T.clips) { const s = {...T.set, ...cl.set}, sound = SND[s.sound || T.sound]; if (!sound) continue;
       for (const n of cl.notes) { if (n.s < 0 || n.s >= cl.len) continue; const bar = Math.floor(n.s/16), r = s.ramp, xx = r?.x ? r.x[0] + (r.x[1] - r.x[0])*Math.min(1, bar/Math.max(1, (r.bars || 8) - 1)) : s.x, st = {...s, x: xx};
         if (sound.voices) { const v = sound.voices[n.p]; if (v?.native) { const o = {...nativeSet(st, v.native, v.set || {}), ...v.knobs}; want(keyOf(v.native, v.n, n.v, o), v.native, v.n, n.v, o); } }
-        else { const name = sound.src.native || NATIVE_OF[sound.src.palette]; if (!name) continue; const shift = (sound.src.shift || 0) + (sound.src.palette ? 12*(PAL[sound.src.palette][1].oct || 0) : 0);
+        else { const name = sound.src.native || NATIVE_OF[sound.src.palette]; if (!name || E.liveOK && liveEngine(name)) continue; const shift = (sound.src.shift || 0) + (sound.src.palette ? 12*(PAL[sound.src.palette][1].oct || 0) : 0);
           const o = {...nativeSet(st, name, sound.src.set || {}), ...sound.src.knobs}, set = NATIVE[name].held ? {...o, len: Math.round(n.l*sd()*20)/20} : o; want(keyOf(name, n.p + shift, n.v, set), name, n.p + shift, n.v, set); } } } }); onBusy(pending.size); };
   function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !worker) return; pending.add(k); worker.postMessage({key: k, name, n, vel: q(vel, .1), o: set, sr: E.ctx.sampleRate}); }
   function nativeNote(c, name, n, vel, o, t, lenSec){ const set = NATIVE[name].held ? {...o, len: Math.round(lenSec*20)/20} : o, k = keyOf(name, n, vel, set), b = cache.get(k);
@@ -93,9 +110,10 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
       if (c.T.role === 'kick') for (const o of E.ch) { if (o === c) continue; const d = DUCKS[o.s.duck ?? o.T.mix.duck ?? 0]; if (d) duckAt(o.x.duck.gain, d, t); }
       if (c.T.role === 'kick' && E.eng) for (const [k, r] of Object.entries(rets)) duckAt(r.duck.gain, RET[k].duck, t);
       return; }
+    if (inst.live) { const id = ++E.nid, n = p + inst.shift; inst.live.port.postMessage({type: 'on', id, n, vel: q(v, .1), gv: v, t}); inst.live.port.postMessage({type: 'off', id, t: t + l*sd()}); return; }
     if (inst.poly) inst.poly.play(p, t, l*sd(), v); else nativeNote(c, inst.native, p + inst.shift, v, {...nativeSet(c.s, inst.native, inst.set), ...inst.knobs}, t, l*sd()); }
   // the native buffers a note needs on a channel, asked for now: their keys
-  function need(c, p, l, v){ const inst = c.inst; if (!inst) return [];
+  function need(c, p, l, v){ const inst = c.inst; if (!inst || inst.live) return [];
     const one = (name, n, o, lenSec) => { const set = NATIVE[name].held ? {...o, len: Math.round(lenSec*20)/20} : o, k = keyOf(name, n, v, set); want(k, name, n, v, set); return [k]; };
     if (inst.kind === 'drums') { const vv = inst.voices[p]; return vv?.native ? one(vv.native, vv.n, {...nativeSet(c.s, vv.native, vv.set), ...vv.knobs}, .5) : []; }
     return inst.native ? one(inst.native, p + inst.shift, {...nativeSet(c.s, inst.native, inst.set), ...inst.knobs}, l*sd()) : []; }
@@ -110,17 +128,21 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     const end = Math.max(0, ...notes.map(n => n.s + n.l))*sd() + 2.5; setTimeout(() => { if (E.pv === c) { try { c.x.out.disconnect(); } catch {} E.pv = null; } }, end*1000); };
   // a setting heard at once while it's turned (the poly synth's own, a drum machine voice's), on the track and the keys
   E.live = (i, w, v) => { for (const c of [E.ch[i], E.kb?.i === i ? E.kb.c : null, E.pv]) { const inst = c?.inst; if (!inst || c.T !== E.P.tracks[i]) continue;
+      if (w.native && inst.live) inst.live.port.postMessage({type: 'set', params: {[w.native]: v}});
       if (w.poly && inst.poly) inst.poly.set(w.poly, v); if (w.kit && inst.voices?.[w.kit]?.kit) inst.voices[w.kit].kit.set(w.kit, w.key, v); } };
   // the keyboard: a channel of its own with the track's settings and the sound being shaped, notes held as long as the key
-  function kbChan(i, id){ if (E.kb && E.kb.i === i && E.kb.id === id && E.kb.gen === E.gen) return E.kb.c; if (E.kb) { const o = E.kb.c; setTimeout(() => { try { o.x.out.disconnect(); } catch {} }, 3000); }
+  function kbChan(i, id){ if (E.kb && E.kb.i === i && E.kb.id === id && E.kb.gen === E.gen) return E.kb.c;
+    if (E.kb && E.kb.i === i && E.kb.c.inst?.live) { const c = E.kb.c; c.s = {...E.P.tracks[i].set}; build(c, id); Object.assign(E.kb, {id, gen: E.gen}); if (c.inst.live) return c; }
+    if (E.kb) { const o = E.kb.c; setTimeout(() => { try { o.x.out.disconnect(); } catch {} }, 3000); }
     const T = E.P.tracks[i], c = chan(T, i); c.s = {...T.set}; build(c, id); macros(c); glide(c.x.out.gain, .85*Math.pow(10, (T.mix.vol || 0)/20), E.ctx.currentTime, .01); E.kb = {i, id, c, gen: E.gen, held: new Map()}; return c; }
   E.kbOn = (i, id, p, v = .8) => { const ctx = E.init(); ctx.resume(); const c = kbChan(i, id), t = ctx.currentTime + .005, inst = c.inst;
     if (inst.poly) { inst.poly.noteOn(p, v, t); E.kb.held.set(p, t); return; }
+    if (inst.live) { inst.live.port.postMessage({type: 'on', id: 'k' + p, n: p + inst.shift, vel: q(v, .1), gv: v, t}); return; }
     if (inst.kind === 'drums') { play(c, p, 1, v, t); return; }
     // a native note is computed (held sounds at a beat's length): heard at once when it's ready, else as soon as it is
     const keys = need(c, p, 4, v); if (keys.every(k => cache.has(k))) { play(c, p, 4, v, t); return; }
     const t0 = performance.now(), wait = () => { if (keys.every(k => cache.has(k))) { if (performance.now() - t0 < 1500) play(c, p, 4, v, E.ctx.currentTime + .005); } else if (performance.now() - t0 < 4000) setTimeout(wait, 30); }; wait(); };
-  E.kbOff = (i, p) => { const c = E.kb?.c; if (c?.inst?.poly && E.kb.i === i) c.inst.poly.noteOff(p, E.ctx.currentTime + .005); };
+  E.kbOff = (i, p) => { const c = E.kb?.c; if (!c || E.kb.i !== i) return; if (c.inst?.poly) c.inst.poly.noteOff(p, E.ctx.currentTime + .005); if (c.inst?.live) c.inst.live.port.postMessage({type: 'off', id: 'k' + p, t: E.ctx.currentTime + .005}); };
   // the keys' notes computed ahead, so the first press is heard at once
   E.kbWarm = (i, id, ps, v = .8) => { const ctx = E.init(); const c = kbChan(i, id); if (c.inst.native) for (const p of ps) need(c, p, 4, v); onBusy(pending.size); };
   // one note as the sound makes it, for drawing: a native note from the worker (as played), the poly synth or a drum
@@ -134,7 +156,9 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     if (snd.voices) { const m = snd.voices[p]; if (!m?.kit) return null; const kit = makeDrums(off, g); kit.load(m.kit, m.over || {}); kit.play(p, .02, v, null); }
     else { const src = snd.src, [pp, set] = PAL[src.palette], syn = makePoly(off, g, {period: () => 4*sd()}); syn.load({...PRESETS[pp], chord: 0, ...set, ...src.poly}); syn.play(p, .02, secs, v); }
     return off.startRendering(); };
-  E.gen = 0;
+  E.gen = 0; E.nid = 0;
+  // whether a track's instrument plays live now
+  E.isLive = i => !!E.ch[i]?.inst?.live;
   // a sound's definition changed (the designer): every channel builds its instrument again, and its notes are computed
   E.refresh = () => { E.gen++; if (!E.ctx) return; for (const c of E.ch) { c.sound = null; settle(c, c.clip || null); } E.prewarm(); };
   // a note heard now (clicking in the piano roll)
@@ -145,7 +169,7 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     // a bar line: each track's clip there sets its channel; a ramp steps on
     if (k % 16 === 0 || k === E.from) E.ch.forEach((c, i) => { const hit = clipAt(i, k), cl = hit?.[2] || null;
       if (cl !== c.clip || k === E.from) { settle(c, cl, t); if (cl && c.ramp) c.rampAt = Math.floor((k - hit[0])/16) - 1; }
-      if (c.ramp?.x && k % 16 === 0) { c.rampAt = (c.rampAt ?? -1) + 1; const [a, b] = c.ramp.x, n = Math.max(1, (c.ramp.bars || 8) - 1); c.s.x = a + (b - a)*Math.min(1, c.rampAt/n); macros(c, t); } });
+      if (c.ramp?.x && k % 16 === 0) { c.rampAt = (c.rampAt ?? -1) + 1; const [a, b] = c.ramp.x, n = Math.max(1, (c.ramp.bars || 8) - 1); c.s.x = a + (b - a)*Math.min(1, c.rampAt/n); macros(c, t); liveSet(c, t); } });
     // the pulse: a part's filter opening on every beat
     if (k % 4 === 0) for (const c of E.ch) if (c.s.motion === 3) { const f = c.x.f.frequency, lo = cutOf(c.s.x), b = 4*sd(); glide(f, Math.min(18000, lo*3.2), t, .006); f.linearRampToValueAtTime(Math.min(18000, lo*1.6), t + .35*b); f.linearRampToValueAtTime(lo, t + .9*b); }
     E.by.forEach((m, i) => { const list = m.get(k), c = E.ch[i]; if (!list || !c) return; for (const {off, n} of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + off*sd())); });
@@ -157,7 +181,7 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
   E.play = fromBar => { const ctx = E.init(); ctx.resume(); if (E.playing) E.stop(); E.playing = true; E.stopAt = 0;
     E.slot = E.from = Math.max(0, Math.round(fromBar*16)); E.nextT = ctx.currentTime + .1; E.when = []; for (const c of E.ch) { c.clip = undefined; c.open = null; }
     tick(); E.timer = setInterval(tick, 25); };
-  E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; for (const c of E.ch) { glide(c.x.out.gain, 0, E.ctx.currentTime, .03); setTimeout(() => macros(c), 200); } onTick(); };
+  E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; for (const c of E.ch) { c.inst?.live?.port.postMessage({type: 'stop'}); glide(c.x.out.gain, 0, E.ctx.currentTime, .03); setTimeout(() => macros(c), 200); } onTick(); };
   // where the song is as heard: the 16th scheduled for now and how far through it
   E.pos = () => { if (!E.playing || !E.when.length) return null; const now = E.ctx.currentTime; let best = null; for (const w of E.when) if (w[0] <= now) best = w;
     return best ? best[1] + Math.min(1, (now - best[0])/sd()) : E.when[0][1]; };

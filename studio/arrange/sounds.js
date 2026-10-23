@@ -98,8 +98,8 @@ export function makeSounds(A){
     const d = {...clone(strip(s)), id: 'u-' + Date.now().toString(36) + Math.floor(Math.random()*1e3), name: s.name + ' (yours)', base: id, pack: 'mine', words: `Your version of ${s.name}.`, mine: true};
     SND[d.id] = d; assign(d.id, {quiet: true}); flash(`Your own copy: “${d.name}”, in Your sounds`); return d; }
   // a setting changed: the copy saved, the track's instrument built again, and it heard (the phrase, or one note)
-  let tT = 0; function commit(d, {note} = {}){ SND[d.id] = d; ST.P.sounds = {...ST.P.sounds, [d.id]: clone(strip(d))}; keep(strip(d)); changed(); E.refresh(); A.renderTracks();
-    clearTimeout(tT); tT = setTimeout(() => note ? E.preview(ST.sel.track, d.id, [note]) : tryIt(d.id), 120); for (const f of HOOKS) f(); }
+  let tT = 0; function commit(d, {note, quiet} = {}){ SND[d.id] = d; ST.P.sounds = {...ST.P.sounds, [d.id]: clone(strip(d))}; keep(strip(d)); changed(); E.refresh(); A.renderTracks();
+    clearTimeout(tT); if (!quiet) tT = setTimeout(() => note ? E.preview(ST.sel.track, d.id, [note]) : tryIt(d.id), 120); for (const f of HOOKS) f(); }
   const HOOKS = [];
 
   // the sound's controls, whatever makes it: groups of settings, each with its value now, its range, how it's written on
@@ -124,7 +124,8 @@ export function makeSounds(A){
     if (n) return {id, s, kind: 'native', native: n, note, groups: [
       {name: 'Instrument', items: [{key: 'native', label: 'Instrument', list: instOpts(Object.keys(INST).filter(k => !NOTPITCHED.includes(k))), value: n, write: (d, v) => { d.src = {native: v, shift: d.src.shift || 0}; }},
         {key: 'shift', label: 'Octave', min: -3, max: 3, step: 1, value: Math.round((s.src.shift || 0)/12), def: 0, fmt: v => (v > 0 ? '+' : '') + Math.round(v), write: (d, v) => { d.src = {...d.src, shift: 12*(v ?? 0)}; }}]},
-      {name: INST[n]?.label || n, items: knobsOf(n, s.src.set, s.src.knobs || {}, (d, k, v) => { d.src = {...d.src, knobs: {...d.src.knobs}}; if (v === undefined) delete d.src.knobs[k]; else d.src.knobs[k] = v; })}]};
+      {name: INST[n]?.label || n, items: knobsOf(n, s.src.set, s.src.knobs || {}, (d, k, v) => { d.src = {...d.src, knobs: {...d.src.knobs}}; if (v === undefined) delete d.src.knobs[k]; else d.src.knobs[k] = v; })
+        .map(it => ({...it, live: v => E.live(ti, {native: it.key}, v)}))}]};   // (heard as it turns where the instrument plays live)
     const [preset, set] = PAL[s.src.palette], base = {...POLYD, ...POLYP[preset], ...set, ...s.src.poly};
     return {id, s, kind: 'poly', preset, values: base, note, groups: POLY.map(([group, ps]) => ({name: group, items: ps.filter(p => p.key !== 'chord').map(p => ({key: p.key, label: p.label, list: p.list && p.list.map((t, i) => [i, t]), min: p.min, max: p.max, log: !!p.log,
       step: p.step || (p.max - p.min > 50 ? 1 : .01), value: base[p.key] ?? p.def, def: (POLYP[preset] || {})[p.key] ?? set[p.key] ?? p.def, unit: p.unit, fmt: v => polyFmt(p, v),
@@ -132,7 +133,7 @@ export function makeSounds(A){
   const d0 = w => { delete w.knobs; };
   const polyFmt = (p, v) => p.unit === 'Hz' ? (v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v)) : p.unit === 's' ? (v < 1 ? Math.round(v*1000) + 'ms' : (+v).toFixed(2) + 's') : p.unit === '%' ? Math.round(v*100) + '%' : p.unit === 'st' ? (v > 0 ? '+' : '') + Math.round(v) : p.unit === 'ct' ? Math.round(v) + 'ct' : p.unit === 'oct' ? (v > 0 ? '+' : '') + Math.round(v) : (+v).toFixed(2);
   // a control set: one undo step, on your copy, heard
-  function change(item, v, {note} = {}){ if (!editable()) return false; checkpoint(); const d = mine(); item.write(d, v); commit(d, {note}); render(); return true; }
+  function change(item, v, {note, quiet} = {}){ if (!editable()) return false; checkpoint(); const d = mine(); item.write(d, v); commit(d, {note, quiet}); render(); return true; }
 
   // the side panel's Edit tab: the same controls as sliders and menus
   function slider(it){ const {min, max, log} = it, toS = v => log ? Math.log(v/min)/Math.log(max/min) : (v - min)/(max - min), fromS = u => log ? min*Math.pow(max/min, u) : min + u*(max - min);

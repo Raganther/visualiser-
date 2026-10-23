@@ -8,6 +8,8 @@ import { drop, twig, stone, leaf, insect, click, bird } from './natural.js';
 import { hihat } from './hats.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12);
+export { FMP } from './fmp.js';
+import { FMP } from './fmp.js';
 // the instruments: how a note is made, and its gain to sit near the poly synth's level
 export const NATIVE = {
   ...Object.fromEntries(Object.entries(MODAL).map(([k, p]) => [k, {make: (sr, n, vel, o) => modal(sr, hz(n), p.modes, {...p, ...o, vel}), gain: p.gain ?? .5}])),
@@ -18,10 +20,10 @@ export const NATIVE = {
   shaker: {make: (sr, n, vel, o) => shaker(sr, {...o, vel}), gain: 2},
   hat: {make: (sr, n, vel, o) => hat(sr, {...o, vel}), gain: .45},
   // held sounds (`held`: the note's length in seconds reaches them as o.len)
-  fmglass: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 3.5, index: 2.2, indexEnd: .25, indexT: .09, dec: .25, sus: .15, r: .12, ...o, vel}), gain: .55},
-  fmround: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 1, index: 1.3, indexEnd: .15, indexT: .06, dec: .2, sus: .45, r: .07, ...o, vel}), gain: .7},
-  fmpluck: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 2, index: 3.2, indexEnd: .1, indexT: .05, dec: .14, sus: 0, r: .06, fb: .3, ...o, vel}), gain: .6},
-  fmbell: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {ratio: 1.4, index: 1.6, indexEnd: .5, indexT: .4, a: .004, dec: .6, sus: .2, r: .8, ...o, vel}), gain: .3},
+  fmglass: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {...FMP.fmglass, ...o, vel}), gain: .55},
+  fmround: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {...FMP.fmround, ...o, vel}), gain: .7},
+  fmpluck: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {...FMP.fmpluck, ...o, vel}), gain: .6},
+  fmbell: {held: 1, make: (sr, n, vel, o) => fm(sr, hz(n), {...FMP.fmbell, ...o, vel}), gain: .3},
   addpad: {held: 1, make: (sr, n, vel, o) => additive(sr, hz(n), {...o, vel}), gain: .55},
   breath: {held: 1, make: (sr, n, vel, o) => breath(sr, hz(n), {...o, vel}), gain: 2.6},
   grainpad: {held: 1, make: (sr, n, vel, o) => grainPad(sr, hz(n), {...o, vel}), gain: 4},
