@@ -95,3 +95,11 @@ before writing or changing a piece; add to it when they react.
   memo; a hummed or sung line becomes the part's rhythm and notes (snapped to the chord tones under each bar, moved by
   octaves into the part's register), a beatbox becomes a drum part's hits ("boom" low, "ka" between, "tss" high). Inside
   claude.ai the page isn't allowed the microphone, so there it's the voice memo.
+- 2026-10-23: Comments on round 3's songs (each section): the hats harsh, "always open", wanting a smoother, traditional
+  shimmer with dynamics and a drummer's variations (the hat fill into the next part in Two rivers 👍); a human player's
+  syncopation and small variations in the riffs; no four-on-the-floor early, the motifs and percussion first, the
+  percussion building subtly; the bass a short grooving motif (Clearing's off-beat one in "Back, changed" the favourite);
+  the Hush's pad to pulse in quarter notes, its filter opening into the drop, a hat rhythm carrying the transition, the
+  pad pumping on after it; Two rivers' bass, percussion and sparse melody 👍; Undertow's bass intro 👎, its Hands riff 👍,
+  its alternating bass "might work but needs cohesion". Round 4 grows each song its own way: Smooth hats (dry: the echo
+  and reverb sends were what made them sound open), a pulse motion and tone ramps across a section in the jam.

@@ -62,8 +62,10 @@ function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s 
   const M = c.mix, solo = st.cols.some(y => y.mix.solo); glide(x.out.gain, c.mute || solo && !M.solo ? 0 : c.level*Math.pow(10, M.vol/20), now, .02);
   glide(x.pan.pan, M.pan, now, .02); glide(x.lo.gain, M.lo, now, .02); glide(x.mid.gain, M.mid, now, .02); glide(x.hi.gain, M.hi, now, .02);
   // the LFO on the tone filter only while there's motion (a connected modulator makes the filter work every sample)
-  const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm)][c.motion]; glide(x.lfo.frequency, rate || .1, now, s); glide(x.lfoG.gain, [0, .45, .35][c.motion]*cutOf(c.x), now, s);
-  if (!!c.motion !== !!x.lfoOn) { x.lfoOn = !!c.motion; if (x.lfoOn) x.lfoG.connect(x.f.frequency); else x.lfoG.disconnect(); } }
+  const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm), 0][c.motion]; glide(x.lfo.frequency, rate || .1, now, s); glide(x.lfoG.gain, [0, .45, .35, 0][c.motion]*cutOf(c.x), now, s);
+  const lfo = c.motion === 1 || c.motion === 2; if (lfo !== !!x.lfoOn) { x.lfoOn = lfo; if (x.lfoOn) x.lfoG.connect(x.f.frequency); else x.lfoG.disconnect(); }
+  // a ramp across a section (ramp.x: the tone from one value to another over its bars) glides the filter over a bar
+  if (c.ramp && c.rampAt != null) glide(x.f.frequency, cutOf(c.x), now, 15*sd()/3); }
 function tempo(){ if (!ctx) return; glide(delay.d.delayTime, ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) macros(c); }
 
 /* ---------- sounds: a part's sound built on its channel (poly synth, drum kits, native instruments) ---------- */
@@ -111,6 +113,8 @@ function tick(){ while (nextT < ctx.currentTime + .12) { playStep(st.step, nextT
 function playStep(step, t0){
   if (step % 16 === 0) barLine(step);
   const H = st.harmony, bar = Math.floor((step - st.hStart)/16), dropped = st.drop && step >= st.drop.at && step < st.drop.at + 16;
+  // a part with the pulse: its filter opens on every beat and falls back (a quarter-note pulse, locked to the bar)
+  if (step % 4 === 0) for (const c of st.cols) if (c.motion === 3 && c.ch) { const f = c.ch.f.frequency, lo = cutOf(c.x), b = 4*sd(); glide(f, Math.min(18000, lo*3.2), t0, .006); f.linearRampToValueAtTime(Math.min(18000, lo*1.6), t0 + .35*b); f.linearRampToValueAtTime(lo, t0 + .9*b); }
   for (const c of st.cols) { if (!c.clip || c.mute || dropped && c.role !== 'chords') continue;
     const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = posOf(c, eff);
     const f = FEELS[c.R?.feel || 0], sw = step % 2 ? (f.swing ?? st.swing) : 0, fe = feelAt(f, step), off = sw + fe.dt, t = Math.max(ctx.currentTime, t0 + off*sd());
@@ -140,6 +144,7 @@ function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, v
 function duck(t){ if (st.eng && rets) for (const [k, r] of Object.entries(rets)) { duckAt(r.duck.gain, RET[k].duck, t); }
   for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; duckAt(c.ch.duck.gain, d, t); } }
 function barLine(step){
+  for (const c of st.cols) if (c.ramp?.x) { c.rampAt = (c.rampAt ?? -1) + 1; const [a, b] = c.ramp.x, n = Math.max(1, (c.ramp.bars || 8) - 1); c.x = a + (b - a)*Math.min(1, c.rampAt/n); macros(c); }
   for (const c of st.cols) if (c.loopNext !== undefined) { c.loop = c.loopNext; delete c.loopNext; }
   if (st.hNext) { st.harmony = st.hNext; st.hNext = null; st.hStart = step; renderHarmony(); }
   let changed = false; for (const c of st.cols) if (c.next) { applyNext(c, step); changed = true; }
@@ -400,7 +405,7 @@ function renderSound(c){ const box = $('soundList'); box.innerHTML = ''; $('sHea
     for (const s of list) box.append(h('button', {class: 'snd', 'data-on': s.id === c.sound ? '1' : '', title: s.words || '', onclick: () => { c.locked = true; setSound(c, s.id); saveSounds(); logMacro(c, 'sound:' + s.id, 1); flash('Sound: ' + s.name); }}, h('b', {}, s.name), h('span', {class: 'muted'}, s.words || ''))); }
   const S = $('sKnobs'); S.innerHTML = ''; S.append(slider('Tone', c.x, 0, 1, .01, v => { c.x = v; macros(c); logMacro(c, 'x', v); clearTimeout(slider.t); slider.t = setTimeout(() => prewarm(c), 150); storeParts(); }, ['dark', 'bright']),
     seg('Length', ['short', 'normal', 'long'], c.length, v => { c.length = v; lengthTo(c); logMacro(c, 'length', v); prewarm(c); storeParts(); renderCard(); }),
-    seg('Motion', ['still', 'slow', 'fast'], c.motion, v => { c.motion = v; macros(c); logMacro(c, 'motion', v); storeParts(); renderCard(); }),
+    seg('Motion', ['still', 'slow', 'fast', 'pulse'], c.motion, v => { c.motion = v; macros(c); logMacro(c, 'motion', v); storeParts(); renderCard(); }),
     btn('Pack sounds', packSounds, {title: 'Put this pack’s own sounds back on every part'})); }
 // space: how loud, where across, how near or far; the echo and reverb; throw; how hard the kick ducks it
 function renderSpace(c){ const S = $('spKnobs'), M = c.mix; S.innerHTML = '';
@@ -599,7 +604,7 @@ $('smooth').onclick = toggleSmooth;
 function renderScenes(){ const box = $('scenes'); if (!box || !PACK) return; box.innerHTML = '';
   PACK.scenes.forEach((x, r) => box.append(h('button', {class: 'scene', 'data-on': st.scene === r ? '1' : '', title: `Launch ${x.name} (key ${r + 1})`, onclick: () => scene(r)}, h('b', {}, String(r + 1)), ' ', x.name))); }
 let SNAPS = [], snapOn = null, snapDel = null;
-const SNAP_FIELDS = ['loop', 'play', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'mix'], SNAP_KEY = 'studio.jam.snaps';
+const SNAP_FIELDS = ['loop', 'ramp', 'play', 'echo', 'verb', 'voicing', 'inv', 'arp', 'walk', 'mix'], SNAP_KEY = 'studio.jam.snaps';
 const storeSnaps = () => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(SNAPS)); } catch {} };
 function capture(){ const n = SNAPS.reduce((m, x) => Math.max(m, +(/^Scene (\d+)$/.exec(x.name)?.[1] || /^Snap (\d+)$/.exec(x.name)?.[1] || 0)), 0) + 1, G = st.hNext || st.harmony;
   return {id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36), v: 2, name: `Scene ${n}`, pack: PACK.id, bpm: st.bpm, smooth: st.smooth, echoDiv: st.echoDiv, mx: {...st.mx}, harmony: G.id, harmonyName: G.name, harmonyBars: G.bars, at: new Date().toISOString(),
@@ -616,7 +621,7 @@ async function recallNow(x){ if (x.pack !== PACK.id) { if (!ALLPACKS.some(p => p
   if (x.mx) { st.mx = {...st.mx, ...x.mx}; masterMix(); } snapOn = x.id; st.bpm = x.bpm; if (x.smooth !== undefined) st.smooth = x.smooth; if (x.echoDiv !== undefined) st.echoDiv = x.echoDiv; $('bpmOut').textContent = st.bpm; tempo();
   x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c || c.role !== v.role) return;
     if (SND[v.sound] && v.sound !== c.sound) { setSound(c, v.sound); logMacro(c, 'sound:' + v.sound, 1); } c.locked = v.locked;
-    v = {play: 0, loop: null, ...v};
+    v = {play: 0, loop: null, ramp: null, ...v}; c.rampAt = null;
     for (const k of ['x', 'y', 'motion', 'length', 'oct', ...SNAP_FIELDS]) if (v[k] !== undefined && c[k] !== v[k]) { if (k === 'loop') { if (st.playing) c.loopNext = v.loop; else { c.loop = v.loop; delete c.loopNext; } continue; }
       if (k === 'mix') { c.mix = {...c.mix, ...v.mix}; for (const [mk, mv] of Object.entries(v.mix)) logMacro(c, 'mix.' + mk, typeof mv === 'boolean' ? +mv : mv); continue; } c[k] = v[k]; logMacro(c, k, typeof v[k] === 'boolean' ? +v[k] : v[k]); }
     c.arpSt = null; if (c.mute !== v.mute) { c.mute = v.mute; logMacro(c, 'mute', c.mute ? 1 : 0); } lengthTo(c); macros(c);
@@ -848,7 +853,7 @@ function changes(a, b){ const out = [], near = (x, y, d) => Math.abs((x ?? 0) - 
     const ma = ca.mix || {}, mb = cb.mix || {}; if (!near(ma.vol, mb.vol, .4)) w.push(`level ${fmtDb(mb.vol ?? 0)}`); if (!near(ma.pan, mb.pan, .04)) w.push(`pan ${fmtPan(mb.pan ?? 0)}`);
     if (['lo', 'mid', 'hi'].some(k => !near(ma[k], mb[k], .4))) w.push('EQ'); if ((ma.duck ?? 0) !== (mb.duck ?? 0)) w.push(`duck ${DUCKS[mb.duck ?? 0][0].toLowerCase()}`);
     if (!near(ca.x, cb.x, .03)) w.push(cb.x > ca.x ? 'brighter' : 'darker'); if (!near(ca.y, cb.y, .03)) w.push(cb.y > ca.y ? 'further' : 'nearer');
-    if (ca.length !== cb.length) w.push(['short', 'normal', 'long'][cb.length] + ' notes'); if ((ca.motion || 0) !== (cb.motion || 0)) w.push('motion ' + ['still', 'slow', 'fast'][cb.motion]);
+    if (ca.length !== cb.length) w.push(['short', 'normal', 'long'][cb.length] + ' notes'); if ((ca.motion || 0) !== (cb.motion || 0)) w.push('motion ' + ['still', 'slow', 'fast', 'pulse'][cb.motion]);
     if ((ca.oct || 0) !== (cb.oct || 0)) w.push(`octave ${cb.oct > 0 ? '+' : ''}${cb.oct}`); if (!!ca.echo !== !!cb.echo) w.push(cb.echo ? 'echo on' : 'echo off'); if (!!ca.verb !== !!cb.verb) w.push(cb.verb ? 'reverb on' : 'reverb off');
     if ((ca.voicing || 0) !== (cb.voicing || 0) || (ca.inv || 0) !== (cb.inv || 0) || (ca.arp || 0) !== (cb.arp || 0)) w.push('voicing');
     if (w.length) out.push([COLNAME(i, ca.role), w]); });

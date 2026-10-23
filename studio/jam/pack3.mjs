@@ -21,6 +21,9 @@ const SOUNDS = [
   {id: 'h3-808', role: 'hats', name: '808 metal hats', words: 'Six clashing squares: closed, open and a long ride.', voices: {chh: N('hat808', 60, {decay: .045}), ohh: N('hat808', 60, {decay: .22, tone: .45}), ride: N('hat808', 60, {decay: .5, tone: .8, sizzle: .1})}},
   {id: 'h3-ticks', role: 'hats', name: 'Ticks', words: 'Minimal ticks: clicks, a short hat, a stone.', voices: {chh: N('click', 100), ohh: N('hat', 60, {decay: .1, tone: .5}), ride: N('stone', 96)}},
   {id: 'h3-seeds', role: 'hats', name: 'Seeds and leaves', words: 'A seed pod for the closed hat, leaves for the open.', voices: {chh: N('shaker', 60), ohh: N('leaf', 60, {secs: .14}), ride: N('hat', 60, {decay: .3, tone: .4})}},
+  // smoother than Soft hats (the cymbal pair, studio/lib/native/hats.js): the closed hat shut tight and darker, the open
+  // one half open, so a groove of ghosts and accents reads as a drummer's, not a wash (round 4: "harsh, always open")
+  {id: 'h3-smooth', role: 'hats', name: 'Smooth hats', words: 'A pair of cymbals, closed tight and dark, the open one half open: for grooves with ghost notes.', voices: {chh: N('hihat', 60, {open: 0, tone: .25, body: .7}), ohh: N('hihat', 60, {open: .5, tone: .28, body: .6}), ride: N('hihat', 60, {open: .3, tone: .32, body: .55})}},
   {id: 'h3-soft', role: 'hats', name: 'Soft native hats', words: 'Noise and metal, rounded.', voices: {chh: N('hat', 60, {decay: .035, tone: .55}), ohh: N('hat', 60, {decay: .16, tone: .5}), ride: N('hat808', 60, {decay: .35, tone: .3})}},
   {id: 'p3-forest', role: 'perc', name: 'Forest floor', words: 'Bamboo, twigs, stones, drops, leaves, insects.', voices: PERC({tomL: N('bamboo', 52), tomH: N('bamboo', 59), wood: N('twig', 60), metal: N('stone', 90), rim: N('drop', 79),
     shaker: N('leaf', 60, {secs: .12}), clave: N('insect', 60), bowl: N('drop', 86), gong: N('leaf', 60, {secs: .5}), log: N('bamboo', 45), logH: N('stone', 84)})},
