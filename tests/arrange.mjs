@@ -250,6 +250,12 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await D(() => { const {ST, E} = window.__daw; ST.P.tracks[3].sound = 'b-fmround'; E.refresh(); const a = E.ctx.createAnalyser(); a.fftSize = 4096; E.out.connect(a); window.__an = a; });
   await page.locator('.trk').nth(3).click(); if (!(await D(() => window.__daw.SI.isOn()))) await page.keyboard.press('b'); await page.waitForTimeout(400);
   check('the Instrument view says it plays live', await D(() => !document.getElementById('iLive').hidden));
+  // and it says so when the live voices arrive after the panel is already showing (a fresh page: the instrument shown first)
+  { const q = await browser.newPage({viewport: {width: 1400, height: 860}}); await q.goto(url + 'studio/listen/studio-daw.html'); await q.waitForTimeout(1200);
+    await q.locator('.trk').nth(3).click(); await q.keyboard.press('b'); const before = await q.evaluate(() => [window.__daw.E.liveOK, document.getElementById('iLive').hidden]);
+    await q.evaluate(() => window.__daw.E.init()); await q.waitForFunction(() => window.__daw.E.liveOK, null, {timeout: 6000}); await q.waitForTimeout(200);
+    const after = await q.evaluate(() => !document.getElementById('iLive').hidden); await q.close();
+    check('opened before the live voices arrive, the LIVE tag appears once they do', !before[0] && before[1] && after, JSON.stringify([before, after])); }
   const rms = () => D(() => { const x = new Float32Array(4096); window.__an.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); });
   // (the spectrum's centre of mass, in Hz)
   const bright = () => D(() => { const a = window.__an, f = new Float32Array(a.frequencyBinCount); a.getFloatFrequencyData(f); let m = 0, all = 0; f.forEach((db, i) => { const p = Math.pow(10, db/10); all += p; m += p*i*a.context.sampleRate/a.fftSize; }); return m/all; });

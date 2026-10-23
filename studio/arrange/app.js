@@ -377,6 +377,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
+E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a moment after the page: the instrument says so then)
 
 /* ---------- start ---------- */
 addEventListener('resize', () => { draw(); renderEd(); });

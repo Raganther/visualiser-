@@ -40,7 +40,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     // the live voices: once the audio engine has them, the tracks on those instruments play live (until then, and where a
     // browser can't, their notes are computed ahead as before)
     if (workletSrc && ctx.audioWorklet) ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSrc], {type: 'text/javascript'})))
-      .then(() => { E.liveOK = true; if (E.P) { E.refresh(); E.kb = null; } onBusy(pending.size); }).catch(e => { E.liveErr = String(e?.message || e); });
+      .then(() => { E.liveOK = true; if (E.P) { E.refresh(); E.kb = null; } onBusy(pending.size); E.onLive?.(); }).catch(e => { E.liveErr = String(e?.message || e); });
     worker = new Worker(URL.createObjectURL(new Blob([workerSrc], {type: 'text/javascript'})));
     worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } onBusy(pending.size); };
     if (E.P) E.load(E.P); return ctx; };
