@@ -1,4 +1,4 @@
-// Live native voices: the FM and Resonator (modal) instruments computed sample by sample as they play, in the audio
+// Live native voices: the FM, the Resonator (modal) and the native poly synth (npoly.js) computed sample by sample as they play, in the audio
 // engine's own thread (an AudioWorklet), with the same maths as the notes computed ahead (studio/lib/native/tone.js,
 // modal.js). So a setting turned while a note sounds is heard in it (the FM's bend, ratio, decay, sustain, feedback,
 // release; a resonator's ring and tremolo), a key held holds the note, and nothing waits to be computed. A strike's
@@ -7,6 +7,7 @@
 import { rng } from '../lib/rng.js';
 import { MODAL } from '../lib/native/modal.js';
 import { FMP } from '../lib/native/fmp.js';
+import { NativePoly } from '../lib/native/npoly.js';
 
 const LN1000 = Math.log(1000), TAU = 2*Math.PI, hz = n => 440*Math.pow(2, (n - 69)/12), FM_D = {ratio: 1, index: 2, indexEnd: .4, indexT: .15, a: .003, dec: .3, sus: .3, r: .12, det: .002, fb: 0};
 const MD_D = {hard: .5, pos: .27, beat: 0, width: .35, glide: 0, glideT: .05, click: 0, seed: 1, trem: 0, tremHz: 5.5, ring: 1};
@@ -15,6 +16,8 @@ class Voices extends AudioWorkletProcessor {
   constructor(o){ super(); this.v = []; this.ev = []; this.P = {}; this.eng = null; this.gain = .5; this.n = 0;
     this.port.onmessage = e => this.msg(e.data); for (const m of o?.processorOptions?.init || []) this.msg(m); }
   msg(m){
+    if (this.poly) { if (m.type === 'set' && m.t == null) { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; return; } if (m.type === 'stop') { this.ev = []; this.poly.stop(); return; } }
+    if (m.type === 'load' && m.engine === 'poly') { this.eng = 'poly'; this.poly = new NativePoly(sampleRate); this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
     if (m.type === 'load') { this.eng = m.engine; this.name = m.name; this.gain = m.gain; this.P = {...(m.engine === 'fm' ? {...FM_D, ...FMP[m.name]} : {...MD_D, ...MODAL[m.name]}), ...m.params}; }
     else if (m.type === 'set' && m.t == null) Object.assign(this.P, m.params);
     else if (m.type === 'on' || m.type === 'off' || m.type === 'set') { this.ev.push(m); this.ev.sort((a, b) => a.t - b.t); }
@@ -63,9 +66,10 @@ class Voices extends AudioWorkletProcessor {
   process(_, outputs){ const out = outputs[0], L = out[0], R = out[1] || out[0], N = L.length, t0 = currentTime; L.fill(0); if (R !== L) R.fill(0); if (!this.eng) return true;
     let a = 0;
     while (a < N) { let b = N; const e = this.ev[0]; if (e) { const f = Math.round((e.t - t0)*sampleRate); b = Math.max(a, Math.min(N, f)); }
-      for (const v of this.v) this.run(v, L, R, a, b);
+      if (this.poly) { if (b > a) this.poly.render(L, R, a, b); } else for (const v of this.v) this.run(v, L, R, a, b);
       if (b >= N) break; a = b;
       while (this.ev.length && Math.round((this.ev[0].t - t0)*sampleRate) <= a) { const m = this.ev.shift();
+        if (this.poly) { if (m.type === 'on') this.poly.on(m.id, m.n, m.gv ?? m.vel); else if (m.type === 'off') this.poly.off(m.id); else if (m.type === 'set') { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; } continue; }
         if (m.type === 'on') { this.v.push(this.eng === 'fm' ? this.fmOn(m) : this.mdOn(m)); const live = this.v.filter(v => v.kill == null); if (live.length > 24) live[0].kill = .004*sampleRate; }
         else if (m.type === 'set') Object.assign(this.P, m.params);
         else for (const v of this.v) if (v.id === m.id && v.kind === 'fm') this.fmOff(v); } }

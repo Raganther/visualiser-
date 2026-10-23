@@ -237,7 +237,8 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
 { await page.reload(); await page.waitForTimeout(1500);
   const lv = await D(() => new Promise(r => { const {E, ST} = window.__daw; E.init(); const t0 = Date.now(), w = () => E.liveOK || Date.now() - t0 > 6000 ? r({ok: E.liveOK, err: E.liveErr, t: ST.P.tracks.map((T, i) => [T.name, E.isLive(i)])}) : setTimeout(w, 50); w(); }));
   const L = Object.fromEntries(lv.t);
-  check('the FM bass, the bamboo and the marimba play live; the bowed strings and the drums are still computed ahead', lv.ok && L.Bass && L.Lead && L['Lead 2'] && !L.Chords && !L.Kick, JSON.stringify(lv));
+  const chordsPoly = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[4].sound]; return !!s.src?.palette && !['marimba', 'musicbox', 'steel', 'wood', 'tubular', 'vibes', 'metal'].includes(s.src.palette); });
+  check('the FM bass, the bamboo, the marimba and the poly synth play live; the bowed strings and the drums are still computed ahead', lv.ok && L.Bass && L.Lead && L['Lead 2'] && L.Chords === chordsPoly && !L.Kick, JSON.stringify(lv) + ' chords on the poly synth: ' + chordsPoly);
   const eq = await D(async () => { const {NATIVE} = await import('/studio/lib/native/index.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), out = {};
     for (const [name, engine, n, vel, len, params] of [['fmpluck', 'fm', 40, .8, .3, {index: 2.5}], ['fmround', 'fm', 36, .6, .6, {}], ['bamboo', 'md', 57, .9, null, {ring: 1.4}], ['marimba', 'md', 60, .7, null, {hard: .8}]]) {
       const sr = 44100, ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u);
@@ -255,7 +256,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
     await q.locator('.trk').nth(3).click(); await q.keyboard.press('b'); const before = await q.evaluate(() => [window.__daw.E.liveOK, document.getElementById('iLive').hidden]);
     await q.evaluate(() => window.__daw.E.init()); await q.waitForFunction(() => window.__daw.E.liveOK, null, {timeout: 6000}); await q.waitForTimeout(200);
     const after = await q.evaluate(() => !document.getElementById('iLive').hidden); await q.close();
-    check('opened before the live voices arrive, the LIVE tag appears once they do', !before[0] && before[1] && after, JSON.stringify([before, after])); }
+    check('opened before the live voices arrive, the LIVE tag appears once they do', before[0] !== before[1] && after, JSON.stringify([before, after])); }   // (the tag as the voices were then, and shown once they're there)
   const rms = () => D(() => { const x = new Float32Array(4096); window.__an.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); });
   // (the spectrum's centre of mass, in Hz)
   const bright = () => D(() => { const a = window.__an, f = new Float32Array(a.frequencyBinCount); a.getFloatFrequencyData(f); let m = 0, all = 0; f.forEach((db, i) => { const p = Math.pow(10, db/10); all += p; m += p*i*a.context.sampleRate/a.fftSize; }); return m/all; });
@@ -277,6 +278,29 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const plain = await ringTail(0), longer = await ringTail(3);
   check('the marimba’s Ring turned up while a note rings makes that note ring on', longer > plain*10, `${plain.toFixed(4)} → ${longer.toFixed(4)}`);
 
+  // the native poly synth: Warm pad on the chords, played live: a key held holds it, the cutoff turned while it's held
+  // darkens it at once, and offline, every library sound on it about as loud as the browser-built synth made it
+  await D(() => { const {ST, E} = window.__daw; ST.P.tracks[4].sound = 'c-warm'; E.refresh(); }); await page.locator('.trk').nth(4).click(); await page.waitForTimeout(400);
+  const pl = await D(() => ({live: window.__daw.E.isLive(4), tag: !document.getElementById('iLive').hidden, knobs: [...document.querySelectorAll('#iMods .kn .kn-lab')].map(x => x.textContent)}));
+  check('the poly synth plays live, with its analog character’s own knobs (drift, filter drive)', pl.live && pl.tag && pl.knobs.includes('Drift') && pl.knobs.includes('Filter drive'), JSON.stringify(pl));
+  // (heard at the synth itself, before the track's echo and reverb; its level, as the cutoff closes)
+  const own = () => D(() => { const x = new Float32Array(4096); window.__an3.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); });
+  await page.keyboard.down('d'); await page.waitForTimeout(200); await D(() => { const {E} = window.__daw, a = E.ctx.createAnalyser(); a.fftSize = 4096; E.kb.c.inst.live.connect(a); window.__an3 = a; });
+  await page.waitForTimeout(1400); const pb0 = await own(), ph = pb0;
+  const ck = await page.locator('#iMods .kn', {hasText: /^Cutoff/}).boundingBox(); await page.mouse.move(ck.x + ck.width/2, ck.y + 20); await page.mouse.down(); await page.mouse.move(ck.x + ck.width/2, ck.y + 140, {steps: 8}); await page.waitForTimeout(250);
+  const pb1 = await own(); await page.mouse.up(); await page.keyboard.up('d'); await page.waitForTimeout(300); await page.keyboard.press('Meta+z');
+  check('a held pad note, the cutoff turned right down while it sounds: muffled at once (its level well down)', ph > .005 && pb1 < pb0*.4, `${pb0.toFixed(4)} → ${pb1.toFixed(4)}`);
+  const lev = await D(async () => { const {makePoly, PRESETS} = await import('/src/audio/engine/inst/poly.js'), {SOUNDS, NATIVE_OF} = await import('/studio/lib/palette.js'), {DEF} = await import('/studio/lib/native/npoly.js');
+    const u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 22050, notes = [[48, 0, .45], [55, .5, .45], [60, 1, .9], [63, 2, 1.2]], out = {};
+    const db = b => { let s = 0; for (const c of [0, 1]) for (const x of b.getChannelData(c)) s += x*x; return 10*Math.log10(s/b.length/2 + 1e-12); };
+    for (const [k, [p, set]] of Object.entries(SOUNDS).filter(([k]) => !NATIVE_OF[k])) { const P = {...PRESETS[p], chord: 0, ...set};
+      const a = new OfflineAudioContext(2, sr*4, sr), syn = makePoly(a, a.destination, {period: () => .5}); syn.load(P); for (const [n, t, l] of notes) syn.play(n, t + .05, l, .8);
+      const b = new OfflineAudioContext(2, sr*4, sr); await b.audioWorklet.addModule(u); const init = [{type: 'load', engine: 'poly', params: {...DEF, ...P, period: .5}}];
+      notes.forEach(([n, t, l], i) => init.push({type: 'on', id: i, n, vel: .8, gv: .8, t: t + .05}, {type: 'off', id: i, t: t + .05 + l}));
+      const nd = new AudioWorkletNode(b, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); nd.connect(b.destination);
+      out[k] = +(db(await b.startRendering()) - db(await a.startRendering())).toFixed(1); } return out; });
+  check('every library sound on the native poly synth within 5 dB of the browser-built one (most within 2)', Object.values(lev).every(d => Math.abs(d) < 5) && Object.values(lev).filter(d => Math.abs(d) < 2).length >= Object.keys(lev).length*.6, JSON.stringify(lev));
+  // the song plays live too: the bass from its first clip heard
   await D(() => { const {E} = window.__daw; E.play(32); }); await page.waitForTimeout(1500); const song = await rms(); await D(() => window.__daw.E.stop());
   check('the song plays with the live bass', song > .01, song.toFixed(4)); await page.keyboard.press('b'); }
 

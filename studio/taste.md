@@ -127,3 +127,8 @@ before writing or changing a piece; add to it when they react.
   maths as before, sample by sample as they play, so knobs are heard in sounding notes and held keys hold notes. The FM
   gained Bend (held) and Bend fall (Bend alone only shapes the strike). Next, if it holds up: the other native engines,
   then the poly synth and the drum machine rebuilt as native.
+- 2026-10-23: The poly synth rebuilt native first (the user's choice): the browser-built one's every setting and preset,
+  computed sample by sample and played live, with an analog circuit's character: oscillators that start where they
+  happen to be and drift (Drift), a ladder filter that saturates (Filter drive). Brightness matched setting for setting
+  (the ladder's cutoff set higher, less as it resonates), level within ±2.5 dB on most library sounds; the sub basses
+  2-4.5 dB quieter (the browser's filters had a bump at their fundamental). The songs use none of its sounds yet.

@@ -7,7 +7,7 @@
 import { INST, defaultOf } from '../lib/native/knobs.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { nativeSet } from '../jam/model.js';
-import { PARAMS as POLY, PRESETS as POLYP, DEF as POLYD } from '../../src/audio/engine/inst/poly.js';
+import { PARAMS as POLY, PRESETS as POLYP, DEF as POLYD } from '../lib/native/npoly.js';   // (the native poly synth's: the browser-built one's settings, and its drift and filter drive)
 import { PARAMS as KITP, KIT_NAMES, kitParams } from '../../src/audio/engine/inst/drums.js';
 
 const NATURE = ['drop', 'stone', 'leaf', 'twig', 'insect', 'bamboo', 'click', 'bird'], ANALOG = /^(va|k(round|dub|tight|deep)$|hat808|rumble|sub808)/;

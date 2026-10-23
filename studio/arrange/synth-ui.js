@@ -7,6 +7,7 @@
 // Turning a knob is heard at once where the engine can (the poly synth, a drum machine); a native model is computed
 // again when it's let go. Every change is one undo step on your own copy of the sound, as in the sound panel.
 const WK = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'], BK = {w: 1, e: 3, t: 6, y: 8, u: 10, o: 13, p: 15};
+import { ladderMag } from '../lib/native/npoly.js';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), BLACK = [1, 3, 6, 8, 10];
 
 export function makeSynthUI(A){
@@ -57,6 +58,8 @@ export function makeSynthUI(A){
     const N = 120, fr = new Float32Array(N), mag = new Float32Array(N), ph = new Float32Array(N); for (let i = 0; i < N; i++) fr[i] = 20*Math.pow(1000, i/(N - 1));
     const curve = (cut, alpha) => { const t = ['lowpass', 'highpass', 'bandpass'][Math.round(P.ft)] || 'lowpass', f1 = fctx.createBiquadFilter(), f2 = fctx.createBiquadFilter(); f1.type = f2.type = t;
       f1.frequency.value = f2.frequency.value = clamp(cut, 20, 20000); f1.Q.value = P.res*14; f2.Q.value = P.res*4; const m2 = new Float32Array(N); f1.getFrequencyResponse(fr, mag, ph); f2.getFrequencyResponse(fr, m2, ph);
+      // (the low-pass is the native synth's ladder: its own response; high and band are the state-variable stages, near the biquads drawn)
+      if (t === 'lowpass') for (let i = 0; i < N; i++) { mag[i] = ladderMag(fr[i], clamp(cut, 20, 20000), P.res); m2[i] = 1; }
       g.beginPath(); for (let i = 0; i < N; i++) { const db = 20*Math.log10(Math.max(1e-5, mag[i]*m2[i])), y = H*.42 - db/48*H*.5; i ? g.lineTo(i/(N - 1)*W, clamp(y, 1, H - 1)) : g.moveTo(0, clamp(y, 1, H - 1)); }
       g.globalAlpha = alpha; g.stroke(); g.globalAlpha = 1; };
     g.strokeStyle = css('--line'); g.lineWidth = 1; for (const f of [100, 1000, 10000]) { const x = Math.log(f/20)/Math.log(1000)*W; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
