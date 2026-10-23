@@ -110,3 +110,9 @@ before writing or changing a piece; add to it when they react.
   resolved, Life and the feel fixed in place), your version kept, Claude's to hear, Revert; 👍 👎 💬 on the song, a
   section, a track, clips, a box of bars or notes, each saying exactly which (the `notes` collection; your edited songs
   in `versions`). On a phone: listening, looping a section and notes only.
+- 2026-10-23: Asked to choose a track's sound from a side panel of every sound, by category, and to change the sounds
+  with a front end for the synths while keeping Claude's native sound design. The DAW's sound panel: the library grouped
+  by how each sound is made (struck, plucked, bowed, FM, analog circuits, pads, the poly synth, drum machines, modelled
+  drums, nature), tried on the track's own notes before it's chosen; Edit puts the instrument's own settings on sliders
+  (the physical models' physics, still computed note by note; each drum voice; the poly synth's panel), a change making
+  your own copy, kept in the `sounds` collection for Claude to read and build on; "Ask Claude for a sound" in words.

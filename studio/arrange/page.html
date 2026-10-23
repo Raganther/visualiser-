@@ -7,16 +7,16 @@
 <style>
 :root{--bg:#16181d; --panel:#1f2228; --panel2:#262a31; --line:#343944; --ink:#e7e9ee; --mute:#9aa1ad; --acc:#e0a33a; --on:#c86b2c; --sel:#ffffff; --loop:rgba(224,163,58,.18); --mono:ui-monospace,SFMono-Regular,Menlo,monospace; color-scheme:dark}
 *{box-sizing:border-box} html,body{margin:0; height:100%} body{background:var(--bg); color:var(--ink); font:14px/1.35 system-ui,-apple-system,Segoe UI,sans-serif; display:flex; flex-direction:column; overflow:hidden}
-button,select,input{font:inherit; color:inherit} button{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 10px; cursor:pointer; min-height:32px}
+button,select,input{font:inherit; color:inherit} button{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 9px; cursor:pointer; min-height:32px}
 button:hover{border-color:#566} button[aria-pressed="true"]{background:var(--acc); color:#111; border-color:var(--acc)} button:disabled{opacity:.4; cursor:default}
 select{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 8px; min-height:32px}
-.bar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line)}
+.bar{display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line)}
 .bar h1{font-size:15px; margin:0 6px 0 0; letter-spacing:.02em} .spacer{flex:1}
 #play{background:var(--on); border-color:var(--on); color:#fff; min-width:72px; font-weight:600}
 #pos{font:600 15px var(--mono); min-width:86px; text-align:center; background:#0f1114; border:1px solid var(--line); border-radius:7px; padding:5px 8px}
 .muted{color:var(--mute)} .small{font-size:12px}
 #status{font-size:12px; color:var(--mute); white-space:nowrap}
-#main{flex:1; display:flex; min-height:0}
+#work{flex:1; display:flex; min-height:0} #col{flex:1; display:flex; flex-direction:column; min-width:0} #main{flex:1; display:flex; min-height:0}
 #tracks{width:250px; flex:none; background:var(--panel); border-right:1px solid var(--line); overflow:hidden; position:relative}
 #rulerHead{height:72px; position:relative; z-index:1; background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; display:flex; flex-direction:column; justify-content:center; gap:2px}
 .trk{height:56px; border-bottom:1px solid var(--line); padding:4px 8px; display:grid; grid-template-columns:1fr auto; gap:2px 6px; align-items:center; cursor:default}
@@ -35,6 +35,25 @@ select{background:var(--panel2); border:1px solid var(--line); border-radius:7px
 .note{border-top:1px solid var(--line); padding:6px 0; font-size:13px} .note .tg{color:var(--acc); font-size:12px; cursor:pointer} .note .x{float:right; min-height:22px; padding:0 6px}
 #target{font-size:12px; color:var(--acc); flex:0 1 220px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 #help{font-size:12px; color:var(--mute)}
+#side{width:330px; flex:none; background:var(--panel); border-left:1px solid var(--line); overflow:hidden; padding:10px 12px; display:flex; flex-direction:column; gap:8px}
+#sdLib,#sdEdit{flex:1; min-height:0; display:flex; flex-direction:column} #sdList,#sdBody{flex:1; min-height:0; overflow:auto} #sdLib[hidden],#sdEdit[hidden]{display:none}
+.sideHead{display:flex; justify-content:space-between; align-items:flex-start; gap:8px} .sideHead b{font-size:15px}
+.tabs{display:flex; gap:4px} .tabs button{flex:1}
+#sdRoles button{min-height:26px; font-size:12px; padding:0 6px}
+#sdSearch,#sdName,#sdAskT{width:100%; background:#0f1114; border:1px solid var(--line); border-radius:7px; padding:6px 8px; color:var(--ink)}
+#sdName{font-weight:600} #sdName:disabled{opacity:1; border-color:transparent; padding-left:0; background:none}
+.fam{display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); border-radius:0; padding:8px 2px 4px; font-weight:600; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--mute); min-height:0}
+.snd-row{display:flex; align-items:center; gap:6px; padding:5px 6px; border-radius:6px; cursor:pointer} .snd-row:hover{background:var(--panel2)}
+.snd-row[data-pick="1"]{background:#2d333c} .snd-row[data-on="1"] .snd-nm{color:var(--acc)} .snd-row:focus-visible{outline:2px solid var(--acc)}
+.snd-txt{flex:1; min-width:0} .snd-nm{font-size:13px; font-weight:600} .snd-eng{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.snd-row .use{min-height:26px; padding:0 10px; background:var(--acc); color:#111; border-color:var(--acc)}
+.grp{font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--mute); margin:10px 0 2px}
+.knob{display:grid; grid-template-columns:96px 1fr 52px; align-items:center; gap:6px; font-size:12px; margin:3px 0} .knob input[type=range]{width:100%; accent-color:var(--acc)}
+.knob select{min-height:26px; padding:2px 6px; grid-column:2 / 4} .kv{font-family:var(--mono); text-align:right; color:var(--mute)}
+.voices{display:flex; flex-wrap:wrap; gap:4px; margin:6px 0} .voices button{min-height:26px; padding:0 8px; font-size:12px}
+.trk .snd[role=button]{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px} .trk .snd[role=button]:hover{color:var(--ink)}
+#sdAsk{border-top:1px solid var(--line); padding-top:6px; flex:none} #sdAskT{min-height:54px; resize:vertical; font:inherit; font-size:13px; margin:4px 0}
+body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; z-index:6; box-shadow:0 -10px 30px rgba(0,0,0,.5)}
 #flash{position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#000c; padding:6px 12px; border-radius:8px; font-size:13px; pointer-events:none; opacity:0; transition:opacity .2s}
 #flash[data-on="1"]{opacity:1}
 /* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
@@ -55,9 +74,11 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
   <span class="spacer"></span>
   <span id="target" title="What a like or a note is about: the selection"></span>
   <button id="up" title="Like the selection">👍</button><button id="down" title="Dislike the selection">👎</button><button id="say" title="A note for Claude about the selection">💬</button>
+  <button id="soundsB" aria-pressed="false" title="The sounds: choose and change the selected track’s (Y)">Sounds</button>
   <button id="notesB" aria-pressed="false" title="Your notes on this song">Notes</button>
   <span id="status"></span>
 </div>
+<div id="work"><div id="col">
 <div id="main">
   <div id="tracks"><div id="rulerHead"><b class="small">Sections · bars · chords</b><span class="muted small">drag the bar numbers to loop</span></div><div id="trackList"></div></div>
   <div id="arrWrap"><canvas id="arr" tabindex="0" aria-label="The arrangement"></canvas></div>
@@ -67,7 +88,18 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
   <div id="edHead"><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
     <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
   <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
-</section>
+</section></div>
+  <aside id="side" hidden aria-label="Sounds">
+    <div class="sideHead"><div style="min-width:0"><b id="sdTrack">Track</b><div class="small muted" id="sdScope"></div></div><button id="sdClose" title="Close (Y)">✕</button></div>
+    <div class="tabs"><button id="tabLib" aria-pressed="true">Library</button><button id="tabEdit" aria-pressed="false">Edit the sound</button></div>
+    <div id="sdLib"><div class="tabs" id="sdRoles" hidden></div><input id="sdSearch" type="search" placeholder="Search: glass, bowed, FM, analog…" aria-label="Search the sounds"><div class="small muted" style="margin:4px 0 6px">Click a sound to hear it on this track’s notes; Use (or double-click) to choose it.</div><div id="sdList"></div></div>
+    <div id="sdEdit" hidden>
+      <input id="sdName" aria-label="The sound’s name"><div class="small muted" id="sdFrom"></div>
+      <div style="display:flex; gap:6px; margin:6px 0"><button id="sdTry">▶ Try it</button><button id="sdReset" title="Back to the library sound it came from">Back to the original</button></div>
+      <div id="sdBody"></div></div>
+    <div id="sdAsk"><div class="grp">Ask Claude for a sound</div><textarea id="sdAskT" placeholder="Describe it: a woody, hollow bass with a soft attack; hats like rain on glass…"></textarea><button id="sdAskB">Send to Claude</button></div>
+  </aside>
+</div>
 <aside id="notes" hidden><h2>Notes on this song</h2><div id="composer" hidden><div class="small" id="cTarget"></div><textarea id="cText" placeholder="What would you change here?"></textarea>
   <div style="display:flex; gap:6px; margin-top:6px"><button id="cUp" aria-pressed="false">👍</button><button id="cDown" aria-pressed="false">👎</button><span class="spacer"></span><button id="cCancel">Cancel</button><button id="cSave">Save note</button></div></div><div id="noteList"></div></aside>
 <div id="flash" aria-live="polite"></div>

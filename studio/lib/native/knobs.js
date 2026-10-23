@@ -35,7 +35,13 @@ export const INST = {
   stone: {label: 'Stones', knobs: [['gap', 'Gap', .001, .03, .001], ['decay', 'Decay', .005, .06, .001]]},
   bird: {label: 'Bird', held: 1, knobs: [['warble', 'Warble', 0, .1, .002], ['from', 'Start', .4, 1, .02], ['wrate', 'Warble speed', 10, 60, 1]]},
   grainpad: {label: 'Grain pad', held: 1, knobs: [['density', 'Density', 4, 60, 1], ['a', 'Attack', .05, 3, .05]]},
+  hihat: {label: 'Hi-hat (two cymbals)', knobs: [['open', 'Open', 0, 1, .02], ['tone', 'Tone', 0, 1, .02], ['body', 'Body', 0, 1, .02], ['width', 'Width', 0, 1, .02]]},
+  shaker: {label: 'Shaker', knobs: [['secs', 'Length', .04, .4, .01], ['beads', 'Beads', 8, 120, 1], ['q', 'Ring', 2, 20, .5]]},
+  twig: {label: 'Twig', knobs: [['cracks', 'Cracks', 1, 12, 1], ['spread', 'Spread', .002, .05, .001], ['decay', 'Decay', .005, .08, .001]]},
+  leaf: {label: 'Leaves', knobs: [['secs', 'Length', .05, .8, .01], ['density', 'Density', 100, 3000, 20], ['tone', 'Tone', 0, 1, .02]]},
+  insect: {label: 'Insect', knobs: [['count', 'Chirps', 1, 30, 1], ['rate', 'Speed', 10, 120, 1], ['f', 'Pitch', 2000, 9000, 50], ['q', 'Ring', 3, 30, .5]]},
+  click: {label: 'Click', knobs: [['q', 'Ring', 1, 20, .5], ['decay', 'Decay', .001, .03, .0005]]},
 };
-export function defaultOf(inst, k, lo, hi){ const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : inst === 'sub808' ? 1 : .25, decay: inst === 'kick' ? .45 : inst === 'hat' ? .06 : .55, body: inst === 'pluck' ? .55 : .5, tone: .6, trem: .45,
-  index: 2, ratio: inst === 'fmglass' ? 3.5 : inst === 'fmpluck' ? 2 : inst === 'fmbell' ? 1.4 : 1, dec: inst === 'sub808' ? 1.2 : .25, sus: inst === 'sub808' ? .6 : .2, fb: .3, bright: inst === 'bowed' ? .75 : ['bowmetal', 'glassharm', 'rubbowl'].includes(inst) ? .1 : .45, damp: .993, r: .8, bloom: 3, wob: .35, tilt: 1.3, a: inst === 'addpad' ? 1.2 : .8, q: 70, air: .04, density: 26, rough: .35, drive: .4, start: 3.6, boom: 0, grit: .35, drift: .5, breathy: .15, sizzle: .25, rise: .8, gap: .006, warble: .03, from: .7, wrate: 38, fenv: 1, stretch: 1};
+export function defaultOf(inst, k, lo, hi){ const D = {hard: .5, pos: .27, ring: 1, drop: inst === 'kick' ? 1.6 : inst === 'sub808' ? 1 : .25, decay: {kick: .45, hat: .06, twig: .02, click: .006, drop: .04, stone: .02}[inst] ?? .55, body: inst === 'pluck' ? .55 : .5, tone: inst === 'hihat' || inst === 'leaf' ? .5 : .6, trem: .45,
+  index: 2, ratio: inst === 'fmglass' ? 3.5 : inst === 'fmpluck' ? 2 : inst === 'fmbell' ? 1.4 : 1, dec: inst === 'sub808' ? 1.2 : .25, sus: inst === 'sub808' ? .6 : .2, fb: .3, bright: inst === 'bowed' ? .75 : ['bowmetal', 'glassharm', 'rubbowl'].includes(inst) ? .1 : .45, damp: .993, r: .8, bloom: 3, wob: .35, tilt: 1.3, a: inst === 'addpad' ? 1.2 : .8, q: {shaker: 7, insect: 12, click: 6}[inst] ?? 70, air: .04, density: inst === 'leaf' ? 900 : 26, rough: .35, drive: .4, start: 3.6, boom: 0, grit: .35, drift: .5, breathy: .15, sizzle: .25, open: 0, width: .6, secs: inst === 'leaf' ? .25 : .12, beads: 40, cracks: 5, spread: .014, count: 9, rate: 55, f: 6200, rise: .8, gap: .006, warble: .03, from: .7, wrate: 38, fenv: 1, stretch: 1};
   return D[k] ?? (lo + hi)/2; }

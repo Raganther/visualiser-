@@ -140,6 +140,58 @@ await D(() => { const {ST} = window.__daw; ST.sx = 30*ST.px; });   // the bass's
 await page.selectOption('#songSel', 'r3-1').catch(() => {}); await page.waitForTimeout(800);
 const other = await D(() => window.__daw.ST.id); check('the picker opens another song', other !== 'r4-1', other);
 
+// the sound panel: a track's sound's name opens it; every sound grouped by how it's made; one tried on the track's notes
+// is heard; Use puts it on the track (or only on the selected clips); a setting changed makes your own copy, heard, kept
+// with the song and in your library; undo; a drum voice's and the poly synth's own settings; asking Claude for a sound
+{ await page.reload(); await page.waitForTimeout(1500); const bi = await D(() => window.__daw.ST.P.tracks.findIndex(T => T.role === 'bass'));
+  await page.locator('.trk').nth(bi).locator('.snd').click(); await page.waitForTimeout(300);
+  const lib = await D(() => ({open: !document.getElementById('side').hidden, fams: [...document.querySelectorAll('.fam')].map(f => f.textContent.replace(/[▾▸]\s*/, '').replace(/\s*\d+$/, '')), rows: document.querySelectorAll('.snd-row').length, on: document.querySelector('.snd-row[data-on="1"]')?.dataset.id, cur: window.__daw.ST.P.tracks[3].sound}));
+  check('the bass’s sound opens the panel: every pitched sound, grouped by how it’s made, the one in use marked', lib.open && lib.rows > 40 && lib.fams.includes('FM') && lib.fams.includes('Bowed and rubbed') && lib.fams.includes('Poly synth') && lib.on === lib.cur, JSON.stringify(lib));
+  await page.locator('#sdRoles button', {hasText: 'Bass'}).click(); const nb = await D(() => [...document.querySelectorAll('.snd-row')].every(r => window.__daw.SND[r.dataset.id].role === 'bass'));
+  check('the Bass filter leaves only bass sounds', nb); await page.locator('#sdRoles button', {hasText: 'All'}).click();
+  await page.fill('#sdSearch', 'marimba'); const found = await D(() => [...document.querySelectorAll('.snd-row')].map(r => r.dataset.id)); check('searching finds the marimba', found.includes('l-marimba'), JSON.stringify(found)); await page.fill('#sdSearch', '');
+  // tried: heard on the master while the song is stopped
+  await D(() => { const {E} = window.__daw; E.init(); const a = E.ctx.createAnalyser(); a.fftSize = 2048; E.out.connect(a); window.__an = a; });
+  await page.locator('.snd-row[data-id="b2-sub"]').click(); let peak = 0;
+  for (let k = 0; k < 40 && peak < .01; k++) { await page.waitForTimeout(100); peak = await D(() => { const x = new Float32Array(2048); window.__an.getFloatTimeDomainData(x); return Math.max(...x.map(Math.abs)); }); }
+  check('clicking a sound plays it on the bass’s notes', peak > .01, peak.toFixed(3));
+  await page.locator('.snd-row[data-id="b2-sub"] .use').click(); check('Use puts it on the whole track', await D(() => window.__daw.ST.P.tracks[3].sound) === 'b2-sub');
+  await page.keyboard.press('Meta+z'); check('and undo takes it back', await D(() => window.__daw.ST.P.tracks[3].sound) === lib.cur);
+  // only the selected clip: the bass's second clip
+  const cl = await D(() => window.__daw.ST.P.tracks[3].clips.map(c => c.id).sort()); await D(`(() => { const {ST} = window.__daw; ST.sel.track = 3; ST.sel.clips = new Set(['${cl[1]}']); })()`); await D(() => window.__daw.SB.render());
+  const scope = await D(() => document.getElementById('sdScope').textContent); await page.locator('.snd-row[data-id="l-marimba"]').dblclick();
+  const per = await D(`window.__daw.ST.P.tracks[3].clips.map(c => [c.id, c.set?.sound || null])`);
+  check('with a clip selected, only that clip takes the sound', /1 selected clip/.test(scope) && per.find(p => p[0] === cl[1])[1] === 'l-marimba' && per.filter(p => p[1] === 'l-marimba').length === 1, scope + ' ' + JSON.stringify(per));
+  await page.keyboard.press('Meta+z'); await D(() => { window.__daw.ST.sel.clips = new Set(); window.__daw.SB.render(); });
+  // the designer: a physical model's own settings, a change making your copy
+  await page.click('#tabEdit'); const knobs = await D(() => [...document.querySelectorAll('#sdBody .knob .kl')].map(k => k.textContent));
+  check('Edit shows the instrument’s own settings (FM: bend, ratio, decay)', knobs.includes('Instrument') && knobs.includes('Bend') && knobs.includes('Ratio'), knobs.join(', '));
+  const r = page.locator('#sdBody .knob', {hasText: 'Bend'}).locator('input'), rb = await r.boundingBox(); await page.mouse.click(rb.x + rb.width*.95, rb.y + rb.height/2); await page.waitForTimeout(300);
+  const mine = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound, s = SND[id]; return {id, name: s.name, base: s.base, knobs: s.src.knobs, kept: !!ST.P.sounds?.[id], lib: !!JSON.parse(localStorage.getItem('studio.daw.sounds') || '{}')[id]}; });
+  check('moving Bend makes your own copy, with the setting, kept with the song and in your sounds', mine.id.startsWith('u-') && mine.base === lib.cur && mine.knobs?.index > 4 && mine.kept && mine.lib, JSON.stringify(mine));
+  check('the library’s own sound is unchanged', await D(`!window.__daw.SND['${lib.cur}'].src.knobs`));
+  await page.locator('#sdBody .knob', {hasText: 'Ratio'}).locator('input').evaluate(el => { el.value = 100; el.dispatchEvent(new Event('change')); });
+  const two = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, SND[id].src.knobs]; });
+  check('a second change goes on the same copy', two[0] === mine.id && two[1].ratio < 1.5 && two[1].index > 4, JSON.stringify(two));
+  await page.fill('#sdName', 'Glassy FM'); await page.locator('#sdName').dispatchEvent('change');
+  await page.waitForTimeout(900); await page.reload(); await page.waitForTimeout(1500);
+  const back = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, SND[id]?.name, SND[id]?.mine]; });
+  check('after a reload the bass plays your sound, by its name', back[0] === mine.id && back[1] === 'Glassy FM' && back[2], JSON.stringify(back));
+  await page.locator('.trk').nth(3).locator('.snd').click(); await page.click('#tabLib');
+  check('it’s listed under Your sounds', await D(() => { const f = [...document.querySelectorAll('.fam')][0]; return f.textContent.includes('Your sounds'); }));
+  // the hats: each voice its own settings; the chords on the poly synth: its oscillators, filter and envelopes
+  await page.locator('.trk').nth(1).locator('.snd').click(); await page.click('#tabEdit');
+  const hv = await D(() => [[...document.querySelectorAll('.voices button')].map(b => b.textContent), [...document.querySelectorAll('#sdBody .knob .kl')].map(k => k.textContent)]);
+  check('the hats’ voices, each with its own settings', hv[0].includes('Open hat') && hv[1].includes('Open') && hv[1].includes('Tone'), JSON.stringify(hv));
+  await page.locator('.voices button', {hasText: 'Open hat'}).click(); await page.locator('#sdBody .knob', {hasText: 'Open'}).first().locator('input').evaluate(el => { el.value = 900; el.dispatchEvent(new Event('change')); });
+  const hk = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[1].sound]; return [s.mine, s.voices.ohh.knobs, s.voices.chh.knobs]; });
+  check('opening the open hat changes that voice alone', hk[0] && hk[1]?.open > .8 && !hk[2], JSON.stringify(hk));
+  await D(() => { window.__daw.ST.P.tracks[4].sound = 'c-warm'; }); await page.locator('.trk').nth(4).locator('.snd').click(); await page.click('#tabEdit');
+  const groups = await D(() => [...document.querySelectorAll('#sdBody .grp')].map(g => g.textContent)); check('a poly synth sound shows its oscillators, filter and envelopes', ['Oscillators', 'Filter', 'Amp'].every(g => groups.includes(g)), groups.join(', '));
+  await page.fill('#sdAskT', 'A hollow wooden bass, soft attack'); await page.click('#sdAskB'); await page.waitForTimeout(200);
+  const ask = await D(() => window.__daw.ST.notes[0]); check('asking Claude for a sound keeps the words and the track', ask.text === 'A hollow wooden bass, soft attack' && ask.target.kind === 'sound' && ask.target.tracks[0] === 'Chords', JSON.stringify(ask.target));
+  await D(() => window.__daw.SB.show(false)); }
+
 // on a phone: the picture fits, a section tapped loops it, a drag pans, a clip can't be dragged, a like still works
 { const ph = await browser.newPage({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2});
   ph.on('pageerror', e => { failed = true; console.log('FAIL page error (phone):', e.message); });

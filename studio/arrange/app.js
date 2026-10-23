@@ -6,6 +6,7 @@
 // exactly where it is (the song, the tracks, the bars) for Claude to read.
 import { flatten } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
+import { makeSounds } from './sounds.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
@@ -32,7 +33,7 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
   ST.orig = flatten(s); let P = null;
   if (db) try { const d = await db.collection('versions').doc(id).get(); if (d.exists) P = JSON.parse(d.data().json); } catch {}
   if (!P) try { const l = localStorage.getItem(keyOf(id)); if (l) P = JSON.parse(l).P; } catch {}
-  ST.P = P && P.v === 1 ? P : clone(ST.orig); ST.mine = true; ST.past = []; ST.fut = []; ST.open = null; ST.ed.sel.clear(); clearSel(); ST.ph = 0;
+  ST.P = P && P.v === 1 ? P : clone(ST.orig); SB.adopt(ST.P.sounds); ST.mine = true; ST.past = []; ST.fut = []; ST.open = null; ST.ed.sel.clear(); clearSel(); ST.ph = 0;
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
   E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
@@ -40,10 +41,11 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
-const snapshot = () => JSON.stringify({tracks: ST.P.tracks.map(T => ({clips: T.clips, mix: T.mix, mute: T.mute}))});
+const snapshot = () => JSON.stringify({tracks: ST.P.tracks.map(T => ({clips: T.clips, mix: T.mix, mute: T.mute, sound: T.sound})), sounds: ST.P.sounds || {}});
 function checkpoint(){ ST.past.push(snapshot()); if (ST.past.length > 100) ST.past.shift(); ST.fut = []; }
-function restore(json){ const Q = JSON.parse(json); ST.P.tracks.forEach((T, i) => { T.clips = Q.tracks[i].clips; T.mix = Q.tracks[i].mix; T.mute = Q.tracks[i].mute; });
-  if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.ed.sel.clear(); for (const id of [...ST.sel.clips]) if (!findClip(id)) ST.sel.clips.delete(id); changed(true); renderTracks(); }
+function restore(json){ const Q = JSON.parse(json); ST.P.tracks.forEach((T, i) => { T.clips = Q.tracks[i].clips; T.mix = Q.tracks[i].mix; T.mute = Q.tracks[i].mute; T.sound = Q.tracks[i].sound ?? T.sound; });
+  ST.P.sounds = Q.sounds || {}; SB.adopt(ST.P.sounds);
+  if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.ed.sel.clear(); for (const id of [...ST.sel.clips]) if (!findClip(id)) ST.sel.clips.delete(id); E.compile(); E.refresh(); changed(true); renderTracks(); SB.render(); }
 function undo(){ if (!ST.past.length) { flash('Nothing to undo'); return; } ST.fut.push(snapshot()); restore(ST.past.pop()); flash('Undone'); }
 function redo(){ if (!ST.fut.length) { flash('Nothing to redo'); return; } ST.past.push(snapshot()); restore(ST.fut.pop()); flash('Redone'); }
 let saveT = 0, dbT = 0;
@@ -57,7 +59,7 @@ let flT = 0; function flash(t){ const f = $('flash'); f.textContent = t; f.datas
 function renderVer(){ $('ver').textContent = ST.mine ? 'Yours' : 'Claude’s'; $('ver').setAttribute('aria-pressed', String(!ST.mine)); }
 $('ver').onclick = () => { if (ST.mine) { ST.held = snapshot(); restoreFrom(ST.orig); ST.mine = false; flash('Claude’s version, as written: switch back to edit yours'); }
   else { restore(ST.held); ST.mine = true; flash('Your version'); } renderVer(); };
-function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks.map(T => ({clips: clone(T.clips), mix: clone(T.mix), mute: T.mute}))})); }
+function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks.map(T => ({clips: clone(T.clips), mix: clone(T.mix), mute: T.mute, sound: T.sound})), sounds: clone(P.sounds || {})})); }
 const PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
 if (PHONE) { document.body.classList.add('phone'); $('rulerHead').lastElementChild.textContent = 'tap a section to loop it'; }
 const editable = () => { if (PHONE) return false; if (ST.mine) return true; flash('This is Claude’s version: switch to Yours to edit'); return false; };
@@ -66,7 +68,7 @@ const editable = () => { if (PHONE) return false; if (ST.mine) return true; flas
 function renderTracks(){ const box = $('trackList'); box.innerHTML = '';
   ST.P.tracks.forEach((T, i) => { const M = T.mix;
     const row = h('div', {class: 'trk', 'data-sel': ST.sel.track === i ? '1' : '', style: `height:${LANE}px`},
-      h('div', {class: 'nm', style: `border-left:4px solid ${colorOf(T, i)}`, title: SND[T.sound]?.name || T.sound}, T.name, ' ', h('span', {class: 'snd'}, SND[T.sound]?.name || T.sound)),
+      h('div', {class: 'nm', style: `border-left:4px solid ${colorOf(T, i)}`, title: SND[T.sound]?.name || T.sound}, T.name, ' ', h('span', {class: 'snd', role: 'button', tabindex: '0', title: 'Change the sound (Y)', onclick: e => { e.stopPropagation(); selTrack(i); SB.show(true); }}, SND[T.sound]?.name || T.sound)),
       h('div', {class: 'btns'}, h('button', {class: 'ms', 'aria-pressed': String(!!T.mute), title: 'Mute', onclick: e => { e.stopPropagation(); T.mute = !T.mute; changed(true); renderTracks(); }}, 'M'),
         h('button', {class: 'ms s', 'aria-pressed': String(!!M.solo), title: 'Solo', onclick: e => { e.stopPropagation(); M.solo = !M.solo; changed(true); renderTracks(); }}, 'S'),
         h('button', {title: 'A note about this track', onclick: e => { e.stopPropagation(); selTrack(i); compose(); }}, '💬')),
@@ -319,7 +321,7 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
     else { ST.sel.clips = new Set(ST.P.tracks.flatMap(T => T.clips.map(c => c.id))); draw(); } target(); return; }
   if (mod) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delSel(); return; }
-  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; }
+  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; }
   if (e.key === 'Escape') { ST.ed.sel.clear(); clearSel(); renderTracks(); draw(); drawEd(); target(); return; }
   if (e.key === 'Home' || e.key === 'Enter') { seek(E.cycle ? E.loop[0] : 0); return; }
   const arrows = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1]}[e.key]; if (arrows) { e.preventDefault(); nudge(arrows[0], arrows[1], e.shiftKey); } });
@@ -330,7 +332,7 @@ function loopSel(){ const R = ST.sel.range, cs = selClips(), f = cur();
 
 /* ---------- likes and notes for Claude: each about exactly what's selected ---------- */
 const bars = (a, b) => b - a <= 1 ? `bar ${a + 1}` : `bars ${a + 1}–${b}`;
-function target(){ const t = currentTarget(); $('target').textContent = t.desc; return t; }
+function target(){ const t = currentTarget(); $('target').textContent = t.desc; SB?.render(); return t; }
 function currentTarget(){ const P = ST.P, f = cur(); if (!P) return {kind: 'song', desc: ''};
   if (f && ST.ed.sel.size) { const ns = [...ST.ed.sel].map(i => f.cl.notes[i]), a = f.cl.start + Math.min(...ns.map(n => n.s))/16, b = f.cl.start + Math.max(...ns.map(n => n.s + n.l))/16;
     return {kind: 'notes', tracks: [f.T.name], bars: [Math.floor(a), Math.ceil(b)], clip: f.cl.name, count: ns.length, notes: ns.map(n => ({s: +(f.cl.start*16 + n.s).toFixed(2), p: n.p})), desc: `${ns.length} note${ns.length > 1 ? 's' : ''} · ${f.T.name} · ${bars(Math.floor(a), Math.ceil(b))}`}; }
@@ -340,7 +342,7 @@ function currentTarget(){ const P = ST.P, f = cur(); if (!P) return {kind: 'song
     return {kind: 'clips', tracks: names, bars: [Math.floor(a), Math.ceil(b)], clip: cs.length === 1 ? cs[0].cl.name : `${cs.length} clips`, desc: `${cs.length === 1 ? `“${cs[0].cl.name}”` : cs.length + ' clips'} · ${names.join(', ')} · ${bars(Math.floor(a), Math.ceil(b))}`}; }
   if (ST.sel.trackOnly) { const T = P.tracks[ST.sel.track]; return {kind: 'track', tracks: [T.name], desc: `The ${T.name.toLowerCase()} track`}; }
   return {kind: 'song', desc: `The whole of ${P.name}`}; }
-async function addNote(rating, text){ const t = currentTarget(), n = {song: ST.id, name: ST.P.name, round: ST.P.round, version: ST.mine ? 'yours' : 'claude', target: t, rating, text: text || '', at: new Date().toISOString()};
+async function addNote(rating, text, t = currentTarget()){ const n = {song: ST.id, name: ST.P.name, round: ST.P.round, version: ST.mine ? 'yours' : 'claude', target: t, rating, text: text || '', at: new Date().toISOString()};
   if (db) try { const ref = await db.collection('notes').add(n); n.id = ref.id; } catch (e) { flash('Kept on this device (' + (e.code || e.message) + ')'); }
   if (!n.id) { n.id = 'l' + Date.now(); const all = localNotes(); all.push(n); try { localStorage.setItem('studio.daw.notes', JSON.stringify(all)); } catch {} }
   ST.notes.unshift(n); renderNotes(); flash(`${rating > 0 ? '👍' : rating < 0 ? '👎' : '💬'} ${t.desc}`); }
@@ -369,9 +371,12 @@ $('cCancel').onclick = () => { $('composer').hidden = true; }; $('cSave').onclic
 $('up').onclick = () => addNote(1); $('down').onclick = () => addNote(-1); $('say').onclick = compose;
 $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !v; $('notesB').setAttribute('aria-pressed', String(v)); };
 
+/* ---------- the sound panel ---------- */
+const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
+
 /* ---------- start ---------- */
 addEventListener('resize', () => { draw(); renderEd(); });
 (async () => { let first = null; try { first = localStorage.getItem('studio.daw.song'); } catch {}
   await open(songById(first) ? first : SONGS[0].id);
-  try { const c = await window.claude?.use?.('db'); if (c) { db = c; await open(ST.id); } } catch {} })();
-window.__daw = {ST, E, open, flatten};   // (for tests)
+  try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c); await open(ST.id); } } catch {} })();
+window.__daw = {ST, E, open, flatten, SB, SND};   // (for tests)
