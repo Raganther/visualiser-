@@ -41,4 +41,7 @@ reads them and makes the next version.
   hardness and strike point weighting them, doublets beating); `body.js` has a struck membrane (kick, toms, hand drums),
   a plucked string (Karplus and Strong), a shaker (beads colliding), grain clouds and rain. `index.js` names them and
   caches each note; `d.native(bus, name, set)` on the desk plays them like a synth (`d.note`, `d.morph` on their settings).
-  `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab).
+  `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab). Every instrument is also a
+  streaming voice (`stream.js`: run as it plays, let go, done), which is what each note computed ahead runs, and what the
+  DAW's live engine (`arrange/voices.worklet.js`) plays sample by sample; `npoly.js` is the poly synth and `kit.js` the
+  drum machine rebuilt the same way.

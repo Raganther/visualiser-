@@ -132,3 +132,11 @@ before writing or changing a piece; add to it when they react.
   happen to be and drift (Drift), a ladder filter that saturates (Filter drive). Brightness matched setting for setting
   (the ladder's cutoff set higher, less as it resonates), level within ±2.5 dB on most library sounds; the sub basses
   2-4.5 dB quieter (the browser's filters had a bump at their fundamental). The songs use none of its sounds yet.
+- 2026-10-23: "Complete all suggested work": every native engine now plays live in the DAW, and the drum machine is
+  native. Each native instrument became a streaming voice, the computed-ahead note being the same voice run from start
+  to end, so live and ahead are one piece of code (all 56 identical, the Resonator's own live voice within -40 dB).
+  Knobs act on held notes for the analog voices, FM, pads, bowed bodies, sub and rumble. The drum machine (the 909, 808,
+  Minimal, Industrial and Lo-fi kits) rebuilt sample by sample from the browser kit's own wiring: every voice within
+  2 dB, 2 semitones of brightness and a fifth of the length. Changes to listen for: the bowed sounds' level is now set
+  from their held power (long notes within 2 dB, short ones a little quieter, as the bow hasn't caught yet); the drum
+  machine's hits no longer start with the browser's few milliseconds at 440 Hz.

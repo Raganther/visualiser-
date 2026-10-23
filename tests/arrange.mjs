@@ -247,13 +247,14 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const [cx, cy] = await at(1, (await clips(1))[0].start + .5); await page.mouse.dblclick(cx, cy);
   check('double-clicking a clip shows its notes again', await D(() => !window.__daw.SI.isOn() && getComputedStyle(document.getElementById('edWrap')).display !== 'none')); }
 
-// live: the FM and the Resonator computed sample by sample as they play (an AudioWorklet), the same maths as the notes
-// computed ahead; a key held holds the note, a knob turned is heard in the note sounding, and letting go keeps it ringing
+// live: every native instrument, the poly synth and the drum machine computed sample by sample as they play (an
+// AudioWorklet), the same code as the notes computed ahead; a key held holds the note, a knob turned is heard in the note
+// sounding, and letting go keeps it ringing
 { await page.reload(); await page.waitForTimeout(1500);
   const lv = await D(() => new Promise(r => { const {E, ST} = window.__daw; E.init(); const t0 = Date.now(), w = () => E.liveOK || Date.now() - t0 > 6000 ? r({ok: E.liveOK, err: E.liveErr, t: ST.P.tracks.map((T, i) => [T.name, E.isLive(i)])}) : setTimeout(w, 50); w(); }));
   const L = Object.fromEntries(lv.t);
   const chordsPoly = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[4].sound]; return !!s.src?.palette && !['marimba', 'musicbox', 'steel', 'wood', 'tubular', 'vibes', 'metal'].includes(s.src.palette); });
-  check('the FM bass, the bamboo, the marimba and the poly synth play live; the bowed strings and the drums are still computed ahead', lv.ok && L.Bass && L.Lead && L['Lead 2'] && L.Chords === chordsPoly && !L.Kick, JSON.stringify(lv) + ' chords on the poly synth: ' + chordsPoly);
+  check('every track plays live: the kick, hats and percussion, the bass, the chords, both leads', lv.ok && lv.t.every(([, l]) => l), JSON.stringify(lv) + ' chords on the poly synth: ' + chordsPoly);
   const eq = await D(async () => { const {NATIVE} = await import('/studio/lib/native/index.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), out = {};
     for (const [name, engine, n, vel, len, params] of [['fmpluck', 'fm', 40, .8, .3, {index: 2.5}], ['fmround', 'fm', 36, .6, .6, {}], ['bamboo', 'md', 57, .9, null, {ring: 1.4}], ['marimba', 'md', 60, .7, null, {hard: .8}]]) {
       const sr = 44100, ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u);
@@ -262,6 +263,27 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
       let e = 0, s = 0; const m = Math.min(ref.L.length, sr*2 - off); for (let i = 0; i < m; i++) for (const [x, y] of [[ref.L[i]*g, b.getChannelData(0)[off + i]], [ref.R[i]*g, b.getChannelData(1)[off + i]]]) { e += (x - y)**2; s += x*x; }
       out[name] = +(10*Math.log10(e/s)).toFixed(1); } return out; });
   check('played live, each note is the same as computed ahead (the difference far below hearing)', Object.values(eq).every(v => v < -50), JSON.stringify(eq));
+  // every native instrument: one note played live (held half a second where it's held) against the same note computed
+  // ahead: the same code, so the same samples; the Resonator's live voice is its own (a rotation per mode), close to it
+  const all = await D(async () => { const {NATIVE} = await import('/studio/lib/native/index.js'), {MODAL} = await import('/studio/lib/native/modal.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 44100, out = {};
+    for (const name of Object.keys(NATIVE)) { const I = NATIVE[name], n = 57, vel = .7, len = .5, ctx = new OfflineAudioContext(2, sr*3, sr); await ctx.audioWorklet.addModule(u);
+      const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'load', slots: {'': {name, gain: I.gain, params: {}}}}, {type: 'on', id: 1, n, vel, t: .1, len}, {type: 'off', id: 1, t: .1 + len}]}});
+      node.connect(ctx.destination); const b = await ctx.startRendering(), ref = I.make(sr, n, vel, I.held ? {len} : {}), g = I.gain*(.4 + .6*vel), off = Math.round(.1*sr);
+      let e = 0, s = 0; const m = Math.min(ref.L.length, sr*3 - off); for (let i = 0; i < m; i++) for (const [x, y] of [[ref.L[i]*g, b.getChannelData(0)[off + i]], [ref.R[i]*g, b.getChannelData(1)[off + i]]]) { e += (x - y)**2; s += x*x; }
+      out[name] = [+(10*Math.log10(e/s + 1e-30)).toFixed(1), !!MODAL[name]]; } return out; });
+  const same = Object.entries(all).filter(([, [d, md]]) => !md), mdl = Object.entries(all).filter(([, [, md]]) => md);
+  check(`all ${Object.keys(all).length} native instruments play live: ${same.length} sample for sample as computed ahead, the ${mdl.length} Resonator sounds within -40 dB`, same.every(([, [d]]) => d < -100) && mdl.every(([, [d]]) => d < -40), JSON.stringify(Object.fromEntries(Object.entries(all).map(([k, [d]]) => [k, d]))));
+  // held: a knob turned while each held instrument sounds changes the note from that moment (the same note untouched
+  // until then): the analog voice's tone and resonance, the bow's pressure, the bloom's darkness, the breath's focus …
+  const KN = {vapad: ['tone', 0], vastrings: ['res', .9], vasub: ['drive', 1], bowed: ['bright', .1], glassharm: ['bright', .9], addpad: ['tilt', 2.4], breath: ['q', 15], grainpad: ['density', 4],
+    formant: ['q', 18], fmround: ['indexEnd', 3], sub808: ['drive', 1], rumble: ['grit', 1], pluck: ['damp', .98]};
+  const turned = await page.evaluate(async KN => { const {NATIVE} = await import('/studio/lib/native/index.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 22050, out = {};
+    const one = async (name, set) => { const I = NATIVE[name], ctx = new OfflineAudioContext(2, sr*2.2, sr); await ctx.audioWorklet.addModule(u);
+      const init = [{type: 'load', slots: {'': {name, gain: I.gain, params: {}}}}, {type: 'on', id: 1, n: 48, vel: .8, t: .05, len: 2}, ...(set ? [{type: 'set', params: set, t: 1}] : []), {type: 'off', id: 1, t: 2.05}];
+      const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); node.connect(ctx.destination); return (await ctx.startRendering()).getChannelData(0); };
+    for (const [name, [k, v]] of Object.entries(KN)) { const a = await one(name), b = await one(name, {[k]: v}), d = (x, y, i0, i1) => { let e = 0, s = 0; for (let i = i0; i < i1; i++) { e += (x[i] - y[i])**2; s += x[i]**2; } return 10*Math.log10(e/(s + 1e-20) + 1e-30); };
+      out[name] = [+d(a, b, 0, sr).toFixed(0), +d(a, b, Math.round(1.05*sr), Math.round(1.6*sr)).toFixed(0)]; } return out; }, KN);
+  check('a knob turned while a held note sounds changes it from that moment, on every kind of held instrument (unchanged before, changed after)', Object.values(turned).every(([pre, post]) => pre < -100 && post > -25), JSON.stringify(turned));
   // held: the round FM bass's note, a key held two seconds sounds on (computed ahead it would end after a beat)
   await D(() => { const {ST, E} = window.__daw; ST.P.tracks[3].sound = 'b-fmround'; E.refresh(); const a = E.ctx.createAnalyser(); a.fftSize = 4096; E.out.connect(a); window.__an = a; });
   await page.locator('.trk').nth(3).click(); if (!(await D(() => window.__daw.SI.isOn()))) await page.keyboard.press('b'); await page.waitForTimeout(400);
@@ -315,6 +337,42 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
       const nd = new AudioWorkletNode(b, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); nd.connect(b.destination);
       out[k] = +(db(await b.startRendering()) - db(await a.startRendering())).toFixed(1); } return out; });
   check('every library sound on the native poly synth within 5 dB of the browser-built one (most within 2)', Object.values(lev).every(d => Math.abs(d) < 5) && Object.values(lev).filter(d => Math.abs(d) < 2).length >= Object.keys(lev).length*.6, JSON.stringify(lev));
+  // the native drum machine: every voice of every kit against the browser's (rendered offline, the browser's once it's
+  // settled): as loud, as bright, as long (its noise is drawn at random, so they differ as two of the browser's hits do)
+  const kits = await D(async () => { const {makeDrums, VOICES, KIT_NAMES} = await import('/src/audio/engine/inst/drums.js'), {kitHit} = await import('/studio/lib/native/kit.js'), sr = 44100, secs = 2.5, out = [];
+    const st = (L, R) => { let e = 0, pk = 0; const m = new Float32Array(8192); for (let i = 0; i < L.length; i++) { e += L[i]**2 + R[i]**2; pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); if (i < 8192) m[i] = (L[i] + R[i])/2*(.5 - .5*Math.cos(2*Math.PI*i/8192)); }
+      // brightness: the spectrum's centre of mass (a plain DFT, every 4th bin); length: to 30 dB under its peak
+      let c = 0, t = 0; for (let k = 1; k < 4096; k += 4) { let re = 0, im = 0; const w = 2*Math.PI*k/8192; for (let i = 0; i < 8192; i += 2) { re += m[i]*Math.cos(w*i); im += m[i]*Math.sin(w*i); } const p = re*re + im*im; c += p*k*sr/8192; t += p; }
+      let env = 0, end = 0; for (let i = 0; i < L.length; i++) { env = Math.max(Math.abs(L[i] + R[i])/2, env*Math.exp(-1/(.005*sr))); if (env > pk*.0316) end = i; } return {e: 10*Math.log10(e), c: c/t, end: end/sr}; };
+    for (const kit of KIT_NAMES) for (const v of VOICES) { const ctx = new OfflineAudioContext(2, sr*(secs + .5), sr), d = makeDrums(ctx, ctx.destination); d.load(kit); d.play(v.key, .5, 1, null);
+      const b = await ctx.startRendering(), cut = c => b.getChannelData(c).subarray(Math.round(.5*sr)), a = st(cut(0), cut(1)), h = kitHit(sr, kit, v.key, 1, {}, secs), n = st(h.L, h.R);
+      out.push([kit + ' ' + v.key, +(n.e - a.e).toFixed(1), +(12*Math.log2(n.c/a.c)).toFixed(1), +(n.end/a.end).toFixed(2)]); } return out; });
+  const kbad = kits.filter(([, e, c, l]) => Math.abs(e) > 2 || Math.abs(c) > 2 || l < .8 || l > 1.25);
+  check(`the native drum machine: all ${kits.length} voices of the five kits as loud (within 2 dB), as bright (within 2 semitones) and as long (within a fifth) as the browser's`, !kbad.length, JSON.stringify(kbad.length ? kbad : kits.slice(0, 13)));
+  // a drum track plays live: an open hat choked by the closed one, a drum machine voice's knob heard on the next hit
+  const drum = await D(async () => { const u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 22050;
+    const one = async init => { const ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u); const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); node.connect(ctx.destination); return (await ctx.startRendering()).getChannelData(0); };
+    const rms = (x, a, b) => { let e = 0; for (let i = Math.round(a*sr); i < Math.round(b*sr); i++) e += x[i]**2; return Math.sqrt(e/((b - a)*sr)); };
+    const nat = {type: 'load', slots: {chh: {name: 'hihat', gain: .18, params: {open: 0}, chokes: 'hat'}, ohh: {name: 'hihat', gain: .18, params: {open: .9}, choke: 'hat', chokes: 'hat'}}};
+    const open = await one([nat, {type: 'on', id: 1, slot: 'ohh', n: 60, vel: .9, t: .1}]), choked = await one([nat, {type: 'on', id: 1, slot: 'ohh', n: 60, vel: .9, t: .1}, {type: 'on', id: 2, slot: 'chh', n: 60, vel: .5, t: .3}]);
+    const kit = {type: 'load', kits: {g: {kit: '909'}}, slots: {chh: {kit: 'g', voice: 'chh'}, ohh: {kit: 'g', voice: 'ohh'}, kick: {kit: 'g', voice: 'kick'}}};
+    const kOpen = await one([kit, {type: 'on', id: 1, slot: 'ohh', vel: .9, t: .1}]), kChoked = await one([kit, {type: 'on', id: 1, slot: 'ohh', vel: .9, t: .1}, {type: 'on', id: 2, slot: 'chh', vel: .5, t: .3}]);
+    const k1 = await one([kit, {type: 'on', id: 1, slot: 'kick', vel: 1, t: .1}]), k2 = await one([kit, {type: 'set', kit: true, slot: 'kick', key: 'decay', v: 3}, {type: 'on', id: 1, slot: 'kick', vel: 1, t: .1}]);
+    return {hat: [rms(open, .4, .6), rms(choked, .4, .6)], kit: [rms(kOpen, .37, .5), rms(kChoked, .37, .5)], decay: [rms(k1, .6, 1), rms(k2, .6, 1)]}; });
+  check('the closed hat chokes the open one, native and on the drum machine', drum.hat[1] < drum.hat[0]/20 && drum.kit[1] < drum.kit[0]/20, JSON.stringify(drum));
+  check('a drum machine voice’s setting (the kick’s decay) is heard on its next hit', drum.decay[1] > drum.decay[0]*4, JSON.stringify(drum.decay));
+  // how fast: the heaviest held sounds four notes at once, and a drum machine's busy pattern, each well ahead of real time
+  const cpu = await D(async () => { const {NATIVE} = await import('/studio/lib/native/index.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 44100, secs = 4, out = {};
+    const run = async init => { const ctx = new OfflineAudioContext(2, sr*secs, sr); await ctx.audioWorklet.addModule(u); const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); node.connect(ctx.destination);
+      const t0 = performance.now(); await ctx.startRendering(); return +(secs*1000/(performance.now() - t0)).toFixed(1); };
+    for (const name of ['addpad', 'breath', 'vastrings', 'bowed']) out[name] = await run([{type: 'load', slots: {'': {name, gain: NATIVE[name].gain, params: {}}}}, ...[48, 55, 60, 64].flatMap((n, i) => [{type: 'on', id: i, n, vel: .8, t: .05, len: 3.5}, {type: 'off', id: i, t: 3.55}])]);
+    const pat = [], sd = 60/125/4; for (let k = 0; k < secs/sd - 2; k++) { const t = .05 + k*sd; pat.push({type: 'on', id: k, slot: 'chh', t, vel: .7}); if (k % 4 === 0) pat.push({type: 'on', id: 'k' + k, slot: 'kick', t, vel: 1}); if (k % 8 === 4) pat.push({type: 'on', id: 'c' + k, slot: 'clap', t, vel: .9}); if (k % 4 === 2) pat.push({type: 'on', id: 'o' + k, slot: 'ohh', t, vel: .8}); }
+    out['drum machine'] = await run([{type: 'load', kits: {g: {kit: '909'}}, slots: Object.fromEntries(['kick', 'chh', 'ohh', 'clap'].map(v => [v, {kit: 'g', voice: v}]))}, ...pat]); return out; });
+  check('the live engine runs well ahead of real time: four-note pads and bowed chords, a busy drum machine (× real time here)', Object.values(cpu).every(x => x > 4), JSON.stringify(cpu));
+  // the drum tracks play live in the song: the kick's own instrument heard
+  { await D(() => { const {E} = window.__daw, a = E.ctx.createAnalyser(); a.fftSize = 4096; E.ch[0].inst.live.connect(a); window.__an4 = a; E.play(32); }); let kick = 0;
+    for (let w = 0; w < 12; w++) { await page.waitForTimeout(120); kick = Math.max(kick, await D(() => { const x = new Float32Array(4096); window.__an4.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); })); }
+    await D(() => window.__daw.E.stop()); check('the kick plays live in the song (its drum machine heard)', kick > .01, kick.toFixed(4)); }
   // the song plays live too: the bass from its first clip heard
   await D(() => { const {E} = window.__daw; E.play(32); }); await page.waitForTimeout(1500); const song = await rms(); await D(() => window.__daw.E.stop());
   check('the song plays with the live bass', song > .01, song.toFixed(4)); await page.keyboard.press('b'); }

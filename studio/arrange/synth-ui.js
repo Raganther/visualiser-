@@ -93,7 +93,12 @@ export function makeSynthUI(A){
     g.lineTo(W, top); g.lineTo(0, top); g.closePath(); g.fillStyle = 'rgba(224,163,58,.22)'; g.fill(); g.strokeStyle = css('--acc'); g.lineWidth = 1; g.stroke();
     g.fillStyle = css('--mute'); g.font = '10px system-ui'; for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) g.fillText(t, Math.log(f/30)/Math.log(16000/30)*W + 2, H - 6);
     g.fillText(`${(end/sr).toFixed(2)} s`, W - 40, 12);
-    const n = M.note; $('iCap').textContent = `${typeof n.p === 'number' ? nn(n.p) : SB.VNAME[n.p] || n.p} · ${M.kind === 'poly' || M.s.voices && !M.s.voices[n.p]?.native ? 'rendered by the synth' : E.isLive(ST.sel.track) ? 'the model, played live (drawn from the same maths)' : 'computed by the model, as you’ll hear it'}`; }
+    const n = M.note; $('iCap').textContent = `${typeof n.p === 'number' ? nn(n.p) : SB.VNAME[n.p] || n.p} · ${capOf(M, n)}`; }
+  // what the drawing is: the note as the live engine plays it, or as the browser renders it where the live engine can't
+  const capOf = (M, n) => { const live = E.isLive(ST.sel.track), kit = M.s.voices && !M.s.voices[n.p]?.native;
+    if (kit) return live ? 'the native drum machine, played live (drawn from the same maths)' : 'rendered by the drum machine';
+    if (M.kind === 'poly') return live ? 'the native synth, played live (drawn from the same maths)' : 'rendered by the synth';
+    return live ? 'the model, played live (drawn from the same maths)' : 'computed by the model, as you’ll hear it'; };
   function fft(re, im){ const n = re.length; for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
     for (let len = 2; len <= n; len <<= 1) { const a = -2*Math.PI/len, wr = Math.cos(a), wi = Math.sin(a); for (let i = 0; i < n; i += len) { let xr = 1, xi = 0; for (let j = 0; j < len/2; j++) {
       const k = i + j, l = k + len/2, tr = re[l]*xr - im[l]*xi, ti = re[l]*xi + im[l]*xr; re[l] = re[k] - tr; im[l] = im[k] - ti; re[k] += tr; im[k] += ti; const t = xr*wr - xi*wi; xi = xr*wi + xi*wr; xr = t; } } } }

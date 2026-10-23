@@ -141,7 +141,8 @@ export function makeSounds(A){
       const W = f => (d, v) => { const w = d.voices[vo] = {...d.voices[vo]}; f(w, v); };
       if (m.native) { const items = [{key: 'native', label: 'Instrument', list: instOpts(DRUMISH), value: m.native, write: W((w, v) => { d0(w); w.native = v; })}];
         if (!NOTPITCHED.includes(m.native)) items.push({key: 'n', label: 'Pitch', min: 24, max: 96, step: 1, value: m.n ?? 48, fmt: v => A.nn(Math.round(v)), write: W((w, v) => { w.n = v ?? 48; })});
-        return {id, s, kind: 'drums', voices: vs, voice: vo, note: {s: 0, p: vo, l: 1, v: .9}, groups: [{name: INST[m.native]?.label || m.native, items: [...items, ...knobsOf(m.native, m.set, m.knobs || {}, (d, k, v) => W((w, v) => { w.knobs = {...w.knobs}; if (v === undefined) delete w.knobs[k]; else w.knobs[k] = v; })(d, v))]}]}; }
+        return {id, s, kind: 'drums', voices: vs, voice: vo, note: {s: 0, p: vo, l: 1, v: .9}, groups: [{name: INST[m.native]?.label || m.native, items: [...items, ...knobsOf(m.native, m.set, m.knobs || {}, (d, k, v) => W((w, v) => { w.knobs = {...w.knobs}; if (v === undefined) delete w.knobs[k]; else w.knobs[k] = v; })(d, v))
+          .map(it => ({...it, live: v => E.live(ti, {native: it.key, slot: vo}, v)}))]}]}; }
       const P = {...kitParams(m.kit)[vo], ...(m.over?.[vo] || {})};
       return {id, s, kind: 'drums', voices: vs, voice: vo, note: {s: 0, p: vo, l: 1, v: .9}, groups: [{name: `${m.kit} drum machine · ${VNAME[vo] || vo}`, items: [
         {key: 'kit', label: 'Drum machine', list: KIT_NAMES.map(k => [k, k]), value: m.kit, write: W((w, v) => { w.kit = v; })},

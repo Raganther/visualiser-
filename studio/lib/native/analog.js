@@ -4,9 +4,8 @@
 // low end ringing on after the kick, as a techno rumble's reverb does), a formant pad (saws through a mouth's three
 // resonances drifting from vowel to vowel) and the 808's six clashing squares for hats.
 import { rng } from '../rng.js';
+import { render, fadeAt } from './stream.js';
 
-const out = n => ({L: new Float32Array(n), R: new Float32Array(n)});
-const fadeEnd = (o, sr, ms = 15) => { const n = o.L.length, f = Math.min(n, Math.round(ms/1000*sr)); for (let i = 0; i < f; i++) { const g = i/f; o.L[n - 1 - i] *= g; o.R[n - 1 - i] *= g; } return o; };
 // PolyBLEP: the step in a saw or square smoothed over one sample either side, so the edges don't alias
 const blep = (t, dt) => t < dt ? (t /= dt, t + t - t*t - 1) : t > 1 - dt ? (t = (t - 1)/dt, t*t + t + t + 1) : 0;
 const saw = (t, dt) => 2*t - 1 - blep(t, dt);
@@ -21,29 +20,34 @@ const adsr = (t, a, d, s, len, r) => { const at = t < a ? t/a : s + (1 - s)*Math
 
 // the subtractive voice. wave and wave2 (saw, square or tri), detune in semitones spread over `voices`, sub an octave down,
 // noise; the filter: cut (Hz), res 0..1, fenv (octaves the envelope opens it by), fa fd its attack and fall, keytrack;
-// the amp: a d s r over the note's len; drive; drift (slow wandering of each voice's pitch, in cents)
-export function va(sr, f0, {vel = .8, wave = 'saw', wave2 = null, mix2 = .5, semi2 = 0, voices = 1, detune = .1, width = .6, sub = 0, noise = 0,
-  cut = 1200, res = .2, fenv = 1, fa = .002, fd = .25, keytrack = .4, mode = 'lp', a = .004, d = .3, s = .6, r = .2, len = .4, drive = 0, drift = 3, tone = .5, stretch = 1, seed = 1} = {}){
-  cut *= Math.pow(2, (tone - .5)*3); d *= stretch; r *= stretch; fd *= stretch;   // (tone: the filter darker or brighter; stretch: every fall longer)
-  const n = Math.ceil((len + r*1.4 + .02)*sr), o = out(n), R = rng(seed), V = [];
-  const add = (w, ratio, lvl) => { for (let v = 0; v < voices; v++) { const sp = voices > 1 ? v/(voices - 1)*2 - 1 : 0;
-    V.push({w, f: f0*ratio*Math.pow(2, sp*detune/12), lvl: lvl/Math.sqrt(voices), pan: sp*width, ph: R(), dph: R()*6.28, drate: .1 + .3*R(), tri: 0}); } };
-  add(wave, 1, wave2 ? 1 - mix2*.5 : 1); if (wave2) add(wave2, Math.pow(2, semi2/12), mix2);
-  const fL = svf(), fR = svf(), k = 2 - 1.9*Math.min(.98, res), kt = Math.pow(f0/261.6, keytrack), dk = 1 + drive*6, dn = Math.tanh(dk), iv = .5 + .5*vel;
-  let subPh = 0, nz = 0;
-  for (let i = 0; i < n; i++) { const t = i/sr;
-    if (i % 16 === 0) { const fe = t < fa ? t/fa : Math.exp(-(t - fa)/fd), fc = Math.min(sr*.45, cut*kt*Math.pow(2, fenv*fe*iv)), g = Math.tan(Math.PI*fc/sr); fL.set(g, k); fR.set(g, k); }
-    let L = 0, Rr = 0;
-    for (const v of V) { const f = v.f*(1 + drift/1200*Math.sin(v.dph + 2*Math.PI*v.drate*t)), dt = f/sr; v.ph += dt; v.ph -= Math.floor(v.ph);
-      let x; if (v.w === 'tri') { v.tri = .999*v.tri + 4*dt*square(v.ph, dt); x = v.tri; } else x = WAVES[v.w](v.ph, dt);
-      x *= v.lvl; L += x*(1 - v.pan)*.5; Rr += x*(1 + v.pan)*.5; }
-    if (sub) { subPh += f0*.5/sr; subPh -= Math.floor(subPh); const s0 = Math.sin(2*Math.PI*subPh)*sub*.5; L += s0; Rr += s0; }
-    if (noise) { nz = (R()*2 - 1)*noise*.3; L += nz; Rr += nz; }
-    let yl = fL.run(L), yr = fR.run(Rr); if (mode === 'bp') { yl = fL.bp; yr = fR.bp; }
-    const e = adsr(t, a, d, s, len, r)*vel; if (drive) { yl = Math.tanh(dk*yl)/dn; yr = Math.tanh(dk*yr)/dn; }
-    o.L[i] = yl*e; o.R[i] = yr*e; }
-  return fadeEnd(o, sr);
+// the amp: a d s r over the note's len; drive; drift (slow wandering of each voice's pitch, in cents). Live, the filter,
+// envelopes, drive, sub and noise follow their knobs while the note sounds; the oscillators are set at its start.
+export const VA_D = {vel: .8, wave: 'saw', wave2: null, mix2: .5, semi2: 0, voices: 1, detune: .1, width: .6, sub: 0, noise: 0,
+  cut: 1200, res: .2, fenv: 1, fa: .002, fd: .25, keytrack: .4, mode: 'lp', a: .004, d: .3, s: .6, r: .2, len: .4, drive: 0, drift: 3, tone: .5, stretch: 1, seed: 1};
+export class VaV {
+  constructor(sr, f0, P, vel = P.vel){ Object.assign(this, {sr, f0, P, vel, i: 0, rel: Infinity, end: Infinity, done: false, subPh: 0});
+    const R = this.R = rng(P.seed), V = this.V = [], n = P.voices;
+    const add = (w, ratio, lvl) => { for (let v = 0; v < n; v++) { const sp = n > 1 ? v/(n - 1)*2 - 1 : 0;
+      V.push({w, f: f0*ratio*Math.pow(2, sp*P.detune/12), lvl: lvl/Math.sqrt(n), pan: sp*P.width, ph: R(), dph: R()*6.28, drate: .1 + .3*R(), tri: 0}); } };
+    add(P.wave, 1, P.wave2 ? 1 - P.mix2*.5 : 1); if (P.wave2) add(P.wave2, Math.pow(2, P.semi2/12), P.mix2);
+    this.fL = svf(); this.fR = svf(); this.kt = Math.pow(f0/261.6, P.keytrack); this.iv = .5 + .5*vel; }
+  off(t = this.i/this.sr){ if (this.rel !== Infinity) return; this.rel = t; this.end = Math.ceil((t + this.P.r*this.P.stretch*1.4 + .02)*this.sr); this.fo = Math.min(this.end, Math.round(.015*this.sr)); }
+  run(oL, oR, a, b){ const P = this.P, sr = this.sr, V = this.V, R = this.R, vel = this.vel, st = P.stretch, cut = P.cut*Math.pow(2, (P.tone - .5)*3), d = P.d*st, r = P.r*st, fd = P.fd*st,
+      k = 2 - 1.9*Math.min(.98, P.res), dk = 1 + P.drive*6, dn = Math.tanh(dk), sub = P.sub, noise = P.noise, drift = P.drift, bp = P.mode === 'bp';
+    for (let j = a; j < b; j++) { const i = this.i; if (i >= this.end) { this.done = true; return; } const t = i/sr;
+      if (i % 16 === 0) { const fe = t < P.fa ? t/P.fa : Math.exp(-(t - P.fa)/fd), fc = Math.min(sr*.45, cut*this.kt*Math.pow(2, P.fenv*fe*this.iv)), g = Math.tan(Math.PI*fc/sr); this.fL.set(g, k); this.fR.set(g, k); }
+      let L = 0, Rr = 0;
+      for (const v of V) { const f = v.f*(1 + drift/1200*Math.sin(v.dph + 2*Math.PI*v.drate*t)), dt = f/sr; v.ph += dt; v.ph -= Math.floor(v.ph);
+        let x; if (v.w === 'tri') { v.tri = .999*v.tri + 4*dt*square(v.ph, dt); x = v.tri; } else x = WAVES[v.w](v.ph, dt);
+        x *= v.lvl; L += x*(1 - v.pan)*.5; Rr += x*(1 + v.pan)*.5; }
+      if (sub) { this.subPh += this.f0*.5/sr; this.subPh -= Math.floor(this.subPh); const s0 = Math.sin(2*Math.PI*this.subPh)*sub*.5; L += s0; Rr += s0; }
+      if (noise) { const nz = (R()*2 - 1)*noise*.3; L += nz; Rr += nz; }
+      let yl = this.fL.run(L), yr = this.fR.run(Rr); if (bp) { yl = this.fL.bp; yr = this.fR.bp; }
+      let e = adsr(t, P.a, d, P.s, this.rel, r)*vel; if (P.drive) { yl = Math.tanh(dk*yl)/dn; yr = Math.tanh(dk*yr)/dn; }
+      if (this.fo) e *= fadeAt(i, this.end, this.fo);
+      oL[j] += yl*e; oR[j] += yr*e; this.i++; } }
 }
+export const va = (sr, f0, o = {}) => render(VaV, sr, f0, {...VA_D, ...o}, true);
 // the voices the jam and the songs play: native versions of the poly synth's sounds the user liked, and new ones
 export const VA = {
   vagate: {wave: 'saw', voices: 2, detune: .1, width: .8, cut: 1500, res: .15, fenv: 1.2, fd: .09, a: .004, d: .11, s: 0, r: .06},
@@ -58,16 +62,19 @@ export const VA = {
 
 // an analog kick: a resonator ringing at the note, its pitch falling from `start` times it on a fast and a slow time
 // constant; its body dying over `decay` with a longer `boom` under it; a click at the strike; a drive
-export function akick(sr, f0, {vel = .9, start = 4, t1 = .005, t2 = .04, decay = .38, boom = 0, boomDecay = 1.2, click = .25, tone = .5, drive = .3, seed = 1} = {}){
-  const T = Math.max(decay*4, boom ? boomDecay*3 : 0) + .05, n = Math.ceil(T*sr), o = out(n), R = rng(seed), dk = 1 + drive*5, dn = Math.tanh(dk);
-  let ph = 0, lp = 0, hp = 0;
-  for (let i = 0; i < n; i++) { const t = i/sr, f = f0*(1 + (start - 1)*(.45*Math.exp(-t/t1) + .55*Math.exp(-t/t2)));
-    ph += 2*Math.PI*f/sr; const e = (t < .0006 ? t/.0006 : 1)*((1 - boom)*Math.exp(-t/decay) + boom*Math.exp(-t/boomDecay));
-    let x = Math.sin(ph)*e;
-    if (click && t < .012) { const nz = R()*2 - 1; lp += (.15 + .7*tone)*(nz - lp); const h = lp - hp; hp += .05*(lp - hp); x += h*click*Math.exp(-t/.0018)*1.5; }
-    x = Math.tanh(dk*x)/dn*vel; o.L[i] = x; o.R[i] = x; }
-  return fadeEnd(o, sr, 20);
+export const AKICK_D = {vel: .9, start: 4, t1: .005, t2: .04, decay: .38, boom: 0, boomDecay: 1.2, click: .25, tone: .5, drive: .3, seed: 1};
+export class AkickV {
+  constructor(sr, f0, P, vel = P.vel){ const T = Math.max(P.decay*4, P.boom ? P.boomDecay*3 : 0) + .05; Object.assign(this, {sr, f0, P: {...P}, vel, i: 0, end: Math.ceil(T*sr), done: false, R: rng(P.seed), ph: 0, lp: 0, hp: 0});
+    this.fo = Math.min(this.end, Math.round(.02*sr)); }
+  off(){}
+  run(oL, oR, a, b){ const P = this.P, sr = this.sr, f0 = this.f0, dk = 1 + P.drive*5, dn = Math.tanh(dk);
+    for (let j = a; j < b; j++) { const i = this.i; if (i >= this.end) { this.done = true; return; } const t = i/sr, f = f0*(1 + (P.start - 1)*(.45*Math.exp(-t/P.t1) + .55*Math.exp(-t/P.t2)));
+      this.ph += 2*Math.PI*f/sr; const e = (t < .0006 ? t/.0006 : 1)*((1 - P.boom)*Math.exp(-t/P.decay) + P.boom*Math.exp(-t/P.boomDecay));
+      let x = Math.sin(this.ph)*e;
+      if (P.click && t < .012) { const nz = this.R()*2 - 1; this.lp += (.15 + .7*P.tone)*(nz - this.lp); const h = this.lp - this.hp; this.hp += .05*(this.lp - this.hp); x += h*P.click*Math.exp(-t/.0018)*1.5; }
+      x = Math.tanh(dk*x)/dn*this.vel*fadeAt(i, this.end, this.fo); oL[j] += x; oR[j] += x; this.i++; } }
 }
+export const akick = (sr, f0, o = {}) => render(AkickV, sr, f0, {...AKICK_D, ...o});
 export const KICKS = {
   kround: {start: 3.6, t2: .035, decay: .32, click: .2, tone: .35, drive: .25},
   kdub: {start: 3, t2: .05, decay: .3, boom: .45, boomDecay: .9, click: .1, tone: .25, drive: .15},
@@ -77,42 +84,60 @@ export const KICKS = {
 
 // a rumble: the low end after a kick ringing on, as a techno rumble's dark reverb does: low noise through a resonant
 // low-pass at the note and a sine under it, swelling a moment after the hit and dying over the note, driven a little
-export function rumble(sr, f0, {vel = .8, len = .4, decay = .5, res = .8, grit = .35, drive = .5, seed = 1} = {}){
-  const n = Math.ceil((len + decay*2 + .05)*sr), o = out(n), dk = 1 + drive*5, dn = Math.tanh(dk);
-  for (const [y, sd] of [[o.L, seed], [o.R, seed + 9]]) { const R = rng(sd), f = svf(), g = Math.tan(Math.PI*Math.min(sr*.45, f0*2.2)/sr); f.set(g, 2 - 1.9*res); let ph = 0;
-    for (let i = 0; i < n; i++) { const t = i/sr, sw = (1 - Math.exp(-t/.012))*(t < len ? Math.exp(-t/(decay*1.6)) : Math.exp(-len/(decay*1.6))*Math.exp(-(t - len)/(decay*.6)));
-      ph += 2*Math.PI*f0/sr; const x = f.run((R()*2 - 1)*grit) + Math.sin(ph)*.6; y[i] = Math.tanh(dk*x*sw)/dn*vel; } }
-  return fadeEnd(o, sr, 30);
+export const RUMBLE_D = {vel: .8, len: .4, decay: .5, res: .8, grit: .35, drive: .5, seed: 1};
+export class RumbleV {
+  constructor(sr, f0, P, vel = P.vel){ Object.assign(this, {sr, f0, P, vel, i: 0, rel: Infinity, end: Infinity, done: false, g: Math.tan(Math.PI*Math.min(sr*.45, f0*2.2)/sr)});
+    this.ch = [P.seed, P.seed + 9].map(sd => ({R: rng(sd), f: svf(), ph: 0})); }
+  off(t = this.i/this.sr){ if (this.rel !== Infinity) return; this.rel = t; this.end = Math.ceil((t + this.P.decay*2 + .05)*this.sr); this.fo = Math.min(this.end, Math.round(.03*this.sr)); }
+  run(oL, oR, a, b){ const P = this.P, sr = this.sr, dk = 1 + P.drive*5, dn = Math.tanh(dk), len = this.rel, dc = P.decay*1.6, w = 2*Math.PI*this.f0/sr;
+    for (const c of this.ch) c.f.set(this.g, 2 - 1.9*P.res);
+    for (let j = a; j < b; j++) { const i = this.i; if (i >= this.end) { this.done = true; return; } const t = i/sr;
+      // (held, it dies away by itself: past -120 dB it's finished)
+      if (len === Infinity && t > dc*14) { this.done = true; return; }
+      const sw = (1 - Math.exp(-t/.012))*(t < len ? Math.exp(-t/dc) : Math.exp(-len/dc)*Math.exp(-(t - len)/(P.decay*.6))), fe = this.fo ? fadeAt(i, this.end, this.fo) : 1;
+      for (let k = 0; k < 2; k++) { const c = this.ch[k]; c.ph += w; const x = c.f.run((c.R()*2 - 1)*P.grit) + Math.sin(c.ph)*.6, y = Math.tanh(dk*x*sw)/dn*this.vel*fe; if (k) oR[j] += y; else oL[j] += y; }
+      this.i++; } }
 }
+export const rumble = (sr, f0, o = {}) => render(RumbleV, sr, f0, {...RUMBLE_D, ...o}, true);
 
 // a formant pad: saws (and a breath of noise) through a mouth's three resonances, drifting from vowel to vowel over the
-// note: dark vowels by default (o, u, a), so it's airy and human without being sweet
+// note: dark vowels by default (o, u, a), so it's airy and human without being sweet. Its vowels move over the note's
+// length when it's known (as the song plays it), over three seconds when it isn't (a key held)
 const VOWELS = {a: [800, 1150, 2900], o: [450, 800, 2830], u: [325, 700, 2700], e: [400, 1600, 2700], i: [300, 1900, 2800]};
-export function formant(sr, f0, {vel = .7, len = 3, a = .8, r = 1.6, path = 'oua', drift = .5, q = 9, breathy = .15, voices = 3, detune = .12, seed = 1} = {}){
-  const n = Math.ceil((len + r*1.3)*sr), o = out(n), R = rng(seed), P = [...path].map(v => VOWELS[v]), env = t => t < a ? .5 - .5*Math.cos(Math.PI*t/a) : t < len ? 1 : Math.exp(-6.9*(t - len)/r);
-  const V = Array.from({length: voices}, (_, v) => ({f: f0*Math.pow(2, (voices > 1 ? v/(voices - 1)*2 - 1 : 0)*detune/12), ph: R(), pan: voices > 1 ? (v/(voices - 1)*2 - 1)*.7 : 0}));
-  const bands = [0, 1, 2].map(() => ({L: svf(), R: svf()})), gains = [1, .55, .3];
-  for (let i = 0; i < n; i++) { const t = i/sr;
-    if (i % 32 === 0) { const x = (t*drift/Math.max(1, len))*(P.length - 1) % Math.max(1, P.length - 1), j = Math.floor(x), w = x - j, A = P[j], B = P[Math.min(P.length - 1, j + 1)];
-      bands.forEach((b, k) => { const fc = A[k] + (B[k] - A[k])*(.5 - .5*Math.cos(Math.PI*w)), g = Math.tan(Math.PI*Math.min(sr*.45, fc)/sr), kk = 1/q; b.L.set(g, kk); b.R.set(g, kk); }); }
-    let L = 0, Rr = 0; for (const v of V) { const dt = v.f/sr; v.ph += dt; v.ph -= Math.floor(v.ph); const x = saw(v.ph, dt)/Math.sqrt(voices); L += x*(1 - v.pan)*.5; Rr += x*(1 + v.pan)*.5; }
-    const nz = (R()*2 - 1)*breathy; L += nz; Rr += nz;
-    let yl = 0, yr = 0; bands.forEach((b, k) => { b.L.run(L); b.R.run(Rr); yl += b.L.bp*gains[k]/q; yr += b.R.bp*gains[k]/q; });   // (a band-pass rings q times over at its peak)
-    const e = env(t)*vel*.9; o.L[i] = yl*e; o.R[i] = yr*e; }
-  return fadeEnd(o, sr, 30);
+export const FORMANT_D = {vel: .7, len: 3, a: .8, r: 1.6, path: 'oua', drift: .5, q: 9, breathy: .15, voices: 3, detune: .12, seed: 1};
+export class FormantV {
+  constructor(sr, f0, P, vel = P.vel, len){ const R = rng(P.seed), n = P.voices;
+    Object.assign(this, {sr, P, vel, R, i: 0, rel: Infinity, end: Infinity, done: false, span: Math.max(1, len ?? 3), path: [...P.path].map(v => VOWELS[v])});
+    this.V = Array.from({length: n}, (_, v) => ({f: f0*Math.pow(2, (n > 1 ? v/(n - 1)*2 - 1 : 0)*P.detune/12), ph: R(), pan: n > 1 ? (v/(n - 1)*2 - 1)*.7 : 0}));
+    this.bands = [0, 1, 2].map(() => ({L: svf(), R: svf()})); }
+  off(t = this.i/this.sr){ if (this.rel !== Infinity) return; this.rel = t; this.end = Math.ceil((t + this.P.r*1.3)*this.sr); this.fo = Math.min(this.end, Math.round(.03*this.sr)); }
+  run(oL, oR, a, b){ const P = this.P, sr = this.sr, Pth = this.path, V = this.V, q = P.q, gains = [1, .55, .3], nv = Math.sqrt(V.length), len = this.rel;
+    for (let j = a; j < b; j++) { const i = this.i; if (i >= this.end) { this.done = true; return; } const t = i/sr;
+      if (i % 32 === 0) { const x = (t*P.drift/this.span)*(Pth.length - 1) % Math.max(1, Pth.length - 1), k0 = Math.floor(x), w = x - k0, A = Pth[k0], B = Pth[Math.min(Pth.length - 1, k0 + 1)];
+        this.bands.forEach((bd, k) => { const fc = A[k] + (B[k] - A[k])*(.5 - .5*Math.cos(Math.PI*w)), g = Math.tan(Math.PI*Math.min(sr*.45, fc)/sr), kk = 1/q; bd.L.set(g, kk); bd.R.set(g, kk); }); }
+      let L = 0, Rr = 0; for (const v of V) { const dt = v.f/sr; v.ph += dt; v.ph -= Math.floor(v.ph); const x = saw(v.ph, dt)/nv; L += x*(1 - v.pan)*.5; Rr += x*(1 + v.pan)*.5; }
+      const nz = (this.R()*2 - 1)*P.breathy; L += nz; Rr += nz;
+      let yl = 0, yr = 0; for (let k = 0; k < 3; k++) { const bd = this.bands[k]; bd.L.run(L); bd.R.run(Rr); yl += bd.L.bp*gains[k]/q; yr += bd.R.bp*gains[k]/q; }   // (a band-pass rings q times over at its peak)
+      const env = t < P.a ? .5 - .5*Math.cos(Math.PI*t/P.a) : t < len ? 1 : Math.exp(-6.9*(t - len)/P.r), e = env*this.vel*.9*(this.fo ? fadeAt(i, this.end, this.fo) : 1);
+      oL[j] += yl*e; oR[j] += yr*e; this.i++; } }
 }
+export const formant = (sr, f0, o = {}) => render(FormantV, sr, f0, {...FORMANT_D, ...o}, true);
 
 // the 808's hats: six square oscillators at clashing frequencies, through a band-pass and a high-pass, dying over decay;
 // tone tunes the metal; a breath of noise for the sizzle
 const METAL = [205.3, 304.4, 369.6, 522.7, 540, 800];
-export function hat808(sr, {vel = .8, decay = .05, tone = .5, sizzle = .25, seed = 1} = {}){
-  const n = Math.ceil((decay*5 + .02)*sr), o = out(n), R = rng(seed), k = .75 + .7*tone, ph = METAL.map(() => R());
-  const bpL = svf(), bpR = svf(), fc = 7400 + 3000*tone; bpL.set(Math.tan(Math.PI*Math.min(sr*.45, fc)/sr), .9); bpR.set(Math.tan(Math.PI*Math.min(sr*.45, fc*1.04)/sr), .9);
-  let hl = 0, hr = 0, pl = 0, pr = 0;
-  for (let i = 0; i < n; i++) { let m = 0; METAL.forEach((f, j) => { ph[j] += f*k/sr; ph[j] -= Math.floor(ph[j]); m += ph[j] < .5 ? 1 : -1; }); m /= 6;
-    const nz = (R()*2 - 1)*sizzle, e = Math.exp(-i/(decay*sr))*(i < 24 ? i/24 : 1)*vel;
-    bpL.run(m + nz); bpR.run(m - nz*.5); const xl = bpL.bp, xr = bpR.bp;
-    // a high-pass by differencing, twice gentler on the right for a little width
-    hl = xl - pl; pl = xl; hr = xr - pr; pr = xr; o.L[i] = (xl*.4 + hl*.9)*e; o.R[i] = (xr*.4 + hr*.8)*e; }
-  return fadeEnd(o, sr, 5);
+export const HAT808_D = {vel: .8, decay: .05, tone: .5, sizzle: .25, seed: 1};
+export class Hat808V {
+  constructor(sr, f0, P, vel = P.vel){ const R = rng(P.seed), fc = 7400 + 3000*P.tone;
+    Object.assign(this, {sr, P: {...P}, vel, R, i: 0, end: Math.ceil((P.decay*5 + .02)*sr), done: false, k: .75 + .7*P.tone, ph: METAL.map(() => R()), bpL: svf(), bpR: svf(), pl: 0, pr: 0});
+    this.fo = Math.min(this.end, Math.round(.005*sr)); this.bpL.set(Math.tan(Math.PI*Math.min(sr*.45, fc)/sr), .9); this.bpR.set(Math.tan(Math.PI*Math.min(sr*.45, fc*1.04)/sr), .9); }
+  off(){}
+  run(oL, oR, a, b){ const P = this.P, sr = this.sr, ph = this.ph, k = this.k;
+    for (let j = a; j < b; j++) { const i = this.i; if (i >= this.end) { this.done = true; return; }
+      let m = 0; for (let q = 0; q < 6; q++) { ph[q] += METAL[q]*k/sr; ph[q] -= Math.floor(ph[q]); m += ph[q] < .5 ? 1 : -1; } m /= 6;
+      const nz = (this.R()*2 - 1)*P.sizzle, e = Math.exp(-i/(P.decay*sr))*(i < 24 ? i/24 : 1)*this.vel*fadeAt(i, this.end, this.fo);
+      this.bpL.run(m + nz); this.bpR.run(m - nz*.5); const xl = this.bpL.bp, xr = this.bpR.bp;
+      // a high-pass by differencing, twice gentler on the right for a little width
+      const hl = xl - this.pl; this.pl = xl; const hr = xr - this.pr; this.pr = xr; oL[j] += (xl*.4 + hl*.9)*e; oR[j] += (xr*.4 + hr*.8)*e; this.i++; } }
 }
+export const hat808 = (sr, o = {}) => render(Hat808V, sr, 0, {...HAT808_D, ...o});
