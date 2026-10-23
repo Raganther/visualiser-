@@ -116,3 +116,9 @@ before writing or changing a piece; add to it when they react.
   drums, nature), tried on the track's own notes before it's chosen; Edit puts the instrument's own settings on sliders
   (the physical models' physics, still computed note by note; each drum voice; the poly synth's panel), a change making
   your own copy, kept in the `sounds` collection for Claude to read and build on; "Ask Claude for a sound" in words.
+- 2026-10-23: Asked for a front end for the synthesizers. The DAW's Instrument view (B, under the arrangement): the
+  track's sound as a synth's panel, the same settings as the sound panel's Edit tab as rotary knobs in modules, one note
+  of it drawn as it's actually made (the native model's computed note, or the poly synth rendered) as a waveform and a
+  spectrum, the poly synth's filter curve and envelopes drawn as they turn, a keyboard to play it with the mouse or the
+  computer's keys, pads for a kit. The poly synth and drum machines answer while a knob turns; a native model is
+  computed again when it's let go.

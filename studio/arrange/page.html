@@ -6,7 +6,7 @@
      with their notes), and under it the piano roll of the clip being edited with each note's velocity beneath. -->
 <style>
 :root{--bg:#16181d; --panel:#1f2228; --panel2:#262a31; --line:#343944; --ink:#e7e9ee; --mute:#9aa1ad; --acc:#e0a33a; --on:#c86b2c; --sel:#ffffff; --loop:rgba(224,163,58,.18); --mono:ui-monospace,SFMono-Regular,Menlo,monospace; color-scheme:dark}
-*{box-sizing:border-box} html,body{margin:0; height:100%} body{background:var(--bg); color:var(--ink); font:14px/1.35 system-ui,-apple-system,Segoe UI,sans-serif; display:flex; flex-direction:column; overflow:hidden}
+[hidden]{display:none!important} *{box-sizing:border-box} html,body{margin:0; height:100%} body{background:var(--bg); color:var(--ink); font:14px/1.35 system-ui,-apple-system,Segoe UI,sans-serif; display:flex; flex-direction:column; overflow:hidden}
 button,select,input{font:inherit; color:inherit} button{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 9px; cursor:pointer; min-height:32px}
 button:hover{border-color:#566} button[aria-pressed="true"]{background:var(--acc); color:#111; border-color:var(--acc)} button:disabled{opacity:.4; cursor:default}
 select{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 8px; min-height:32px}
@@ -30,6 +30,31 @@ select{background:var(--panel2); border:1px solid var(--line); border-radius:7px
 #editor{height:36%; flex:none; display:flex; flex-direction:column; min-height:120px; background:var(--panel)}
 #edHead{display:flex; gap:8px; align-items:center; padding:5px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap}
 #edHead b{font-size:13px} #edWrap{flex:1; position:relative; min-height:0} #ed{display:block; width:100%; height:100%}
+#inst{flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; padding:6px 12px 8px}
+.ihead{display:flex; align-items:center; gap:6px; flex-wrap:wrap} .ihead b{font-size:14px} .ihead button{min-height:28px; padding:2px 9px}
+.ibody{flex:1; min-height:0; display:flex; gap:10px}
+.idisp{margin:0; width:250px; flex:none; display:flex; flex-direction:column; gap:3px} #iWave{flex:1; min-height:0; width:100%; border:1px solid var(--line); border-radius:8px; background:var(--bg)}
+#iMods{flex:1; min-width:0; display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; align-items:stretch; padding-bottom:4px}
+.mod{flex:none; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:6px 8px; display:grid; grid-template-columns:auto auto; grid-template-rows:auto 1fr; gap:4px 8px}
+.mod h3{grid-column:1 / -1} .mod .graphs{display:flex; flex-direction:column; gap:4px}
+.mod h3{margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute)}
+.mod .graph{width:200px; height:46px; display:block; border-radius:5px; background:var(--bg)}
+.knobs{display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto); gap:2px 4px; align-content:start}
+.kn{width:62px; display:flex; flex-direction:column; align-items:center; cursor:ns-resize; user-select:none; touch-action:none; border-radius:6px; padding:2px 0}
+.kn:focus-visible{outline:2px solid var(--acc)} .kn-dial{width:38px; height:38px} .kn-track{fill:none; stroke:#3a3f49; stroke-width:4; stroke-linecap:round}
+.kn-fill{fill:none; stroke:var(--acc); stroke-width:4; stroke-linecap:round} .kn-cap{fill:#2e333b; stroke:#4a505b} .kn-tick{stroke:var(--ink); stroke-width:2; stroke-linecap:round}
+.kn-lab{font-size:10.5px; color:var(--ink); text-align:center; line-height:1.15; max-width:62px} .kn-val{font:10px var(--mono); color:var(--mute)}
+.kn-list{display:flex; flex-direction:column; gap:3px; padding:2px 4px} .kn-list.wide{min-width:150px} .kn-list select{min-height:26px; padding:2px 6px; font-size:12px}
+.seg{display:flex; flex-wrap:wrap; gap:2px} .seg button{min-height:24px; padding:0 6px; font-size:11px; border-radius:5px}
+#iKeys{flex:none; height:64px; display:flex; gap:8px; align-items:stretch}
+.koct{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px} .koct button{min-height:22px; padding:0 8px}
+.kb{position:relative; flex:1; touch-action:none; user-select:none}
+.wk,.bk{position:absolute; top:0; border-radius:0 0 4px 4px; cursor:pointer} .wk{height:100%; background:#d9dce2; border:1px solid #0c0d10; box-sizing:border-box}
+.wk span{position:absolute; bottom:3px; left:3px; font-size:9px; color:#333} .bk{height:60%; background:#121418; z-index:1; border:1px solid #000}
+.wk[data-down="1"]{background:var(--acc)} .bk[data-down="1"]{background:var(--on)}
+.pad{flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:12px; background:var(--panel2)} .pad .pk{font:10px var(--mono); color:var(--mute)}
+.pad[aria-pressed="true"]{background:var(--panel2); color:var(--ink); border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)} .pad[data-down="1"]{background:var(--acc); color:#111}
+.etabs button{min-height:26px; padding:0 10px; font-size:12px} body.phone #tabInst{display:none}
 #notes{position:fixed; right:12px; top:56px; width:340px; max-height:70vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; box-shadow:0 10px 30px rgba(0,0,0,.4); z-index:5}
 #notes h2{font-size:14px; margin:0 0 6px} #notes textarea{width:100%; min-height:70px; background:#0f1114; color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:6px; font:inherit; resize:vertical}
 .note{border-top:1px solid var(--line); padding:6px 0; font-size:13px} .note .tg{color:var(--acc); font-size:12px; cursor:pointer} .note .x{float:right; min-height:22px; padding:0 6px}
@@ -85,9 +110,15 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 </div>
 <div id="split" title="Drag to resize the editor"></div>
 <section id="editor" aria-label="The piano roll">
-  <div id="edHead"><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
+  <div id="edHead"><div class="tabs etabs"><button id="tabNotes" aria-pressed="true" title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button></div><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
     <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
   <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
+  <div id="inst" hidden>
+    <div class="ihead"><div style="min-width:0"><b id="iName"></b> <span class="small muted" id="iFrom"></span></div><span class="spacer"></span><span class="small muted" id="iScope"></span>
+      <button id="iPlay" title="One note of it">▶ Note</button><button id="iTry" title="A bar or two of the track’s notes on it">▶ Phrase</button><button id="iSounds" title="The library of sounds (Y)">Sounds…</button><button id="iReset" hidden>Back to the original</button></div>
+    <div class="ibody"><figure class="idisp"><canvas id="iWave" aria-label="The note’s waveform and spectrum"></canvas><figcaption id="iCap" class="small muted"></figcaption></figure><div id="iMods"></div></div>
+    <div id="iKeys"></div>
+  </div>
 </section></div>
   <aside id="side" hidden aria-label="Sounds">
     <div class="sideHead"><div style="min-width:0"><b id="sdTrack">Track</b><div class="small muted" id="sdScope"></div></div><button id="sdClose" title="Close (Y)">✕</button></div>

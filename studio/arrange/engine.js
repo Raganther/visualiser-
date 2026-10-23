@@ -108,8 +108,35 @@ export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}
     for (let w = 0; w < 80 && keys.some(k => !cache.has(k)); w++) await new Promise(r => setTimeout(r, 50));
     if (E.pv !== c) return; const t0 = ctx.currentTime + .05; for (const n of notes) play(c, n.p, n.l, n.v, t0 + n.s*sd());
     const end = Math.max(0, ...notes.map(n => n.s + n.l))*sd() + 2.5; setTimeout(() => { if (E.pv === c) { try { c.x.out.disconnect(); } catch {} E.pv = null; } }, end*1000); };
+  // a setting heard at once while it's turned (the poly synth's own, a drum machine voice's), on the track and the keys
+  E.live = (i, w, v) => { for (const c of [E.ch[i], E.kb?.i === i ? E.kb.c : null, E.pv]) { const inst = c?.inst; if (!inst || c.T !== E.P.tracks[i]) continue;
+      if (w.poly && inst.poly) inst.poly.set(w.poly, v); if (w.kit && inst.voices?.[w.kit]?.kit) inst.voices[w.kit].kit.set(w.kit, w.key, v); } };
+  // the keyboard: a channel of its own with the track's settings and the sound being shaped, notes held as long as the key
+  function kbChan(i, id){ if (E.kb && E.kb.i === i && E.kb.id === id && E.kb.gen === E.gen) return E.kb.c; if (E.kb) { const o = E.kb.c; setTimeout(() => { try { o.x.out.disconnect(); } catch {} }, 3000); }
+    const T = E.P.tracks[i], c = chan(T, i); c.s = {...T.set}; build(c, id); macros(c); glide(c.x.out.gain, .85*Math.pow(10, (T.mix.vol || 0)/20), E.ctx.currentTime, .01); E.kb = {i, id, c, gen: E.gen, held: new Map()}; return c; }
+  E.kbOn = (i, id, p, v = .8) => { const ctx = E.init(); ctx.resume(); const c = kbChan(i, id), t = ctx.currentTime + .005, inst = c.inst;
+    if (inst.poly) { inst.poly.noteOn(p, v, t); E.kb.held.set(p, t); return; }
+    if (inst.kind === 'drums') { play(c, p, 1, v, t); return; }
+    // a native note is computed (held sounds at a beat's length): heard at once when it's ready, else as soon as it is
+    const keys = need(c, p, 4, v); if (keys.every(k => cache.has(k))) { play(c, p, 4, v, t); return; }
+    const t0 = performance.now(), wait = () => { if (keys.every(k => cache.has(k))) { if (performance.now() - t0 < 1500) play(c, p, 4, v, E.ctx.currentTime + .005); } else if (performance.now() - t0 < 4000) setTimeout(wait, 30); }; wait(); };
+  E.kbOff = (i, p) => { const c = E.kb?.c; if (c?.inst?.poly && E.kb.i === i) c.inst.poly.noteOff(p, E.ctx.currentTime + .005); };
+  // the keys' notes computed ahead, so the first press is heard at once
+  E.kbWarm = (i, id, ps, v = .8) => { const ctx = E.init(); const c = kbChan(i, id); if (c.inst.native) for (const p of ps) need(c, p, 4, v); onBusy(pending.size); };
+  // one note as the sound makes it, for drawing: a native note from the worker (as played), the poly synth or a drum
+  // machine rendered offline. Resolves an AudioBuffer (or null)
+  E.render = async (i, id, p, v = .85, l = 4) => { E.init(); const T = E.P.tracks[i], snd = SND[id]; if (!snd) return null; const secs = l*sd(); let inst = null;
+    if (snd.voices) { const m = snd.voices[p]; if (!m) return null; if (m.native) inst = {kind: 'drums', voices: {[p]: {native: m.native, n: m.n, set: m.set || {}, knobs: m.knobs || {}}}}; }
+    else { const name = snd.src.native || NATIVE_OF[snd.src.palette]; if (name) inst = {native: name, shift: (snd.src.shift || 0) + (snd.src.palette ? 12*(PAL[snd.src.palette][1].oct || 0) : 0), set: snd.src.set || {}, knobs: snd.src.knobs || {}}; }
+    if (inst) { const keys = need({T, s: {...T.set}, inst}, p, l, v); onBusy(pending.size);
+      for (let w = 0; w < 160 && keys.some(k => !cache.has(k)); w++) await new Promise(r => setTimeout(r, 50)); return keys.length ? cache.get(keys[0]) || null : null; }
+    const sr = 22050, off = new OfflineAudioContext(2, Math.ceil(sr*(secs + 2.5)), sr), g = off.createGain(); g.connect(off.destination);
+    if (snd.voices) { const m = snd.voices[p]; if (!m?.kit) return null; const kit = makeDrums(off, g); kit.load(m.kit, m.over || {}); kit.play(p, .02, v, null); }
+    else { const src = snd.src, [pp, set] = PAL[src.palette], syn = makePoly(off, g, {period: () => 4*sd()}); syn.load({...PRESETS[pp], chord: 0, ...set, ...src.poly}); syn.play(p, .02, secs, v); }
+    return off.startRendering(); };
+  E.gen = 0;
   // a sound's definition changed (the designer): every channel builds its instrument again, and its notes are computed
-  E.refresh = () => { if (!E.ctx) return; for (const c of E.ch) { c.sound = null; settle(c, c.clip || null); } E.prewarm(); };
+  E.refresh = () => { E.gen++; if (!E.ctx) return; for (const c of E.ch) { c.sound = null; settle(c, c.clip || null); } E.prewarm(); };
   // a note heard now (clicking in the piano roll)
   E.audition = (i, p, v = .8, l = 2) => { if (!E.ctx) E.init(); E.ctx.resume(); const c = E.ch[i]; if (c) play(c, p, l, v, E.ctx.currentTime + .02); };
 

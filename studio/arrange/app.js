@@ -7,6 +7,7 @@
 import { flatten } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
 import { makeSounds } from './sounds.js';
+import { makeSynthUI } from './synth-ui.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
@@ -196,7 +197,7 @@ const cur = () => ST.open && findClip(ST.open.id);
 function openEd(id){ const f = findClip(id); if (!f) return; ST.open = {id}; ST.ed.sel.clear(); ST.sel.track = f.ti; ST.sel.clips = new Set([id]);
   [EW, EH] = fit(ed); ST.ed.px = clamp((EW - KEYW - 10)/Math.min(f.cl.len, 64), 3, 48); const s16 = (ST.ph - f.cl.start)*16; ST.ed.sx = s16 < 0 || s16 > f.cl.len ? 0 : clamp(s16*ST.ed.px - 40, 0, Math.max(0, f.cl.len*ST.ed.px - (EW - KEYW) + 40));
   if (!isDrum(f.T.role)) { const ps = f.cl.notes.map(n => n.p).sort((a, b) => a - b), mid = ps.length ? ps[ps.length >> 1] : 60; ST.ed.sy = Math.max(0, (108 - mid)*12 - (EH - TOP - VEL)/2); } else ST.ed.sy = 0;
-  renderTracks(); renderEd(); draw(); target(); ed.focus(); ST.focus = 'ed'; }
+  if (SI?.isOn()) SI.show(false); renderTracks(); renderEd(); draw(); target(); ed.focus(); ST.focus = 'ed'; }
 function rowsOf(f){ return isDrum(f.T.role) ? {drum: true, rows: voicesOf(f.T), rh: 22} : {drum: false, hi: 108, lo: 24, rh: 12}; }
 const rowOfNote = (R, n) => R.drum ? R.rows.indexOf(n.p) : R.hi - n.p;
 const ex = s => KEYW + s*ST.ed.px - ST.ed.sx, es = x => (x - KEYW + ST.ed.sx)/ST.ed.px;
@@ -312,7 +313,9 @@ function nudge(dx, dy, big){ if (!editable()) return; const f = cur();
   const cs = selClips(); if (!cs.length || !dx) return; checkpoint(); for (const {cl} of cs) cl.start = Math.max(0, cl.start + dx*(ST.snap || 16)/16); changed(); }
 
 /* ---------- keys ---------- */
+addEventListener('keyup', e => { if (SI?.onKey(e, false)) e.preventDefault(); });
 addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(), mod = e.metaKey || e.ctrlKey;
+  if (SI?.onKey(e, true)) { e.preventDefault(); return; }   // (the instrument showing: the letters play it)
   if (e.key === ' ') { e.preventDefault(); E.playing ? stop() : play(); return; }
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; } if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'c') { e.preventDefault(); copy(); return; } if (mod && k === 'v') { e.preventDefault(); paste(); return; }
@@ -321,7 +324,7 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
     else { ST.sel.clips = new Set(ST.P.tracks.flatMap(T => T.clips.map(c => c.id))); draw(); } target(); return; }
   if (mod) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delSel(); return; }
-  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; }
+  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; } if (k === 'b') { SI.show(!SI.isOn()); return; }
   if (e.key === 'Escape') { ST.ed.sel.clear(); clearSel(); renderTracks(); draw(); drawEd(); target(); return; }
   if (e.key === 'Home' || e.key === 'Enter') { seek(E.cycle ? E.loop[0] : 0); return; }
   const arrows = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1]}[e.key]; if (arrows) { e.preventDefault(); nudge(arrows[0], arrows[1], e.shiftKey); } });
@@ -332,7 +335,7 @@ function loopSel(){ const R = ST.sel.range, cs = selClips(), f = cur();
 
 /* ---------- likes and notes for Claude: each about exactly what's selected ---------- */
 const bars = (a, b) => b - a <= 1 ? `bar ${a + 1}` : `bars ${a + 1}–${b}`;
-function target(){ const t = currentTarget(); $('target').textContent = t.desc; SB?.render(); return t; }
+let lastT = -1; function target(){ const t = currentTarget(); $('target').textContent = t.desc; SB?.render(); if (SI?.isOn() && ST.sel.track !== lastT) SI.render(); lastT = ST.sel.track; return t; }
 function currentTarget(){ const P = ST.P, f = cur(); if (!P) return {kind: 'song', desc: ''};
   if (f && ST.ed.sel.size) { const ns = [...ST.ed.sel].map(i => f.cl.notes[i]), a = f.cl.start + Math.min(...ns.map(n => n.s))/16, b = f.cl.start + Math.max(...ns.map(n => n.s + n.l))/16;
     return {kind: 'notes', tracks: [f.T.name], bars: [Math.floor(a), Math.ceil(b)], clip: f.cl.name, count: ns.length, notes: ns.map(n => ({s: +(f.cl.start*16 + n.s).toFixed(2), p: n.p})), desc: `${ns.length} note${ns.length > 1 ? 's' : ''} · ${f.T.name} · ${bars(Math.floor(a), Math.ceil(b))}`}; }
@@ -372,11 +375,12 @@ $('up').onclick = () => addNote(1); $('down').onclick = () => addNote(-1); $('sa
 $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !v; $('notesB').setAttribute('aria-pressed', String(v)); };
 
 /* ---------- the sound panel ---------- */
-const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
+let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
+SI = makeSynthUI({ST, E, SB, h, $, isDrum, flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
 
 /* ---------- start ---------- */
 addEventListener('resize', () => { draw(); renderEd(); });
 (async () => { let first = null; try { first = localStorage.getItem('studio.daw.song'); } catch {}
   await open(songById(first) ? first : SONGS[0].id);
   try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c); await open(ST.id); } } catch {} })();
-window.__daw = {ST, E, open, flatten, SB, SND};   // (for tests)
+window.__daw = {ST, E, open, flatten, SB, SND, get SI(){ return SI; }};   // (for tests)

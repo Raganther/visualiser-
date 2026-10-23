@@ -192,6 +192,46 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const ask = await D(() => window.__daw.ST.notes[0]); check('asking Claude for a sound keeps the words and the track', ask.text === 'A hollow wooden bass, soft attack' && ask.target.kind === 'sound' && ask.target.tracks[0] === 'Chords', JSON.stringify(ask.target));
   await D(() => window.__daw.SB.show(false)); }
 
+// the instrument (B): the track's sound as a synth's front panel, its note drawn, knobs turned with the mouse and heard,
+// the poly synth's filter graphed and heard at once, a keyboard played from the computer's keys, a kit's pads
+{ await page.reload(); await page.waitForTimeout(1500); await D(() => { const {ST, E} = window.__daw; ST.P.tracks[3].sound = 'b-fmpluck'; E.refresh(); });   // (the library's FM pluck bass again)
+  await page.locator('.trk').nth(3).click(); await page.keyboard.press('b');
+  for (let k = 0; k < 60 && !(await D(() => !!window.__daw.SI.state().buf)); k++) await page.waitForTimeout(100);
+  const st = await D(() => { const s = window.__daw.SI.state(); return {kind: s.M?.kind, buf: s.buf?.length || 0, cap: s.cap, mods: [...document.querySelectorAll('#iMods .mod h3')].map(x => x.textContent), knobs: [...document.querySelectorAll('#iMods .kn .kn-lab')].map(x => x.textContent), keys: document.querySelectorAll('#iKeys .wk').length, notes: getComputedStyle(document.getElementById('edWrap')).display}; });
+  check('B shows the bass’s instrument: its model’s knobs, one note of it computed and drawn, a keyboard, in the notes’ place', st.kind === 'native' && st.buf > 1000 && /computed by the model/.test(st.cap) && st.knobs.includes('Bend') && st.keys === 15 && st.notes === 'none', JSON.stringify(st));
+  const was = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, JSON.stringify(SND[id].src)]; });
+  const bend = page.locator('#iMods .kn', {hasText: 'Bend'}), kb = await bend.boundingBox();
+  await page.mouse.move(kb.x + kb.width/2, kb.y + 20); await page.mouse.down(); await page.mouse.move(kb.x + kb.width/2, kb.y - 120, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(400);
+  const k1 = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[3].sound]; return [s.mine, s.src.knobs?.index]; });
+  check('dragging the Bend knob up turns it up, on your own copy', k1[0] && k1[1] > 3 && k1[1] > (JSON.parse(was[1]).knobs?.index ?? 0), JSON.stringify(k1));
+  for (let k = 0; k < 60 && !(await D(() => /computed/.test(window.__daw.SI.state().cap))); k++) await page.waitForTimeout(100);
+  check('and the note is drawn again from the changed model', await D(() => window.__daw.SI.state().buf?.length > 1000));
+  await page.keyboard.press('Meta+z'); const und = await D(() => { const {ST, SND} = window.__daw, id = ST.P.tracks[3].sound; return [id, JSON.stringify(SND[id].src)]; });
+  check('undo puts the library’s sound back', und[0] === was[0] && was[0] === 'b-fmpluck' && und[1] === was[1], JSON.stringify([was, und]));
+  // the computer's keys play it: A is the keyboard's lowest C, held while it's down
+  await D(() => { const {E} = window.__daw; E.init(); const a = E.ctx.createAnalyser(); a.fftSize = 2048; E.out.connect(a); window.__an = a; });
+  const low = await D(() => +document.querySelector('#iKeys .wk').dataset.p); await page.keyboard.down('a'); let peak = 0;
+  for (let k = 0; k < 30 && peak < .01; k++) { await page.waitForTimeout(100); peak = await D(() => { const x = new Float32Array(2048); window.__an.getFloatTimeDomainData(x); return Math.max(...x.map(Math.abs)); }); }
+  const lit = await D(() => document.querySelector('#iKeys [data-down="1"]')?.dataset.p); await page.keyboard.up('a');
+  check('the A key plays the keyboard’s lowest C and lights it', +lit === low && peak > .01, `${lit} ${low} ${peak.toFixed(3)}`);
+  check('and the letters didn’t reach the page (A plays, it doesn’t select)', await D(() => window.__daw.ST.sel.clips.size === 0 && !document.getElementById('side').hidden === false));
+  // the poly synth: its filter drawn, and turned while it's heard
+  await D(() => { window.__daw.ST.P.tracks[4].sound = 'c-warm'; window.__daw.E.refresh(); }); await page.locator('.trk').nth(4).click(); await page.waitForTimeout(300);
+  const pm = await D(() => ({mods: [...document.querySelectorAll('#iMods .mod h3')].map(x => x.textContent), graphs: document.querySelectorAll('#iMods canvas.graph').length}));
+  check('a poly synth: oscillators, filter, amp, LFO, voices, output, with the filter’s curve and both envelopes drawn', ['Oscillators', 'Filter', 'Amp', 'LFO', 'Play', 'Output'].every(m => pm.mods.includes(m)) && pm.graphs === 3, JSON.stringify(pm));
+  const cut = page.locator('#iMods .kn', {hasText: 'Cutoff'}), cb = await cut.boundingBox(); await page.mouse.move(cb.x + cb.width/2, cb.y + 20); await page.mouse.down();
+  await page.mouse.move(cb.x + cb.width/2, cb.y + 100, {steps: 6}); const liveCut = await D(() => window.__daw.SI.state().M.values.cut); await page.mouse.up(); await page.waitForTimeout(300);
+  const cut2 = await D(() => { const {ST, SND} = window.__daw, s = SND[ST.P.tracks[4].sound]; return [s.mine, s.src.poly?.cut]; });
+  check('turning the cutoff down moves the graph as it turns, and sets your copy when let go', liveCut < 1300 && cut2[0] && cut2[1] < 1300 && Math.abs(cut2[1] - liveCut) < liveCut*.05, `${liveCut} ${JSON.stringify(cut2)}`);
+  await page.keyboard.press('Meta+z');
+  // the hats: pads, one a voice; a pad pressed plays it and picks it
+  await page.locator('.trk').nth(1).click(); await page.waitForTimeout(300); const pads = await D(() => [...document.querySelectorAll('#iKeys .pad')].map(p => p.dataset.p));
+  await page.locator('#iKeys .pad[data-p="ohh"]').click(); await page.waitForTimeout(200);
+  check('the hats’ instrument has a pad for each voice, and pressing one picks it', pads.join() === 'chh,ohh,ride' && await D(() => window.__daw.SI.state().M.voice) === 'ohh', pads.join());
+  // a clip double-clicked goes back to its notes
+  const [cx, cy] = await at(1, (await clips(1))[0].start + .5); await page.mouse.dblclick(cx, cy);
+  check('double-clicking a clip shows its notes again', await D(() => !window.__daw.SI.isOn() && getComputedStyle(document.getElementById('edWrap')).display !== 'none')); }
+
 // on a phone: the picture fits, a section tapped loops it, a drag pans, a clip can't be dragged, a like still works
 { const ph = await browser.newPage({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2});
   ph.on('pageerror', e => { failed = true; console.log('FAIL page error (phone):', e.message); });

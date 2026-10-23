@@ -97,52 +97,66 @@ export function makeSounds(A){
   function mine(){ const id = current(), s = SND[id]; if (s.mine) return s;
     const d = {...clone(strip(s)), id: 'u-' + Date.now().toString(36) + Math.floor(Math.random()*1e3), name: s.name + ' (yours)', base: id, pack: 'mine', words: `Your version of ${s.name}.`, mine: true};
     SND[d.id] = d; assign(d.id, {quiet: true}); flash(`Your own copy: “${d.name}”, in Your sounds`); return d; }
-  // a setting changed: the copy saved, the track's instrument built again and the phrase played with it
-  let tT = 0; function commit(d){ SND[d.id] = d; ST.P.sounds = {...ST.P.sounds, [d.id]: clone(strip(d))}; keep(strip(d)); changed(); E.refresh(); A.renderTracks();
-    clearTimeout(tT); tT = setTimeout(() => tryIt(d.id), 120); }
-  function slider(label, min, max, step, val, set, fmt = v => (+v).toFixed(step >= 1 ? 0 : step >= .1 ? 1 : 2), log = false){
-    const toS = v => log ? Math.log(v/min)/Math.log(max/min) : (v - min)/(max - min), fromS = u => log ? min*Math.pow(max/min, u) : min + u*(max - min);
-    const out = h('span', {class: 'kv'}, fmt(val)), r = h('input', {type: 'range', min: 0, max: 1000, step: 1, value: Math.round(1000*clamp(toS(val), 0, 1)), 'aria-label': label});
-    const val0 = () => { const u = +r.value/1000, v = fromS(u); return log ? +v.toPrecision(3) : Math.round(v/step)*step; };
-    r.oninput = () => { out.textContent = fmt(val0()); };
-    // (let go: the change made, on your copy, as one undo step; the panel is drawn again only then, never mid-drag)
-    r.onchange = () => { if (!editable()) return; checkpoint(); const d = mine(); set(d, +val0().toFixed(4)); commit(d); render(); };
-    r.ondblclick = () => { if (!editable()) return; checkpoint(); const dd = mine(); set(dd, undefined); commit(dd); render(); };
-    return h('label', {class: 'knob'}, h('span', {class: 'kl'}, label), r, out); }
-  function pick(label, opts, val, set){ const s = h('select', {'aria-label': label}); for (const [v, t] of opts) s.append(h('option', {value: v}, t)); s.value = val;
-    s.onchange = () => { if (!editable()) { s.value = val; return; } checkpoint(); const d = mine(); set(d, s.value); commit(d); render(); }; return h('label', {class: 'knob'}, h('span', {class: 'kl'}, label), s); }
-  // the knobs of a native instrument: the value shown is what it plays now (your setting, else the section's, else its own)
-  function nativeKnobs(box, name, base, knobs, write){ const K = INST[name]; if (!K) { box.append(h('div', {class: 'muted small'}, 'This instrument has no settings yet.')); return; }
-    const eff = {...nativeSet({...track().set}, name, base || {}), ...knobs};
-    for (const [k, label, lo, hi, step] of K.knobs) box.append(slider(label, lo, hi, step, eff[k] ?? defaultOf(name, k, lo, hi), (d, v) => write(d, k, v))); }
-  const instOpts = (list) => list.filter(k => INST[k]).map(k => [k, INST[k].label]).sort((a, b) => a[1].localeCompare(b[1]));
+  // a setting changed: the copy saved, the track's instrument built again, and it heard (the phrase, or one note)
+  let tT = 0; function commit(d, {note} = {}){ SND[d.id] = d; ST.P.sounds = {...ST.P.sounds, [d.id]: clone(strip(d))}; keep(strip(d)); changed(); E.refresh(); A.renderTracks();
+    clearTimeout(tT); tT = setTimeout(() => note ? E.preview(ST.sel.track, d.id, [note]) : tryIt(d.id), 120); for (const f of HOOKS) f(); }
+  const HOOKS = [];
 
-  function renderEdit(){ const box = $('sdBody'), id = current(), s = SND[id], T = track(); box.innerHTML = ''; if (!s) return;
+  // the sound's controls, whatever makes it: groups of settings, each with its value now, its range, how it's written on
+  // your copy, and (the poly synth's and a drum machine's) how it's heard at once while it's being turned
+  const instOpts = (list) => list.filter(k => INST[k]).map(k => [k, INST[k].label]).sort((a, b) => a[1].localeCompare(b[1]));
+  const fmtOf = step => v => (+v).toFixed(step >= 1 ? 0 : step >= .1 ? 1 : step >= .01 ? 2 : 3);
+  const knobsOf = (name, base, knobs, write) => { const K = INST[name]; if (!K) return [];
+    const eff = {...nativeSet({...track().set}, name, base || {}), ...knobs};      // (what it plays now: your setting, else the section's, else its own)
+    return K.knobs.map(([k, label, lo, hi, step]) => ({key: k, label, min: lo, max: hi, step, value: eff[k] ?? defaultOf(name, k, lo, hi), fmt: fmtOf(step), write: (d, v) => write(d, k, v)})); };
+  function model(){ const id = current(), s = SND[id], ti = ST.sel.track; if (!s) return null;
+    if (s.voices) { const vs = Object.keys(s.voices); if (!vs.includes(UI.voice)) UI.voice = vs[0]; const vo = UI.voice, m = s.voices[vo];
+      const W = f => (d, v) => { const w = d.voices[vo] = {...d.voices[vo]}; f(w, v); };
+      if (m.native) { const items = [{key: 'native', label: 'Instrument', list: instOpts(DRUMISH), value: m.native, write: W((w, v) => { d0(w); w.native = v; })}];
+        if (!NOTPITCHED.includes(m.native)) items.push({key: 'n', label: 'Pitch', min: 24, max: 96, step: 1, value: m.n ?? 48, fmt: v => A.nn(Math.round(v)), write: W((w, v) => { w.n = v ?? 48; })});
+        return {id, s, kind: 'drums', voices: vs, voice: vo, note: {s: 0, p: vo, l: 1, v: .9}, groups: [{name: INST[m.native]?.label || m.native, items: [...items, ...knobsOf(m.native, m.set, m.knobs || {}, (d, k, v) => W((w, v) => { w.knobs = {...w.knobs}; if (v === undefined) delete w.knobs[k]; else w.knobs[k] = v; })(d, v))]}]}; }
+      const P = {...kitParams(m.kit)[vo], ...(m.over?.[vo] || {})};
+      return {id, s, kind: 'drums', voices: vs, voice: vo, note: {s: 0, p: vo, l: 1, v: .9}, groups: [{name: `${m.kit} drum machine · ${VNAME[vo] || vo}`, items: [
+        {key: 'kit', label: 'Drum machine', list: KIT_NAMES.map(k => [k, k]), value: m.kit, write: W((w, v) => { w.kit = v; })},
+        ...KITP.map(p => ({key: p.key, label: p.key === 'x' ? 'Character' : p.label, min: p.min, max: p.max, step: p.unit === 'st' ? 1 : .01, log: !!p.log, value: P[p.key] ?? p.def, def: p.def, fmt: fmtOf(p.unit === 'st' ? 1 : .01),
+          live: v => E.live(ti, {kit: vo, key: p.key}, v), write: W((w, v) => { w.over = {...w.over}; w.over[vo] = {...w.over[vo]}; if (v === undefined) delete w.over[vo][p.key]; else w.over[vo][p.key] = v; })}))]}]}; }
+    const T = track(), [lo, hi] = trackRange(T), mid = Math.round((lo + hi)/2), note = {s: 0, p: mid, l: 4, v: .85}, n = nativeOf(s);
+    if (n) return {id, s, kind: 'native', native: n, note, groups: [
+      {name: 'Instrument', items: [{key: 'native', label: 'Instrument', list: instOpts(Object.keys(INST).filter(k => !NOTPITCHED.includes(k))), value: n, write: (d, v) => { d.src = {native: v, shift: d.src.shift || 0}; }},
+        {key: 'shift', label: 'Octave', min: -3, max: 3, step: 1, value: Math.round((s.src.shift || 0)/12), def: 0, fmt: v => (v > 0 ? '+' : '') + Math.round(v), write: (d, v) => { d.src = {...d.src, shift: 12*(v ?? 0)}; }}]},
+      {name: INST[n]?.label || n, items: knobsOf(n, s.src.set, s.src.knobs || {}, (d, k, v) => { d.src = {...d.src, knobs: {...d.src.knobs}}; if (v === undefined) delete d.src.knobs[k]; else d.src.knobs[k] = v; })}]};
+    const [preset, set] = PAL[s.src.palette], base = {...POLYD, ...POLYP[preset], ...set, ...s.src.poly};
+    return {id, s, kind: 'poly', preset, values: base, note, groups: POLY.map(([group, ps]) => ({name: group, items: ps.filter(p => p.key !== 'chord').map(p => ({key: p.key, label: p.label, list: p.list && p.list.map((t, i) => [i, t]), min: p.min, max: p.max, log: !!p.log,
+      step: p.step || (p.max - p.min > 50 ? 1 : .01), value: base[p.key] ?? p.def, def: (POLYP[preset] || {})[p.key] ?? set[p.key] ?? p.def, unit: p.unit, fmt: v => polyFmt(p, v),
+      live: v => E.live(ti, {poly: p.key}, v), write: (d, v) => { d.src = {...d.src, poly: {...d.src.poly}}; if (v === undefined) delete d.src.poly[p.key]; else d.src.poly[p.key] = p.list ? +v : v; }}))})).filter(g => g.items.length)}; }
+  const d0 = w => { delete w.knobs; };
+  const polyFmt = (p, v) => p.unit === 'Hz' ? (v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v)) : p.unit === 's' ? (v < 1 ? Math.round(v*1000) + 'ms' : (+v).toFixed(2) + 's') : p.unit === '%' ? Math.round(v*100) + '%' : p.unit === 'st' ? (v > 0 ? '+' : '') + Math.round(v) : p.unit === 'ct' ? Math.round(v) + 'ct' : p.unit === 'oct' ? (v > 0 ? '+' : '') + Math.round(v) : (+v).toFixed(2);
+  // a control set: one undo step, on your copy, heard
+  function change(item, v, {note} = {}){ if (!editable()) return false; checkpoint(); const d = mine(); item.write(d, v); commit(d, {note}); render(); return true; }
+
+  // the side panel's Edit tab: the same controls as sliders and menus
+  function slider(it){ const {min, max, log} = it, toS = v => log ? Math.log(v/min)/Math.log(max/min) : (v - min)/(max - min), fromS = u => log ? min*Math.pow(max/min, u) : min + u*(max - min);
+    const fmt = it.fmt || fmtOf(it.step), out = h('span', {class: 'kv'}, fmt(it.value)), r = h('input', {type: 'range', min: 0, max: 1000, step: 1, value: Math.round(1000*clamp(toS(it.value), 0, 1)), 'aria-label': it.label});
+    const val0 = () => { const v = fromS(+r.value/1000); return log ? +v.toPrecision(3) : Math.round(v/it.step)*it.step; };
+    r.oninput = () => { out.textContent = fmt(val0()); it.live?.(val0()); };
+    // (let go: the change made, on your copy, as one undo step; the panel is drawn again only then, never mid-drag)
+    r.onchange = () => change(it, +val0().toFixed(4)); r.ondblclick = () => change(it, undefined);
+    return h('label', {class: 'knob'}, h('span', {class: 'kl'}, it.label), r, out); }
+  function pick(it){ const s = h('select', {'aria-label': it.label}); for (const [v, t] of it.list) s.append(h('option', {value: v}, t)); s.value = it.value;
+    s.onchange = () => { if (!change(it, s.value)) s.value = it.value; }; return h('label', {class: 'knob'}, h('span', {class: 'kl'}, it.label), s); }
+
+  function renderEdit(){ const box = $('sdBody'), M = model(); box.innerHTML = ''; if (!M) return; const s = M.s;
     $('sdName').value = s.name; $('sdName').disabled = !s.mine; $('sdFrom').textContent = s.mine ? (s.base && SND[s.base] ? `From ${SND[s.base].name} · ${famOf(SND[s.base])}` : 'Your sound') : `${famOf(s)} · ${engineOf(s)}. Changing anything makes your own copy.`;
     $('sdReset').hidden = !s.mine || !s.base;
-    if (s.voices) { const vs = Object.keys(s.voices); if (!vs.includes(UI.voice)) UI.voice = vs[0];
-      box.append(h('div', {class: 'voices'}, ...vs.map(v => h('button', {'aria-pressed': String(v === UI.voice), onclick: () => { UI.voice = v; renderEdit(); E.preview(ST.sel.track, current(), [{s: 0, p: v, l: 1, v: .9}, {s: 4, p: v, l: 1, v: .55}]); }}, VNAME[v] || v))));
-      const m = s.voices[UI.voice];
-      if (m.native) { box.append(pick('Instrument', instOpts(DRUMISH), m.native, (d, v) => { d.voices[UI.voice] = {native: v, n: d.voices[UI.voice].n}; }));
-        if (!NOTPITCHED.includes(m.native)) box.append(slider('Pitch', 24, 96, 1, m.n ?? 48, (d, v) => { d.voices[UI.voice].n = v ?? 48; }, v => A.nn(Math.round(v))));
-        nativeKnobs(box, m.native, m.set, m.knobs || {}, (d, k, v) => { const w = d.voices[UI.voice]; w.knobs = {...w.knobs}; if (v === undefined) delete w.knobs[k]; else w.knobs[k] = v; }); }
-      else { box.append(pick('Drum machine', KIT_NAMES.map(k => [k, k]), m.kit, (d, v) => { d.voices[UI.voice].kit = v; }));
-        const P = {...kitParams(m.kit)[UI.voice], ...(m.over?.[UI.voice] || {})};
-        for (const p of KITP) box.append(slider(p.key === 'x' ? 'Character' : p.label, p.min, p.max, p.unit === 'st' ? 1 : .01, P[p.key] ?? p.def, (d, v) => { const w = d.voices[UI.voice]; w.over = {...w.over}; w.over[UI.voice] = {...w.over[UI.voice]}; if (v === undefined) delete w.over[UI.voice][p.key]; else w.over[UI.voice][p.key] = v; }, undefined, !!p.log)); } }
-    else { const n = nativeOf(s);
-      if (n) { box.append(pick('Instrument', instOpts(Object.keys(INST).filter(k => !NOTPITCHED.includes(k))), n, (d, v) => { d.src = {native: v, shift: d.src.shift || 0}; }));
-        box.append(slider('Octave', -3, 3, 1, Math.round((s.src.shift || 0)/12), (d, v) => { d.src.shift = 12*(v ?? 0); }, v => (v > 0 ? '+' : '') + Math.round(v)));
-        nativeKnobs(box, n, s.src.set, s.src.knobs || {}, (d, k, v) => { d.src.knobs = {...d.src.knobs}; if (v === undefined) delete d.src.knobs[k]; else d.src.knobs[k] = v; }); }
-      else { const [preset, set] = PAL[s.src.palette], base = {...POLYD, ...POLYP[preset], ...set, ...s.src.poly};
-        for (const [group, ps] of POLY) { const list = ps.filter(p => p.key !== 'chord'); if (!list.length) continue; box.append(h('div', {class: 'grp'}, group));
-          for (const p of list) { const w = (d, v) => { d.src.poly = {...d.src.poly}; if (v === undefined) delete d.src.poly[p.key]; else d.src.poly[p.key] = p.list ? +v : v; };
-            box.append(p.list ? pick(p.label, p.list.map((t, i) => [i, t]), base[p.key] ?? p.def, w) : slider(p.label, p.min, p.max, p.step || (p.max - p.min > 50 ? 1 : .01), base[p.key] ?? p.def, w, undefined, !!p.log)); } } } }
-    box.append(h('div', {class: 'muted small', style: 'margin-top:8px'}, 'Drag a slider and let go to hear it on this track’s notes. Double-click a slider to put it back.')); }
+    if (M.voices) box.append(h('div', {class: 'voices'}, ...M.voices.map(v => h('button', {'aria-pressed': String(v === M.voice), onclick: () => { setVoice(v); E.preview(ST.sel.track, current(), [{s: 0, p: v, l: 1, v: .9}, {s: 4, p: v, l: 1, v: .55}]); }}, VNAME[v] || v))));
+    for (const g of M.groups) { if (M.groups.length > 1) box.append(h('div', {class: 'grp'}, g.name)); for (const it of g.items) box.append(it.list ? pick(it) : slider(it)); }
+    box.append(h('div', {class: 'muted small', style: 'margin-top:8px'}, 'Drag a slider and let go to hear it on this track’s notes. Double-click a slider to put it back. The instrument itself, with its knobs, graphs and a keyboard: B.')); }
+  function setVoice(v){ UI.voice = v; render(); for (const f of HOOKS) f(); }
   $('sdName').onchange = e => { const s = SND[current()]; if (!s?.mine) return; const d = {...s, name: e.target.value.trim() || s.name}; commit(d); render(); };
   $('sdReset').onclick = () => { const s = SND[current()]; if (!s?.base || !editable()) return; checkpoint(); assign(s.base); };
   $('sdTry').onclick = () => tryIt(current());
   $('sdAskB').onclick = async () => { const t = $('sdAskT').value.trim(); if (!t) return; const T = track();
     await addNote(0, t, {kind: 'sound', tracks: [T.name], role: T.role, sound: current(), desc: `A sound for the ${T.name.toLowerCase()}`}); $('sdAskT').value = ''; flash('Asked Claude for the sound: it’s in your notes'); };
 
-  return {show, render, isOpen: () => UI.open, loadDb, adopt, keep};
+  return {show, render, isOpen: () => UI.open, loadDb, adopt, keep, model, change, setVoice, current, track, scopeText, famOf, engineOf, onChange: f => HOOKS.push(f), reset: () => $('sdReset').onclick(), tryIt: () => tryIt(current()), VNAME};
 }
