@@ -304,6 +304,51 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await D(() => { const {E} = window.__daw; E.play(32); }); await page.waitForTimeout(1500); const song = await rms(); await D(() => window.__daw.E.stop());
   check('the song plays with the live bass', song > .01, song.toFixed(4)); await page.keyboard.press('b'); }
 
+// more tracks: + Add a track (a kind: the new track below the selected one, its sound from a track of that kind), a clip
+// made in it, a bass clip dragged onto it, renamed in place, duplicated with its clips, deleted with a second click, and
+// every step undone; kept across a reload; Claude's version as written, without them
+{ await page.reload(); await page.waitForTimeout(1500); await D(() => { const {ST, E} = window.__daw; ST.P.tracks[4].sound = ST.orig.tracks[4].sound; E.refresh(); });
+  const n0 = await D(() => window.__daw.ST.P.tracks.length), names = () => D(() => window.__daw.ST.P.tracks.map(T => T.name));
+  await page.locator('.trk').nth(3).click(); await page.click('#addTrk'); await page.locator('#pop button', {hasText: /^Bass/}).click(); await page.waitForTimeout(300);
+  const nt = await D(() => { const {ST, E} = window.__daw, T = ST.P.tracks[4]; return {n: ST.P.tracks.length, name: T.name, role: T.role, sound: T.sound, bass: ST.P.tracks[3].sound, clips: T.clips.length, sel: ST.sel.track, rows: document.querySelectorAll('#trackList .trk').length, ch: E.ctx ? E.ch.length : null}; });
+  check('+ Add a track → Bass: a “Bass 2” below the bass, empty, on the bass’s sound', nt.n === n0 + 1 && nt.name === 'Bass 2' && nt.role === 'bass' && nt.sound === nt.bass && nt.clips === 0 && nt.sel === 4 && nt.rows === n0 + 1, JSON.stringify(nt));
+  // a clip made in it by a double-click, and one of the bass's dragged down onto it
+  await D(() => { const {ST} = window.__daw; ST.sx = 30*ST.px; ST.sy = 0; window.__daw.E && 0; }); await D(() => document.getElementById('arr').dispatchEvent(new WheelEvent('wheel', {deltaY: 0})));
+  const [x1, y1] = await at(4, 31.5); await page.mouse.dblclick(x1, y1); await page.waitForTimeout(200);
+  const made = await D(() => window.__daw.ST.P.tracks[4].clips.map(c => [c.start, c.len]));
+  check('a double-click in its lane makes a bar-long clip there', made.length === 1 && made[0][0] === 31 && made[0][1] === 16, JSON.stringify(made));
+  await page.keyboard.press('Escape'); const bc = (await clips(3))[0], [bx1, by1] = await at(3, bc.start + 2), [, by2] = await at(4, bc.start + 2);
+  await page.mouse.move(bx1, by1); await page.mouse.down(); await page.mouse.move(bx1, by2, {steps: 6}); await page.mouse.up(); await page.waitForTimeout(200);
+  check('a bass clip dragged down onto it moves there', await D(`window.__daw.ST.P.tracks[4].clips.some(c => c.id === '${bc.id}') && !window.__daw.ST.P.tracks[3].clips.some(c => c.id === '${bc.id}')`));
+  // heard: the song from that clip, the new track's channel playing
+  await D(() => { const {E} = window.__daw; E.init(); }); await page.waitForTimeout(200);
+  check('the engine has a channel for it', await D(() => window.__daw.E.ch.length === window.__daw.ST.P.tracks.length && window.__daw.E.ch[4].T === window.__daw.ST.P.tracks[4]));
+  // renamed in place
+  await page.locator('.trk').nth(4).locator('.nm').dblclick(); await page.keyboard.press('Meta+a'); await page.keyboard.type('Sub line'); await page.keyboard.press('Enter');
+  check('double-clicking its name renames it', (await names())[4] === 'Sub line', JSON.stringify(await names()));
+  // duplicated with its clips, from its ⋯ menu
+  await page.locator('.trk').nth(4).locator('.more').click(); await page.locator('#pop button', {hasText: 'Duplicate'}).click(); await page.waitForTimeout(200);
+  const dup = await D(() => { const T = window.__daw.ST.P.tracks; return [T.length, T[5].name, T[5].clips.length, T[4].clips.length, new Set(T.flatMap(x => x.clips.map(c => c.id))).size === T.flatMap(x => x.clips).length]; });
+  check('⋯ → Duplicate copies it below with its clips (each its own)', dup[0] === n0 + 2 && dup[1] === 'Sub line 2' && dup[2] === dup[3] && dup[4], JSON.stringify(dup));
+  // deleted: the first click asks, the second deletes
+  await page.locator('.trk').nth(5).locator('.more').click(); const del = page.locator('#pop button', {hasText: 'Delete'}); await del.click();
+  const asked = await D(() => [document.querySelector('#pop .danger')?.textContent, window.__daw.ST.P.tracks.length]); await del.click(); await page.waitForTimeout(200);
+  check('Delete asks once (naming its clips), then deletes', /click again/.test(asked[0]) && asked[1] === n0 + 2 && (await names()).length === n0 + 1, JSON.stringify(asked));
+  // undone step by step: the deletion, the copy, the name, the drag, the clip, the track
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Meta+z');
+  check('undo takes them all back, track and all', (await names()).length === n0 && !(await names()).includes('Bass 2') && await D(`window.__daw.ST.P.tracks[3].clips.some(c => c.id === '${bc.id}')`), JSON.stringify(await names()));
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Meta+Shift+z');
+  check('and redo brings them back', (await names()).join() === [...(await D(() => window.__daw.ST.orig.tracks.map(T => T.name))).slice(0, 4), 'Sub line', ...(await D(() => window.__daw.ST.orig.tracks.map(T => T.name))).slice(4)].join(), JSON.stringify(await names()));
+  await page.waitForTimeout(900); await page.reload(); await page.waitForTimeout(1500);
+  check('the new track is kept after a reload', (await names()).includes('Sub line') && await D(() => window.__daw.ST.P.tracks.find(T => T.name === 'Sub line').clips.length === 2));
+  await page.click('#ver'); const cl = await names(); await page.click('#ver');
+  check('Claude’s version plays as written, without it; yours brings it back', cl.length === n0 && !cl.includes('Sub line') && (await names()).includes('Sub line'), JSON.stringify(cl));
+  // a new track of a kind no track has yet: Lead → its sound from the library; ⌥⌘N opens the menu
+  await page.keyboard.press('Escape'); await page.keyboard.press('Meta+Alt+n'); const menu = await D(() => !!document.getElementById('pop'));
+  await page.locator('#pop button', {hasText: /^Chords/}).click(); await page.waitForTimeout(200);
+  const ch = await D(() => { const {ST, SND} = window.__daw, T = ST.P.tracks[ST.sel.track]; return [T.name, T.role, SND[T.sound]?.role]; });
+  check('⌥⌘N opens the menu; Chords adds “Chords 2” on a chords sound', menu && ch[0] === 'Chords 2' && ch[1] === 'chords' && ch[2] === 'chords', JSON.stringify(ch)); }
+
 // on a phone: the picture fits, a section tapped loops it, a drag pans, a clip can't be dragged, a like still works
 { const ph = await browser.newPage({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2});
   ph.on('pageerror', e => { failed = true; console.log('FAIL page error (phone):', e.message); });

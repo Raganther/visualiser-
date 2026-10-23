@@ -56,6 +56,11 @@ select{background:var(--panel2); border:1px solid var(--line); border-radius:7px
 .pad{flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:12px; background:var(--panel2)} .pad .pk{font:10px var(--mono); color:var(--mute)}
 .pad[aria-pressed="true"]{background:var(--panel2); color:var(--ink); border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)} .pad[data-down="1"]{background:var(--acc); color:#111}
 .etabs button{min-height:26px; padding:0 10px; font-size:12px} body.phone #tabInst{display:none}
+.addTrk{padding:8px} .addTrk button{width:100%; border-style:dashed; background:none; color:var(--mute)} .addTrk button:hover{color:var(--ink)} body.phone .addTrk, body.phone .trk .more{display:none}
+.pop{position:fixed; z-index:20; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:4px; min-width:220px; box-shadow:0 10px 30px rgba(0,0,0,.45); display:flex; flex-direction:column}
+.pop button{display:flex; align-items:center; gap:8px; background:none; border:none; border-radius:6px; text-align:left; min-height:30px; padding:4px 10px} .pop button:hover,.pop button:focus-visible{background:#353b45; outline:none}
+.pop .dot{width:9px; height:9px; border-radius:50%; flex:none} .pop .sep{height:1px; background:var(--line); margin:4px 2px} .pop .danger{color:#ff8a7a}
+.trk .ren{width:120px; font:600 13px system-ui; background:#0f1114; color:var(--ink); border:1px solid var(--acc); border-radius:5px; padding:1px 4px}
 #notes{position:fixed; right:12px; top:56px; width:340px; max-height:70vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; box-shadow:0 10px 30px rgba(0,0,0,.4); z-index:5}
 #notes h2{font-size:14px; margin:0 0 6px} #notes textarea{width:100%; min-height:70px; background:#0f1114; color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:6px; font:inherit; resize:vertical}
 .note{border-top:1px solid var(--line); padding:6px 0; font-size:13px} .note .tg{color:var(--acc); font-size:12px; cursor:pointer} .note .x{float:right; min-height:22px; padding:0 6px}

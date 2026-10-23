@@ -98,7 +98,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     E.end = P.bars*16; };
   // the clip a track is in at a 16th (the later one where two overlap)
   const clipAt = (i, k) => { let c = null; for (const [a, b, cl] of E.at[i]) if (k >= a && k < b && (!c || a >= c[0])) c = [a, b, cl]; return c; };
-  E.load = P => { E.P = P; E.compile(); if (!E.ctx) return; for (const c of E.ch) try { c.x.out.disconnect(); } catch {}
+  E.load = P => { E.P = P; E.compile(); if (!E.ctx) return; for (const c of E.ch) { try { c.x.out.disconnect(); } catch {} drop(c.inst); } E.kb = null;
     E.ch = P.tracks.map((T, i) => { const c = chan(T, i); build(c, T.sound); return c; }); masterMix(); for (const c of E.ch) settle(c, null); E.prewarm(); };
   // every native note the song needs, computed ahead (each note at its clip's tone and length, a ramp's at each bar's)
   E.prewarm = () => { if (!E.ctx) return; E.P.tracks.forEach((T, i) => { const c = E.ch[i];

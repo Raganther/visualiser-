@@ -42,10 +42,12 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
-const snapshot = () => JSON.stringify({tracks: ST.P.tracks.map(T => ({clips: T.clips, mix: T.mix, mute: T.mute, sound: T.sound})), sounds: ST.P.sounds || {}});
+const snapshot = () => JSON.stringify({tracks: ST.P.tracks, sounds: ST.P.sounds || {}});   // (whole tracks: adding and deleting them undo too)
 function checkpoint(){ ST.past.push(snapshot()); if (ST.past.length > 100) ST.past.shift(); ST.fut = []; }
-function restore(json){ const Q = JSON.parse(json); ST.P.tracks.forEach((T, i) => { T.clips = Q.tracks[i].clips; T.mix = Q.tracks[i].mix; T.mute = Q.tracks[i].mute; T.sound = Q.tracks[i].sound ?? T.sound; });
-  ST.P.sounds = Q.sounds || {}; SB.adopt(ST.P.sounds);
+function restore(json){ const Q = JSON.parse(json), same = Q.tracks.length === ST.P.tracks.length && Q.tracks.every((T, i) => T.id === ST.P.tracks[i].id);
+  // the same tracks: each one's contents put back in place (the engine's channels keep them); others: the tracks replaced, the channels made again
+  if (same) ST.P.tracks.forEach((T, i) => { for (const k of Object.keys(T)) delete T[k]; Object.assign(T, Q.tracks[i]); }); else { ST.P.tracks = Q.tracks; E.load(ST.P); }
+  ST.sel.track = Math.min(ST.sel.track, ST.P.tracks.length - 1); ST.P.sounds = Q.sounds || {}; SB.adopt(ST.P.sounds);
   if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.ed.sel.clear(); for (const id of [...ST.sel.clips]) if (!findClip(id)) ST.sel.clips.delete(id); E.compile(); E.refresh(); changed(true); renderTracks(); SB.render(); }
 function undo(){ if (!ST.past.length) { flash('Nothing to undo'); return; } ST.fut.push(snapshot()); restore(ST.past.pop()); flash('Undone'); }
 function redo(){ if (!ST.fut.length) { flash('Nothing to redo'); return; } ST.past.push(snapshot()); restore(ST.fut.pop()); flash('Redone'); }
@@ -60,7 +62,7 @@ let flT = 0; function flash(t){ const f = $('flash'); f.textContent = t; f.datas
 function renderVer(){ $('ver').textContent = ST.mine ? 'Yours' : 'Claude’s'; $('ver').setAttribute('aria-pressed', String(!ST.mine)); }
 $('ver').onclick = () => { if (ST.mine) { ST.held = snapshot(); restoreFrom(ST.orig); ST.mine = false; flash('Claude’s version, as written: switch back to edit yours'); }
   else { restore(ST.held); ST.mine = true; flash('Your version'); } renderVer(); };
-function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks.map(T => ({clips: clone(T.clips), mix: clone(T.mix), mute: T.mute, sound: T.sound})), sounds: clone(P.sounds || {})})); }
+function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks, sounds: P.sounds || {}})); }
 const PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
 if (PHONE) { document.body.classList.add('phone'); $('rulerHead').lastElementChild.textContent = 'tap a section to loop it'; }
 const editable = () => { if (PHONE) return false; if (ST.mine) return true; flash('This is Claude’s version: switch to Yours to edit'); return false; };
@@ -72,20 +74,54 @@ function renderTracks(){ const box = $('trackList'); box.innerHTML = '';
       h('div', {class: 'nm', style: `border-left:4px solid ${colorOf(T, i)}`, title: SND[T.sound]?.name || T.sound}, T.name, ' ', h('span', {class: 'snd', role: 'button', tabindex: '0', title: 'Change the sound (Y)', onclick: e => { e.stopPropagation(); selTrack(i); SB.show(true); }}, SND[T.sound]?.name || T.sound)),
       h('div', {class: 'btns'}, h('button', {class: 'ms', 'aria-pressed': String(!!T.mute), title: 'Mute', onclick: e => { e.stopPropagation(); T.mute = !T.mute; changed(true); renderTracks(); }}, 'M'),
         h('button', {class: 'ms s', 'aria-pressed': String(!!M.solo), title: 'Solo', onclick: e => { e.stopPropagation(); M.solo = !M.solo; changed(true); renderTracks(); }}, 'S'),
-        h('button', {title: 'A note about this track', onclick: e => { e.stopPropagation(); selTrack(i); compose(); }}, '💬')),
+        h('button', {title: 'A note about this track', onclick: e => { e.stopPropagation(); selTrack(i); compose(); }}, '💬'),
+        h('button', {class: 'more', title: 'Rename, duplicate or delete the track', 'aria-haspopup': 'menu', onclick: e => { e.stopPropagation(); selTrack(i); trackMenu(e.currentTarget, i); }}, '⋯')),
       h('div', {class: 'sliders'}, h('span', {class: 'small muted', style: 'width:52px; font-family:var(--mono)'}, (M.vol > 0 ? '+' : '') + (+M.vol).toFixed(1)),
         slider(-40, 6, .5, M.vol, v => { M.vol = v; row.querySelector('.sliders span').textContent = (v > 0 ? '+' : '') + v.toFixed(1); changed(true); }, 'Level (dB)'),
         slider(-1, 1, .05, M.pan || 0, v => { M.pan = v; changed(true); }, 'Pan', 'pan')));
-    row.onclick = () => selTrack(i); box.append(row); }); }
+    row.onclick = () => selTrack(i); row.querySelector('.nm').ondblclick = e => { e.stopPropagation(); rename(i); }; box.append(row); });
+  if (!PHONE) box.append(h('div', {class: 'addTrk'}, h('button', {id: 'addTrk', title: 'A new track (⌥⌘N)', 'aria-haspopup': 'menu', onclick: e => addMenu(e.currentTarget)}, '+ Add a track'))); }
 function slider(min, max, step, val, set, label, cls = ''){ const s = h('input', {type: 'range', min, max, step, value: val, 'aria-label': label, title: label, class: cls}); s.oninput = () => set(+s.value); s.ondblclick = () => { s.value = 0; set(0); }; s.onclick = e => e.stopPropagation(); return s; }
 function selTrack(i){ ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); draw(); target(); }
 function clearSel(){ ST.sel = {clips: new Set(), range: null, mark: null, track: ST.sel?.track ?? 0, trackOnly: false}; }
+
+/* ---------- adding, renaming, duplicating and deleting tracks ---------- */
+const ROLES = [['kick', 'Kick', 'a drum: the kick'], ['hats', 'Hats', 'a drum: hats and cymbals'], ['perc', 'Percussion', 'drums: hand drums, wood, metal'], ['bass', 'Bass', 'a bass line'], ['chords', 'Chords', 'chords and pads'], ['lead', 'Lead', 'a melody']];
+const uniqueName = base => { const names = new Set(ST.P.tracks.map(T => T.name)); if (!names.has(base)) return base; let k = 2; while (names.has(`${base} ${k}`)) k++; return `${base} ${k}`; };
+// a menu by a button: its items, closed by a click elsewhere or Escape
+function popup(at, items){ closePop(); const r = at.getBoundingClientRect(), m = h('div', {class: 'pop', role: 'menu', id: 'pop'});
+  for (const it of items) m.append(it.sep ? h('div', {class: 'sep'}) : h('button', {role: 'menuitem', class: it.danger ? 'danger' : '', onclick: e => { e.stopPropagation(); if (it.keep) it.run(e.currentTarget); else { closePop(); it.run(); } }}, it.dot ? h('span', {class: 'dot', style: `background:${it.dot}`}) : '', it.label, it.note ? h('span', {class: 'muted small'}, ' ' + it.note) : ''));
+  document.body.append(m); const W = m.offsetWidth, H = m.offsetHeight; m.style.left = Math.max(8, Math.min(innerWidth - W - 8, r.left)) + 'px'; m.style.top = (r.bottom + H + 8 > innerHeight ? Math.max(8, r.top - H - 4) : r.bottom + 4) + 'px';
+  m.querySelector('button')?.focus(); setTimeout(() => addEventListener('pointerdown', outside), 0); }
+const outside = e => { if (!e.target.closest('#pop')) closePop(); };
+function closePop(){ $('pop')?.remove(); removeEventListener('pointerdown', outside); }
+function addMenu(at){ if (!editable()) return; popup(at, [...ROLES.map(([r, label, note]) => ({label, note, dot: COLORS[r], run: () => addTrack(r)})), {sep: true}, {label: 'Duplicate the selected track', run: () => addTrack(null, ST.sel.track)}]); }
+function trackMenu(at, i){ const T = ST.P.tracks[i]; popup(at, [{label: 'Rename…', run: () => rename(i)}, {label: 'Change the sound…', run: () => SB.show(true)}, {label: 'Duplicate', run: () => addTrack(null, i)},
+  {label: `Add a ${(ROLES.find(r => r[0] === T.role)?.[1] || 'track').toLowerCase()} track below`, run: () => addTrack(T.role)}, {sep: true},
+  {label: 'Delete the track', danger: true, keep: true, run: b => { if (b.dataset.sure) { closePop(); delTrack(i); } else { b.dataset.sure = '1'; b.textContent = `Delete “${T.name}” and its ${T.clips.length} clip${T.clips.length === 1 ? '' : 's'}: click again`; } }}]); }
+// a new track below the selected one: of a kind (its sound and settings taken from a track of that kind, else the library's
+// first), empty; or a copy of a track, its clips with it
+function addTrack(role, from){ if (!editable()) return; checkpoint(); const src = from != null ? ST.P.tracks[from] : null, at = Math.min(ST.P.tracks.length, (ST.sel.track ?? ST.P.tracks.length - 1) + 1), id = 't' + Date.now().toString(36) + (ST.nid++);
+  let T; if (src) T = {...clone(src), id, name: uniqueName(src.name), mute: false, mix: {...clone(src.mix), solo: false}, clips: src.clips.map(c => ({...clone(c), id: 'n' + ST.nid++}))};
+  else { const like = ST.P.tracks.find(x => x.role === role), first = Object.values(SND).find(x => x.role === role && !x.mine), name = ROLES.find(r => r[0] === role)[1];
+    T = {id, role, name: uniqueName(name), sound: like?.sound || first?.id, mix: {vol: 0, pan: 0, duck: like?.mix.duck ?? 0, lo: 0, mid: 0, hi: 0, solo: false}, set: like ? clone(like.set) : {x: .62, y: .3, motion: 0, length: 1, echo: false, verb: false}, mute: false, clips: []}; }
+  ST.P.tracks.splice(at, 0, T); E.load(ST.P); ST.sel = {clips: new Set(), range: null, mark: null, track: at, trackOnly: true}; changed(); renderTracks(); target();
+  const y = at*LANE; if (y < ST.sy || y + LANE > ST.sy + AH - RULER) { ST.sy = Math.min(maxSy(), Math.max(0, y - (AH - RULER)/2)); scrollTracks(); draw(); }
+  flash(src ? `“${T.name}”: a copy of ${src.name}, with its clips` : `“${T.name}” added: double-click in its lane for a clip, drag clips onto it, or change its sound (Y)`); }
+function delTrack(i){ if (!editable()) return; if (ST.P.tracks.length < 2) { flash('A song keeps at least one track'); return; } checkpoint(); const [T] = ST.P.tracks.splice(i, 1);
+  if (ST.open && !findClip(ST.open.id)) ST.open = null; E.load(ST.P); ST.sel = {clips: new Set(), range: null, mark: null, track: Math.min(i, ST.P.tracks.length - 1), trackOnly: false};
+  changed(); renderTracks(); renderEd(); target(); flash(`Deleted “${T.name}” (⌘Z brings it back)`); }
+// a track's name, typed in its place: Enter keeps it, Escape leaves it as it was
+function rename(i){ if (!editable()) return; const T = ST.P.tracks[i], nm = $('trackList').children[i]?.querySelector('.nm'); if (!nm) return;
+  const inp = h('input', {class: 'ren', value: T.name, 'aria-label': 'The track’s name', maxlength: '40'}); nm.replaceChildren(inp); inp.focus(); inp.select(); let done = false;
+  const end = keep => { if (done) return; done = true; const v = inp.value.trim(); if (keep && v && v !== T.name) { checkpoint(); T.name = v; changed(true); flash(`Renamed “${v}”`); } renderTracks(); target(); };
+  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') end(true); if (e.key === 'Escape') end(false); }; inp.onblur = () => end(true); inp.onclick = e => e.stopPropagation(); }
 
 /* ---------- the arrangement (right) ---------- */
 const arr = $('arr'), actx = arr.getContext('2d'); let AW = 0, AH = 0;
 function fit(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); cv.getContext('2d').setTransform(d, 0, 0, d, 0, 0); return [r.width, r.height]; }
 const bx = b => b*ST.px - ST.sx, xb = x => (x + ST.sx)/ST.px, ly = i => RULER + i*LANE - ST.sy, lane = y => Math.floor((y - RULER + ST.sy)/LANE);
-const maxSy = () => Math.max(0, ST.P.tracks.length*LANE - (AH - RULER));
+const maxSy = () => Math.max(0, (ST.P.tracks.length + .7)*LANE - (AH - RULER));   // (room under the tracks for the row that adds one)
 function findClip(id){ for (const [ti, T] of ST.P.tracks.entries()) { const cl = T.clips.find(c => c.id === id); if (cl) return {T, ti, cl}; } return null; }
 const unit = () => ST.snap || 1;                                          // snapping, in 16ths
 const snap16 = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v);
@@ -319,12 +355,14 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
   if (e.key === ' ') { e.preventDefault(); E.playing ? stop() : play(); return; }
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; } if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'c') { e.preventDefault(); copy(); return; } if (mod && k === 'v') { e.preventDefault(); paste(); return; }
+  if (mod && e.altKey && (k === 'n' || e.code === 'KeyN')) { e.preventDefault(); addMenu($('addTrk')); return; }
   if (mod && k === 'd') { e.preventDefault(); duplicate(); return; } if (mod && k === 't') { e.preventDefault(); split(); return; }
   if (mod && k === 'a') { e.preventDefault(); const f = cur(); if (ST.focus === 'ed' && f) { ST.ed.sel = new Set(f.cl.notes.map((_, i) => i)); drawEd(); drawEdHead(); }
     else { ST.sel.clips = new Set(ST.P.tracks.flatMap(T => T.clips.map(c => c.id))); draw(); } target(); return; }
   if (mod) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delSel(); return; }
   if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; } if (k === 'b') { SI.show(!SI.isOn()); return; }
+  if (e.key === 'Escape' && $('pop')) { closePop(); return; }
   if (e.key === 'Escape') { ST.ed.sel.clear(); clearSel(); renderTracks(); draw(); drawEd(); target(); return; }
   if (e.key === 'Home' || e.key === 'Enter') { seek(E.cycle ? E.loop[0] : 0); return; }
   const arrows = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1]}[e.key]; if (arrows) { e.preventDefault(); nudge(arrows[0], arrows[1], e.shiftKey); } });
