@@ -103,3 +103,10 @@ before writing or changing a piece; add to it when they react.
   pad pumping on after it; Two rivers' bass, percussion and sparse melody 👍; Undertow's bass intro 👎, its Hands riff 👍,
   its alternating bass "might work but needs cohesion". Round 4 grows each song its own way: Smooth hats (dry: the echo
   and reverb sends were what made them sound open), a pulse motion and tone ramps across a section in the jam.
+- 2026-10-23: Asked for a GarageBand-style DAW to comment on and edit the arrangements precisely: tracks down the left
+  (level, pan, mute, solo), the arrangement to the right with the sections across the top, a chromatic piano roll with a
+  velocity lane, looping any bars, moving, stretching, copying and splitting clips and notes, and a like or a note on any
+  part of it. Version 1, the Studio DAW (`studio/arrange/`): each song written out once as notes as it plays (the chords
+  resolved, Life and the feel fixed in place), your version kept, Claude's to hear, Revert; 👍 👎 💬 on the song, a
+  section, a track, clips, a box of bars or notes, each saying exactly which (the `notes` collection; your edited songs
+  in `versions`). On a phone: listening, looping a section and notes only.

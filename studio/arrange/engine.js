@@ -1,0 +1,122 @@
+// The arrangement's sound: the jam's channels (EQ, the tone filter and its motion, pan, the kick's duck, Claude's mix, the
+// echo and reverb sends), its master, and its instruments (the poly synth, the drum kits, native notes computed by a
+// worker and cached), playing the project's notes from a scheduler on the audio clock: a 16th at a time, a little ahead,
+// round the loop when the cycle is on. Each clip, as it starts, sets its track's tone, space and motion as its section did.
+import { nativeSet, cutOf, LEN, ECHO } from '../jam/model.js';
+import { isDrum } from '../jam/part.js';
+import { engOf, engChain, retChain, RET, glide, duckAt } from '../jam/mixeng.js';
+import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
+import { NATIVE } from '../lib/native/index.js';
+import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
+import { makeDrums } from '../../src/audio/engine/inst/drums.js';
+import widthFx from '../../src/audio/engine/fx/width.js';
+
+export const DUCKS = [0, .25, .4, .65];
+const GLUE = [null, {thr: -14, ratio: 1.8, att: .03, rel: .25}, {thr: -20, ratio: 3, att: .01, rel: .2}, {thr: -24, ratio: 4, att: .03, rel: .12}], WIDTHS = [0, .6, 1, 1.35, 1.7];
+const q = (v, s) => Math.round(v/s)*s;
+const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1).toFixed(1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
+
+export function makeEngine({SND, workerSrc, onBusy = () => {}, onTick = () => {}}){
+  const E = {ctx: null, P: null, playing: false, cycle: false, loop: [0, 4], eng: true, slot: 0, nextT: 0, timer: 0, when: [], ch: [], by: [], starts: [], at: []};
+  const cache = new Map(), pending = new Set(); let master, mstr, delay, verb, rets, worker;
+  const sd = () => 60/E.P.bpm/4;
+  E.busy = () => pending.size;
+  E.init = () => { if (E.ctx) return E.ctx; const ctx = E.ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'playback'});
+    const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 12; lim.attack.value = .003; lim.release.value = .12;
+    master = ctx.createGain(); master.gain.value = .85;
+    mstr = {lo: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), width: widthFx.make(ctx), glue: ctx.createDynamicsCompressor(), vol: ctx.createGain(), lim};
+    mstr.lo.type = 'lowshelf'; mstr.lo.frequency.value = 110; mstr.hi.type = 'highshelf'; mstr.hi.frequency.value = 7000; mstr.width.set('mono', 150);
+    master.connect(mstr.lo); mstr.lo.connect(mstr.hi); mstr.hi.connect(mstr.width.input); mstr.width.output.connect(mstr.glue); mstr.glue.connect(lim); lim.connect(mstr.vol); mstr.vol.connect(ctx.destination); E.out = mstr.vol;
+    delay = {in: ctx.createGain(), d: ctx.createDelay(2), fb: ctx.createGain(), lp: ctx.createBiquadFilter()};
+    delay.lp.frequency.value = 2400; delay.fb.gain.value = .45; delay.in.connect(delay.d); delay.d.connect(delay.lp); delay.lp.connect(delay.fb); delay.fb.connect(delay.d);
+    verb = ctx.createConvolver(); const L = 2.8*ctx.sampleRate, ir = ctx.createBuffer(2, L, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); let lp = 0; for (let i = 0; i < L; i++) { lp += (.3 - .25*i/L)*((Math.random()*2 - 1) - lp); x[i] = lp*Math.pow(1 - i/L, 2.2); } }
+    verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg);
+    rets = Object.fromEntries([['echo', delay.lp], ['verb', vg]].map(([k, from]) => { const r = retChain(ctx, RET[k]), d = ctx.createGain(); from.connect(r.input); r.output.connect(d); d.connect(master); return [k, {...r, duck: d}]; }));
+    worker = new Worker(URL.createObjectURL(new Blob([workerSrc], {type: 'text/javascript'})));
+    worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } onBusy(pending.size); };
+    if (E.P) E.load(E.P); return ctx; };
+
+  /* ---------- a channel per track, its instrument, its settings ---------- */
+  function chan(T, i){ const ctx = E.ctx, lane = E.P.tracks.slice(0, i).filter(x => x.role === T.role).length;
+    const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), clip: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain()};
+    x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.f.Q.value = 1.2;
+    x.eng = engChain(ctx, engOf(T.role, lane)); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck); x.duck.connect(x.clip); x.clip.connect(x.out);
+    x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb); x.eng.on(E.eng);
+    return {T, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
+  function build(c, id){ const ctx = E.ctx, s = SND[id]; c.sound = id; c.inst = {kind: 'pitched'}; if (!s) return;
+    if (s.voices) { const kits = {}; c.inst = {kind: 'drums', voices: {}};
+      for (const [v, m] of Object.entries(s.voices)) { if (m.native) { c.inst.voices[v] = {native: m.native, n: m.n, set: m.set || {}}; continue; }
+        const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.x.in); kits[key].load(m.kit, m.over || {}); } c.inst.voices[v] = {kit: kits[key]}; } return; }
+    const src = s.src; if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.x.in, {period: () => 4*sd()}); syn.load({...PRESETS[p], chord: 0, ...set}); c.inst.poly = syn; c.inst.base = set; }
+    else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; } }
+  // a clip's settings onto its track's channel (the section's tone, space, motion, ramp; its level and duck)
+  function settle(c, clip, t = E.ctx.currentTime){ const s = c.s = {...c.T.set, ...(clip?.set || {})}; if ((s.sound || c.T.sound) !== c.sound) build(c, s.sound || c.T.sound);
+    c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[s.length ?? 1]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[s.length ?? 1]); }
+    glide(c.x.clip.gain, Math.pow(10, (s.vol || 0)/20), t, .02); macros(c, t); }
+  function macros(c, t = E.ctx.currentTime){ const x = c.x, s = c.s, M = c.T.mix, solo = E.P.tracks.some(y => y.mix.solo);
+    glide(x.f.frequency, cutOf(s.x ?? .62), t, c.ramp ? 15*sd()/3 : .05); glide(x.echo.gain, s.echo ? (s.y ?? .3)*.5 : 0, t, .05); glide(x.verb.gain, s.verb ? (s.y ?? .3)*.75 : 0, t, .05);
+    glide(x.out.gain, c.T.mute || solo && !M.solo ? 0 : .85*Math.pow(10, (M.vol || 0)/20), t, .02); glide(x.pan.pan, M.pan || 0, t, .02);
+    glide(x.lo.gain, M.lo || 0, t, .02); glide(x.mid.gain, M.mid || 0, t, .02); glide(x.hi.gain, M.hi || 0, t, .02); }
+  E.mix = () => { if (!E.ctx) return; for (const c of E.ch) macros(c); };
+  E.setEng = v => { E.eng = v; if (!E.ctx) return; for (const c of E.ch) c.x.eng.on(v); for (const r of Object.values(rets)) r.on(v); };
+  function masterMix(){ const M = {glue: 2, width: 3, lo: 0, hi: 0, vol: 0, ...E.P.mx}, g = GLUE[M.glue], now = E.ctx.currentTime;
+    glide(mstr.lo.gain, M.lo, now); glide(mstr.hi.gain, M.hi, now); mstr.width.set('w', WIDTHS[M.width]); glide(mstr.vol.gain, Math.pow(10, M.vol/20), now);
+    const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; }
+    glide(delay.d.delayTime, ECHO[E.P.echoDiv || 0][1]*4*sd(), now, .05); }
+
+  /* ---------- the notes: each track's by 16th (where they fall between 16ths kept), each clip's start ---------- */
+  E.compile = () => { const P = E.P; E.by = P.tracks.map(() => new Map()); E.starts = P.tracks.map(() => new Map()); E.at = P.tracks.map(() => []);
+    P.tracks.forEach((T, i) => { for (const cl of T.clips) { const a = Math.round(cl.start*16); E.starts[i].set(a, cl); E.at[i].push([a, a + cl.len, cl]);
+      for (const n of cl.notes) { if (n.s < 0 || n.s >= cl.len) continue; const abs = a + n.s, k = Math.floor(abs + 1e-6); if (!E.by[i].has(k)) E.by[i].set(k, []); E.by[i].get(k).push({off: abs - k, n}); } } });
+    E.end = P.bars*16; };
+  // the clip a track is in at a 16th (the later one where two overlap)
+  const clipAt = (i, k) => { let c = null; for (const [a, b, cl] of E.at[i]) if (k >= a && k < b && (!c || a >= c[0])) c = [a, b, cl]; return c; };
+  E.load = P => { E.P = P; E.compile(); if (!E.ctx) return; for (const c of E.ch) try { c.x.out.disconnect(); } catch {}
+    E.ch = P.tracks.map((T, i) => { const c = chan(T, i); build(c, T.sound); return c; }); masterMix(); for (const c of E.ch) settle(c, null); E.prewarm(); };
+  // every native note the song needs, computed ahead (each note at its clip's tone and length, a ramp's at each bar's)
+  E.prewarm = () => { if (!E.ctx) return; E.P.tracks.forEach((T, i) => { const c = E.ch[i];
+    for (const cl of T.clips) { const s = {...T.set, ...cl.set}, sound = SND[s.sound || T.sound]; if (!sound) continue;
+      for (const n of cl.notes) { if (n.s < 0 || n.s >= cl.len) continue; const bar = Math.floor(n.s/16), r = s.ramp, xx = r?.x ? r.x[0] + (r.x[1] - r.x[0])*Math.min(1, bar/Math.max(1, (r.bars || 8) - 1)) : s.x, st = {...s, x: xx};
+        if (sound.voices) { const v = sound.voices[n.p]; if (v?.native) { const o = nativeSet(st, v.native, v.set || {}); want(keyOf(v.native, v.n, n.v, o), v.native, v.n, n.v, o); } }
+        else { const name = sound.src.native || NATIVE_OF[sound.src.palette]; if (!name) continue; const shift = (sound.src.shift || 0) + (sound.src.palette ? 12*(PAL[sound.src.palette][1].oct || 0) : 0);
+          const o = nativeSet(st, name, sound.src.set || {}), set = NATIVE[name].held ? {...o, len: Math.round(n.l*sd()*20)/20} : o; want(keyOf(name, n.p + shift, n.v, set), name, n.p + shift, n.v, set); } } } }); onBusy(pending.size); };
+  function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !worker) return; pending.add(k); worker.postMessage({key: k, name, n, vel: q(vel, .1), o: set, sr: E.ctx.sampleRate}); }
+  function nativeNote(c, name, n, vel, o, t, lenSec){ const set = NATIVE[name].held ? {...o, len: Math.round(lenSec*20)/20} : o, k = keyOf(name, n, vel, set), b = cache.get(k);
+    if (!b) { want(k, name, n, vel, set); return null; }
+    const s = E.ctx.createBufferSource(), g = E.ctx.createGain(); s.buffer = b; g.gain.value = NATIVE[name].gain*(.4 + .6*vel); s.connect(g); g.connect(c.x.in); s.start(t); s.onended = () => g.disconnect(); return {g, t}; }
+  // one note on a track's instrument at time t
+  function play(c, p, l, v, t){ const inst = c.inst; if (!inst) return;
+    if (inst.kind === 'drums') { const vv = inst.voices[p]; if (!vv) return; if (vv.kit) vv.kit.play(p, t, v, null); else {
+        if ((p === 'chh' || p === 'ohh') && c.open && t > c.open.t) { c.open.g.gain.setTargetAtTime(0, t, .012); c.open = null; }
+        const h = nativeNote(c, vv.native, vv.n, v, nativeSet(c.s, vv.native, vv.set), t, .5); if (p === 'ohh' && h) c.open = h; }
+      if (c.T.role === 'kick') for (const o of E.ch) { if (o === c) continue; const d = DUCKS[o.s.duck ?? o.T.mix.duck ?? 0]; if (d) duckAt(o.x.duck.gain, d, t); }
+      if (c.T.role === 'kick' && E.eng) for (const [k, r] of Object.entries(rets)) duckAt(r.duck.gain, RET[k].duck, t);
+      return; }
+    if (inst.poly) inst.poly.play(p, t, l*sd(), v); else nativeNote(c, inst.native, p + inst.shift, v, nativeSet(c.s, inst.native, inst.set), t, l*sd()); }
+  // a note heard now (clicking in the piano roll)
+  E.audition = (i, p, v = .8, l = 2) => { if (!E.ctx) E.init(); E.ctx.resume(); const c = E.ch[i]; if (c) play(c, p, l, v, E.ctx.currentTime + .02); };
+
+  /* ---------- the transport ---------- */
+  function slotAt(k, t){ const P = E.P;
+    // a bar line: each track's clip there sets its channel; a ramp steps on
+    if (k % 16 === 0 || k === E.from) E.ch.forEach((c, i) => { const hit = clipAt(i, k), cl = hit?.[2] || null;
+      if (cl !== c.clip || k === E.from) { settle(c, cl, t); if (cl && c.ramp) c.rampAt = Math.floor((k - hit[0])/16) - 1; }
+      if (c.ramp?.x && k % 16 === 0) { c.rampAt = (c.rampAt ?? -1) + 1; const [a, b] = c.ramp.x, n = Math.max(1, (c.ramp.bars || 8) - 1); c.s.x = a + (b - a)*Math.min(1, c.rampAt/n); macros(c, t); } });
+    // the pulse: a part's filter opening on every beat
+    if (k % 4 === 0) for (const c of E.ch) if (c.s.motion === 3) { const f = c.x.f.frequency, lo = cutOf(c.s.x), b = 4*sd(); glide(f, Math.min(18000, lo*3.2), t, .006); f.linearRampToValueAtTime(Math.min(18000, lo*1.6), t + .35*b); f.linearRampToValueAtTime(lo, t + .9*b); }
+    E.by.forEach((m, i) => { const list = m.get(k), c = E.ch[i]; if (!list || !c) return; for (const {off, n} of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + off*sd())); });
+    E.when.push([t, k]); if (E.when.length > 64) E.when.splice(0, 32); }
+  function tick(){ const ctx = E.ctx; while (E.nextT < ctx.currentTime + .15) { slotAt(E.slot, E.nextT); E.slot++; E.nextT += sd();
+      if (E.cycle && E.slot >= E.loop[1]*16) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; }
+      else if (E.slot >= E.end) { if (E.cycle) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; } else { E.stopAt = E.nextT + 2; break; } } }
+    if (E.stopAt && ctx.currentTime > E.stopAt) E.stop(); onTick(); }
+  E.play = fromBar => { const ctx = E.init(); ctx.resume(); if (E.playing) E.stop(); E.playing = true; E.stopAt = 0;
+    E.slot = E.from = Math.max(0, Math.round(fromBar*16)); E.nextT = ctx.currentTime + .1; E.when = []; for (const c of E.ch) { c.clip = undefined; c.open = null; }
+    tick(); E.timer = setInterval(tick, 25); };
+  E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; for (const c of E.ch) { glide(c.x.out.gain, 0, E.ctx.currentTime, .03); setTimeout(() => macros(c), 200); } onTick(); };
+  // where the song is as heard: the 16th scheduled for now and how far through it
+  E.pos = () => { if (!E.playing || !E.when.length) return null; const now = E.ctx.currentTime; let best = null; for (const w of E.when) if (w[0] <= now) best = w;
+    return best ? best[1] + Math.min(1, (now - best[0])/sd()) : E.when[0][1]; };
+  return E; }
+export { isDrum };
