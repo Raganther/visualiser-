@@ -5,7 +5,7 @@
 import { PARAMS, PLIST, DEF, FILTERS } from '../lib/native/asynth.js';
 import { EXAMPLES, DRUMS, NOTE } from './examples.js';
 
-const $ = id => document.getElementById(id), h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null)); return e; };
+const $ = id => document.getElementById(id), h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (n.startsWith('aria-') && typeof v === 'boolean') e.setAttribute(n, v); else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null)); return e; };
 const load = (k, d) => { try { const v = localStorage.getItem('synthlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } }, keep = (k, v) => { try { localStorage.setItem('synthlab.' + k, JSON.stringify(v)); } catch {} };
 const S = {ex: load('ex', 'round'), edits: load('edits', {}), saved: load('saved', []), drums: null, bpm: 120, playing: false, oct: load('oct', 0), hold: false, step: -1, down: new Map(), held: new Set()};
 const PK = Object.fromEntries(PLIST.map(p => [p.key, p]));

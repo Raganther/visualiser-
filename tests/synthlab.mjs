@@ -133,13 +133,14 @@ const {srv, url} = await serve(); const browser = await launch('2d');
   const quiet = (await listen(300)).p; const k = await q.locator('#kb .key.w').nth(5).boundingBox(); await q.mouse.move(k.x + k.width/2, k.y + k.height*.8); await q.mouse.down(); await q.waitForTimeout(1200);
   const held = (await listen(400)).p; await q.mouse.up(); check('a key pressed on screen sounds', held > .05 && held > 5*quiet, `${quiet.toFixed(3)} → ${held.toFixed(3)}`);
   // the computer's keys, and a setting heard at once: the cutoff turned down darkens the note held
-  await q.keyboard.down('a'); await q.waitForTimeout(1500); const open = await listen(500);
-  await q.evaluate(() => { const r = document.getElementById('p-cut'); r.value = 0; r.dispatchEvent(new Event('input')); }); await q.waitForTimeout(300); const shut = await listen(500); await q.keyboard.up('a');
+  // (the pad's release from the key before let ring out first, or its open filter is heard in the measure)
+  await q.waitForTimeout(3500); await q.keyboard.down('a'); await q.waitForTimeout(1500); const open = await listen(500);
+  await q.evaluate(() => { const r = document.getElementById('p-cut'); r.value = 360; r.dispatchEvent(new Event('input')); }); await q.waitForTimeout(300); const shut = await listen(500); await q.keyboard.up('a');
   check('the computer\'s keys play it, and the cutoff turned down darkens the note as it sounds', open.p > .05 && shut.c < open.c*.75, `${Math.round(open.c)} Hz → ${Math.round(shut.c)} Hz`);
   // kept: the setting with its example, a sound saved by name, both back after a reload
   await q.fill('#saveName', 'Dark pad'); await q.click('#save'); await q.reload(); await q.waitForTimeout(400);
   const kept = await q.evaluate(() => ({ex: window.__synthlab.S.ex, cut: window.__synthlab.patch().cut, saved: window.__synthlab.S.saved.map(s => s.name), mark: !!document.querySelector('.ctl[data-key="cut"][data-changed]')}));
-  check('a setting changed and a sound saved are kept on this device', kept.ex === 'juno' && kept.cut === 30 && kept.saved.includes('Dark pad') && kept.mark, JSON.stringify(kept));
+  check('a setting changed and a sound saved are kept on this device', kept.ex === 'juno' && Math.abs(kept.cut - 30*Math.pow(600, .36)) < 1 && kept.saved.includes('Dark pad') && kept.mark, JSON.stringify(kept));
   await q.click('#reset'); check('Back to the example puts its settings back', await q.evaluate(() => window.__synthlab.patch().cut === 1300));
   await q.close(); }
 { const ph = await browser.newPage({viewport: {width: 390, height: 800}}); await ph.goto(url + 'studio/listen/synth-lab.html'); await ph.waitForTimeout(400);

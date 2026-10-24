@@ -53,8 +53,11 @@ reads them and makes the next version.
   filter, capacitor envelopes, eight voice cards that drift, an LFO, poly, mono, legato and unison, chorus and tape echo),
   on fourteen examples, each a patch and a phrase written for it; the drum rack lab (`rack/`, `listen/rack-lab.html`:
   https://claude.ai/artifact/W8DtRouN8ueMwYNpfZDVqZ) takes the analog kit apart into a channel a pad, a bus of processors to switch,
-  move, take out and add to (in and out at matched loudness), and echo and room returns. `node studio/<drums|synth|rack>/build.mjs`
-  builds each; `tests/synthlab.mjs` and `tests/racklab.mjs` measure the parts and play the pages.
+  move, take out and add to (in and out at matched loudness), and echo and room returns; the ducking lab (`duck/`,
+  `listen/duck-lab.html`: https://claude.ai/artifact/4kNr9C6sBzkNDBupg7GvsS) sets a sidechain compressor against a ducker
+  that reads the score and moves before each hit, kick → bass, lead → pad and kick → pad, with what each does drawn.
+  `node studio/<drums|synth|rack|duck>/build.mjs` builds each; `tests/synthlab.mjs`, `racklab.mjs` and `ducklab.mjs`
+  measure the parts and play the pages.
 - **The parts** (`lib/parts/`): what the playgrounds are built from, so they can be mixed and matched. `procs.js` the
   processors (each describes its settings; `Chain` strings them), `host.js` the host (a description of sources, strips,
   buses, sends and returns, played by timed events, in the audio thread by `host.worklet.js` or offline), `shell.js` what

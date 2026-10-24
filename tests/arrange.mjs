@@ -347,8 +347,9 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
     for (const kit of KIT_NAMES) for (const v of VOICES) { const ctx = new OfflineAudioContext(2, sr*(secs + .5), sr), d = makeDrums(ctx, ctx.destination); d.load(kit); d.play(v.key, .5, 1, null);
       const b = await ctx.startRendering(), cut = c => b.getChannelData(c).subarray(Math.round(.5*sr)), a = st(cut(0), cut(1)), h = kitHit(sr, kit, v.key, 1, {}, secs), n = st(h.L, h.R);
       out.push([kit + ' ' + v.key, +(n.e - a.e).toFixed(1), +(12*Math.log2(n.c/a.c)).toFixed(1), +(n.end/a.end).toFixed(2)]); } return out; });
-  const kbad = kits.filter(([, e, c, l]) => Math.abs(e) > 2 || Math.abs(c) > 2 || l < .8 || l > 1.25);
-  check(`the native drum machine: all ${kits.length} voices of the five kits as loud (within 2 dB), as bright (within 2 semitones) and as long (within a fifth) as the browser's`, !kbad.length, JSON.stringify(kbad.length ? kbad : kits.slice(0, 13)));
+  // (brightness within 2.5 semitones: the browser's kit starts its noise at a random place and varies each hit's velocity, so a noisy voice's brightness moves a little from run to run)
+  const kbad = kits.filter(([, e, c, l]) => Math.abs(e) > 2 || Math.abs(c) > 2.5 || l < .8 || l > 1.25);
+  check(`the native drum machine: all ${kits.length} voices of the five kits as loud (within 2 dB), as bright (within 2.5 semitones) and as long (within a fifth) as the browser's`, !kbad.length, JSON.stringify(kbad.length ? kbad : kits.slice(0, 13)));
   // the analog drum machine (analogkit.js): every voice of its five kits sounds, never past full scale, and dies away;
   // the kick sits lowest and the hats highest; tuning and decay do what they say; softer is darker and a tom sags further
   // the harder it's hit; its parts drift from hit to hit only as far as Variation says; a closed hat closes the open one;

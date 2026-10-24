@@ -57,6 +57,45 @@ class Ceiling { constructor(sr, o = {}){ this.fast = !!o.fast; this.set({}); }
 class DCBlock { constructor(){ this.z = [0, 0, 0, 0]; } set(){}
   process(L, R, a, b){ const z = this.z; for (let j = a; j < b; j++) { const l = L[j], r = R[j], hl = l - z[0] + .9995*z[1]; z[0] = l; z[1] = hl; const hr = r - z[2] + .9995*z[3]; z[2] = r; z[3] = hr; L[j] = hl; R[j] = hr; } } }
 
+/* ---------- ducking: one part making room for another ---------- */
+// a Linkwitz-Riley split at f (each side two two-pole filters in a row: 24 dB an octave), so a part can be ducked below
+// a frequency only: y = highs + lows·g; the two halves sum flat (an all-pass), so nothing ducked sounds as it was
+function split(sr, f){ const mk = () => [svf(f, .707, sr), svf(f, .707, sr), svf(f, .707, sr), svf(f, .707, sr)];
+  return [mk(), mk()].map(([a, b, c, d]) => x => { const lo = b(a(x).lp).lp, hi = d(c(x).hp).hp; return [lo, hi]; }); }
+// the shapes a dip can come back in, over its length (x from 0 to 1): eased, as a compressor lets go (fast, then slow),
+// or pumping (held down, then swelling back late)
+export const DUCK_SHAPES = ['Smooth', 'Like a compressor', 'Pumping'];
+const back = [x => .5 - .5*Math.cos(Math.PI*x), x => (1 - Math.exp(-4*x))/(1 - Math.exp(-4)), x => Math.pow(x, 2.5)];
+const apply = (o, L, R, j, g) => { if (o.lo) { const [l, h] = o.lo[0](L[j]), [r, k] = o.lo[1](R[j]); L[j] = h + l*g; R[j] = k + r*g; } else { L[j] *= g; R[j] *= g; } };
+// the ducker that reads the score: the notes and hits the host has been given (env.tl), past and to come. Following a
+// drum's hits (`from` 'kit:kick'), each dips the sound from `pre` before it lands (it knows it's coming), holds,
+// then comes back over `len` beats in its shape, as deep as its velocity says; following an instrument's notes
+// (`from` 'lead'), it dips while each note sounds and comes back after it ends. `band` above 0 ducks only below it.
+class Duck { constructor(sr){ this.sr = sr; this.gr = 0; this.set({}); }
+  set(p){ this.p = {from: '', depth: 10, pre: 4, hold: 10, len: .45, shape: 0, vel: .5, band: 0, ...this.p, ...p}; const b = this.p.band; if (b !== this.band) { this.band = b; this.lo = b >= 20 ? split(this.sr, b) : null; } }
+  process(L, R, a, b, env = {}){ const q = this.p, [src, voice] = q.from.split(':'), T = env.tl?.[src], sr = env.sr || this.sr, t0 = env.now ?? 0;
+    let lo = 1; const per = env.period || .5, pre = q.pre/1000, hold = voice ? q.hold/1000 : 0, len = Math.max(.005, q.len*per), shape = back[Math.round(q.shape)] || back[0], t1 = t0 + (b - a)/sr;
+    // what can touch this block: hits (start and end the same) or notes (start to end)
+    const spans = []; if (T) for (const x of voice ? T.hits : T.notes) { if (voice && x.voice !== voice) continue; const e = voice ? x.t : x.off;
+      if (x.t - pre <= t1 && e + hold + len >= t0) spans.push([x.t, e, 1 - q.vel + q.vel*x.vel]); }
+    if (!spans.length && !this.lo) { this.trace?.push(...new Array(b - a).fill(1)); this.gr = Math.max(0, this.gr - 20*(b - a)/sr); return; }
+    for (let j = a; j < b; j++) { const t = t0 + (j - a)/sr; let dip = 0;
+      for (const [s, e, v] of spans) { let d; if (t < s - pre) continue; if (t < s) d = pre > 0 ? .5 - .5*Math.cos(Math.PI*(t - s + pre)/pre) : 1; else if (t <= e + hold) d = 1; else { const y = (t - e - hold)/len; if (y >= 1) continue; d = 1 - shape(y); }
+        if (d*v > dip) dip = d*v; }
+      const g = dip > 0 ? Math.pow(10, -q.depth*dip/20) : 1; if (g < lo) lo = g; this.trace?.push(g); apply(this, L, R, j, g); }
+    this.gr = Math.max(-20*Math.log10(lo), this.gr - 20*(b - a)/sr); } }
+// the classic sidechain compressor: it listens to another strip (`key`, its sound before its fader: env.keys) and turns
+// this one down by how far that goes over the threshold, after its attack, letting go over its release. It hears the kick
+// only as it happens, so its dip comes a little after it; `band` above 0 ducks only below it.
+class Sidechain { constructor(sr){ this.sr = sr; this.env = 0; this.gr = 0; this.set({}); }
+  set(p){ this.p = {key: '', thr: -24, ratio: 6, att: 5, rel: 180, range: 24, band: 0, ...this.p, ...p}; const q = this.p, sr = this.sr;
+    this.att = Math.exp(-1/(Math.max(.05, q.att)/1000*sr)); this.rel = Math.exp(-1/(q.rel/1000*sr)); const b = q.band; if (b !== this.band) { this.band = b; this.lo = b >= 20 ? split(sr, b) : null; } }
+  process(L, R, a, b, env = {}){ const q = this.p, K = env.keys?.[q.key], k1 = 1 - 1/q.ratio; let e = this.env, lo = 1;
+    for (let j = a; j < b; j++) { const x = K ? Math.max(Math.abs(K[0][j - a]), Math.abs(K[1][j - a])) : 0; e = x > e ? x + (e - x)*this.att : x + (e - x)*this.rel;
+      const over = e > 1e-6 ? 20*Math.log10(e) - q.thr : -1, red = over > 0 ? Math.min(q.range, over*k1) : 0, g = red > 0 ? Math.pow(10, -red/20) : 1;
+      if (g < lo) lo = g; this.trace?.push(g); apply(this, L, R, j, g); }
+    this.env = e; this.gr = Math.max(-20*Math.log10(lo), this.gr - 20*(b - a)/this.sr); } }
+
 /* ---------- space ---------- */
 // width: mid and sides, the sides turned up or down (0 mono, 1 as it is)
 class Width { constructor(){ this.set({}); }
@@ -106,7 +145,7 @@ class Room { constructor(sr){ this.sr = sr; const n = Math.ceil(.0733*2*sr) + 2;
       L[j] = l*dry + ol*.3*mix; R[j] = r*dry + or*.3*mix; } } }
 
 /* ---------- the registry ---------- */
-// units: dB, Hz, ms, s, % (0..1), × (a multiple), knee (a level shown in dB), list (a name each)
+// units: dB, Hz (Hz0: 0 is everything), ms, s, beat, % (0..1), × (a multiple), knee (a level shown in dB), list (a name each)
 const P = (key, label, min, max, def, unit, x = {}) => ({key, label, min, max, def, unit, ...x});
 export const PROCS = {
   weight: {label: 'Weight', words: 'A low shelf: the low end\'s weight, up or down.', make: sr => new Weight(sr),
@@ -125,6 +164,12 @@ export const PROCS = {
   room: {label: 'Room', words: 'A reverb: eight delay lines feeding one another, a dense tail that dies at the rate asked.', make: sr => new Room(sr),
     params: [P('size', 'Size', .3, 2, 1, '×'), P('decay', 'Decay', .2, 8, 1.8, 's', {log: true}), P('damp', 'Damping', 0, 1, .5, '%'), P('pre', 'Pre-delay', 0, 90, 12, 'ms'),
       P('cut', 'Low cut', 20, 800, 150, 'Hz', {log: true}), P('mix', 'Room', 0, 1, .3, '%'), P('dry', 'Dry', 0, 1, 1, '%')]},
+  duck: {label: 'Duck from the notes', words: 'Makes room for a part it follows in the score: it knows when each hit or note comes, so it moves before it lands, as deep as the note is hard.', make: sr => new Duck(sr), meter: 'gr',
+    params: [P('depth', 'Depth', 0, 36, 10, 'dB'), P('pre', 'Ahead', 0, 30, 4, 'ms'), P('hold', 'Hold', 0, 120, 10, 'ms'), P('len', 'Comes back over', .05, 1, .45, 'beat'),
+      P('shape', 'Shape', 0, 2, 0, 'list', {list: DUCK_SHAPES}), P('vel', 'Velocity', 0, 1, .5, '%'), P('band', 'Only below', 0, 400, 0, 'Hz0')]},
+  sidechain: {label: 'Sidechain compressor', words: 'The classic: listens to another part and turns this one down when that one goes over the threshold, after its attack.', make: sr => new Sidechain(sr), meter: 'gr',
+    params: [P('thr', 'Threshold', -48, 0, -24, 'dB'), P('ratio', 'Ratio', 1, 20, 6, ':1', {log: true}), P('att', 'Attack', .1, 50, 5, 'ms', {log: true}),
+      P('rel', 'Release', 20, 1000, 180, 'ms', {log: true}), P('range', 'Range', 0, 36, 24, 'dB'), P('band', 'Only below', 0, 400, 0, 'Hz0')]},
   ceiling: {label: 'Ceiling', words: 'Untouched below the knee, rounded above it, never past full scale.', make: (sr, o) => new Ceiling(sr, o), params: [P('knee', 'Knee', .5, .98, .89, 'knee')]},
   dc: {label: 'DC block', words: 'Keeps the signal centred (a high-pass a few hertz up).', make: () => new DCBlock(), params: []},
 };

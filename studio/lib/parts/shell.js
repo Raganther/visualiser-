@@ -4,7 +4,7 @@
 import { PROCS } from './procs.js';
 
 export const $ = id => document.getElementById(id);
-export const h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null && x !== false)); return e; };
+export const h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (/^(aria|data)-/.test(n) && typeof v === 'boolean') e.setAttribute(n, v); else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null && x !== false)); return e; };
 // kept on this device under a prefix (a private window or blocked storage just forgets)
 export const store = pre => ({ load: (k, d) => { try { const v = localStorage.getItem(pre + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   keep: (k, v) => { try { localStorage.setItem(pre + k, JSON.stringify(v)); } catch {} } });
@@ -23,9 +23,12 @@ export function fmt(p, v){ if (p.list) return p.list[Math.round(v)];
   switch (p.unit) {
     case 'dB': return (v > 0 ? '+' : '') + (+v).toFixed(1) + ' dB';
     case 'knee': return (20*Math.log10(v)).toFixed(1) + ' dB';
+    case 'Hz0': if (v < 20) return 'all of it';
+    // falls through
     case 'Hz': return v < 1000 ? `${Math.round(v)} Hz` : `${(v/1000).toFixed(1)} kHz`;
     case 'ms': return v < 10 ? (+v).toFixed(1) + ' ms' : Math.round(v) + ' ms';
     case 's': return (+v).toFixed(2) + ' s';
+    case 'beat': return (+v).toFixed(2) + ' beat';
     case ':1': return (+v).toFixed(1) + ':1';
     case '×': return (+v).toFixed(2) + '×';
     case 'st': return (v > 0 ? '+' : '') + Math.round(v) + ' st';
@@ -83,7 +86,7 @@ export const CSS = `
 .seg { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden } .seg button { flex: 1 1 auto; border: 0; background: transparent; padding: 6px 6px; font-size: 12px; font-weight: 600; white-space: nowrap }
 .seg button + button { border-left: 1px solid var(--line) } .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
 .proc { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 8px; align-content: start; min-width: 0 }
-.proc[data-off] { opacity: .55 } .phead { display: flex; align-items: center; gap: 8px }
+.proc[data-off="true"] { opacity: .55 } .phead { display: flex; align-items: center; gap: 8px }
 .pname { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 4px 9px; font-weight: 700; font-size: 13px }
 .pname[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
 .pmove { margin-left: auto; display: flex; gap: 2px } .pmove button { border: 1px solid var(--line); background: transparent; border-radius: 3px; width: 26px; height: 24px; font-size: 12px }
