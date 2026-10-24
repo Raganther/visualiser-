@@ -349,6 +349,52 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
       out.push([kit + ' ' + v.key, +(n.e - a.e).toFixed(1), +(12*Math.log2(n.c/a.c)).toFixed(1), +(n.end/a.end).toFixed(2)]); } return out; });
   const kbad = kits.filter(([, e, c, l]) => Math.abs(e) > 2 || Math.abs(c) > 2 || l < .8 || l > 1.25);
   check(`the native drum machine: all ${kits.length} voices of the five kits as loud (within 2 dB), as bright (within 2 semitones) and as long (within a fifth) as the browser's`, !kbad.length, JSON.stringify(kbad.length ? kbad : kits.slice(0, 13)));
+  // the analog drum machine (analogkit.js): every voice of its five kits sounds, never past full scale, and dies away;
+  // the kick sits lowest and the hats highest; tuning and decay do what they say; softer is darker and a tom sags further
+  // the harder it's hit; its parts drift from hit to hit only as far as Variation says; a closed hat closes the open one;
+  // played live it's the same as computed ahead
+  const an = await D(async () => { const {analogHit, ANALOG_NAMES, AnalogKit} = await import('/studio/lib/native/analogkit.js'), {VOICES} = await import('/src/audio/engine/inst/drums.js'), sr = 22050, out = {bad: [], kits: 0};
+    const pk = h => { let p = 0, ok = true; for (let i = 0; i < h.L.length; i++) { if (!isFinite(h.L[i]) || !isFinite(h.R[i])) ok = false; p = Math.max(p, Math.abs(h.L[i]), Math.abs(h.R[i])); } return ok ? p : NaN; };
+    const tailOf = h => { let p = 0; for (let i = h.L.length - Math.round(.2*sr); i < h.L.length; i++) p = Math.max(p, Math.abs(h.L[i])); return p; };
+    const cen = (h, n = 2048) => { let c = 0, t = 0; for (let k = 2; k < n/2; k += 2) { let re = 0, im = 0; const w = 2*Math.PI*k/n; for (let i = 0; i < n; i++) { const x = (h.L[i] + h.R[i])*(.5 - .5*Math.cos(2*Math.PI*i/n)); re += x*Math.cos(w*i); im += x*Math.sin(w*i); } c += (re*re + im*im)*k*sr/n; t += re*re + im*im; } return c/t; };
+    // a pitch from its zero crossings (a stretch where it has settled into its note)
+    const f0 = (h, a, b) => { let z = 0; for (let i = Math.round(a*sr) + 1; i < Math.round(b*sr); i++) if (h.L[i - 1] < 0 && h.L[i] >= 0) z++; return z/(b - a); };
+    const len = h => { const p = pk(h); let end = 0; for (let i = 0; i < h.L.length; i++) if (Math.abs(h.L[i]) > p*.01) end = i; return end/sr; };
+    const C = {};
+    for (const kit of ANALOG_NAMES) { out.kits++; for (const v of VOICES) { const h = analogHit(sr, kit, v.key, 1, {}, 4), p = pk(h); if (!(p > .03 && p <= 1.001 && tailOf(h) < p*.001)) out.bad.push([kit, v.key, +p.toFixed(3), +(tailOf(h)/p).toFixed(4)]); if (kit === 'Analog 808') C[v.key] = cen(h); } }
+    out.order = C.kick < C.tomL && C.tomL < C.snare && C.snare < C.chh; out.cen = Object.fromEntries(Object.entries(C).map(([k, v]) => [k, Math.round(v)]));
+    const k0 = analogHit(sr, 'Analog 808', 'kick', 1, {kick: {vary: 0}}, 1), k12 = analogHit(sr, 'Analog 808', 'kick', 1, {kick: {vary: 0, tune: 10}}, 1);
+    out.tune = [Math.round(f0(k0, .25, .6)), Math.round(f0(k12, .25, .6))];
+    out.decay = [+len(analogHit(sr, 'Analog 909', 'tomL', 1, {}, 3)).toFixed(2), +len(analogHit(sr, 'Analog 909', 'tomL', 1, {tomL: {decay: 2}}, 3)).toFixed(2)];
+    out.vel = ['snare', 'chh'].map(k => [Math.round(cen(analogHit(sr, 'Analog 909', k, .35, {}, .2))), Math.round(cen(analogHit(sr, 'Analog 909', k, 1, {}, .2)))]);
+    out.sag = [.3, 1].map(v => Math.round(f0(analogHit(sr, 'Analog 808', 'tomL', v, {tomL: {vary: 0}}, .3), .005, .04)));
+    // two hits of the kick on one machine: their tails (past the click's noise and the snare wires' buzz) the same without variation, apart with it
+    const two = vary => { const K = new AnalogKit(sr); K.load('Analog 808', {kick: {vary, decay: .5}}); const n = Math.round(1.2*sr), L = new Float32Array(n), R = new Float32Array(n); K.on('kick', 1); for (let a = 0; a < n; a += 128) K.render(L, R, a, Math.min(n, a + 128));
+      const L2 = new Float32Array(n), R2 = new Float32Array(n); K.on('kick', 1); for (let a = 0; a < n; a += 128) K.render(L2, R2, a, Math.min(n, a + 128));
+      let d = 0, s = 0; for (let i = Math.round(.3*sr); i < n; i++) { d += (L[i] - L2[i])**2; s += L[i]**2; } return +(10*Math.log10(d/s + 1e-30)).toFixed(0); };
+    out.vary = [two(0), two(1)];
+    const choke = on2 => { const K = new AnalogKit(sr); K.load('Analog 909'); const n = Math.round(.6*sr), L = new Float32Array(n), R = new Float32Array(n); K.on('ohh', .9); for (let a = 0; a < n; a += 128) { if (on2 && a === 128*40) K.on('chh', .3); K.render(L, R, a, Math.min(n, a + 128)); }
+      let e = 0; for (let i = Math.round(.4*sr); i < Math.round(.55*sr); i++) e += L[i]**2; return e; };
+    out.choke = [choke(false), choke(true)];
+    return out; });
+  check(`the analog drum machine: every voice of its ${an.kits} kits sounds, never past full scale, and dies away`, an.kits === 5 && !an.bad.length, JSON.stringify(an.bad));
+  check('its kick sits lowest, then the toms, the snare, the hats highest', an.order, JSON.stringify(an.cen));
+  check('its kick’s Tune moves its note (from the kit’s -2 to +10: an octave up)', Math.abs(an.tune[1]/an.tune[0] - 2) < .12, JSON.stringify(an.tune));
+  check('its Decay lengthens a drum (a tom at twice its decay)', an.decay[1] > an.decay[0]*1.6, JSON.stringify(an.decay));
+  check('softer is darker (the snare, the closed hat), and a tom hit harder starts sharper (its pitch sags with its ring)', an.vel.every(([a, b]) => b > a*1.15) && an.sag[1] > an.sag[0]*1.05, JSON.stringify([an.vel, an.sag]));
+  check('two kicks the same without Variation (all but the bus’s own state), apart with it', an.vary[0] < -80 && an.vary[1] > -40, JSON.stringify(an.vary));
+  check('its closed hat closes the open one', an.choke[1] < an.choke[0]/50, JSON.stringify(an.choke));
+  const anLive = await D(async () => { const {analogHit} = await import('/studio/lib/native/analogkit.js'), u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 44100, out = {};
+    for (const [kit, v] of [['Analog 808', 'kick'], ['Analog 909', 'snare'], ['Analog Deep', 'ohh'], ['Analog Warm', 'clap'], ['Analog Grit', 'tomL']]) { const ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u);
+      const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'load', kits: {g: {kit}}, slots: {p: {kit: 'g', voice: v}}}, {type: 'on', id: 1, slot: 'p', vel: .9, t: 128*40/sr}]}}); node.connect(ctx.destination);
+      const b = await ctx.startRendering(), ref = analogHit(sr, kit, v, .9, {}, 1.5), off = 128*40; let e = 0, s = 0;
+      for (let i = 0; i < ref.L.length; i++) { e += (ref.L[i] - b.getChannelData(0)[off + i])**2; s += ref.L[i]**2; } out[kit + ' ' + v] = +(10*Math.log10(e/s + 1e-30)).toFixed(0); } return out; });
+  check('played live, the analog machine is the same as computed ahead (each sample)', Object.values(anLive).every(d => d < -100), JSON.stringify(anLive));
+  // in the DAW: its kits are sounds in the library under their own synth, a track on one plays live and draws
+  const anDaw = await D(async () => { const {ST, E, SND, SB} = window.__daw, ids = Object.keys(SND).filter(k => /^[khp]4-/.test(k));
+    ST.P.tracks[0].sound = 'k4-808'; E.refresh(); const b = await E.render(0, 'k4-808', 'kick', .9); return {n: ids.length, synth: ids.every(k => SB.synthOf(SND[k]) === 'akit'), live: E.isLive(0), drawn: !!b?.length}; });
+  check('its five kits are in the library (a kick, hats and a full kit each) under the Analog Drum Machine, and a track on one plays live and draws', anDaw.n === 15 && anDaw.synth && anDaw.live && anDaw.drawn, JSON.stringify(anDaw));
+  await D(() => { const {ST, E} = window.__daw; ST.P.tracks[0].sound = 'k-round'; E.refresh(); });
   // a drum track plays live: an open hat choked by the closed one, a drum machine voice's knob heard on the next hit
   const drum = await D(async () => { const u = URL.createObjectURL(new Blob([document.getElementById('worklet-src').textContent], {type: 'text/javascript'})), sr = 22050;
     const one = async init => { const ctx = new OfflineAudioContext(2, sr*2, sr); await ctx.audioWorklet.addModule(u); const node = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init}}); node.connect(ctx.destination); return (await ctx.startRendering()).getChannelData(0); };
@@ -367,8 +413,9 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
       const t0 = performance.now(); await ctx.startRendering(); return +(secs*1000/(performance.now() - t0)).toFixed(1); };
     for (const name of ['addpad', 'breath', 'vastrings', 'bowed']) out[name] = await run([{type: 'load', slots: {'': {name, gain: NATIVE[name].gain, params: {}}}}, ...[48, 55, 60, 64].flatMap((n, i) => [{type: 'on', id: i, n, vel: .8, t: .05, len: 3.5}, {type: 'off', id: i, t: 3.55}])]);
     const pat = [], sd = 60/125/4; for (let k = 0; k < secs/sd - 2; k++) { const t = .05 + k*sd; pat.push({type: 'on', id: k, slot: 'chh', t, vel: .7}); if (k % 4 === 0) pat.push({type: 'on', id: 'k' + k, slot: 'kick', t, vel: 1}); if (k % 8 === 4) pat.push({type: 'on', id: 'c' + k, slot: 'clap', t, vel: .9}); if (k % 4 === 2) pat.push({type: 'on', id: 'o' + k, slot: 'ohh', t, vel: .8}); }
-    out['drum machine'] = await run([{type: 'load', kits: {g: {kit: '909'}}, slots: Object.fromEntries(['kick', 'chh', 'ohh', 'clap'].map(v => [v, {kit: 'g', voice: v}]))}, ...pat]); return out; });
-  check('the live engine runs well ahead of real time: four-note pads and bowed chords, a busy drum machine (× real time here)', Object.values(cpu).every(x => x > 4), JSON.stringify(cpu));
+    out['drum machine'] = await run([{type: 'load', kits: {g: {kit: '909'}}, slots: Object.fromEntries(['kick', 'chh', 'ohh', 'clap'].map(v => [v, {kit: 'g', voice: v}]))}, ...pat]);
+    out['analog drum machine'] = await run([{type: 'load', kits: {g: {kit: 'Analog 808'}}, slots: Object.fromEntries(['kick', 'chh', 'ohh', 'clap'].map(v => [v, {kit: 'g', voice: v}]))}, ...pat]); return out; });
+  check('the live engine runs well ahead of real time: four-note pads and bowed chords, a busy drum machine, the analog one (× real time here)', Object.values(cpu).every(x => x > 4), JSON.stringify(cpu));
   // the drum tracks play live in the song: the kick's own instrument heard
   { await D(() => { const {E} = window.__daw, a = E.ctx.createAnalyser(); a.fftSize = 4096; E.ch[0].inst.live.connect(a); window.__an4 = a; E.play(32); }); let kick = 0;
     for (let w = 0; w < 12; w++) { await page.waitForTimeout(120); kick = Math.max(kick, await D(() => { const x = new Float32Array(4096); window.__an4.getFloatTimeDomainData(x); return Math.sqrt(x.reduce((a, v) => a + v*v, 0)/x.length); })); }

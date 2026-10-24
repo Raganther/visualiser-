@@ -8,6 +8,7 @@
 // render(L, R, a, b) adding into L and R, stop().
 import { VOICES, KITS, kitParams } from '../../../src/audio/engine/inst/drums.js';
 import { rng } from '../rng.js';
+import { ANALOG_KITS, analogHit } from './analogkit.js';
 
 const st = n => Math.pow(2, n/12), toneHz = t => 1000*Math.pow(22, t);
 // the noise the browser kit loops: two seconds of the same numbers
@@ -155,6 +156,6 @@ export class NativeKit {
     const B = this.bus;
     for (let j = 0; j < n; j++) { let l = B.lp[0](bl[j]), r = B.lp[1](br[j]); if (B.K) { l = sat(l, B.K, B.m); r = sat(r, B.K, B.m); } L[a + j] += l*B.g; R[a + j] += r*B.g; } }
 }
-// one hit of a kit's voice computed ahead (for drawing it, and the tests): {L, R}
-export function kitHit(sr, name, key, vel = 1, over = {}, secs){ const K = new NativeKit(sr); K.load(name, over); K.on(key, vel);
+// one hit of a kit's voice computed ahead (for drawing it, and the tests): {L, R} (an analog kit's by its own machine)
+export function kitHit(sr, name, key, vel = 1, over = {}, secs){ if (ANALOG_KITS[name]) return analogHit(sr, name, key, vel, over, secs ?? 3); const K = new NativeKit(sr); K.load(name, over); K.on(key, vel);
   const n = Math.ceil((secs ?? 3)*sr), L = new Float32Array(n), R = new Float32Array(n); for (let a = 0; a < n; a += 128) K.render(L, R, a, Math.min(n, a + 128)); return {L, R}; }

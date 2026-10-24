@@ -44,4 +44,5 @@ reads them and makes the next version.
   `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab). Every instrument is also a
   streaming voice (`stream.js`: run as it plays, let go, done), which is what each note computed ahead runs, and what the
   DAW's live engine (`arrange/voices.worklet.js`) plays sample by sample; `npoly.js` is the poly synth and `kit.js` the
-  drum machine rebuilt the same way.
+  drum machine rebuilt the same way; `analogkit.js` is a drum machine of our own, built as analog circuits behave (five
+  kits, in pack 4).

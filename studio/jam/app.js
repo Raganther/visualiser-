@@ -11,6 +11,7 @@ import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
+import { kitFallback } from '../lib/native/analogkit.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
 import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
@@ -73,7 +74,7 @@ const env = {period: () => 60/st.bpm};
 function buildSound(c){ if (!ctx) return; const s = SND[c.sound]; c.inst = {kind: 'pitched'};
   if (s.voices) { const kits = {}; c.inst = {kind: 'drums', voices: {}};
     for (const [v, m] of Object.entries(s.voices)) { if (m.native) { c.inst.voices[v] = {native: m.native, n: m.n, set: m.set || {}}; continue; }
-      const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.ch.in); kits[key].load(m.kit, m.over || {}); } c.inst.voices[v] = {kit: kits[key]}; } return; }
+      const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.ch.in); kits[key].load(kitFallback(m.kit), m.over || {}); } c.inst.voices[v] = {kit: kits[key], voice: m.voice}; } return; }
   const src = s.src; if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.ch.in, env); syn.load({...PRESETS[p], chord: 0, ...set}); c.inst.poly = syn; c.inst.base = set; }
   else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; }
   lengthTo(c); }
@@ -135,7 +136,7 @@ function playStep(step, t0){
 // fv: the feel's loudness (a native note is computed at its own loudness and played louder or softer, so the feel never
 // waits on a new note being computed)
 function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, vel*fv));
-  if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(n, t, v2, null); else {
+  if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.kit) v.kit.play(v.voice || n, t, v2, null); else {
       // a hat closed (or hit again) while the open one rings stops it, as a real pair of cymbals does
       if ((n === 'chh' || n === 'ohh') && c.open && t > c.open.t) { c.open.g.gain.setTargetAtTime(0, t, .012); c.open = null; }
       const h = nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv); if (n === 'ohh' && h) c.open = h; }

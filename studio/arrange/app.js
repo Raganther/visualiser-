@@ -17,8 +17,8 @@ const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag);
 const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
 const RULER = 72, LANE = 56, COLORS = {kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
-const VORDER = ['kick', 'chh', 'ohh', 'ride', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'shaker', 'metal', 'bowl', 'gong'];
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
+const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
+const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
 const ST = {id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, ph: 0, focus: 'arr', past: [], fut: [], sel: {clips: new Set(), range: null, mark: null, track: 0, trackOnly: false},
   open: null, ed: {px: 16, sx: 0, sy: 0, sel: new Set()}, lastLen: 2, lastVel: .8, clipboard: null, noteboard: null, notes: [], rating: 0, nid: 1};
 let db = null;

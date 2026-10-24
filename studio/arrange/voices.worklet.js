@@ -4,11 +4,12 @@
 // Each instrument is a voice (stream.js) whose code is the note computed ahead's, so a setting turned while a note
 // sounds is heard in it, a key held holds the note, and nothing waits to be computed. One node per track: a pitched
 // track's instrument is its slot '', a drum track's pads are a slot each (a native instrument, or a voice of a drum
-// machine). Notes arrive on its port with their audio-clock times and start on their exact sample.
+// machine: the copy of the browser's, or the analog one, analogkit.js). Notes arrive on its port with their audio-clock times and start on their exact sample.
 import { NATIVE } from '../lib/native/index.js';
 import { grainSource } from '../lib/native/tone.js';
 import { NativePoly } from '../lib/native/npoly.js';
 import { NativeKit } from '../lib/native/kit.js';
+import { AnalogKit, ANALOG_KITS } from '../lib/native/analogkit.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12), CHOKE = Math.exp(-1/(.012*sampleRate)), STOP = .004*sampleRate;
 // a slot's settings: the instrument's own, then the track's (kept as one object, which its voices read as they play)
@@ -22,7 +23,7 @@ class Voices extends AudioWorkletProcessor {
     if (this.poly) { if (m.type === 'set' && m.t == null) { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; return; } if (m.type === 'stop') { this.ev = []; this.poly.stop(); return; } }
     if (m.type === 'load' && m.engine === 'poly') { this.eng = 'poly'; this.poly = new NativePoly(sampleRate); this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
     if (m.type === 'load') { this.eng = 'nat'; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
-      for (const [g, k] of Object.entries(m.kits || {})) { const K = this.K[g] || new NativeKit(sampleRate, 7); K.load(k.kit, k.over || {}); this.K[g] = K; }
+      for (const [g, k] of Object.entries(m.kits || {})) { const K = this.K[g] || (ANALOG_KITS[k.kit] ? new AnalogKit(sampleRate, 11) : new NativeKit(sampleRate, 7)); K.load(k.kit, k.over || {}); this.K[g] = K; }
       for (const [s, d] of Object.entries(slots)) this.S[s] = {...d, P: d.kit ? null : fresh(this.S[s]?.name === d.name ? this.S[s].P : {}, d.name, d.params || {})};
       for (const s of Object.keys(this.S)) if (!slots[s]) delete this.S[s]; }
     else if (m.type === 'set' && m.t == null) this.set(m);

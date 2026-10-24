@@ -140,3 +140,10 @@ before writing or changing a piece; add to it when they react.
   2 dB, 2 semitones of brightness and a fifth of the length. Changes to listen for: the bowed sounds' level is now set
   from their held power (long notes within 2 dB, short ones a little quieter, as the bow hasn't caught yet); the drum
   machine's hits no longer start with the browser's few milliseconds at 440 Hz.
+- 2026-10-24: The user asked what full control of the engines makes possible, and for drums of our own, "richer,
+  deeper, more of that big analog sound", not copies of the browser's. Built the analog drum machine (all thirteen
+  voices, hats and toms included): pitch that sags with the ring, booming kick tails, wires driven by the shell, claps
+  that breathe, six-square metal, a tape bus with glue and weight, every hit drifting a little, softer hits darker.
+  Five kits (808, 909, Deep, Warm, Grit) in pack 4, live in the DAW. Measured: levels calibrated, the kicks' energy
+  nearly all under 100 Hz, longer, fuller tails than the browser kits. To learn by listening: which kit, how much boom,
+  tape and variation.
