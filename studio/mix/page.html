@@ -28,7 +28,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .lbl { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); margin-bottom: 3px }
 #pos { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 5ch; display: inline-block }
 .check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--mute) } .check input { accent-color: var(--accent) }
-#hear button, #songs button { padding: 8px 12px; font-size: 13px }
+#hear button, #songs button, #sets button { padding: 8px 12px; font-size: 13px }
 #hearing { font-size: 13px; color: var(--mute); flex: 1 1 220px }
 #scope { flex: 1 1 160px; height: 46px; min-width: 120px; background: var(--panel); border-radius: 3px }
 .ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
@@ -45,7 +45,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .strip[data-kind="bus"] { background: var(--bus) } .strip[data-kind="ret"] { background: var(--ret) }
 .strip[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
 .sname { display: grid; text-align: left; gap: 1px; border: 0; background: transparent; padding: 0 } .sname b { font-size: 16px; font-stretch: 85% } .sname span { font-size: 11.5px; color: var(--mute) }
-.sname:hover b { color: var(--accent) }
+.sname:hover b { color: var(--accent) } .snd-name { font-size: 12px; font-style: normal; color: var(--accent); line-height: 1.2 }
 .meter { height: 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; overflow: hidden } .meter i { display: block; height: 100%; width: 0; background: var(--meter) } .meter i[data-hot="true"] { background: var(--hot) }
 .chips { display: flex; flex-wrap: wrap; gap: 3px; min-height: 20px } .chip { font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; display: inline-flex; gap: 4px; align-items: baseline }
 .chip[data-off="true"] { opacity: .45; text-decoration: line-through } .chip .gr { min-width: 0; font-size: 10.5px; font-style: normal }
@@ -66,13 +66,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 <div class="wrap">
   <header>
     <h1>Mix Lab <small>· <span id="title">Undertow</span></small></h1>
-    <p>The round 4 songs mixed the traditional way: Clearing, Two rivers and Undertow, each with its own mix. Every sound is native: the analog drum machine's kick, the cymbals, the forest percussion, the FM bass, the bowed strings, bamboo and marimba. Every processor is native too. Each part has its own channel: input gain, a low cut, EQ and a compressor. The kick keys a sidechain compressor on the bass, the chords, the leads and the room, so the mix pumps and clears. The drums and the music each go into a bus with its own compressor, the echo and room are sends, and everything ends on the master bus.</p>
+    <p>The round 4 songs mixed the traditional way: Clearing, Two rivers and Undertow, each with its own mix. Play each on its own sounds (the cymbals, the forest percussion, the FM bass, the bowed strings, bamboo and marimba) or on the analog set (the analog drum machine's hats and percussion, the analog synth's bass, pad and leads); the kick is the analog drum machine's in both. Every processor is native too. Each part has its own channel: input gain, a low cut, EQ and a compressor. The kick keys a sidechain compressor on the bass, the chords, the leads and the room, so the mix pumps and clears. The drums and the music each go into a bus with its own compressor, the echo and room are sends, and everything ends on the master bus.</p>
   </header>
 
   <div class="bar">
     <button id="play" aria-pressed="false">Play</button>
     <div><span class="lbl">Bar · beat</span><span id="pos">–</span></div>
     <div><span class="lbl">Song</span><div class="seg" id="songs" role="group" aria-label="Which song"></div></div>
+    <div><span class="lbl">Sounds</span><div class="seg" id="sets" role="group" aria-label="The song's own sounds or the analog set"></div></div>
     <div><span class="lbl">Hear</span><div class="seg" id="hear" role="group" aria-label="Claude's mix or the parts straight"></div></div>
     <label class="check"><input type="checkbox" id="loop"> Round the section</label>
     <span id="hearing" role="status"></span>

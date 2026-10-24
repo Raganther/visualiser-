@@ -2,7 +2,7 @@
 // host.worklet.js, or offline by `offline()`). A description says what's wired to what, so a playground is a
 // description, not new plumbing:
 //   sources: {id: {kind: 'kit', kit, over} | {kind: 'synth', params}}: the instruments, played by events;
-//   strips:  [{id, input: {src, pad?} | null, chain: [{key, params, on}], level (dB), pan, mute, solo, out, sends: {id: dB},
+//   strips:  [{id, input: {src, pad?} | null (a pad, or '*' all of a kit's), chain: [{key, params, on}], level (dB; clip a section's own over it), pan, mute, solo, out, sends: {id: dB},
 //             bypass, match}]: a channel (its input an instrument, or one of a kit's pads) or a bus (input null: what
 //             the strips sent to it), its processors, its fader, then out to another strip or to 'master'.
 // A strip's bypass hears it dry; with match on, the dry signal is turned to the loudness the chain gives it, so
@@ -79,7 +79,7 @@ export class Host {
     for (const [id, src] of Object.entries(this.src)) { const o = src.obj, mine = this.st.filter(s => s.input?.src === id);
       if (!mine.length) continue;
       if (mine.some(s => s.input.pad)) { if (o.hits.length || o.tail) o.tail = o.voices(n) ? 16 : Math.max(0, (o.tail || 0) - 1); else o.live = [];
-        for (const c of o.live) for (const s of mine) if (s.input.pad === c.key) { const [l, r] = s.inp, [ol, or] = c.out; for (let j = 0; j < n; j++) { l[j] += ol[j]; r[j] += or[j]; } } }
+        for (const c of o.live) for (const s of mine) if (s.input.pad === c.key || s.input.pad === '*') { const [l, r] = s.inp, [ol, or] = c.out; for (let j = 0; j < n; j++) { l[j] += ol[j]; r[j] += or[j]; } } }
       else { if ('period' in o) o.period = this.period; o.render(mine[0].inp[0], mine[0].inp[1], 0, n); } }
     const solo = this.st.some(s => s.solo && s.input);
     for (const s of this.run_) { const [l, r] = s.inp;
@@ -95,7 +95,7 @@ export class Host {
       // the loudness the chain adds, followed over a few seconds (while there's something to hear)
       const k = Math.exp(-n/(3*this.sr)); s.ein = s.ein*k + ein; s.eout = s.eout*k + eout; if (s.ein > 1e-6) s.ratio = Math.sqrt(s.eout/s.ein);
       // the fader and pan (a balance: the far side turned down), mute and solo; then out, and the sends after the fader
-      const off = s.mute || (solo && s.input && !s.solo), g = off ? 0 : fromDb(s.level ?? 0), gl = g*Math.min(1, 1 - (s.pan || 0)), gr = g*Math.min(1, 1 + (s.pan || 0));
+      const off = s.mute || (solo && s.input && !s.solo), g = off ? 0 : fromDb((s.level ?? 0) + (s.clip || 0)), gl = g*Math.min(1, 1 - (s.pan || 0)), gr = g*Math.min(1, 1 + (s.pan || 0));
       let pk = 0, ms = 0; for (let j = 0; j < n; j++) { const x = l[j]*gl, y = r[j]*gr; l[j] = x; r[j] = y; const m = Math.max(Math.abs(x), Math.abs(y)); if (m > pk) pk = m; ms += x*x + y*y; }
       s.pk = Math.max(pk, s.pk*Math.exp(-n/(.3*this.sr))); s.ms = s.ms*.9 + .1*ms/(2*n);
       const to = s.out ? this.by[s.out] : null; if (to) { const [tl, tr] = to.inp; for (let j = 0; j < n; j++) { tl[j] += l[j]; tr[j] += r[j]; } }

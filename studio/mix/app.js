@@ -1,19 +1,22 @@
-// The mix playground: round 4's songs (Clearing, Two rivers, Undertow) mixed the traditional way, every sound and every processor native. A channel a
+// The mix playground: round 4's songs (Clearing, Two rivers, Undertow) mixed the traditional way, on their own sounds or
+// the analog drum machine and analog synth, every sound and every processor native. A channel a
 // part (input gain, a cut, an EQ, a compressor, the kick's sidechain on the bass, chords and leads), the drums and the
 // music each into a bus, an echo and a room on sends, the master bus. Play it through or from a section, round a
 // section, hear Claude's mix or the parts straight (every processor out, at the same loudness), change any of it, and
 // copy what you changed for Claude. Built on the parts (studio/lib/parts/): mix.js is the song and the mix.
 import { $, h, store, clone, startHost, control, chainEditor, showGr, scope, copyOut } from '../lib/parts/shell.js';
 import { PROCS } from '../lib/parts/procs.js';
-import { mixOf, eventsOf } from './mix.js';
+import { mixOf, eventsOf, SETS, soundOf, chanOf } from './mix.js';
 
-// the songs (round 4's three, the same parts and sounds), each with its own mix kept apart
+// the songs (round 4's three, the same parts and sounds), each played on its own sounds or the analog set, each of those
+// with its own mix kept apart
 const SONGS = JSON.parse($('song').textContent), ALL = store('mixlab.');
 let P, SND, BASE, K, BAR;
 const S = {straight: false, playing: false, from: 0, t0: 0, m: {}};
-function pick(id){ ({P, SND} = SONGS.find(x => x.P.song === id) || SONGS.find(x => x.P.song === 'r4-3') || SONGS[0]); BASE = mixOf(P, SND); K = store('mixlab.' + P.song + '.'); BAR = 4*60/P.bpm;
+function pick(id, set){ ({P, SND} = SONGS.find(x => x.P.song === id) || SONGS.find(x => x.P.song === 'r4-3') || SONGS[0]); S.set = set || ALL.load('set.' + P.song, 'analog');
+  BASE = mixOf(P, SND, S.set); K = store('mixlab.' + P.song + '.' + (S.set === 'analog' ? 'analog.' : '')); BAR = 4*60/P.bpm;
   // the mix as you've left it (Claude's, with your changes)
-  S.mix = K.load('mix', null) || clone(BASE); S.sel = K.load('sel', 'bass'); S.loop = K.load('loop', false); S.from = 0; ALL.keep('song', P.song);
+  S.mix = K.load('mix', null) || clone(BASE); S.sel = K.load('sel', 'bass'); S.loop = K.load('loop', false); S.from = 0; ALL.keep('song', P.song); ALL.keep('set.' + P.song, S.set);
   if (!S.mix.strips?.every(s => BASE.strips.some(b => b.id === s.id))) S.mix = clone(BASE); }
 pick(ALL.load('song', 'r4-3'));
 const by = id => S.mix.strips.find(s => s.id === id), base = id => BASE.strips.find(s => s.id === id);
@@ -32,18 +35,26 @@ function applyStraight(){ for (const s of S.mix.strips) { if (s.id === 'master')
 
 /* ---------- the transport: the song's messages a little ahead, round a section if asked ---------- */
 const markAt = bar => P.marks.findLast(m => m.at <= bar) || P.marks[0];
-function lapOf(from){ const m = markAt(from), end = S.loop ? m.at + m.bars : P.bars; return {from, end, ev: eventsOf(P, SND, from).filter(e => e.t < (end - from)*BAR)}; }
+function lapOf(from){ const m = markAt(from), end = S.loop ? m.at + m.bars : P.bars; return {from, end, ev: eventsOf(P, SND, from, S.set).filter(e => e.t < (end - from)*BAR)}; }
 async function play(from = S.from){ await start(); if (S.playing) stop(); S.playing = true; S.from = from; lap = 0;
   S.t0 = A.ctx.currentTime + .15; const L = lapOf(from); queue = L.ev.map(e => ({...e, t: e.t + S.t0})); S.end = S.t0 + (L.end - from)*BAR;
   tick(); timer = setInterval(tick, 40); paintBar(); }
 function tick(){ const now = A.ctx.currentTime;
-  while (queue.length && queue[0].t < now + .5) { const e = queue.shift(); send({...e.m, t: e.t, seq: 1}); }
+  while (queue.length && queue[0].t < now + .5) { const e = queue.shift(); send({...own(e.m), t: e.t, seq: 1}); }
   // round the section again (its first bar's settings set anew), or the end of the song
   if (now > S.end - .6 && S.loop && !S.next) { const m = markAt(S.from), L = lapOf(m.at), t0 = S.end; queue.push(...L.ev.map(e => ({...e, t: e.t + t0}))); S.lapAt = t0; S.next = t0 + (L.end - m.at)*BAR; S.lapFrom = m.at; }
   if (S.next && now >= S.end) { S.t0 = S.lapAt; S.from = S.lapFrom; S.end = S.next; S.next = 0; }
   if (!S.loop && now > S.end + 3) stop();
   paintPos(); }
 function stop(){ S.playing = false; clearInterval(timer); queue = []; S.next = 0; send({type: 'stop'}); paintBar(); }
+// a section's own sends and tone, over what you've set: its sends moved by as much as the song moves them from where
+// they start, your tone kept once you've changed it
+function own(m){ if (m.type !== 'strip') return m; const s = by(m.id), b = base(m.id); if (!s || !b) return m; const set = {...m.set};
+  if (set.sends) set.sends = Object.fromEntries(Object.entries(set.sends).map(([k, v]) => { const mine = s.sends?.[k] ?? -60, was = b.sends?.[k] ?? -60;
+    // (a send the section switches off stays off; one the song started off is yours)
+    return [k, mine === was ? v : v <= -59.5 ? -60 : was <= -59.5 ? mine : Math.max(-60, Math.min(0, mine + (v - was)))]; }));
+  if ('lp' in set && s.lp !== b.lp) delete set.lp;
+  return {...m, set}; }
 const posBar = () => S.playing && A ? S.from + Math.max(0, A.ctx.currentTime - S.t0)/BAR : S.from;
 
 /* ---------- the page ---------- */
@@ -66,7 +77,7 @@ function paintDesk(){ $('desk').replaceChildren(...shown().map(s => { const set 
     return h('label', {class: 'snd'}, h('span', {}, k === 'echo' ? 'Echo' : 'Room'), o, r); };
   const procs = s.chain.filter(c => c.key !== 'trim');
   return h('section', {class: 'strip', 'data-kind': s.ret ? 'ret' : s.bus ? 'bus' : 'ch', 'aria-current': S.sel === s.id, 'data-strip': s.id},
-    h('button', {class: 'sname', onclick: () => { S.sel = s.id; K.keep('sel', s.id); paintDesk(); paintEdit(); }}, h('b', {}, s.label), h('span', {}, s.out === 'master' ? 'to the out' : `to the ${by(s.out)?.label.toLowerCase() || s.out}`)),
+    h('button', {class: 'sname', onclick: () => { S.sel = s.id; K.keep('sel', s.id); paintDesk(); paintEdit(); }}, h('b', {}, s.label), s.sound ? h('i', {class: 'snd-name'}, s.sound) : null, h('span', {}, s.out === 'master' ? 'to the out' : `to the ${by(s.out)?.label.toLowerCase() || s.out}`)),
     h('div', {class: 'meter'}, h('i', {'data-meter': s.id})),
     h('div', {class: 'chips'}, ...procs.map(c => h('span', {class: 'chip', 'data-off': c.on === false}, CHIP[c.key] || PROCS[c.key].label, PROCS[c.key].meter ? h('em', {class: 'gr', 'data-gr': c.id}) : null))),
     h('label', {class: 'fdr'}, h('span', {}, 'Fader'), fo, fader),
@@ -75,9 +86,9 @@ function paintDesk(){ $('desk').replaceChildren(...shown().map(s => { const set 
     s.input || s.bus ? h('div', {class: 'ms'}, h('button', {class: 'ghost', 'aria-pressed': !!s.mute, onclick: () => { set('mute', !s.mute); paintDesk(); }}, 'Mute'),
       s.input ? h('button', {class: 'ghost', 'aria-pressed': !!s.solo, onclick: () => { set('solo', !s.solo); paintDesk(); }}, 'Solo') : null) : null); })); }
 // the strip picked: its processors in order, to change, switch off, move, take out or add to; a part's tone as its song set it
-function paintEdit(){ const s = by(S.sel) || by('bass'); $('editName').textContent = s.label;
+function paintEdit(){ const s = by(S.sel) || by('bass'); $('editName').textContent = s.sound ? `${s.label} · ${s.sound}` : s.label;
   $('editWords').textContent = s.ret ? 'A return: what the channels send it, through its processors, into the master bus.' : s.bus ? (s.id === 'bus' ? 'Everything ends here: a little EQ, a gentle compressor, width, then the ceiling.' : 'A bus: the channels sent to it, compressed together.') :
-    `Its input gain sets how hard it hits the processors; the fader takes the level back. ${s.role === 'kick' ? 'Its sound after its processors keys the sidechain compressors.' : ''}`;
+    `${soundOf(P, SND, P.tracks.findIndex((T, i) => chanOf(P, i) === s.id), S.set).words} Its input gain sets how hard it hits the processors; the fader takes the level back. ${s.role === 'kick' ? 'Its sound after its processors keys the sidechain compressors.' : ''}`;
   $('tone').replaceChildren(...(s.input ? [control({key: 'lp', label: 'The part\'s tone (as the song set it)', min: 300, max: 18000, def: base(s.id).lp, unit: 'Hz', log: true}, s.lp, v => { s.lp = v; save(); send({type: 'strip', id: s.id, set: {lp: v}}); paintCopy(); })] : []));
   chainEditor($('chain'), s.chain, (chain, what, c, k) => { s.chain = chain; save();
     if (what === 'param') send({type: 'proc', id: s.id, pid: c.id, params: {[k]: c.params[k]}}); else if (what === 'on') send({type: 'proc', id: s.id, pid: c.id, on: c.on !== false}); else send({type: 'chain', id: s.id, chain: clone(chain)});
@@ -96,12 +107,15 @@ function changes(){ const out = [];
     if (d.length) out.push(`${s.label}: ${d.join('; ')}`); }
   return out; }
 function paintCopy(){ const n = changes().length; $('changed').textContent = n ? `${n} strip${n > 1 ? 's' : ''} changed from Claude's mix` : 'Claude\'s mix as it was'; }
-function copyNotes(){ copyOut(`Mix notes: ${P.name} (round ${P.round || 4})\n${$('notes').value.trim() || '(no notes)'}\n\nChanged from Claude's mix:\n${changes().join('\n') || '(nothing)'}`, $('copied'), $('notes')); }
+function copyNotes(){ copyOut(`Mix notes: ${P.name} (round ${P.round || 4}), ${SETS.find(x => x[0] === S.set)[1].toLowerCase()}\n${$('notes').value.trim() || '(no notes)'}\n\nChanged from Claude's mix:\n${changes().join('\n') || '(nothing)'}`, $('copied'), $('notes')); }
 function reset(){ S.mix = clone(BASE); save(); send({type: 'build', ...S.mix}); applyStraight(); paintDesk(); paintEdit(); paintCopy(); }
 
 // another song: stopped, its own mix built, the page painted for it
-function song(id){ if (S.playing) stop(); pick(id); send({type: 'build', ...S.mix}); if (A) applyStraight(); paintAll(); }
+function song(id, set){ const was = S.playing, at = Math.floor(posBar()); if (S.playing) stop(); pick(id, set); send({type: 'build', ...S.mix}); if (A) applyStraight(); paintAll();
+  // (the sounds swapped while it plays: on from the bar it was at)
+  if (was && set) play(at); }
 function paintAll(){ $('title').textContent = P.name; $('notes').value = K.load('notes', ''); $('songs').replaceChildren(...SONGS.map(x => h('button', {'aria-pressed': x.P.song === P.song, onclick: () => song(x.P.song)}, x.P.name)));
+  $('sets').replaceChildren(...SETS.map(([k, name]) => h('button', {'aria-pressed': S.set === k, onclick: () => song(P.song, k)}, name)));
   paintMarks(); paintBar(); paintDesk(); paintEdit(); paintCopy(); }
 $('play').onclick = () => S.playing ? stop() : play(S.from);
 $('loop').onchange = e => { S.loop = e.target.checked; K.keep('loop', S.loop); if (S.playing) play(Math.floor(posBar())); };
@@ -109,4 +123,4 @@ $('reset').onclick = reset; $('copy').onclick = copyNotes; $('notes').oninput = 
 addEventListener('keydown', e => { if (e.target.matches('input, textarea, select')) return; if (e.code === 'Space') { e.preventDefault(); S.playing ? stop() : play(S.from); }
   if (e.key === 'b' || e.key === 'B') { S.straight = !S.straight; applyStraight(); } });
 paintAll();
-window.__mix = {S, get P(){ return P; }, get BASE(){ return BASE; }, song, by, get A(){ return A; }, play, stop, applyStraight, reset, changes};   // (for tests)
+window.__mix = {S, get P(){ return P; }, get BASE(){ return BASE; }, song, own, by, get A(){ return A; }, play, stop, applyStraight, reset, changes};   // (for tests)

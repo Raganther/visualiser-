@@ -52,9 +52,10 @@ const host = (desc, from, bars) => { const H = new Host(sr); H.build(JSON.parse(
   const beat = .5, at = t => db(tr[Math.round(t*sr)] ?? 1), kicks = P.tracks[0].clips.find(c => c.start === 16).notes.filter(n => n.s < 32).map(n => n.s*.125);
   const k = kicks.find(t => t > 1), dip = at(k + .03), back = at(k + beat - .02);
   check('in Current, the bass ducks under each kick and comes back before the next (the sidechain compressor)', dip < -4 && back > dip + 3, `${dip.toFixed(1)} dB just after a kick, ${back.toFixed(1)} before the next`); }
-for (const id of ['r4-1', 'r4-2', 'r4-3']) { const x = songOf(id), Dx = mixOf(x.P, x.SND), H = new Host(sr); H.build(Dx); for (const e of eventsOf(x.P, x.SND, 0)) H.msg({...e.m, t: e.t});
+for (const id of ['r4-1', 'r4-2', 'r4-3']) for (const set of ['song', 'analog']) { const x = songOf(id), Dx = mixOf(x.P, x.SND, set), H = new Host(sr); H.build(Dx); for (const e of eventsOf(x.P, x.SND, 0, set)) H.msg({...e.m, t: e.t});
   const o = run(H, x.P.bars*2 + 2), all = ['kick', 'hats', 'perc', 'bass', 'chords', 'lead', 'lead2'];
-  check(`the whole of ${x.P.name}: every part heard, nothing past full scale, no compressor working too hard`, all.every(k => o.inp[k] > 1e-3) && o.pk <= 1 && !o.nan && Object.entries(o.gr).every(([k, v]) => /sidechain/.test(k) || v < 8),
+  if (set === 'analog') check(`${x.P.name} on the analog set: the drum machine plays the hats and percussion, the synth the bass, chords and leads`, ['hats', 'perc'].every(k => Dx.sources[k].kind === 'kit') && ['bass', 'chords', 'lead', 'lead2'].every(k => Dx.sources[k].kind === 'synth'));
+  check(`the whole of ${x.P.name} (${set === 'analog' ? 'the analog set' : 'its own sounds'}): every part heard, nothing past full scale, no compressor working too hard`, all.every(k => o.inp[k] > 1e-3) && o.pk <= 1 && !o.nan && Object.entries(o.gr).every(([k, v]) => /sidechain/.test(k) || v < 8),
     `peak ${db(o.pk).toFixed(1)} dB, loudness ${o.rms.toFixed(1)} dB, the hardest compressor ${Object.entries(o.gr).filter(([k]) => !/sidechain/.test(k)).sort((a, b) => b[1] - a[1])[0].join(' ')}`); }
 
 /* ---------- the playground ---------- */
@@ -76,10 +77,22 @@ const {srv, url} = await serve(); const browser = await launch('2d');
   const kept = await q.evaluate(() => ({level: window.__mix.by('bass').level, sat: window.__mix.by('bass').chain.find(c => c.key === 'saturate').on, ch: window.__mix.changes()}));
   check('a fader and a processor switched off are kept across a reload, and named in the notes for Claude', kept.level === -12 && kept.sat === false && kept.ch.some(x => /Bass/.test(x) && /Saturation off/.test(x)), JSON.stringify(kept.ch));
   await q.click('#reset'); check('Back to Claude\'s mix undoes it', (await q.evaluate(() => window.__mix.changes())).length === 0);
+  // a send moved by hand isn't undone by the next section's (it's moved by as much as the song moves it)
+  const sends = await q.evaluate(() => { const M = window.__mix, s = M.by('chords'), b = M.BASE.strips.find(x => x.id === 'chords'); s.sends = {...s.sends, room: b.sends.room - 10};
+    return {kept: M.own({type: 'strip', id: 'chords', set: {sends: {...b.sends}}}).set.sends.room - b.sends.room, moved: M.own({type: 'strip', id: 'chords', set: {sends: {...b.sends, room: b.sends.room + 3}}}).set.sends.room - b.sends.room}; });
+  check('a send set by hand keeps through the sections, moving as the song moves it', Math.abs(sends.kept + 10) < .01 && Math.abs(sends.moved + 7) < .01, JSON.stringify(sends)); await q.click('#reset');
+  // the song's own sounds and the analog set, each its own mix
+  const was = await q.evaluate(() => window.__mix.S.set); await q.locator('#sets button', {hasText: 'song'}).click(); await q.locator('.mark').nth(3).click(); await q.waitForTimeout(2000);
+  const own = await q.evaluate(() => ({set: window.__mix.S.set, bass: window.__mix.by('bass').sound, chords: window.__mix.S.m.chords?.pk}));
+  await q.locator('#sets button', {hasText: 'Analog'}).click(); await q.waitForTimeout(2000);
+  const an = await q.evaluate(() => ({set: window.__mix.S.set, bass: window.__mix.by('bass').sound, hats: window.__mix.by('hats').sound, chords: window.__mix.S.m.chords?.pk, playing: window.__mix.S.playing}));
+  check('analog by default; the song\'s own sounds and the analog set swapped while it plays, each heard', was === 'analog' && own.set === 'song' && own.bass === 'FM pluck bass' && own.chords > .001 && an.set === 'analog' && an.bass === 'Round bass' && /Analog/.test(an.hats) && an.chords > .001 && an.playing,
+    JSON.stringify({was, own, an}));
   // another song: its own sections and its own levels, played
+  const ug = await q.evaluate(() => window.__mix.by('chords').chain[0].params.gain);
   await q.locator('#songs button', {hasText: 'Clearing'}).click(); await q.locator('.mark').nth(2).click(); await q.waitForTimeout(2500);
-  const cl = await q.evaluate(() => ({name: document.querySelector('#title').textContent, marks: document.querySelectorAll('.mark').length, chords: window.__mix.by('chords').chain[0].params.gain, kick: window.__mix.S.m.kick?.pk, master: window.__mix.S.m.master?.pk}));
-  check('Clearing picked: its sections, its own gain staging, heard', cl.name === 'Clearing' && cl.marks === 9 && cl.chords < 5 && cl.kick > .01 && cl.master <= 1, JSON.stringify(cl));
+  const cl = await q.evaluate(ug => ({name: document.querySelector('#title').textContent, marks: document.querySelectorAll('.mark').length, chords: window.__mix.by('chords').chain[0].params.gain, ug, kick: window.__mix.S.m.kick?.pk, master: window.__mix.S.m.master?.pk}), ug);
+  check('Clearing picked: its sections, its own gain staging, heard', cl.name === 'Clearing' && cl.marks === 9 && cl.chords !== cl.ug && cl.kick > .01 && cl.master <= 1, JSON.stringify(cl));
   await q.click('#play'); await q.reload(); await q.waitForTimeout(300);
   check('the song picked is kept across a reload', await q.evaluate(() => window.__mix.P.name) === 'Clearing');
   await q.close(); }
