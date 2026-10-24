@@ -486,5 +486,22 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await ph.evaluate(() => document.getElementById('up').click()); await ph.waitForTimeout(200);
   check('a like on a phone is kept', await ph.evaluate(() => window.__daw.ST.notes[0]?.rating === 1)); await ph.close(); }
 
+// the drum playground (studio/drums/, built into studio/listen/drum-lab.html): every beat on every analog kit heard,
+// the swap alternating the analog kit and its browser copy every two bars, a step clicked on, a knob turned and kept
+{ const q = await browser.newPage({viewport: {width: 1280, height: 900}}); q.on('pageerror', e => { failed = true; console.log('FAIL playground page error:', e.message); });
+  await q.goto(url + 'studio/listen/drum-lab.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(500);
+  await q.click('#play'); await q.waitForFunction(() => window.__drums.node, null, {timeout: 6000});
+  const heard = await q.evaluate(async () => { const {ctx, node, BEATS, pickBeat, pickKit} = window.__drums, a = ctx.createAnalyser(), out = {}, kits = ['Analog 808', 'Analog 909', 'Analog Deep', 'Analog Warm', 'Analog Grit']; a.fftSize = 2048; node.connect(a);
+    for (const [i, b] of BEATS.entries()) { pickBeat(b.id); pickKit(kits[i % 5]); let pk = 0; for (let w = 0; w < 14; w++) { await new Promise(r => setTimeout(r, 70)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) pk = Math.max(pk, Math.abs(v)); } out[b.id + ' ' + kits[i % 5]] = +pk.toFixed(3); }
+    return out; });
+  check('the drum playground plays every beat, each on an analog kit, never past full scale', Object.values(heard).every(p => p > .05 && p <= 1.001), JSON.stringify(heard));
+  await q.evaluate(() => window.__drums.pickBeat('four')); await q.click('#abSwap'); const sides = new Set();
+  for (let w = 0; w < 50; w++) { await q.waitForTimeout(200); sides.add(await q.evaluate(() => window.__drums.S.side)); }
+  check('Swap every 2 bars plays the analog kit and its browser copy in turn', sides.has('a') && sides.has('b'), JSON.stringify([...sides]));
+  await q.locator('.row').nth(1).locator('.st').nth(3).click(); await q.evaluate(() => { const r = document.getElementById('k-decay'); r.value = 2; r.dispatchEvent(new Event('input')); });
+  const kept = await q.evaluate(() => { const S = window.__drums.S; return {step: S.edits.four?.snare?.[3], decay: S.over[S.kit]?.kick?.decay}; });
+  check('a step clicked on and a knob turned are kept', kept.step === 'x' && kept.decay === 2, JSON.stringify(kept));
+  await q.close(); }
+
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);
