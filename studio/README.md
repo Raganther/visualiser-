@@ -46,3 +46,10 @@ reads them and makes the next version.
   DAW's live engine (`arrange/voices.worklet.js`) plays sample by sample; `npoly.js` is the poly synth and `kit.js` the
   drum machine rebuilt the same way; `analogkit.js` is a drum machine of our own, built as analog circuits behave (five
   kits, in pack 4).
+- **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
+  https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
+  `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two
+  band-limited oscillators with sync and cross-mod, a sub, noise and ring mod, a saturating ladder or a state-variable
+  filter, capacitor envelopes, eight voice cards that drift, an LFO, poly, mono, legato and unison, chorus and tape echo),
+  on fourteen examples, each a patch and a phrase written for it. `node studio/<drums|synth>/build.mjs` builds each;
+  `tests/synthlab.mjs` measures the synth and plays the page.
