@@ -56,9 +56,9 @@ reads them and makes the next version.
   move, take out and add to (in and out at matched loudness), and echo and room returns; the ducking lab (`duck/`,
   `listen/duck-lab.html`: https://claude.ai/artifact/4kNr9C6sBzkNDBupg7GvsS) sets a sidechain compressor against a ducker
   that reads the score and moves before each hit, kick → bass, lead → pad and kick → pad, with what each does drawn
-  (the user found it no better: mixes use the classic sidechain compressor); the mix lab (`mix/`, `listen/mix-lab.html`)
-  mixes round 4's Undertow the traditional way on the parts, every sound and processor native (`mix/mix.js`: the song
-  as the host's description and timed messages; `mix/song.mjs` reads it for the build and tests).
+  (the user found it no better: mixes use the classic sidechain compressor); the mix lab (`mix/`, `listen/mix-lab.html`:
+  https://claude.ai/artifact/53SbVEpeak5GaQW4zi51Nd) mixes round 4's three songs the traditional way on the parts, every sound and processor native (`mix/mix.js`: the song
+  as the host's description and timed messages; `mix/song.mjs` reads it for the build and tests; `mix/calibrate.mjs` measures each song's gain staging into `levels.js`).
   `node studio/<drums|synth|rack|duck|mix>/build.mjs` builds each; `tests/synthlab.mjs`, `racklab.mjs`, `ducklab.mjs` and `mixlab.mjs`
   measure the parts and play the pages.
 - **The parts** (`lib/parts/`): what the playgrounds are built from, so they can be mixed and matched. `procs.js` the

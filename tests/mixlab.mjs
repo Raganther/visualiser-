@@ -52,9 +52,10 @@ const host = (desc, from, bars) => { const H = new Host(sr); H.build(JSON.parse(
   const beat = .5, at = t => db(tr[Math.round(t*sr)] ?? 1), kicks = P.tracks[0].clips.find(c => c.start === 16).notes.filter(n => n.s < 32).map(n => n.s*.125);
   const k = kicks.find(t => t > 1), dip = at(k + .03), back = at(k + beat - .02);
   check('in Current, the bass ducks under each kick and comes back before the next (the sidechain compressor)', dip < -4 && back > dip + 3, `${dip.toFixed(1)} dB just after a kick, ${back.toFixed(1)} before the next`); }
-{ const o = run(host(D, 0, P.bars), P.bars*2 + 2);
-  const all = ['kick', 'hats', 'perc', 'bass', 'chords', 'lead', 'lead2'];
-  check('the whole song: every part heard, nothing past full scale', all.every(k => o.inp[k] > 1e-3) && o.pk <= 1 && !o.nan, `peak ${db(o.pk).toFixed(1)} dB, loudness ${o.rms.toFixed(1)} dB`); }
+for (const id of ['r4-1', 'r4-2', 'r4-3']) { const x = songOf(id), Dx = mixOf(x.P, x.SND), H = new Host(sr); H.build(Dx); for (const e of eventsOf(x.P, x.SND, 0)) H.msg({...e.m, t: e.t});
+  const o = run(H, x.P.bars*2 + 2), all = ['kick', 'hats', 'perc', 'bass', 'chords', 'lead', 'lead2'];
+  check(`the whole of ${x.P.name}: every part heard, nothing past full scale, no compressor working too hard`, all.every(k => o.inp[k] > 1e-3) && o.pk <= 1 && !o.nan && Object.entries(o.gr).every(([k, v]) => /sidechain/.test(k) || v < 8),
+    `peak ${db(o.pk).toFixed(1)} dB, loudness ${o.rms.toFixed(1)} dB, the hardest compressor ${Object.entries(o.gr).filter(([k]) => !/sidechain/.test(k)).sort((a, b) => b[1] - a[1])[0].join(' ')}`); }
 
 /* ---------- the playground ---------- */
 execFileSync(process.execPath, [new URL('../studio/mix/build.mjs', import.meta.url).pathname]);
@@ -75,6 +76,12 @@ const {srv, url} = await serve(); const browser = await launch('2d');
   const kept = await q.evaluate(() => ({level: window.__mix.by('bass').level, sat: window.__mix.by('bass').chain.find(c => c.key === 'saturate').on, ch: window.__mix.changes()}));
   check('a fader and a processor switched off are kept across a reload, and named in the notes for Claude', kept.level === -12 && kept.sat === false && kept.ch.some(x => /Bass/.test(x) && /Saturation off/.test(x)), JSON.stringify(kept.ch));
   await q.click('#reset'); check('Back to Claude\'s mix undoes it', (await q.evaluate(() => window.__mix.changes())).length === 0);
+  // another song: its own sections and its own levels, played
+  await q.locator('#songs button', {hasText: 'Clearing'}).click(); await q.locator('.mark').nth(2).click(); await q.waitForTimeout(2500);
+  const cl = await q.evaluate(() => ({name: document.querySelector('#title').textContent, marks: document.querySelectorAll('.mark').length, chords: window.__mix.by('chords').chain[0].params.gain, kick: window.__mix.S.m.kick?.pk, master: window.__mix.S.m.master?.pk}));
+  check('Clearing picked: its sections, its own gain staging, heard', cl.name === 'Clearing' && cl.marks === 9 && cl.chords < 5 && cl.kick > .01 && cl.master <= 1, JSON.stringify(cl));
+  await q.click('#play'); await q.reload(); await q.waitForTimeout(300);
+  check('the song picked is kept across a reload', await q.evaluate(() => window.__mix.P.name) === 'Clearing');
   await q.close(); }
 { const ph = await browser.newPage({viewport: {width: 390, height: 800}}); await ph.goto(url + 'studio/listen/mix-lab.html'); await ph.waitForTimeout(500);
   check('on a phone the page fits its width (the desk scrolls inside itself)', await ph.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); await ph.close(); }

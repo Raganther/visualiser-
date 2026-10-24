@@ -6,6 +6,7 @@
 import { nativeSet, cutOf, LEN } from '../jam/model.js';
 import { NATIVE } from '../lib/native/index.js';
 import { NATIVE_OF } from '../lib/palette.js';
+import { LEVELS } from './levels.js';
 
 const db = g => 20*Math.log10(Math.max(1e-9, g)), q = (v, s) => Math.round(v/s)*s;
 // the kick: the analog drum machine's (deep, round, no drive, darker: as the one you saved was)
@@ -45,20 +46,19 @@ const BUS = {
   room: () => [pr('room', {size: 1.1, decay: 2.2, damp: .5, pre: 15, cut: 220, mix: 1, dry: 0}), pr('sidechain', {key: 'kick', thr: -32, ratio: 6, att: 1, rel: 220, range: 6})],
   bus: () => [pr('trim', {gain: 4}), pr('eq', {lo: .5, loF: 40, hi: 1, hiF: 12000}), pr('glue', {thr: -14, ratio: 2, att: 30, rel: 180}), pr('width', {width: 1.1}), pr('ceiling', {knee: .89})],
 };
-// gain staging: each channel's input gain, so its peaks reach the processors near -9 dBFS (measured offline over the song)
-export const GAIN = {kick: -5.8, hats: 7.5, perc: -3, bass: -3.6, chords: 10.8, lead: 5.2, lead2: 6.9};
-// how much louder each channel's processors leave it, measured over the song (so the fader can take it back off and the
-// song's own balance between its parts stays as it was written)
-export const CAL = {kick: 1.6, hats: -.8, perc: -.9, bass: -2.9, chords: -9.6, lead: -5, lead2: -4};
+// each song's gain staging (levels.js, written by calibrate.mjs, measured offline over the song): each channel's input
+// gain, so its peaks reach the processors near -9 dBFS (gain), and how much louder its processors then leave it (cal), so
+// the fader takes that back off and the song's own balance between its parts stays as it was written
+const lv = (P, k, id) => LEVELS[P.song]?.[k]?.[id] ?? 0;
 // then the balance: the kick, now the analog drum machine's, set against the bass; the others as the song had them
 export const TRIM = {kick: -2, hats: 0, perc: 0, bass: 0, chords: 0, lead: 0, lead2: 0};
-export const faderOf = (id, vol) => +(db(.85) + (vol || 0) - (GAIN[id] ?? 0) - (CAL[id] ?? 0) + (TRIM[id] ?? 0)).toFixed(1);
+export const faderOf = (P, id, vol) => +(db(.85) + (vol || 0) - lv(P, 'gain', id) - lv(P, 'cal', id) + (TRIM[id] ?? 0)).toFixed(1);
 
 export function mixOf(P, SND){ const strips = [], sources = {};
   P.tracks.forEach((T, i) => { const id = chanOf(P, i); sources[id] = sourceOf(T, SND);
     const drum = ['kick', 'hats', 'perc'].includes(T.role), s = T.set;
-    strips.push({id, label: T.name, role: T.role, input: T.role === 'kick' ? {src: id, pad: 'kick'} : {src: id}, chain: [pr('trim', {gain: GAIN[id] ?? 0}), ...CH[T.role]()], lp: cutOf(s.x ?? .62),
-      level: faderOf(id, T.mix.vol), pan: T.mix.pan || 0, out: drum ? 'drums' : 'music', sends: sendsOf(s)}); });
+    strips.push({id, label: T.name, role: T.role, input: T.role === 'kick' ? {src: id, pad: 'kick'} : {src: id}, chain: [pr('trim', {gain: lv(P, 'gain', id)}), ...CH[T.role]()], lp: cutOf(s.x ?? .62),
+      level: faderOf(P, id, T.mix.vol), pan: T.mix.pan || 0, out: drum ? 'drums' : 'music', sends: sendsOf(s)}); });
   strips.push({id: 'drums', label: 'Drum bus', bus: true, input: null, chain: BUS.drums(), level: 0, out: 'bus'},
     {id: 'music', label: 'Music bus', bus: true, input: null, chain: BUS.music(), level: 0, out: 'bus'},
     {id: 'echo', label: 'Echo', ret: true, input: null, chain: BUS.echo(), level: -2, out: 'bus'},

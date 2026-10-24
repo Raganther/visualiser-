@@ -1,4 +1,4 @@
-// The mix playground: one round 4 song mixed the traditional way, every sound and every processor native. A channel a
+// The mix playground: round 4's songs (Clearing, Two rivers, Undertow) mixed the traditional way, every sound and every processor native. A channel a
 // part (input gain, a cut, an EQ, a compressor, the kick's sidechain on the bass, chords and leads), the drums and the
 // music each into a bus, an echo and a room on sends, the master bus. Play it through or from a section, round a
 // section, hear Claude's mix or the parts straight (every processor out, at the same loudness), change any of it, and
@@ -7,11 +7,15 @@ import { $, h, store, clone, startHost, control, chainEditor, showGr, scope, cop
 import { PROCS } from '../lib/parts/procs.js';
 import { mixOf, eventsOf } from './mix.js';
 
-const {P, SND} = JSON.parse($('song').textContent), BASE = mixOf(P, SND), K = store('mixlab.' + P.song + '.');
-const BAR = 4*60/P.bpm;
-// the mix as you've left it (Claude's, with your changes)
-const S = {mix: K.load('mix', null) || clone(BASE), sel: K.load('sel', 'bass'), straight: false, loop: K.load('loop', false), playing: false, from: 0, t0: 0, m: {}};
-if (!S.mix.strips?.every(s => BASE.strips.some(b => b.id === s.id))) S.mix = clone(BASE);
+// the songs (round 4's three, the same parts and sounds), each with its own mix kept apart
+const SONGS = JSON.parse($('song').textContent), ALL = store('mixlab.');
+let P, SND, BASE, K, BAR;
+const S = {straight: false, playing: false, from: 0, t0: 0, m: {}};
+function pick(id){ ({P, SND} = SONGS.find(x => x.P.song === id) || SONGS.find(x => x.P.song === 'r4-3') || SONGS[0]); BASE = mixOf(P, SND); K = store('mixlab.' + P.song + '.'); BAR = 4*60/P.bpm;
+  // the mix as you've left it (Claude's, with your changes)
+  S.mix = K.load('mix', null) || clone(BASE); S.sel = K.load('sel', 'bass'); S.loop = K.load('loop', false); S.from = 0; ALL.keep('song', P.song);
+  if (!S.mix.strips?.every(s => BASE.strips.some(b => b.id === s.id))) S.mix = clone(BASE); }
+pick(ALL.load('song', 'r4-3'));
 const by = id => S.mix.strips.find(s => s.id === id), base = id => BASE.strips.find(s => s.id === id);
 const shown = () => S.mix.strips.filter(s => s.id !== 'master');
 let A = null, timer = 0, queue = [], lap = 0;
@@ -95,10 +99,14 @@ function paintCopy(){ const n = changes().length; $('changed').textContent = n ?
 function copyNotes(){ copyOut(`Mix notes: ${P.name} (round ${P.round || 4})\n${$('notes').value.trim() || '(no notes)'}\n\nChanged from Claude's mix:\n${changes().join('\n') || '(nothing)'}`, $('copied'), $('notes')); }
 function reset(){ S.mix = clone(BASE); save(); send({type: 'build', ...S.mix}); applyStraight(); paintDesk(); paintEdit(); paintCopy(); }
 
-$('title').textContent = P.name; $('play').onclick = () => S.playing ? stop() : play(S.from);
+// another song: stopped, its own mix built, the page painted for it
+function song(id){ if (S.playing) stop(); pick(id); send({type: 'build', ...S.mix}); if (A) applyStraight(); paintAll(); }
+function paintAll(){ $('title').textContent = P.name; $('notes').value = K.load('notes', ''); $('songs').replaceChildren(...SONGS.map(x => h('button', {'aria-pressed': x.P.song === P.song, onclick: () => song(x.P.song)}, x.P.name)));
+  paintMarks(); paintBar(); paintDesk(); paintEdit(); paintCopy(); }
+$('play').onclick = () => S.playing ? stop() : play(S.from);
 $('loop').onchange = e => { S.loop = e.target.checked; K.keep('loop', S.loop); if (S.playing) play(Math.floor(posBar())); };
-$('reset').onclick = reset; $('copy').onclick = copyNotes; $('notes').value = K.load('notes', ''); $('notes').oninput = e => K.keep('notes', e.target.value);
+$('reset').onclick = reset; $('copy').onclick = copyNotes; $('notes').oninput = e => K.keep('notes', e.target.value);
 addEventListener('keydown', e => { if (e.target.matches('input, textarea, select')) return; if (e.code === 'Space') { e.preventDefault(); S.playing ? stop() : play(S.from); }
   if (e.key === 'b' || e.key === 'B') { S.straight = !S.straight; applyStraight(); } });
-paintMarks(); paintBar(); paintDesk(); paintEdit(); paintCopy();
-window.__mix = {S, P, BASE, by, get A(){ return A; }, play, stop, applyStraight, reset, changes};   // (for tests)
+paintAll();
+window.__mix = {S, get P(){ return P; }, get BASE(){ return BASE; }, song, by, get A(){ return A; }, play, stop, applyStraight, reset, changes};   // (for tests)
