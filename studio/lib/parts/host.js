@@ -12,12 +12,14 @@
 // be another's key (a sidechain compressor listening to the kick): its sound after its processors, before its fader.
 import { AnalogSynth } from '../native/asynth.js';
 import { AnalogKit } from '../native/analogkit.js';
+import { Natives } from './natives.js';
 import { Chain, PROCS } from './procs.js';
-import { fromDb } from './dsp.js';
+import { fromDb, svf } from './dsp.js';
 
 export const INSTS = {
   kit: {label: 'Analog drum machine', make: (sr, d) => { const K = new AnalogKit(sr, 11); K.load(d.kit || 'Analog 808', d.over || {}); return K; }},
   synth: {label: 'Analog synth', make: (sr, d) => { const S = new AnalogSynth(sr); S.load(d.params || {}); return S; }},
+  native: {label: 'Native instruments', make: (sr, d) => { const N = new Natives(sr); N.load(d.slots || {}); return N; }},
 };
 
 export class Host {
@@ -44,24 +46,27 @@ export class Host {
     if (m.period) this.period = m.period;
     switch (m.type) {
       case 'build': return this.build(m);
-      case 'strip': { const s = this.by[m.id]; if (s) { Object.assign(s, m.set); if ('out' in m.set || 'sends' in m.set) this.order(); } return; }
+      case 'strip': if (m.t != null) break; return this.strip(m);
       // a strip's processors changed (added, taken out, moved): those kept keep their state
       case 'chain': { const s = this.by[m.id]; if (s) s.chain.list = m.chain.map(c => { const keep = s.chain.find(c.id); if (keep && keep.key === c.key) { keep.set(c.params || {}); keep.on = c.on !== false; return keep; } return s.chain.make(c); }); this.order(); return; }
       case 'proc': { const p = this.by[m.id]?.chain.find(m.pid); if (p) { if (m.params) p.set(m.params); if ('on' in m) p.on = m.on; if (m.params?.key) this.order(); } return; }
       case 'voice': return this.src[m.src]?.obj.set(m.voice, m.key, m.v);
       case 'kit': { const s = this.src[m.src]; if (s) { s.kit = m.kit; s.over = m.over || {}; s.obj.load(m.kit, m.over || {}); } return; }
       case 'synth': return this.src[m.src]?.obj.set(m.params);
+      case 'set': if (m.t != null) break; return this.src[m.src]?.obj.set(m);
       case 'stop': { this.ev = this.ev.filter(e => !e.seq); for (const s of Object.values(this.src)) s.obj.stop();
         for (const T of Object.values(this.tl)) { T.hits = T.hits.filter(h => h.t <= this.now); T.notes = T.notes.filter(x => x.t <= this.now); for (const x of T.notes) if (x.off > this.now) x.off = this.now; } return; }
     }
     this.note(m); if (m.t == null) this.play(m); else { this.ev.push(m); this.ev.sort((a, b) => a.t - b.t); } }
+  // a strip's settings (its fader, pan, sends, mute, its part's tone `lp`), now or at a time
+  strip(m){ const s = this.by[m.id]; if (!s) return; Object.assign(s, m.set); if ('lp' in m.set) s.lpf = null; if ('out' in m.set || 'sends' in m.set) this.order(); }
   // the timeline: every hit and note as it's given (ahead of when it sounds), a note's end when its off arrives
-  note(m){ const T = this.tl[m.src] ||= {hits: [], notes: []}, t = m.t ?? this.now;
+  note(m){ if (!m.src || !['hit', 'on', 'off'].includes(m.type)) return; const T = this.tl[m.src] ||= {hits: [], notes: []}, t = m.t ?? this.now;
     if (m.type === 'hit') T.hits.push({t, voice: m.voice, vel: m.vel ?? 1});
     else if (m.type === 'on') T.notes.push({t, off: Infinity, id: m.id, n: m.n, vel: m.vel ?? .8});
     else if (m.type === 'off') { const x = T.notes.findLast(x => x.id === m.id && x.off === Infinity); if (x) x.off = t; } }
-  play(m){ const o = this.src[m.src]?.obj; if (!o) return;
-    if (m.type === 'hit') o.on(m.voice, m.vel); else if (m.type === 'on') o.on(m.id, m.n, m.vel); else if (m.type === 'off') o.off(m.id); }
+  play(m){ if (m.type === 'strip') return this.strip(m); const o = this.src[m.src]?.obj; if (!o) return;
+    if (m.type === 'hit') o.on(m.voice, m.vel); else if (m.type === 'on') o.on(m.id, m.n, m.vel, m); else if (m.type === 'off') o.off(m.id); else if (m.type === 'set') o.set(m); }
   // a block: the events at their samples, the graph between them
   process(L, R, n, now){ let a = 0; const sr = this.sr; this.now = now;
     // (what's more than a few seconds gone is forgotten)
@@ -78,6 +83,8 @@ export class Host {
       else { if ('period' in o) o.period = this.period; o.render(mine[0].inp[0], mine[0].inp[1], 0, n); } }
     const solo = this.st.some(s => s.solo && s.input);
     for (const s of this.run_) { const [l, r] = s.inp;
+      // the part's own tone, as its song set it (a low-pass before its processors, heard bypassed too)
+      if (s.lp > 0 && s.lp < 18000) { if (!s.lpf || s.lpf.f !== s.lp) { s.lpf = {f: s.lp, l: svf(s.lp, .9, this.sr), r: svf(s.lp, .9, this.sr)}; } const fl = s.lpf.l, fr = s.lpf.r; for (let j = 0; j < n; j++) { l[j] = fl(l[j]).lp; r[j] = fr(r[j]).lp; } }
       // the chain (or, bypassed, the dry signal at the chain's loudness), measured each block
       let ein = 0, eout = 0; for (let j = 0; j < n; j++) ein += l[j]*l[j] + r[j]*r[j];
       if (s.bypass) { const [dl, dr] = s.dry; dl.set(l.subarray(0, n)); dr.set(r.subarray(0, n)); s.chain.run(dl, dr, 0, n, env); for (let j = 0; j < n; j++) eout += dl[j]*dl[j] + dr[j]*dr[j];

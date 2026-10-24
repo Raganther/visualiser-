@@ -147,3 +147,7 @@ before writing or changing a piece; add to it when they react.
   Five kits (808, 909, Deep, Warm, Grit) in pack 4, live in the DAW. Measured: levels calibrated, the kicks' energy
   nearly all under 100 Hz, longer, fuller tails than the browser kits. To learn by listening: which kit, how much boom,
   tape and variation.
+- 2026-10-24: The ducker that reads the score "doesn't really sound better": the user is wary of complexity that isn't
+  needed. Mix the traditional way (channels, buses, sends, a master bus, the classic sidechain compressor keyed by the
+  kick so the mix pumps and clears), but keep making the sounds and the processors natively. Not the score-reading
+  ducker in a mix. Built the mix lab on round 4's Undertow to listen to that.

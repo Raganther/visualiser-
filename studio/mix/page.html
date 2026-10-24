@@ -1,0 +1,99 @@
+<meta charset="utf-8">
+<title>Mix Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: the transport and what's heard, the song's sections, the desk (a strip a channel, then the buses and returns,
+   in a row that scrolls sideways inside itself), the picked strip's processors, notes for Claude */
+:root {
+  --panel: #e6e0d6; --face: #f3efe8; --ink: #24201b; --mute: #6b6258; --line: #c4baac; --accent: #b4561f; --accent-ink: #fff; --hot: #c8321e; --meter: #4f8a3c; --bus: #e9e1d2; --ret: #e2e6dc;
+  --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --panel: #171512; --face: #211e1a; --ink: #ece6dd; --mute: #a39a8e; --line: #3e3831; --accent: #f08a4b; --accent-ink: #1b1208; --hot: #ff6a4d; --meter: #8cc66f; --bus: #29241d; --ret: #1f241d; color-scheme: dark } }
+:root[data-theme="dark"] { --panel: #171512; --face: #211e1a; --ink: #ece6dd; --mute: #a39a8e; --line: #3e3831; --accent: #f08a4b; --accent-ink: #1b1208; --hot: #ff6a4d; --meter: #8cc66f; --bus: #29241d; --ret: #1f241d; color-scheme: dark }
+body { background: var(--panel); color: var(--ink); font-family: var(--display); font-stretch: 92%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; margin: 0 }
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 22px } .wrap > * { min-width: 0 }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 800; font-stretch: 70%; letter-spacing: .02em; text-transform: uppercase; line-height: 1 }
+h1 small { font-weight: 500; color: var(--accent) }
+header p { margin: 0; color: var(--mute); max-width: 72ch; font-stretch: 100%; line-height: 1.45 }
+h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); text-wrap: balance }
+button, select { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#play { min-width: 100px; padding: 12px 18px; border: 0; border-radius: 4px; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase }
+#play[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.lbl { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); margin-bottom: 3px }
+#pos { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 5ch; display: inline-block }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--mute) } .check input { accent-color: var(--accent) }
+#hear button { padding: 8px 12px; font-size: 13px }
+#hearing { font-size: 13px; color: var(--mute); flex: 1 1 220px }
+#scope { flex: 1 1 160px; height: 46px; min-width: 120px; background: var(--panel); border-radius: 3px }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
+.ghost[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+/* the sections */
+#marks { display: flex; flex-wrap: wrap; gap: 6px }
+.mark { display: grid; text-align: left; gap: 1px; border: 1px solid var(--line); background: var(--face); border-radius: 5px; padding: 7px 11px }
+.mark b { font-size: 15px; font-stretch: 85% } .mark span { font: 11px var(--mono); color: var(--mute) }
+.mark[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
+/* the desk */
+.deskbox { overflow-x: auto; padding-bottom: 6px }
+#desk { display: grid; grid-auto-flow: column; grid-auto-columns: 172px; gap: 8px; width: max-content }
+.strip { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 10px; display: grid; gap: 8px; align-content: start }
+.strip[data-kind="bus"] { background: var(--bus) } .strip[data-kind="ret"] { background: var(--ret) }
+.strip[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
+.sname { display: grid; text-align: left; gap: 1px; border: 0; background: transparent; padding: 0 } .sname b { font-size: 16px; font-stretch: 85% } .sname span { font-size: 11.5px; color: var(--mute) }
+.sname:hover b { color: var(--accent) }
+.meter { height: 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; overflow: hidden } .meter i { display: block; height: 100%; width: 0; background: var(--meter) } .meter i[data-hot="true"] { background: var(--hot) }
+.chips { display: flex; flex-wrap: wrap; gap: 3px; min-height: 20px } .chip { font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; display: inline-flex; gap: 4px; align-items: baseline }
+.chip[data-off="true"] { opacity: .45; text-decoration: line-through } .chip .gr { min-width: 0; font-size: 10.5px; font-style: normal }
+.fdr, .snd { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; font-size: 12.5px } .fdr > span, .snd > span { color: var(--mute) }
+.fdr input, .snd input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent) } .fdr output, .snd output { font: 12px var(--mono) }
+.sends { display: grid; gap: 4px } .ms { display: flex; gap: 6px } .ms button { flex: 1 }
+/* the picked strip */
+.box { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0 }
+.boxhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px } .boxhead b { font-size: 20px; font-stretch: 80% } .boxhead p { margin: 0; color: var(--mute); font-size: 13px; flex: 1 1 280px }
+#tone { max-width: 360px }
+.chain { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) }
+.notes { display: grid; gap: 8px } textarea { font: 14px/1.45 system-ui, sans-serif; background: var(--face); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 10px; min-height: 90px; resize: vertical }
+.notes div { display: flex; flex-wrap: wrap; gap: 12px; align-items: center } #copied, #changed { font-size: 13px; color: var(--mute) }
+/*SHELLCSS*/
+.phead { flex-wrap: wrap }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Mix Lab <small>· <span id="title">Undertow</span></small></h1>
+    <p>A round 4 song mixed the traditional way. Every sound is native: the analog drum machine's kick, the cymbals, the forest percussion, the FM bass, the bowed strings, bamboo and marimba. Every processor is native too. Each part has its own channel: input gain, a low cut, EQ and a compressor. The kick keys a sidechain compressor on the bass, the chords, the leads and the room, so the mix pumps and clears. The drums and the music each go into a bus with its own compressor, the echo and room are sends, and everything ends on the master bus.</p>
+  </header>
+
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <div><span class="lbl">Bar · beat</span><span id="pos">–</span></div>
+    <div><span class="lbl">Hear</span><div class="seg" id="hear" role="group" aria-label="Claude's mix or the parts straight"></div></div>
+    <label class="check"><input type="checkbox" id="loop"> Round the section</label>
+    <span id="hearing" role="status"></span>
+    <canvas id="scope" aria-label="The waveform"></canvas>
+  </div>
+
+  <section style="display:grid;gap:8px"><h2>Sections · click one to play from there</h2><div id="marks"></div></section>
+
+  <section style="display:grid;gap:8px"><h2>The desk · channels, buses, returns, master</h2><div class="deskbox"><div id="desk"></div></div></section>
+
+  <section class="box">
+    <div class="boxhead"><b id="editName"></b><p id="editWords"></p><button id="reset" class="ghost">Back to Claude's mix</button></div>
+    <div id="tone"></div>
+    <div id="chain" class="chain"></div>
+  </section>
+
+  <section class="notes">
+    <h2>Notes for Claude</h2>
+    <textarea id="notes" placeholder="What you hear: the kick and bass fighting, the strings pumping too much, the hats too far back, the room too wet…"></textarea>
+    <div><button id="copy" class="ghost">Copy notes and changes</button><span id="changed"></span><span id="copied" role="status"></span></div>
+  </section>
+</div>
+<script id="song" type="application/json">/*SONG*/</script>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

@@ -23,6 +23,19 @@ class Cut { constructor(sr){ this.sr = sr; this.set({}); }
   set(p){ this.p = {freq: 30, ...this.p, ...p}; this.hp = [svf(this.p.freq, .707, this.sr), svf(this.p.freq, .707, this.sr)]; }
   process(L, R, a, b){ const [f, g] = this.hp; for (let j = a; j < b; j++) { L[j] = f(L[j]).hp; R[j] = g(R[j]).hp; } } }
 
+// a desk's EQ: a low shelf, a bell in the middle and a high shelf (RBJ's biquads), each band flat at 0 dB
+const biq = (type, f, db, q, sr) => { const A = Math.pow(10, db/40), w = TAU*Math.min(f, sr*.45)/sr, c = Math.cos(w), sn = Math.sin(w);
+  if (type === 'peak') { const al = sn/(2*q), a0 = 1 + al/A; return [(1 + al*A)/a0, -2*c/a0, (1 - al*A)/a0, -2*c/a0, (1 - al/A)/a0]; }
+  const al = sn/2*Math.SQRT2, sq = 2*Math.sqrt(A)*al, k = type === 'lo' ? 1 : -1, a0 = (A + 1) + k*(A - 1)*c + sq;
+  return [A*((A + 1) - k*(A - 1)*c + sq)/a0, 2*k*A*((A - 1) - k*(A + 1)*c)/a0, A*((A + 1) - k*(A - 1)*c - sq)/a0, -2*k*((A - 1) + k*(A + 1)*c)/a0, ((A + 1) + k*(A - 1)*c - sq)/a0]; };
+class Trim { constructor(){ this.set({}); } set(p){ this.p = {gain: 0, ...this.p, ...p}; this.g = Math.pow(10, this.p.gain/20); }
+  process(L, R, a, b){ const g = this.g; if (g === 1) return; for (let j = a; j < b; j++) { L[j] *= g; R[j] *= g; } } }
+class EQ { constructor(sr){ this.sr = sr; this.z = [0, 1, 2].map(() => [[0, 0, 0, 0], [0, 0, 0, 0]]); this.set({}); }
+  set(p){ this.p = {lo: 0, loF: 100, mid: 0, midF: 800, q: .9, hi: 0, hiF: 8000, ...this.p, ...p}; const q = this.p, sr = this.sr;
+    this.c = [q.lo && biq('lo', q.loF, q.lo, 0, sr), q.mid && biq('peak', q.midF, q.mid, q.q, sr), q.hi && biq('hi', q.hiF, q.hi, 0, sr)]; }
+  process(L, R, a, b){ for (let i = 0; i < 3; i++) { const C = this.c[i]; if (!C) continue; const [s0, s1, s2, s3, s4] = C;
+    for (let k = 0; k < 2; k++) { const z = this.z[i][k], X = k ? R : L; for (let j = a; j < b; j++) { const x = X[j], y = s0*x + s1*z[0] + s2*z[1] - s3*z[2] - s4*z[3]; z[1] = z[0]; z[0] = x; z[3] = z[2]; z[2] = y; X[j] = y; } } } } }
+
 /* ---------- colour ---------- */
 // tape: driven with a little bias (an asymmetry: its even harmonics' warmth), quiet signals at their own level, peaks
 // rounded over (the harder it's driven, the more); its output lifted back to where it went in, on average
@@ -150,6 +163,10 @@ const P = (key, label, min, max, def, unit, x = {}) => ({key, label, min, max, d
 export const PROCS = {
   weight: {label: 'Weight', words: 'A low shelf: the low end\'s weight, up or down.', make: sr => new Weight(sr),
     params: [P('db', 'Weight', -6, 9, 2, 'dB'), P('freq', 'Below', 30, 200, 70, 'Hz', {log: true})]},
+  trim: {label: 'Input gain', words: 'The channel\'s gain at its input: sets how hard the processors after it are hit.', make: () => new Trim(), params: [P('gain', 'Gain', -24, 24, 0, 'dB')]},
+  eq: {label: 'EQ', words: 'A desk\'s three bands: a low shelf, a bell in the middle, a high shelf.', make: sr => new EQ(sr),
+    params: [P('lo', 'Low', -12, 12, 0, 'dB'), P('loF', 'Low at', 30, 400, 100, 'Hz', {log: true}), P('mid', 'Mid', -12, 12, 0, 'dB'), P('midF', 'Mid at', 150, 8000, 800, 'Hz', {log: true}),
+      P('q', 'Mid width', .3, 4, .9, '×', {log: true}), P('hi', 'High', -12, 12, 0, 'dB'), P('hiF', 'High at', 1500, 16000, 8000, 'Hz', {log: true})]},
   cut: {label: 'Low cut', words: 'A high-pass: the low end taken out.', make: sr => new Cut(sr), params: [P('freq', 'Below', 20, 800, 30, 'Hz', {log: true})]},
   tone: {label: 'Tone', words: 'The highs softened, as a desk or tape takes them.', make: sr => new Tone(sr), params: [P('tone', 'Tone', 0, 1, 1, '%')]},
   tape: {label: 'Tape', words: 'Driven with a little bias: warmth from even harmonics, the peaks rounded over.', make: sr => new Tape(sr), params: [P('drive', 'Drive', 0, 1, .3, '%')]},
