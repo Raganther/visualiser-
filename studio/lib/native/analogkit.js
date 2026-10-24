@@ -9,6 +9,8 @@
 // render(L, R, a, b) adding into L and R, stop(); the same as the native copy of the browser's kit (kit.js).
 import { VOICES, PARAMS } from '../../../src/audio/engine/inst/drums.js';
 import { rng } from '../rng.js';
+import { adaa, svf, clip, toneHz, dB } from '../parts/dsp.js';
+import { Chain } from '../parts/procs.js';
 
 // every voice's settings: the browser kit's seven (tune, decay, tone, drive, level, pan, character) and three of its own
 export const APARAMS = [...PARAMS, {key: 'snap', label: 'Snap', min: 0, max: 1, def: .5, unit: '%'}, {key: 'body', label: 'Body', min: 0, max: 1, def: .5, unit: '%'},
@@ -43,20 +45,8 @@ export const analogParams = name => { const K = ANALOG_KITS[name] || ANALOG_KITS
 // the browser kit that stands in for an analog one where the live engine can't play
 export const kitFallback = name => ANALOG_KITS[name]?.fallback || name;
 
-const T = 6.91, st = n => Math.pow(2, n/12), toneHz = t => 1000*Math.pow(22, t), TAU = 2*Math.PI, METAL = [205.3, 304.4, 369.6, 522.7, 540, 800];
-// a soft clip (the cubic curve: rounding over to 2/3 at full drive) without its aliasing: first-order antiderivative
-// anti-aliasing, the step between samples averaged over the curve, so a hard drive stays smooth (and costs a few
-// multiplies, no sine or logarithm)
-const clip = u => u > 1 ? 2/3 : u < -1 ? -2/3 : u - u*u*u/3, clipF = u => { const a = Math.abs(u); return a > 1 ? 2/3*a - .25 : u*u/2 - u*u*u*u/12; };
-function adaa(){ let x1 = 0, F1 = 0; return x => { const F = clipF(x), d = x - x1, y = Math.abs(d) < 1e-4 ? clip((x + x1)/2) : (F - F1)/d; x1 = x; F1 = F; return y; }; }
-// the same for tanh (the tape's gentler curve): its antiderivative is log cosh
-const lcosh = x => { const a = Math.abs(x); return a > 15 ? a - Math.LN2 : Math.log(Math.cosh(x)); };
-function adaaT(){ let x1 = 0, F1 = 0; return x => { const F = lcosh(x), d = x - x1, y = Math.abs(d) < 1e-4 ? Math.tanh((x + x1)/2) : (F - F1)/d; x1 = x; F1 = F; return y; }; }
-// a state-variable filter (the trapezoidal form), its low, band and high outputs
-function svf(f, q, sr){ const g = Math.tan(Math.PI*Math.min(f, sr*.45)/sr), k = 1/q, a1 = 1/(1 + g*(g + k)), a2 = g*a1, a3 = g*a2; let s1 = 0, s2 = 0;
-  const o = {lp: 0, bp: 0, hp: 0}; return x => { const v3 = x - s2, v1 = a1*s1 + a2*v3, v2 = s2 + a2*s1 + a3*v3; s1 = 2*v1 - s1; s2 = 2*v2 - s2; o.lp = v2; o.bp = v1; o.hp = x - k*v1 - v2; return o; }; }
-// the bus's last stage: above -1 dB it rounds over, so nothing leaves the machine past full scale
-const ceil = y => { const a = Math.abs(y); return a < .89 ? y : Math.sign(y)*(.89 + .11*Math.tanh((a - .89)/.11)); };
+const T = 6.91, st = n => Math.pow(2, n/12), TAU = 2*Math.PI, METAL = [205.3, 304.4, 369.6, 522.7, 540, 800];
+// (the soft clip without aliasing, tanh's, the state-variable filter: ../parts/dsp.js)
 const blep = (t, dt) => t < dt ? (t /= dt, t + t - t*t - 1) : t > 1 - dt ? (t = (t - 1)/dt, t*t + t + t + 1) : 0;
 const square = (t, dt) => (t < .5 ? 1 : -1) + blep(t, dt) - blep((t + .5) % 1, dt);
 
@@ -142,16 +132,9 @@ export class AnalogKit {
   apply(key){ const p = this.P[key], c = this.ch[key], sr = this.sr; c.lp = [svf(toneHz(p.tone), .6, sr), svf(toneHz(p.tone), .6, sr)]; c.open = p.tone >= .995;
     c.K = 1 + p.drive*4; c.sat = p.drive > .01 ? [adaa(), adaa()] : null; c.kn = clip(c.K); c.lv = p.level*(1 - p.drive*.3);
     const x = (p.pan + 1)/2*Math.PI/2; c.gl = Math.cos(x)*Math.SQRT2; c.gr = Math.sin(x)*Math.SQRT2; }
-  busSet(b){ const sr = this.sr, B = this.B = {...b};
-    // the low end's weight: a low shelf (RBJ) at 70 Hz, `weight` dB
-    const A = Math.pow(10, (b.weight || 0)/40), w0 = TAU*70/sr, c = Math.cos(w0), s = Math.sin(w0), al = s/2*Math.SQRT2, sq = 2*Math.sqrt(A)*al;
-    const a0 = (A + 1) + (A - 1)*c + sq; B.sh = [A*((A + 1) - (A - 1)*c + sq)/a0, 2*A*((A - 1) - (A + 1)*c)/a0, A*((A + 1) - (A - 1)*c - sq)/a0, -2*((A - 1) + (A + 1)*c)/a0, ((A + 1) + (A - 1)*c - sq)/a0];
-    B.z = [[0, 0, 0, 0], [0, 0, 0, 0]]; B.lp = [svf(toneHz(b.tone ?? 1), .6, sr), svf(toneHz(b.tone ?? 1), .6, sr)]; B.open = (b.tone ?? 1) >= .995;
-    // tape: driven with a little bias (an asymmetry: its even harmonics' warmth); quiet signals pass at their own level,
-    // peaks round over (the harder it's driven, the more), and the glue's makeup brings the level back
-    const dr = b.drive || 0; B.on = dr > .01; B.k = dr*3; B.bias = .08*dr; B.tb = Math.tanh(B.bias); B.norm = 1/((B.k || 1)*(1 - B.tb*B.tb)); B.sat = [adaaT(), adaaT()];
-    // glue: a gentle compressor on both sides together, its makeup restoring what it took on average
-    B.thr = Math.pow(10, -(8 + 10*(b.glue || 0))/20); B.ratio = 1 + 3*(b.glue || 0); B.env = 0; B.att = Math.exp(-1/(.004*sr)); B.rel = Math.exp(-1/(.12*sr)); B.mk = (1 + .25*(b.glue || 0))*(1 + .8*dr); B.g = B.mk; B.width = b.width ?? 1; }
+  // the bus, a chain of processors (../parts/procs.js): weight (a low shelf at 70 Hz), tape, tone, glue, width, the
+  // ceiling; a kit's bus settings say how much of each. The glue's threshold is where it was before the tape's makeup.
+  busSet(b){ this.B = {...b}; this.bus = new Chain(this.sr, busChain(b)); }
   load(name, over = {}){ const K = ANALOG_KITS[name] || ANALOG_KITS['Analog 808'], kp = analogParams(name); this.name = name;
     for (const v of VOICES) { this.P[v.key] = {...kp[v.key], ...(over[v.key] || {})}; this.apply(v.key); } this.busSet(K.bus); }
   set(key, k, v){ if (!this.P[key]) return; this.P[key][k] = v; this.apply(key); }
@@ -166,33 +149,39 @@ export class AnalogKit {
     if (key === 'kick' && this.B.buzz > 0) { const sp = this.P.snare, a = this.B.buzz*.045*v, hp = svf(3000, .7, this.sr), d = .04;
       this.hits.push({key: 'snare', i: 0, end: .3, f: t => { const x = hp(R()*2 - 1).hp*a*Math.exp(-t/d)*(1 - Math.exp(-t/.006)); return x*(sp.level ?? 1); }}); } }
   stop(){ for (const h of this.hits) h.choke ||= 1; }
-  render(L, R, a, b){ const n = b - a, sr = this.sr;
+  render(L, R, a, b){ const n = b - a;
     if (!this.hits.length && !this.tail) return;
-    const used = new Set(), cd = Math.exp(-1/(.01*sr));
+    if (!this.buf || this.buf[0].length < n) this.buf = [new Float64Array(Math.max(n, 128)), new Float64Array(Math.max(n, 128))];
+    const bl = this.buf[0], br = this.buf[1]; bl.fill(0, 0, n); br.fill(0, 0, n); this.tail = this.voices(n) ? 16 : Math.max(0, (this.tail || 0) - 1);
+    for (const c of this.live) { const o = c.out; for (let j = 0; j < n; j++) { bl[j] += o[0][j]; br[j] += o[1][j]; } }
+    this.bus.run(bl, br, 0, n);
+    for (let j = 0; j < n; j++) { L[a + j] += bl[j]; R[a + j] += br[j]; } }
+  // the next n samples of every voice sounding, each through its channel into its own buffer (c.out); the channels
+  // sounding are left in this.live, in order (a kit sums them into its bus, a drum rack reads them one by one)
+  voices(n){ const sr = this.sr, cd = Math.exp(-1/(.01*sr)); for (const c of Object.values(this.ch)) c.used = false;
     for (const h of this.hits) { const c = this.ch[h.key]; if (!c.in || c.in[0].length < n) c.in = [new Float32Array(Math.max(n, 128)), new Float32Array(Math.max(n, 128))];
-      if (!used.has(c)) { c.in[0].fill(0, 0, n); c.in[1].fill(0, 0, n); used.add(c); }
+      if (!c.used) { c.in[0].fill(0, 0, n); c.in[1].fill(0, 0, n); c.used = true; }
       for (let j = 0; j < n; j++) { const t = (h.i + j)/sr; if (t >= h.end) { h.done = true; break; }
         let y = h.f(t), l, r; if (typeof y === 'number') l = r = y; else [l, r] = y;
         if (h.choke) { l *= h.choke; r *= h.choke; h.choke *= cd; if (h.choke < 1e-4) { h.done = true; break; } }
         c.in[0][j] += l; c.in[1][j] += r; }
       h.i += n; }
     this.hits = this.hits.filter(h => !h.done);
-    if (!this.buf || this.buf[0].length < n) this.buf = [new Float32Array(Math.max(n, 128)), new Float32Array(Math.max(n, 128))];
-    const bl = this.buf[0], br = this.buf[1]; bl.fill(0, 0, n); br.fill(0, 0, n); let any = false;
-    for (const c of Object.values(this.ch)) { if (!used.has(c)) { if (!c.ring) continue; c.ring--; c.in[0].fill(0, 0, n); c.in[1].fill(0, 0, n); } else c.ring = 8; any = true;
+    return this.pads(n); }
+  pads(n){ const live = this.live = []; let any = false;
+    for (const c of Object.values(this.ch)) { if (!c.used) { if (!c.ring) continue; c.ring--; c.in[0].fill(0, 0, n); c.in[1].fill(0, 0, n); } else c.ring = 8; any = true;
+      if (!c.out || c.out[0].length < n) c.out = [new Float64Array(Math.max(n, 128)), new Float64Array(Math.max(n, 128))];
+      const oL = c.out[0], oR = c.out[1];
       for (let j = 0; j < n; j++) { let l = c.in[0][j], r = c.in[1][j]; if (!c.open) { l = c.lp[0](l).lp; r = c.lp[1](r).lp; }
-        if (c.sat) { l = c.sat[0](c.K*l)/c.kn; r = c.sat[1](c.K*r)/c.kn; } bl[j] += l*c.lv*c.gl; br[j] += r*c.lv*c.gr; } }
-    this.tail = any ? 16 : Math.max(0, (this.tail || 0) - 1);
-    // the bus: weight, tape, tone, glue, width
-    const B = this.B, [s0, s1, s2, s3, s4] = B.sh;
-    for (let j = 0; j < n; j++) { let l = bl[j], r = br[j];
-      for (let k = 0; k < 2; k++) { const z = B.z[k], x = k ? r : l, y = s0*x + s1*z[0] + s2*z[1] - s3*z[2] - s4*z[3]; z[1] = z[0]; z[0] = x; z[3] = z[2]; z[2] = y; if (k) r = y; else l = y; }
-      if (B.on) { l = (B.sat[0](B.k*l + B.bias) - B.tb)*B.norm; r = (B.sat[1](B.k*r + B.bias) - B.tb)*B.norm; }
-      if (!B.open) { l = B.lp[0](l).lp; r = B.lp[1](r).lp; }
-      const pk = Math.max(Math.abs(l), Math.abs(r)); B.env = pk > B.env ? pk + (B.env - pk)*B.att : pk + (B.env - pk)*B.rel;
-      if ((j & 7) === 0) B.g = (B.env > B.thr ? Math.pow(B.env/B.thr, 1/B.ratio - 1) : 1)*B.mk; const g = B.g, m = (l + r)/2, sd = (l - r)/2*B.width;
-      L[a + j] += ceil((m + sd)*g); R[a + j] += ceil((m - sd)*g); } }
+        if (c.sat) { l = c.sat[0](c.K*l)/c.kn; r = c.sat[1](c.K*r)/c.kn; } oL[j] = l*c.lv*c.gl; oR[j] = r*c.lv*c.gr; }
+      live.push(c); }
+    return any; }
 }
+// a kit's bus settings as a chain of processors
+export const busChain = b => { const dr = b.drive || 0, g = b.glue || 0;
+  return [{key: 'weight', params: {db: b.weight || 0, freq: 70}}, {key: 'tape', params: {drive: dr}}, {key: 'tone', params: {tone: b.tone ?? 1}},
+    {key: 'glue', params: {thr: dB(Math.pow(10, -(8 + 10*g)/20)*(1 + .8*dr)), ratio: 1 + 3*g, att: 4, rel: 120, makeup: dB(1 + .25*g), mix: 1}},
+    {key: 'width', params: {width: b.width ?? 1}}, {key: 'ceiling', params: {knee: .89}}]; };
 // one hit of an analog kit's voice computed ahead (for drawing it, and the tests): {L, R}
 export function analogHit(sr, name, key, vel = 1, over = {}, secs = 3, seed){ const K = new AnalogKit(sr, seed); K.load(name, over); K.on(key, vel);
   const n = Math.ceil(secs*sr), L = new Float32Array(n), R = new Float32Array(n); for (let a = 0; a < n; a += 128) K.render(L, R, a, Math.min(n, a + 128)); return {L, R}; }

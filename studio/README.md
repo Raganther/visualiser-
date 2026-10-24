@@ -51,5 +51,12 @@ reads them and makes the next version.
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two
   band-limited oscillators with sync and cross-mod, a sub, noise and ring mod, a saturating ladder or a state-variable
   filter, capacitor envelopes, eight voice cards that drift, an LFO, poly, mono, legato and unison, chorus and tape echo),
-  on fourteen examples, each a patch and a phrase written for it. `node studio/<drums|synth>/build.mjs` builds each;
-  `tests/synthlab.mjs` measures the synth and plays the page.
+  on fourteen examples, each a patch and a phrase written for it; the drum rack lab (`rack/`, `listen/rack-lab.html`:
+  https://claude.ai/artifact/W8DtRouN8ueMwYNpfZDVqZ) takes the analog kit apart into a channel a pad, a bus of processors to switch,
+  move, take out and add to (in and out at matched loudness), and echo and room returns. `node studio/<drums|synth|rack>/build.mjs`
+  builds each; `tests/synthlab.mjs` and `tests/racklab.mjs` measure the parts and play the pages.
+- **The parts** (`lib/parts/`): what the playgrounds are built from, so they can be mixed and matched. `procs.js` the
+  processors (each describes its settings; `Chain` strings them), `host.js` the host (a description of sources, strips,
+  buses, sends and returns, played by timed events, in the audio thread by `host.worklet.js` or offline), `shell.js` what
+  a playground's page shares (controls for any setting, a chain editor, meters, notes for Claude). A new playground is a
+  page asking one question.

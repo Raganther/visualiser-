@@ -11,6 +11,8 @@
 // new AnalogSynth(sr) → load(params), set(params), on(id, note, vel), off(id), bend(v), wheel(v), stop(),
 // render(L, R, a, b) adding into L and R. A note sounds in the voice it was given until it's let go.
 
+import { Chain, CHORUS, ECHO, ECHO_BEATS } from '../parts/procs.js';
+
 const TAU = 2*Math.PI, C = (v, a, b) => v < a ? a : v > b ? b : v, hz = n => 440*Math.pow(2, (n - 69)/12);
 const th = x => x < -3 ? -1 : x > 3 ? 1 : x*(27 + x*x)/(27 + 9*x*x);   // (tanh, near enough and cheap)
 
@@ -22,9 +24,7 @@ export const LFO_SHAPES = ['Triangle', 'Sine', 'Saw down', 'Square', 'Sample and
 export const SYNCS = ['Free', '1 bar', '1/2', '1/4', '1/8', '1/16', '1/4 dotted', '1/8 triplet'];
 export const SYNC_BEATS = [0, 4, 2, 1, .5, .25, 1.5, 1/3];
 export const MODES = ['Poly', 'Mono', 'Legato', 'Unison'];
-export const CHORUS = ['Off', 'I', 'II', 'I + II'];
-export const ECHO = ['1/4', '1/8 dotted', '1/8', '1/4 dotted', '1/16', '1/8 triplet'];
-export const ECHO_BEATS = [1, .75, .5, 1.5, .25, 1/3];
+export { CHORUS, ECHO, ECHO_BEATS };
 export const PARAMS = [
   ['Oscillator 1', [L('w1', 'Wave', WAVES), {key: 'oct1', label: 'Octave', min: -2, max: 2, def: 0, unit: 'oct'}, {key: 'pw1', label: 'Pulse width', min: .05, max: .95, def: .5, unit: '%'}]],
   ['Oscillator 2', [L('w2', 'Wave', WAVES), {key: 'oct2', label: 'Octave', min: -2, max: 2, def: 0, unit: 'oct'}, {key: 'semi2', label: 'Semitones', min: -12, max: 12, def: 0, unit: 'st'},
@@ -114,9 +114,8 @@ export class AnalogSynth {
   constructor(sr, seed = 2024){ this.sr = sr; this.P = {...DEF}; this.seed = seed >>> 0 || 1; this.period = .5; this.bendV = 0; this.wheelV = 0;
     // eight voice cards, each its own: a little out of tune, its filter a little off, its envelopes a little slower or faster
     this.V = Array.from({length: 8}, (_, i) => this.card(i)); this.rr = 0; this.stack = []; this.clock = 0;
-    this.lph = 0; this.lfoV = 0; this.lsh = 0; this.lsm = 0; this.lsm0 = 0; this.lsm1 = 0; this.hp = [0, 0, 0, 0];
-    const cn = Math.ceil(.03*sr); this.cd = [new Float32Array(cn), new Float32Array(cn)]; this.cw = 0; this.cph = 0; this.clp = [0, 0];
-    const en = Math.ceil(2.2*sr); this.ed = [new Float32Array(en), new Float32Array(en)]; this.ew = 0; this.elp = [0, 0]; this.etime = .375; this.ewow = 0; }
+    this.lph = 0; this.lfoV = 0; this.lsh = 0; this.lsm = 0; this.lsm0 = 0; this.lsm1 = 0;
+    this.out = new Chain(sr, OUT_CHAIN); }
   rand(){ this.seed = (this.seed*1664525 + 1013904223) >>> 0; return this.seed/4294967296; }
   card(i){ const R = () => this.rand() - .5;
     return {i, o1: osc(), o2: osc(), sub: osc(), ld: {s: [0, 0, 0, 0], o: [0, 0], y2: 0}, sv: {s: [0, 0]}, ae: {v: 0, st: 0}, fe: {v: 0, st: 0},
@@ -205,34 +204,16 @@ export class AnalogSynth {
     this.lph %= 1; const t = this.lph;
     this.lfoV = shape === 0 ? 1 - 4*Math.abs(t - .5) : shape === 1 ? Math.sin(TAU*t) : shape === 2 ? 1 - 2*t : shape === 3 ? (t < .5 ? 1 : -1) : shape === 4 ? this.lsh : this.lsm0 + (this.lsm1 - this.lsm0)*(.5 - .5*Math.cos(Math.PI*t)); }
 
-  /* ---------- the effects: chorus, echo, saturation, a ceiling, a DC blocker ---------- */
-  fx(Lo, Ro, a, b){ const P = this.P, sr = this.sr, ch = Math.round(P.chorus), cd = this.cd, cn = cd[0].length;
-    // the chorus: a delay line swept by a triangle, the two sides in opposition, the wet darker (a bucket brigade's)
-    const crate = ch === 1 ? .513 : ch === 2 ? .863 : 9.75, cdep = ch === 3 ? .0004 : ch === 2 ? .0019 : .0016, cmid = .0035;
-    const ed = this.ed, en = ed[0].length, emix = P.emix, efb = P.efb, tone = .08 + .5*P.etone*P.etone;
-    const et = C(ECHO_BEATS[Math.round(P.etime)]*this.period, .02, 2), sat = P.vdrive;
-    for (let j = a; j < b; j++) { let l = Lo[j], r = Ro[j];
-      if (ch) { cd[0][this.cw] = l; cd[1][this.cw] = r; this.cph = (this.cph + crate/sr) % 1; const tri = 1 - 4*Math.abs(this.cph - .5);
-        let p = (this.cw - (cmid + cdep*tri)*sr + cn) % cn, i = Math.floor(p), f = p - i; const wl = cd[0][i]*(1 - f) + cd[0][(i + 1) % cn]*f;
-        p = (this.cw - (cmid - cdep*tri)*sr + cn) % cn; i = Math.floor(p); f = p - i; const wr = cd[1][i]*(1 - f) + cd[1][(i + 1) % cn]*f;
-        // (the wet a little darker, as a bucket brigade's is)
-        this.clp[0] += (wl - this.clp[0])*.45; this.clp[1] += (wr - this.clp[1])*.45;
-        this.cw = (this.cw + 1) % cn; l = (l + this.clp[0])*.75; r = (r + this.clp[1])*.75; }
-      if (emix > 0) { this.etime += (et - this.etime)*.0004; this.ewow += 1/sr;
-        const d = (this.etime + .0006*Math.sin(TAU*.6*this.ewow))*sr, p = (this.ew - d + en) % en, i = Math.floor(p), f = p - i;
-        const el = ed[0][i]*(1 - f) + ed[0][(i + 1) % en]*f, er = ed[1][i]*(1 - f) + ed[1][(i + 1) % en]*f;
-        this.elp[0] += (el - this.elp[0])*tone; this.elp[1] += (er - this.elp[1])*tone;
-        // ping-pong: each side's repeat fed into the other, through the tape's gentle saturation
-        ed[0][this.ew] = th(l*.7 + this.elp[1]*efb); ed[1][this.ew] = th(r*.3 + this.elp[0]*efb); this.ew = (this.ew + 1) % en;
-        l += this.elp[0]*emix; r += this.elp[1]*emix; }
-      // the output: saturation (a VCA pushed), the DC kept out, and a ceiling that rounds the peaks
-      if (sat > 0) { const K = 1 + sat*3; l = th(l*K)/K*(1 + sat*.6); r = th(r*K)/K*(1 + sat*.6); }
-      const hl = l - this.hp[0] + .9995*this.hp[1]; this.hp[0] = l; this.hp[1] = hl; const hr = r - this.hp[2] + .9995*this.hp[3]; this.hp[2] = r; this.hp[3] = hr;
-      Lo[j] = ceil(hl); Ro[j] = ceil(hr); } }
+  /* ---------- the effects: chorus, echo, saturation, the DC kept out, a ceiling (processors: ../parts/procs.js) ---------- */
+  fx(Lo, Ro, a, b){ const P = this.P, n = b - a, [c, e, s] = this.out.list;
+    c.p.mode = Math.round(P.chorus); Object.assign(e.p, {time: Math.round(P.etime), mix: P.emix, fb: P.efb, tone: P.etone}); s.p.amount = P.vdrive;
+    // (worked in double precision, then written back once)
+    if (!this.xb || this.xb[0].length < n) this.xb = [new Float64Array(Math.max(n, 128)), new Float64Array(Math.max(n, 128))];
+    const [xl, xr] = this.xb; for (let j = 0; j < n; j++) { xl[j] = Lo[a + j]; xr[j] = Ro[a + j]; }
+    this.out.run(xl, xr, 0, n, {period: this.period}); for (let j = 0; j < n; j++) { Lo[a + j] = xl[j]; Ro[a + j] = xr[j]; } }
 }
-// the ceiling: untouched below .7, rounded above, never past full scale
-const ceil = x => { const a = Math.abs(x); return a < .7 ? x : Math.sign(x)*(.7 + .3*th((a - .7)/.3)); };
-
+// the synth's output chain: the chorus, the tape echo, saturation, a DC blocker and a ceiling at -3 dB
+export const OUT_CHAIN = [{key: 'chorus', params: {mode: 0}}, {key: 'echo', params: {mix: 0}}, {key: 'saturate', params: {amount: 0}}, {key: 'dc'}, {key: 'ceiling', params: {knee: .7}, o: {fast: true}}];
 // a stretch of notes rendered offline: [{t, len, n, vel}] (seconds), with the settings; for tests and the page's drawings
 export function synthRender(sr, P, notes, secs, seed){ const S = new AnalogSynth(sr, seed); S.load(P); const n = Math.ceil(secs*sr), Lb = new Float32Array(n), Rb = new Float32Array(n);
   const ev = notes.flatMap((x, i) => [{t: x.t, on: 1, i, x}, {t: x.t + x.len, on: 0, i}]).sort((a, b) => a.t - b.t || a.on - b.on); let e = 0;
