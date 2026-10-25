@@ -156,4 +156,8 @@ before writing or changing a piece; add to it when they react.
   a Mixer tab) and plays the analog synth (pack 5). They asked why native mixing helps: a real sidechain, the same
   sound on every browser and offline, processors the browser lacks, meters, one set of parts everywhere; the cost is
   CPU on a slow phone.
-
+- 2026-10-25: Looking at the DAW, the user expected the kick, hats and percussion "together, like a kit in an
+  instrument rack": pick a kit (deep house, 808) and the rack fills one track. They came apart because Studio Jam
+  writes a part a role. Now a drum rack track holds the whole kit (pack 6's analog kits, or the song's own drums put
+  together), every drum a pad with its own strip, level, sends and processors in the mixer, and the songs open with
+  their drums as one rack.

@@ -44,9 +44,10 @@ reads them and makes the next version.
   `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab). Every instrument is also a
   streaming voice (`stream.js`: run as it plays, let go, done), which is what each note computed ahead runs, and what the
   DAW's live engine (`arrange/voices.worklet.js`) plays sample by sample (the analog synth among them: pack 5), into the DAW's native
-  desk (`arrange/desk.js` on `lib/parts/desk.js`: the parts host, a strip a track, buses, returns, the kick's sidechain, the Mixer tab); `npoly.js` is the poly synth and `kit.js` the
+  desk (`arrange/desk.js` on `lib/parts/desk.js`: the parts host, a strip a track, buses, returns, the kick's sidechain, the Mixer tab; a drum rack track,
+  `arrange/rack.js`, a whole kit on one track with a strip a pad, pack 6's kits or the song's own drums put together); `npoly.js` is the poly synth and `kit.js` the
   drum machine rebuilt the same way; `analogkit.js` is a drum machine of our own, built as analog circuits behave (five
-  kits, in pack 4).
+  kits, in pack 4; each as one drum rack in pack 6).
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

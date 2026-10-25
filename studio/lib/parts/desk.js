@@ -5,7 +5,7 @@
 // (studio/mix/mix.js) and the Studio DAW (studio/arrange/engine.js) both build theirs from it.
 export const db = g => 20*Math.log10(Math.max(1e-9, g));
 export const pr = (key, params = {}) => ({id: key, key, params, on: true});
-export const DRUMS = ['kick', 'hats', 'perc'];
+export const DRUMS = ['kick', 'hats', 'perc', 'drums'];
 // each role's processors (key: the strip the sidechain listens to, the kick's)
 export const CH = {
   kick: () => [pr('eq', {lo: 2, loF: 55, mid: -3, midF: 320, q: 1.2, hi: 1.5, hiF: 4000}), pr('glue', {thr: -16, ratio: 3, att: 12, rel: 90, makeup: 1})],

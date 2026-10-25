@@ -7,7 +7,7 @@
 import { TOOLS, euclid, MAX } from './riff.js';
 import { FEELS } from './model.js';
 
-export const DRUMS = ['kick', 'hats', 'perc'];
+export const DRUMS = ['kick', 'hats', 'perc', 'drums'];
 export const isDrum = role => DRUMS.includes(role);
 export const family = role => isDrum(role) ? 'drums' : role === 'chords' ? 'chords' : 'line';
 export const VOICE0 = {kick: 'kick', hats: 'chh', perc: 'wood'};

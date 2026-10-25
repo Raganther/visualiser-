@@ -38,7 +38,7 @@ export class Host {
   // strips in an order where each comes after everything feeding it
   order(){ const into = {}; for (const s of this.st) { s.isKey = false; for (const t of [s.out, ...Object.keys(s.sends || {})]) if (t && this.by[t]) (into[t] ||= []).push(s.id); }
     // a key comes before the strip that listens to it
-    for (const s of this.st) for (const p of s.chain.list) { const k = p.p?.key; if (k && this.by[k]) { (into[s.id] ||= []).push(k); this.by[k].isKey = true; this.by[k].kb ||= this.buf(); } }
+    for (const s of this.st) { s.keyed = false; for (const p of s.chain.list) { const k = p.p?.key; if (k && this.by[k]) { (into[s.id] ||= []).push(k); this.by[k].isKey = true; this.by[k].kb ||= this.buf(); s.keyed = true; } } }
     const done = new Set(), out = [], visit = id => { if (done.has(id)) return; done.add(id); for (const f of into[id] || []) visit(f); out.push(this.by[id]); };
     for (const s of this.st) visit(s.id); this.run_ = out; }
   // a message from the page (or a test): the description changed, a strip set, a processor turned, a note
@@ -89,9 +89,13 @@ export class Host {
       if (s.lp > 0) tone(s, l, r, n, this.sr);
       // the chain (or, bypassed, the dry signal at the chain's loudness), measured each block
       let ein = 0, eout = 0; for (let j = 0; j < n; j++) ein += l[j]*l[j] + r[j]*r[j];
+      // nothing coming in and nothing left ringing out: skipped (a drum rack's pads are silent most of the time; a strip
+      // listening to a key runs on, so its compressor follows the kick and its meter reads it)
+      if (!ein && !s.isKey && !s.keyed && (s.eo ?? 1) < 1e-12) { if (++s.q > 4) { s.pk *= Math.exp(-n/(.3*this.sr)); s.ms *= .9; continue; } } else s.q = 0;
       if (s.bypass) { const [dl, dr] = s.dry; dl.set(l.subarray(0, n)); dr.set(r.subarray(0, n)); s.chain.run(dl, dr, 0, n, env); for (let j = 0; j < n; j++) eout += dl[j]*dl[j] + dr[j]*dr[j];
         const g = s.match ? s.ratio : 1; if (g !== 1) for (let j = 0; j < n; j++) { l[j] *= g; r[j] *= g; } }
       else { s.chain.run(l, r, 0, n, env); for (let j = 0; j < n; j++) eout += l[j]*l[j] + r[j]*r[j]; }
+      s.eo = eout;
       // a key: its sound now, before its fader (a muted kick still keys the bass, as a desk's sidechain does)
       if (s.isKey) { s.kb[0].set(l.subarray(0, n)); s.kb[1].set(r.subarray(0, n)); env.keys[s.id] = s.kb; }
       // the loudness the chain adds, followed over a few seconds (while there's something to hear)

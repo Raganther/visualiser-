@@ -33,12 +33,13 @@ export const SYNTHS = [
   ['cymbal', 'Cymbal', 'Hi-hats, cymbals and shakers.'],
   ['nature', 'Nature', 'Water drops, stones, leaves, twigs, insects and birds.'],
   ['akit', 'Analog Drum Machine', 'Thirteen drums built as analog circuits behave: booming and punchy kicks, ringing snares, breathing claps, six-square metal hats, sagging toms, a tape bus. Kits: 808, 909, Deep, Warm, Grit.'],
-  ['kit', 'Drum Machine', 'The drum machine’s kits: 909, 808, Minimal, Industrial, Lo-fi.']];
+  ['kit', 'Drum Machine', 'The drum machine’s kits: 909, 808, Minimal, Industrial, Lo-fi.'],
+  ['rack', 'Drum Rack', 'A whole kit on one track, every drum on its own pad and its own strip in the mixer: the analog drum machine’s five kits, or the song’s own drums put together.']];
 const SYNTH_OF = n => !n ? null : n.startsWith('fm') ? 'fm' : /^k(round|dub|tight|deep)$/.test(n) ? 'akick' : /^va/.test(n) || n === 'sub808' || n === 'rumble' ? 'analog'
   : PADS.includes(n) ? 'pads' : n === 'pluck' || n === 'bowed' ? 'string' : ['kick', 'tom', 'hand'].includes(n) ? 'skin' : ['hihat', 'hat', 'hat808', 'shaker'].includes(n) ? 'cymbal'
   : NATURE.includes(n) && n !== 'bamboo' ? 'nature' : 'resonator';
 // the synthesizer a sound is made on (a drum sound: its first voice's)
-export function synthOf(s){ if (s.src?.asynth) return 'asynth'; if (s.voices) { const v = Object.values(s.voices)[0]; return v.kit ? (ANALOG_KITS[v.kit] ? 'akit' : 'kit') : SYNTH_OF(v.native); } return SYNTH_OF(nativeOf(s)) || 'poly'; }
+export function synthOf(s){ if (s.rack || s.role === 'drums') return 'rack'; if (s.src?.asynth) return 'asynth'; if (s.voices) { const v = Object.values(s.voices)[0]; return v.kit ? (ANALOG_KITS[v.kit] ? 'akit' : 'kit') : SYNTH_OF(v.native); } return SYNTH_OF(nativeOf(s)) || 'poly'; }
 export function famOf(s){ if (s.mine) return FAMS[0];
   if (s.voices) { const vs = Object.values(s.voices); if (vs.every(v => v.kit)) return vs.some(v => ANALOG_KITS[v.kit]) ? 'Analog drum machine' : 'Drum machine'; if (vs.some(v => NATURE.includes(v.native))) return 'Nature';
     if (vs.some(v => ANALOG.test(v.native || ''))) return 'Analog circuits'; return 'Acoustic drums (modelled)'; }

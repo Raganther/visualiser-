@@ -6,6 +6,7 @@
 // exactly where it is (the song, the tracks, the bars) for Claude to read.
 import { flatten } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
+import { combineDrums, ensureRacks, isRack } from './rack.js';
 import { makeSounds } from './sounds.js';
 import { makeSynthUI } from './synth-ui.js';
 import { makeMixer } from './mixer.js';
@@ -17,9 +18,9 @@ const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
 const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
-const RULER = 72, LANE = 56, COLORS = {kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
+const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
+const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
 const ST = {id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, ph: 0, focus: 'arr', past: [], fut: [], sel: {clips: new Set(), range: null, mark: null, track: 0, trackOnly: false},
   open: null, ed: {px: 16, sx: 0, sy: 0, sel: new Set()}, lastLen: 2, lastVel: .8, clipboard: null, noteboard: null, notes: [], rating: 0, nid: 1};
 let db = null, MX = null;
@@ -32,9 +33,11 @@ const keyOf = id => 'studio.daw.v1.' + id;
 const roundOf = s => `Round ${s.round}: ${s.name}`;
 for (const s of SONGS) $('songSel').append(h('option', {value: s.id}, roundOf(s)));
 async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s) return; ST.id = id; $('songSel').value = id;
-  ST.orig = flatten(s); let P = null;
+  // (Studio Jam's kick, hats and percussion come as one drum rack track: combineDrums, rack.js)
+  ST.orig = combineDrums(flatten(s), SND); let P = null;
   if (db) try { const d = await db.collection('versions').doc(id).get(); if (d.exists) P = JSON.parse(d.data().json); } catch {}
   if (!P) try { const l = localStorage.getItem(keyOf(id)); if (l) P = JSON.parse(l).P; } catch {}
+  if (P?.v === 1) { ensureRacks(P, SND); P = combineDrums(P, SND); }
   ST.P = P && P.v === 1 ? P : clone(ST.orig); SB.adopt(ST.P.sounds); ST.mine = true; ST.past = []; ST.fut = []; ST.open = null; ST.ed.sel.clear(); clearSel(); ST.ph = 0;
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
   E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
@@ -88,7 +91,7 @@ function selTrack(i){ ST.sel = {clips: new Set(), range: null, mark: null, track
 function clearSel(){ ST.sel = {clips: new Set(), range: null, mark: null, track: ST.sel?.track ?? 0, trackOnly: false}; }
 
 /* ---------- adding, renaming, duplicating and deleting tracks ---------- */
-const ROLES = [['kick', 'Kick', 'a drum: the kick'], ['hats', 'Hats', 'a drum: hats and cymbals'], ['perc', 'Percussion', 'drums: hand drums, wood, metal'], ['bass', 'Bass', 'a bass line'], ['chords', 'Chords', 'chords and pads'], ['lead', 'Lead', 'a melody']];
+const ROLES = [['drums', 'Drum rack', 'a whole kit: every drum on its own pad'], ['kick', 'Kick', 'a drum: the kick'], ['hats', 'Hats', 'a drum: hats and cymbals'], ['perc', 'Percussion', 'drums: hand drums, wood, metal'], ['bass', 'Bass', 'a bass line'], ['chords', 'Chords', 'chords and pads'], ['lead', 'Lead', 'a melody']];
 const uniqueName = base => { const names = new Set(ST.P.tracks.map(T => T.name)); if (!names.has(base)) return base; let k = 2; while (names.has(`${base} ${k}`)) k++; return `${base} ${k}`; };
 // a menu by a button: its items, closed by a click elsewhere or Escape
 function popup(at, items){ closePop(); const r = at.getBoundingClientRect(), m = h('div', {class: 'pop', role: 'menu', id: 'pop'});
@@ -237,7 +240,8 @@ function openEd(id){ const f = findClip(id); if (!f) return; ST.open = {id}; ST.
   [EW, EH] = fit(ed); ST.ed.px = clamp((EW - KEYW - 10)/Math.min(f.cl.len, 64), 3, 48); const s16 = (ST.ph - f.cl.start)*16; ST.ed.sx = s16 < 0 || s16 > f.cl.len ? 0 : clamp(s16*ST.ed.px - 40, 0, Math.max(0, f.cl.len*ST.ed.px - (EW - KEYW) + 40));
   if (!isDrum(f.T.role)) { const ps = f.cl.notes.map(n => n.p).sort((a, b) => a - b), mid = ps.length ? ps[ps.length >> 1] : 60; ST.ed.sy = Math.max(0, (108 - mid)*12 - (EH - TOP - VEL)/2); } else ST.ed.sy = 0;
   if (SI?.isOn()) SI.show(false); renderTracks(); renderEd(); draw(); target(); ed.focus(); ST.focus = 'ed'; }
-function rowsOf(f){ return isDrum(f.T.role) ? {drum: true, rows: voicesOf(f.T), rh: 22} : {drum: false, hi: 108, lo: 24, rh: 12}; }
+// (a drum clip's rows fit the editor: a whole kit's pads a little shorter than a few drums')
+function rowsOf(f){ if (!isDrum(f.T.role)) return {drum: false, hi: 108, lo: 24, rh: 12}; const rows = voicesOf(f.T); return {drum: true, rows, rh: clamp(Math.floor((EH - TOP - VEL)/rows.length), 13, 22)}; }
 const rowOfNote = (R, n) => R.drum ? R.rows.indexOf(n.p) : R.hi - n.p;
 const ex = s => KEYW + s*ST.ed.px - ST.ed.sx, es = x => (x - KEYW + ST.ed.sx)/ST.ed.px;
 function renderEd(){ const f = cur(); drawEdHead(); [EW, EH] = fit(ed); drawEd(); }
@@ -418,7 +422,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
-MX = makeMixer({ST, E, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
+MX = makeMixer({ST, E, SND, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
 $('tabInst').onclick = () => { MX.show(false); SI.show(true); }; $('tabNotes').onclick = () => { MX.show(false); SI.show(false); };
 E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a moment after the page: the instrument says so then)
 

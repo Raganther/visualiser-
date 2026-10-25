@@ -4,7 +4,8 @@
 // Each instrument is a voice (stream.js) whose code is the note computed ahead's, so a setting turned while a note
 // sounds is heard in it, a key held holds the note, and nothing waits to be computed. One node per track: a pitched
 // track's instrument is its slot '', a drum track's pads are a slot each (a native instrument, or a voice of a drum
-// machine: the copy of the browser's, or the analog one, analogkit.js). Notes arrive on its port with their audio-clock times and start on their exact sample.
+// machine: the copy of the browser's, or the analog one, analogkit.js). A drum rack's node has an output a pad (`outs`), each
+// pad's drum machine its own, so each pad reaches its own strip on the desk. Notes arrive on its port with their audio-clock times and start on their exact sample.
 import { NATIVE } from '../lib/native/index.js';
 import { grainSource } from '../lib/native/tone.js';
 import { NativePoly } from '../lib/native/npoly.js';
@@ -25,8 +26,8 @@ class Voices extends AudioWorkletProcessor {
     // a synth played whole (the native poly synth, or the analog synth): one instrument, its own voices
     if (m.type === 'load' && (m.engine === 'poly' || m.engine === 'asynth')) { this.eng = m.engine; this.poly = m.engine === 'asynth' ? new AnalogSynth(sampleRate) : new NativePoly(sampleRate);
       this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
-    if (m.type === 'load') { this.eng = 'nat'; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
-      for (const [g, k] of Object.entries(m.kits || {})) { const K = this.K[g] || (ANALOG_KITS[k.kit] ? new AnalogKit(sampleRate, 11) : new NativeKit(sampleRate, 7)); K.load(k.kit, k.over || {}); this.K[g] = K; }
+    if (m.type === 'load') { this.eng = 'nat'; if (m.outs) this.outs = m.outs; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
+      for (const [g, k] of Object.entries(m.kits || {})) { const C = ANALOG_KITS[k.kit] ? AnalogKit : NativeKit, K = this.K[g] instanceof C ? this.K[g] : new C(sampleRate, C === AnalogKit ? 11 : 7); K.load(k.kit, k.over || {}); this.K[g] = K; }
       for (const [s, d] of Object.entries(slots)) this.S[s] = {...d, P: d.kit ? null : fresh(this.S[s]?.name === d.name ? this.S[s].P : {}, d.name, d.params || {})};
       for (const s of Object.keys(this.S)) if (!slots[s]) delete this.S[s]; }
     else if (m.type === 'set' && m.t == null) this.set(m);
@@ -47,17 +48,21 @@ class Voices extends AudioWorkletProcessor {
     const I = NATIVE[s.name]; if (!I) return;
     // a closed or open hat stops an open one ringing (as a real pair's pedal does)
     if (s.chokes) for (const v of this.v) if (v.choke === s.chokes && !v.kill) v.kill = 2;
-    this.v.push({id: m.id, voice: new I.V(sampleRate, hz(m.n), s.P, m.vel, m.len), g: s.gain*(.4 + .6*(m.gv ?? m.vel)), choke: s.choke, k: 1});
+    this.v.push({id: m.id, slot: m.slot ?? '', voice: new I.V(sampleRate, hz(m.n), s.P, m.vel, m.len), g: s.gain*(.4 + .6*(m.gv ?? m.vel)), choke: s.choke, k: 1});
     const live = this.v.filter(v => !v.kill); if (live.length > 32) live[0].kill = 1; }
   /* ---------- a block: the events at their own samples, every voice run between them ---------- */
-  process(_, outputs){ const out = outputs[0], L = out[0], R = out[1] || out[0], N = L.length, t0 = currentTime; L.fill(0); if (R !== L) R.fill(0);
+  process(_, outputs){ const out = outputs[0], L = out[0], R = out[1] || out[0], N = L.length, t0 = currentTime; for (const o of outputs) for (const ch of o) ch.fill(0);
     if (this.closed && !this.v.length && !(this.poly && (this.poly.v ? this.poly.v.length : this.poly.V.some(v => v.ae.st))) && Object.values(this.K).every(K => !K.hits.length)) return false;
     if (!this.eng) return true;
     if (N > this.tL.length) { this.tL = new Float32Array(N); this.tR = new Float32Array(N); }
     if (this.warm.length) { const n = this.warm.shift(); for (const s of Object.values(this.S)) if (s.P?.src && s.name === 'grainpad') grainSource(sampleRate, hz(n), s.P.src); }
     let a = 0;
     while (a < N) { let b = N; const e = this.ev[0]; if (e) { const f = Math.round((e.t - t0)*sampleRate); b = Math.max(a, Math.min(N, f)); }
-      if (b > a) { if (this.poly) this.poly.render(L, R, a, b); else { for (const v of this.v) this.run(v, L, R, a, b); for (const K of Object.values(this.K)) K.render(L, R, a, b); } }
+      if (b > a) { if (this.poly) this.poly.render(L, R, a, b);
+        // a drum rack: each pad into its own output (its voices, its machine)
+        else if (this.outs) this.outs.forEach((pad, i) => { const o = outputs[i]; if (!o?.length) return; const l = o[0], r = o[1] || o[0];
+          for (const v of this.v) if (v.slot === pad) this.run(v, l, r, a, b); this.K[pad]?.render(l, r, a, b); });
+        else { for (const v of this.v) this.run(v, L, R, a, b); for (const K of Object.values(this.K)) K.render(L, R, a, b); } }
       if (b >= N) break; a = b;
       while (this.ev.length && Math.round((this.ev[0].t - t0)*sampleRate) <= a) { const m = this.ev.shift();
         if (this.poly) { if (m.type === 'on') this.poly.on(m.id, m.n, m.gv ?? m.vel); else if (m.type === 'off') this.poly.off(m.id); else if (m.type === 'set') { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; } continue; }

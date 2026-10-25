@@ -7,11 +7,13 @@
 import { channel, buses, ids, sendsOf, ROLE_CAL, db, pr } from '../lib/parts/desk.js';
 import { cutOf, ECHO } from '../jam/model.js';
 import { PEAKS } from './peaks.js';
+import { isRack, padsOf, padRole, inputsOf } from './rack.js';
 
 const clone = x => JSON.parse(JSON.stringify(x));
 // a role's typical peak where a sound hasn't been measured (your own copies take their original's)
 const ROLE_PK = {kick: -3.3, hats: -16, perc: -7, bass: -5.5, chords: -11.5, lead: -14};
-export const kickOf = P => P.tracks.find(T => T.role === 'kick')?.id || '';
+// the strip the sidechains listen to: the kick's track, or a drum rack's kick pad
+export const kickOf = P => { const R = P.tracks.find(isRack); return R ? R.id + '/kick' : P.tracks.find(T => T.role === 'kick')?.id || ''; };
 const peakOf = (sound, role, SND) => PEAKS[sound] ?? PEAKS[SND?.[sound]?.base] ?? ROLE_PK[role] ?? -10;
 export const gainOf = (sound, role, SND) => +(-9 - peakOf(sound, role, SND)).toFixed(1);
 // the track's fader on the desk: its level as the song set it, less what its gain and processors add (the analog
@@ -25,13 +27,27 @@ const ECHO_TIME = [1, 2, 0, 3];
 
 // the processors a track starts with: its role's, with the old desk's settings carried over (a song saved before the
 // native desk: its three-band EQ, and the kick's duck as the sidechain's depth, 0 none)
+// a drum rack's pad: its own strip (its part's processors and gain staging, as the sound it came from had them), its
+// level, pan, tone and sends its own (`T.pads`, set by the song; `T.desk.pads`, what you've changed), out to the rack's
+export const padFader = (T, pad, SND, sound = T.sound) => { const m = SND[sound]?.voices?.[pad], role = padRole(pad, m, SND), pd = T.pads?.[pad] || {};
+  return +(db(.85) + (pd.vol || 0) - gainOf(m?.from || sound, role, SND) - (ROLE_CAL[role] ?? -3) + (role === 'kick' ? -2 : 0)).toFixed(1); };
+function padStrips(T, io, key, SND){ const sound = SND[T.sound];
+  return io.pads.map((pad, j) => { const m = sound?.voices?.[pad], role = padRole(pad, m, SND), pd = T.pads?.[pad] || {}, d = T.desk?.pads?.[pad] || {}, base = sendsOf(pd);
+    const s = channel({id: T.id + '/' + pad, label: pad, role, input: {ext: io.base + j}, key, level: padFader(T, pad, SND), pan: pd.pan || 0, lp: pd.x != null ? cutOf(pd.x) : 0,
+      mute: !!pd.mute, solo: !!(pd.solo || T.mix.solo), sends: {echo: d.sends?.echo ?? base.echo, room: d.sends?.room ?? base.room}, out: T.id, pad, rack: T.id});
+    s.chain = d.chain ? clone(d.chain) : startChain({id: s.id, role, mix: {}}, key, gainOf(m?.from || T.sound, role, SND));
+    for (const c of s.chain) if (c.key === 'trim' && !d.gainSet) c.params = {...c.params, gain: gainOf(m?.from || T.sound, role, SND)};
+    return s; }); }
 function startChain(T, key, gain){ const ch = channel({id: T.id, role: T.role, key, gain}).chain, M = T.mix || {};
   if (M.lo || M.mid || M.hi) ch.splice(1, 0, {...pr('eq', {lo: M.lo || 0, loF: 120, mid: M.mid || 0, midF: 1000, q: .8, hi: M.hi || 0, hiF: 6000}), id: 'eq0'});
   const sc = ch.find(c => c.key === 'sidechain'); if (sc && M.duck === 0) sc.on = false;
   return ch; }
-export function deskOf(P, SND){ const key = kickOf(P);
-  const strips = P.tracks.map((T, i) => { const d = T.desk || {}, base = sendsOf(T.set), gain = gainOf(T.sound, T.role, SND);
-    const s = channel({id: T.id, label: T.name, role: T.role, input: {ext: i}, key, level: faderOf(T, SND), pan: T.mix.pan || 0, lp: cutOf(T.set.x ?? .62),
+export function deskOf(P, SND){ const key = kickOf(P), IO = inputsOf(P, SND);
+  const strips = P.tracks.flatMap((T, i) => { const d = T.desk || {}, base = sendsOf(T.set), gain = gainOf(T.sound, T.role, SND);
+    // a drum rack: its pads, then its own strip (a bus of them: its fader, pan and mute, and anything you add to it)
+    if (isRack(T)) return [...padStrips(T, IO[i], key, SND), {id: T.id, label: T.name, role: 'drums', input: null, bus: true, rackOf: T.id, chain: d.chain ? clone(d.chain) : [],
+      level: T.mix.vol || 0, pan: T.mix.pan || 0, mute: !!T.mute, out: 'drums', sends: {}}];
+    const s = channel({id: T.id, label: T.name, role: T.role, input: {ext: IO[i].base}, key, level: faderOf(T, SND), pan: T.mix.pan || 0, lp: cutOf(T.set.x ?? .62),
       mute: !!T.mute, solo: !!T.mix.solo, sends: {echo: d.sends?.echo ?? base.echo, room: d.sends?.room ?? base.room}});
     s.chain = d.chain ? clone(d.chain) : startChain(T, key, gain);
     // (the sidechain always listens to the song's kick, and the input gain follows the sound)
@@ -45,5 +61,5 @@ export function deskOf(P, SND){ const key = kickOf(P);
     for (const c of b.chain) if (c.key === 'sidechain') c.params = {...c.params, key}; }
   return {period: 60/P.bpm, sources: {}, strips: ids([...strips, ...bs])}; }
 // a section's settings for a track's strip: its space (moved as you've moved it), its tone, its own level
-export function sectionStrip(T, s, glide){ const base = sendsOf(T.set), sec = sendsOf(s), mine = T.desk?.sends || {};
+export function sectionStrip(T, s, glide){ if (isRack(T)) return {clip: s.vol || 0}; const base = sendsOf(T.set), sec = sendsOf(s), mine = T.desk?.sends || {};
   return {sends: {echo: ownSend(mine.echo, base.echo, sec.echo), room: ownSend(mine.room, base.room, sec.room)}, lp: cutOf(s.x ?? .62), lpGlide: glide ?? .05, clip: s.vol || 0}; }

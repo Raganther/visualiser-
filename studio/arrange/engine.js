@@ -14,7 +14,8 @@ import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { synthRender } from '../lib/native/asynth.js';
-import { deskOf, faderOf, gainOf, sectionStrip } from './desk.js';
+import { deskOf, faderOf, gainOf, sectionStrip, padFader } from './desk.js';
+import { isRack, inputsOf, inputCount, padRole } from './rack.js';
 
 export const DUCKS = [0, .25, .4, .65];
 const GLUE = [null, {thr: -14, ratio: 1.8, att: .03, rel: .25}, {thr: -20, ratio: 3, att: .01, rel: .2}, {thr: -24, ratio: 4, att: .03, rel: .12}], WIDTHS = [0, .6, 1, 1.35, 1.7];
@@ -25,10 +26,11 @@ const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1).toFixed(1)}|${Obje
 // poly synth (npoly.js) in place of the browser-built one, and the native drum machine (kit.js) in place of the browser's
 export const liveEngine = name => NATIVE[name] ? 'nat' : null;
 // a drum track's pads as the live engine's slots: a native instrument each (a hat choking the open one), or a voice of a
-// drum machine (each kit and its changes one machine, kits; a pad may play another of its voices, `voice`)
-const drumSlots = (s, c) => { const slots = {}, kits = {};
+// drum machine (each kit and its changes one machine, kits; a pad may play another of its voices, `voice`; in a drum
+// rack each pad its own machine, so each has its own output)
+const drumSlots = (s, c, rack) => { const slots = {}, kits = {};
   for (const [v, m] of Object.entries(s.voices)) { if (m.native) { slots[v] = {name: m.native, gain: NATIVE[m.native]?.gain ?? .5, params: {...nativeSet(c.s || {}, m.native, m.set || {}), ...m.knobs}, choke: v === 'ohh' ? 'hat' : null, chokes: v === 'chh' || v === 'ohh' ? 'hat' : null}; continue; }
-    const g = m.kit + JSON.stringify(m.over || {}); kits[g] = {kit: m.kit, over: m.over || {}}; slots[v] = {kit: g, voice: m.voice || v}; }
+    const g = rack ? v : m.kit + JSON.stringify(m.over || {}); kits[g] = {kit: m.kit, over: m.over || {}}; slots[v] = {kit: g, voice: m.voice || v}; }
   return {slots, kits}; };
 
 export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTick = () => {}}){
@@ -58,16 +60,22 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
 
   /* ---------- a channel per track, its instrument, its settings ---------- */
   function chan(T, i){ const ctx = E.ctx, lane = E.P.tracks.slice(0, i).filter(x => x.role === T.role).length;
-    // on the native desk a track's instrument goes into its strip's input (studio/arrange/desk.js), and the desk does the rest
-    if (E.deskNode) { const x = {in: ctx.createGain(), desk: true}; x.in.connect(E.deskNode, 0, i); return {T, i, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
+    // on the native desk a track's instrument goes into its strip's input (studio/arrange/desk.js), and the desk does the
+    // rest (a drum rack's pads each into their own: io)
+    if (E.deskNode) { const io = E.IO[i] || {base: i}, x = {in: ctx.createGain(), desk: true}; if (!io.pads) x.in.connect(E.deskNode, 0, io.base); return {T, i, io, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
     const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), clip: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain()};
     x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.f.Q.value = 1.2;
     x.eng = engChain(ctx, engOf(T.role, lane)); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck); x.duck.connect(x.clip); x.clip.connect(x.out);
     x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb); x.eng.on(E.eng);
     return {T, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
   function build(c, id){ const ctx = E.ctx, s = SND[id], prev = c.inst; c.sound = id; c.inst = {kind: 'pitched'}; if (!s) { drop(prev); return; }
-    if (s.voices && E.liveOK) { const {slots, kits} = drumSlots(s, c); c.inst = {kind: 'drums', voices: {}, engine: 'drums', sound: s};
+    if (s.voices && E.liveOK) { const pads = c.io?.pads, {slots, kits} = drumSlots(s, c, !!pads); c.inst = {kind: 'drums', voices: {}, engine: 'drums', sound: s, rack: !!pads};
       for (const [v, m] of Object.entries(s.voices)) c.inst.voices[v] = m.native ? {native: m.native, n: m.n, set: m.set || {}, knobs: m.knobs || {}} : {kit: true};
+      // a drum rack: an output a pad, each into its pad's strip on the desk
+      if (pads) { if (prev?.live && prev.rack && prev.pads === pads) c.inst.live = prev.live;
+        else { drop(prev); const n = c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, numberOfOutputs: pads.length, outputChannelCount: pads.map(() => 2)});
+          pads.forEach((p, j) => n.connect(E.deskNode || c.x.in, j, E.deskNode ? c.io.base + j : 0)); }
+        c.inst.pads = pads; c.inst.live.port.postMessage({type: 'load', slots, kits, outs: pads}); return; }
       // (a drum track again: the same node, its pads and machines set anew, what's ringing rings on)
       if (prev?.live && prev.engine === 'drums') c.inst.live = prev.live;
       else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); }
@@ -98,7 +106,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   // a grain pad's struck bar for each pitch the track plays, made ready before its notes come
   const warm = c => { const ps = new Set(); for (const cl of c.T.clips) for (const n of cl.notes) ps.add(n.p + c.inst.shift); c.inst.live.port.postMessage({type: 'warm', notes: [...ps]}); };
   // what a live instrument plays with now: the section's tone and length as the instrument's settings, your knobs over them
-  const liveParams = c => { const I = c.inst; if (I.engine === 'drums') return drumSlots(I.sound, c).slots; if (I.engine === 'asynth') return {...I.full, period: 4*sd()}; if (I.engine !== 'poly') return {...nativeSet(c.s || {}, I.native, I.set), ...I.knobs};
+  const liveParams = c => { const I = c.inst; if (I.engine === 'drums') return drumSlots(I.sound, c, I.rack).slots; if (I.engine === 'asynth') return {...I.full, period: 4*sd()}; if (I.engine !== 'poly') return {...nativeSet(c.s || {}, I.native, I.set), ...I.knobs};
     // the poly synth: all its settings, the section's Length stretching its decay and release (as the browser-built one did)
     const L = LEN[c.s?.length ?? 1]; return {...I.full, ad: (I.base.ad ?? .3)*L, ar: (I.base.ar ?? .2)*L, period: 4*sd()}; };
   const liveSet = (c, t) => { const I = c.inst; if (!I?.live) return;
@@ -108,13 +116,20 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   function settle(c, clip, t = E.ctx.currentTime){ const s = c.s = {...c.T.set, ...(clip?.set || {})}, snd = s.sound || c.T.sound;
     if (snd !== c.sound) { build(c, snd);
       // (on the desk a new sound brings its own input gain and fader, so the balance holds)
-      if (c.x.desk && E.ch.includes(c)) { const tr = E.D?.strips.find(x => x.id === c.T.id)?.chain.find(p => p.key === 'trim'); if (tr && !c.T.desk?.gainSet) dk({type: 'proc', id: c.T.id, pid: tr.id, params: {gain: gainOf(snd, c.T.role, SND)}}, t); } }
+      if (c.x.desk && E.ch.includes(c)) for (const st of E.D?.strips.filter(x => x.id === c.T.id || x.rack === c.T.id) || []) { const tr = st.chain.find(p => p.key === 'trim'); if (!tr) continue;
+        if (st.pad) { if (!c.T.desk?.pads?.[st.pad]?.gainSet) { const m = SND[snd]?.voices?.[st.pad]; dk({type: 'proc', id: st.id, pid: tr.id, params: {gain: gainOf(m?.from || snd, padRole(st.pad, m, SND), SND)}}, t); } }
+        else if (!c.T.desk?.gainSet) dk({type: 'proc', id: st.id, pid: tr.id, params: {gain: gainOf(snd, c.T.role, SND)}}, t); } }
     if (c.x.desk) { c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (E.ch.includes(c)) { dk({type: 'strip', id: c.T.id, set: sectionStrip(c.T, s)}, t); macros(c, t); } liveSet(c, t); return; }
     c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[s.length ?? 1]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[s.length ?? 1]); }
     glide(c.x.clip.gain, Math.pow(10, (s.vol || 0)/20), t, .02); macros(c, t); liveSet(c, t); }
   function macros(c, t = E.ctx.currentTime){ const x = c.x, s = c.s, M = c.T.mix, solo = E.P.tracks.some(y => y.mix.solo);
     // (on the desk: the track's fader, pan, mute and solo on its strip; a channel for trying a sound has none of its own)
-    if (x.desk) { if (E.ch.includes(c)) dk({type: 'strip', id: c.T.id, set: {level: faderOf(c.T, SND, s?.sound || c.T.sound), pan: M.pan || 0, mute: !!c.T.mute, solo: !!M.solo}}); return; }
+    if (x.desk) { if (!E.ch.includes(c)) return;
+      // (a drum rack: its own strip's fader, pan and mute; each pad's, its solo the rack's too)
+      if (isRack(c.T)) { dk({type: 'strip', id: c.T.id, set: {level: M.vol || 0, pan: M.pan || 0, mute: !!c.T.mute}});
+        for (const p of c.io?.pads || []) { const d = c.T.pads?.[p] || {}; dk({type: 'strip', id: c.T.id + '/' + p, set: {level: padFader(c.T, p, SND, s?.sound || c.T.sound), pan: d.pan || 0, mute: !!d.mute, solo: !!(d.solo || M.solo)}}); }
+        return; }
+      dk({type: 'strip', id: c.T.id, set: {level: faderOf(c.T, SND, s?.sound || c.T.sound), pan: M.pan || 0, mute: !!c.T.mute, solo: !!M.solo}}); return; }
     glide(x.f.frequency, cutOf(s.x ?? .62), t, c.ramp ? 15*sd()/3 : .05); glide(x.echo.gain, s.echo ? (s.y ?? .3)*.5 : 0, t, .05); glide(x.verb.gain, s.verb ? (s.y ?? .3)*.75 : 0, t, .05);
     glide(x.out.gain, c.T.mute || solo && !M.solo ? 0 : .85*Math.pow(10, (M.vol || 0)/20), t, .02); glide(x.pan.pan, M.pan || 0, t, .02);
     glide(x.lo.gain, M.lo || 0, t, .02); glide(x.mid.gain, M.mid || 0, t, .02); glide(x.hi.gain, M.hi || 0, t, .02); }
@@ -132,7 +147,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     E.end = P.bars*16; };
   // the clip a track is in at a 16th (the later one where two overlap)
   const clipAt = (i, k) => { let c = null; for (const [a, b, cl] of E.at[i]) if (k >= a && k < b && (!c || a >= c[0])) c = [a, b, cl]; return c; };
-  E.load = P => { E.P = P; E.compile(); if (!E.ctx) return; for (const c of E.ch) { unplug(c); drop(c.inst); } E.kb = null;
+  E.load = P => { E.P = P; E.IO = inputsOf(P, SND); E.compile(); if (!E.ctx) return; for (const c of E.ch) { unplug(c); drop(c.inst); } E.kb = null;
     if (E.liveOK) deskBuild(); E.ch = P.tracks.map((T, i) => { const c = chan(T, i); build(c, T.sound); return c; }); masterMix(); for (const c of E.ch) settle(c, null); E.prewarm(); };
   const unplug = c => { try { (c.x.out || c.x.in).disconnect(); } catch {} };
 
@@ -140,7 +155,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   // built afresh with the tracks (one input per track); the one before told to stop for good
   function deskBuild(){ const ctx = E.ctx, old = E.deskNode;
     if (old) { old.port.postMessage({type: 'close'}); setTimeout(() => { try { old.disconnect(); } catch {} }, 60); }
-    const node = E.deskNode = new AudioWorkletNode(ctx, 'parts-host', {numberOfInputs: Math.max(1, E.P.tracks.length), outputChannelCount: [2]});
+    const node = E.deskNode = new AudioWorkletNode(ctx, 'parts-host', {numberOfInputs: Math.max(1, inputCount(E.IO)), outputChannelCount: [2]});
     node.connect(E.out); node.port.onmessage = e => { if (e.data.type === 'meters') E.meters = e.data.m; };
     E.D = deskOf(E.P, SND); dk({type: 'build', ...E.D}); straight(); }
   // a message to the desk (now, or at an audio-clock time t: dropped if playback stops before it)
@@ -232,7 +247,10 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   // whether a track's instrument plays live now
   E.isLive = i => !!E.ch[i]?.inst?.live;
   // a sound's definition changed (the designer): every channel builds its instrument again, and its notes are computed
-  E.refresh = () => { E.gen++; if (!E.ctx) return; for (const c of E.ch) { c.sound = null; settle(c, c.clip || null); } E.prewarm(); };
+  E.refresh = () => { E.gen++; if (!E.ctx) return;
+    // (a drum rack whose pads changed with its kit: the desk and the tracks built again)
+    if (E.IO && JSON.stringify(inputsOf(E.P, SND)) !== JSON.stringify(E.IO)) { E.load(E.P); return; }
+    for (const c of E.ch) { c.sound = null; settle(c, c.clip || null); } E.prewarm(); };
   // a note heard now (clicking in the piano roll)
   E.audition = (i, p, v = .8, l = 2) => { if (!E.ctx) E.init(); E.ctx.resume(); const c = E.ch[i]; if (c) play(c, p, l, v, E.ctx.currentTime + .02); };
 
