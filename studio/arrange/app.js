@@ -7,6 +7,7 @@
 import { flatten } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
 import { combineDrums, ensureRacks, isRack } from './rack.js';
+import { SETS, addSets, setOf, defaultSet, onSet, moveTo } from './sets.js';
 import { makeSounds } from './sounds.js';
 import { makeSynthUI } from './synth-ui.js';
 import { makeMixer } from './mixer.js';
@@ -17,7 +18,9 @@ import LIBRARY from '../listen/packs/library.json';
 const $ = id => document.getElementById(id);
 const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
 const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
+const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s])); addSets(SND);
+// (?sounds=song opens Claude's version on the song's own sounds: the tests written before the analog set use it)
+const SET_Q = new URLSearchParams(location.search).get('sounds');
 const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
 const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
@@ -34,7 +37,8 @@ const roundOf = s => `Round ${s.round}: ${s.name}`;
 for (const s of SONGS) $('songSel').append(h('option', {value: s.id}, roundOf(s)));
 async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s) return; ST.id = id; $('songSel').value = id;
   // (Studio Jam's kick, hats and percussion come as one drum rack track: combineDrums, rack.js)
-  ST.orig = combineDrums(flatten(s), SND); let P = null;
+  // (Claude's version on the set it opens on: round 4 on the analog drum machine and synth, sets.js)
+  ST.orig = combineDrums(onSet(flatten(s), SETS[SET_Q] ? SET_Q : defaultSet(s)), SND); let P = null;
   if (db) try { const d = await db.collection('versions').doc(id).get(); if (d.exists) P = JSON.parse(d.data().json); } catch {}
   if (!P) try { const l = localStorage.getItem(keyOf(id)); if (l) P = JSON.parse(l).P; } catch {}
   if (P?.v === 1) { ensureRacks(P, SND); P = combineDrums(P, SND); }
@@ -42,16 +46,16 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
   E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
-  $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
+  $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); renderSet(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
-const snapshot = () => JSON.stringify({tracks: ST.P.tracks, sounds: ST.P.sounds || {}, desk: ST.P.desk || {}});   // (whole tracks: adding and deleting them undo too; the desk's buses with them)
+const snapshot = () => JSON.stringify({tracks: ST.P.tracks, sounds: ST.P.sounds || {}, desk: ST.P.desk || {}, set: setOf(ST.P)});   // (whole tracks: adding and deleting them undo too; the desk's buses and the sound set with them)
 function checkpoint(){ ST.past.push(snapshot()); if (ST.past.length > 100) ST.past.shift(); ST.fut = []; }
 function restore(json){ const Q = JSON.parse(json), same = Q.tracks.length === ST.P.tracks.length && Q.tracks.every((T, i) => T.id === ST.P.tracks[i].id);
   // the same tracks: each one's contents put back in place (the engine's channels keep them); others: the tracks replaced, the channels made again
   if (same) ST.P.tracks.forEach((T, i) => { for (const k of Object.keys(T)) delete T[k]; Object.assign(T, Q.tracks[i]); }); else { ST.P.tracks = Q.tracks; E.load(ST.P); }
-  ST.sel.track = Math.min(ST.sel.track, ST.P.tracks.length - 1); ST.P.sounds = Q.sounds || {}; ST.P.desk = Q.desk || {}; SB.adopt(ST.P.sounds); E.deskRefresh();
+  ST.sel.track = Math.min(ST.sel.track, ST.P.tracks.length - 1); ST.P.sounds = Q.sounds || {}; ST.P.desk = Q.desk || {}; if (Q.set) ST.P.set = Q.set; renderSet(); SB.adopt(ST.P.sounds); E.deskRefresh();
   if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.ed.sel.clear(); for (const id of [...ST.sel.clips]) if (!findClip(id)) ST.sel.clips.delete(id); E.compile(); E.refresh(); changed(true); renderTracks(); SB.render(); }
 function undo(){ if (!ST.past.length) { flash('Nothing to undo'); return; } ST.fut.push(snapshot()); restore(ST.past.pop()); flash('Undone'); }
 function redo(){ if (!ST.fut.length) { flash('Nothing to redo'); return; } ST.past.push(snapshot()); restore(ST.fut.pop()); flash('Redone'); }
@@ -66,7 +70,14 @@ let flT = 0; function flash(t){ const f = $('flash'); f.textContent = t; f.datas
 function renderVer(){ $('ver').textContent = ST.mine ? 'Yours' : 'Claude’s'; $('ver').setAttribute('aria-pressed', String(!ST.mine)); }
 $('ver').onclick = () => { if (ST.mine) { ST.held = snapshot(); restoreFrom(ST.orig); ST.mine = false; flash('Claude’s version, as written: switch back to edit yours'); }
   else { restore(ST.held); ST.mine = true; flash('Your version'); } renderVer(); };
-function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks, sounds: P.sounds || {}, desk: P.desk || {}})); }
+// the sounds: the analog set or the song's own, every track's (and its clips') changed at once; on your version an
+// edit, undone like any other, on Claude's only what's heard
+function renderSet(){ $('setB').textContent = 'Sounds: ' + SETS[setOf(ST.P)]; }
+function setSounds(set){ const s = songById(ST.id), ref = combineDrums(onSet(flatten(s), set), SND);
+  if (ST.mine) checkpoint(); restore(JSON.stringify(moveTo(JSON.parse(snapshot()), ref, set, SND))); E.refresh();
+  flash(set === 'analog' ? 'The analog drum machine and synth, as the Mix Lab plays them' : 'The sounds Studio Jam wrote the song with'); }
+$('setB').onclick = () => setSounds(setOf(ST.P) === 'analog' ? 'song' : 'analog');
+function restoreFrom(P){ restore(JSON.stringify({tracks: P.tracks, sounds: P.sounds || {}, desk: P.desk || {}, set: setOf(P)})); }
 const PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
 if (PHONE) { document.body.classList.add('phone'); $('rulerHead').lastElementChild.textContent = 'tap a section to loop it'; }
 const editable = () => { if (PHONE) return false; if (ST.mine) return true; flash('This is Claude’s version: switch to Yours to edit'); return false; };

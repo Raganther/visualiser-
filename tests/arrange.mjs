@@ -28,7 +28,7 @@ for (const s of R4) { const P = flatten(s), bars = s.sections.reduce((a, x) => a
 const {srv, url} = await serve();
 const browser = await launch('2d'), page = await browser.newPage({viewport: {width: 1400, height: 860}});
 page.on('pageerror', e => { failed = true; console.log('FAIL page error:', e.message); });
-await page.goto(url + 'studio/listen/studio-daw.html'); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(1500);
+await page.goto(url + 'studio/listen/studio-daw.html?sounds=song'); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(1500);
 const D = fn => page.evaluate(fn);
 const arr = await page.locator('#arr').boundingBox(), ed = () => page.locator('#ed').boundingBox();
 // where a bar of a track is on the screen
@@ -313,7 +313,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await page.locator('.trk').nth(1).click(); if (!(await D(() => window.__daw.SI.isOn()))) await page.keyboard.press('b'); await page.waitForTimeout(400);
   check('the Instrument view says it plays live', await D(() => !document.getElementById('iLive').hidden));
   // and it says so when the live voices arrive after the panel is already showing (a fresh page: the instrument shown first)
-  { const q = await browser.newPage({viewport: {width: 1400, height: 860}}); await q.goto(url + 'studio/listen/studio-daw.html'); await q.waitForTimeout(1200);
+  { const q = await browser.newPage({viewport: {width: 1400, height: 860}}); await q.goto(url + 'studio/listen/studio-daw.html?sounds=song'); await q.waitForTimeout(1200);
     await q.locator('.trk').nth(1).click(); await q.keyboard.press('b'); const before = await q.evaluate(() => [window.__daw.E.liveOK, document.getElementById('iLive').hidden]);
     await q.evaluate(() => window.__daw.E.init()); await q.waitForFunction(() => window.__daw.E.liveOK, null, {timeout: 6000}); await q.waitForTimeout(200);
     const after = await q.evaluate(() => !document.getElementById('iLive').hidden); await q.close();
@@ -497,7 +497,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
 // on a phone: the picture fits, a section tapped loops it, a drag pans, a clip can't be dragged, a like still works
 { const ph = await browser.newPage({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2});
   ph.on('pageerror', e => { failed = true; console.log('FAIL page error (phone):', e.message); });
-  await ph.goto(url + 'studio/listen/studio-daw.html'); await ph.waitForTimeout(1500); const A = await ph.locator('#arr').boundingBox();
+  await ph.goto(url + 'studio/listen/studio-daw.html?sounds=song'); await ph.waitForTimeout(1500); const A = await ph.locator('#arr').boundingBox();
   const lay = await ph.evaluate(() => ({phone: document.body.classList.contains('phone'), editor: getComputedStyle(document.getElementById('editor')).display, wide: document.documentElement.scrollWidth}));
   check('on a phone: no piano roll, nothing wider than the screen', lay.phone && lay.editor === 'none' && lay.wide <= 390, JSON.stringify(lay));
   const m = await ph.evaluate(() => { const {ST} = window.__daw, k = ST.P.marks[1]; return {x: (k.at + .5)*ST.px - ST.sx, at: k.at, bars: k.bars}; });
@@ -516,7 +516,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
 // and the analog synth in the sound panel, played live
 // (a context of its own: the pages above keep their songs, solos and all, in this one's storage)
 { const q = await (await browser.newContext({viewport: {width: 1400, height: 950}})).newPage(); q.on('pageerror', e => { failed = true; console.log('FAIL desk page error:', e.message); });
-  await q.goto(url + 'studio/listen/studio-daw.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(800);
+  await q.goto(url + 'studio/listen/studio-daw.html?sounds=song'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(800);
   const Q = (fn, x) => q.evaluate(fn, x);
   await Q(() => window.__daw.E.init()); await q.waitForFunction(() => window.__daw.E.liveOK && window.__daw.E.deskNode, null, {timeout: 8000});
   const strips = await Q(() => { const {E, ST} = window.__daw; return {ids: E.D.strips.map(s => s.id), tracks: ST.P.tracks.flatMap((T, i) => T.role === 'drums' ? [...E.IO[i].pads.map(p => T.id + '/' + p), T.id] : [T.id]),
@@ -624,6 +624,30 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
     E.play(2 + 1/16); const t0 = E.t0, nx = E.nextT, sd = per/4, ahead = E.slot - E.from; E.stop(); return {lib: !!s?.src?.asynth && s.role === 'chords', at, per, back: (nx - t0)/sd - ahead}; });
   check('Pulse brass is in the library; its LFO swells on every beat of the song (a sixth of a beat in), counted from the beat before where playback starts',
     pul.lib && pul.at.every(v => Math.abs(v - pul.per*1000/6) < 60) && Math.abs(pul.back - 1) < 1e-6, JSON.stringify(pul));
+  await q.close(); }
+
+// the sound sets (sets.js): round 4 opens on the analog drum machine and synth as the Mix Lab plays it, heard; the
+// switch puts the song's own sounds back on every track and undo returns the analog set; your choice kept; round 3 on its own
+{ const q = await browser.newPage({viewport: {width: 1400, height: 860}}); q.on('pageerror', e => { failed = true; console.log('FAIL sets page error:', e.message); });
+  await q.goto(url + 'studio/listen/studio-daw.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(1500);
+  const Q = fn => q.evaluate(fn), sounds = () => Q(() => window.__daw.ST.P.tracks.map(T => T.sound));
+  const a = await sounds(), btn = () => Q(() => document.getElementById('setB').textContent);
+  check('round 4 opens on the analog set: the Mix Lab’s kick, hats and percussion as one rack, its bass, pad and two leads on the analog synth',
+    a[0] === 'rack:an-kick+h4-deep+an-perc' && a.slice(1).join() === 'a5-mix-bass,a5-mix-chords,a5-mix-lead,a5-mix-lead2' && /Analog/.test(await btn()), JSON.stringify(a));
+  const pads = await Q(() => { const {SND} = window.__daw, v = SND['an-perc'].voices, k = SND['an-kick'].voices.kick; return {log: v.log.voice, gong: v.gong.voice, tomL: v.tomL.over.tomL.tune, kick: k.over.kick.drive, from: k.from}; });
+  check('its kick round and undriven, the forest’s hits on the drum machine’s voices, each pad staged as its pack 4 sound', pads.log === 'tomL' && pads.gong === 'crash' && pads.tomL === -3 && pads.kick === 0 && pads.from === 'k4-deep', JSON.stringify(pads));
+  const lvl = async () => { await Q(() => { const {E} = window.__daw; E.play(32); const an = E.ctx.createAnalyser(); an.fftSize = 2048; E.out.connect(an); window.__an = an; }); await q.waitForTimeout(2000);
+    return Q(async () => { const x = new Float32Array(2048); let s = 0, n = 0, pk = 0; for (let k = 0; k < 16; k++) { window.__an.getFloatTimeDomainData(x); for (const v of x) { s += v*v; n++; pk = Math.max(pk, Math.abs(v)); } await new Promise(r => setTimeout(r, 50)); } window.__daw.E.stop(); return [Math.sqrt(s/n), pk]; }); };
+  const la = await lvl(); check('the analog set is heard, within full scale', la[0] > .02 && la[1] <= 1.001, JSON.stringify(la));
+  await q.click('#setB'); await q.waitForTimeout(300); const b = await sounds(), notes = await Q(() => window.__daw.ST.P.tracks[0].clips.reduce((n, c) => n + c.notes.length, 0));
+  check('the switch puts the song’s own sounds on every track', b[0] === 'rack:k-round+h3-smooth+p3-forest' && b[1] === 'b-fmpluck' && /song/.test(await btn()), JSON.stringify(b));
+  const ls = await lvl(); check('and they’re heard', ls[0] > .02, JSON.stringify(ls));
+  await q.keyboard.press('Meta+z'); await q.waitForTimeout(300); const c = await sounds();
+  check('undo brings the analog set back, every drum note still there', c.join() === a.join() && /Analog/.test(await btn()) && notes === await Q(() => window.__daw.ST.P.tracks[0].clips.reduce((n, c) => n + c.notes.length, 0)), JSON.stringify(c));
+  await q.click('#setB'); await q.waitForTimeout(1200); await q.reload(); await q.waitForTimeout(1500);
+  check('your choice is kept across a reload', (await sounds())[1] === 'b-fmpluck' && /song/.test(await btn()));
+  await q.selectOption('#songSel', 'r3-1'); await q.waitForTimeout(800);
+  check('round 3 opens on its own sounds', (await sounds())[1] === 'b-fmpluck' && /song/.test(await btn()));
   await q.close(); }
 
 // the drum playground (studio/drums/, built into studio/listen/drum-lab.html): every beat on every analog kit heard,

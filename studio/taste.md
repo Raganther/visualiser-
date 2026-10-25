@@ -169,3 +169,7 @@ before writing or changing a piece; add to it when they react.
   processing is normal. A desk-style "Claude's mix" on everything is more than a minimal track needs; they chose a
   lighter start: only what does a clear job (low cuts, the sidechain under the kick, the kit's one glue), the full
   chains one click away. Prefer fewer, purposeful processors.
+- 2026-10-25: After the analog synth, the drum machine and the Mix Lab's round 4 on them, the user asked to keep going and
+  see how it affects things: the DAW now opens round 4 on that same analog set (the Mix Lab's kick, hats, percussion and
+  four synth patches), with a switch back to the song's own sounds. To learn by listening: whether the analog set holds
+  up in the DAW's arrangements, and which parts want their old sound back.
