@@ -287,7 +287,7 @@ const eSnap = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v*100)/1
 ed.addEventListener('pointerdown', e => { if (e.button) return; const f = cur(); ST.focus = 'ed'; ed.focus(); if (!f) return; const [x, y] = pt(ed, e), R = rowsOf(f), yb = EH - VEL;
   if (x < KEYW && y > TOP && y < yb) { const r = Math.floor((y - TOP + ST.ed.sy)/R.rh), p = pitchOfRow(R, r); E.audition(f.ti, p);
     // (a drum's name: picked, here and in the Instrument and Mixer tabs too)
-    if (R.drum) pickPad(p); return; }
+    if (R.drum) { ST.sel.track = f.ti; pickPad(p); } return; }
   if (y >= yb) { // velocity: the nearest note's bar; dragging a selected one moves every selected one together
     const fr = focusRow(R); let best = null, bd = 8; f.cl.notes.forEach((nt, i) => { if (fr && nt.p !== fr) return; const d = Math.abs(ex(nt.s) + 1 - x); if (d < bd || d === bd && ST.ed.sel.has(i)) { bd = d; best = i; } });
     if (best == null || !editable()) return; const group = ST.ed.sel.has(best) ? [...ST.ed.sel].filter(i => !fr || f.cl.notes[i].p === fr) : [best], v0 = group.map(i => f.cl.notes[i].v), b0 = f.cl.notes[best].v; let started = false;
