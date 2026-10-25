@@ -119,12 +119,12 @@ await D(() => { const {ST} = window.__daw; ST.sx = 30*ST.px; });   // the bass's
   await page.keyboard.press('Escape'); }
 
 // the drums' piano roll: rows are the voices by name
-{ const [x, y] = await at(0, (await clips(0))[0].start + .5); await page.mouse.dblclick(x, y); await page.waitForTimeout(200);
+{ await D(() => { window.__daw.ST.sx = 0; }); const [x, y] = await at(0, (await clips(0))[0].start + .5); await page.mouse.dblclick(x, y); await page.waitForTimeout(200);
   const rows = await D(() => { const {ST} = window.__daw, f = ST.P.tracks[0]; return [...new Set(f.clips.flatMap(c => c.notes.map(n => n.p)))]; });
   check('a drum clip opens with named voices', rows.includes('kick'), JSON.stringify(rows));
   // a drum's name clicked: its row picked, the velocity lane its hits alone; clicked again, let go
   const E2 = await ed(), rh = await D(() => { const {ST} = window.__daw; return null; }); await page.mouse.click(E2.x + 20, E2.y + 18 + 8); const r1 = await D(() => window.__daw.ST.ed.row);
-  check('clicking a drum’s name picks its row (the velocity lane its hits alone), the same drum in the Instrument tab', r1 === 'kick' && await D(() => window.__daw.SB.voice()) === 'kick', r1);
+  check('clicking a drum’s name picks its row (the velocity lane its hits alone), the same drum in the Instrument tab', r1 === 'kick' && await D(() => window.__daw.SB.voice()) === 'kick', JSON.stringify([r1, await D(() => [window.__daw.SB.voice(), window.__daw.ST.sel.track, window.__daw.ST.open?.id])]));
   await page.click('#tabMix'); await page.waitForTimeout(500); await page.locator('#mxDesk .mxs[data-strip="rack/chh"] .sname').click(); await page.click('#tabNotes'); await page.waitForTimeout(200);
   check('and a pad picked in the Mixer is the drum picked in the notes', await D(() => window.__daw.ST.ed.row === 'chh' && window.__daw.SB.voice() === 'chh')); }
 
