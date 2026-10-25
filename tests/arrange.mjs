@@ -519,8 +519,8 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const m = await listen(32);
   check('playing through the desk: every track playing in the section heard, the master within full scale and well up', ['rack/kick', 'rack/chh', 'rack/tomL', 'rack', 't3', 't5'].every(k => m.pk[k] > .003) && m.pk.master > .3 && m.pk.master <= 1.0001,
     Object.entries(m.pk).map(([k, v]) => `${k} ${(20*Math.log10(v + 1e-9)).toFixed(1)}`).join(', '));
-  check('the rack’s kick pad keys the sidechain: the bass and the chords turned down on its hits, the buses\' compressors working', m.gr['t3-sidechain'] > 3 && m.gr['t4-sidechain'] > 3 && m.gr['drums-glue'] > .5,
-    ['t3-sidechain', 't4-sidechain', 'drums-glue', 'bus-glue'].map(k => `${k} ${(m.gr[k] || 0).toFixed(1)}`).join(', '));
+  check('the rack’s kick pad keys the sidechain: the bass and the chords turned down on its hits, the rack\'s and the master bus\'s compressors working', m.gr['t3-sidechain'] > 3 && m.gr['t4-sidechain'] > 3 && m.gr['rack-glue'] > .5,
+    ['t3-sidechain', 't4-sidechain', 'rack-glue', 'bus-glue'].map(k => `${k} ${(m.gr[k] || 0).toFixed(1)}`).join(', '));
   // Straight: every channel and bus bypassed at the loudness the mix gives it
   await q.click('#engAB'); const st = await listen(32, 3000); await q.click('#engAB');
   check('Straight: the processors out, still heard at about the same loudness', st.pk.master > .2 && st.pk.master <= 1.0001 && /straight/.test(await Q(() => document.getElementById('engAB').textContent)) === false,
