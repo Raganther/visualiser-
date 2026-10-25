@@ -199,5 +199,5 @@ export function makeSounds(A){
   $('sdAskB').onclick = async () => { const t = $('sdAskT').value.trim(); if (!t) return; const T = track();
     await addNote(0, t, {kind: 'sound', tracks: [T.name], role: T.role, sound: current(), desc: `A sound for the ${T.name.toLowerCase()}`}); $('sdAskT').value = ''; flash('Asked Claude for the sound: it’s in your notes'); };
 
-  return {synthOf, show, render, isOpen: () => UI.open, loadDb, adopt, keep, model, change, setVoice, current, track, scopeText, famOf, engineOf, onChange: f => HOOKS.push(f), reset: () => $('sdReset').onclick(), tryIt: () => tryIt(current()), VNAME};
+  return {synthOf, show, render, voice: () => UI.voice, isOpen: () => UI.open, loadDb, adopt, keep, model, change, setVoice, current, track, scopeText, famOf, engineOf, onChange: f => HOOKS.push(f), reset: () => $('sdReset').onclick(), tryIt: () => tryIt(current()), VNAME};
 }

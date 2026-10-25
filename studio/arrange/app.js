@@ -286,8 +286,8 @@ const pitchOfRow = (R, r) => R.drum ? R.rows[clamp(r, 0, R.rows.length - 1)] : c
 const eSnap = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v*100)/100;
 ed.addEventListener('pointerdown', e => { if (e.button) return; const f = cur(); ST.focus = 'ed'; ed.focus(); if (!f) return; const [x, y] = pt(ed, e), R = rowsOf(f), yb = EH - VEL;
   if (x < KEYW && y > TOP && y < yb) { const r = Math.floor((y - TOP + ST.ed.sy)/R.rh), p = pitchOfRow(R, r); E.audition(f.ti, p);
-    // (a drum's name: picked, or let go when it's picked already)
-    if (R.drum) { ST.ed.row = ST.ed.row === p ? null : p; drawEd(); } return; }
+    // (a drum's name: picked, here and in the Instrument and Mixer tabs too)
+    if (R.drum) pickPad(p); return; }
   if (y >= yb) { // velocity: the nearest note's bar; dragging a selected one moves every selected one together
     const fr = focusRow(R); let best = null, bd = 8; f.cl.notes.forEach((nt, i) => { if (fr && nt.p !== fr) return; const d = Math.abs(ex(nt.s) + 1 - x); if (d < bd || d === bd && ST.ed.sel.has(i)) { bd = d; best = i; } });
     if (best == null || !editable()) return; const group = ST.ed.sel.has(best) ? [...ST.ed.sel].filter(i => !fr || f.cl.notes[i].p === fr) : [best], v0 = group.map(i => f.cl.notes[i].v), b0 = f.cl.notes[best].v; let started = false;
@@ -428,7 +428,12 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
-MX = makeMixer({ST, E, SND, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
+// one drum picked at a time, the same in the notes, the instrument and the mixer (and the sound panel's voices): the
+// sound panel holds it (SB.voice), and whichever tab picks one, the others follow
+function pickPad(v){ if (v !== SB.voice()) SB.setVoice(v); else padPicked(); }
+function padPicked(){ const T = ST.P.tracks[ST.sel.track], v = SB.voice(); if (!T || !isDrum(T.role) || !v) return; if (ST.ed.row !== v) { ST.ed.row = v; drawEd(); } MX?.pad(T.id, v); }
+SB.onChange(padPicked);
+MX = makeMixer({ST, E, SND, pickPad, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
 $('tabInst').onclick = () => { MX.show(false); SI.show(true); }; $('tabNotes').onclick = () => { MX.show(false); SI.show(false); };
 E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a moment after the page: the instrument says so then)
 

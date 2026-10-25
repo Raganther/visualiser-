@@ -49,7 +49,7 @@ export function makeMixer(A){
     const flip = k => () => { if (!editable()) return; checkpoint(); pd()[k] = !pd()[k]; A.save(); upd(); render(); };
     const chips = s.chain.filter(c => c.key !== 'trim').map(c => h('span', {class: 'chip', 'data-off': String(c.on === false)}, CHIP[c.key] || PROCS[c.key]?.label || c.key, PROCS[c.key]?.meter ? h('em', {class: 'gr', 'data-gr': c.id}) : null));
     return h('section', {class: 'mxs', 'data-kind': 'pad', 'data-strip': s.id, 'aria-current': String(V.sel === s.id)},
-      h('button', {class: 'sname', title: 'Its processors', onclick: () => { V.sel = s.id; render(); }}, h('b', {}, VNAME[pad] || pad), h('span', {}, m ? (m.kit ? m.kit : m.native) + (m.voice ? ' · ' + (VNAME[m.voice] || m.voice) : '') : 'no drum in this kit')),
+      h('button', {class: 'sname', title: 'Its processors', onclick: () => { V.sel = s.id; const i = ST.P.tracks.indexOf(T); if (i >= 0) ST.sel.track = i; A.pickPad(pad); render(); }}, h('b', {}, VNAME[pad] || pad), h('span', {}, m ? (m.kit ? m.kit : m.native) + (m.voice ? ' · ' + (VNAME[m.voice] || m.voice) : '') : 'no drum in this kit')),
       h('div', {class: 'meter'}, h('i', {'data-meter': s.id})), h('div', {class: 'chips'}, ...chips),
       h('label', {class: 'fdr'}, h('span', {}, 'Level'), fo, fader),
       control(PAN, T.pads?.[pad]?.pan || 0, v => { if (!editable()) return; pd().pan = v; changed(true); }),
@@ -93,5 +93,7 @@ export function makeMixer(A){
     for (const e of document.querySelectorAll('#mxDesk [data-meter]')) { const m = M[e.dataset.meter], d = m ? 20*Math.log10(Math.max(1e-6, m.pk)) : -120; e.style.width = Math.max(0, Math.min(100, (d + 48)/48*100)) + '%'; e.dataset.hot = String(d > -1); }
     showGr(M); V.raf = requestAnimationFrame(meters); }
   $('tabMix').onclick = () => show(!V.on);
-  return {show, render, isOn: () => V.on};
+  // a drum picked in another tab: its pad's strip picked here too
+  function pad(id, p){ const s = strip(id + '/' + p); if (!s || V.sel === s.id) return; V.sel = s.id; render(); }
+  return {show, render, pad, isOn: () => V.on};
 }
