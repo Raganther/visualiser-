@@ -251,7 +251,7 @@ function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRec
   const R = rowsOf(f), n = R.drum ? R.rows.length : R.hi - R.lo + 1, yb = EH - VEL, yOf = r => TOP + r*R.rh - ST.ed.sy, px = ST.ed.px, cl = f.cl, col = colorOf(f.T, f.ti);
   // rows (the black keys darker), the grid, past the clip's end shaded
   for (let r = 0; r < n; r++) { const y = yOf(r); if (y + R.rh < TOP || y > yb) continue; const p = R.hi - r, black = !R.drum && [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12);
-    g.fillStyle = black ? '#17191d' : r % 2 && R.drum ? '#1d2026' : '#1f2228'; g.fillRect(KEYW, y, EW, R.rh); g.fillStyle = '#262a31'; g.fillRect(KEYW, y + R.rh - 1, EW, 1); }
+    g.fillStyle = black ? '#17191d' : R.drum && R.rows[r] === focusRow(R) ? '#2c2f37' : r % 2 && R.drum ? '#1d2026' : '#1f2228'; g.fillRect(KEYW, y, EW, R.rh); g.fillStyle = '#262a31'; g.fillRect(KEYW, y + R.rh - 1, EW, 1); }
   const s0 = Math.max(0, Math.floor(es(KEYW))), s1 = Math.ceil(es(EW));
   for (let s = s0; s <= s1; s++) { const x = Math.round(ex(s)) + .5; g.strokeStyle = s % 16 === 0 ? '#4a515d' : s % 4 === 0 ? '#323741' : '#24282e'; if (px < 6 && s % 4) continue; g.beginPath(); g.moveTo(x, TOP); g.lineTo(x, EH); g.stroke(); }
   g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(ex(cl.len), TOP, EW, EH);
@@ -267,24 +267,30 @@ function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRec
   if (ST.ebox) { const b = ST.ebox; g.strokeStyle = '#fff'; g.setLineDash([4, 3]); g.strokeRect(Math.min(b.x0, b.x1) + .5, Math.min(b.y0, b.y1) + .5, Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0)); g.setLineDash([]); }
   g.restore();
   // the velocity lane
-  g.fillStyle = '#15171b'; g.fillRect(0, yb, EW, VEL); g.fillStyle = '#343944'; g.fillRect(0, yb, EW, 1); g.fillStyle = '#9aa1ad'; g.fillText('Velocity', 8, yb + 12);
-  cl.notes.forEach((nt, i) => { const x = ex(nt.s); if (x < KEYW - 2) return; const hh = (VEL - 10)*nt.v, sel = ST.ed.sel.has(i); g.fillStyle = sel ? '#e0a33a' : col; g.fillRect(x, EH - 4 - hh, 3, hh); g.fillRect(x - 2, EH - 4 - hh, 7, 2); });
+  const fr = focusRow(R); g.fillStyle = '#15171b'; g.fillRect(0, yb, EW, VEL); g.fillStyle = '#343944'; g.fillRect(0, yb, EW, 1); g.fillStyle = '#9aa1ad'; g.fillText('Velocity', 8, yb + 12);
+  if (fr) { g.fillStyle = col; g.fillText(VNAME[fr] || fr, 8, yb + 28); }
+  cl.notes.forEach((nt, i) => { const x = ex(nt.s); if (x < KEYW - 2 || fr && nt.p !== fr) return; const hh = (VEL - 10)*nt.v, sel = ST.ed.sel.has(i); g.fillStyle = sel ? '#e0a33a' : col; g.fillRect(x, EH - 4 - hh, 3, hh); g.fillRect(x - 2, EH - 4 - hh, 7, 2); });
   // the keys (or the drum's voices) down the left
   g.fillStyle = '#1f2228'; g.fillRect(0, 0, KEYW, yb);
   for (let r = 0; r < n; r++) { const y = yOf(r); if (y + R.rh < TOP || y > yb) continue;
-    if (R.drum) { const v = R.rows[r], nat = SND[f.T.sound]?.voices?.[v]?.native; g.fillStyle = '#e7e9ee'; g.font = '11px system-ui'; g.fillText((VNAME[v] || v) + (nat ? ' · ' + nat : ''), 6, y + R.rh/2); g.fillStyle = '#343944'; g.fillRect(0, y + R.rh - 1, KEYW, 1); continue; }
+    if (R.drum) { const v = R.rows[r], nat = SND[f.T.sound]?.voices?.[v]?.native; if (v === fr) { g.fillStyle = col; g.fillRect(0, y, 3, R.rh - 1); g.fillStyle = '#2c2f37'; g.fillRect(3, y, KEYW - 3, R.rh - 1); }
+      g.fillStyle = v === fr ? '#fff' : '#e7e9ee'; g.font = (v === fr ? '600 ' : '') + '11px system-ui'; g.fillText((VNAME[v] || v) + (nat ? ' · ' + nat : ''), 6, y + R.rh/2); g.fillStyle = '#343944'; g.fillRect(0, y + R.rh - 1, KEYW, 1); continue; }
     const p = R.hi - r, black = [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12); g.fillStyle = black ? '#0c0d10' : '#d9dce2'; g.fillRect(black ? 0 : 0, y, black ? KEYW*.62 : KEYW, R.rh - (black ? 0 : 1));
     if (p % 12 === 0) { g.fillStyle = '#333'; g.font = '10px system-ui'; g.fillText(nn(p), KEYW - 30, y + R.rh/2); } }
   const ph = (ST.ph - cl.start)*16; if (ph >= 0 && ph <= cl.len) { const x = Math.round(ex(ph)) + .5; g.strokeStyle = '#ff5a4f'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, EH); g.stroke(); } }
+// a drum clip's row picked (its name clicked): lit, and the velocity lane shows that drum's hits alone
+const focusRow = R => R.drum && R.rows.includes(ST.ed.row) ? ST.ed.row : null;
 function noteAt(f, R, x, y){ for (let i = f.cl.notes.length - 1; i >= 0; i--) { const nt = f.cl.notes[i], r = rowOfNote(R, nt), y0 = TOP + r*R.rh - ST.ed.sy, x0 = ex(nt.s), w = Math.max(3, nt.l*ST.ed.px - 1);
     if (y >= y0 && y < y0 + R.rh && x >= x0 - 1 && x <= x0 + w + 1) return {i, nt, x0, w}; } return null; }
 const pitchOfRow = (R, r) => R.drum ? R.rows[clamp(r, 0, R.rows.length - 1)] : clamp(R.hi - r, R.lo, R.hi);
 const eSnap = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v*100)/100;
 ed.addEventListener('pointerdown', e => { if (e.button) return; const f = cur(); ST.focus = 'ed'; ed.focus(); if (!f) return; const [x, y] = pt(ed, e), R = rowsOf(f), yb = EH - VEL;
-  if (x < KEYW && y > TOP && y < yb) { const r = Math.floor((y - TOP + ST.ed.sy)/R.rh); E.audition(f.ti, pitchOfRow(R, r)); return; }
+  if (x < KEYW && y > TOP && y < yb) { const r = Math.floor((y - TOP + ST.ed.sy)/R.rh), p = pitchOfRow(R, r); E.audition(f.ti, p);
+    // (a drum's name: picked, or let go when it's picked already)
+    if (R.drum) { ST.ed.row = ST.ed.row === p ? null : p; drawEd(); } return; }
   if (y >= yb) { // velocity: the nearest note's bar; dragging a selected one moves every selected one together
-    let best = null, bd = 8; f.cl.notes.forEach((nt, i) => { const d = Math.abs(ex(nt.s) + 1 - x); if (d < bd || d === bd && ST.ed.sel.has(i)) { bd = d; best = i; } });
-    if (best == null || !editable()) return; const group = ST.ed.sel.has(best) ? [...ST.ed.sel] : [best], v0 = group.map(i => f.cl.notes[i].v), b0 = f.cl.notes[best].v; let started = false;
+    const fr = focusRow(R); let best = null, bd = 8; f.cl.notes.forEach((nt, i) => { if (fr && nt.p !== fr) return; const d = Math.abs(ex(nt.s) + 1 - x); if (d < bd || d === bd && ST.ed.sel.has(i)) { bd = d; best = i; } });
+    if (best == null || !editable()) return; const group = ST.ed.sel.has(best) ? [...ST.ed.sel].filter(i => !fr || f.cl.notes[i].p === fr) : [best], v0 = group.map(i => f.cl.notes[i].v), b0 = f.cl.notes[best].v; let started = false;
     drag(e, (xx, yy) => { if (!started) { started = true; checkpoint(); } const v = clamp((EH - 4 - yy)/(VEL - 10), .02, 1); group.forEach((i, k) => f.cl.notes[i].v = +clamp(v0[k] + v - b0, .02, 1).toFixed(3)); ST.lastVel = v; drawEd(); }, () => { if (started) changed(); });
     return; }
   const hit = noteAt(f, R, x, y);

@@ -121,7 +121,11 @@ await D(() => { const {ST} = window.__daw; ST.sx = 30*ST.px; });   // the bass's
 // the drums' piano roll: rows are the voices by name
 { const [x, y] = await at(0, (await clips(0))[0].start + .5); await page.mouse.dblclick(x, y); await page.waitForTimeout(200);
   const rows = await D(() => { const {ST} = window.__daw, f = ST.P.tracks[0]; return [...new Set(f.clips.flatMap(c => c.notes.map(n => n.p)))]; });
-  check('a drum clip opens with named voices', rows.includes('kick'), JSON.stringify(rows)); }
+  check('a drum clip opens with named voices', rows.includes('kick'), JSON.stringify(rows));
+  // a drum's name clicked: its row picked, the velocity lane its hits alone; clicked again, let go
+  const E2 = await ed(), rh = await D(() => { const {ST} = window.__daw; return null; }); await page.mouse.click(E2.x + 20, E2.y + 18 + 4); const r1 = await D(() => window.__daw.ST.ed.row);
+  await page.mouse.click(E2.x + 20, E2.y + 18 + 4); const r2 = await D(() => window.__daw.ST.ed.row ?? null);
+  check('clicking a drum’s name picks its row (the velocity lane its hits alone), again lets it go', r1 === 'kick' && r2 === null, JSON.stringify([r1, r2])); }
 
 // your version kept across a reload; Claude's heard as written; Revert
 { const mine = await clips(bassI); await page.waitForTimeout(800); await page.reload(); await page.waitForTimeout(1500);
