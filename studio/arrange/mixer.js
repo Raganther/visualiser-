@@ -82,12 +82,27 @@ export function makeMixer(A){
     $('mxWords').textContent = pd ? 'A pad of the drum rack: its input gain set from its drum’s peak, its own processors, then into the rack’s strip. Its level and sends are its own.'
       : s.rackOf ? 'The drum rack’s own strip: its pads come into it, and it goes to the drum bus. Add processors here to treat the whole kit.' : T ? 'Its input gain sets how hard it hits the processors (set from its sound’s peak); its level takes back what they add. The bass, chords and leads have a sidechain compressor the kick keys.'
       : s.ret ? 'A return: what the tracks send it, through its processors, into the master bus.' : s.id === 'bus' ? 'Everything ends here: a little EQ, a gentle compressor, width, then the ceiling.' : 'A bus: its tracks compressed together.';
-    const chain = clone(s.chain);
-    chainEditor($('mxChain'), chain, (ch, what, c, k) => { if (!editable()) { render(); return; }
+    chainOf($('mxChain'), s, () => render());
+    $('mxReset').hidden = !(pd ? pd.T.desk?.pads?.[pd.pad]?.chain : T ? T.desk?.chain : ST.P.desk?.[s.id]?.chain); }
+  // a strip's effects to change, switch off, move, take out or add to (here, and beside the instrument: the same chain)
+  function chainOf(box, s, after){ const chain = clone(s.chain);
+    return chainEditor(box, chain, (ch, what, c, k) => { if (!editable()) { after(); return; }
       keep(s.id, d => { d.chain = clone(ch); if (c?.key === 'trim' && what === 'param') d.gainSet = true; }, what !== 'param'); s.chain = clone(ch);
       if (what === 'param') E.desk({type: 'proc', id: s.id, pid: c.id, params: {[k]: c.params[k]}}); else if (what === 'on') E.desk({type: 'proc', id: s.id, pid: c.id, on: c.on !== false}); else E.desk({type: 'chain', id: s.id, chain: clone(ch)});
-      if (what !== 'param') render(); }, {add: Object.keys(PROCS).filter(k => k !== 'duck')});
-    $('mxReset').hidden = !(pd ? pd.T.desk?.pads?.[pd.pad]?.chain : T ? T.desk?.chain : ST.P.desk?.[s.id]?.chain); }
+      if (what !== 'param') after(); }, {add: Object.keys(PROCS).filter(k => k !== 'duck')}); }
+  // the Instrument tab's device chain: after the instrument, its effects in order, as Ableton lays a track out (a drum
+  // rack: the picked drum's own, then the whole kit's on the rack's strip); the input gain left to the Mixer
+  function fxInto(mods, T, pad, redo){ const one = (id, title, words) => { const s = strip(id); if (!s) return;
+      const box = h('div', {class: 'chain'}), card = h('section', {class: 'ifx', 'data-strip': id}, h('h3', {}, title), h('p', {class: 'small muted'}, words), box);
+      const shown = {...s, chain: s.chain.filter(c => c.key !== 'trim')}, trim = s.chain.filter(c => c.key === 'trim');
+      chainEditor(box, clone(shown.chain), (ch, what, c, k) => { if (!editable()) { redo(); return; } const full = [...trim, ...ch];
+        keep(s.id, d => { d.chain = clone(full); }, what !== 'param'); s.chain = clone(full);
+        if (what === 'param') E.desk({type: 'proc', id: s.id, pid: c.id, params: {[k]: c.params[k]}}); else if (what === 'on') E.desk({type: 'proc', id: s.id, pid: c.id, on: c.on !== false}); else E.desk({type: 'chain', id: s.id, chain: clone(full)});
+        if (what !== 'param') redo(); }, {add: Object.keys(PROCS).filter(k => k !== 'duck' && k !== 'trim')});
+      mods.append(card); };
+    if (!E.D) { mods.append(h('section', {class: 'ifx'}, h('h3', {}, 'Effects'), h('p', {class: 'small muted'}, 'The track’s effects show here once the desk starts: press Play.'))); return; }
+    if (T.role === 'drums') { if (pad) one(T.id + '/' + pad, `${VNAME[pad] || pad} · its effects`, 'This drum alone, before the kit’s.'); one(T.id, `${T.name} · the kit’s effects`, 'The whole kit, after each drum’s.'); }
+    else one(T.id, `${T.name} · track effects`, 'In order, after the instrument.'); }
   $('mxReset').onclick = () => { keep(V.sel, d => { delete d.chain; delete d.gainSet; }); E.deskRefresh(); render(); flash('Its processors as the desk set them'); };
   function meters(){ if (!V.on) return; const M = E.meters || {};
     for (const e of document.querySelectorAll('#mxDesk [data-meter]')) { const m = M[e.dataset.meter], d = m ? 20*Math.log10(Math.max(1e-6, m.pk)) : -120; e.style.width = Math.max(0, Math.min(100, (d + 48)/48*100)) + '%'; e.dataset.hot = String(d > -1); }
@@ -95,5 +110,5 @@ export function makeMixer(A){
   $('tabMix').onclick = () => show(!V.on);
   // a drum picked in another tab: its pad's strip picked here too
   function pad(id, p){ const s = strip(id + '/' + p); if (!s || V.sel === s.id) return; V.sel = s.id; render(); }
-  return {show, render, pad, isOn: () => V.on};
+  return {show, render, pad, fxInto, isOn: () => V.on};
 }

@@ -567,6 +567,16 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const kit = await Q(async () => { const {E, ST} = window.__daw, n = E.D.strips.length; ST.P.tracks[0].sound = 'r6-909'; E.refresh(); E.play(32); await new Promise(r => setTimeout(r, 2500));
     const m = E.meters; E.stop(); return {n: E.D.strips.length === n, kick: m['rack/kick']?.pk, chh: m['rack/chh']?.pk, rack: m.rack?.pk, live: E.isLive(0)}; });
   check('the rack’s kit changed to the Analog 909 rack: the same strips, its kick and hats heard on their pads', kit.n && kit.kick > .01 && kit.chh > .005 && kit.live, JSON.stringify(kit));
+  // the kit's own bus on the rack's strip (glued once, the pads dry), the drum bus only summing
+  const bus = await Q(() => { const {E} = window.__daw, st = id => E.D.strips.find(x => x.id === id).chain; return {rack: st('rack').map(c => c.key), drums: st('drums').map(c => c.on !== false)}; });
+  check('the 909 rack’s own bus (weight, tape, its glue compressor, width) on the rack’s strip, the drum bus’s compressor and tape off', ['weight', 'tape', 'glue', 'width'].every(k => bus.rack.includes(k)) && bus.drums.every(on => !on), JSON.stringify(bus));
+  // beside the instrument: the picked drum's effects, then the kit's; one added there is on the desk and in the Mixer
+  await Q(() => { const {ST} = window.__daw; ST.sel.track = 0; }); await q.click('#tabInst'); await q.waitForTimeout(600);
+  const ifx = await Q(() => [...document.querySelectorAll('#iMods .ifx')].map(e => [e.dataset.strip, e.querySelectorAll('.proc').length]));
+  await q.locator('#iMods .ifx[data-strip="rack"] .padd select').selectOption('echo'); await q.waitForTimeout(300);
+  const added2 = await Q(() => { const {ST, E} = window.__daw; return {mine: ST.P.tracks[0].desk?.chain?.map(c => c.key), desk: E.D.strips.find(x => x.id === 'rack').chain.map(c => c.key)}; });
+  check('the Instrument tab shows the drum’s effects and the kit’s to the right of the instrument; Echo added there is on the rack’s strip', ifx.length === 2 && ifx[1][0] === 'rack' && ifx[1][1] >= 4 && ifx[0][0].startsWith('rack/') && added2.mine?.includes('echo') && added2.desk.includes('echo'), JSON.stringify({ifx, added2}));
+  await q.keyboard.press('Meta+z'); await q.click('#tabMix');
   await Q(() => { const {E, ST} = window.__daw; ST.P.tracks[0].sound = ST.orig.tracks[0].sound; E.refresh(); });
   // a song saved before the desk: its old three-band EQ carried over as an EQ, a duck of 0 as the sidechain off
   const mig = await Q(() => { const {ST, E} = window.__daw, T = ST.P.tracks[2]; T.mix.lo = 3; T.mix.hi = -2; T.mix.duck = 0; delete T.desk; E.deskRefresh(); const s = E.D.strips.find(x => x.id === T.id);

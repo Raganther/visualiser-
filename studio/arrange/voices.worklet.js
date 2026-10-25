@@ -27,7 +27,7 @@ class Voices extends AudioWorkletProcessor {
     if (m.type === 'load' && (m.engine === 'poly' || m.engine === 'asynth')) { this.eng = m.engine; this.poly = m.engine === 'asynth' ? new AnalogSynth(sampleRate) : new NativePoly(sampleRate);
       this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
     if (m.type === 'load') { this.eng = 'nat'; if (m.outs) this.outs = m.outs; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
-      for (const [g, k] of Object.entries(m.kits || {})) { const C = ANALOG_KITS[k.kit] ? AnalogKit : NativeKit, K = this.K[g] instanceof C ? this.K[g] : new C(sampleRate, C === AnalogKit ? 11 : 7); K.load(k.kit, k.over || {}); this.K[g] = K; }
+      for (const [g, k] of Object.entries(m.kits || {})) { const C = ANALOG_KITS[k.kit] ? AnalogKit : NativeKit, K = this.K[g] instanceof C ? this.K[g] : new C(sampleRate, C === AnalogKit ? 11 : 7); K.load(k.kit, k.over || {}); K.dry = !!k.dry; this.K[g] = K; }
       for (const [s, d] of Object.entries(slots)) this.S[s] = {...d, P: d.kit ? null : fresh(this.S[s]?.name === d.name ? this.S[s].P : {}, d.name, d.params || {})};
       for (const s of Object.keys(this.S)) if (!slots[s]) delete this.S[s]; }
     else if (m.type === 'set' && m.t == null) this.set(m);

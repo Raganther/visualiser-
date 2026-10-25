@@ -143,6 +143,8 @@ export function makeSynthUI(A){
       if (M.kind === 'poly' && g.name === 'Filter') { const a = h('canvas', {class: 'graph', 'aria-label': 'The filter’s response'}), b = h('canvas', {class: 'graph', 'aria-label': 'The filter’s envelope'}); card.append(h('div', {class: 'graphs'}, a, b)); G.filter = a; G.fenv = b; }
       if (M.kind === 'poly' && g.name === 'Amp') { const a = h('canvas', {class: 'graph', 'aria-label': 'The volume’s envelope'}); card.append(h('div', {class: 'graphs'}, a)); G.amp = a; }
       const knobs = h('div', {class: 'knobs'}); for (const it of g.items) knobs.append(it.list ? choice(it) : knob(it)); card.append(knobs); mods.append(card); }
+    // then the track's effects, to the right of the instrument
+    A.fx?.(mods, t, isDrum(t.role) ? M.voice : null, render);
     requestAnimationFrame(() => { graphs(); sound(); }); keys(); }
   function show(on){ V.on = on; box.hidden = !on; $('edWrap').hidden = on; $('tabNotes').setAttribute('aria-pressed', String(!on)); $('tabInst').setAttribute('aria-pressed', String(on)); $('help').hidden = on; $('edName').hidden = on; $('edInfo').hidden = on;
     if (on) { const ed = $('editor'); if (ed.offsetHeight < 330) ed.style.height = Math.min(innerHeight - 200, 360) + 'px'; render(); } A.draw(); A.renderEd(); A.drawEdHead(); }

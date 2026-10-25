@@ -161,3 +161,7 @@ before writing or changing a piece; add to it when they react.
   writes a part a role. Now a drum rack track holds the whole kit (pack 6's analog kits, or the song's own drums put
   together), every drum a pad with its own strip, level, sends and processors in the mixer, and the songs open with
   their drums as one rack.
+- 2026-10-25: The user laid out how Ableton does it: the instrument, then the track's effects to its right in any
+  order, a master track all tracks go through. Asked where the drum kit's own compressor goes in a rack: it's the
+  rack's, once over the whole kit (it had ended up on each drum alone), shown beside the instrument with anything
+  added after it; the drum bus no longer compresses a rack a second time.

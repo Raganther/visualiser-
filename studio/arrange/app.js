@@ -427,7 +427,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
-SI = makeSynthUI({ST, E, SB, h, $, isDrum, flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
+SI = makeSynthUI({ST, E, SB, h, $, isDrum, fx: (mods, T, pad, redo) => MX?.fxInto(mods, T, pad, redo), flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
 // one drum picked at a time, the same in the notes, the instrument and the mixer (and the sound panel's voices): the
 // sound panel holds it (SB.voice), and whichever tab picks one, the others follow
 function pickPad(v){ if (v !== SB.voice()) SB.setVoice(v); else padPicked(); }

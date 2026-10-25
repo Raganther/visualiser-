@@ -154,7 +154,8 @@ export class AnalogKit {
     if (!this.buf || this.buf[0].length < n) this.buf = [new Float64Array(Math.max(n, 128)), new Float64Array(Math.max(n, 128))];
     const bl = this.buf[0], br = this.buf[1]; bl.fill(0, 0, n); br.fill(0, 0, n); this.tail = this.voices(n) ? 16 : Math.max(0, (this.tail || 0) - 1);
     for (const c of this.live) { const o = c.out; for (let j = 0; j < n; j++) { bl[j] += o[0][j]; br[j] += o[1][j]; } }
-    this.bus.run(bl, br, 0, n);
+    // (in a drum rack each pad's machine plays dry: the kit's bus is the rack's own strip on the desk)
+    if (!this.dry) this.bus.run(bl, br, 0, n);
     for (let j = 0; j < n; j++) { L[a + j] += bl[j]; R[a + j] += br[j]; } }
   // the next n samples of every voice sounding, each through its channel into its own buffer (c.out); the channels
   // sounding are left in this.live, in order (a kit sums them into its bus, a drum rack reads them one by one)

@@ -4,9 +4,10 @@
 // the buses, the returns and the master bus as the song left them (`P.desk`). The gain staging comes from each sound's
 // measured peak (peaks.js, written by peaks.mjs): its input gain brings the peaks near -9 dBFS before the processors, and
 // its fader takes off what they add, so a track sounds as loud as it did before the desk and a new sound keeps the balance.
-import { channel, buses, ids, sendsOf, ROLE_CAL, db, pr } from '../lib/parts/desk.js';
+import { channel, buses, ids, sendsOf, ROLE_CAL, db, pr, BUS } from '../lib/parts/desk.js';
 import { cutOf, ECHO } from '../jam/model.js';
 import { PEAKS } from './peaks.js';
+import { ANALOG_KITS, busChain } from '../lib/native/analogkit.js';
 import { isRack, padsOf, padRole, inputsOf } from './rack.js';
 
 const clone = x => JSON.parse(JSON.stringify(x));
@@ -31,6 +32,10 @@ const ECHO_TIME = [1, 2, 0, 3];
 // level, pan, tone and sends its own (`T.pads`, set by the song; `T.desk.pads`, what you've changed), out to the rack's
 export const padFader = (T, pad, SND, sound = T.sound) => { const m = SND[sound]?.voices?.[pad], role = padRole(pad, m, SND), pd = T.pads?.[pad] || {};
   return +(db(.85) + (pd.vol || 0) - gainOf(m?.from || sound, role, SND) - (ROLE_CAL[role] ?? -3) + (role === 'kick' ? -2 : 0)).toFixed(1); };
+// a drum rack's own strip's effects, as its kit had them: an analog kit's bus (its weight, tape, glue compressor, width
+// and ceiling, which each pad's machine leaves out, so it glues the whole kit once), else the drum bus's glue and tape
+export const rackChain = (id, snd) => { const k = Object.values(snd?.voices || {}).find(m => ANALOG_KITS[m.kit]);
+  return (k ? busChain(ANALOG_KITS[k.kit].bus).map(c => pr(c.key, c.params)) : BUS.drums()).map(c => ({...c, id: id + '-' + c.key})); };
 function padStrips(T, io, key, SND){ const sound = SND[T.sound];
   return io.pads.map((pad, j) => { const m = sound?.voices?.[pad], role = padRole(pad, m, SND), pd = T.pads?.[pad] || {}, d = T.desk?.pads?.[pad] || {}, base = sendsOf(pd);
     const s = channel({id: T.id + '/' + pad, label: pad, role, input: {ext: io.base + j}, key, level: padFader(T, pad, SND), pan: pd.pan || 0, lp: pd.x != null ? cutOf(pd.x) : 0,
@@ -45,7 +50,7 @@ function startChain(T, key, gain){ const ch = channel({id: T.id, role: T.role, k
 export function deskOf(P, SND){ const key = kickOf(P), IO = inputsOf(P, SND);
   const strips = P.tracks.flatMap((T, i) => { const d = T.desk || {}, base = sendsOf(T.set), gain = gainOf(T.sound, T.role, SND);
     // a drum rack: its pads, then its own strip (a bus of them: its fader, pan and mute, and anything you add to it)
-    if (isRack(T)) return [...padStrips(T, IO[i], key, SND), {id: T.id, label: T.name, role: 'drums', input: null, bus: true, rackOf: T.id, chain: d.chain ? clone(d.chain) : [],
+    if (isRack(T)) return [...padStrips(T, IO[i], key, SND), {id: T.id, label: T.name, role: 'drums', input: null, bus: true, rackOf: T.id, chain: d.chain ? clone(d.chain) : rackChain(T.id, SND[T.sound]),
       level: T.mix.vol || 0, pan: T.mix.pan || 0, mute: !!T.mute, out: 'drums', sends: {}}];
     const s = channel({id: T.id, label: T.name, role: T.role, input: {ext: IO[i].base}, key, level: faderOf(T, SND), pan: T.mix.pan || 0, lp: cutOf(T.set.x ?? .62),
       mute: !!T.mute, solo: !!T.mix.solo, sends: {echo: d.sends?.echo ?? base.echo, room: d.sends?.room ?? base.room}});
@@ -55,6 +60,8 @@ export function deskOf(P, SND){ const key = kickOf(P), IO = inputsOf(P, SND);
     return s; });
   const bs = buses(key), M = {glue: 2, width: 3, lo: 0, hi: 0, vol: 0, ...P.mx};
   for (const b of bs) { const d = P.desk?.[b.id];
+    // (with a drum rack the drum bus only sums: the rack's own strip compresses its kit, once)
+    if (b.id === 'drums' && P.tracks.some(isRack)) for (const c of b.chain) c.on = false;
     if (b.id === 'echo') b.chain[0].params.time = ECHO_TIME[P.echoDiv || 0] ?? 1;
     if (b.id === 'bus') { b.level += M.vol || 0; if (M.lo || M.hi) { const eq = b.chain.find(c => c.key === 'eq'); eq.params.lo += M.lo; eq.params.hi += M.hi; } }
     if (d?.chain) b.chain = clone(d.chain); if (d?.level != null) b.level = d.level; if (d?.mute) b.mute = true;

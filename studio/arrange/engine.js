@@ -8,13 +8,13 @@ import { engOf, engChain, retChain, RET, glide, duckAt } from '../jam/mixeng.js'
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { kitHit } from '../lib/native/kit.js';
-import { kitFallback } from '../lib/native/analogkit.js';
+import { kitFallback, ANALOG_KITS } from '../lib/native/analogkit.js';
 import { DEF as NPDEF } from '../lib/native/npoly.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { synthRender } from '../lib/native/asynth.js';
-import { deskOf, faderOf, gainOf, sectionStrip, padFader } from './desk.js';
+import { deskOf, faderOf, gainOf, sectionStrip, padFader, rackChain } from './desk.js';
 import { isRack, inputsOf, inputCount, padRole } from './rack.js';
 
 export const DUCKS = [0, .25, .4, .65];
@@ -30,7 +30,7 @@ export const liveEngine = name => NATIVE[name] ? 'nat' : null;
 // rack each pad its own machine, so each has its own output)
 const drumSlots = (s, c, rack) => { const slots = {}, kits = {};
   for (const [v, m] of Object.entries(s.voices)) { if (m.native) { slots[v] = {name: m.native, gain: NATIVE[m.native]?.gain ?? .5, params: {...nativeSet(c.s || {}, m.native, m.set || {}), ...m.knobs}, choke: v === 'ohh' ? 'hat' : null, chokes: v === 'chh' || v === 'ohh' ? 'hat' : null}; continue; }
-    const g = rack ? v : m.kit + JSON.stringify(m.over || {}); kits[g] = {kit: m.kit, over: m.over || {}}; slots[v] = {kit: g, voice: m.voice || v}; }
+    const g = rack ? v : m.kit + JSON.stringify(m.over || {}); kits[g] = {kit: m.kit, over: m.over || {}, dry: rack && !!ANALOG_KITS[m.kit]}; slots[v] = {kit: g, voice: m.voice || v}; }
   return {slots, kits}; };
 
 export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTick = () => {}}){
@@ -118,7 +118,9 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
       // (on the desk a new sound brings its own input gain and fader, so the balance holds)
       if (c.x.desk && E.ch.includes(c)) for (const st of E.D?.strips.filter(x => x.id === c.T.id || x.rack === c.T.id) || []) { const tr = st.chain.find(p => p.key === 'trim'); if (!tr) continue;
         if (st.pad) { if (!c.T.desk?.pads?.[st.pad]?.gainSet) { const m = SND[snd]?.voices?.[st.pad]; dk({type: 'proc', id: st.id, pid: tr.id, params: {gain: gainOf(m?.from || snd, padRole(st.pad, m, SND), SND)}}, t); } }
-        else if (!c.T.desk?.gainSet) dk({type: 'proc', id: st.id, pid: tr.id, params: {gain: gainOf(snd, c.T.role, SND)}}, t); } }
+        else if (!c.T.desk?.gainSet) dk({type: 'proc', id: st.id, pid: tr.id, params: {gain: gainOf(snd, c.T.role, SND)}}, t); }
+      // (a drum rack's own strip: the new kit's bus, unless you've set its effects yourself)
+      if (c.x.desk && E.ch.includes(c) && isRack(c.T) && !c.T.desk?.chain) { const st = E.D?.strips.find(x => x.id === c.T.id); if (st) { st.chain = rackChain(c.T.id, SND[snd]); dk({type: 'chain', id: st.id, chain: st.chain}, t); } } }
     if (c.x.desk) { c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (E.ch.includes(c)) { dk({type: 'strip', id: c.T.id, set: sectionStrip(c.T, s)}, t); macros(c, t); } liveSet(c, t); return; }
     c.ramp = s.ramp || null; c.rampAt = null; c.clip = clip; if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[s.length ?? 1]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[s.length ?? 1]); }
     glide(c.x.clip.gain, Math.pow(10, (s.vol || 0)/20), t, .02); macros(c, t); liveSet(c, t); }
