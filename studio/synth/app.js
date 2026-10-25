@@ -31,7 +31,7 @@ function tick(){ const e = ex(), len = e.bars*16, D = S.drums && DRUMS[S.drums];
     if (D) for (const [v, row] of Object.entries(D.rows)) { const c = row[st % 16]; if (c && c !== '.') send({type: 'drum', v, vel: c === 'X' ? 1 : c === 'o' ? .4 : .75, t: next, seq: 1}); }
     const when = next, s = st; setTimeout(() => { if (S.playing) { S.step = s; roll(); } }, Math.max(0, (when - ctx.currentTime)*1000));
     next += sd(); slot++; } }
-async function play(){ await start(); if (S.playing) return stop(); S.playing = true; slot = 0; next = ctx.currentTime + .06; tick(); timer = setInterval(tick, 25); paintTransport(); }
+async function play(){ await start(); if (S.playing) return stop(); S.playing = true; slot = 0; next = ctx.currentTime + .06; send({type: 'clock', t0: next}); tick(); timer = setInterval(tick, 25); paintTransport(); }
 function stop(){ S.playing = false; clearInterval(timer); send({type: 'stop'}); S.step = -1; roll(); paintTransport(); }
 
 /* ---------- the keys: on screen (a finger or the mouse sliding across), and the computer's ---------- */

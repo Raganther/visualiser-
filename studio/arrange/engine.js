@@ -88,11 +88,11 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     // its stand-in from the palette plays below)
     if (src.asynth && E.liveOK) { Object.assign(c.inst, {engine: 'asynth', shift: src.shift || 0, full: {...src.asynth, ...src.knobs}});
       if (prev?.live && prev.engine === 'asynth') c.inst.live = prev.live;
-      else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: 'asynth', params: liveParams(c)}); }
+      else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: 'asynth', params: liveParams(c)}); clock(c); }
       liveSet(c); return; }
     if (src.palette && !NATIVE_OF[src.palette] && E.liveOK) { const [p, set] = PAL[src.palette]; Object.assign(c.inst, {engine: 'poly', shift: 0, preset: p, base: {...set, ...src.poly}, full: {...NPDEF, ...PRESETS[p], chord: 0, ...set, ...src.poly}});
       if (prev?.live && prev.engine === 'poly') c.inst.live = prev.live;
-      else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: 'poly', params: liveParams(c)}); }
+      else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: 'poly', params: liveParams(c)}); clock(c); }
       liveSet(c); return; }
     if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.x.in, {period: () => 4*sd()}); syn.load({...PRESETS[p], chord: 0, ...set, ...src.poly}); c.inst.poly = syn; c.inst.base = {...set, ...src.poly}; }
     else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; c.inst.knobs = src.knobs || {};
@@ -101,6 +101,8 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
         else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(c.x.in); c.inst.live.port.postMessage({type: 'load', engine: le, name, gain: NATIVE[name].gain, params: liveParams(c)}); }
         c.inst.engine = le; liveSet(c); if (name === 'grainpad') warm(c); return; } }
     if (prev?.live && prev.live !== c.inst.live) drop(prev); }
+  // the song's beats told to a live synth (the time of one: its LFO in time follows them)
+  const clock = c => { if (E.t0 != null && c?.inst?.live && (c.inst.engine === 'asynth' || c.inst.engine === 'poly')) c.inst.live.port.postMessage({type: 'clock', t0: E.t0}); };
   // an instrument let go: its node told to fade and stop for good (so it no longer runs), then taken off the channel
   const drop = inst => { if (inst?.live) { inst.live.port.postMessage({type: 'stop', close: true}); const n = inst.live; setTimeout(() => { try { n.disconnect(); } catch {} }, 100); } };
   // a grain pad's struck bar for each pitch the track plays, made ready before its notes come
@@ -277,6 +279,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     if (E.stopAt && ctx.currentTime > E.stopAt) E.stop(); onTick(); }
   E.play = fromBar => { const ctx = E.init(); ctx.resume(); if (E.playing) E.stop(); E.playing = true; E.stopAt = 0;
     E.slot = E.from = Math.max(0, Math.round(fromBar*16)); E.nextT = ctx.currentTime + .1; E.when = []; for (const c of E.ch) { c.clip = undefined; c.open = null; }
+    E.t0 = E.nextT - (E.from % 4)*sd(); for (const c of [...E.ch, E.kb?.c]) clock(c);   // (where the beats fall: an LFO in time follows them)
     tick(); E.timer = setInterval(tick, 25); };
   E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; dk({type: 'stop'}); E.kbAllOff();
     for (const c of E.ch) { c.inst?.live?.port.postMessage({type: 'stop'}); if (c.x.out) { glide(c.x.out.gain, 0, E.ctx.currentTime, .03); setTimeout(() => macros(c), 200); } } onTick(); };

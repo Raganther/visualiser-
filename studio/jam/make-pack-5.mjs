@@ -7,7 +7,7 @@ import { ANALOG } from '../mix/mix.js';
 const here = new URL('packs/', import.meta.url).pathname, p4 = JSON.parse(fs.readFileSync(here + 'pack-4.json', 'utf8'));
 // each example's part and its stand-in in the browser
 const PART = {round: ['bass', 'dubSub'], acid: ['bass', 'dubSub'], reese: ['bass', 'reese'], wobble: ['bass', 'reese'], juno: ['chords', 'warm'], brass: ['chords', 'dubStab'],
-  strings: ['chords', 'glassPad'], dub: ['chords', 'dub'], drone: ['chords', 'sweep'], sync: ['lead', 'pluck'], arp: ['lead', 'arp'], hoover: ['lead', 'pluck'], bell: ['lead', 'glass'], lead: ['lead', 'pluck']};
+  strings: ['chords', 'glassPad'], dub: ['chords', 'dub'], pulse: ['chords', 'dubStab'], drone: ['chords', 'sweep'], sync: ['lead', 'pluck'], arp: ['lead', 'arp'], hoover: ['lead', 'pluck'], bell: ['lead', 'glass'], lead: ['lead', 'pluck']};
 const sounds = EXAMPLES.map(x => ({id: `a5-${x.id}`, role: PART[x.id][0], name: x.name, words: `The analog synth: ${x.words.replace(/^./, c => c.toLowerCase())}`, src: {asynth: x.patch, palette: PART[x.id][1]}}));
 for (const [k, role, pal] of [['bass', 'bass', 'dubSub'], ['chords', 'chords', 'warm'], ['lead', 'lead', 'pluck'], ['lead2', 'lead', 'marimba']]) { const a = ANALOG[k];
   sounds.push({id: `a5-mix-${k}`, role, name: `${a.name} · Mix Lab`, words: `${a.words} As the Mix Lab's analog set plays it.`, src: {asynth: a.src.params, palette: pal}}); }

@@ -12,6 +12,7 @@ class Synth extends AudioWorkletProcessor {
   constructor(){ super(); this.S = new AnalogSynth(sampleRate); this.K = new AnalogKit(sampleRate, 11); this.K.load('Analog Deep'); this.ev = []; this.seqOn = new Set(); this.tL = new Float32Array(128); this.tR = new Float32Array(128); this.port.onmessage = e => this.msg(e.data); }
   msg(m){
     if (m.period) this.S.period = m.period;
+    if (m.type === 'clock') { this.S.t0 = m.t0; return; }   // (the phrase's first beat: an LFO in time follows it)
     if (m.type === 'load') this.S.load(m.params);
     else if (m.type === 'set') this.S.set(m.params || {});
     else if (m.type === 'kit') this.K.load(m.kit);
@@ -27,7 +28,7 @@ class Synth extends AudioWorkletProcessor {
     if (tL.length < n) { this.tL = new Float32Array(n); this.tR = new Float32Array(n); return this.process(_, outs); }
     tL.fill(0); tR.fill(0);
     // each stretch up to the next event's sample, then the event (the synth apart, its effects its own; the drums dry)
-    const upTo = j => { if (j > a) { this.K.render(L, R, a, j); this.S.render(tL, tR, a, j); a = j; } };
+    const upTo = j => { if (j > a) { this.K.render(L, R, a, j); this.S.now = t0 + a/sampleRate; this.S.render(tL, tR, a, j); a = j; } };
     while (this.ev.length && this.ev[0].t < t0 + n/sampleRate) { const m = this.ev.shift(); upTo(Math.max(a, Math.min(n, Math.round((m.t - t0)*sampleRate)))); this.run(m); }
     upTo(n);
     // the two together, rounded off at full scale

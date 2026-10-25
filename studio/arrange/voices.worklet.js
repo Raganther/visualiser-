@@ -22,9 +22,10 @@ class Voices extends AudioWorkletProcessor {
     this.port.onmessage = e => this.msg(e.data); for (const m of o?.processorOptions?.init || []) this.msg(m); }
   msg(m){
     if (m.type === 'stop' && m.close) this.closed = true;
+    if (m.type === 'clock') { this.clk = m; if (this.poly) this.poly.t0 = m.t0; return; }   // (where the song's beats are: an LFO in time follows it)
     if (this.poly) { if (m.type === 'set' && m.t == null) { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; return; } if (m.type === 'stop') { this.ev = []; this.poly.stop(); return; } }
     // a synth played whole (the native poly synth, or the analog synth): one instrument, its own voices
-    if (m.type === 'load' && (m.engine === 'poly' || m.engine === 'asynth')) { this.eng = m.engine; this.poly = m.engine === 'asynth' ? new AnalogSynth(sampleRate) : new NativePoly(sampleRate);
+    if (m.type === 'load' && (m.engine === 'poly' || m.engine === 'asynth')) { this.eng = m.engine; this.poly = m.engine === 'asynth' ? new AnalogSynth(sampleRate) : new NativePoly(sampleRate); if (this.clk) this.poly.t0 = this.clk.t0;
       this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
     if (m.type === 'load') { this.eng = 'nat'; if (m.outs) this.outs = m.outs; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
       for (const [g, k] of Object.entries(m.kits || {})) { const C = ANALOG_KITS[k.kit] ? AnalogKit : NativeKit, K = this.K[g] instanceof C ? this.K[g] : new C(sampleRate, C === AnalogKit ? 11 : 7); K.load(k.kit, k.over || {}); K.dry = !!k.dry; this.K[g] = K; }
@@ -58,7 +59,7 @@ class Voices extends AudioWorkletProcessor {
     if (this.warm.length) { const n = this.warm.shift(); for (const s of Object.values(this.S)) if (s.P?.src && s.name === 'grainpad') grainSource(sampleRate, hz(n), s.P.src); }
     let a = 0;
     while (a < N) { let b = N; const e = this.ev[0]; if (e) { const f = Math.round((e.t - t0)*sampleRate); b = Math.max(a, Math.min(N, f)); }
-      if (b > a) { if (this.poly) this.poly.render(L, R, a, b);
+      if (b > a) { if (this.poly) { this.poly.now = t0 + a/sampleRate; this.poly.render(L, R, a, b); }
         // a drum rack: each pad into its own output (its voices, its machine)
         else if (this.outs) this.outs.forEach((pad, i) => { const o = outputs[i]; if (!o?.length) return; const l = o[0], r = o[1] || o[0];
           for (const v of this.v) if (v.slot === pad) this.run(v, l, r, a, b); this.K[pad]?.render(l, r, a, b); });

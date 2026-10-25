@@ -20,7 +20,7 @@ const th = x => x < -3 ? -1 : x > 3 ? 1 : x*(27 + x*x)/(27 + 9*x*x);   // (tanh,
 const L = (key, label, list, def = 0) => ({key, label, min: 0, max: list.length - 1, def, list});
 export const WAVES = ['Saw', 'Pulse', 'Triangle', 'Sine'];
 export const FILTERS = ['Ladder 24 dB', 'Ladder 12 dB', 'State variable low', 'State variable band', 'State variable high', 'Notch'];
-export const LFO_SHAPES = ['Triangle', 'Sine', 'Saw down', 'Square', 'Sample and hold', 'Smooth random'];
+export const LFO_SHAPES = ['Triangle', 'Sine', 'Saw down', 'Square', 'Sample and hold', 'Smooth random', 'Swell'];
 export const SYNCS = ['Free', '1 bar', '1/2', '1/4', '1/8', '1/16', '1/4 dotted', '1/8 triplet'];
 export const SYNC_BEATS = [0, 4, 2, 1, .5, .25, 1.5, 1/3];
 export const MODES = ['Poly', 'Mono', 'Legato', 'Unison'];
@@ -44,8 +44,10 @@ export const PARAMS = [
   ['Modulation', [L('lshape', 'LFO shape', LFO_SHAPES), {key: 'lrate', label: 'LFO rate', min: .05, max: 30, def: 4, unit: 'Hz', log: true}, L('lsync', 'LFO sync', SYNCS),
     {key: 'ldelay', label: 'LFO delay', min: 0, max: 4, def: 0, unit: 's'}, {key: 'lpitch', label: 'LFO → pitch', min: 0, max: 12, def: 0, unit: 'st', pow: 3},
     {key: 'lpwm', label: 'LFO → pulse width', min: 0, max: .45, def: 0, unit: '%'}, {key: 'lcut', label: 'LFO → cutoff', min: 0, max: 4, def: 0, unit: 'oct'},
-    {key: 'lamp', label: 'LFO → volume', min: 0, max: 1, def: 0, unit: '%'}, {key: 'epitch', label: 'Filter env → pitch', min: -24, max: 24, def: 0, unit: 'st'},
+    {key: 'lamp', label: 'LFO → volume', min: 0, max: 1, def: 0, unit: '%'}, {key: 'lphase', label: 'LFO phase', min: 0, max: 1, def: 0, unit: '%'},
+    {key: 'lwide', label: 'LFO stereo', min: 0, max: .5, def: 0, unit: '%'}, {key: 'epitch', label: 'Filter env → pitch', min: -24, max: 24, def: 0, unit: 'st'},
     L('etgt', 'Pitch env to', ['Both oscillators', 'Oscillator 2'])]],
+  ['Air', [{key: 'air', label: 'Air', min: 0, max: 1, def: 0, unit: '%'}, {key: 'airTone', label: 'Air tone', min: 1000, max: 12000, def: 6000, unit: 'Hz', log: true}]],
   ['Voices', [L('mode', 'Mode', MODES), {key: 'uni', label: 'Unison voices', min: 2, max: 8, def: 4, unit: '#'}, {key: 'udet', label: 'Unison detune', min: 0, max: 1, def: .3, unit: '%'},
     {key: 'glide', label: 'Glide', min: 0, max: 1.5, def: 0, unit: 's', pow: 2}, {key: 'spread', label: 'Stereo spread', min: 0, max: 1, def: .4, unit: '%'},
     {key: 'slop', label: 'Analog', min: 0, max: 1, def: .4, unit: '%'}, {key: 'oct', label: 'Octave', min: -2, max: 2, def: 0, unit: 'oct'}, {key: 'brange', label: 'Bend range', min: 1, max: 12, def: 2, unit: 'st'}]],
@@ -54,6 +56,7 @@ export const PARAMS = [
 ];
 export const PLIST = PARAMS.flatMap(g => g[1]);
 export const DEF = Object.fromEntries(PLIST.map(p => [p.key, p.def]));
+const SWELL = 1/6;
 
 /* ---------- the oscillators: a phase, band-limited by correcting the sample before and the sample after each corner ---------- */
 // (the output runs a sample late, so a jump between two samples can smooth both: polyBLEP for jumps, polyBLAMP for kinks)
@@ -114,12 +117,12 @@ export class AnalogSynth {
   constructor(sr, seed = 2024){ this.sr = sr; this.P = {...DEF}; this.seed = seed >>> 0 || 1; this.period = .5; this.bendV = 0; this.wheelV = 0;
     // eight voice cards, each its own: a little out of tune, its filter a little off, its envelopes a little slower or faster
     this.V = Array.from({length: 8}, (_, i) => this.card(i)); this.rr = 0; this.stack = []; this.clock = 0;
-    this.lph = 0; this.lfoV = 0; this.lsh = 0; this.lsm = 0; this.lsm0 = 0; this.lsm1 = 0;
+    this.lph = 0; this.lfoV = 0; this.lfoR = 0; this.t0 = 0; this.now = null; this.lsh = 0; this.lsm = 0; this.lsm0 = 0; this.lsm1 = 0;
     this.out = new Chain(sr, OUT_CHAIN); }
   rand(){ this.seed = (this.seed*1664525 + 1013904223) >>> 0; return this.seed/4294967296; }
   card(i){ const R = () => this.rand() - .5;
     return {i, o1: osc(), o2: osc(), sub: osc(), ld: {s: [0, 0, 0, 0], o: [0, 0], y2: 0}, sv: {s: [0, 0]}, ae: {v: 0, st: 0}, fe: {v: 0, st: 0},
-      tune: R()*2, cutK: R(), envK: 1 + R()*.24, dr: [0, 0], drv: [0, 0], note: 60, from: 60, pitch: 60, id: null, vel: 1, age: 0, held: false, pan: 0, det: 0, nz: 0, hp: 0, hpx: 0, born: 0, lfoIn: 0, ws: 0}; }
+      tune: R()*2, cutK: R(), envK: 1 + R()*.24, dr: [0, 0], drv: [0, 0], note: 60, from: 60, pitch: 60, id: null, vel: 1, age: 0, held: false, pan: 0, det: 0, nz: 0, hp: 0, hpx: 0, ah: [0, 0, 0, 0], born: 0, lfoIn: 0, ws: 0}; }
   load(p){ this.P = {...DEF, ...p}; }
   set(p){ Object.assign(this.P, p); }
   bend(v){ this.bendV = C(v, -1, 1); }
@@ -160,6 +163,11 @@ export class AnalogSynth {
   render(Lo, Ro, a, b){ const P = this.P, sr = this.sr, inv = 1/sr;
     const w1 = Math.round(P.w1), w2 = Math.round(P.w2), sync = Math.round(P.sync), ft = Math.round(P.ftype), mode = Math.round(P.mode), subd = Math.round(P.subo) ? 4 : 2;
     const sy = Math.round(P.lsync), rate = sy > 0 ? 1/(this.period*SYNC_BEATS[sy]) : P.lrate, shape = Math.round(P.lshape), etgt = Math.round(P.etgt);
+    // in time, the LFO is where the song's beat says (the host gives the time now and of a beat, `now`, `t0`), so a pulse
+    // lands on the beat whatever bar playback starts from; `lphase` moves it, `lwide` sets the right side behind the left
+    if (sy > 0 && this.now != null) { this.lph = (((this.now - this.t0)/(this.period*SYNC_BEATS[sy]) + P.lphase) % 1 + 1) % 1; this.lfoV = this.shape(this.lph, shape); }
+    if (P.lwide > 0) this.lfoR = this.shape(((this.lph - P.lwide) % 1 + 1) % 1, shape);
+    const air = P.air*.35, ag = air > 0 ? Math.tan(Math.PI*Math.min(P.airTone, sr*.45)/sr) : 0, aG = ag/(1 + ag);
     const k = 4.3*P.res*P.res*(3 - 2*P.res), drive = 1 + P.drive*5, dnorm = 1/Math.sqrt(drive), slop = P.slop, glideK = P.glide > 0 ? 1 : 0, glideK4 = P.glide > 0 ? Math.exp(-4/(P.glide*.33*sr)) : 0;
     const bend = this.bendV*P.brange, vib = this.wheelV*.6, hpg = Math.tan(Math.PI*Math.min(P.hpf, sr*.45)/sr), hpG = hpg/(1 + hpg);
     const o1 = 12*Math.round(P.oct1), o2 = 12*Math.round(P.oct2) + Math.round(P.semi2) + P.fine2/100, two = ft === 1, sv = ft >= 2, uniDet = P.udet*.35, spread = P.spread, lv = P.level*.8;
@@ -194,15 +202,22 @@ export class AnalogSynth {
         const hv = (x - v.hp)*hpG, hl = hv + v.hp; v.hp = hl + hv; x -= hl;
         x = th(x*drive*.5)*2*dnorm;
         let y = sv ? svf(v.sv, x*.7, g, P.res, ft) : ladder(v.ld, x*.5, g, two ? k*1.2 : k, two)*1.8;
-        y *= ae*vk*(1 - P.lamp*(.5 - .5*lfo));
-        Lo[j] += y*gl*lv; Ro[j] += y*gr*lv; } }
+        const amp = ae*vk, mL = 1 - P.lamp*(.5 - .5*lfo), mR = P.lwide > 0 ? 1 - P.lamp*(.5 - .5*this.lfoR*lin) : mL; y *= amp; let yl = y*mL, yr = y*mR;
+        // the air: noise of its own each side, through two high-pass stages, beside the filter (not through it)
+        if (air > 0) { const h = v.ah; let nl = this.rand()*2 - 1, nr = this.rand()*2 - 1;
+          for (let q = 0; q < 2; q++) { let w = (nl - h[q])*aG, l = w + h[q]; h[q] = l + w; nl -= l; w = (nr - h[2 + q])*aG; l = w + h[2 + q]; h[2 + q] = l + w; nr -= l; }
+          const an = amp*air; yl += nl*an*mL; yr += nr*an*mR; }
+        Lo[j] += yl*gl*lv; Ro[j] += yr*gr*lv; } }
     // the LFO advances once for the block (its value read by every voice above)
     this.lfo(b - a, rate, shape);
     this.fx(Lo, Ro, a, b); }
   lfo(n, rate, shape){ const ph0 = this.lph; this.lph += rate*n/this.sr;
     if (Math.floor(this.lph) !== Math.floor(ph0)) { this.lsm0 = this.lsm1; this.lsm1 = this.rand()*2 - 1; this.lsh = this.rand()*2 - 1; }
-    this.lph %= 1; const t = this.lph;
-    this.lfoV = shape === 0 ? 1 - 4*Math.abs(t - .5) : shape === 1 ? Math.sin(TAU*t) : shape === 2 ? 1 - 2*t : shape === 3 ? (t < .5 ? 1 : -1) : shape === 4 ? this.lsh : this.lsm0 + (this.lsm1 - this.lsm0)*(.5 - .5*Math.cos(Math.PI*t)); }
+    this.lph %= 1; this.lfoV = this.shape(this.lph, shape); }
+  // the LFO's shapes at phase t (−1..1); the swell: from its lowest on the beat up to full a sixth of the way through, then
+  // a long fall back (a breath on every beat)
+  shape(t, shape){ return shape === 0 ? 1 - 4*Math.abs(t - .5) : shape === 1 ? Math.sin(TAU*t) : shape === 2 ? 1 - 2*t : shape === 3 ? (t < .5 ? 1 : -1) : shape === 4 ? this.lsh
+    : shape === 5 ? this.lsm0 + (this.lsm1 - this.lsm0)*(.5 - .5*Math.cos(Math.PI*t)) : 2*(t < SWELL ? Math.sin(Math.PI/2*t/SWELL)**2 : Math.cos(Math.PI/2*(t - SWELL)/(1 - SWELL))**2) - 1; }
 
   /* ---------- the effects: chorus, echo, saturation, the DC kept out, a ceiling (processors: ../parts/procs.js) ---------- */
   fx(Lo, Ro, a, b){ const P = this.P, n = b - a, [c, e, s] = this.out.list;
@@ -219,5 +234,5 @@ export function synthRender(sr, P, notes, secs, seed){ const S = new AnalogSynth
   const ev = notes.flatMap((x, i) => [{t: x.t, on: 1, i, x}, {t: x.t + x.len, on: 0, i}]).sort((a, b) => a.t - b.t || a.on - b.on); let e = 0;
   for (let j = 0; j < n; j += 128) { const end = Math.min(n, j + 128);
     while (e < ev.length && ev[e].t*sr < end) { const q = ev[e++]; if (q.on) S.on(q.i, q.x.n, q.x.vel ?? .8); else S.off(q.i); }
-    S.render(Lb, Rb, j, end); }
+    S.now = j/sr; S.render(Lb, Rb, j, end); }
   return {L: Lb, R: Rb}; }

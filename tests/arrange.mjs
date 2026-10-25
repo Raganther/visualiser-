@@ -614,6 +614,16 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   check('an analog synth sound on the bass plays live, and a knob turned reaches it', syn.engine === 'asynth' && syn.live && syn.pk > .01 && syn.cut === 90, JSON.stringify(syn));
   const drawn = await Q(async () => { const b = await window.__daw.E.render(1, 'a5-juno', 57, .85, 4); let pk = 0; if (b) for (const v of b.getChannelData(0)) pk = Math.max(pk, Math.abs(v)); return {len: b?.duration, pk}; });
   check('a note of it drawn for the instrument view (rendered by the analog synth)', drawn.len > 2 && drawn.pk > .01, JSON.stringify(drawn));
+  // Pulse brass: its LFO in time with the song. Offline the worklet, told the beats fall from .3 s, swells a sixth of a
+  // beat after each; playing from part way through a bar, the engine tells the synths where the beat before was
+  const pul = await Q(async () => { const {SND, E, ST} = window.__daw, s = SND['a5-pulse'], per = 60/ST.P.bpm, sr = 24000, off = new OfflineAudioContext(2, sr*3, sr); await off.audioWorklet.addModule(E.wurl);
+    const n = new AudioWorkletNode(off, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'clock', t0: .3},
+      {type: 'load', engine: 'asynth', params: {...s.src.asynth, lamp: 1, lcut: 0, chorus: 0, emix: 0, air: 0, lwide: 0, period: per}}, {type: 'on', id: 1, n: 57, vel: .8, t: .05}, {type: 'off', id: 1, t: 2.9}]}});
+    n.connect(off.destination); const x = (await off.startRendering()).getChannelData(0), hop = sr/100, lv = i => { let e = 0; for (let j = i; j < i + hop; j++) e += x[j]*x[j]; return e; };
+    const at = []; for (let k = 1; k < 5; k++) { const b0 = Math.round((.3 + k*per)*sr); let best = 0, bi = 0; for (let i = 0; i < per*100; i++) { const v = lv(b0 + i*hop); if (v > best) { best = v; bi = i; } } at.push(bi*10); }
+    E.play(2 + 1/16); const t0 = E.t0, nx = E.nextT, sd = per/4, ahead = E.slot - E.from; E.stop(); return {lib: !!s?.src?.asynth && s.role === 'chords', at, per, back: (nx - t0)/sd - ahead}; });
+  check('Pulse brass is in the library; its LFO swells on every beat of the song (a sixth of a beat in), counted from the beat before where playback starts',
+    pul.lib && pul.at.every(v => Math.abs(v - pul.per*1000/6) < 60) && Math.abs(pul.back - 1) < 1e-6, JSON.stringify(pul));
   await q.close(); }
 
 // the drum playground (studio/drums/, built into studio/listen/drum-lab.html): every beat on every analog kit heard,

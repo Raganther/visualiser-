@@ -95,6 +95,20 @@ const note = (n, len = 1, t = 0, vel = .8) => ({t, len, n, vel});
   const c0 = card(0), c1 = card(1); check('each voice card is its own, a few cents apart with Analog up and alike without', c0[0] === c0[1] && Math.abs(c1[0] - c1[1]) > .2, `${c1.map(v => v.toFixed(2) + ' ct').join(', ')}`); }
 
 /* ---------- modulation, effects ---------- */
+{ // the LFO in time follows the song's beats: a swell on every beat (its peak a sixth of a beat in), moved by its phase; the
+  // right side behind the left with LFO stereo; the air above the filter, the low end as it was
+  const P = {...RAW, w1: 3, lshape: 6, lsync: 3, lamp: 1}, per = .5, lev = x => k => rms(x, Math.round((k*.02)*sr), Math.round((k*.02 + .02)*sr));
+  const peakIn = (x, b) => { let best = 0, at = 0; for (let k = 0; k < 25; k++) { const v = lev(x)(b*25 + k); if (v > best) { best = v; at = k*20 + 10; } } return at; };
+  const sw = synthRender(sr, P, [note(57, 3)], 3), pk = [1, 2, 3, 4].map(b => peakIn(sw.L, b));
+  check('the swell peaks on every beat, a sixth of a beat in', pk.every(v => Math.abs(v - per*1000/6) < 30), pk.join(' ms, ') + ' ms');
+  const ph = synthRender(sr, {...P, lphase: .5}, [note(57, 3)], 3), pp = [1, 2, 3].map(b => peakIn(ph.L, b));
+  check('LFO phase moves it (half a beat: half a beat later)', pp.every(v => Math.abs(((v - pk[0] + 500) % 500) - 250) < 40), pp.join(' ms, ') + ' ms');
+  const wd = synthRender(sr, {...P, lwide: .25}, [note(57, 3)], 3), l = peakIn(wd.L, 2), r = peakIn(wd.R, 2);
+  check('LFO stereo: the right side swells a quarter of a beat behind the left', Math.abs(r - l - 125) < 35, `${l} ms / ${r} ms`);
+  const dark = {...RAW, w1: 0, cut: 400}, a0 = synthRender(sr, dark, [note(45, 1)], 1).L, a1 = synthRender(sr, {...dark, air: .5}, [note(45, 1)], 1);
+  const hi = x => mag(x, 8000, 12000, 16384) + mag(x, 10000, 12000, 16384), lo = x => mag(x, hz(45), 12000, 16384);
+  check('air adds a breath above the filter, the low end as it was', hi(a1.L) > hi(a0)*8 && Math.abs(20*Math.log10(lo(a1.L)/lo(a0))) < .5 && Math.abs(rms(a1.L, 12000, 30000) - rms(a1.R, 12000, 30000))/rms(a1.L, 12000, 30000) < .2 && peak(a1.L) < 1,
+    `${(20*Math.log10(hi(a1.L)/hi(a0))).toFixed(1)} dB above 8 kHz`); }
 { const vib = synthRender(sr, {...RAW, lpitch: .5, lrate: 4}, [note(57, 1.5)], 1.5).L, ps = [0, 1, 2, 3, 4, 5].map(k => pitch(vib, 20000 + k*2000, 22000 + k*2000));
   check('the LFO bends the pitch (vibrato)', Math.max(...ps) - Math.min(...ps) > 6, ps.map(v => v.toFixed(0)).join(' '));
   const del = synthRender(sr, {...RAW, lpitch: .5, lrate: 4, ldelay: 1}, [note(57, 1.5)], 1.5).L, pd = [0, 1, 2, 3].map(k => pitch(del, 2000 + k*2000, 4000 + k*2000));
