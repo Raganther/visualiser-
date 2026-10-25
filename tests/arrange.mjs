@@ -243,6 +243,17 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   const lit = await D(() => document.querySelector('#iKeys [data-down="1"]')?.dataset.p); await page.keyboard.up('a');
   check('the A key plays the keyboard’s lowest C and lights it', +lit === low && peak > .01, `${lit} ${low} ${peak.toFixed(3)}`);
   check('and the letters didn’t reach the page (A plays, it doesn’t select)', await D(() => window.__daw.ST.sel.clips.size === 0 && !document.getElementById('side').hidden === false));
+  // a note never sticks: let go after the octave changed, the window left, the tab changed or Stop, it ends
+  const lvl = () => D(() => { const x = new Float32Array(2048); window.__an.getFloatTimeDomainData(x); return Math.max(...x.map(Math.abs)); });
+  const stuck = async (what, between, after = () => page.keyboard.up('a')) => { await page.keyboard.down('a'); let on = 0;
+    for (let k = 0; k < 30 && on < .01; k++) { await page.waitForTimeout(100); on = await lvl(); }
+    await between(); await after(); await page.waitForTimeout(1800); const off = await lvl();
+    check(`a key held, ${what}: its note ends`, on > .01 && off < on/8, `${on.toFixed(3)} → ${off.toFixed(4)}`); };
+  await stuck('then X (an octave up) and let go', () => page.keyboard.press('x'));
+  await D(() => { window.__daw.SI.render(); });   // (the octave back where it was)
+  await stuck('then the window left', () => D(() => dispatchEvent(new Event('blur'))), async () => { await page.keyboard.up('a'); });
+  await stuck('then Stop', () => D(() => window.__daw.E.stop()), async () => {});
+  await page.keyboard.up('a'); await page.keyboard.press('z');
   // the poly synth: its filter drawn, and turned while it's heard
   await D(() => { window.__daw.ST.P.tracks[2].sound = 'c-warm'; window.__daw.E.refresh(); }); await page.locator('.trk').nth(2).click(); await page.waitForTimeout(300);
   const pm = await D(() => ({mods: [...document.querySelectorAll('#iMods .mod h3')].map(x => x.textContent), graphs: document.querySelectorAll('#iMods canvas.graph').length}));

@@ -107,22 +107,26 @@ export function makeSynthUI(A){
   /* ---------- the keyboard (or a kit's pads) ---------- */
   const T = () => ST.P.tracks[ST.sel.track];
   function lowC(){ if (V.oct != null) return V.oct; const [lo, hi] = A.trackRange(T()); return 12*Math.floor(((lo + hi)/2 - 6)/12); }
-  function keyOn(p, v = .8){ if (V.held.has(p)) return; V.held.set(p, 1); E.kbOn(ST.sel.track, SB.current(), p, v); light(p, true); }
-  function keyOff(p){ if (!V.held.has(p)) return; V.held.delete(p); E.kbOff(ST.sel.track, p); light(p, false); }
+  // each press remembers the pitch and track it played (by what pressed it: a computer key, the mouse, a pad), so its
+  // note ends there whatever changes before it's let go (the octave, the track, the tab)
+  function keyOn(id, p, v = .8){ if (V.held.has(id)) return; const i = ST.sel.track; V.held.set(id, {p, i}); E.kbOn(i, SB.current(), p, v); light(p, true); }
+  function keyOff(id){ const k = V.held.get(id); if (!k) return; V.held.delete(id); E.kbOff(k.i, k.p); if (![...V.held.values()].some(o => o.p === k.p)) light(k.p, false); }
+  // everything let go (the window left, the tab changed, a stop): each note ended, and the keyboard's channel silenced
+  function releaseAll(){ for (const id of [...V.held.keys()]) keyOff(id); V.mouse = null; E.kbAllOff?.(); }
   const light = (p, on) => { const k = box.querySelector(`[data-p="${p}"]`); if (k) k.dataset.down = on ? '1' : ''; };
   function keys(){ const wrap = $('iKeys'); wrap.innerHTML = ''; const drum = isDrum(T().role);
     if (drum) { const vs = M?.voices || []; vs.forEach((v, i) => { const pad = h('button', {class: 'pad', 'data-p': v, 'aria-pressed': String(v === M.voice), title: `${SB.VNAME[v] || v} (${WK[i] || ''})`}, SB.VNAME[v] || v, h('span', {class: 'pk'}, (WK[i] || '').toUpperCase()));
-        pad.onpointerdown = e => { const r = pad.getBoundingClientRect(); keyOn(v, clamp(.35 + .65*(e.clientY - r.top)/r.height, .2, 1)); if (v !== M.voice) SB.setVoice(v); };
-        pad.onpointerup = pad.onpointerleave = () => keyOff(v); wrap.append(pad); }); return; }
+        pad.onpointerdown = e => { const r = pad.getBoundingClientRect(); keyOn('p:' + v, v, clamp(.35 + .65*(e.clientY - r.top)/r.height, .2, 1)); if (v !== M.voice) SB.setVoice(v); };
+        pad.onpointerup = pad.onpointerleave = pad.onpointercancel = () => keyOff('p:' + v); wrap.append(pad); }); return; }
     const c0 = lowC(), oct = h('div', {class: 'koct'}, h('button', {title: 'An octave down (Z)', onclick: () => { V.oct = c0 - 12; keys(); }}, '−'), h('span', {}, nn(c0)), h('button', {title: 'An octave up (X)', onclick: () => { V.oct = c0 + 12; keys(); }}, '+'));
     const kb = h('div', {class: 'kb'}); let wi = 0; const whites = [...Array(25).keys()].filter(i => !BLACK.includes(i % 12)).length;
     for (let i = 0; i <= 24; i++) { const p = c0 + i, black = BLACK.includes(i % 12), comp = i < 10 + 7 ? (black ? Object.keys(BK).find(k => BK[k] === i) : WK[[0, 2, 4, 5, 7, 9, 11, 12, 14, 16].indexOf(i)]) : null;
       const k = h('div', {class: black ? 'bk' : 'wk', 'data-p': p, title: nn(p) + (comp ? ` (${comp.toUpperCase()})` : '')}, !black && p % 12 === 0 ? h('span', {}, nn(p)) : '');
       if (black) k.style.left = `calc(${wi/whites*100}% - ${.32/whites*100}%)`, k.style.width = `${.64/whites*100}%`; else { k.style.left = `${wi/whites*100}%`; k.style.width = `${1/whites*100}%`; wi++; }
-      k.onpointerdown = e => { e.preventDefault(); kb.setPointerCapture?.(e.pointerId); const r = k.getBoundingClientRect(); keyOn(p, clamp(.35 + .65*(e.clientY - r.top)/r.height, .2, 1)); V.mouse = p; };
-      k.onpointerenter = e => { if (e.buttons && V.mouse != null && V.mouse !== p) { keyOff(V.mouse); keyOn(p); V.mouse = p; } };
+      k.onpointerdown = e => { e.preventDefault(); kb.setPointerCapture?.(e.pointerId); const r = k.getBoundingClientRect(); keyOff('m'); keyOn('m', p, clamp(.35 + .65*(e.clientY - r.top)/r.height, .2, 1)); V.mouse = p; };
+      k.onpointerenter = e => { if (e.buttons && V.mouse != null && V.mouse !== p) { keyOff('m'); keyOn('m', p); V.mouse = p; } };
       kb.append(k); }
-    kb.onpointerup = kb.onpointerleave = () => { if (V.mouse != null) { keyOff(V.mouse); V.mouse = null; } };
+    kb.onpointerup = kb.onpointerleave = kb.onpointercancel = kb.onlostpointercapture = () => { keyOff('m'); V.mouse = null; };
     wrap.append(oct, kb); warm(); }
   // the keys' notes computed ahead for a native model, so they're heard as soon as they're pressed
   function warm(){ if (M?.kind !== 'native') return; const c0 = lowC(), k = `${M.id}|${JSON.stringify(M.s.src)}|${c0}`; if (k === V.warmKey) return; V.warmKey = k;
@@ -130,12 +134,18 @@ export function makeSynthUI(A){
   // the computer's keys, while the instrument shows (and nothing with a text box has the focus)
   const map = e => { const k = e.key.toLowerCase(); if (isDrum(T().role)) { const i = WK.indexOf(k); return i >= 0 ? M?.voices?.[i] : undefined; }
     const c0 = lowC(); if (WK.includes(k)) return c0 + [0, 2, 4, 5, 7, 9, 11, 12, 14, 16][WK.indexOf(k)]; if (k in BK) return c0 + BK[k]; };
-  function onKey(e, down){ if (!V.on || e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return false; const k = e.key.toLowerCase();
+  function onKey(e, down){ const id = 'c:' + e.code;
+    // a key let go ends what it started, wherever the focus is now and whatever's showing
+    if (!down && V.held.has(id)) { keyOff(id); return true; }
+    if (down && V.held.size && (e.metaKey || e.ctrlKey || e.altKey)) releaseAll();   // (⌘ down: its keyup may never come)
+    if (!V.on || e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return false; const k = e.key.toLowerCase();
+    if (down && k === 'escape' && V.held.size) { releaseAll(); return true; }
     if (down && (k === 'z' || k === 'x') && !isDrum(T().role)) { V.oct = lowC() + (k === 'z' ? -12 : 12); keys(); return true; }
-    const p = map(e); if (p === undefined) return false; if (down) { if (!e.repeat) keyOn(p); } else keyOff(p); return true; }
+    const p = map(e); if (p === undefined) return false; if (down && !e.repeat) keyOn(id, p); return true; }
+  addEventListener('blur', releaseAll); document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
   /* ---------- the panel ---------- */
-  function render(){ if (!V.on || !ST.P) return; const t = T(); M = SB.model(); G = {}; if (!M) return; const s = M.s;
+  function render(){ if (!V.on || !ST.P) return; const t = T(); for (const [id, k] of V.held) if (k.i !== ST.sel.track) keyOff(id);   /* (another track: what the last played ends) */ M = SB.model(); G = {}; if (!M) return; const s = M.s;
     $('iName').textContent = s.name; $('iFrom').textContent = `${t.name} · ${SB.famOf(s)} · ${SB.engineOf(s)}${s.mine ? '' : ' · changing it makes your own copy'}`; $('iScope').textContent = 'Changes ' + SB.scopeText();
     const live = E.isLive(ST.sel.track); $('iLive').hidden = !live; $('iLive').title = live ? 'Played live: turn a knob while a note sounds, hold a key to hold the note' : '';
     $('iReset').hidden = !s.mine || !s.base; const mods = $('iMods'); mods.innerHTML = '';
@@ -146,12 +156,12 @@ export function makeSynthUI(A){
     // then the track's effects, to the right of the instrument
     A.fx?.(mods, t, isDrum(t.role) ? M.voice : null, render);
     requestAnimationFrame(() => { graphs(); sound(); }); keys(); }
-  function show(on){ V.on = on; box.hidden = !on; $('edWrap').hidden = on; $('tabNotes').setAttribute('aria-pressed', String(!on)); $('tabInst').setAttribute('aria-pressed', String(on)); $('help').hidden = on; $('edName').hidden = on; $('edInfo').hidden = on;
+  function show(on){ if (!on) releaseAll(); V.on = on; box.hidden = !on; $('edWrap').hidden = on; $('tabNotes').setAttribute('aria-pressed', String(!on)); $('tabInst').setAttribute('aria-pressed', String(on)); $('help').hidden = on; $('edName').hidden = on; $('edInfo').hidden = on;
     if (on) { const ed = $('editor'); if (ed.offsetHeight < 330) ed.style.height = Math.min(innerHeight - 200, 360) + 'px'; render(); } A.draw(); A.renderEd(); A.drawEdHead(); }
   $('tabInst').onclick = () => show(true); $('tabNotes').onclick = () => show(false);
   $('iPlay').onclick = () => { const n = noteFor(); if (n) E.preview(ST.sel.track, SB.current(), [n]); };
   $('iTry').onclick = () => SB.tryIt(); $('iSounds').onclick = () => SB.show(true); $('iReset').onclick = () => SB.reset();
   addEventListener('resize', () => { if (V.on) { graphs(); drawSound(); } });
   SB.onChange(() => { if (V.on) render(); });
-  return {show, render, isOn: () => V.on, onKey, state: () => ({M, buf: V.buf, cap: $('iCap').textContent})};
+  return {show, render, isOn: () => V.on, onKey, releaseAll, state: () => ({M, buf: V.buf, cap: $('iCap').textContent})};
 }

@@ -225,7 +225,9 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     // a native note is computed (held sounds at a beat's length): heard at once when it's ready, else as soon as it is
     const keys = need(c, p, 4, v); if (keys.every(k => cache.has(k))) { play(c, p, 4, v, t); return; }
     const t0 = performance.now(), wait = () => { if (keys.every(k => cache.has(k))) { if (performance.now() - t0 < 1500) play(c, p, 4, v, E.ctx.currentTime + .005); } else if (performance.now() - t0 < 4000) setTimeout(wait, 30); }; wait(); };
-  E.kbOff = (i, p) => { const c = E.kb?.c; if (!c || E.kb.i !== i) return; if (c.inst?.poly) c.inst.poly.noteOff(p, E.ctx.currentTime + .005); if (c.inst?.live) c.inst.live.port.postMessage({type: 'off', id: 'k' + p, t: E.ctx.currentTime + .005}); };
+  E.kbOff = (i, p) => { const c = E.kb?.c; if (!c) return; if (c.inst?.poly) { c.inst.poly.noteOff(p, E.ctx.currentTime + .005); E.kb.held.delete(p); } if (c.inst?.live) c.inst.live.port.postMessage({type: 'off', id: 'k' + p, t: E.ctx.currentTime + .005}); };
+  // every note on the keys silenced at once (a panic: Stop, the window left, Esc)
+  E.kbAllOff = () => { const c = E.kb?.c; if (!c || !E.ctx) return; if (c.inst?.poly) for (const p of E.kb.held.keys()) c.inst.poly.noteOff(p, E.ctx.currentTime); c.inst?.live?.port.postMessage({type: 'stop'}); E.kb.held?.clear(); };
   // the keys' notes computed ahead, so the first press is heard at once
   E.kbWarm = (i, id, ps, v = .8) => { const ctx = E.init(); const c = kbChan(i, id); if (c.inst.native) for (const p of ps) need(c, p, 4, v); onBusy(pending.size); };
   // one note as the sound makes it, for drawing: a native note from the worker (as played), the poly synth or a drum
@@ -276,7 +278,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   E.play = fromBar => { const ctx = E.init(); ctx.resume(); if (E.playing) E.stop(); E.playing = true; E.stopAt = 0;
     E.slot = E.from = Math.max(0, Math.round(fromBar*16)); E.nextT = ctx.currentTime + .1; E.when = []; for (const c of E.ch) { c.clip = undefined; c.open = null; }
     tick(); E.timer = setInterval(tick, 25); };
-  E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; dk({type: 'stop'});
+  E.stop = () => { E.playing = false; clearInterval(E.timer); E.stopAt = 0; dk({type: 'stop'}); E.kbAllOff();
     for (const c of E.ch) { c.inst?.live?.port.postMessage({type: 'stop'}); if (c.x.out) { glide(c.x.out.gain, 0, E.ctx.currentTime, .03); setTimeout(() => macros(c), 200); } } onTick(); };
   // where the song is as heard: the 16th scheduled for now and how far through it
   E.pos = () => { if (!E.playing || !E.when.length) return null; const now = E.ctx.currentTime; let best = null; for (const w of E.when) if (w[0] <= now) best = w;
