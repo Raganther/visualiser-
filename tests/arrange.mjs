@@ -529,7 +529,7 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   // a low cut, a pad its input gain alone); Claude's full chain one click away, and back
   const lite = await Q(() => { const {E} = window.__daw, c = id => E.D.strips.find(x => x.id === id).chain.map(x => x.key).join(); return {bass: c('t3'), chords: c('t4'), lead: c('t5'), kick: c('rack/kick'), chh: c('rack/chh')}; });
   check('the lighter start: the bass and chords a low cut and the sidechain, the lead a low cut, each drum its input gain alone', lite.bass === 'trim,cut,sidechain' && lite.chords === 'trim,cut,sidechain' && lite.lead === 'trim,cut' && lite.kick === 'trim' && lite.chh === 'trim', JSON.stringify(lite));
-, kept with the song across a reload, undone
+  // the Mixer: its strips, a processor switched off and one added on the bass, kept with the song across a reload, undone
   await Q(() => window.__daw.E.stop()); await q.keyboard.press('x'); await q.waitForTimeout(400);
   const shown = await Q(() => ({on: window.__daw.MX.isOn(), n: document.querySelectorAll('#mxDesk .mxs').length}));
   check('X opens the Mixer: a strip a track (the drum rack’s and its kit’s fifteen pads), the buses, the returns and the master bus', shown.on && shown.n === 25, JSON.stringify(shown));
