@@ -28,6 +28,13 @@ export function partNotes(c, H, bars, {swing = .06, smooth = true, voicing = 0, 
     for (const [n, l, v, dt = 0, pv = 1] of notes) out.push({s: +Math.max(0, step + off + dt).toFixed(3), p: drum ? n : n + 12*(c.oct || 0), l: drum ? 1 : +l.toFixed(3), v: +Math.max(.05, Math.min(1, v*fe.v*pv)).toFixed(3)}); }
   return out; }
 
+// a part's notes held on (`hold` on the part, in 16ths): each runs on to where the next begins, at most `max` long and
+// never shorter than written, so a plucked or struck sound rings out instead of being cut short (end: the clip's length;
+// pick: the notes to hold, the rest only marking where the next begins; in any order, as edited clips are)
+export function holdNotes(notes, max, end, pick = () => true){ const at = notes.map(n => n.s);
+  for (const [i, n] of notes.entries()) { if (!pick(n, i)) continue; let nx = end; for (const s of at) if (s > n.s + 1e-3 && s < nx) nx = s;
+    n.l = +Math.max(n.l, Math.min(max, nx - n.s)).toFixed(3); } return notes; }
+
 // the whole song: its sections as markers, the chords bar by bar, and a track for each of the jam's seven parts
 export function flatten(song, {swing = .06} = {}){
   const S = song.sections, tracks = [], marks = [], chords = [], seed = hashOf(song.id || song.name || 'song'); let at = 0;
@@ -39,7 +46,7 @@ export function flatten(song, {swing = .06} = {}){
     for (let b = 0; b < bars; b++) chords.push(H.bars[b % H.bars.length]);
     x.cols.forEach((c, i) => { const T = tracks[i]; if (!T || c.mute || !(c.clip || c.rhythm)) return;
       const notes = partNotes(c, H, bars, {swing: x.swing ?? swing, smooth: x.smooth !== false, voicing, seed: seed + si*101 + i, lane: c.role === 'lead' && i > 5 ? 1 : 0});
-      if (!notes.length) return;
+      if (!notes.length) return; if (c.hold) holdNotes(notes, c.hold, bars*16);
       // what this section sets differently from the track (its sound, tone, space, motion, a ramp, its level and duck)
       const set = {}; for (const k of SET) if (c[k] !== undefined && JSON.stringify(c[k]) !== JSON.stringify(k === 'sound' ? T.sound : T.set[k])) set[k] = c[k];
       if (set.ramp) set.ramp = {...set.ramp, bars};

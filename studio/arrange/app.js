@@ -4,7 +4,7 @@
 // A song is written out once as it plays (flatten.js), and from then on it's notes: moved, stretched, copied, split. Your
 // version is kept (this device and the page's database), Claude's stays to go back to, and every note you leave says
 // exactly where it is (the song, the tracks, the bars) for Claude to read.
-import { flatten } from './flatten.js';
+import { flatten, holdNotes } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
 import { combineDrums, ensureRacks, isRack } from './rack.js';
 import { SETS, addSets, setOf, defaultSet, onSet, moveTo } from './sets.js';
@@ -372,6 +372,14 @@ function nudge(dx, dy, big){ if (!editable()) return; const f = cur();
     if (dy) { const n = f.cl.notes[[...ST.ed.sel][0]]; E.audition(f.ti, n.p, n.v, 1); } changed(); return; }
   const cs = selClips(); if (!cs.length || !dx) return; checkpoint(); for (const {cl} of cs) cl.start = Math.max(0, cl.start + dx*(ST.snap || 16)/16); changed(); }
 
+// Legato (⇧L): the selected notes (or the clip's) held on to where the next begins, at most a beat, never shortened,
+// so a plucked sound rings out
+function legato(){ if (!editable()) return; const f = cur(); if (!f || rowsOf(f).drum) { flash('Open a pitched clip’s notes first (double-click it)'); return; }
+  const sel = ST.ed.sel.size ? ST.ed.sel : null, was = JSON.stringify(f.cl.notes); checkpoint(); holdNotes(f.cl.notes, 4, f.cl.len, (n, i) => !sel || sel.has(i));
+  if (JSON.stringify(f.cl.notes) === was) { ST.past.pop(); flash('Already held on'); return; }
+  changed(); flash(`Legato: ${sel ? sel.size + ' note' + (sel.size > 1 ? 's' : '') : 'every note'} held on to the next, up to a beat`); }
+$('legato').onclick = legato;
+
 /* ---------- keys ---------- */
 addEventListener('keyup', e => { if (SI?.onKey(e, false)) e.preventDefault(); });
 addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(), mod = e.metaKey || e.ctrlKey;
@@ -385,6 +393,7 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
     else { ST.sel.clips = new Set(ST.P.tracks.flatMap(T => T.clips.map(c => c.id))); draw(); } target(); return; }
   if (mod) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delSel(); return; }
+  if (k === 'l' && e.shiftKey) { legato(); return; }
   if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; } if (k === 'b') { MX.show(false); SI.show(!SI.isOn()); return; } if (k === 'x') { MX.show(!MX.isOn()); return; }
   if (e.key === 'Escape' && $('pop')) { closePop(); return; }
   if (e.key === 'Escape') { ST.ed.sel.clear(); clearSel(); renderTracks(); draw(); drawEd(); target(); return; }

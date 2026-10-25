@@ -3,7 +3,7 @@
 // moving, stretching and copying notes, velocity, undo and redo, your version kept across a reload, Claude's to hear, and a
 // like and a note each saying exactly what they're about.
 import { serve, launch } from './lib.mjs';
-import { flatten } from '../studio/arrange/flatten.js';
+import { flatten, holdNotes } from '../studio/arrange/flatten.js';
 import fs from 'node:fs';
 
 let failed = false;
@@ -16,6 +16,15 @@ for (const s of R4) { const P = flatten(s), bars = s.sections.reduce((a, x) => a
   const pitched = P.tracks.filter(T => !['kick', 'hats', 'perc'].includes(T.role)).every(T => T.clips.every(c => c.notes.every(n => Number.isInteger(n.p))));
   check(`${s.name}: ${P.marks.length} sections, ${P.bars} bars, every note inside its clip, pitches fixed`, P.bars === bars && P.marks.length === s.sections.length && P.chords.length === bars && inside && pitched);
   const again = flatten(s); check(`${s.name}: written out the same every time`, JSON.stringify(again) === JSON.stringify(P)); }
+// held notes (`hold` on a part): Clearing's bass runs on to the next note, up to a beat, never shorter than written
+{ const s = R4.find(x => x.id === 'r4-1'), written = JSON.parse(JSON.stringify(s)); for (const x of written.sections) for (const c of x.cols) delete c.hold;
+  const B = P => P.tracks.find(T => T.role === 'bass').clips.flatMap(c => c.notes.map(n => [n, c.notes, c.len])), held = B(flatten(s)), was = B(flatten(written));
+  const nextOf = (n, ns, len) => Math.min(len, ...ns.filter(m => m.s > n.s + 1e-3).map(m => m.s));
+  check('Clearing’s bass held on: each note to where the next begins, at most a beat, none shorter than written, the same notes',
+    held.length === was.length && held.every(([n, ns, len], i) => n.l >= was[i][0].l && n.l <= Math.max(was[i][0].l, 4) + 1e-6 && Math.abs(n.l - Math.max(was[i][0].l, Math.min(4, nextOf(n, ns, len) - n.s))) < 1e-3 && n.s === was[i][0].s && n.p === was[i][0].p)
+    && held.filter(([n], i) => n.l > was[i][0].l).length > held.length/2, `${held.filter(([n], i) => n.l > was[i][0].l).length} of ${held.length} longer`);
+  const ns = [{s: 4, p: 40, l: 1}, {s: 0, p: 38, l: 1}, {s: 12, p: 41, l: 6}, {s: 13, p: 43, l: 1}];
+  check('holdNotes in any order, only the notes picked, the clip’s end the last one’s limit', JSON.stringify(holdNotes(ns, 4, 15, n => n.p !== 40).map(n => n.l)) === '[1,4,6,2]'); }
 // the drum rack: a song's kick, hats and percussion as one track, every note kept on its pad, each part's settings on its pads
 { const {combineDrums, inputsOf} = await import('../studio/arrange/rack.js'), LIB = JSON.parse(fs.readFileSync(new URL('../studio/listen/packs/library.json', import.meta.url))), SND = Object.fromEntries(LIB.sounds.map(x => [x.id, x]));
   for (const s of R4) { const P = flatten(s), Q = combineDrums(P, SND), R = Q.tracks[0], all = T => T.clips.flatMap(c => c.notes.map(n => (c.start*16 + n.s).toFixed(3) + n.p)).sort().join();
@@ -648,6 +657,13 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   check('your choice is kept across a reload', (await sounds())[1] === 'b-fmpluck' && /song/.test(await btn()));
   await q.selectOption('#songSel', 'r3-1'); await q.waitForTimeout(800);
   check('round 3 opens on its own sounds', (await sounds())[1] === 'b-fmpluck' && /song/.test(await btn()));
+  // Legato in the piano roll: Two rivers' bass clip, every note held on to the next (up to a beat), undone
+  await q.selectOption('#songSel', 'r4-2'); await q.waitForTimeout(800);
+  const lens = () => Q(() => { const {ST} = window.__daw; return ST.P.tracks.find(T => T.role === 'bass').clips[0].notes.map(n => n.l); });
+  await Q(() => { const {ST} = window.__daw, T = ST.P.tracks.find(T => T.role === 'bass'); ST.open = {id: T.clips[0].id}; ST.focus = 'ed'; ST.ed.sel.clear(); });
+  const l0 = await lens(); await q.click('#legato'); await q.waitForTimeout(200); const l1 = await lens();
+  check('Legato holds a clip’s notes on, none shorter, at most a beat', l1.length === l0.length && l1.every((l, i) => l >= l0[i] && l <= Math.max(l0[i], 4) + 1e-6) && l1.some((l, i) => l > l0[i]), JSON.stringify([l0.slice(0, 6), l1.slice(0, 6)]));
+  await q.keyboard.press('Meta+z'); await q.waitForTimeout(200); check('and undo puts them back', JSON.stringify(await lens()) === JSON.stringify(l0));
   await q.close(); }
 
 // the drum playground (studio/drums/, built into studio/listen/drum-lab.html): every beat on every analog kit heard,

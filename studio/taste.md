@@ -173,3 +173,5 @@ before writing or changing a piece; add to it when they react.
   see how it affects things: the DAW now opens round 4 on that same analog set (the Mix Lab's kick, hats, percussion and
   four synth patches), with a switch back to the song's own sounds. To learn by listening: whether the analog set holds
   up in the DAW's arrangements, and which parts want their old sound back.
+- 2026-10-25: Clearing's FM plucked bass was cut off by its short staccato notes; the user asked for room for the synth
+  to breathe. Its notes now run on to the next, up to a beat, and the piano roll has Legato (⇧L) to do it anywhere.

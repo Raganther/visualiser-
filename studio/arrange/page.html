@@ -123,6 +123,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 <div id="split" title="Drag to resize the editor"></div>
 <section id="editor" aria-label="The piano roll">
   <div id="edHead"><div class="tabs etabs"><button id="tabNotes" aria-pressed="true" title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button><button id="tabMix" aria-pressed="false" title="The mixer: every track’s strip, the buses, the returns and the master bus (X)">Mixer</button></div><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
+    <button id="legato" class="small" title="Legato (⇧L): the selected notes, or the clip’s, held on to where the next begins (up to a beat), so the sound rings out">Legato</button>
     <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
   <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
   <div id="inst" hidden>
