@@ -1,14 +1,16 @@
 // A song mixed the traditional way, with every sound and every processor native (computed sample by sample by the parts
-// host): a channel a part, the drums and the music each into a bus, an echo and a room on sends, the kick keying a
-// sidechain compressor on the bass, the chords, the leads and the room, and the master bus. This module turns a song
+// host), on the desk (studio/lib/parts/desk.js): a channel a part, the drums and the music each into a bus, an echo and
+// a room on sends, the kick keying a sidechain compressor on the bass, the chords, the leads and the room, and the
+// master bus. This module turns a song
 // written out for the DAW (studio/arrange/flatten.js) and its sounds into the host's description (sources, strips) and
 // its timed messages; the page plays them and lets you change the mix.
 import { nativeSet, cutOf, LEN } from '../jam/model.js';
 import { NATIVE } from '../lib/native/index.js';
 import { NATIVE_OF } from '../lib/palette.js';
 import { LEVELS } from './levels.js';
+import { db, channel, buses, ids, sendsOf } from '../lib/parts/desk.js';
 
-const db = g => 20*Math.log10(Math.max(1e-9, g)), q = (v, s) => Math.round(v/s)*s;
+const q = (v, s) => Math.round(v/s)*s;
 // the kick: the analog drum machine's (deep, round, no drive, darker: as the one you saved was)
 export const KICK = {kit: 'Analog Deep', over: {kick: {drive: 0, tone: .3, x: .25}}};
 
@@ -46,28 +48,7 @@ export function soundOf(P, SND, i, set){ const T = P.tracks[i], id = chanOf(P, i
   if (T.role === 'kick') return {name: 'Analog Deep kick', words: 'The analog drum machine\'s, made round, dark and undriven.'};
   return set === 'analog' && ANALOG[id] ? ANALOG[id] : {name: S.name, words: S.words}; }
 
-/* ---------- the mix: each strip's processors, fader, pan, sends ---------- */
-const pr = (key, params = {}, label) => ({id: key, key, params, on: true, ...(label ? {label} : {})});
-// how each part is treated, by its role (the channels' own processors: a cut, an EQ, a compressor, the sidechain)
-const CH = {
-  kick: () => [pr('eq', {lo: 2, loF: 55, mid: -3, midF: 320, q: 1.2, hi: 1.5, hiF: 4000}), pr('glue', {thr: -16, ratio: 3, att: 12, rel: 90, makeup: 1})],
-  hats: () => [pr('cut', {freq: 350}), pr('eq', {mid: -2, midF: 2500, q: 1, hi: 1.5, hiF: 10000}), pr('glue', {thr: -22, ratio: 2, att: 2, rel: 60})],
-  perc: () => [pr('cut', {freq: 100}), pr('eq', {mid: -2.5, midF: 500, q: 1, hi: 1, hiF: 8000}), pr('glue', {thr: -20, ratio: 2.5, att: 5, rel: 100}), pr('width', {width: 1.25})],
-  bass: () => [pr('cut', {freq: 32}), pr('eq', {lo: 1.5, loF: 80, mid: -3, midF: 250, q: 1, hi: 1, hiF: 2500}), pr('glue', {thr: -20, ratio: 4, att: 15, rel: 140, makeup: 2}),
-    pr('saturate', {amount: .12}), pr('sidechain', {key: 'kick', thr: -30, ratio: 8, att: .5, rel: 140, range: 9}), pr('width', {width: 0})],
-  chords: () => [pr('cut', {freq: 160}), pr('eq', {mid: -2, midF: 400, q: 1, hi: 1.5, hiF: 9000}), pr('glue', {thr: -22, ratio: 2, att: 20, rel: 200}),
-    pr('sidechain', {key: 'kick', thr: -30, ratio: 6, att: 1, rel: 260, range: 7}), pr('width', {width: 1.3})],
-  lead: () => [pr('cut', {freq: 180}), pr('eq', {mid: -2, midF: 450, q: 1, hi: 1, hiF: 7000}), pr('glue', {thr: -18, ratio: 2, att: 8, rel: 120}),
-    pr('sidechain', {key: 'kick', thr: -30, ratio: 4, att: 1, rel: 180, range: 3})],
-};
-// the buses and returns
-const BUS = {
-  drums: () => [pr('glue', {thr: -16, ratio: 2.5, att: 10, rel: 120, makeup: 1, mix: .7}), pr('tape', {drive: .2})],
-  music: () => [pr('glue', {thr: -22, ratio: 1.8, att: 25, rel: 200})],
-  echo: () => [pr('echo', {time: 1, mix: 1, fb: .45, tone: .35, dry: 0}), pr('cut', {freq: 180})],
-  room: () => [pr('room', {size: 1.1, decay: 2.2, damp: .5, pre: 15, cut: 220, mix: 1, dry: 0}), pr('sidechain', {key: 'kick', thr: -32, ratio: 6, att: 1, rel: 220, range: 6})],
-  bus: () => [pr('trim', {gain: 4}), pr('eq', {lo: .5, loF: 40, hi: 1, hiF: 12000}), pr('glue', {thr: -14, ratio: 2, att: 30, rel: 180}), pr('width', {width: 1.1}), pr('ceiling', {knee: .89})],
-};
+/* ---------- the mix: the desk's channels (studio/lib/parts/desk.js), their gain staging and faders ---------- */
 // each song's gain staging (levels.js, written by calibrate.mjs, measured offline over the song): each channel's input
 // gain, so its peaks reach the processors near -9 dBFS (gain), and how much louder its processors then leave it (cal), so
 // the fader takes that back off and the song's own balance between its parts stays as it was written
@@ -80,20 +61,10 @@ export const faderOf = (P, id, vol, set) => +(db(.85) + (vol || 0) - lv(P, 'gain
 
 export function mixOf(P, SND, set = 'song'){ const strips = [], sources = {};
   P.tracks.forEach((T, i) => { const id = chanOf(P, i), an = set === 'analog' && ANALOG[id]; sources[id] = an ? an.src : sourceOf(T, SND);
-    const drum = ['kick', 'hats', 'perc'].includes(T.role), s = T.set;
-    strips.push({id, label: T.name, role: T.role, input: T.role === 'kick' ? {src: id, pad: 'kick'} : an && an.src.kind === 'kit' ? {src: id, pad: '*'} : {src: id}, chain: [pr('trim', {gain: lv(P, 'gain', id, set)}), ...CH[T.role]()], lp: cutOf(s.x ?? .62),
-      level: faderOf(P, id, T.mix.vol, set), sound: soundOf(P, SND, i, set).name, pan: T.mix.pan || 0, out: drum ? 'drums' : 'music', sends: sendsOf(s)}); });
-  strips.push({id: 'drums', label: 'Drum bus', bus: true, input: null, chain: BUS.drums(), level: 0, out: 'bus'},
-    {id: 'music', label: 'Music bus', bus: true, input: null, chain: BUS.music(), level: 0, out: 'bus'},
-    {id: 'echo', label: 'Echo', ret: true, input: null, chain: BUS.echo(), level: -2, out: 'bus'},
-    {id: 'room', label: 'Room', ret: true, input: null, chain: BUS.room(), level: -1, out: 'bus'},
-    {id: 'bus', label: 'Master bus', bus: true, input: null, chain: BUS.bus(), level: -1, out: 'master'},
-    {id: 'master', label: 'Out', input: null, chain: [pr('ceiling', {knee: .97})], out: null});
-  // each processor's id its strip's and its own (so the meters and your changes are told apart)
-  for (const x of strips) for (const c of x.chain) c.id = x.id + '-' + c.id;
-  return {period: 60/P.bpm, set, sources, strips}; }
-// a part's sends as its song set them (the echo and the room, by its space, after the fader)
-const sendsOf = s => ({echo: s.echo ? +db((s.y ?? .3)*.5).toFixed(1) : -60, room: s.verb ? +db((s.y ?? .3)*.75).toFixed(1) : -60});
+    strips.push(channel({id, label: T.name, role: T.role, input: T.role === 'kick' ? {src: id, pad: 'kick'} : an && an.src.kind === 'kit' ? {src: id, pad: '*'} : {src: id},
+      gain: lv(P, 'gain', id, set), lp: cutOf(T.set.x ?? .62), level: faderOf(P, id, T.mix.vol, set), sound: soundOf(P, SND, i, set).name, pan: T.mix.pan || 0, sends: sendsOf(T.set)})); });
+  strips.push(...buses('kick'));
+  return {period: 60/P.bpm, set, sources, strips: ids(strips)}; }
 
 /* ---------- the song as timed messages ---------- */
 // every message from bar `from` on, each at its time in seconds from there: a clip's settings as it starts (its

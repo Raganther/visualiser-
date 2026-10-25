@@ -1,6 +1,6 @@
 // Live native voices: every native instrument (studio/lib/native/index.js: the FM, the Resonator, the analog voice, the
-// pads, the bowed bodies, the skins, strings, hats and nature sounds), the native poly synth (npoly.js) and the native
-// drum machine (kit.js), computed sample by sample as they play, in the audio engine's own thread (an AudioWorklet).
+// pads, the bowed bodies, the skins, strings, hats and nature sounds), the native poly synth (npoly.js), the analog synth
+// (asynth.js) and the native drum machine (kit.js), computed sample by sample as they play, in the audio engine's own thread (an AudioWorklet).
 // Each instrument is a voice (stream.js) whose code is the note computed ahead's, so a setting turned while a note
 // sounds is heard in it, a key held holds the note, and nothing waits to be computed. One node per track: a pitched
 // track's instrument is its slot '', a drum track's pads are a slot each (a native instrument, or a voice of a drum
@@ -10,6 +10,7 @@ import { grainSource } from '../lib/native/tone.js';
 import { NativePoly } from '../lib/native/npoly.js';
 import { NativeKit } from '../lib/native/kit.js';
 import { AnalogKit, ANALOG_KITS } from '../lib/native/analogkit.js';
+import { AnalogSynth } from '../lib/native/asynth.js';
 
 const hz = n => 440*Math.pow(2, (n - 69)/12), CHOKE = Math.exp(-1/(.012*sampleRate)), STOP = .004*sampleRate;
 // a slot's settings: the instrument's own, then the track's (kept as one object, which its voices read as they play)
@@ -21,7 +22,9 @@ class Voices extends AudioWorkletProcessor {
   msg(m){
     if (m.type === 'stop' && m.close) this.closed = true;
     if (this.poly) { if (m.type === 'set' && m.t == null) { this.poly.set(m.params); if (m.params.period) this.poly.period = m.params.period; return; } if (m.type === 'stop') { this.ev = []; this.poly.stop(); return; } }
-    if (m.type === 'load' && m.engine === 'poly') { this.eng = 'poly'; this.poly = new NativePoly(sampleRate); this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
+    // a synth played whole (the native poly synth, or the analog synth): one instrument, its own voices
+    if (m.type === 'load' && (m.engine === 'poly' || m.engine === 'asynth')) { this.eng = m.engine; this.poly = m.engine === 'asynth' ? new AnalogSynth(sampleRate) : new NativePoly(sampleRate);
+      this.poly.load(m.params); if (m.params.period) this.poly.period = m.params.period; return; }
     if (m.type === 'load') { this.eng = 'nat'; const slots = m.slots || {'': {name: m.name, gain: m.gain, params: m.params}};
       for (const [g, k] of Object.entries(m.kits || {})) { const K = this.K[g] || (ANALOG_KITS[k.kit] ? new AnalogKit(sampleRate, 11) : new NativeKit(sampleRate, 7)); K.load(k.kit, k.over || {}); this.K[g] = K; }
       for (const [s, d] of Object.entries(slots)) this.S[s] = {...d, P: d.kit ? null : fresh(this.S[s]?.name === d.name ? this.S[s].P : {}, d.name, d.params || {})};
@@ -48,7 +51,7 @@ class Voices extends AudioWorkletProcessor {
     const live = this.v.filter(v => !v.kill); if (live.length > 32) live[0].kill = 1; }
   /* ---------- a block: the events at their own samples, every voice run between them ---------- */
   process(_, outputs){ const out = outputs[0], L = out[0], R = out[1] || out[0], N = L.length, t0 = currentTime; L.fill(0); if (R !== L) R.fill(0);
-    if (this.closed && !this.v.length && !(this.poly?.v.length) && Object.values(this.K).every(K => !K.hits.length)) return false;
+    if (this.closed && !this.v.length && !(this.poly && (this.poly.v ? this.poly.v.length : this.poly.V.some(v => v.ae.st))) && Object.values(this.K).every(K => !K.hits.length)) return false;
     if (!this.eng) return true;
     if (N > this.tL.length) { this.tL = new Float32Array(N); this.tR = new Float32Array(N); }
     if (this.warm.length) { const n = this.warm.shift(); for (const s of Object.values(this.S)) if (s.P?.src && s.name === 'grainpad') grainSource(sampleRate, hz(n), s.P.src); }

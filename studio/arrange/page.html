@@ -118,7 +118,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 </div>
 <div id="split" title="Drag to resize the editor"></div>
 <section id="editor" aria-label="The piano roll">
-  <div id="edHead"><div class="tabs etabs"><button id="tabNotes" aria-pressed="true" title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button></div><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
+  <div id="edHead"><div class="tabs etabs"><button id="tabNotes" aria-pressed="true" title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button><button id="tabMix" aria-pressed="false" title="The mixer: every track’s strip, the buses, the returns and the master bus (X)">Mixer</button></div><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
     <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
   <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
   <div id="inst" hidden>
@@ -126,6 +126,11 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
       <button id="iPlay" title="One note of it">▶ Note</button><button id="iTry" title="A bar or two of the track’s notes on it">▶ Phrase</button><button id="iSounds" title="The library of sounds (Y)">Sounds…</button><button id="iReset" hidden>Back to the original</button></div>
     <div class="ibody"><figure class="idisp"><canvas id="iWave" aria-label="The note’s waveform and spectrum"></canvas><figcaption id="iCap" class="small muted"></figcaption></figure><div id="iMods"></div></div>
     <div id="iKeys"></div>
+  </div>
+  <div id="mixer" hidden>
+    <div id="mxDesk" aria-label="The desk"></div>
+    <div class="mxedit"><div class="ihead"><b id="mxName"></b><span class="small muted" id="mxWords"></span><span class="spacer"></span><button id="mxReset" hidden title="Its processors as the desk set them">Back to the desk’s</button></div>
+      <div id="mxChain" class="chain"></div></div>
   </div>
 </section></div>
   <aside id="side" hidden aria-label="Sounds">
@@ -142,6 +147,21 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 <aside id="notes" hidden><h2>Notes on this song</h2><div id="composer" hidden><div class="small" id="cTarget"></div><textarea id="cText" placeholder="What would you change here?"></textarea>
   <div style="display:flex; gap:6px; margin-top:6px"><button id="cUp" aria-pressed="false">👍</button><button id="cDown" aria-pressed="false">👎</button><span class="spacer"></span><button id="cCancel">Cancel</button><button id="cSave">Save note</button></div></div><div id="noteList"></div></aside>
 <div id="flash" aria-live="polite"></div>
+<style>
+/* the mixer (the parts' shell styles below, in this page's colours) */
+#mixer{--face:var(--panel2); --panel:#191c21; --accent:var(--acc); --accent-ink:#111; flex:1; min-height:0; overflow:auto; padding:8px 10px; display:grid; grid-auto-rows:max-content; gap:10px; align-content:start}
+#mxDesk{display:grid; grid-auto-flow:column; grid-auto-columns:150px; gap:6px; overflow-x:auto; padding-bottom:4px}
+.mxs{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:7px; display:grid; gap:6px; align-content:start; min-width:0}
+.mxs[data-kind="bus"]{background:#2b2721} .mxs[data-kind="ret"]{background:#232a26} .mxs[aria-current="true"]{border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)}
+.mxs .sname{display:grid; text-align:left; gap:0; border:0; background:none; padding:0; min-height:0} .mxs .sname b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .mxs .sname span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mxs .meter{height:6px; background:#0f1114; border-radius:2px; overflow:hidden} .mxs .meter i{display:block; height:100%; width:0; background:#5fb36a} .mxs .meter i[data-hot="true"]{background:#e2553c}
+.mxs .chips{display:flex; flex-wrap:wrap; gap:3px; min-height:18px} .mxs .chip{font-size:10.5px; border:1px solid var(--line); border-radius:3px; padding:0 4px; display:inline-flex; gap:3px} .mxs .chip[data-off="true"]{opacity:.45; text-decoration:line-through} .mxs .chip .gr{font-size:10px; min-width:0; font-style:normal}
+.mxs .fdr,.mxs .snd{display:grid; grid-template-columns:1fr auto; gap:1px 4px; font-size:11.5px} .mxs .fdr>span,.mxs .snd>span{color:var(--mute)} .mxs input[type=range]{grid-column:1/-1; width:100%; accent-color:var(--acc)} .mxs output{font:11px var(--mono)}
+.mxs .sends{display:grid; gap:3px} .mxs .msb{display:flex; gap:4px} .mxs .msb button{min-height:24px; flex:1; padding:0} .mxs .ms.s[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
+.mxedit{display:grid; gap:8px} .mxedit .ihead{display:flex; gap:10px; align-items:baseline; flex-wrap:wrap} #mxChain{display:grid; gap:6px; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr))}
+#mixer .proc{color:var(--ink)} #mixer .phead{flex-wrap:wrap}
+/*SHELLCSS*/
+</style>
 <script id="worker-src" type="text/plain">/*WORKER*/</script>
 <script id="worklet-src" type="text/plain">/*WORKLET*/</script>
 <script>/*APP*/</script>

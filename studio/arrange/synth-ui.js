@@ -97,6 +97,7 @@ export function makeSynthUI(A){
   // what the drawing is: the note as the live engine plays it, or as the browser renders it where the live engine can't
   const capOf = (M, n) => { const live = E.isLive(ST.sel.track), kit = M.s.voices && !M.s.voices[n.p]?.native;
     if (kit) return live ? 'the native drum machine, played live (drawn from the same maths)' : 'rendered by the drum machine';
+    if (M.kind === 'asynth') return live ? 'the analog synth, played live' : 'rendered by the analog synth';
     if (M.kind === 'poly') return live ? 'the native synth, played live (drawn from the same maths)' : 'rendered by the synth';
     return live ? 'the model, played live (drawn from the same maths)' : 'computed by the model, as you’ll hear it'; };
   function fft(re, im){ const n = re.length; for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }

@@ -151,3 +151,9 @@ before writing or changing a piece; add to it when they react.
   needed. Mix the traditional way (channels, buses, sends, a master bus, the classic sidechain compressor keyed by the
   kick so the mix pumps and clears), but keep making the sounds and the processors natively. Not the score-reading
   ducker in a mix. Built the mix lab on round 4's Undertow to listen to that.
+- 2026-10-25: Asked what of the new work was in the DAW (only the sounds were), the user chose to bring it all in: the
+  DAW now mixes on the native desk (a strip a track, buses, returns, the kick's sidechain compressor, the master bus,
+  a Mixer tab) and plays the analog synth (pack 5). They asked why native mixing helps: a real sidechain, the same
+  sound on every browser and offline, processors the browser lacks, meters, one set of parts everywhere; the cost is
+  CPU on a slow phone.
+

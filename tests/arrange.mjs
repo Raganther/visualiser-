@@ -487,6 +487,67 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await ph.evaluate(() => document.getElementById('up').click()); await ph.waitForTimeout(200);
   check('a like on a phone is kept', await ph.evaluate(() => window.__daw.ST.notes[0]?.rating === 1)); await ph.close(); }
 
+// the native desk (studio/arrange/desk.js, the parts host): a strip a track, the buses, the returns, the master bus; the
+// sidechain the kick keys; the Mixer (X); Straight; a track added and taken away; an old song's settings carried over;
+// and the analog synth in the sound panel, played live
+// (a context of its own: the pages above keep their songs, solos and all, in this one's storage)
+{ const q = await (await browser.newContext({viewport: {width: 1400, height: 950}})).newPage(); q.on('pageerror', e => { failed = true; console.log('FAIL desk page error:', e.message); });
+  await q.goto(url + 'studio/listen/studio-daw.html'); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(800);
+  const Q = (fn, x) => q.evaluate(fn, x);
+  await Q(() => window.__daw.E.init()); await q.waitForFunction(() => window.__daw.E.liveOK && window.__daw.E.deskNode, null, {timeout: 8000});
+  const strips = await Q(() => { const {E, ST} = window.__daw; return {ids: E.D.strips.map(s => s.id), tracks: ST.P.tracks.map(T => T.id)}; });
+  check('the desk has a strip a track, the drum and music buses, the echo and room returns, the master bus and the out', JSON.stringify(strips.ids) === JSON.stringify([...strips.tracks, 'drums', 'music', 'echo', 'room', 'bus', 'master']), strips.ids.join(' '));
+  // where the bass and the kick play together (Clearing's "The bass arrives"), the meters as it plays
+  const listen = async (bar, ms = 5000) => { await Q(b => { const {E} = window.__daw; window.__mx = {}; window.__gr = {}; E.play(b);
+    clearInterval(window.__mxT); window.__mxT = setInterval(() => { for (const [k, v] of Object.entries(E.meters || {})) { window.__mx[k] = Math.max(window.__mx[k] || 0, v.pk); for (const [p, g] of Object.entries(v.gr)) window.__gr[p] = Math.max(window.__gr[p] || 0, g); } }, 25); }, bar);
+    await q.waitForTimeout(ms); return Q(() => ({pk: window.__mx, gr: window.__gr})); };
+  const m = await listen(32);
+  check('playing through the desk: every track playing in the section heard, the master within full scale and well up', ['t0', 't1', 't2', 't3', 't5'].every(k => m.pk[k] > .003) && m.pk.master > .3 && m.pk.master <= 1.0001,
+    Object.entries(m.pk).map(([k, v]) => `${k} ${(20*Math.log10(v + 1e-9)).toFixed(1)}`).join(', '));
+  check('the kick keys the sidechain: the bass and the chords turned down on its hits, the buses\' compressors working', m.gr['t3-sidechain'] > 3 && m.gr['t4-sidechain'] > 3 && m.gr['drums-glue'] > .5,
+    ['t3-sidechain', 't4-sidechain', 'drums-glue', 'bus-glue'].map(k => `${k} ${(m.gr[k] || 0).toFixed(1)}`).join(', '));
+  // Straight: every channel and bus bypassed at the loudness the mix gives it
+  await q.click('#engAB'); const st = await listen(32, 3000); await q.click('#engAB');
+  check('Straight: the processors out, still heard at about the same loudness', st.pk.master > .2 && st.pk.master <= 1.0001 && /straight/.test(await Q(() => document.getElementById('engAB').textContent)) === false,
+    `master ${(20*Math.log10(st.pk.master)).toFixed(1)} dB against ${(20*Math.log10(m.pk.master)).toFixed(1)}`);
+  // the Mixer: its strips, a processor switched off and one added on the bass, kept with the song across a reload, undone
+  await Q(() => window.__daw.E.stop()); await q.keyboard.press('x'); await q.waitForTimeout(400);
+  const shown = await Q(() => ({on: window.__daw.MX.isOn(), n: document.querySelectorAll('#mxDesk .mxs').length}));
+  check('X opens the Mixer: a strip a track, the buses, the returns and the master bus', shown.on && shown.n === 12, JSON.stringify(shown));
+  await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click(); await q.locator('#mxChain .proc[data-key="saturate"] .pname').click();
+  await q.selectOption('#mxChain .padd select', 'tape'); await q.waitForTimeout(300);
+  const ch = await Q(() => { const T = window.__daw.ST.P.tracks[3], s = window.__daw.E.D.strips.find(x => x.id === 't3'); return {mine: T.desk?.chain?.map(c => c.key + (c.on === false ? '-off' : '')), desk: s.chain.map(c => c.key + (c.on === false ? '-off' : ''))}; });
+  check('on the bass: Saturation switched off and Tape added, kept on the track and on the desk', ch.mine?.includes('saturate-off') && ch.mine?.includes('tape') && JSON.stringify(ch.mine) === JSON.stringify(ch.desk), JSON.stringify(ch));
+  await q.waitForTimeout(900); await q.reload(); await q.waitForTimeout(800);
+  const kept = await Q(() => window.__daw.ST.P.tracks[3].desk?.chain?.map(c => c.key + (c.on === false ? '-off' : '')));
+  check('the bass\'s processors are kept across a reload', kept?.includes('saturate-off') && kept?.includes('tape'), JSON.stringify(kept));
+  await Q(() => { window.__daw.E.init(); }); await q.waitForFunction(() => window.__daw.E.deskNode, null, {timeout: 8000});
+  await q.keyboard.press('x'); await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click();
+  await q.locator('#mxChain .proc[data-key="tape"] .pmove button[aria-label^="Take out"]').click(); await q.keyboard.press('Meta+z'); await q.waitForTimeout(200);
+  check('taking a processor out is undone', (await Q(() => window.__daw.ST.P.tracks[3].desk?.chain?.map(c => c.key)))?.includes('tape'));
+  // a fader on the Mixer is the track's level; a bus's fader is kept on the song
+  await Q(() => { const r = document.querySelector('#mxDesk .mxs[data-strip="t1"] .fdr input'); r.value = -4; r.dispatchEvent(new Event('input')); const b = document.querySelector('#mxDesk .mxs[data-strip="drums"] .fdr input'); b.value = -3; b.dispatchEvent(new Event('input')); });
+  check('a track\'s fader on the Mixer is its level; a bus\'s is kept with the song', await Q(() => window.__daw.ST.P.tracks[1].mix.vol === -4 && window.__daw.ST.P.desk?.drums?.level === -3));
+  // a track added gets a strip by its role (the sidechain on, listening to the kick); taken away, its strip goes
+  await Q(() => { const {ST} = window.__daw; ST.sel.track = 3; }); await q.locator('#addTrk').click(); await q.locator('#pop button', {hasText: 'Bass'}).first().click(); await q.waitForTimeout(400);
+  const added = await Q(() => { const {E, ST} = window.__daw, T = ST.P.tracks[4], s = E.D.strips.find(x => x.id === T.id); return {n: E.D.strips.length, role: T.role, sc: s?.chain.find(c => c.key === 'sidechain'), mx: document.querySelectorAll('#mxDesk .mxs').length}; });
+  check('a bass track added gets its strip, its sidechain on and keyed by the kick, on the Mixer too', added.n === 14 && added.role === 'bass' && added.sc?.on !== false && added.sc?.params.key === 't0' && added.mx === 13, JSON.stringify(added));
+  await q.keyboard.press('Meta+z'); await q.waitForTimeout(300); check('undone, its strip goes', await Q(() => window.__daw.E.D.strips.length === 13));
+  // a song saved before the desk: its old three-band EQ carried over as an EQ, a duck of 0 as the sidechain off
+  const mig = await Q(() => { const {ST, E} = window.__daw, T = ST.P.tracks[4]; T.mix.lo = 3; T.mix.hi = -2; T.mix.duck = 0; delete T.desk; E.deskRefresh(); const s = E.D.strips.find(x => x.id === T.id);
+    return {eq: s.chain.find(c => c.id === T.id + '-eq0')?.params, sc: s.chain.find(c => c.key === 'sidechain')?.on}; });
+  check('an old song\'s EQ comes over as an EQ, its duck at 0 as the sidechain off', mig.eq?.lo === 3 && mig.eq?.hi === -2 && mig.sc === false, JSON.stringify(mig));
+  // the analog synth: in the sound panel under its own synth, on the bass played live, a knob heard at once
+  const lib = await Q(() => { const {SND, SB} = window.__daw, ids = Object.keys(SND).filter(k => SND[k].src?.asynth); return {n: ids.length, synth: ids.every(k => SB.synthOf(SND[k]) === 'asynth'), roles: [...new Set(ids.map(k => SND[k].role))].sort().join(' ')}; });
+  check('the analog synth\'s sounds are in the library under their own synth, for the bass, chords and leads', lib.n >= 18 && lib.synth && lib.roles === 'bass chords lead', JSON.stringify(lib));
+  const syn = await Q(async () => { const {ST, E} = window.__daw; ST.P.tracks[3].sound = 'a5-round'; E.refresh(); const a = E.ctx.createAnalyser(); a.fftSize = 2048; E.ch[3].inst.live.connect(a);
+    E.audition(3, 45, .9, 8); let pk = 0; for (let w = 0; w < 12; w++) { await new Promise(r => setTimeout(r, 60)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) pk = Math.max(pk, Math.abs(v)); }
+    E.live(3, {asynth: 'cut'}, 90); return {engine: E.ch[3].inst.engine, live: E.isLive(3), pk, cut: E.ch[3].inst.full.cut}; });
+  check('an analog synth sound on the bass plays live, and a knob turned reaches it', syn.engine === 'asynth' && syn.live && syn.pk > .01 && syn.cut === 90, JSON.stringify(syn));
+  const drawn = await Q(async () => { const b = await window.__daw.E.render(3, 'a5-juno', 57, .85, 4); let pk = 0; if (b) for (const v of b.getChannelData(0)) pk = Math.max(pk, Math.abs(v)); return {len: b?.duration, pk}; });
+  check('a note of it drawn for the instrument view (rendered by the analog synth)', drawn.len > 2 && drawn.pk > .01, JSON.stringify(drawn));
+  await q.close(); }
+
 // the drum playground (studio/drums/, built into studio/listen/drum-lab.html): every beat on every analog kit heard,
 // the swap alternating the analog kit and its browser copy every two bars, a step clicked on, a knob turned and kept
 { const q = await browser.newPage({viewport: {width: 1280, height: 900}}); q.on('pageerror', e => { failed = true; console.log('FAIL playground page error:', e.message); });

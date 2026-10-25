@@ -14,7 +14,7 @@ import { AnalogSynth } from '../native/asynth.js';
 import { AnalogKit } from '../native/analogkit.js';
 import { Natives } from './natives.js';
 import { Chain, PROCS } from './procs.js';
-import { fromDb, svf } from './dsp.js';
+import { fromDb } from './dsp.js';
 
 export const INSTS = {
   kit: {label: 'Analog drum machine', make: (sr, d) => { const K = new AnalogKit(sr, 11); K.load(d.kit || 'Analog 808', d.over || {}); return K; }},
@@ -59,7 +59,7 @@ export class Host {
     }
     this.note(m); if (m.t == null) this.play(m); else { this.ev.push(m); this.ev.sort((a, b) => a.t - b.t); } }
   // a strip's settings (its fader, pan, sends, mute, its part's tone `lp`), now or at a time
-  strip(m){ const s = this.by[m.id]; if (!s) return; Object.assign(s, m.set); if ('lp' in m.set) s.lpf = null; if ('out' in m.set || 'sends' in m.set) this.order(); }
+  strip(m){ const s = this.by[m.id]; if (!s) return; Object.assign(s, m.set); if ('out' in m.set || 'sends' in m.set) this.order(); }
   // the timeline: every hit and note as it's given (ahead of when it sounds), a note's end when its off arrives
   note(m){ if (!m.src || !['hit', 'on', 'off'].includes(m.type)) return; const T = this.tl[m.src] ||= {hits: [], notes: []}, t = m.t ?? this.now;
     if (m.type === 'hit') T.hits.push({t, voice: m.voice, vel: m.vel ?? 1});
@@ -68,13 +68,15 @@ export class Host {
   play(m){ if (m.type === 'strip') return this.strip(m); const o = this.src[m.src]?.obj; if (!o) return;
     if (m.type === 'hit') o.on(m.voice, m.vel); else if (m.type === 'on') o.on(m.id, m.n, m.vel, m); else if (m.type === 'off') o.off(m.id); else if (m.type === 'set') o.set(m); }
   // a block: the events at their samples, the graph between them
-  process(L, R, n, now){ let a = 0; const sr = this.sr; this.now = now;
+  // ins: the node's own inputs this block, [[L, R], …] (a strip's `{ext: i}`: the DAW's tracks, played by their own nodes)
+  process(L, R, n, now, ins){ let a = 0; const sr = this.sr; this.now = now; this.ins = ins;
     // (what's more than a few seconds gone is forgotten)
     if ((this.prune = (this.prune || 0) + 1) % 64 === 0) for (const T of Object.values(this.tl)) { T.hits = T.hits.filter(h => h.t > now - 4); T.notes = T.notes.filter(x => x.off > now - 4); }
     while (this.ev.length && this.ev[0].t < now + n/sr) { const m = this.ev.shift(), j = Math.max(a, Math.min(n, Math.round((m.t - now)*sr))); if (j > a) { this.graph(L, R, a, j); a = j; } this.play(m); }
     if (a < n) this.graph(L, R, a, n); }
   graph(L, R, a, b){ const n = b - a, env = {period: this.period, now: this.now + a/this.sr, sr: this.sr, tl: this.tl, keys: {}};
-    for (const s of this.st) { s.inp[0].fill(0, 0, n); s.inp[1].fill(0, 0, n); }
+    for (const s of this.st) { s.inp[0].fill(0, 0, n); s.inp[1].fill(0, 0, n);
+      const x = s.input?.ext != null && this.ins?.[s.input.ext]; if (x) { const [xl, xr] = x; if (xl) for (let j = 0; j < n; j++) { s.inp[0][j] = xl[a + j]; s.inp[1][j] = (xr || xl)[a + j]; } } }
     // the instruments: a kit's pads each into its strip, anything else whole into its strip
     for (const [id, src] of Object.entries(this.src)) { const o = src.obj, mine = this.st.filter(s => s.input?.src === id);
       if (!mine.length) continue;
@@ -84,7 +86,7 @@ export class Host {
     const solo = this.st.some(s => s.solo && s.input);
     for (const s of this.run_) { const [l, r] = s.inp;
       // the part's own tone, as its song set it (a low-pass before its processors, heard bypassed too)
-      if (s.lp > 0 && s.lp < 18000) { if (!s.lpf || s.lpf.f !== s.lp) { s.lpf = {f: s.lp, l: svf(s.lp, .9, this.sr), r: svf(s.lp, .9, this.sr)}; } const fl = s.lpf.l, fr = s.lpf.r; for (let j = 0; j < n; j++) { l[j] = fl(l[j]).lp; r[j] = fr(r[j]).lp; } }
+      if (s.lp > 0) tone(s, l, r, n, this.sr);
       // the chain (or, bypassed, the dry signal at the chain's loudness), measured each block
       let ein = 0, eout = 0; for (let j = 0; j < n; j++) ein += l[j]*l[j] + r[j]*r[j];
       if (s.bypass) { const [dl, dr] = s.dry; dl.set(l.subarray(0, n)); dr.set(r.subarray(0, n)); s.chain.run(dl, dr, 0, n, env); for (let j = 0; j < n; j++) eout += dl[j]*dl[j] + dr[j]*dr[j];
@@ -104,6 +106,16 @@ export class Host {
   // what the meters read: each strip's peak and loudness, and each compressor's reduction
   meters(){ const o = {}; for (const s of this.st) o[s.id] = {pk: s.pk, rms: Math.sqrt(s.ms), ratio: s.ratio, gr: Object.fromEntries(s.chain.list.filter(p => PROCS[p.key].meter).map(p => [p.id, p.on ? p.gr || 0 : 0]))}; return o; }
 }
+
+// a strip's own tone, a low-pass (two poles, the trapezoidal state-variable form) whose cutoff glides to where it's set
+// (over `lpGlide` seconds, 30 ms unless said), so a section's ramp or a pulse on every beat moves it without a click;
+// wide open past 18 kHz it's left out
+function tone(s, l, r, n, sr){ const f = s.lpf ||= {f: Math.min(20000, s.lp), z: [0, 0, 0, 0]}, to = Math.min(20000, s.lp);
+  f.f = to + (f.f - to)*Math.exp(-n/(Math.max(.002, s.lpGlide ?? .03)*sr)); if (Math.abs(f.f - to) < .5) f.f = to; if (f.f >= 18000 && to >= 18000) { f.z.fill(0); return; }
+  const g = Math.tan(Math.PI*Math.min(f.f, sr*.45)/sr), k = 1/.9, a1 = 1/(1 + g*(g + k)), a2 = g*a1, a3 = g*a2, z = f.z;
+  for (let c = 0; c < 2; c++) { const X = c ? r : l; let s1 = z[2*c], s2 = z[2*c + 1];
+    for (let j = 0; j < n; j++) { const v3 = X[j] - s2, v1 = a1*s1 + a2*v3, v2 = s2 + a2*s1 + a3*v3; s1 = 2*v1 - s1; s2 = 2*v2 - s2; X[j] = v2; }
+    z[2*c] = s1; z[2*c + 1] = s2; } }
 
 // a description rendered offline: the events [{t, …}] (seconds), for tests and drawings; prep(H) before it plays (to
 // ask a processor for its trace: what it did, sample by sample)

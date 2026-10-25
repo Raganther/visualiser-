@@ -5,6 +5,7 @@
 // envelopes, or a drum kit voice by voice. Changing a sound from the library makes your own copy (Your sounds), kept with
 // the song and in your library, which Claude reads; and a sound can be asked of Claude in words.
 import { INST, defaultOf } from '../lib/native/knobs.js';
+import { PARAMS as APARAMS_S, DEF as ADEF } from '../lib/native/asynth.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { nativeSet } from '../jam/model.js';
 import { PARAMS as POLY, PRESETS as POLYP, DEF as POLYD } from '../lib/native/npoly.js';   // (the native poly synth's: the browser-built one's settings, and its drift and filter drive)
@@ -16,13 +17,14 @@ const PADS = ['addpad', 'breath', 'grainpad', 'formant'], BOWED = ['bowed', 'bow
 const DRUMISH = ['kick', 'tom', 'hand', 'hat', 'hihat', 'hat808', 'shaker', 'twig', 'leaf', 'insect', 'click', 'stone', 'drop', 'kround', 'kdub', 'ktight', 'kdeep', 'wood', 'rim', 'bamboo', 'logdrum', 'bowl', 'gong', 'plate', 'glass'];
 const NOTPITCHED = ['kick', 'hat', 'hihat', 'hat808', 'shaker', 'twig', 'leaf', 'insect', 'kround', 'kdub', 'ktight', 'kdeep'];
 // the families, in the order the library shows them
-export const FAMS = ['Your sounds', 'Struck: mallets, bells and bars', 'Plucked', 'Bowed and rubbed', 'FM', 'Analog circuits', 'Pads and breath', 'Poly synth', 'Analog drum machine', 'Drum machine', 'Acoustic drums (modelled)', 'Nature'];
+export const FAMS = ['Your sounds', 'Struck: mallets, bells and bars', 'Plucked', 'Bowed and rubbed', 'FM', 'Analog circuits', 'Pads and breath', 'Analog synth', 'Poly synth', 'Analog drum machine', 'Drum machine', 'Acoustic drums (modelled)', 'Nature'];
 const nativeOf = s => s.src ? s.src.native || NATIVE_OF[s.src.palette] || null : null;
 // the synthesizers: each an engine with its own settings, its sounds the presets made on it (and your own copies of them)
 export const SYNTHS = [
   ['resonator', 'Resonator', 'Struck and rubbed objects: bars, tines, bells, bowls, gongs, glass. A set of resonances that ring.'],
   ['fm', 'FM', 'One sine bending another: glassy, round and plucked basses, bells.'],
   ['analog', 'Analog', 'A subtractive analog voice, computed sample by sample: gated and dub chords, stabs, pads, subs, plucks.'],
+  ['asynth', 'Analog Synth', 'Our own analog synth: two band-limited oscillators with sync and cross-mod, a sub, noise and ring mod, a ladder or state-variable filter, eight drifting voice cards, unison, chorus and tape echo.'],
   ['poly', 'Poly Synth', 'The live analog poly synth: two oscillators or a supersaw, drifting, through a ladder filter.'],
   ['string', 'String', 'Strings, plucked and bowed.'],
   ['pads', 'Pads', 'Additive, breath, grain and formant pads: sounds that bloom.'],
@@ -36,14 +38,14 @@ const SYNTH_OF = n => !n ? null : n.startsWith('fm') ? 'fm' : /^k(round|dub|tigh
   : PADS.includes(n) ? 'pads' : n === 'pluck' || n === 'bowed' ? 'string' : ['kick', 'tom', 'hand'].includes(n) ? 'skin' : ['hihat', 'hat', 'hat808', 'shaker'].includes(n) ? 'cymbal'
   : NATURE.includes(n) && n !== 'bamboo' ? 'nature' : 'resonator';
 // the synthesizer a sound is made on (a drum sound: its first voice's)
-export function synthOf(s){ if (s.voices) { const v = Object.values(s.voices)[0]; return v.kit ? (ANALOG_KITS[v.kit] ? 'akit' : 'kit') : SYNTH_OF(v.native); } return SYNTH_OF(nativeOf(s)) || 'poly'; }
+export function synthOf(s){ if (s.src?.asynth) return 'asynth'; if (s.voices) { const v = Object.values(s.voices)[0]; return v.kit ? (ANALOG_KITS[v.kit] ? 'akit' : 'kit') : SYNTH_OF(v.native); } return SYNTH_OF(nativeOf(s)) || 'poly'; }
 export function famOf(s){ if (s.mine) return FAMS[0];
   if (s.voices) { const vs = Object.values(s.voices); if (vs.every(v => v.kit)) return vs.some(v => ANALOG_KITS[v.kit]) ? 'Analog drum machine' : 'Drum machine'; if (vs.some(v => NATURE.includes(v.native))) return 'Nature';
     if (vs.some(v => ANALOG.test(v.native || ''))) return 'Analog circuits'; return 'Acoustic drums (modelled)'; }
-  const n = nativeOf(s); if (!n) return 'Poly synth'; if (n.startsWith('fm')) return 'FM'; if (ANALOG.test(n)) return 'Analog circuits'; if (PADS.includes(n)) return 'Pads and breath';
+  if (s.src.asynth) return 'Analog synth'; const n = nativeOf(s); if (!n) return 'Poly synth'; if (n.startsWith('fm')) return 'FM'; if (ANALOG.test(n)) return 'Analog circuits'; if (PADS.includes(n)) return 'Pads and breath';
   if (BOWED.includes(n)) return 'Bowed and rubbed'; if (n === 'pluck') return 'Plucked'; if (NATURE.includes(n)) return 'Nature'; return FAMS[1]; }
 export function engineOf(s){ if (s.voices) { const vs = Object.values(s.voices), k = vs.find(v => v.kit); return k ? (ANALOG_KITS[k.kit] ? `${k.kit} drum machine (analog)` : `${k.kit} drum machine`) : [...new Set(vs.map(v => INST[v.native]?.label.replace(/ \(.*\)/, '') || v.native))].slice(0, 3).join(', '); }
-  const n = nativeOf(s); return n ? INST[n]?.label || n : `Poly synth: ${PAL[s.src.palette]?.[0] || s.src.palette}`; }
+  if (s.src.asynth) return 'Analog synth'; const n = nativeOf(s); return n ? INST[n]?.label || n : `Poly synth: ${PAL[s.src.palette]?.[0] || s.src.palette}`; }
 // what the analog machine's Character turns on each voice
 const VX = {kick: 'Boom → punch', snare: 'Snappy', clap: 'Spread', rim: 'Ring', clave: 'Ring', chh: 'Metal', ohh: 'Metal', ride: 'Bell', crash: 'Metal', tomL: 'Ring', tomH: 'Ring', cow: 'Ring', shaker: 'Swell'};
 const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -153,6 +155,11 @@ export function makeSounds(A){
         ...PS.map(p => ({key: p.key, label: p.key === 'x' ? (an && VX[kv] || 'Character') : p.label, min: p.min, max: p.max, step: p.unit === 'st' ? 1 : .01, log: !!p.log, value: P[p.key] ?? p.def, def: p.def, fmt: fmtOf(p.unit === 'st' ? 1 : .01),
           live: v => E.live(ti, {kit: vo, key: p.key}, v), write: W((w, v) => { w.over = {...w.over}; w.over[kv] = {...w.over[kv]}; if (v === undefined) delete w.over[kv][p.key]; else w.over[kv][p.key] = v; })}))]}]}; }
     const T = track(), [lo, hi] = trackRange(T), mid = Math.round((lo + hi)/2), note = {s: 0, p: mid, l: 4, v: .85}, n = nativeOf(s);
+    // the analog synth: its settings as the Synth Lab lays them out, your changes over its patch (heard as they turn)
+    if (s.src.asynth) { const base = {...ADEF, ...s.src.asynth, ...s.src.knobs};
+      return {id, s, kind: 'asynth', values: base, note, groups: APARAMS_S.map(([group, ps]) => ({name: group, items: ps.map(p => ({key: p.key, label: p.label, list: p.list && p.list.map((t, i) => [i, t]), min: p.min, max: p.max, log: !!p.log,
+        step: p.step || (p.list ? 1 : p.max - p.min > 50 ? 1 : .01), value: base[p.key] ?? p.def, def: s.src.asynth[p.key] ?? p.def, unit: p.unit, fmt: v => polyFmt(p, v),
+        live: v => E.live(ti, {asynth: p.key}, v), write: (d, v) => { d.src = {...d.src, knobs: {...d.src.knobs}}; if (v === undefined) delete d.src.knobs[p.key]; else d.src.knobs[p.key] = p.list ? +v : v; }}))}))}; }
     if (n) return {id, s, kind: 'native', native: n, note, groups: [
       {name: 'Instrument', items: [{key: 'native', label: 'Instrument', list: instOpts(Object.keys(INST).filter(k => !NOTPITCHED.includes(k))), value: n, write: (d, v) => { d.src = {native: v, shift: d.src.shift || 0}; }},
         {key: 'shift', label: 'Octave', min: -3, max: 3, step: 1, value: Math.round((s.src.shift || 0)/12), def: 0, fmt: v => (v > 0 ? '+' : '') + Math.round(v), write: (d, v) => { d.src = {...d.src, shift: 12*(v ?? 0)}; }}]},
