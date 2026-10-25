@@ -525,19 +525,31 @@ const other = await D(() => window.__daw.ST.id); check('the picker opens another
   await q.click('#engAB'); const st = await listen(32, 3000); await q.click('#engAB');
   check('Straight: the processors out, still heard at about the same loudness', st.pk.master > .2 && st.pk.master <= 1.0001 && /straight/.test(await Q(() => document.getElementById('engAB').textContent)) === false,
     `master ${(20*Math.log10(st.pk.master)).toFixed(1)} dB against ${(20*Math.log10(m.pk.master)).toFixed(1)}`);
-  // the Mixer: its strips, a processor switched off and one added on the bass, kept with the song across a reload, undone
+  // the lighter start: each track only what does a clear job (the bass and chords a low cut and the sidechain, the leads
+  // a low cut, a pad its input gain alone); Claude's full chain one click away, and back
+  const lite = await Q(() => { const {E} = window.__daw, c = id => E.D.strips.find(x => x.id === id).chain.map(x => x.key).join(); return {bass: c('t3'), chords: c('t4'), lead: c('t5'), kick: c('rack/kick'), chh: c('rack/chh')}; });
+  check('the lighter start: the bass and chords a low cut and the sidechain, the lead a low cut, each drum its input gain alone', lite.bass === 'trim,cut,sidechain' && lite.chords === 'trim,cut,sidechain' && lite.lead === 'trim,cut' && lite.kick === 'trim' && lite.chh === 'trim', JSON.stringify(lite));
+, kept with the song across a reload, undone
   await Q(() => window.__daw.E.stop()); await q.keyboard.press('x'); await q.waitForTimeout(400);
   const shown = await Q(() => ({on: window.__daw.MX.isOn(), n: document.querySelectorAll('#mxDesk .mxs').length}));
   check('X opens the Mixer: a strip a track (the drum rack’s and its kit’s fifteen pads), the buses, the returns and the master bus', shown.on && shown.n === 25, JSON.stringify(shown));
   await q.locator('#mxDesk .mxs[data-strip="rack"] .pads').click(); const shut = await Q(() => document.querySelectorAll('#mxDesk .mxs').length); await q.locator('#mxDesk .mxs[data-strip="rack"] .pads').click();
   check('the rack’s ▾ Pads folds its pads away and opens them again', shut === 10 && await Q(() => document.querySelectorAll('#mxDesk .mxs[data-kind="pad"]').length) === 15, shut);
-  await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click(); await q.locator('#mxChain .proc[data-key="saturate"] .pname').click();
+  await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click(); await q.locator('#mxChain .proc[data-key="cut"] .pname').click();
   await q.selectOption('#mxChain .padd select', 'tape'); await q.waitForTimeout(300);
   const ch = await Q(() => { const T = window.__daw.ST.P.tracks[1], s = window.__daw.E.D.strips.find(x => x.id === 't3'); return {mine: T.desk?.chain?.map(c => c.key + (c.on === false ? '-off' : '')), desk: s.chain.map(c => c.key + (c.on === false ? '-off' : ''))}; });
-  check('on the bass: Saturation switched off and Tape added, kept on the track and on the desk', ch.mine?.includes('saturate-off') && ch.mine?.includes('tape') && JSON.stringify(ch.mine) === JSON.stringify(ch.desk), JSON.stringify(ch));
+  check('on the bass: its Low cut switched off and Tape added, kept on the track and on the desk', ch.mine?.includes('cut-off') && ch.mine?.includes('tape') && JSON.stringify(ch.mine) === JSON.stringify(ch.desk), JSON.stringify(ch));
+  // Claude's full chain on the lead, and back to the lighter start
+  const lvl0 = await Q(() => window.__daw.E.D.strips.find(x => x.id === 't5').level);
+  await q.locator('#mxDesk .mxs[data-strip="t5"] .sname').click(); await q.click('#mxFull'); await q.waitForTimeout(200);
+  const full = await Q(() => { const {ST, E} = window.__daw, T = ST.P.tracks[3]; return {mine: T.desk?.chain?.map(c => c.key).join(), full: T.desk?.full, desk: E.D.strips.find(x => x.id === 't5').chain.map(c => c.key).join()}; });
+  await q.click('#mxReset'); await q.waitForTimeout(200);
+  const back = await Q(() => { const {ST, E} = window.__daw; return {chain: E.D.strips.find(x => x.id === 't5').chain.map(c => c.key).join(), level: E.D.strips.find(x => x.id === 't5').level, full: ST.P.tracks[3].desk?.full}; });
+  check('Claude’s full chain loads the lead’s EQ and compressor; Back to the desk’s returns to its low cut alone, its level as it was', full.full && /eq/.test(full.mine) && /glue/.test(full.mine) && full.mine === full.desk && back.chain === 'trim,cut' && !back.full && back.level === lvl0, JSON.stringify({full, back, lvl0}));
+  await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click();
   await q.waitForTimeout(900); await q.reload(); await q.waitForTimeout(800);
   const kept = await Q(() => window.__daw.ST.P.tracks[1].desk?.chain?.map(c => c.key + (c.on === false ? '-off' : '')));
-  check('the bass\'s processors are kept across a reload', kept?.includes('saturate-off') && kept?.includes('tape'), JSON.stringify(kept));
+  check('the bass\'s processors are kept across a reload', kept?.includes('cut-off') && kept?.includes('tape'), JSON.stringify(kept));
   await Q(() => { window.__daw.E.init(); }); await q.waitForFunction(() => window.__daw.E.deskNode, null, {timeout: 8000});
   await q.keyboard.press('x'); await q.locator('#mxDesk .mxs[data-strip="t3"] .sname').click();
   await q.locator('#mxChain .proc[data-key="tape"] .pmove button[aria-label^="Take out"]').click(); await q.keyboard.press('Meta+z'); await q.waitForTimeout(200);

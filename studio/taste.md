@@ -165,3 +165,7 @@ before writing or changing a piece; add to it when they react.
   order, a master track all tracks go through. Asked where the drum kit's own compressor goes in a rack: it's the
   rack's, once over the whole kit (it had ended up on each drum alone), shown beside the instrument with anything
   added after it; the drum bus no longer compresses a rack a second time.
+- 2026-10-25: Seeing an EQ and a compressor on every track (two compressors on the kick), the user asked if that much
+  processing is normal. A desk-style "Claude's mix" on everything is more than a minimal track needs; they chose a
+  lighter start: only what does a clear job (low cuts, the sidechain under the kick, the kit's one glue), the full
+  chains one click away. Prefer fewer, purposeful processors.

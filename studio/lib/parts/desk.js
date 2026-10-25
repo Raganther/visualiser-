@@ -18,9 +18,22 @@ export const CH = {
   lead: key => [pr('cut', {freq: 180}), pr('eq', {mid: -2, midF: 450, q: 1, hi: 1, hiF: 7000}), pr('glue', {thr: -18, ratio: 2, att: 8, rel: 120}),
     pr('sidechain', {key, thr: -30, ratio: 4, att: 1, rel: 180, range: 3})],
 };
+// the lighter start the Studio DAW gives each role (as Ableton starts a track empty): only what does a clear job, a low
+// cut where a part's low end would muddy the bass and kick, and the bass's and chords' sidechain under the kick; the
+// full chains above (Claude's mix) one click away. The same processor ids, so a saved chain and the meters line up
+export const LIGHT = {
+  kick: () => [], drums: () => [],
+  hats: () => [pr('cut', {freq: 350})],
+  perc: () => [pr('cut', {freq: 100})],
+  bass: key => [pr('cut', {freq: 32}), pr('sidechain', {key, thr: -30, ratio: 8, att: .5, rel: 140, range: 9})],
+  chords: key => [pr('cut', {freq: 160}), pr('sidechain', {key, thr: -30, ratio: 6, att: 1, rel: 260, range: 7})],
+  lead: () => [pr('cut', {freq: 180})],
+};
 // how much louder a role's processors leave it, as measured over round 4's songs (studio/mix/levels.js): where a sound
 // hasn't been measured in its song, its fader takes this back off
 export const ROLE_CAL = {kick: 1.6, hats: -1, perc: -1.5, bass: -5, chords: -7, lead: -4.3};
+// and the lighter start's (measured the same way by studio/arrange/light-cal.mjs: each song's parts within about a dB)
+export const ROLE_CAL_LIGHT = {kick: 0, drums: 0, hats: .1, perc: -.5, bass: -3.4, chords: -4.3, lead: -.6};
 // the buses, the returns, the master bus and the out
 export const BUS = {
   drums: () => [pr('glue', {thr: -16, ratio: 2.5, att: 10, rel: 120, makeup: 1, mix: .7}), pr('tape', {drive: .2})],
@@ -32,8 +45,9 @@ export const BUS = {
 // a part's sends as its section sets them: the echo and the room, by its space, after the fader
 export const sendsOf = s => ({echo: s.echo ? +db((s.y ?? .3)*.5).toFixed(1) : -60, room: s.verb ? +db((s.y ?? .3)*.75).toFixed(1) : -60});
 // a channel strip for a part: its role's processors after its input gain
-export function channel({id, label, role, input, key = 'kick', gain = 0, level = 0, pan = 0, sends = {}, ...x}){
-  return {id, label, role, input, chain: [pr('trim', {gain}), ...(CH[role] || CH.lead)(key)], level, pan, out: DRUMS.includes(role) ? 'drums' : 'music', sends, ...x}; }
+export function channel({id, label, role, input, key = 'kick', gain = 0, level = 0, pan = 0, sends = {}, light = false, ...x}){
+  const C = light ? LIGHT : CH;
+  return {id, label, role, input, chain: [pr('trim', {gain}), ...(C[role] || C.lead)(key)], level, pan, out: DRUMS.includes(role) ? 'drums' : 'music', sends, ...x}; }
 // the buses, returns, master bus and out
 export const buses = key => [
   {id: 'drums', label: 'Drum bus', bus: true, input: null, chain: BUS.drums(), level: 0, out: 'bus'},

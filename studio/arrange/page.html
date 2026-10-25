@@ -48,7 +48,7 @@ select{background:var(--panel2); border:1px solid var(--line); border-radius:7px
 .kn-list{display:flex; flex-direction:column; gap:3px; padding:2px 4px} .kn-list.wide{min-width:150px} .kn-list select{min-height:26px; padding:2px 6px; font-size:12px}
 .seg{display:flex; flex-wrap:wrap; gap:2px} .seg button{min-height:24px; padding:0 6px; font-size:11px; border-radius:5px}
 .ifx{flex:none; display:flex; flex-direction:column; gap:4px; background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:9px; padding:6px 8px; min-height:0}
-.ifx h3{margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute)} .ifx p{margin:0}
+.ifx .ifull{margin-left:8px; min-height:22px; padding:0 7px; font-size:11px} .ifx h3{margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute)} .ifx p{margin:0}
 .ifx .chain{flex:1; min-height:0; display:flex; gap:6px; align-items:stretch} .ifx .proc{width:190px; overflow-y:auto; color:var(--ink)} .ifx .pwords{display:none} .ifx .padd{align-self:start}
 #iKeys{flex:none; height:64px; display:flex; gap:8px; align-items:stretch}
 .koct{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px} .koct button{min-height:22px; padding:0 8px}
@@ -132,7 +132,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
   </div>
   <div id="mixer" hidden>
     <div id="mxDesk" aria-label="The desk"></div>
-    <div class="mxedit"><div class="ihead"><b id="mxName"></b><span class="small muted" id="mxWords"></span><span class="spacer"></span><button id="mxReset" hidden title="Its processors as the desk set them">Back to the desk’s</button></div>
+    <div class="mxedit"><div class="ihead"><b id="mxName"></b><span class="small muted" id="mxWords"></span><span class="spacer"></span><button id="mxFull" hidden title="An EQ and a compressor, as the Mix Lab mixes it">Claude’s full chain</button><button id="mxReset" hidden title="Its processors as the desk starts them: the lighter start">Back to the desk’s</button></div>
       <div id="mxChain" class="chain"></div></div>
   </div>
 </section></div>
