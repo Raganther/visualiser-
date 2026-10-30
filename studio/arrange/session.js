@@ -54,7 +54,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
   /* ---------- playing: the engine asks at each bar line and each 16th ---------- */
   E.session = null;
   const hook = {
-    bar(k){ const P = ST.P, Sx = S(); if (!Sx) return;
+    bar(k, t){ const P = ST.P, Sx = S(); if (!Sx) return; const moved = RT.nextScene != null || Object.keys(RT.next).length > 0;
       if (RT.nextScene != null) { RT.scene = RT.nextScene; RT.H = Sx.scenes[RT.scene]?.ground || RT.H; RT.hStart = k/16; RT.nextScene = null; }
       for (const [tid, r] of Object.entries(RT.next)) { if (r === 'stop') delete RT.play[tid]; else RT.play[tid] = {r, start: k}; } RT.next = {};
       RT.H ??= Sx.scenes[0]?.ground || DEEP;
@@ -62,7 +62,8 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
         cl.parts.forEach((part, j) => { for (const n of barNotes(part, RT.H, k/16 - RT.hStart, k, pl.start, (k*7919 + j*101 + i*13) >>> 0, lane)) {
           const s = Math.floor(n.s + 1e-6), at = k + s, p = isDrum(part.role) ? ren?.[part.k]?.[n.p] || n.p : n.p;
           if (!RT.notes.has(at)) RT.notes.set(at, new Map()); const m = RT.notes.get(at); if (!m.has(i)) m.set(i, []); m.get(i).push({p, l: n.l, v: n.v, off: n.s - s}); } }); });
-      A.onBar?.(); },
+      // (the grid shows the change when it's heard: the bar is scheduled a moment ahead of the speakers)
+      if (moved) setTimeout(render, Math.max(0, ((t ?? E.ctx.currentTime) - E.ctx.currentTime)*1000)); },
     at(k){ const m = RT.notes.get(k); RT.notes.delete(k); return m ? [...m.entries()] : []; } };
   function startPlaying(){ E.session = hook; RT.notes.clear(); A.playSession(); }
   // a clip launched: now when stopped (the transport starts), else on the next bar

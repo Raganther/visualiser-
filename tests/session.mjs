@@ -42,6 +42,14 @@ const other = await Q(() => { const {ST, SS} = window.__daw, S = ST.P.session; f
 await page.click(`#sessWrap .slot[data-t="0"][data-r="${other}"]`); const q0 = await Q(() => ({next: window.__daw.SS.RT.next.rack, step: window.__daw.E.slot}));
 await wait(2600); const q1 = await Q(() => window.__daw.SS.RT.play.rack);
 check('a clip launched while playing waits for the next bar line, then plays from it', q0.next === other && q1?.r === other && q1.start % 16 === 0 && q1.start > q0.step - 16, JSON.stringify({q0, q1}));
+// the grid shows it once it's heard: the clip lit as playing, nothing left flashing; and a scene queued further up (an
+// earlier one) takes over on its bar line, the grid with it
+const dom = () => Q(() => ({on: [...document.querySelectorAll('#sessWrap .slot[data-on="1"]')].map(b => b.dataset.t + ':' + b.dataset.r), next: document.querySelectorAll('#sessWrap [data-next="1"], #sessWrap [data-next="stop"]').length,
+  scene: document.querySelector('#sessWrap .scene[data-on="1"] b')?.textContent, rt: window.__daw.SS.RT.scene}));
+const d1 = await dom();
+await page.click('#sessWrap .scene .sgo >> nth=0'); await wait(200); const d2 = await dom(); await wait(2600); const d3 = await dom();
+const first = await Q(() => window.__daw.ST.P.session.scenes[0].name);
+check('the grid shows a launched clip playing once it is heard, and an earlier scene queued takes over on the bar line', d1.on.includes(`0:${other}`) && !d1.next && d2.next > 0 && d3.rt === 0 && d3.scene === first && !d3.next && d3.on.every(x => x.endsWith(':0')), JSON.stringify({d1, d2, d3}));
 await page.keyboard.press(' '); await wait(300);
 check('Space stops it', await Q(() => !window.__daw.E.playing));
 
