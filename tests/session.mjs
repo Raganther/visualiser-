@@ -56,7 +56,7 @@ check('the grid shows a launched clip playing once it is heard, and an earlier s
 const pc = await Q(() => { const b = document.querySelector('#sessWrap .slot[data-on="1"][data-has="1"]:not([data-t="0"])') || document.querySelector('#sessWrap .slot[data-on="1"]'); return [b.dataset.t, b.dataset.r]; });
 await page.click(`#sessWrap .slot[data-t="${pc[0]}"][data-r="${pc[1]}"] .cn`); await wait(400);
 const still = await Q(([t, r]) => window.__daw.SS.RT.play[window.__daw.ST.P.tracks[t].id]?.r === +r, pc);
-const walk = []; for (let i = 0; i < 10; i++) { walk.push(await Q(() => [...document.querySelectorAll('#clipPane .st')].findIndex(x => x.dataset.now === '1'))); await wait(120); }
+const walk = []; for (let i = 0; i < 10; i++) { walk.push(await Q(() => [...document.querySelectorAll('#clipPane .prow[data-sel="1"] .pcells i')].findIndex(x => x.dataset.now === '1'))); await wait(120); }
 const steps = walk.filter(x => x >= 0), moves = steps.filter((x, i) => i && x !== steps[i - 1]).length;
 check('a playing clip clicked is chosen, not stopped, and the Clip tab lights the step being heard as it plays', still && steps.length >= 8 && moves >= 5, JSON.stringify({still, walk}));
 await page.keyboard.press(' '); await wait(300);
@@ -65,15 +65,15 @@ check('Space stops it', await Q(() => !window.__daw.E.playing));
 // the Clip tab: a clip chosen, a rhythm tool and a notes tool change it, undo puts it back, a hit tapped in
 await page.click('#sessWrap .slot[data-t="1"][data-has="1"] >> nth=0'); await wait(200);
 const c0 = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks[SS.RT.sel.t]; return JSON.stringify(ST.P.session.cells[T.id][SS.RT.sel.r]); });
-await page.click('#clipPane .cmod >> nth=0 >> .tools button >> text=Develop'); await wait(150);
+await page.click('#clipPane .cmod >> nth=1 >> .tools button >> text=Develop'); await wait(150);
 const c1 = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks[SS.RT.sel.t]; return JSON.stringify(ST.P.session.cells[T.id][SS.RT.sel.r]); });
-await page.click('#clipPane .cmod >> nth=1 >> .tools button >> nth=1'); await wait(150);
+await page.click('#clipPane .cmod >> nth=2 >> .tools button >> nth=1'); await wait(150);
 const c2 = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks[SS.RT.sel.t]; return JSON.stringify(ST.P.session.cells[T.id][SS.RT.sel.r]); });
 await page.click('#clipPane .chead button >> text=Undo'); await page.click('#clipPane .chead button >> text=Undo'); await wait(150);
 const c3 = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks[SS.RT.sel.t]; return JSON.stringify(ST.P.session.cells[T.id][SS.RT.sel.r]); });
 check('the Clip tab\'s rhythm and notes tools change the chosen clip, and undo puts it back', c1 !== c0 && c2 !== c1 && c3 === c0, `${c0.length} → ${c1.length} → ${c2.length} → ${c3.length}`);
-const h0 = await page.$$eval('#clipPane .st[data-on]', s => s.filter(x => x.dataset.on).length); await page.click('#clipPane .st:not([data-on="1"]):not([data-on="2"]) >> nth=0'); await wait(150);
-const h1 = await page.$$eval('#clipPane .st[data-on]', s => s.filter(x => x.dataset.on).length);
+const h0 = await page.$$eval('#clipPane .prow[data-sel="1"] .pcells i', s => s.filter(x => x.dataset.on).length); await page.click('#clipPane .prow[data-sel="1"] .pcells i:not([data-on="1"]):not([data-on="2"]) >> nth=0'); await wait(150);
+const h1 = await page.$$eval('#clipPane .prow[data-sel="1"] .pcells i', s => s.filter(x => x.dataset.on).length);
 await page.keyboard.press('p'); await wait(100); const life = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks[SS.RT.sel.t]; return ST.P.session.cells[T.id][SS.RT.sel.r].parts[0].play; });
 check('a step tapped in adds a hit, and P turns Life up', h1 === h0 + 1 && life >= 1, `${h0} → ${h1} hits, Life ${life}`);
 
@@ -102,7 +102,7 @@ const al = await Q(() => { const {ST} = window.__daw, T = ST.P.tracks.find(T => 
 await Q(id => window.__daw.openEd(id, true), al.id); await page.click('#tabClip'); await page.click('#clipMode button[data-m="steps"]'); await wait(200);
 if (!al.live) { await page.click('#clipPane button:has-text("Make live")'); await wait(300); }
 const ar = await Q(id => { const {ST} = window.__daw, T = ST.P.tracks.find(T => T.clips.some(c => c.id === id)), cl = T.clips.find(c => c.id === id);
-  return {live: !!cl.parts?.length, notes: cl.notes.length, steps: document.querySelectorAll('#clipPane .steps .st').length, tools: document.querySelectorAll('#clipPane .tools button').length, pane: !document.getElementById('clipPane').hidden}; }, al.id);
+  return {live: !!cl.parts?.length, notes: cl.notes.length, steps: document.querySelectorAll('#clipPane .prow .pcells i').length, tools: document.querySelectorAll('#clipPane .tools button').length, pane: !document.getElementById('clipPane').hidden}; }, al.id);
 check('in the Arrangement a clip opens in the Clip tab as Steps with the jam\'s tools, and Make live has it follow the chords (its notes worked out)', ar.live && ar.notes > 0 && ar.steps >= 16 && ar.tools > 4 && ar.pane, JSON.stringify(ar));
 await page.click('#clipMode button[data-m="roll"]'); await wait(200);
 const roll = await Q(() => ({roll: !document.getElementById('edWrap').hidden, pane: !document.getElementById('clipPane').hidden, live: document.getElementById('edLive').textContent}));
@@ -128,7 +128,7 @@ const pb = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.sce
 check('a copy changed in the Session says so (the slot, the scene\'s ↩ Put back, the Clip tab), and Put back writes it into its bars of the song', chg0 === 0 && chg.tags === 1 && chg.back >= 1 && chg.clipBack && pb.tags === 0 && pb.over === 1 && pb.same && pb.span[0] === pb.f[0] && pb.span[1] === pb.f[1] - pb.f[0], JSON.stringify({chg0, chg, pb}));
 // Make live and Freeze in the Session too
 await page.click('#clipPane button:has-text("Make live")'); await wait(200);
-const sl = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, c = S.cells[ST.P.tracks[t].id][r]; return {live: !!c.parts?.length, steps: document.querySelectorAll('#clipPane .steps .st').length}; }, ci);
+const sl = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, c = S.cells[ST.P.tracks[t].id][r]; return {live: !!c.parts?.length, steps: document.querySelectorAll('#clipPane .prow .pcells i').length}; }, ci);
 await page.click('#clipPane button:has-text("Freeze")'); await wait(200);
 const sf = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, c = S.cells[ST.P.tracks[t].id][r]; return {live: !!c.parts?.length, notes: c.notes.length, rows: document.querySelectorAll('#clipPane .nsteps .nrow').length, cn: document.querySelector('#sessWrap .slot[data-sel="1"] .cn')?.textContent}; }, ci);
 check('in the Session Make live has a clip follow the chords, and Freeze makes it notes again (steps a pitch a row, ♪ in the grid)', sl.live && sl.steps >= 16 && !sf.live && sf.notes > 0 && sf.rows > 0 && /♪/.test(sf.cn), JSON.stringify({sl, sf}));
@@ -172,6 +172,25 @@ await page.click(`#clipPane .prow[data-j="${added.n - 1}"] .pm`); await wait(200
 await page.click(`#clipPane .prow[data-j="${added.n - 1}"] .px`); await wait(200);
 const gone = await Q(() => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks.find(T => T.role === 'drums').id][3].parts.length);
 check('M mutes a part (nothing from it heard) and ✕ takes it out of the clip', !muted.length && gone === p0.rows, JSON.stringify({muted: muted.length, gone}));
+// one sequencer for every instrument: ‹ › steps a part through the library's rhythms for its kind (only that part's rhythm
+// changes: its notes stay, and the other parts keep theirs); Shift-click accents a step; ＋ Part adds a second line on a
+// pitched instrument, heard with the first
+const lib0 = await Q(() => { const {ST} = window.__daw, c = ST.P.session.cells[ST.P.tracks.find(T => T.role === 'drums').id][3]; return c.parts.map(q => JSON.stringify([q.R.len, q.R.hits, q.N])); });
+await page.click('#clipPane .prow[data-j="1"] .pv >> nth=1'); await wait(200); await page.click('#clipPane .prow[data-j="1"] .pv >> nth=1'); await wait(200);
+const lib1 = await Q(() => { const {ST} = window.__daw, c = ST.P.session.cells[ST.P.tracks.find(T => T.role === 'drums').id][3]; return {parts: c.parts.map(q => JSON.stringify([q.R.len, q.R.hits, q.N])), lib: c.parts[1].lib, notes: JSON.stringify(c.parts[1].N)}; });
+await page.click('#clipPane .prow[data-j="1"] .pv >> nth=0'); await wait(200);
+const lib2 = await Q(() => { const {ST} = window.__daw; return ST.P.session.cells[ST.P.tracks.find(T => T.role === 'drums').id][3].parts[1].lib; });
+check('‹ › steps the hats through the library\'s hat rhythms (forward twice and back once), the other parts and the hats\' own drums kept', lib1.lib && lib2 && lib2 !== lib1.lib && lib1.parts[1] !== lib0[1] && lib1.parts[0] === lib0[0] && lib1.parts[2] === lib0[2] && JSON.stringify(JSON.parse(lib0[1])[2]) === lib1.notes, JSON.stringify({lib1: lib1.lib, lib2}));
+const acc = async () => Q(() => { const {ST} = window.__daw, q = ST.P.session.cells[ST.P.tracks.find(T => T.role === 'drums').id][3].parts[0]; return q.R.hits.find(x => x[0] === 0)?.[2]; });
+const a0 = await acc(); await page.click('#clipPane .prow[data-j="0"] .pcells i[data-s="0"]', {modifiers: ['Shift']}); await wait(200); const a1 = await acc();
+check('Shift-click on a step makes it an accent (or back)', a0 != null && a1 != null && (a0 > .8) !== (a1 > .8), JSON.stringify([a0, a1]));
+const bt = await Q(() => { const {ST, SS} = window.__daw, t = ST.P.tracks.findIndex(T => T.role === 'bass'); SS.select(t, 3); return t; }); await wait(200);
+await page.click('#clipPane .addp'); await wait(200);
+const line = await Q(t => { const {ST, SS} = window.__daw, S = ST.P.session, c = S.cells[ST.P.tracks[t].id][3]; SS.RT.mode = 'session'; SS.RT.play = {[ST.P.tracks[t].id]: {r: 3, start: 0}}; SS.RT.next = {}; SS.RT.H = S.scenes[3].ground; SS.RT.hStart = 0; SS.RT.notes.clear();
+  const at = new Set(); for (let k = 0; k < 64; k++) { if (k % 16 === 0) SS.hook.bar(k); for (const [j, list] of SS.hook.at(k)) if (j === t && list.length) at.add(k); }
+  SS.RT.play = {}; SS.RT.notes.clear(); const q = c.parts[1], want = []; for (let k = 0; k < 64; k++) if (q.R.hits.some(x => x[0] === k % q.R.len)) want.push(k);
+  return {n: c.parts.length, name: q.name, rows: document.querySelectorAll('#clipPane .prow').length, heard: want.filter(k => at.has(k)).length, want: want.length}; }, bt);
+check('＋ Part on the bass adds a second line ("Bass 2") with its own rhythm, its hits heard with the first line\'s', line.n === 2 && line.rows === 2 && line.name === 'Bass 2' && line.want > 0 && line.heard === line.want, JSON.stringify(line));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

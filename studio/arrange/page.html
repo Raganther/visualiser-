@@ -146,12 +146,12 @@ body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; 
 #backArr{color:var(--acc); border-color:#5a4a2a}
 button.nudge{animation:nudge .5s ease 2} @keyframes nudge{50%{box-shadow:0 0 0 3px var(--acc)}}
 /* a clip's parts, one under the other, each at its own length (a polyrhythm) */
-.cmod.parts{gap:4px} .prow{display:grid; grid-template-columns:104px 26px 1fr 26px 24px; gap:6px; align-items:center; border-radius:6px; padding:2px 4px}
+.cmod.parts{gap:4px} .prow{display:grid; grid-template-columns:104px 22px 22px 1fr 26px 26px 24px; gap:6px; align-items:center; border-radius:6px; padding:2px 4px}
 .prow[data-sel="1"]{background:#2a2f37; box-shadow:inset 3px 0 0 var(--acc)} .prow[data-mute="1"] .pcells{opacity:.3}
 .prow .pname{min-height:26px; padding:0 8px; text-align:left; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .prow[data-sel="1"] .pname{color:var(--acc); border-color:var(--acc)}
-.prow .pm,.prow .px{min-height:24px; min-width:24px; padding:0; font-size:11px} .prow .pm[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
-.pcells{display:grid; gap:2px} .pcells i{height:14px; border-radius:2px; background:#15171b} .pcells i[data-beat="1"]{background:#1d2026}
-.pcells i[data-on="1"]{background:var(--acc)} .pcells i[data-now="1"]{box-shadow:inset 0 0 0 2px #fff} .pcells i[data-now="1"][data-on="1"]{background:#fff}
+.prow .pv{min-height:24px; min-width:22px; padding:0; font-size:13px} .prow .pm,.prow .px{min-height:24px; min-width:24px; padding:0; font-size:11px} .prow .pm[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
+.pcells{display:grid; gap:2px; cursor:pointer} .pcells i{height:22px; border-radius:3px; background:#15171b} .pcells i[data-beat="1"]{background:#20242b} .pcells i:hover{outline:1px solid #5a606b}
+.pcells i[data-on="1"]{background:var(--acc); opacity:.7} .pcells i[data-on="2"]{background:var(--acc)} .pcells i[data-now="1"]{box-shadow:inset 0 0 0 2px #fff} .pcells i[data-now="1"][data-on]:not([data-on=""]){background:#fff; opacity:1}
 .plen{text-align:right; font-family:var(--mono)} .addp{min-height:26px; font-size:12.5px}
 body.phone #clipPane{display:none}
 /* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
