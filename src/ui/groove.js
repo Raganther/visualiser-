@@ -5,6 +5,11 @@ import { CONDS, GB, MAX, NOTES, PRESETS, VOICES, audition, clearPattern, copyPat
 import { KIT_NAMES, PARAMS, VOICES as KV } from '../audio/engine/inst/drums.js';
 import { el, knob, slider } from './widgets.js';
 import { toast } from './toast.js';
+import { takeKeys, claimKeys } from './playkeys.js';
+
+// the computer's keys as the drum rack's pads (with Keys on and the groovebox showing): the home row and the row below
+const DRUM_KEYS = {a: 'kick', s: 'snare', d: 'clap', f: 'rim', g: 'chh', h: 'ohh', j: 'ride', k: 'crash', z: 'tomL', x: 'tomH', c: 'cow', v: 'clave', b: 'shaker'};
+const KEY_OF = Object.fromEntries(Object.entries(DRUM_KEYS).map(([k, v]) => [v, k.toUpperCase()]));
 
 let box = null, cells = [], leds = [], pick = 'kick', page = 0, edit = false, sel = null, lane = 'bass', rollLo = 48, noteLen = 2, lastKey = '';
 const pct = v => Math.round(v*100) + '', SLOTS = 'ABCDEFGH', NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
@@ -15,6 +20,7 @@ export function buildGroove(container){
   // the top bar: play, sync, tempo, starters, clear, kit
   const top = el('div', 'gtop');
   top.innerHTML = `<button class="gplay" aria-label="Play">▶ Play</button>
+    <button class="gkeys" aria-pressed="${!!GB.keys}" title="Play the drums with the computer's keys: A kick, S snare, D clap, F rim, G closed hat, H open hat, J ride, K crash, Z X low and high tom, C cowbell, V clave, B shaker (the page's own keys wait while this is on)">Keys: ${GB.keys ? 'on' : 'off'}</button>
     <button class="gsync" aria-pressed="${GB.sync}" title="Lock to the master (the lead deck, or your taps): its tempo, its 16ths and bars">Sync to the master</button>
     <span class="tl">Tempo</span>`;
   const bpm = slider('gbpm', 90, 150, 1, 128, 'Tempo', v => setBpm(v), GB.bpm);
@@ -26,6 +32,7 @@ export function buildGroove(container){
   kitSel.addEventListener('change', () => { setKit(kitSel.value); voiceBar(); });
   top.append(bpm, el('span', 'gbv', ''), pre, btn('gclr', 'Clear', 'Clear this pattern', () => { clearPattern(); paint(); }), el('span', 'tl', 'Kit'), kitSel);
   top.querySelector('.gplay').addEventListener('click', () => { grooveToggle(); paint(); });
+  top.querySelector('.gkeys').addEventListener('click', () => { GB.keys = !GB.keys; if (GB.keys) claimKeys('drums'); save(); keysState(); });
   top.querySelector('.gsync').addEventListener('click', e => { GB.sync = !GB.sync; e.target.setAttribute('aria-pressed', GB.sync); save(); });
 
   // the pattern bar: eight patterns, copy and paste, the song, fill, record, step editing, the page
@@ -51,7 +58,8 @@ export function buildGroove(container){
   const ledRow = (g, extra) => { g.append(el('span', 'glab small', 'Step')); if (extra) g.append(el('span')); for (let c = 0; c < 16; c++) { const l = el('i', 'gled' + (c % 4 === 0 ? ' g4' : '')); l.dataset.c = c; g.append(l); leds.push(l); } };
   ledRow(drums, true);
   for (const [v, name] of VOICES) {
-    const lab = btn('glab', name, 'Shape this voice (its knobs are above) and hear it; with Rec on while playing, it records', () => { pick = v; audition(v); recHit(v); voiceBar(); paint(); });
+    const lab = btn('glab', name, `Shape this voice (its knobs are above) and hear it (key ${KEY_OF[v]} with Keys on); with Rec on while playing, it records`, () => { pick = v; strike(v); voiceBar(); paint(); });
+    lab.append(el('kbd', 'gk', KEY_OF[v] || ''));
     const mu = el('button', 'gmute', 'M'); mu.title = 'Mute (Shift: solo)';
     mu.addEventListener('click', e => { if (e.shiftKey) setSolo(GB.solo === v ? null : v); else setMute(v, !GB.mute[v]); paint(); });
     lab.dataset.v = v; mu.dataset.v = v; drums.append(lab, mu);
@@ -88,8 +96,17 @@ export function buildGroove(container){
   knobs.append(K('Cutoff', 'cut'), K('Reso', 'res'), K('Env', 'env'), K('Decay', 'decay'), wave, oct, eng,
     knob('Swing', 0, 1, 0, pct, v => { GB.swing = v; save(); }, GB.swing), K('Drums', 'drums'), K('Bass', 'synth'), K('Volume', 'level'));
   const body = el('div', 'gbody'); body.append(drums, right, knobs);
-  box.append(top, pb, el('div', 'gvoice'), el('div', 'gstep'), body); lanes(); voiceBar(); stepBar(); paint();
+  box.append(top, pb, el('div', 'gvoice'), el('div', 'gstep'), body); lanes(); voiceBar(); stepBar(); paint(); keysState();
 }
+// a voice struck (its pad, or its key): heard now, recorded with Rec on, its pad lit for a moment
+function strike(v){ audition(v); recHit(v); const l = box && box.querySelector(`.glab[data-v="${v}"]`); if (l) { l.classList.add('hit'); setTimeout(() => l.classList.remove('hit'), 120); } }
+function keysState(){ const b = box && box.querySelector('.gkeys'); if (!b) return; b.textContent = GB.keys ? 'Keys: on' : 'Keys: off'; b.setAttribute('aria-pressed', !!GB.keys); box.classList.toggle('keyson', !!GB.keys); }
+const down = new Set();
+takeKeys('drums', (e, isDown) => { const k = e.key.toLowerCase(), v = DRUM_KEYS[k];
+  if (!isDown) { if (!down.has(k)) return false; down.delete(k); return true; }
+  if (!GB.keys || !v || !box || box.hidden || box.closest('[hidden]') || e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return false;
+  if (!e.repeat && !down.has(k)) { down.add(k); strike(v); if (GB.rec) paint(); } return true;
+}, () => { if (GB.keys) { GB.keys = false; save(); keysState(); } });
 // the piano roll: two octaves from rollLo, a row a note (black keys darker), a cell a step; the length a click adds
 function buildPiano(p){
   p.textContent = '';

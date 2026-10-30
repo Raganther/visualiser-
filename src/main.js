@@ -1,5 +1,6 @@
 // Boot and the render loop: sets up the renderer, seeds the particles and Journey clock, then runs a frame per animation tick.
 import './util.js';
+import './ui/playkeys.js';   // (first: the instruments' keys are heard before the page's own)
 import './ui/toast.js';
 import './render/gl.js';
 import './render/shaders.js';

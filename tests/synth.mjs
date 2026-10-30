@@ -74,7 +74,7 @@ const p = await page.evaluate(async () => {
   document.querySelector('#djBtn').click(); document.querySelector('#dj .tab[data-t=syn]').click();
   const shown = !document.querySelector('#dj .syb').hidden && document.querySelectorAll('#dj .syb .knob').length;
   // the on-screen keyboard
-  const k = document.querySelector('#dj .sk[data-n="52"]'), r0 = k.getBoundingClientRect(), opt = {bubbles: true, clientX: r0.x + r0.width/2, clientY: r0.bottom - 6, pointerId: 1};
+  const k = document.querySelector('#dj .sk[data-n="52"]'); k.scrollIntoView({block: 'center'}); const r0 = k.getBoundingClientRect(), opt = {bubbles: true, clientX: r0.x + r0.width/2, clientY: r0.bottom - 6, pointerId: 1};
   k.dispatchEvent(new PointerEvent('pointerdown', opt)); await new Promise(r => setTimeout(r, 150)); document.querySelector('#dj .skb').dispatchEvent(new PointerEvent('pointerup', opt));
   const played = notes.filter(e => e.src === 'synth').map(e => e.note);
   // the arpeggiator: two keys held, up, 1/16: the notes alternate on the master's 16ths

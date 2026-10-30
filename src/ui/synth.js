@@ -3,6 +3,7 @@ import { ARP_DIVS, ARP_MODES, SY, held, keyDown, keyUp, loadSynthPreset, onKeys,
 import { PARAMS, PRESETS } from '../audio/engine/inst/poly.js';
 import { el } from './widgets.js';
 import { paramKnob } from './mix.js';
+import { takeKeys, claimKeys } from './playkeys.js';
 
 // the computer's keys as a piano: the home row the white keys from C, the row above the black ones; Z and X shift the octave
 const KEYMAP = {a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14, p: 15, ';': 16};
@@ -17,7 +18,7 @@ export function buildSynth(container){
   pre.addEventListener('change', () => { if (pre.value) { loadSynthPreset(pre.value); knobs(); fillPre(); } });
   const keys = el('button', 'skeys'); keys.title = 'Play with the computer\'s keys: A to K the white keys, W E T Y U the black ones, Z and X the octave (the page\'s own keys wait while this is on)';
   const latch = el('button', 'slatch', 'Latch'); latch.title = 'Hold the notes after letting go (a new chord replaces them)';
-  keys.addEventListener('click', () => { SY.keys = !SY.keys; saveSynth(); state(); });
+  keys.addEventListener('click', () => { SY.keys = !SY.keys; if (SY.keys) claimKeys('synth'); saveSynth(); state(); });
   latch.addEventListener('click', () => setLatch(!SY.latch));
   const dn = el('button', 'soct', 'Oct −'), up = el('button', 'soct', 'Oct +');
   dn.addEventListener('click', () => { SY.oct = Math.max(-3, SY.oct - 1); saveSynth(); state(); }); up.addEventListener('click', () => { SY.oct = Math.min(3, SY.oct + 1); saveSynth(); state(); });
@@ -58,14 +59,13 @@ function state(){
   box.querySelector('.shint').textContent = `Octave ${SY.oct > 0 ? '+' : ''}${SY.oct}` + (SY.arp && !held.length ? ' · hold keys to arpeggiate' : '');
   kb.querySelectorAll('.sk').forEach(k => k.classList.toggle('on', held.includes(+k.dataset.n)));
 }
-// the computer's keys play it while Keys is on and the panel shows the synth (they're kept from the page's own while they do)
+// the computer's keys play it while Keys is on and the panel shows the synth (taken before the page's own: ui/playkeys.js)
 const pressed = new Set();
 const mine = e => SY.keys && box && !box.hidden && !box.closest('[hidden]') && !e.metaKey && !e.ctrlKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-addEventListener('keydown', e => {
-  if (!mine(e)) return; const k = e.key.toLowerCase();
-  if (k === 'z' || k === 'x') { if (!e.repeat) { SY.oct = Math.max(-3, Math.min(3, SY.oct + (k === 'x' ? 1 : -1))); saveSynth(); state(); } }
-  else if (k in KEYMAP) { if (!e.repeat && !pressed.has(k)) { pressed.add(k); keyDown(BASE + KEYMAP[k]); } }
-  else return;
-  e.preventDefault(); e.stopImmediatePropagation();
-}, true);
-addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (pressed.has(k)) { pressed.delete(k); keyUp(BASE + KEYMAP[k]); e.stopImmediatePropagation(); } }, true);
+takeKeys('synth', (e, down) => { const k = e.key.toLowerCase();
+  if (!down) { if (!pressed.has(k)) return false; pressed.delete(k); keyUp(BASE + KEYMAP[k]); return true; }
+  if (!mine(e)) return false;
+  if (k === 'z' || k === 'x') { if (!e.repeat) { SY.oct = Math.max(-3, Math.min(3, SY.oct + (k === 'x' ? 1 : -1))); saveSynth(); state(); } return true; }
+  if (!(k in KEYMAP)) return false;
+  if (!e.repeat && !pressed.has(k)) { pressed.add(k); keyDown(BASE + KEYMAP[k]); } return true;
+}, () => { if (SY.keys) { SY.keys = false; saveSynth(); state(); } });

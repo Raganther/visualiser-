@@ -101,7 +101,8 @@ root.addEventListener('keydown', e => e.stopPropagation());   // (keys on a knob
 /* ---------- open and collapse ---------- */
 export function setOpen(on){
   DJ.open = on; root.hidden = !on; btn.setAttribute('aria-pressed', on);
-  body.hidden = !show.decks; gbx.hidden = !show.groove; syb.hidden = !show.syn; fxb.hidden = !show.fx; syb.style.flex = `1 1 ${T.synH}px`; body.style.flex = `1 1 ${T.decksH}px`; gbx.style.flex = `1 1 ${T.grooveH}px`; fxb.style.flex = `1 1 ${T.fxH}px`;
+  body.hidden = !show.decks; gbx.hidden = !show.groove; syb.hidden = !show.syn; fxb.hidden = !show.fx; // (a section never shrinks below its own height: squeezed, its buttons spilled over the next section and took its clicks; the panel scrolls instead)
+  syb.style.flex = `1 0 ${T.synH}px`; body.style.flex = `1 0 ${T.decksH}px`; gbx.style.flex = `1 0 ${T.grooveH}px`; fxb.style.flex = `1 0 ${T.fxH}px`;
   head.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-pressed', !!show[t.dataset.t]));
   const want = T.headH + (show.decks ? T.decksH : 0) + (show.groove ? T.grooveH : 0) + (show.syn ? T.synH : 0) + (show.fx ? T.fxH : 0);
   if (on && show.fx) paintMix();

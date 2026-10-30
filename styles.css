@@ -203,16 +203,17 @@ body.djopen #keyHud{bottom:calc(74px + var(--djH))}
 body.djopen #panel{max-height:calc(100% - 170px - var(--djH))}
 body.djopen #welcome{bottom:var(--djH)}
 body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--djH))}
-#dj{position:fixed;left:0;right:0;bottom:0;height:var(--djH);z-index:7;display:flex;flex-direction:column;
+#dj{overflow-y:auto;overscroll-behavior:contain;position:fixed;left:0;right:0;bottom:0;height:var(--djH);z-index:7;display:flex;flex-direction:column;
   background:#08090c;border-top:1px solid var(--line);font-size:12px;padding:0 10px calc(4px + env(safe-area-inset-bottom,0px))}
 #dj[hidden]{display:none}
+#dj>.djh{flex:none;position:sticky;top:0;z-index:2;background:#08090c}   /* (the switches and sync strip stay put while the sections scroll under them) */
 #dj canvas{position:static;display:block;width:100%;background:#000;border-radius:4px}
 #dj button{padding:3px 9px;border-color:var(--line)}
 #dj button:disabled{opacity:.35;cursor:default}
 #dj .djh{display:flex;align-items:center;gap:10px;padding:5px 0 4px;color:var(--dim);min-height:0}
 #dj .djh b{color:var(--accent);letter-spacing:.08em}
 #dj .djh span{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-#dj .djb{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 230px minmax(0,1fr);gap:10px}
+#dj .djb{flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 230px minmax(0,1fr);gap:10px}
 #dj .deck{display:flex;flex-direction:column;gap:5px;min-width:0;padding:6px;border:1px solid var(--line);border-radius:8px}
 #dj .deck.drag{border-color:var(--accent);background:rgba(85,204,255,.06)}
 #dj .dh{display:flex;align-items:center;gap:8px;min-width:0}
@@ -256,7 +257,7 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .djh .hint{flex:1}
 #dj .djb[hidden],#dj .gbx[hidden],#dj .fxb[hidden]{display:none}
 /* the groovebox (ui/groove.js) */
-#dj .gbx{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+#dj .gbx{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px}
 #dj .gtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #dj .gtop .gbpm{width:140px}
 #dj .gbv{color:var(--dim);font-variant-numeric:tabular-nums;min-width:170px}
@@ -307,7 +308,7 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .tapb.hit{background:#7cff9a;color:#000;border-color:#7cff9a}
 #dj .mmode{white-space:nowrap}
 /* the effects (ui/mix.js): a row a strip, its level, pan and sends, then its chain of effects as cards */
-#dj .fxb{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:6px}
+#dj .fxb{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:6px}
 #dj .fxb[hidden]{display:none}
 #dj .mxnote{color:var(--dim);font-size:11px}
 #dj .mxrows{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
@@ -333,10 +334,13 @@ body.djopen #assets .aside,body.djopen #assets .stage{bottom:calc(104px + var(--
 #dj .gvoice .ghear{margin-left:6px;padding:2px 8px;font-size:11px}
 #dj .gkit{background:#111;color:var(--ink);border:1px solid var(--line);border-radius:6px;font:inherit;padding:2px}
 #dj .glab.sel{color:#5ad1ff;background:rgba(90,209,255,.1)}
+#dj .glab .gk{display:none;margin-left:4px;font:9px ui-monospace,monospace;opacity:.7;border:1px solid currentColor;border-radius:3px;padding:0 3px} #dj .keyson .glab .gk{display:inline}
+#dj .glab.hit{background:rgba(255,190,90,.35);color:#fff}
+#dj .gkeys[aria-pressed="true"]{background:#5ad1ff;color:#111}
 #dj .gmute{padding:0;font-size:9px;min-height:10px;border-radius:3px;color:var(--dim)}
 #dj .gmute[aria-pressed=true]{background:#ff5050;color:#000}
 /* the synth (ui/synth.js): its top bar, the knobs in their groups, a two-octave keyboard */
-#dj .syb{flex:1;min-height:0;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line);padding-top:6px}
+#dj .syb{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line);padding-top:6px}
 #dj .syb[hidden]{display:none}
 #dj .stop{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 #dj .stop b{color:#b48cff;letter-spacing:.05em}
