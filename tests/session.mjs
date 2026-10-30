@@ -4,7 +4,8 @@
 // that section (the same parts over the same ground), the Clip tab's tools changing the chosen clip (and undo), a new clip
 // in an empty slot, a scene captured, a ground changed, all kept across a reload; and stage 2: one editor in both views
 // (the Clip tab as Steps or the piano roll), Freeze and Make live, → Session (a section as a scene whose copies know where
-// they came from, marked when changed, put back), ● Rec into the Arrangement, and Back to Arrangement.
+// they came from, marked when changed, put back), ● Rec into the Arrangement, and Back to Arrangement; and a drum clip's
+// parts one under the other, a part added on any drum at its own length, ← → and [ ] between them, mute and remove.
 import { serve, launch } from './lib.mjs';
 
 const {srv, url} = await serve();
@@ -149,6 +150,28 @@ await page.click('#backArr'); await wait(300);
 const gave = await Q(tid => ({own: window.__daw.SS.RT.own.size, back: !document.getElementById('backArr').hidden, playing: window.__daw.E.playing}), tid);
 await page.click('#play');
 check('a Session clip launched while the Arrangement plays takes its track over on the bar line, and Back to Arrangement hands it back', own.mode === 'mix' && own.own && own.back && !gave.own && !gave.back && gave.playing, JSON.stringify({own, gave}));
+// the drum parts: a rack clip's parts one under the other, ＋ Part adds a drum of its own at its own length (a polyrhythm),
+// heard on its own cycle; ← → (after a click in the Clip tab) and [ ] move between them; M mutes one; ✕ takes it away
+await page.click('#vSess'); await wait(300);
+const dt = await Q(() => { const {ST, SS} = window.__daw, t = ST.P.tracks.findIndex(T => T.role === 'drums'); SS.select(t, 3); return t; }); await wait(200);
+const p0 = await Q(() => ({rows: document.querySelectorAll('#clipPane .prow').length, opts: [...document.querySelectorAll('#clipPane .addp option')].map(o => o.value).filter(Boolean)}));
+const pad = p0.opts.find(v => /ride|rim|clave|cow/.test(v)) || p0.opts.at(-1);
+await page.selectOption('#clipPane .addp', pad); await wait(200); for (let i = 0; i < 4; i++) await page.click('#clipPane .lenDn'); await wait(200);
+// what the drums play over 48 steps, from the hook as the engine asks it
+const hear = () => Q(([t, pad]) => { const {ST, SS} = window.__daw, S = ST.P.session; SS.RT.mode = 'session'; SS.RT.play = {[ST.P.tracks[t].id]: {r: 3, start: 0}}; SS.RT.next = {}; SS.RT.H = S.scenes[3].ground; SS.RT.hStart = 0; SS.RT.notes.clear();
+  const got = []; for (let k = 0; k < 48; k++) { if (k % 16 === 0) SS.hook.bar(k); for (const [j, list] of SS.hook.at(k)) if (j === t) for (const n of list) if (n.p === pad) got.push(k); }
+  SS.RT.play = {}; SS.RT.notes.clear(); return got; }, [dt, pad]);
+const added = await Q(() => { const {ST, SS} = window.__daw, c = ST.P.session.cells[ST.P.tracks.find(T => T.role === 'drums').id][3], q = c.parts.at(-1); return {n: c.parts.length, part: SS.RT.part, len: q.R.len, hits: q.R.hits.map(x => x[0]), rows: document.querySelectorAll('#clipPane .prow').length}; });
+const got = await hear(), want = []; for (let k = 0; k < 48; k++) if (added.hits.includes(k % added.len)) want.push(k);
+check(`＋ Part adds ${pad} as a part of its own (a row under the others), its length set to 12, heard on its own 12-step cycle`, added.n === p0.rows + 1 && added.rows === added.n && added.part === added.n - 1 && added.len === 12 && got.join() === want.join() && got.length >= 4, JSON.stringify({p0: p0.rows, added, got, want}));
+await page.click('#clipPane .cmh b'); await page.keyboard.press('ArrowLeft'); await wait(100); const l1 = await Q(() => window.__daw.SS.RT.part);
+await page.keyboard.press(']'); await wait(100); const l2 = await Q(() => window.__daw.SS.RT.part);
+await page.keyboard.press(']'); await wait(100); const l3 = await Q(() => window.__daw.SS.RT.part);
+check('← → after a click in the Clip tab, and [ ], move between the parts (round from the last to the first)', l1 === added.n - 2 && l2 === added.n - 1 && l3 === 0, JSON.stringify([l1, l2, l3]));
+await page.click(`#clipPane .prow[data-j="${added.n - 1}"] .pm`); await wait(200); const muted = await hear();
+await page.click(`#clipPane .prow[data-j="${added.n - 1}"] .px`); await wait(200);
+const gone = await Q(() => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks.find(T => T.role === 'drums').id][3].parts.length);
+check('M mutes a part (nothing from it heard) and ✕ takes it out of the clip', !muted.length && gone === p0.rows, JSON.stringify({muted: muted.length, gone}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

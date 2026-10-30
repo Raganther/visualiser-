@@ -402,7 +402,8 @@ addEventListener('keyup', e => { if (SI?.onKey(e, false)) e.preventDefault(); })
 addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(), mod = e.metaKey || e.ctrlKey;
   if (SI?.onKey(e, true)) { e.preventDefault(); return; }   // (the instrument showing: the letters play it)
   if (e.key === ' ') { e.preventDefault(); E.playing ? stop() : play(); return; }
-  if (ST.view === 'session' && !mod && SS.key(e)) { e.preventDefault(); return; }   // (the Session's own keys: scenes, the chosen clip's tools)
+  if (ST.view === 'session' && !mod && SS.key(e)) { e.preventDefault(); return; }
+  if (ST.view === 'arrange' && !mod && clipOn() && SS.partKey(e)) { e.preventDefault(); return; }   // (a live clip's parts: ← → after a click in the Clip tab, or [ ])   // (the Session's own keys: scenes, the chosen clip's tools)
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; } if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'c') { e.preventDefault(); copy(); return; } if (mod && k === 'v') { e.preventDefault(); paste(); return; }
   if (mod && e.altKey && (k === 'n' || e.code === 'KeyN')) { e.preventDefault(); addMenu($('addTrk')); return; }

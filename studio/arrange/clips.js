@@ -12,7 +12,7 @@ export const isLive = cl => !!cl?.parts?.length;
 // a clip's loop length in 16ths: its first part's (as the grid shows it), or its own length
 export const loopLen = cl => { const p = cl?.parts?.[0], c = p && join(p.role, p.R, p.N); return c?.len || cl?.len || 16; };
 // a part's notes for one bar from `k` (16ths), over the chords H at bar hb: [{s, p, l, v}] (s from the bar's start)
-export function barNotes(part, H, hb, k, start, seed, lane = 0){ const clip = join(part.role, part.R, part.N); if (!clip?.steps.length) return [];
+export function barNotes(part, H, hb, k, start, seed, lane = 0){ if (part.mute) return []; const clip = join(part.role, part.R, part.N); if (!clip?.steps.length) return [];
   const lp = part.loop && part.loop[1] <= clip.len && part.loop[1] > part.loop[0] ? part.loop : null, span = lp ? lp[1] - lp[0] : clip.len, n = H.bars.length, b = ((hb % n) + n) % n;
   const c = {role: part.role, rhythm: part.R, notes: part.N, play: part.play, oct: part.oct, inv: part.inv, walk: part.walk, loop: part.loop, phase: (((k - start) % span) + span) % span};
   return partNotes(c, {...H, bars: [...H.bars.slice(b), ...H.bars.slice(0, b)]}, 1, {voicing: part.voicing || 0, seed, lane}); }
