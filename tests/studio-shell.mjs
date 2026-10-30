@@ -56,6 +56,18 @@ const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElem
   await p.waitForFunction(() => document.getElementById('fArrange').contentWindow?.__daw?.ST?.P, null, {timeout: 30000});
   const kept = await inDaw(p, (w, id) => [...w.document.querySelectorAll('#songSel option')].some(o => o.value === id), P.id);
   check('the take is kept in the arrangement\'s songs after a reload', kept);
+  // the analog synth in the Session: an analog sound on the bass plays on the live voices (the DAW's worklet), and is heard
+  await p.click('#vSession'); await J(p).locator('#play').click(); await wait(800);
+  const an = await inJam(p, async w => { const A = w.__jamAudio(), bi = A.cols.findIndex(c => c.role === 'bass'), was = A.cols.map(c => c.mute);
+    A.cols.forEach((c, i) => { c.mute = i !== bi; }); w.__jamSound(bi, 'a5-round'); await new Promise(r => setTimeout(r, 800));
+    const a = A.ctx.createAnalyser(); A.out.connect(a); let m = 0; for (let k = 0; k < 40; k++) { await new Promise(r => setTimeout(r, 50)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) m = Math.max(m, Math.abs(v)); }
+    A.cols.forEach((c, i) => { c.mute = was[i]; }); w.document.getElementById('play').click(); return {live: !!A.cols[bi].inst?.live, peak: +m.toFixed(3)}; });
+  check('in the Session the analog synth plays live (as in the Arrangement), and is heard', an.live && an.peak > .02, JSON.stringify(an));
+  const kit = await inJam(p, async w => { const A = w.__jamAudio(), ki = A.cols.findIndex(c => c.role === 'kick'), was = A.cols.map(c => c.mute); w.__jamSound(ki, 'k4-808');
+    A.cols.forEach((c, i) => { c.mute = i !== ki; }); w.document.getElementById('play').click(); await new Promise(r => setTimeout(r, 900));
+    const a = A.ctx.createAnalyser(); A.out.connect(a); let m = 0; for (let k = 0; k < 30; k++) { await new Promise(r => setTimeout(r, 50)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) m = Math.max(m, Math.abs(v)); }
+    A.cols.forEach((c, i) => { c.mute = was[i]; }); w.document.getElementById('play').click(); return {live: !!A.cols[ki].inst?.live && !!A.cols[ki].inst.voices.kick?.live, peak: +m.toFixed(3)}; });
+  check('and the analog drum machine (the 808 kick) plays live, and is heard', kit.live && kit.peak > .02, JSON.stringify(kit));
   check('no page errors (computer)', !errs.length, errs.join('; '));
   await ctx.close(); }
 

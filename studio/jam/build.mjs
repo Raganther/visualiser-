@@ -5,8 +5,9 @@ import path from 'node:path';
 import { build } from 'esbuild';
 const here = path.dirname(new URL(import.meta.url).pathname), listen = path.join(here, '../listen');
 const bundle = async entry => (await build({entryPoints: [entry], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020'})).outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const [app, worker] = await Promise.all([bundle(path.join(here, 'app.js')), bundle(path.join(here, '../live/worker.js'))]);
-fs.writeFileSync(path.join(listen, 'jam-live.html'), fs.readFileSync(path.join(here, 'page.html'), 'utf8').replace('/*WORKER*/', () => worker).replace('/*APP*/', () => app));
+// (the worklet: the DAW's live voices, so the analog synth plays here as it does there)
+const [app, worker, worklet] = await Promise.all([bundle(path.join(here, 'app.js')), bundle(path.join(here, '../live/worker.js')), bundle(path.join(here, '../arrange/voices.worklet.js'))]);
+fs.writeFileSync(path.join(listen, 'jam-live.html'), fs.readFileSync(path.join(here, 'page.html'), 'utf8').replace('/*WORKER*/', () => worker).replace('/*WORKLET*/', () => worklet).replace('/*APP*/', () => app));
 fs.mkdirSync(path.join(listen, 'packs'), {recursive: true});
 for (const f of fs.readdirSync(path.join(here, 'packs'))) fs.copyFileSync(path.join(here, 'packs', f), path.join(listen, 'packs', f));
 const packs = fs.readdirSync(path.join(here, 'packs')).filter(f => /^pack-\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(5)) - parseInt(b.slice(5))).map(f => { const p = JSON.parse(fs.readFileSync(path.join(here, 'packs', f), 'utf8')); return {id: p.id, name: p.name, words: p.words || ''}; });
