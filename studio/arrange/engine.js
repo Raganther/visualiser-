@@ -264,7 +264,9 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
   /* ---------- the transport ---------- */
   function slotAt(k, t){ const P = E.P;
     // a bar line: each track's clip there sets its channel; a ramp steps on
-    if (k % 16 === 0 || k === E.from) E.ch.forEach((c, i) => { const hit = clipAt(i, k), cl = hit?.[2] || null;
+    // (the Session view: its own clips, live, from E.session; the timeline's clips left be)
+    if (E.session && (k % 16 === 0 || k === E.from)) E.session.bar(k, t);
+    if (k % 16 === 0 || k === E.from) E.ch.forEach((c, i) => { const hit = E.session ? null : clipAt(i, k), cl = hit?.[2] || null;
       if (cl !== c.clip || k === E.from) { settle(c, cl, t); if (cl && c.ramp) c.rampAt = Math.floor((k - hit[0])/16) - 1; }
       if (c.ramp?.x && k % 16 === 0) { c.rampAt = (c.rampAt ?? -1) + 1; const [a, b] = c.ramp.x, n = Math.max(1, (c.ramp.bars || 8) - 1); c.s.x = a + (b - a)*Math.min(1, c.rampAt/n);
         if (c.x.desk) dk({type: 'strip', id: c.T.id, set: {lp: cutOf(c.s.x), lpGlide: 5*sd()}}, t); else macros(c, t); liveSet(c, t); } });
@@ -272,9 +274,11 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     if (k % 4 === 0) for (const c of E.ch) if (c.s.motion === 3 && c.x.desk) { const lo = cutOf(c.s.x), b = 4*sd(), go = (lp, g, at) => dk({type: 'strip', id: c.T.id, set: {lp, lpGlide: g}}, at);
       go(Math.min(18000, lo*3.2), .006, t); go(Math.min(18000, lo*1.6), .12*b, t + .05*b); go(lo, .2*b, t + .4*b); }
     else if (c.s.motion === 3) { const f = c.x.f.frequency, lo = cutOf(c.s.x), b = 4*sd(); glide(f, Math.min(18000, lo*3.2), t, .006); f.linearRampToValueAtTime(Math.min(18000, lo*1.6), t + .35*b); f.linearRampToValueAtTime(lo, t + .9*b); }
-    E.by.forEach((m, i) => { const list = m.get(k), c = E.ch[i]; if (!list || !c) return; for (const {off, n} of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + off*sd())); });
+    if (E.session) for (const [i, list] of E.session.at(k)) { const c = E.ch[i]; if (c) for (const n of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + n.off*sd())); }
+    else E.by.forEach((m, i) => { const list = m.get(k), c = E.ch[i]; if (!list || !c) return; for (const {off, n} of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + off*sd())); });
     E.when.push([t, k]); if (E.when.length > 64) E.when.splice(0, 32); }
   function tick(){ const ctx = E.ctx; while (E.nextT < ctx.currentTime + .15) { slotAt(E.slot, E.nextT); E.slot++; E.nextT += sd();
+      if (E.session) continue;   // (a session plays on until it's stopped)
       if (E.cycle && E.slot >= E.loop[1]*16) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; }
       else if (E.slot >= E.end) { if (E.cycle) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; } else { E.stopAt = E.nextT + 2; break; } } }
     if (E.stopAt && ctx.currentTime > E.stopAt) E.stop(); onTick(); }

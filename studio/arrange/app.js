@@ -10,6 +10,7 @@ import { combineDrums, ensureRacks, isRack } from './rack.js';
 import { makeSounds } from './sounds.js';
 import { makeSynthUI } from './synth-ui.js';
 import { makeMixer } from './mixer.js';
+import { makeSession } from './session.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
@@ -21,9 +22,9 @@ const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.ma
 const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
 const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
-const ST = {id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, ph: 0, focus: 'arr', past: [], fut: [], sel: {clips: new Set(), range: null, mark: null, track: 0, trackOnly: false},
+const ST = {view: 'session', id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, ph: 0, focus: 'arr', past: [], fut: [], sel: {clips: new Set(), range: null, mark: null, track: 0, trackOnly: false},
   open: null, ed: {px: 16, sx: 0, sy: 0, sel: new Set()}, lastLen: 2, lastVel: .8, clipboard: null, noteboard: null, notes: [], rating: 0, nid: 1};
-let db = null, MX = null;
+let db = null, MX = null, SS = null;
 
 /* ---------- the engine, the songs ---------- */
 const E = makeEngine({SND, workerSrc: $('worker-src').textContent, workletSrc: $('worklet-src')?.textContent, onBusy: () => status(), onTick: () => {}});
@@ -50,7 +51,7 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
   E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
-  $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
+  SS?.open(s); $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
@@ -225,8 +226,11 @@ function drag(e, move, up){ const mm = ev => { const [x, y] = pt(e.target, ev); 
   addEventListener('pointermove', mm); addEventListener('pointerup', uu); }
 
 /* ---------- the transport ---------- */
-function play(from = ST.ph){ if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('arrange'); E.play(from); $('play').textContent = 'Stop'; anim(); }
-function stop(){ E.stop(); $('play').textContent = 'Play'; }
+// Play: the Session launches the chosen scene, the Arrangement plays the timeline from the playhead
+function play(from = ST.ph){ if (ST.view === 'session') { SS.launchScene(SS.RT.sel.r); return; }
+  if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('daw'); E.session = null; E.play(from); $('play').textContent = 'Stop'; anim(); }
+function playSession(){ studio()?.playing?.('daw'); E.play(0); $('play').textContent = 'Stop'; anim(); }
+function stop(){ E.stop(); if (E.session) { E.session = null; SS.stop(); } $('play').textContent = 'Play'; }
 function seek(b){ ST.ph = b; if (E.playing) play(b); draw(); posText(); }
 function loopTo(a, b){ E.loop = [a, b]; E.cycle = true; $('cycle').setAttribute('aria-pressed', 'true'); ST.ph = a; draw(); posText(); flash(`Looping bars ${a + 1}–${b}`); if (E.playing) play(a); }
 $('play').onclick = () => E.playing ? stop() : play();
@@ -236,7 +240,8 @@ $('undo').onclick = undo; $('redo').onclick = redo;
 // Claude's mix, or every channel and bus straight (at the loudness the mix gives each: B on the desk's comparison)
 $('engAB').onclick = () => { const v = !E.eng; E.setEng(v); $('engAB').textContent = v ? 'Mix: Claude’s' : 'Mix: straight'; $('engAB').setAttribute('aria-pressed', String(v)); };
 function posText(){ const s = Math.max(0, ST.ph*16), bar = Math.floor(s/16) + 1, beat = Math.floor(s % 16/4) + 1, six = Math.floor(s % 4) + 1; $('pos').textContent = `${bar}.${beat}.${six}`; }
-function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } const p = E.pos(); if (p != null) { ST.ph = p/16; posText();
+function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } if (E.session) { SS.frame(); const p = E.pos(); if (p != null) { ST.ph = p/16; posText(); } requestAnimationFrame(anim); return; }
+  const p = E.pos(); if (p != null) { ST.ph = p/16; posText();
     const x = bx(ST.ph); if (x > AW - 40 || x < 0) ST.sx = Math.max(0, ST.ph*ST.px - 60); draw(); drawEdHead();
     const f = cur(); if (f) { const s = (ST.ph - f.cl.start)*16; if (s >= 0 && s <= f.cl.len) { const xe = ex(s); if (xe > EW - 30 || xe < KEYW) ST.ed.sx = Math.max(0, s*ST.ed.px - 20); } drawEd(); } }
   requestAnimationFrame(anim); }
@@ -374,6 +379,7 @@ addEventListener('keyup', e => { if (SI?.onKey(e, false)) e.preventDefault(); })
 addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(), mod = e.metaKey || e.ctrlKey;
   if (SI?.onKey(e, true)) { e.preventDefault(); return; }   // (the instrument showing: the letters play it)
   if (e.key === ' ') { e.preventDefault(); E.playing ? stop() : play(); return; }
+  if (ST.view === 'session' && !mod && SS.key(e)) { e.preventDefault(); return; }   // (the Session's own keys: scenes, the chosen clip's tools)
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; } if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'c') { e.preventDefault(); copy(); return; } if (mod && k === 'v') { e.preventDefault(); paste(); return; }
   if (mod && e.altKey && (k === 'n' || e.code === 'KeyN')) { e.preventDefault(); addMenu($('addTrk')); return; }
@@ -435,6 +441,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
+SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, fx: (mods, T, pad, redo) => MX?.fxInto(mods, T, pad, redo), flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
 // one drum picked at a time, the same in the notes, the instrument and the mixer (and the sound panel's voices): the
 // sound panel holds it (SB.voice), and whichever tab picks one, the others follow
@@ -442,7 +449,19 @@ function pickPad(v){ if (v !== SB.voice()) SB.setVoice(v); else padPicked(); }
 function padPicked(){ const T = ST.P.tracks[ST.sel.track], v = SB.voice(); if (!T || !isDrum(T.role) || !v) return; if (ST.ed.row !== v) { ST.ed.row = v; drawEd(); } MX?.pad(T.id, v); }
 SB.onChange(padPicked);
 MX = makeMixer({ST, E, SND, pickPad, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
-$('tabInst').onclick = () => { MX.show(false); SI.show(true); }; $('tabNotes').onclick = () => { MX.show(false); SI.show(false); };
+$('tabInst').onclick = () => { showClip(false); MX.show(false); SI.show(true); }; $('tabNotes').onclick = () => { showClip(false); MX.show(false); SI.show(false); };
+$('tabClip').onclick = () => showClip(true);
+$('tabMix').onclick = () => { const on = !MX.isOn(); if (on) showClip(false); MX.show(on); if (!on && ST.view === 'session') showClip(true); };
+// the Clip tab: the chosen clip's rhythm and notes, with the jam's tools (the Session's), in the editor's place
+function showClip(on){ $('clipPane').hidden = !on; $('tabClip').setAttribute('aria-pressed', String(on));
+  if (on) { SI.show(false); MX.show(false); for (const id of ['edWrap', 'help', 'edName', 'edInfo']) $(id).hidden = true; $('tabNotes').setAttribute('aria-pressed', 'false'); SS.renderClip(); } }
+// the two views: Session (the clip grid) and Arrangement (the timeline); the tracks, the editor's tabs and the mixer the same
+function setView(v){ ST.view = v === 'arrange' ? 'arrange' : 'session'; const sess = ST.view === 'session';
+  $('sessWrap').hidden = !sess; $('arrWrap').hidden = sess; $('tracks').hidden = sess; $('tabClip').hidden = !sess; $('tabNotes').hidden = sess; $('cycle').hidden = sess; $('snapL').hidden = sess;
+  for (const [id, on] of [['vSess', sess], ['vArr', !sess]]) $(id).setAttribute('aria-pressed', String(on));
+  if (sess && !SI.isOn() && !MX.isOn()) showClip(true); if (!sess && !$('clipPane').hidden) { showClip(false); for (const id of ['edWrap', 'help', 'edName', 'edInfo']) $(id).hidden = false; $('tabNotes').setAttribute('aria-pressed', 'true'); }
+  try { localStorage.setItem('studio.daw.view', ST.view); } catch {} if (sess) SS.render(); else { draw(); renderEd(); } }
+$('vSess').onclick = () => setView('session'); $('vArr').onclick = () => setView('arrange');
 E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a moment after the page: the instrument says so then)
 
 /* ---------- start ---------- */
@@ -452,7 +471,9 @@ addEventListener('resize', () => { draw(); renderEd(); });
   try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c);
     try { const q = await c.collection('takes').get(); for (const d of q.docs) { const x = d.data(); if (x?.sections?.length && !songById(x.id)) SONGS.unshift(x); } storeTakes(); songList(); } catch {}
     await open(ST.id); } } catch {} })();
-window.__daw = {ST, E, open, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
+window.__daw = {get SS(){ return SS; }, ST, E, open, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
 // in the Studio page: the shell (studio/studio/) hands songs over, stops this while the Session view plays, and Tab flips
 function studio(){ try { return parent !== window ? parent.__studio : null; } catch { return null; } }
-window.__studioView = {addSong, stop: () => { if (E.playing) stop(); }, name: 'arrange'};
+window.__studioView = {addSong, stop: () => { if (E.playing) stop(); }, view: v => setView(v), name: 'daw'};
+if (studio()) $('views').hidden = true;   // (in the Studio page, its own switch flips the views)
+try { setView(studio()?.view?.() === 'arrange' ? 'arrange' : localStorage.getItem('studio.daw.view') || 'session'); } catch { setView('session'); }

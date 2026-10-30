@@ -1,8 +1,8 @@
-// The Studio page (studio/listen/studio.html): Studio Jam as the Session view and the Studio DAW as the Arrangement view,
-// with real audio. Both views load and flip (the switch, and Tab); a jam recorded "Into the arrangement" (a scene, then
-// another) arrives in the Arrangement as a song of two sections whose notes are the ones the jam played (each drum hit
-// and bass note on its 16th, the parts' places in their loops kept across the change); one transport plays at a time;
-// and on a phone the switch is in reach with nothing wider than the screen.
+// The Studio page (studio/listen/studio.html): the Studio DAW's Session (the clip grid) and Arrangement views, and Studio
+// Jam v2 as a third tab, with real audio. The Session opens first and Tab flips to the Arrangement; a jam in v2 recorded
+// "Into the arrangement" (a scene, then another) arrives in the Arrangement as a song of two sections whose notes are the
+// ones the jam played (each drum hit and bass note on its 16th, the parts' places in their loops kept across the change);
+// one transport plays at a time; and on a phone the switch is in reach with nothing wider than the screen.
 import { serve, launch } from './lib.mjs';
 
 const {srv, url} = await serve();
@@ -14,18 +14,19 @@ async function open(ctx){ const p = await ctx.newPage(), errs = []; p.on('pageer
   // the published page gets its skeleton (charset, viewport) from the host; served bare, it's given them here
   await p.route('**/studio.html', async r => { const res = await r.fetch(); r.fulfill({response: res, headers: {...res.headers(), 'content-type': 'text/html; charset=utf-8'}, body: '<meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">' + await res.text()}); });
   await p.goto(url + 'studio/listen/studio.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
-  await p.waitForFunction(() => document.getElementById('fSession').contentWindow?.__studioView, null, {timeout: 30000}); await wait(1500); return {p, errs}; }
-const J = p => p.frameLocator('#fSession'), D = p => p.frameLocator('#fArrange');
-const inJam = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElementById('fSession').contentWindow, a), [fn.toString(), a]);
-const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElementById('fArrange').contentWindow, a), [fn.toString(), a]);
+  await p.waitForFunction(() => document.getElementById('fDaw').contentWindow?.__studioView, null, {timeout: 30000}); await wait(1500); return {p, errs}; }
+const J = p => p.frameLocator('#fJam'), D = p => p.frameLocator('#fDaw');
+const inJam = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElementById('fJam').contentWindow, a), [fn.toString(), a]);
+const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElementById('fDaw').contentWindow, a), [fn.toString(), a]);
 
 { const ctx = await browser.newContext({viewport: {width: 1400, height: 900}}), {p, errs} = await open(ctx);
-  check('the Session view (Studio Jam) loads first', await p.evaluate(() => !document.getElementById('fSession').hidden && document.getElementById('vSession').getAttribute('aria-pressed') === 'true'));
-  await p.click('#vArrange'); await p.waitForFunction(() => document.getElementById('fArrange').contentWindow?.__daw?.ST?.P, null, {timeout: 30000});
-  const daw = await inDaw(p, w => ({tracks: w.__daw.ST.P.tracks.length, shown: !w.frameElement.hidden}));
-  await p.click('#vSession'); await wait(300); await p.locator('#fSession').focus(); await p.evaluate(() => { const w = document.getElementById('fSession').contentWindow; w.document.activeElement?.blur(); w.focus(); });
-  await p.keyboard.press('Tab'); await wait(300); const tabbed = await p.evaluate(() => window.__studio.view()); await p.click('#vSession'); await wait(300);
-  check('the Arrangement view (the DAW) loads, and Tab flips to it', daw.tracks > 0 && daw.shown && tabbed === 'arrange', JSON.stringify({...daw, tabbed}));
+  await p.waitForFunction(() => document.getElementById('fDaw').contentWindow?.__daw?.ST?.P, null, {timeout: 30000}); await wait(500);
+  const first = await inDaw(p, w => ({view: w.__daw.ST.view, grid: w.document.querySelectorAll('#sessWrap .slot[data-has="1"]').length, shown: !w.frameElement.hidden, own: w.document.getElementById('views').hidden}));
+  check('the Session (the clip grid) opens first, the DAW\'s own switch giving way to the Studio\'s', first.view === 'session' && first.grid > 0 && first.shown && first.own && await p.evaluate(() => document.getElementById('vSession').getAttribute('aria-pressed') === 'true'), JSON.stringify(first));
+  await p.locator('#fDaw').focus(); await p.evaluate(() => { const w = document.getElementById('fDaw').contentWindow; w.document.activeElement?.blur(); w.focus(); });
+  await p.keyboard.press('Tab'); await wait(400); const daw = await inDaw(p, w => ({view: w.__daw.ST.view, tracks: w.__daw.ST.P.tracks.length})); const tabbed = await p.evaluate(() => window.__studio.view());
+  check('Tab flips to the Arrangement (the same DAW, its timeline)', daw.view === 'arrange' && tabbed === 'arrange', JSON.stringify({...daw, tabbed}));
+  await p.click('#vJam'); await p.waitForFunction(() => document.getElementById('fJam').contentWindow?.__studioView, null, {timeout: 30000}); await wait(1500);
 
   // a jam into the arrangement: scene 1 for a while, then scene 2, recorded with the jam's own take beside it
   await J(p).locator('.scene').nth(0).click(); await J(p).locator('#bpmUp').click({clickCount: 10}); await wait(200);
@@ -33,7 +34,7 @@ const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElem
   await J(p).locator('#play').click(); await wait(bar*.5); await J(p).locator('#take').click(); await J(p).locator('#rec').click();
   await wait(bar*3.2); await J(p).locator('.scene').nth(1).click(); await wait(bar*3.2);
   await J(p).locator('#rec').click(); await J(p).locator('#take').click(); await J(p).locator('#play').click().catch(() => {});
-  await p.waitForFunction(() => window.__studio.view() === 'arrange' && String(document.getElementById('fArrange').contentWindow.__daw.ST.id).startsWith('take-'), null, {timeout: 20000}).catch(() => {});
+  await p.waitForFunction(() => window.__studio.view() === 'arrange' && String(document.getElementById('fDaw').contentWindow.__daw.ST.id).startsWith('take-'), null, {timeout: 20000}).catch(() => {});
   const song = await inJam(p, w => w.__jamSong()), take = await inJam(p, w => w.__jamTake());
   const P = await inDaw(p, w => { const P = w.__daw.ST.P; return {id: w.__daw.ST.id, bars: P.bars, marks: P.marks.map(m => m.name + ':' + m.bars), tracks: P.tracks.map(T => ({role: T.role, notes: T.clips.flatMap(c => c.notes.map(n => [Math.round(c.start*16 + n.s), n.p]))}))}; });
   check('the take arrives in the Arrangement as a song of two sections', P.id?.startsWith('take-') && P.marks.length === 2 && song?.sections.length === 2, JSON.stringify({id: P.id, marks: P.marks}));
@@ -47,22 +48,22 @@ const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElem
 
   // one transport: the arrangement playing stops the jam, and the jam playing stops the arrangement
   await inDaw(p, w => w.document.getElementById('play').click()); await wait(800);
-  await p.click('#vSession'); await J(p).locator('#play').click(); await wait(800);
-  const t = await p.evaluate(() => ({daw: document.getElementById('fArrange').contentWindow.__daw.E.playing, jam: document.getElementById('fSession').contentWindow.document.getElementById('play').getAttribute('aria-pressed')}));
+  await p.click('#vJam'); await J(p).locator('#play').click(); await wait(800);
+  const t = await p.evaluate(() => ({daw: document.getElementById('fDaw').contentWindow.__daw.E.playing, jam: document.getElementById('fJam').contentWindow.document.getElementById('play').getAttribute('aria-pressed')}));
   await J(p).locator('#play').click();
   check('one transport at a time: the jam starting stops the arrangement', !t.daw && t.jam === 'true', JSON.stringify(t));
   // kept: the take is in the arrangement's song list after a reload
-  await p.reload(); await p.waitForFunction(() => document.getElementById('fSession').contentWindow?.__studioView, null, {timeout: 30000}); await p.click('#vArrange');
-  await p.waitForFunction(() => document.getElementById('fArrange').contentWindow?.__daw?.ST?.P, null, {timeout: 30000});
+  await p.reload(); await p.waitForFunction(() => document.getElementById('fDaw').contentWindow?.__studioView, null, {timeout: 30000}); await p.click('#vArrange');
+  await p.waitForFunction(() => document.getElementById('fDaw').contentWindow?.__daw?.ST?.P, null, {timeout: 30000});
   const kept = await inDaw(p, (w, id) => [...w.document.querySelectorAll('#songSel option')].some(o => o.value === id), P.id);
   check('the take is kept in the arrangement\'s songs after a reload', kept);
-  // the analog synth in the Session: an analog sound on the bass plays on the live voices (the DAW's worklet), and is heard
-  await p.click('#vSession'); await J(p).locator('#play').click(); await wait(800);
+  // the analog synth in Jam v2: an analog sound on the bass plays on the live voices (the DAW's worklet), and is heard
+  await p.click('#vJam'); await p.waitForFunction(() => document.getElementById('fJam').contentWindow?.__jamAudio, null, {timeout: 30000}); await J(p).locator('#play').click(); await wait(800);
   const an = await inJam(p, async w => { const A = w.__jamAudio(), bi = A.cols.findIndex(c => c.role === 'bass'), was = A.cols.map(c => c.mute);
     A.cols.forEach((c, i) => { c.mute = i !== bi; }); w.__jamSound(bi, 'a5-round'); await new Promise(r => setTimeout(r, 800));
     const a = A.ctx.createAnalyser(); A.out.connect(a); let m = 0; for (let k = 0; k < 40; k++) { await new Promise(r => setTimeout(r, 50)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) m = Math.max(m, Math.abs(v)); }
     A.cols.forEach((c, i) => { c.mute = was[i]; }); w.document.getElementById('play').click(); return {live: !!A.cols[bi].inst?.live, peak: +m.toFixed(3)}; });
-  check('in the Session the analog synth plays live (as in the Arrangement), and is heard', an.live && an.peak > .02, JSON.stringify(an));
+  check('in Jam v2 the analog synth plays live (as in the DAW), and is heard', an.live && an.peak > .02, JSON.stringify(an));
   const kit = await inJam(p, async w => { const A = w.__jamAudio(), ki = A.cols.findIndex(c => c.role === 'kick'), was = A.cols.map(c => c.mute); w.__jamSound(ki, 'k4-808');
     A.cols.forEach((c, i) => { c.mute = i !== ki; }); w.document.getElementById('play').click(); await new Promise(r => setTimeout(r, 900));
     const a = A.ctx.createAnalyser(); A.out.connect(a); let m = 0; for (let k = 0; k < 30; k++) { await new Promise(r => setTimeout(r, 50)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) m = Math.max(m, Math.abs(v)); }

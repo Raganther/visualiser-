@@ -8,7 +8,12 @@ import { serve, launch } from './lib.mjs';
 const {srv, url} = await serve();
 let failed = false;
 const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
-const browser = await launch('2d', ['--autoplay-policy=no-user-gesture-required']), page = await browser.newPage({viewport: {width: 1400, height: 900}});
+const browser = await launch('2d', ['--autoplay-policy=no-user-gesture-required']);
+// (these tests work the Arrangement view, the timeline: every page opens on it, not the Session's clip grid)
+const viewFirst = async p => { await p.addInitScript(() => { try { localStorage.setItem('studio.daw.view', 'arrange'); } catch {} }); return p; };
+{ const np = browser.newPage.bind(browser), nc = browser.newContext.bind(browser); browser.newPage = async o => viewFirst(await np(o));
+  browser.newContext = async o => { const c = await nc(o), cp = c.newPage.bind(c); c.newPage = async () => viewFirst(await cp()); return c; }; }
+const page = await browser.newPage({viewport: {width: 1400, height: 900}});
 const errs = []; page.on('pageerror', e => errs.push(e.message));
 await page.goto(url + 'studio/listen/studio-daw.html'); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(2000);
 // the loudest the output got since the last read, sampled every 10 ms

@@ -26,7 +26,12 @@ for (const s of R4) { const P = flatten(s), bars = s.sections.reduce((a, x) => a
 
 /* ---------- the page ---------- */
 const {srv, url} = await serve();
-const browser = await launch('2d'), page = await browser.newPage({viewport: {width: 1400, height: 860}});
+const browser = await launch('2d');
+// (these tests work the Arrangement view, the timeline: every page opens on it, not the Session's clip grid)
+const viewFirst = async p => { await p.addInitScript(() => { try { localStorage.setItem('studio.daw.view', 'arrange'); } catch {} }); return p; };
+{ const np = browser.newPage.bind(browser), nc = browser.newContext.bind(browser); browser.newPage = async o => viewFirst(await np(o));
+  browser.newContext = async o => { const c = await nc(o), cp = c.newPage.bind(c); c.newPage = async () => viewFirst(await cp()); return c; }; }
+const page = await browser.newPage({viewport: {width: 1400, height: 860}});
 page.on('pageerror', e => { failed = true; console.log('FAIL page error:', e.message); });
 await page.goto(url + 'studio/listen/studio-daw.html'); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(1500);
 const D = fn => page.evaluate(fn);
