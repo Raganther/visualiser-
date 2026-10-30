@@ -221,13 +221,14 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     if (E.kb) { const o = E.kb.c; setTimeout(() => { unplug(o); drop(o.inst); }, 3000); }
     const T = E.P.tracks[i], c = chan(T, i); c.s = {...T.set}; build(c, id); macros(c); if (c.x.out) glide(c.x.out.gain, .85*Math.pow(10, (T.mix.vol || 0)/20), E.ctx.currentTime, .01); E.kb = {i, id, c, gen: E.gen, held: new Map()}; return c; }
   E.kbOn = (i, id, p, v = .8) => { const ctx = E.init(); ctx.resume(); const c = kbChan(i, id), t = ctx.currentTime + .005, inst = c.inst;
+    // (a kit first: a drum rack is live too, but its pads are voices, not pitches)
+    if (inst.kind === 'drums') { play(c, p, 1, v, t); return; }
     if (inst.poly) { inst.poly.noteOn(p, v, t); E.kb.held.set(p, t); return; }
     if (inst.live) { inst.live.port.postMessage({type: 'on', id: 'k' + p, n: p + inst.shift, vel: q(v, .1), gv: v, t}); return; }
-    if (inst.kind === 'drums') { play(c, p, 1, v, t); return; }
     // a native note is computed (held sounds at a beat's length): heard at once when it's ready, else as soon as it is
     const keys = need(c, p, 4, v); if (keys.every(k => cache.has(k))) { play(c, p, 4, v, t); return; }
     const t0 = performance.now(), wait = () => { if (keys.every(k => cache.has(k))) { if (performance.now() - t0 < 1500) play(c, p, 4, v, E.ctx.currentTime + .005); } else if (performance.now() - t0 < 4000) setTimeout(wait, 30); }; wait(); };
-  E.kbOff = (i, p) => { const c = E.kb?.c; if (!c) return; if (c.inst?.poly) { c.inst.poly.noteOff(p, E.ctx.currentTime + .005); E.kb.held.delete(p); } if (c.inst?.live) c.inst.live.port.postMessage({type: 'off', id: 'k' + p, t: E.ctx.currentTime + .005}); };
+  E.kbOff = (i, p) => { const c = E.kb?.c; if (!c || c.inst?.kind === 'drums') return; if (c.inst?.poly) { c.inst.poly.noteOff(p, E.ctx.currentTime + .005); E.kb.held.delete(p); } if (c.inst?.live) c.inst.live.port.postMessage({type: 'off', id: 'k' + p, t: E.ctx.currentTime + .005}); };
   // every note on the keys silenced at once (a panic: Stop, the window left, Esc)
   E.kbAllOff = () => { const c = E.kb?.c; if (!c || !E.ctx) return; if (c.inst?.poly) for (const p of E.kb.held.keys()) c.inst.poly.noteOff(p, E.ctx.currentTime); c.inst?.live?.port.postMessage({type: 'stop'}); E.kb.held?.clear(); };
   // the keys' notes computed ahead, so the first press is heard at once
