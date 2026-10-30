@@ -191,6 +191,17 @@ const line = await Q(t => { const {ST, SS} = window.__daw, S = ST.P.session, c =
   SS.RT.play = {}; SS.RT.notes.clear(); const q = c.parts[1], want = []; for (let k = 0; k < 64; k++) if (q.R.hits.some(x => x[0] === k % q.R.len)) want.push(k);
   return {n: c.parts.length, name: q.name, rows: document.querySelectorAll('#clipPane .prow').length, heard: want.filter(k => at.has(k)).length, want: want.length}; }, bt);
 check('＋ Part on the bass adds a second line ("Bass 2") with its own rhythm, its hits heard with the first line\'s', line.n === 2 && line.rows === 2 && line.name === 'Bass 2' && line.want > 0 && line.heard === line.want, JSON.stringify(line));
+// the whole scene: every track's parts in the chosen scene one under the other; ↓ walks down them from one track into the
+// next, → steps the chosen part through the library's rhythms (its own track's clip changed)
+await Q(() => window.__daw.SS.select(0, 3)); await wait(200); await page.click('#clipPane .cview button >> nth=1'); await wait(200);
+const w0 = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, want = P.tracks.reduce((n, T) => { const c = P.session.cells[T.id][3]; return n + (c?.parts?.length || 1); }, 0);
+  return {rows: document.querySelectorAll('#clipPane .whole .prow').length, want, tracks: document.querySelectorAll('#clipPane .whole .ptrack').length, n: P.tracks.length, parts: P.session.cells[P.tracks[0].id][3].parts.length}; });
+await page.click('#clipPane .whole .cmh b'); for (let i = 0; i < w0.parts; i++) await page.keyboard.press('ArrowDown'); await wait(200);
+const w1 = await Q(() => ({t: window.__daw.SS.RT.sel.t, part: window.__daw.SS.RT.part}));
+const lb0 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][3]?.parts?.[0]?.lib, w1.t);
+await page.keyboard.press('ArrowRight'); await wait(200); const lb1 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][3]?.parts?.[0]?.lib, w1.t);
+await page.click('#clipPane .cview button >> nth=0'); await wait(100);
+check('Whole scene stacks every track\'s parts (a row a part, ＋ where a track has no clip); ↓ walks into the next track, → steps its part through the library', w0.rows === w0.want && w0.tracks === w0.n && w1.t === 1 && w1.part === 0 && lb1 && lb1 !== lb0, JSON.stringify({w0, w1, lb0, lb1}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);
