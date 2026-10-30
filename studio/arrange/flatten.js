@@ -19,7 +19,7 @@ export function partNotes(c, H, bars, {swing = .06, smooth = true, voicing = 0, 
   const full = {...clip, role: c.role}, drum = isDrum(c.role), ch = smooth ? vlChain(H, STYLES[voicing]) : null, out = [], mem = {}, R = rng(seed);
   const loop = c.loop && c.loop[1] <= clip.len && c.loop[1] > c.loop[0] ? c.loop : null, f = FEELS[c.rhythm?.feel ?? c.feel ?? 0] || FEELS[0], a = PLAYS[c.play || 0]?.a || 0;
   for (let step = 0; step < bars*16; step++) {
-    const span = loop ? loop[1] - loop[0] : clip.len, pos = (loop ? loop[0] : 0) + step % span, bar = Math.floor(step/16), hb = bar % H.bars.length;
+    const span = loop ? loop[1] - loop[0] : clip.len, pos = (loop ? loop[0] : 0) + (step + (c.phase || 0)) % span,   /* (phase: where a take's part was in its loop as the section began) */ bar = Math.floor(step/16), hb = bar % H.bars.length;
     const opts = {vl: ch && ch[hb], inv: c.inv || 0, walk: c.walk ? Math.floor(step/clip.len) % 4 : 0}, chd = chordOf(H, bar);
     const sw = step % 2 ? (f.swing ?? swing) : 0, fe = feelAt(f, step, R), off = sw + fe.dt;
     const notes = a && c.role !== 'chords'

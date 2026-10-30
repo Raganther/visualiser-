@@ -30,8 +30,16 @@ const E = makeEngine({SND, workerSrc: $('worker-src').textContent, workletSrc: $
 const colorOf = (T, i) => T.role === 'lead' && ST.P.tracks.findIndex(x => x.role === 'lead') !== i ? COLORS.lead2 : COLORS[T.role] || '#888';
 const songById = id => SONGS.find(s => s.id === id);
 const keyOf = id => 'studio.daw.v1.' + id;
-const roundOf = s => `Round ${s.round}: ${s.name}`;
-for (const s of SONGS) $('songSel').append(h('option', {value: s.id}, roundOf(s)));
+const roundOf = s => s.kind === 'take' ? `Yours: ${s.name}` : `Round ${s.round}: ${s.name}`;
+// your takes from the Session view (Studio Jam, beside this in the Studio page), first in the list; kept on the device and
+// in the page's database (takes)
+const TAKES_KEY = 'studio.takes', storeTakes = () => { try { localStorage.setItem(TAKES_KEY, JSON.stringify(SONGS.filter(s => s.kind === 'take'))); } catch {} };
+try { SONGS.unshift(...JSON.parse(localStorage.getItem(TAKES_KEY) || '[]').filter(s => s.sections?.length)); } catch {}
+function songList(){ $('songSel').innerHTML = ''; for (const s of SONGS) $('songSel').append(h('option', {value: s.id}, roundOf(s))); if (ST.id) $('songSel').value = ST.id; }
+songList();
+async function addSong(song, {go = true} = {}){ const i = SONGS.findIndex(s => s.id === song.id); if (i >= 0) SONGS[i] = song; else SONGS.unshift(song); storeTakes(); songList();
+  if (db) try { await db.collection('takes').doc(song.id).set(JSON.parse(JSON.stringify(song))); } catch {}
+  if (go) { try { localStorage.removeItem(keyOf(song.id)); } catch {} await open(song.id); flash('In the arrangement: ' + song.name); } }
 async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s) return; ST.id = id; $('songSel').value = id;
   // (Studio Jam's kick, hats and percussion come as one drum rack track: combineDrums, rack.js)
   ST.orig = combineDrums(flatten(s), SND); let P = null;
@@ -217,7 +225,7 @@ function drag(e, move, up){ const mm = ev => { const [x, y] = pt(e.target, ev); 
   addEventListener('pointermove', mm); addEventListener('pointerup', uu); }
 
 /* ---------- the transport ---------- */
-function play(from = ST.ph){ if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; E.play(from); $('play').textContent = 'Stop'; anim(); }
+function play(from = ST.ph){ if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('arrange'); E.play(from); $('play').textContent = 'Stop'; anim(); }
 function stop(){ E.stop(); $('play').textContent = 'Play'; }
 function seek(b){ ST.ph = b; if (E.playing) play(b); draw(); posText(); }
 function loopTo(a, b){ E.loop = [a, b]; E.cycle = true; $('cycle').setAttribute('aria-pressed', 'true'); ST.ph = a; draw(); posText(); flash(`Looping bars ${a + 1}–${b}`); if (E.playing) play(a); }
@@ -441,5 +449,10 @@ E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a
 addEventListener('resize', () => { draw(); renderEd(); });
 (async () => { let first = null; try { first = localStorage.getItem('studio.daw.song'); } catch {}
   await open(songById(first) ? first : SONGS[0].id);
-  try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c); await open(ST.id); } } catch {} })();
+  try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c);
+    try { const q = await c.collection('takes').get(); for (const d of q.docs) { const x = d.data(); if (x?.sections?.length && !songById(x.id)) SONGS.unshift(x); } storeTakes(); songList(); } catch {}
+    await open(ST.id); } } catch {} })();
 window.__daw = {ST, E, open, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
+// in the Studio page: the shell (studio/studio/) hands songs over, stops this while the Session view plays, and Tab flips
+function studio(){ try { return parent !== window ? parent.__studio : null; } catch { return null; } }
+window.__studioView = {addSong, stop: () => { if (E.playing) stop(); }, name: 'arrange'};

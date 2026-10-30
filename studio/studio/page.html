@@ -1,0 +1,66 @@
+<title>Studio</title>
+<!-- Studio: Studio Jam and the Studio DAW as one place, the two views of a song as in Ableton: Session (the jam: parts
+     looping over the ground, launched on the bar) and Arrangement (the DAW: the song on a timeline as notes). Tab, or the
+     switch at the top, flips them. A take recorded in the Session ("Into the arrangement") arrives in the Arrangement as
+     a song to edit; one transport plays at a time. Each view is its own page in a frame of this one (same origin, so each
+     reaches this page's database), built by studio/studio/build.mjs. -->
+<style>
+:root{--bg:#10141a; --bar:#0b0e12; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --acc:#e0a33a; --acc-ink:#111; color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#eceef1; --bar:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --acc:#b8642a; --acc-ink:#fff; color-scheme:light}}
+:root[data-theme="light"]{--bg:#eceef1; --bar:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --acc:#b8642a; --acc-ink:#fff; color-scheme:light}
+:root[data-theme="dark"]{--bg:#10141a; --bar:#0b0e12; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --acc:#e0a33a; --acc-ink:#111; color-scheme:dark}
+html,body{margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--ink); font:14px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif}
+.sbar{position:fixed; inset:0 0 auto 0; height:44px; display:flex; align-items:center; gap:10px; padding:0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); background:var(--bar); border-bottom:1px solid var(--line); z-index:2; box-sizing:border-box}
+.sbar b{font-size:15px; letter-spacing:.02em}
+.views{display:flex; border:1px solid var(--line); border-radius:9px; overflow:hidden}
+.views button{font:inherit; font-weight:600; color:var(--mute); background:none; border:0; padding:0 14px; min-height:34px; cursor:pointer}
+.views button + button{border-left:1px solid var(--line)}
+.views button[aria-pressed="true"]{background:var(--acc); color:var(--acc-ink)}
+.views button:focus-visible{outline:2px solid var(--acc); outline-offset:-2px}
+.hint{color:var(--mute); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.views + .hint{flex:1}
+iframe{position:fixed; inset:44px 0 0 0; width:100%; height:calc(100% - 44px); border:0; display:block; background:var(--bg)}
+iframe[hidden]{display:none}
+@media (max-width:640px){ .hint{display:none} .views{flex:1} .views button{flex:1} }
+</style>
+<div class="sbar" role="toolbar" aria-label="Studio">
+  <b>Studio</b>
+  <div class="views" role="group" aria-label="View">
+    <button id="vSession" aria-pressed="true" title="The clips: parts looping over the ground (Tab)">Session</button><button id="vArrange" aria-pressed="false" title="The song on a timeline, as notes (Tab)">Arrangement</button>
+  </div>
+  <span class="hint" id="hint">Tab flips the view · ⇥ Into the arrangement records what plays as a song</span>
+</div>
+<iframe id="fSession" title="Session: Studio Jam"></iframe>
+<iframe id="fArrange" title="Arrangement: Studio DAW" hidden></iframe>
+<script type="text/plain" id="srcSession">/*SESSION*/</script>
+<script type="text/plain" id="srcArrange">/*ARRANGE*/</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // each view's page, unpacked (it's kept as base64 so nothing in it can end this script)
+  const page = id => new TextDecoder().decode(Uint8Array.from(atob($(id).textContent.trim()), c => c.charCodeAt(0)));
+  // in each frame: this page's runtime (the database) once it's here, and Tab flipping the view wherever the focus isn't text
+  const SHIM = `(() => { const P = parent; window.claude = {use: async n => { for (let i = 0; i < 220 && !P.claude?.use; i++) await new Promise(r => setTimeout(r, 50)); try { return P.claude?.use ? await P.claude.use(n) : null; } catch { return null; } }};
+    addEventListener('keydown', e => { if (e.key !== 'Tab' || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return; const t = e.target; if (t !== document.body && t !== document.documentElement && t.tagName !== 'CANVAS') return; e.preventDefault(); e.stopImmediatePropagation(); P.__studio?.flip(); }, true); })();`;
+  const doc = body => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><script>${SHIM}<\/script></head><body>${body}</body></html>`;
+  const V = {session: {f: $('fSession'), src: 'srcSession', b: $('vSession')}, arrange: {f: $('fArrange'), src: 'srcArrange', b: $('vArrange')}};
+  let view = 'session';
+  function load(k){ const v = V[k]; if (v.ready) return v.ready;
+    v.ready = new Promise(r => v.f.addEventListener('load', r, {once: true})).then(async () => { for (let i = 0; i < 200 && !v.f.contentWindow.__studioView; i++) await new Promise(r => setTimeout(r, 50)); return v.f.contentWindow; });
+    v.f.srcdoc = doc(page(v.src)); return v.ready; }
+  function show(k){ view = k; for (const [n, v] of Object.entries(V)) { v.f.hidden = n !== k; v.b.setAttribute('aria-pressed', String(n === k)); }
+    load(k).then(w => { w.dispatchEvent(new Event('resize')); try { w.focus(); } catch {} }); try { localStorage.setItem('studio.view', k); } catch {} }
+  V.session.b.onclick = () => show('session'); V.arrange.b.onclick = () => show('arrange');
+  addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && (e.target === document.body || e.target === document.documentElement)) { e.preventDefault(); window.__studio.flip(); } });
+  window.__studio = {
+    flip: () => show(view === 'session' ? 'arrange' : 'session'),
+    show, view: () => view,
+    // one transport at a time: a view starting to play stops the other
+    playing: k => { for (const [n, v] of Object.entries(V)) if (n !== k) try { v.f.contentWindow?.__studioView?.stop(); } catch {} },
+    // a take (or your song) from the Session, into the Arrangement as one of its songs
+    toArrangement: async song => { const w = await load('arrange'); await w.__studioView.addSong(song); show('arrange'); },
+  };
+  let first = 'session'; try { first = localStorage.getItem('studio.view') || 'session'; } catch {}
+  load('session'); show(first === 'arrange' ? 'arrange' : 'session');
+})();
+</script>

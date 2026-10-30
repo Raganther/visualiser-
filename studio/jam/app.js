@@ -153,10 +153,11 @@ function barLine(step){
   if (st.build) { const b = st.build; if (step >= b.at + b.bars*16) { glide(hp.frequency, 18, ctx.currentTime, .02); st.build = null; $('m-build').dataset.on = ''; } }
   if (st.drop && step >= st.drop.at + 16) { st.drop = null; $('m-drop').dataset.on = ''; }
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = shortOf(st.harmony.bars[bar % st.harmony.bars.length]); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
+  if (st.take) takeBar(step);
   renderGround(); if (HV.tab === 'chords' && HV.open) renderMatrix(); if (changed) { renderParts(); renderCard(); } else renderPartGround(); }
-async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
+async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; studio()?.playing?.('session'); st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
   for (const c of st.cols) { if (c.next) applyNext(c, 0); c.start = 0; } timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
-function stop(){ st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
+function stop(){ if (st.take) takeEnd(); st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
 /* ---------- a part's modules changing: now (stopped, or edited by hand) or on the next bar, keeping its place ---------- */
 // what a part will be from the next bar (or is now): the tools build on this, so two quick taps add up
@@ -309,6 +310,37 @@ function repeat(on){ if (on && st.playing && !st.rep) { st.rep = {at: Math.floor
 function record(){ if (!st.rec) { if (!st.playing) start(); st.rec = {from: Math.ceil(st.step/16)*16, notes: [], macros: [], bpm: st.bpm, swing: st.swing, echoDiv: st.echoDiv, mix: st.cols.map(c => ({...c.mix, mute: !!c.mute})), mx: {...st.mx}, eng: st.eng, harmonies: []}; $('rec').setAttribute('aria-pressed', 'true'); flash('Recording from the next bar'); return; }
   const r = st.rec; st.rec = null; $('rec').setAttribute('aria-pressed', 'false'); r.bars = Math.ceil((st.step - r.from)/16); lastTake = r; $('keepJam').disabled = !db || !r.notes.length;
   $('takeNote').textContent = r.notes.length ? `Take: ${r.bars} bars, ${r.notes.length} notes. Keep it for Claude to render, or record again.` : 'Nothing was recorded.'; }
+/* ---------- into the arrangement: what plays written down as a song, a section each time it changes (a scene, a part, the
+   ground), and handed to the Studio DAW, the Studio page's other view, as notes to edit ---------- */
+const studio = () => { try { return parent !== window ? parent.__studio : null; } catch { return null; } };
+// the scene as it is on this bar line: its ground turned to start on this bar's chord, and each part's place in its loop
+function takeSection(step){ const x = capture(), G = st.harmony, n = G.bars.length, hb = ((Math.floor((step - st.hStart)/16) % n) + n) % n;
+  x.harmonyBars = [...G.bars.slice(hb), ...G.bars.slice(0, hb)];
+  x.cols.forEach((v, i) => { const c = st.cols[i]; if (!c?.clip) return; const lp = loopOf(c), span = lp ? lp[1] - lp[0] : c.clip.len; v.phase = (((step - c.start) % span) + span) % span; });
+  return x; }
+const takeSig = x => JSON.stringify([x.cols.map(({phase, ...v}) => v), x.harmony, x.bpm]);
+function takeBar(step){ const T = st.take, x = takeSection(step), sig = takeSig(x), last = T.secs[T.secs.length - 1];
+  if (last && last.sig === sig) { last.bars++; return; }
+  const name = st.scene != null && PACK.scenes[st.scene] ? PACK.scenes[st.scene].name : SNAPS.find(y => y.id === snapOn)?.name || `Part ${T.secs.length + 1}`;
+  T.secs.push({...x, bars: 1, sig, name}); }
+function takeToggle(){ if (st.take) { takeEnd(); return; } st.take = {secs: []}; if (!st.playing) start(); $('take').setAttribute('aria-pressed', 'true'); flash('Into the arrangement from the next bar'); }
+function takeEnd(){ const T = st.take; st.take = null; $('take').setAttribute('aria-pressed', 'false'); if (!T.secs.length) { flash('Nothing yet: it starts on a bar line'); return; }
+  const d = new Date(), name = `Jam ${d.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} ${d.toTimeString().slice(0, 5)}`;
+  toArrangement(T.secs, name); }
+// sections ({…a scene, bars, name}) as one of the DAW's songs
+function toArrangement(secs, name){ const id = 'take-' + Date.now().toString(36);
+  const song = {id, kind: 'take', name, bpm: st.bpm, pack: PACK.id, at: new Date().toISOString(),
+    sections: secs.map(({sig, ...x}, i) => ({...x, id: `${id}.${i + 1}`, name: `${name}: ${x.name}`, bars: x.bars}))};
+  lastSong = song; const S = studio(); if (S?.toArrangement) { S.toArrangement(song); return song; }
+  try { const all = JSON.parse(localStorage.getItem('studio.takes') || '[]'); all.unshift(song); localStorage.setItem('studio.takes', JSON.stringify(all.slice(0, 40))); } catch {}
+  if (db) db.collection('takes').doc(id).set(JSON.parse(JSON.stringify(song))).catch(() => {});
+  flash(`Kept ${name}: open the Studio’s arrangement to edit it`); return song; }
+let lastSong = null; window.__jamSong = () => lastSong;   // (for tests)
+$('take').onclick = () => takeToggle();
+// your song (the scenes in order) into the arrangement
+$('arrDaw').onclick = () => { const secs = ARR.map(e => { const x = byRef(e.ref); return x?.cols && {...JSON.parse(JSON.stringify(x)), bars: e.bars, name: x.name || 'Scene'}; }).filter(Boolean);
+  if (!secs.length) { flash('Put scenes in the song first (＋ Song)'); return; } toArrangement(secs, 'Your song ' + new Date().toTimeString().slice(0, 5)); };
+window.__studioView = {stop: () => { if (st.playing) stop(); }, name: 'session'};
 let lastTake = null; window.__jamTake = () => lastTake && {...lastTake, columns: st.cols.map(c => ({id: c.id, role: c.role}))};   // (for tests)
 const logMacro = (c, k, v) => st.rec?.macros.push([Math.max(0, st.step - st.rec.from), c.id, k, +(+v).toFixed(3)]);
 const logMaster = (k, v) => st.rec?.macros.push([Math.max(0, st.step - st.rec.from), '*', 'master.' + k, v]);
