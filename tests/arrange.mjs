@@ -130,7 +130,7 @@ await D(() => { const {ST} = window.__daw; ST.sx = 30*ST.px; });   // the bass's
   // a drum's name clicked: its row picked, the velocity lane its hits alone; clicked again, let go
   const E2 = await ed(), rh = await D(() => { const {ST} = window.__daw; return null; }); await page.mouse.click(E2.x + 20, E2.y + 18 + 8); const r1 = await D(() => window.__daw.ST.ed.row);
   check('clicking a drum’s name picks its row (the velocity lane its hits alone), the same drum in the Instrument tab', r1 === 'kick' && await D(() => window.__daw.SB.voice()) === 'kick', JSON.stringify([r1, await D(() => [window.__daw.SB.voice(), window.__daw.ST.sel.track, window.__daw.ST.open?.id])]));
-  await page.click('#tabMix'); await page.waitForTimeout(500); await page.locator('#mxDesk .mxs[data-strip="rack/chh"] .sname').click(); await page.click('#tabNotes'); await page.waitForTimeout(200);
+  await page.click('#tabMix'); await page.waitForTimeout(500); await page.locator('#mxDesk .mxs[data-strip="rack/chh"] .sname').click(); await page.click('#tabClip'); await page.click('#clipMode button[data-m="roll"]'); await page.waitForTimeout(200);
   check('and a pad picked in the Mixer is the drum picked in the notes', await D(() => window.__daw.ST.ed.row === 'chh' && window.__daw.SB.voice() === 'chh')); }
 
 // your version kept across a reload; Claude's heard as written; Revert

@@ -22,7 +22,7 @@ await page.evaluate(() => { const {E} = window.__daw; E.init(); const a = E.ctx.
 const wait = ms => page.waitForTimeout(ms), peak = async fn => { await page.evaluate(() => window.__peak = 0); await fn(); await wait(450); return page.evaluate(() => window.__peak); };
 const press = async el => { const b = await el.boundingBox(); await page.mouse.move(b.x + b.width/2, b.y + b.height*.7); await page.mouse.down(); await wait(120); await page.mouse.up(); };
 const type = async k => { await page.keyboard.down(k); await wait(120); await page.keyboard.up(k); };
-const track = async i => { await page.locator('.trk').nth(i).click(); await wait(200); for (const t of ['#tabNotes', '#tabInst', '#tabNotes', '#tabInst']) { await page.click(t); await wait(100); } await wait(1200); };
+const track = async i => { await page.locator('.trk').nth(i).click(); await wait(200); for (const t of ['#tabClip', '#tabInst', '#tabClip', '#tabInst']) { await page.click(t); await wait(100); } await wait(1200); };
 const songs = await page.$$eval('#songSel option', os => os.map(o => o.value)), silent = {pad: [], typed: [], key: []};
 let drumI = -1, synthI = -1;
 for (const id of songs.slice(0, 3)) { await page.selectOption('#songSel', id); await wait(1500);

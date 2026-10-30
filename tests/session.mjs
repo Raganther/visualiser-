@@ -2,8 +2,9 @@
 // from the song's sections (a column a track, a row a scene, its ground beside it), a scene launched and heard, a clip
 // launched while playing coming in on the next bar line, a scene's clips playing the notes the Arrangement writes out for
 // that section (the same parts over the same ground), the Clip tab's tools changing the chosen clip (and undo), a new clip
-// in an empty slot, a scene captured, a ground changed, all kept across a reload, and the views flipping (the Clip tab in
-// the Session, Notes in the Arrangement).
+// in an empty slot, a scene captured, a ground changed, all kept across a reload; and stage 2: one editor in both views
+// (the Clip tab as Steps or the piano roll), Freeze and Make live, → Session (a section as a scene whose copies know where
+// they came from, marked when changed, put back), ● Rec into the Arrangement, and Back to Arrangement.
 import { serve, launch } from './lib.mjs';
 
 const {srv, url} = await serve();
@@ -86,11 +87,68 @@ await wait(3500); await page.reload(); await wait(2500);
 const kept = await Q(([t, r]) => { const {ST} = window.__daw, S = ST.P.session; return {made: !!S.cells[ST.P.tracks[t].id][r], scenes: S.scenes.length, ground: S.scenes[0].ground.name}; }, empty);
 check('a new clip in an empty slot, a scene captured and a ground changed are kept across a reload', made && kept.made && kept.scenes === n0 + 1 && kept.ground === gnd, JSON.stringify({made, n0, gnd, kept}));
 
-// the views: the Arrangement shows the timeline and Notes, the Session the grid and the Clip tab
+// the views: one editor in both, the Clip tab first (Steps or the piano roll), the Arrangement the timeline, the Session the grid
 await page.click('#vArr'); await wait(300);
 const va = await Q(() => ({sess: !document.getElementById('sessWrap').hidden, arr: !document.getElementById('arrWrap').hidden, tabs: [...document.querySelectorAll('.etabs button')].filter(b => !b.hidden).map(b => b.textContent)}));
 await page.click('#vSess'); await wait(300); const vs = await Q(() => ({sess: !document.getElementById('sessWrap').hidden, clip: !document.getElementById('clipPane').hidden}));
-check('the Arrangement shows the timeline and Notes, the Session the grid and the Clip tab', !va.sess && va.arr && va.tabs[0] === 'Notes' && vs.sess && vs.clip, JSON.stringify({va, vs}));
+check('both views have the same editor (Clip, Instrument, Mixer): the Arrangement the timeline, the Session the grid', !va.sess && va.arr && va.tabs.join() === 'Clip,Instrument,Mixer' && vs.sess && vs.clip, JSON.stringify({va, vs}));
+
+// stage 2. In the Arrangement: a live clip opened shows as Steps with the jam's tools, or in the piano roll; Freeze makes it notes
+await page.click('#vArr'); await wait(300);
+const al = await Q(() => { const {ST} = window.__daw, T = ST.P.tracks.find(T => T.role === 'bass'), cl = T.clips[0]; cl.parts = cl.parts || null;
+  return {id: cl.id, live: !!cl.parts?.length}; });
+// (the songs write their clips out as notes: one is made live first, through the Clip tab's Make live)
+await Q(id => window.__daw.openEd(id, true), al.id); await page.click('#tabClip'); await page.click('#clipMode button[data-m="steps"]'); await wait(200);
+if (!al.live) { await page.click('#clipPane button:has-text("Make live")'); await wait(300); }
+const ar = await Q(id => { const {ST} = window.__daw, T = ST.P.tracks.find(T => T.clips.some(c => c.id === id)), cl = T.clips.find(c => c.id === id);
+  return {live: !!cl.parts?.length, notes: cl.notes.length, steps: document.querySelectorAll('#clipPane .steps .st').length, tools: document.querySelectorAll('#clipPane .tools button').length, pane: !document.getElementById('clipPane').hidden}; }, al.id);
+check('in the Arrangement a clip opens in the Clip tab as Steps with the jam\'s tools, and Make live has it follow the chords (its notes worked out)', ar.live && ar.notes > 0 && ar.steps >= 16 && ar.tools > 4 && ar.pane, JSON.stringify(ar));
+await page.click('#clipMode button[data-m="roll"]'); await wait(200);
+const roll = await Q(() => ({roll: !document.getElementById('edWrap').hidden, pane: !document.getElementById('clipPane').hidden, live: document.getElementById('edLive').textContent}));
+await page.click('#edLive button'); await wait(300);
+const fz = await Q(id => { const {ST} = window.__daw, cl = ST.P.tracks.flatMap(T => T.clips).find(c => c.id === id); return {live: !!cl.parts?.length, notes: cl.notes.length}; }, al.id);
+check('the piano roll shows the same clip, and ❄ Freeze to notes keeps its notes to edit one by one', roll.roll && !roll.pane && /Freeze/.test(roll.live) && !fz.live && fz.notes === ar.notes, JSON.stringify({roll, fz}));
+
+// Send to Session: a section of the song becomes a scene, its clips remembering where they came from
+const s0 = await Q(() => window.__daw.ST.P.session.scenes.length);
+await Q(() => { const {ST} = window.__daw; ST.sel = {clips: new Set(), range: null, mark: 1, track: 0}; }); await page.click('#toSess'); await wait(500);
+const sent = await Q(() => { const {ST, SS} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, sc = S.scenes[r], m = ST.P.marks[1];
+  return {view: ST.view, n: S.scenes.length, name: sc.name, mark: m.name, from: sc.from, ground: sc.ground.bars.join() === ST.P.chords.slice(m.at, m.at + m.bars).join(),
+    cells: ST.P.tracks.filter(T => S.cells[T.id][r]).length, withFrom: ST.P.tracks.filter(T => S.cells[T.id][r]?.from?.a === m.at).length, sel: SS.RT.sel.r === r}; });
+check('→ Session: a section of the song becomes a new scene over the song\'s chords there, each clip knowing where it came from', sent.view === 'session' && sent.n === s0 + 1 && sent.name === sent.mark && sent.ground && sent.cells > 1 && sent.withFrom === sent.cells && sent.sel, JSON.stringify(sent));
+// a copy changed: marked, and Put back writes it into those bars of the song
+const chg0 = await Q(() => document.querySelectorAll('#sessWrap .slot .chg').length);
+const ci = await Q(() => { const {ST, SS} = window.__daw, S = ST.P.session, r = S.scenes.length - 1; const t = ST.P.tracks.findIndex(T => S.cells[T.id][r]?.notes?.length && T.role !== 'drums'); SS.select(t, r); return t; });
+await page.click('#clipPane .nsteps .st >> nth=1'); await wait(300);
+const chg = await Q(() => ({tags: document.querySelectorAll('#sessWrap .slot .chg').length, back: document.querySelectorAll('#sessWrap .putback').length, clipBack: !!document.querySelector('#clipPane .putback')}));
+await page.click('#clipPane .putback'); await wait(300);
+const pb = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, T = ST.P.tracks[t], c = S.cells[T.id][r], f = c.from;
+  const over = T.clips.filter(x => x.start < f.b && x.start + x.len/16 > f.a); return {tags: document.querySelectorAll('#sessWrap .slot .chg').length, over: over.length, same: over[0] && JSON.stringify(over[0].notes.filter(n => n.s < c.len)) === JSON.stringify(c.notes), span: over[0] && [over[0].start, over[0].len/16], f: [f.a, f.b]}; }, ci);
+check('a copy changed in the Session says so (the slot, the scene\'s ↩ Put back, the Clip tab), and Put back writes it into its bars of the song', chg0 === 0 && chg.tags === 1 && chg.back >= 1 && chg.clipBack && pb.tags === 0 && pb.over === 1 && pb.same && pb.span[0] === pb.f[0] && pb.span[1] === pb.f[1] - pb.f[0], JSON.stringify({chg0, chg, pb}));
+// Make live and Freeze in the Session too
+await page.click('#clipPane button:has-text("Make live")'); await wait(200);
+const sl = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, c = S.cells[ST.P.tracks[t].id][r]; return {live: !!c.parts?.length, steps: document.querySelectorAll('#clipPane .steps .st').length}; }, ci);
+await page.click('#clipPane button:has-text("Freeze")'); await wait(200);
+const sf = await Q(t => { const {ST} = window.__daw, S = ST.P.session, r = S.scenes.length - 1, c = S.cells[ST.P.tracks[t].id][r]; return {live: !!c.parts?.length, notes: c.notes.length, rows: document.querySelectorAll('#clipPane .nsteps .nrow').length, cn: document.querySelector('#sessWrap .slot[data-sel="1"] .cn')?.textContent}; }, ci);
+check('in the Session Make live has a clip follow the chords, and Freeze makes it notes again (steps a pitch a row, ♪ in the grid)', sl.live && sl.steps >= 16 && !sf.live && sf.notes > 0 && sf.rows > 0 && /♪/.test(sf.cn), JSON.stringify({sl, sf}));
+
+// recording what the Session plays into the Arrangement: the scene's bars, clips knowing their scene, a section named after it
+const r0 = await Q(() => ({bars: window.__daw.ST.P.bars, bpm: window.__daw.ST.P.bpm}));
+await Q(() => { const {ST} = window.__daw; ST.ph = ST.P.bars; }); await page.click('#recArr'); await page.click('#sessWrap .scene .sgo >> nth=2');
+const barMs = 4*60/r0.bpm*1000; await wait(barMs*3.5); await page.click('#recArr'); await page.keyboard.press(' '); await wait(300);
+const rec = await Q(r0 => { const {ST} = window.__daw, P = ST.P, name = P.session.scenes[2].name, m = P.marks.filter(x => x.at >= r0.bars);
+  const clips = P.tracks.flatMap(T => T.clips.filter(c => c.start >= r0.bars)); return {bars: P.bars, marks: m.map(x => x.name + ':' + x.bars), name, clips: clips.length, from: clips.filter(c => c.from?.scene === name).length, chords: P.chords.length}; }, r0);
+check('● Rec records what the Session plays onto the end of the song: its bars, a section named after the scene, the clips knowing where they came from', rec.bars >= r0.bars + 2 && rec.marks.length === 1 && rec.marks[0].startsWith(rec.name) && rec.clips > 1 && rec.from === rec.clips && rec.chords >= rec.bars, JSON.stringify(rec));
+
+// Back to Arrangement: a Session clip launched while the Arrangement plays takes its track over until handed back
+await page.click('#vArr'); await wait(200); await Q(() => { window.__daw.ST.ph = 0; }); await page.click('#play'); await wait(600);
+const tid = await Q(() => { const {ST, SS} = window.__daw, T = ST.P.tracks.find(T => ST.P.session.cells[T.id][0]); SS.launch(T.id, 0); return T.id; });
+await wait(barMs*1.6);
+const own = await Q(tid => ({mode: window.__daw.SS.RT.mode, own: window.__daw.SS.RT.own.has(tid), back: !document.getElementById('backArr').hidden}), tid);
+await page.click('#backArr'); await wait(300);
+const gave = await Q(tid => ({own: window.__daw.SS.RT.own.size, back: !document.getElementById('backArr').hidden, playing: window.__daw.E.playing}), tid);
+await page.click('#play');
+check('a Session clip launched while the Arrangement plays takes its track over on the bar line, and Back to Arrangement hands it back', own.mode === 'mix' && own.own && own.back && !gave.own && !gave.back && gave.playing, JSON.stringify({own, gave}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

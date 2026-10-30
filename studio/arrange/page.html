@@ -132,6 +132,19 @@ body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; 
 .nseq{display:flex; flex-wrap:wrap; gap:4px; min-height:26px; align-items:center} .nchip{font:12px var(--mono); background:#15171b; border:1px solid var(--line); border-radius:5px; padding:2px 7px}
 .oct{display:inline-flex; align-items:center; gap:4px; font-size:12px} .oct button{min-height:24px; min-width:26px; padding:0}
 .cempty{display:flex; align-items:center; gap:10px; padding:10px 0}
+/* stage 2: one editor in both views, copies that remember where they came from */
+.seg{display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden} .seg button{border:0; border-radius:0; min-height:26px; padding:0 9px; font-size:12.5px} .seg button + button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--acc); color:#111}
+.tag{font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; border:1px solid #4a505b; border-radius:4px; padding:0 5px; color:var(--mute)}
+.putback{min-height:24px; padding:0 8px; font-size:12px; color:var(--acc); border-color:#5a4a2a}
+.srow{display:flex; gap:4px; align-items:center; flex-wrap:wrap}
+.slot .chg{position:absolute; right:5px; top:4px; font-size:9.5px; color:var(--acc); text-transform:uppercase; letter-spacing:.3px}
+.nsteps{display:grid; gap:2px; overflow-x:auto} .nrow{font:11px var(--mono); color:var(--mute); white-space:nowrap; overflow:hidden; align-self:center}
+.nsteps .st{min-height:18px}
+.shead[data-own="1"]{box-shadow:inset 0 -3px 0 var(--acc)}
+#recArr[aria-pressed="true"]{background:#c4413b; border-color:#c4413b; color:#fff}
+#backArr{color:var(--acc); border-color:#5a4a2a}
+button.nudge{animation:nudge .5s ease 2} @keyframes nudge{50%{box-shadow:0 0 0 3px var(--acc)}}
 body.phone #clipPane{display:none}
 /* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
 body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.phone #snapL, body.phone .trk .sliders{display:none} body.phone .trk{grid-template-columns:1fr}
@@ -142,6 +155,9 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
   <span class="views" id="views" role="group" aria-label="View"><button id="vSess" aria-pressed="true" title="The clips: scenes of loops over the ground (Tab in the Studio)">Session</button><button id="vArr" aria-pressed="false" title="The song on a timeline">Arrangement</button></span>
   <select id="songSel" aria-label="Song"></select>
   <button id="play" title="Play / stop (Space)">Play</button>
+  <button id="recArr" aria-pressed="false" title="Record what the Session plays into the Arrangement, from where it is">● Rec</button>
+  <button id="toSess" hidden title="The selected bars, section or clips into the Session as a new scene">→ Session</button>
+  <button id="backArr" hidden title="Session clips are playing over these tracks: give them back to the Arrangement">Back to Arrangement</button>
   <button id="cycle" aria-pressed="false" title="Loop the selected bars (C). Drag across the bar numbers to choose them">⟲ Cycle</button>
   <span id="pos" aria-label="Position">1.1.1</span>
   <span class="muted small" id="tempo"></span>
@@ -164,7 +180,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 </div>
 <div id="split" title="Drag to resize the editor"></div>
 <section id="editor" aria-label="The piano roll">
-  <div id="edHead"><div class="tabs etabs"><button id="tabClip" aria-pressed="false" hidden title="The chosen clip: its rhythm and notes, with the jam's tools">Clip</button><button id="tabNotes" aria-pressed="true" title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button><button id="tabMix" aria-pressed="false" title="The mixer: every track’s strip, the buses, the returns and the master bus (X)">Mixer</button></div><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span class="spacer"></span>
+  <div id="edHead"><div class="tabs etabs"><button id="tabClip" aria-pressed="false" title="The chosen clip: its rhythm and notes, with the jam's tools">Clip</button><button id="tabNotes" aria-pressed="false" hidden title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button><button id="tabMix" aria-pressed="false" title="The mixer: every track’s strip, the buses, the returns and the master bus (X)">Mixer</button></div><span class="seg cmode" id="clipMode" hidden role="group" aria-label="Edit as"><button data-m="steps" title="The clip as steps: its rhythm and notes, with the jam's tools">Steps</button><button data-m="roll" title="The clip in the piano roll, note by note">Piano roll</button></span><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span id="edLive"></span><span class="spacer"></span>
     <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
   <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
   <div id="clipPane" hidden aria-label="The chosen clip"></div>

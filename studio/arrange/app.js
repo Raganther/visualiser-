@@ -6,11 +6,12 @@
 // exactly where it is (the song, the tracks, the bars) for Claude to read.
 import { flatten } from './flatten.js';
 import { makeEngine, isDrum } from './engine.js';
-import { combineDrums, ensureRacks, isRack } from './rack.js';
+import { combineDrums, ensureRacks, isRack, rackSound } from './rack.js';
 import { makeSounds } from './sounds.js';
 import { makeSynthUI } from './synth-ui.js';
 import { makeMixer } from './mixer.js';
 import { makeSession } from './session.js';
+import { isLive, liveNotes } from './clips.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
@@ -49,23 +50,28 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
   if (P?.v === 1) { ensureRacks(P, SND); P = combineDrums(P, SND); }
   ST.P = P && P.v === 1 ? P : clone(ST.orig); SB.adopt(ST.P.sounds); ST.mine = true; ST.past = []; ST.fut = []; ST.open = null; ST.ed.sel.clear(); clearSel(); ST.ph = 0;
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
-  E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
+  liveSync(); E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
   SS?.open(s); $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
-const snapshot = () => JSON.stringify({tracks: ST.P.tracks, sounds: ST.P.sounds || {}, desk: ST.P.desk || {}});   // (whole tracks: adding and deleting them undo too; the desk's buses with them)
+const snapshot = () => JSON.stringify({tracks: ST.P.tracks, sounds: ST.P.sounds || {}, desk: ST.P.desk || {}, chords: ST.P.chords, marks: ST.P.marks, bars: ST.P.bars});   // (whole tracks: adding and deleting them undo too; the desk's buses with them)
 function checkpoint(){ ST.past.push(snapshot()); if (ST.past.length > 100) ST.past.shift(); ST.fut = []; }
 function restore(json){ const Q = JSON.parse(json), same = Q.tracks.length === ST.P.tracks.length && Q.tracks.every((T, i) => T.id === ST.P.tracks[i].id);
   // the same tracks: each one's contents put back in place (the engine's channels keep them); others: the tracks replaced, the channels made again
   if (same) ST.P.tracks.forEach((T, i) => { for (const k of Object.keys(T)) delete T[k]; Object.assign(T, Q.tracks[i]); }); else { ST.P.tracks = Q.tracks; E.load(ST.P); }
-  ST.sel.track = Math.min(ST.sel.track, ST.P.tracks.length - 1); ST.P.sounds = Q.sounds || {}; ST.P.desk = Q.desk || {}; SB.adopt(ST.P.sounds); E.deskRefresh();
+  ST.sel.track = Math.min(ST.sel.track, ST.P.tracks.length - 1); ST.P.sounds = Q.sounds || {}; ST.P.desk = Q.desk || {}; if (Q.chords) { ST.P.chords = Q.chords; ST.P.marks = Q.marks; ST.P.bars = Q.bars; } SB.adopt(ST.P.sounds); E.deskRefresh();
   if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.ed.sel.clear(); for (const id of [...ST.sel.clips]) if (!findClip(id)) ST.sel.clips.delete(id); E.compile(); E.refresh(); changed(true); renderTracks(); SB.render(); }
 function undo(){ if (!ST.past.length) { flash('Nothing to undo'); return; } ST.fut.push(snapshot()); restore(ST.past.pop()); flash('Undone'); }
 function redo(){ if (!ST.fut.length) { flash('Nothing to redo'); return; } ST.past.push(snapshot()); restore(ST.fut.pop()); flash('Redone'); }
 let saveT = 0, dbT = 0;
-function changed(mixOnly){ if (!mixOnly) { E.compile(); E.prewarm(); } else E.mix(); draw(); drawEd(); save(); }
+function changed(mixOnly){ if (!mixOnly) { liveSync(); E.compile(); E.prewarm(); } else E.mix(); draw(); drawEd(); save(); }
+// the live clips' notes, worked out over the song's chords where each one is (again only when it, or the chords under it, changed)
+const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+function liveSync(){ const P = ST.P; if (!P) return; P.tracks.forEach((T, i) => { const ren = T.sound?.startsWith('rack:') ? rackSound(T.sound.slice(5).split('+'), SND).ren : null, lane = P.tracks.filter((x, j) => j < i && x.role === T.role).length ? 1 : 0;
+  for (const c of T.clips) { if (!isLive(c)) continue; const bars = Math.ceil(c.len/16), at0 = Math.floor(c.start), k = hashOf(JSON.stringify([c.start, c.len, c.off || 0, c.parts, P.chords.slice(at0, at0 + bars + 1), T.sound, lane]));
+    if (k === c._k) continue; c.notes = liveNotes(c, P.chords, c.start, bars, {ren, lane}).filter(n => n.s < c.len); c._k = k; } }); }
 function save(){ if (!ST.mine) return; clearTimeout(saveT); clearTimeout(dbT); status('Saving…');
   saveT = setTimeout(() => { try { localStorage.setItem(keyOf(ST.id), JSON.stringify({at: Date.now(), P: ST.P})); } catch {} status(db ? 'Saving…' : 'Saved on this device'); }, 600);
   if (db) dbT = setTimeout(async () => { try { await db.collection('versions').doc(ST.id).set({song: ST.id, name: ST.P.name, round: ST.P.round, at: new Date().toISOString(), json: JSON.stringify(ST.P)}); status('Saved'); } catch (e) { status('Saved on this device (' + (e.code || e.message) + ')'); } }, 2500); }
@@ -136,7 +142,10 @@ const arr = $('arr'), actx = arr.getContext('2d'); let AW = 0, AH = 0;
 function fit(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); cv.getContext('2d').setTransform(d, 0, 0, d, 0, 0); return [r.width, r.height]; }
 const bx = b => b*ST.px - ST.sx, xb = x => (x + ST.sx)/ST.px, ly = i => RULER + i*LANE - ST.sy, lane = y => Math.floor((y - RULER + ST.sy)/LANE);
 const maxSy = () => Math.max(0, (ST.P.tracks.length + .7)*LANE - (AH - RULER));   // (room under the tracks for the row that adds one)
-function findClip(id){ for (const [ti, T] of ST.P.tracks.entries()) { const cl = T.clips.find(c => c.id === id); if (cl) return {T, ti, cl}; } return null; }
+function findClip(id){ return findArrClip(id) || SS?.findCell(id) || null; }
+function findArrClip(id){ for (const [ti, T] of ST.P.tracks.entries()) { const cl = T.clips.find(c => c.id === id); if (cl) return {T, ti, cl}; } return null; }
+// the Arrangement's clip the Clip tab shows: the one open, else the one chosen
+const arrClip = () => { const f = cur(); if (f && !f.sess) return f; const ids = [...ST.sel.clips]; return ids.length === 1 ? findArrClip(ids[0]) : null; };
 const unit = () => ST.snap || 1;                                          // snapping, in 16ths
 const snap16 = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v);
 function trackRange(T){ let lo = 1e9, hi = -1e9; for (const c of T.clips) for (const n of c.notes) if (typeof n.p === 'number') { lo = Math.min(lo, n.p); hi = Math.max(hi, n.p); } return lo > hi ? [48, 72] : [lo - 1, hi + 1]; }
@@ -166,10 +175,12 @@ function draw(){ if (!ST.P) return; [AW, AH] = fit(arr); const g = actx, P = ST.
     for (const c of T.clips) { const x = bx(c.start), w = c.len/16*px; if (x + w < 0 || x > AW) continue; const sel = ST.sel.clips.has(c.id) || ST.open?.id === c.id;
       g.globalAlpha = sel ? .95 : .62; g.fillStyle = col; roundRect(g, x + 1, y, w - 2, hh, 5); g.fill(); g.globalAlpha = 1;
       if (sel) { g.strokeStyle = '#fff'; g.lineWidth = 2; roundRect(g, x + 1, y, w - 2, hh, 5); g.stroke(); g.lineWidth = 1; }
-      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 1, y, w - 2, 14); g.fillStyle = '#fff'; g.font = '11px system-ui'; g.save(); g.beginPath(); g.rect(x + 2, y, w - 6, 14); g.clip(); g.fillText(c.name || T.name, x + 5, y + 7); g.restore();
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 1, y, w - 2, 14); g.fillStyle = '#fff'; g.font = '11px system-ui'; g.save(); g.beginPath(); g.rect(x + 2, y, w - 6, 14); g.clip(); g.fillText((isLive(c) ? '∿ ' : '') + (c.name || T.name), x + 5, y + 7); g.restore();
       g.fillStyle = 'rgba(255,255,255,.85)'; const top = y + 16, span = hh - 19;
       for (const n of c.notes) { if (n.s >= c.len) continue; const nx = x + n.s/16*px, nw = Math.max(1, n.l/16*px - .5); if (nx > x + w) continue;
         const ny = drum ? top + (vs.indexOf(n.p) + .5)/vs.length*span : top + (1 - (n.p - lo)/Math.max(1, hi - lo))*span; g.fillRect(nx, ny - 1, Math.min(nw, x + w - nx), 2); } } }); g.restore();
+  // the tracks the Session has taken over while the song plays: greyed until Back to Arrangement
+  if (E.session && SS?.RT.mode === 'mix') P.tracks.forEach((T, i) => { if (!E.session.owns(i)) return; g.fillStyle = 'rgba(15,17,20,.62)'; g.fillRect(0, ly(i), AW, LANE); g.fillStyle = '#e0a33a'; g.font = '600 11px system-ui'; g.fillText('Playing from the Session', 8, ly(i) + LANE/2); });
   // a marquee being drawn, the playhead
   if (ST.box) { const b = ST.box; g.strokeStyle = '#fff'; g.setLineDash([4, 3]); g.strokeRect(Math.min(b.x0, b.x1) + .5, Math.min(b.y0, b.y1) + .5, Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0)); g.setLineDash([]); }
   const x = Math.round(bx(ST.ph)) + .5; g.strokeStyle = '#ff5a4f'; g.beginPath(); g.moveTo(x, 22); g.lineTo(x, AH); g.stroke(); g.fillStyle = '#ff5a4f'; g.beginPath(); g.moveTo(x - 6, 22); g.lineTo(x + 6, 22); g.lineTo(x, 30); g.fill(); }
@@ -228,8 +239,8 @@ function drag(e, move, up){ const mm = ev => { const [x, y] = pt(e.target, ev); 
 /* ---------- the transport ---------- */
 // Play: the Session launches the chosen scene, the Arrangement plays the timeline from the playhead
 function play(from = ST.ph){ if (ST.view === 'session') { SS.launchScene(SS.RT.sel.r); return; }
-  if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('daw'); E.session = null; E.play(from); $('play').textContent = 'Stop'; anim(); }
-function playSession(){ studio()?.playing?.('daw'); E.play(0); $('play').textContent = 'Stop'; anim(); }
+  if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('daw'); E.session = SS.mixHook(); E.play(from); $('play').textContent = 'Stop'; anim(); }
+function playSession(){ studio()?.playing?.('daw'); E.play(Math.max(0, Math.floor(ST.ph))); $('play').textContent = 'Stop'; anim(); }
 function stop(){ E.stop(); if (E.session) { E.session = null; SS.stop(); } $('play').textContent = 'Play'; }
 function seek(b){ ST.ph = b; if (E.playing) play(b); draw(); posText(); }
 function loopTo(a, b){ E.loop = [a, b]; E.cycle = true; $('cycle').setAttribute('aria-pressed', 'true'); ST.ph = a; draw(); posText(); flash(`Looping bars ${a + 1}–${b}`); if (E.playing) play(a); }
@@ -240,7 +251,7 @@ $('undo').onclick = undo; $('redo').onclick = redo;
 // Claude's mix, or every channel and bus straight (at the loudness the mix gives each: B on the desk's comparison)
 $('engAB').onclick = () => { const v = !E.eng; E.setEng(v); $('engAB').textContent = v ? 'Mix: Claude’s' : 'Mix: straight'; $('engAB').setAttribute('aria-pressed', String(v)); };
 function posText(){ const s = Math.max(0, ST.ph*16), bar = Math.floor(s/16) + 1, beat = Math.floor(s % 16/4) + 1, six = Math.floor(s % 4) + 1; $('pos').textContent = `${bar}.${beat}.${six}`; }
-function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } if (E.session) { SS.frame(); const p = E.pos(); if (p != null) { ST.ph = p/16; posText(); } requestAnimationFrame(anim); return; }
+function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } SS.frame(); if (E.session && SS.RT.mode === 'session') { const p = E.pos(); if (p != null) { ST.ph = p/16; posText(); } requestAnimationFrame(anim); return; }
   const p = E.pos(); if (p != null) { ST.ph = p/16; posText();
     const x = bx(ST.ph); if (x > AW - 40 || x < 0) ST.sx = Math.max(0, ST.ph*ST.px - 60); draw(); drawEdHead();
     const f = cur(); if (f) { const s = (ST.ph - f.cl.start)*16; if (s >= 0 && s <= f.cl.len) { const xe = ex(s); if (xe > EW - 30 || xe < KEYW) ST.ed.sx = Math.max(0, s*ST.ed.px - 20); } drawEd(); } }
@@ -249,17 +260,23 @@ function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } if 
 /* ---------- the piano roll ---------- */
 const ed = $('ed'), ectx = ed.getContext('2d'), TOP = 18, VEL = 72, KEYW = 76; let EW = 0, EH = 0;
 const cur = () => ST.open && findClip(ST.open.id);
-function openEd(id){ const f = findClip(id); if (!f) return; ST.open = {id}; ST.ed.sel.clear(); ST.sel.track = f.ti; ST.sel.clips = new Set([id]);
+function openEd(id, quiet){ const f = findClip(id); if (!f) return; ST.open = {id}; ST.ed.sel.clear(); ST.sel.track = f.ti; ST.sel.clips = new Set([id]);
+  if (!quiet) { CM[ST.view] = 'roll'; showClip(true); }   // (shown first: the roll is measured as it'll be drawn)
   [EW, EH] = fit(ed); ST.ed.px = clamp((EW - KEYW - 10)/Math.min(f.cl.len, 64), 3, 48); const s16 = (ST.ph - f.cl.start)*16; ST.ed.sx = s16 < 0 || s16 > f.cl.len ? 0 : clamp(s16*ST.ed.px - 40, 0, Math.max(0, f.cl.len*ST.ed.px - (EW - KEYW) + 40));
   if (!isDrum(f.T.role)) { const ps = f.cl.notes.map(n => n.p).sort((a, b) => a - b), mid = ps.length ? ps[ps.length >> 1] : 60; ST.ed.sy = Math.max(0, (108 - mid)*12 - (EH - TOP - VEL)/2); } else ST.ed.sy = 0;
-  if (SI?.isOn()) SI.show(false); renderTracks(); renderEd(); draw(); target(); ed.focus(); ST.focus = 'ed'; }
+  renderTracks(); renderEd(); draw(); target(); if (!quiet) { ed.focus(); ST.focus = 'ed'; } }
 // (a drum clip's rows fit the editor: a whole kit's pads a little shorter than a few drums')
 function rowsOf(f){ if (!isDrum(f.T.role)) return {drum: false, hi: 108, lo: 24, rh: 12}; const rows = voicesOf(f.T); return {drum: true, rows, rh: clamp(Math.floor((EH - TOP - VEL)/rows.length), 13, 22)}; }
 const rowOfNote = (R, n) => R.drum ? R.rows.indexOf(n.p) : R.hi - n.p;
 const ex = s => KEYW + s*ST.ed.px - ST.ed.sx, es = x => (x - KEYW + ST.ed.sx)/ST.ed.px;
 function renderEd(){ const f = cur(); drawEdHead(); [EW, EH] = fit(ed); drawEd(); }
-function drawEdHead(){ const f = cur(); if (!f) { $('edName').textContent = 'Double-click a clip to edit its notes'; $('edInfo').textContent = ''; return; }
-  $('edName').textContent = `${f.T.name} · ${f.cl.name || ''}`; $('edInfo').textContent = `bars ${Math.floor(f.cl.start) + 1}–${Math.ceil(f.cl.start + f.cl.len/16)} · ${f.cl.notes.length} notes${ST.ed.sel.size ? ` · ${ST.ed.sel.size} selected` : ''}`; }
+// a live clip's notes are worked out from its rhythm and chord tones: to edit them one by one, it's frozen first
+function liveGuard(f){ if (!f || !isLive(f.cl)) return false; flash('This clip is live (it follows the chords): ❄ Freeze to notes to edit them here, or shape it in Steps'); const b = $('edLive').querySelector('button'); if (b) { b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); } return true; }
+function edLive(f){ const box = $('edLive'); box.innerHTML = ''; if (!f) return;
+  box.append(isLive(f.cl) ? h('span', {class: 'small'}, h('span', {class: 'tag'}, 'live'), ' its notes as they play: ', h('button', {title: 'Keep these notes, to edit one by one (it stops following the chords)', onclick: () => SS.doFreeze()}, '❄ Freeze to notes'))
+    : h('button', {class: 'mini', title: 'Read its notes back into a rhythm and chord tones, so it follows the chords again', onclick: () => SS.doLive()}, '∿ Make live')); }
+function drawEdHead(){ const f = cur(); edLive(f); if (!f) { $('edName').textContent = ST.view === 'session' ? 'Choose a clip in the grid' : 'Double-click a clip to edit its notes'; $('edInfo').textContent = ''; return; }
+  $('edName').textContent = `${f.T.name} · ${f.cl.name || ''}`; $('edInfo').textContent = `${f.sess ? 'a Session clip, ' + Math.ceil(f.cl.len/16) + ' bars round' : `bars ${Math.floor(f.cl.start) + 1}–${Math.ceil(f.cl.start + f.cl.len/16)}`} · ${f.cl.notes.length} notes${ST.ed.sel.size ? ` · ${ST.ed.sel.size} selected` : ''}`; }
 function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRect(0, 0, EW, EH); if (!f) return;
   const R = rowsOf(f), n = R.drum ? R.rows.length : R.hi - R.lo + 1, yb = EH - VEL, yOf = r => TOP + r*R.rh - ST.ed.sy, px = ST.ed.px, cl = f.cl, col = colorOf(f.T, f.ti);
   // rows (the black keys darker), the grid, past the clip's end shaded
@@ -297,7 +314,7 @@ function noteAt(f, R, x, y){ for (let i = f.cl.notes.length - 1; i >= 0; i--) { 
     if (y >= y0 && y < y0 + R.rh && x >= x0 - 1 && x <= x0 + w + 1) return {i, nt, x0, w}; } return null; }
 const pitchOfRow = (R, r) => R.drum ? R.rows[clamp(r, 0, R.rows.length - 1)] : clamp(R.hi - r, R.lo, R.hi);
 const eSnap = v => ST.snap ? Math.round(v/ST.snap)*ST.snap : Math.round(v*100)/100;
-ed.addEventListener('pointerdown', e => { if (e.button) return; const f = cur(); ST.focus = 'ed'; ed.focus(); if (!f) return; const [x, y] = pt(ed, e), R = rowsOf(f), yb = EH - VEL;
+ed.addEventListener('pointerdown', e => { if (e.button) return; const f = cur(); ST.focus = 'ed'; ed.focus(); if (!f) return; if (liveGuard(f)) return; const [x, y] = pt(ed, e), R = rowsOf(f), yb = EH - VEL;
   if (x < KEYW && y > TOP && y < yb) { const r = Math.floor((y - TOP + ST.ed.sy)/R.rh), p = pitchOfRow(R, r); E.audition(f.ti, p);
     // (a drum's name: picked, here and in the Instrument and Mixer tabs too)
     if (R.drum) { ST.sel.track = f.ti; pickPad(p); } return; }
@@ -341,21 +358,21 @@ $('split').addEventListener('pointerdown', e => { const y0 = e.clientY, h0 = $('
 /* ---------- edits: clips and notes ---------- */
 function selClips(){ return [...ST.sel.clips].map(findClip).filter(Boolean); }
 function delSel(){ if (!editable()) return; const f = cur();
-  if (ST.focus === 'ed' && f) { if (!ST.ed.sel.size) return; checkpoint(); f.cl.notes = f.cl.notes.filter((_, i) => !ST.ed.sel.has(i)); ST.ed.sel.clear(); changed(); drawEdHead(); return; }   // (in the piano roll only notes go)
+  if (ST.focus === 'ed' && f) { if (liveGuard(f)) return; if (!ST.ed.sel.size) return; checkpoint(); f.cl.notes = f.cl.notes.filter((_, i) => !ST.ed.sel.has(i)); ST.ed.sel.clear(); changed(); drawEdHead(); return; }   // (in the piano roll only notes go)
   const cs = selClips(); if (!cs.length) return; checkpoint(); for (const {T, cl} of cs) T.clips.splice(T.clips.indexOf(cl), 1); if (ST.open && !findClip(ST.open.id)) ST.open = null; ST.sel.clips.clear(); changed(); renderEd(); flash(`Deleted ${cs.length} clip${cs.length > 1 ? 's' : ''}`); }
 function copy(){ const f = cur();
   if (ST.focus === 'ed' && f && ST.ed.sel.size) { const ns = [...ST.ed.sel].map(i => f.cl.notes[i]), s0 = Math.min(...ns.map(n => n.s)); ST.noteboard = ns.map(n => ({...n, s: n.s - s0})); flash(`Copied ${ns.length} note${ns.length > 1 ? 's' : ''}`); return; }
   const cs = selClips(); if (!cs.length) return; const b0 = Math.min(...cs.map(c => c.cl.start)), t0 = Math.min(...cs.map(c => c.ti));
   ST.clipboard = cs.map(c => ({ti: c.ti, dt: c.ti - t0, rel: c.cl.start - b0, cl: clone(c.cl)})); flash(`Copied ${cs.length} clip${cs.length > 1 ? 's' : ''}`); }
 function paste(){ if (!editable()) return; const f = cur();
-  if (ST.focus === 'ed' && f && ST.noteboard) { checkpoint(); const at = clamp((ST.ph - f.cl.start)*16, 0, f.cl.len - 1), s = ST.snap ? Math.round(at/ST.snap)*ST.snap : at, base = f.cl.notes.length;
+  if (ST.focus === 'ed' && f && ST.noteboard) { if (liveGuard(f)) return; checkpoint(); const at = clamp((ST.ph - f.cl.start)*16, 0, f.cl.len - 1), s = ST.snap ? Math.round(at/ST.snap)*ST.snap : at, base = f.cl.notes.length;
     f.cl.notes.push(...ST.noteboard.map(n => ({...n, s: +(s + n.s).toFixed(3)}))); ST.ed.sel = new Set(ST.noteboard.map((_, k) => base + k)); changed(); drawEdHead(); return; }
   if (!ST.clipboard) return; checkpoint(); const one = new Set(ST.clipboard.map(c => c.ti)).size === 1, at = Math.round(ST.ph*16)/16, ids = [];
   for (const c of ST.clipboard) { let ti = one ? ST.sel.track : c.ti; if (!compatible(ST.P.tracks[ti], ST.P.tracks[c.ti])) ti = c.ti;
     const nc = {...clone(c.cl), id: 'n' + ST.nid++, start: at + c.rel}; ST.P.tracks[ti].clips.push(nc); ids.push(nc.id); }
   ST.sel.clips = new Set(ids); changed(); flash(`Pasted at bar ${Math.floor(at) + 1}`); }
 function duplicate(){ if (!editable()) return; const f = cur();
-  if (ST.focus === 'ed' && f && ST.ed.sel.size) { checkpoint(); const ns = [...ST.ed.sel].map(i => f.cl.notes[i]), a = Math.min(...ns.map(n => n.s)), b = Math.max(...ns.map(n => n.s + n.l)), span = Math.ceil((b - a)/4)*4 || 4, base = f.cl.notes.length;
+  if (ST.focus === 'ed' && f && ST.ed.sel.size) { if (liveGuard(f)) return; checkpoint(); const ns = [...ST.ed.sel].map(i => f.cl.notes[i]), a = Math.min(...ns.map(n => n.s)), b = Math.max(...ns.map(n => n.s + n.l)), span = Math.ceil((b - a)/4)*4 || 4, base = f.cl.notes.length;
     f.cl.notes.push(...ns.map(n => ({...n, s: +(n.s + span).toFixed(3)}))); ST.ed.sel = new Set(ns.map((_, k) => base + k)); changed(); drawEdHead(); return; }
   const cs = selClips(); if (!cs.length) return; checkpoint(); const a = Math.min(...cs.map(c => c.cl.start)), b = Math.max(...cs.map(c => c.cl.start + c.cl.len/16)), ids = [];
   for (const {T, cl} of cs) { const nc = {...clone(cl), id: 'n' + ST.nid++, start: cl.start + (b - a)}; T.clips.push(nc); ids.push(nc.id); }
@@ -365,9 +382,10 @@ function split(){ if (!editable()) return; let cs = selClips(); if (!cs.length) 
   const at = Math.round(ST.ph*16)/16, hit = cs.filter(({cl}) => at > cl.start && at < cl.start + cl.len/16); if (!hit.length) { flash('Put the playhead inside a clip to split it'); return; }
   checkpoint(); const ids = [];
   for (const {T, cl} of hit) { const cut = Math.round((at - cl.start)*16), b = {...clone(cl), id: 'n' + ST.nid++, start: at, len: cl.len - cut, notes: cl.notes.filter(n => n.s >= cut).map(n => ({...n, s: +(n.s - cut).toFixed(3)}))};
+    if (isLive(cl)) { b.off = (cl.off || 0) + cut; b._k = undefined; cl._k = undefined; }   // (a live clip's second half carries on in its loop)
     cl.notes = cl.notes.filter(n => n.s < cut); cl.len = cut; T.clips.push(b); ids.push(cl.id, b.id); }
   ST.sel.clips = new Set(ids); changed(); flash(`Split at bar ${Math.floor(at) + 1}${at % 1 ? ', beat ' + (Math.round(at % 1*4) + 1) : ''}`); }
-function nudge(dx, dy, big){ if (!editable()) return; const f = cur();
+function nudge(dx, dy, big){ if (!editable()) return; const f = cur(); if (ST.focus === 'ed' && f && ST.ed.sel.size && liveGuard(f)) return;
   if (ST.focus === 'ed' && f && ST.ed.sel.size) { checkpoint(); const R = rowsOf(f);
     for (const i of ST.ed.sel) { const n = f.cl.notes[i]; n.s = Math.max(0, +(n.s + dx*(ST.snap || 1)).toFixed(3));
       if (dy) { if (R.drum) n.p = R.rows[clamp(R.rows.indexOf(n.p) - dy, 0, R.rows.length - 1)]; else n.p = clamp(n.p + dy*(big ? 12 : 1), R.lo, R.hi); } }
@@ -388,7 +406,7 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
     else { ST.sel.clips = new Set(ST.P.tracks.flatMap(T => T.clips.map(c => c.id))); draw(); } target(); return; }
   if (mod) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delSel(); return; }
-  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; } if (k === 'b') { MX.show(false); SI.show(!SI.isOn()); return; } if (k === 'x') { MX.show(!MX.isOn()); return; }
+  if (k === 'c') { $('cycle').click(); return; } if (k === 'l') { loopSel(); return; } if (k === 'y') { SB.show(!SB.isOpen()); return; } if (k === 'b') { $(SI.isOn() ? 'tabClip' : 'tabInst').click(); return; } if (k === 'x') { $('tabMix').click(); return; }
   if (e.key === 'Escape' && $('pop')) { closePop(); return; }
   if (e.key === 'Escape') { ST.ed.sel.clear(); clearSel(); renderTracks(); draw(); drawEd(); target(); return; }
   if (e.key === 'Home' || e.key === 'Enter') { seek(E.cycle ? E.loop[0] : 0); return; }
@@ -441,7 +459,9 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
-SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
+SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), changed: () => changed(), checkpoint, arrClip: () => arrClip(), findArrClip,
+  setView: v => (studio()?.show ? studio().show(v) : setView(v)), arrChanged: () => { if (ST.view === 'arrange') draw(); }, recOn: on => $('recArr').setAttribute('aria-pressed', String(on)),
+  renderBack: on => { $('backArr').hidden = !on; }, clipChosen: () => { if (clipOn()) showClip(true); }, selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, fx: (mods, T, pad, redo) => MX?.fxInto(mods, T, pad, redo), flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
 // one drum picked at a time, the same in the notes, the instrument and the mixer (and the sound panel's voices): the
 // sound panel holds it (SB.voice), and whichever tab picks one, the others follow
@@ -451,17 +471,37 @@ SB.onChange(padPicked);
 MX = makeMixer({ST, E, SND, pickPad, h, $, checkpoint, changed, flash, editable, save, renderTracks: () => renderTracks(), soundName: id => SND[id]?.name || id, get SI(){ return SI; }});
 $('tabInst').onclick = () => { showClip(false); MX.show(false); SI.show(true); }; $('tabNotes').onclick = () => { showClip(false); MX.show(false); SI.show(false); };
 $('tabClip').onclick = () => showClip(true);
-$('tabMix').onclick = () => { const on = !MX.isOn(); if (on) showClip(false); MX.show(on); if (!on && ST.view === 'session') showClip(true); };
-// the Clip tab: the chosen clip's rhythm and notes, with the jam's tools (the Session's), in the editor's place
-function showClip(on){ $('clipPane').hidden = !on; $('tabClip').setAttribute('aria-pressed', String(on));
-  if (on) { SI.show(false); MX.show(false); for (const id of ['edWrap', 'help', 'edName', 'edInfo']) $(id).hidden = true; $('tabNotes').setAttribute('aria-pressed', 'false'); SS.renderClip(); } }
+$('tabMix').onclick = () => { const on = !MX.isOn(); if (on) showClip(false); MX.show(on); if (!on) showClip(true); };
+// the Clip tab, the same in both views: the chosen clip as Steps (the jam's step sequencer and tools) or as a Piano roll
+// (its notes; a live clip's as they play, frozen to edit one by one); each view keeps its own way (the Session steps,
+// the Arrangement the piano roll, to begin with)
+const CM = {session: 'steps', arrange: 'roll'};
+try { Object.assign(CM, JSON.parse(localStorage.getItem('studio.daw.cmode') || '{}')); } catch {}
+function showClip(on){ $('tabClip').setAttribute('aria-pressed', String(on)); $('clipMode').hidden = !on;
+  if (!on) { $('clipPane').hidden = true; return; }
+  SI.show(false); MX.show(false); $('tabNotes').setAttribute('aria-pressed', 'false');
+  const roll = CM[ST.view] === 'roll'; for (const b of $('clipMode').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.m === CM[ST.view]));
+  $('clipPane').hidden = roll; for (const id of ['edWrap', 'help', 'edName', 'edInfo', 'edLive']) $(id).hidden = !roll;
+  if (!roll) { SS.renderClip(); return; }
+  if (ST.view === 'session') { const c = SS.selCell(); if (c) openEd(c.id, true); else { ST.open = null; renderEd(); } } else renderEd(); }
+for (const b of $('clipMode').querySelectorAll('button')) b.onclick = () => { CM[ST.view] = b.dataset.m; try { localStorage.setItem('studio.daw.cmode', JSON.stringify(CM)); } catch {} showClip(true); };
+const clipOn = () => $('tabClip').getAttribute('aria-pressed') === 'true';
 // the two views: Session (the clip grid) and Arrangement (the timeline); the tracks, the editor's tabs and the mixer the same
 function setView(v){ ST.view = v === 'arrange' ? 'arrange' : 'session'; const sess = ST.view === 'session';
-  $('sessWrap').hidden = !sess; $('arrWrap').hidden = sess; $('tracks').hidden = sess; $('tabClip').hidden = !sess; $('tabNotes').hidden = sess; $('cycle').hidden = sess; $('snapL').hidden = sess;
+  $('sessWrap').hidden = !sess; $('arrWrap').hidden = sess; $('tracks').hidden = sess; $('cycle').hidden = sess; $('snapL').hidden = sess; $('toSess').hidden = sess;
   for (const [id, on] of [['vSess', sess], ['vArr', !sess]]) $(id).setAttribute('aria-pressed', String(on));
-  if (sess && !SI.isOn() && !MX.isOn()) showClip(true); if (!sess && !$('clipPane').hidden) { showClip(false); for (const id of ['edWrap', 'help', 'edName', 'edInfo']) $(id).hidden = false; $('tabNotes').setAttribute('aria-pressed', 'true'); }
+  if (ST.view === 'session' && ST.open && !SS.findCell(ST.open.id)) ST.open = null; if (ST.view === 'arrange' && ST.open && !findArrClip(ST.open.id)) ST.open = null;
+  if (!SI.isOn() && !MX.isOn()) showClip(true);
   try { localStorage.setItem('studio.daw.view', ST.view); } catch {} if (sess) SS.render(); else { draw(); renderEd(); } }
 $('vSess').onclick = () => setView('session'); $('vArr').onclick = () => setView('arrange');
+// Record: what the Session plays written into the Arrangement where it's heard; Send to Session: the bars chosen (a
+// section, a range, or the clips chosen) as a new scene; Back to Arrangement: every track the timeline's again
+$('recArr').onclick = () => SS.recToggle(); $('backArr').onclick = () => SS.backToArr();
+$('toSess').onclick = () => { const P = ST.P, R = ST.sel.range, m = ST.sel.mark != null ? P.marks[ST.sel.mark] : null, cs = selClips();
+  let a, b, name; if (R) { a = Math.floor(R.a); b = Math.ceil(R.b); } else if (m) { a = m.at; b = m.at + m.bars; name = m.name; }
+  else if (cs.length) { a = Math.floor(Math.min(...cs.map(c => c.cl.start))); b = Math.ceil(Math.max(...cs.map(c => c.cl.start + c.cl.len/16))); }
+  else { flash('Choose a section (click its name), drag across the bar numbers, or choose clips, then Send to Session'); return; }
+  SS.fromArr(a, Math.max(a + 1, b), name); };
 E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a moment after the page: the instrument says so then)
 
 /* ---------- start ---------- */
@@ -471,7 +511,7 @@ addEventListener('resize', () => { draw(); renderEd(); });
   try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c);
     try { const q = await c.collection('takes').get(); for (const d of q.docs) { const x = d.data(); if (x?.sections?.length && !songById(x.id)) SONGS.unshift(x); } storeTakes(); songList(); } catch {}
     await open(ST.id); } } catch {} })();
-window.__daw = {get SS(){ return SS; }, ST, E, open, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
+window.__daw = {get SS(){ return SS; }, ST, E, open, openEd, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
 // in the Studio page: the shell (studio/studio/) hands songs over, stops this while the Session view plays, and Tab flips
 function studio(){ try { return parent !== window ? parent.__studio : null; } catch { return null; } }
 window.__studioView = {addSong, stop: () => { if (E.playing) stop(); }, view: v => setView(v), name: 'daw'};
