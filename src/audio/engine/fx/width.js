@@ -14,5 +14,7 @@ export default {key: 'width', label: 'Width', words: 'a wider image',
     const lowS = bq(ctx, 'lowpass', 120, .7); sd.connect(lowS); lowS.connect(l2); const lowN = ctx.createGain(); lowN.gain.value = -1; lowS.connect(lowN); lowN.connect(r2);
     m.connect(l2); m.connect(r2); l2.connect(mg, 0, 0); r2.connect(mg, 0, 1); mg.connect(output);
     return {input, output,
-      set(k, v){ if (k === 'w') ease(ctx, w.gain, v); else if (k === 'mono') { ease(ctx, hp.frequency, v); ease(ctx, lowS.frequency, v); } }};
+      set(k, v){ if (k === 'w') ease(ctx, w.gain, v); else if (k === 'mono') { ease(ctx, hp.frequency, v); ease(ctx, lowS.frequency, v); } },
+      // the width set at a time on the audio clock (an offline render's automation)
+      at(k, v, t){ if (k === 'w') w.gain.setValueAtTime(v, t); }};
   }};

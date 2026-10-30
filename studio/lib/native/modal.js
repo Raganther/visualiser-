@@ -75,3 +75,34 @@ export const MODAL = {
   rim: {modes: [[1, 1, .045], [1.71, .6, .032], [2.62, .35, .022], [3.9, .15, .015]], hard: .9, click: .45, width: .25, gain: .6},
   gong: {modes: [[1, .8, 6], [1.48, .6, 5, .3], [2.02, .5, 4, .6], [2.47, .5, 3.5, .9], [3.1, .4, 3, 1.2], [3.6, .3, 2.5, 1.5], [4.3, .2, 2, 1.8], [5.1, .15, 1.6, 2]], hard: .4, beat: .006, width: .6},
 };
+
+// The Resonator as a voice (stream.js), for the live engine: each mode a decaying sinusoid turned a sample at a time (a
+// rotation, so no sine is needed), the mallet's hardness and place set at the strike. Its decay is from each mode's T60
+// as the Ring is now, so turning Ring lengthens or shortens what's already sounding; the tremolo follows its knob.
+// It matches modal() above to well under -50 dB (the tests measure it).
+const TAU = 2*Math.PI;
+export const MODAL_D = {vel: .8, hard: .5, pos: .27, beat: 0, width: .35, glide: 0, glideT: .05, click: 0, seed: 1, trem: 0, tremHz: 5.5, ring: 1};
+export class ModalV {
+  constructor(sr, f0, P, vel = P.vel){ const R = rng(P.seed), b = Math.min(1, P.hard*(.55 + .45*vel)), tc = .0004 + (1 - b)*.004, list = [];
+    (P.modes || []).forEach(([ratio, lvl, t60, att = 0], k) => { const f = f0*ratio; if (f >= sr*.45 || f < 15) return;
+      const w = lvl*Math.pow(ratio, -1.6*(1 - b))*(.35 + .65*Math.abs(Math.sin(Math.PI*(k + 1)*P.pos)))/(1 + Math.pow(f*tc*.9, 2)), pan = (R() - .5)*P.width*(k ? 1 : .3);
+      list.push({f, w, t60, at: Math.max(tc, att)*sr, gl: (1 - pan)*.5, gr: (1 + pan)*.5, ph: R()*.2*TAU, env: w});
+      if (P.beat > 0 && k > 0) list.push({f: f*(1 + P.beat*(.6 + .8*R())), w: w*.45, t60: t60*.9, at: Math.max(tc, att)*sr, gl: (1 + pan)*.5, gr: (1 - pan)*.5, ph: R()*TAU, env: w*.45}); });
+    const click = []; if (P.click > 0) { const cn = Math.round(.0015*sr); let p = 0; for (let i = 0; i < cn; i++) { const x = R()*2 - 1; click.push((x - p)*P.click*b*(1 - i/cn)); p = x; } }
+    for (const m of list) { m.re = m.env*Math.cos(m.ph); m.im = m.env*Math.sin(m.ph); }
+    Object.assign(this, {sr, P, modes: list, click, i: 0, end: Infinity, done: false}); }
+  off(){}
+  run(L, R, a, b){ const P = this.P, sr = this.sr, ring = Math.max(.05, P.ring), trem = P.trem || 0, glide = P.glide;
+    let alive = false;
+    for (const m of this.modes) { const d = Math.exp(-LN1000/(m.t60*ring*sr)), w = TAU*m.f/sr; m.cr = d*Math.cos(w); m.ci = d*Math.sin(w); m.d = d; }
+    for (let j = a; j < b; j++) { const i = this.i; let l = 0, r = 0;
+      for (let k = 0; k < this.modes.length; k++) { const m = this.modes[k]; if (m.env < 1e-6) continue; alive = true;
+        if (glide) { const w = TAU*m.f*(1 + glide*Math.exp(-i/(P.glideT*sr)))/sr; m.cr = m.d*Math.cos(w); m.ci = m.d*Math.sin(w); }
+        const re = m.re*m.cr - m.im*m.ci, im = m.re*m.ci + m.im*m.cr; m.re = re; m.im = im; m.env *= m.d;
+        const s = i < m.at ? im*(.5 - .5*Math.cos(Math.PI*i/m.at)) : im; l += s*m.gl; r += s*m.gr; }
+      if (i < this.click.length) { l += this.click[i]; r += this.click[i]*.9; alive = true; }
+      let g = 1; if (trem) g *= 1 - trem*(.5 - .5*Math.cos(TAU*P.tremHz*i/sr));
+      if (i > 8*sr) { const f = 1 - (i - 8*sr)/(.02*sr); if (f <= 0) { this.done = true; return; } g *= f; }   // (at most 8 s, as computed ahead)
+      L[j] += l*g; R[j] += r*g; this.i++; }
+    if (!alive) this.done = true; }
+}

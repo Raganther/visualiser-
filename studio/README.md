@@ -41,4 +41,30 @@ reads them and makes the next version.
   hardness and strike point weighting them, doublets beating); `body.js` has a struck membrane (kick, toms, hand drums),
   a plucked string (Karplus and Strong), a shaker (beads colliding), grain clouds and rain. `index.js` names them and
   caches each note; `d.native(bus, name, set)` on the desk plays them like a synth (`d.note`, `d.morph` on their settings).
-  `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab).
+  `labs/native.js` puts each liked sound now and native side by side (the `native-1` lab). Every instrument is also a
+  streaming voice (`stream.js`: run as it plays, let go, done), which is what each note computed ahead runs, and what the
+  DAW's live engine (`arrange/voices.worklet.js`) plays sample by sample (the analog synth among them: pack 5), into the DAW's native
+  desk (`arrange/desk.js` on `lib/parts/desk.js`: the parts host, a strip a track, buses, returns, the kick's sidechain, the Mixer tab; a drum rack track,
+  `arrange/rack.js`, a whole kit on one track with a strip a pad, pack 6's kits or the song's own drums put together); `npoly.js` is the poly synth and `kit.js` the
+  drum machine rebuilt the same way; `analogkit.js` is a drum machine of our own, built as analog circuits behave (five
+  kits, in pack 4; each as one drum rack in pack 6).
+- **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
+  https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
+  `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two
+  band-limited oscillators with sync and cross-mod, a sub, noise and ring mod, a saturating ladder or a state-variable
+  filter, capacitor envelopes, eight voice cards that drift, an LFO, poly, mono, legato and unison, chorus and tape echo),
+  on fourteen examples, each a patch and a phrase written for it; the drum rack lab (`rack/`, `listen/rack-lab.html`:
+  https://claude.ai/artifact/W8DtRouN8ueMwYNpfZDVqZ) takes the analog kit apart into a channel a pad, a bus of processors to switch,
+  move, take out and add to (in and out at matched loudness), and echo and room returns; the ducking lab (`duck/`,
+  `listen/duck-lab.html`: https://claude.ai/artifact/4kNr9C6sBzkNDBupg7GvsS) sets a sidechain compressor against a ducker
+  that reads the score and moves before each hit, kick → bass, lead → pad and kick → pad, with what each does drawn
+  (the user found it no better: mixes use the classic sidechain compressor); the mix lab (`mix/`, `listen/mix-lab.html`:
+  https://claude.ai/artifact/53SbVEpeak5GaQW4zi51Nd) mixes round 4's three songs the traditional way, on their own sounds or the analog drum machine and synth, on the parts, every sound and processor native (`mix/mix.js`: the song
+  as the host's description and timed messages; `mix/song.mjs` reads it for the build and tests; `mix/calibrate.mjs` measures each song's gain staging, for both sets, into `levels.js`).
+  `node studio/<drums|synth|rack|duck|mix>/build.mjs` builds each; `tests/synthlab.mjs`, `racklab.mjs`, `ducklab.mjs` and `mixlab.mjs`
+  measure the parts and play the pages.
+- **The parts** (`lib/parts/`): what the playgrounds are built from, so they can be mixed and matched. `procs.js` the
+  processors (each describes its settings; `Chain` strings them), `host.js` the host (a description of sources, strips,
+  buses, sends and returns, played by timed events, in the audio thread by `host.worklet.js` or offline), `shell.js` what
+  a playground's page shares (controls for any setting, a chain editor, meters, notes for Claude). A new playground is a
+  page asking one question.
