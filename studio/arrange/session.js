@@ -214,7 +214,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
   // a notes clip's step: a note of that row's pitch on (or off) at that 16th
   function toggleNote(s, pitch, drum){ edit(cl => { const i = cl.notes.findIndex(n => Math.floor(n.s + 1e-6) === s && n.p === pitch); if (i >= 0) cl.notes.splice(i, 1); else { cl.notes.push({s, p: pitch, l: drum ? 1 : 2, v: .8}); cl.notes.sort((a, b) => a.s - b.s); } }); }
   // Freeze: a live clip's notes kept, as worked out (in the Session over its scene's ground, one loop or the ground's length)
-  function viewNotes(cl, TT, ground){ if (!isLive(cl)) return cl; const L = Math.min(256, Math.max(loopLen(cl), (ground?.bars.length || 1)*16)), bars = Math.ceil(L/16);
+  function viewNotes(cl, TT, ground){ if (!isLive(cl)) return cl; const vk = sigOf(cl) + (ground?.bars || []).join() + (cl.off || 0); if (cl._vk === vk && cl.notes?.length) return cl; cl._vk = vk; const L = Math.min(256, Math.max(loopLen(cl), (ground?.bars.length || 1)*16)), bars = Math.ceil(L/16);
     cl.notes = liveNotes({...cl, off: cl.off || 0}, ground?.bars || DEEP.bars, 0, bars, {ren: renOf(TT), lane: laneOf(ST.P, ST.P.tracks.indexOf(TT))}).filter(n => n.s < L); cl.len = L; cl.start = 0; return cl; }
   function doFreeze(){ const X = target(); if (!X?.cl || !isLive(X.cl)) return; edit(cl => { if (X.where === 'sess') viewNotes(cl, X.T, X.sc.ground); freeze(cl); }, 'Frozen to notes: edit them in the piano roll (it no longer follows the chords)'); }
   function doLive(){ const X = target(); if (!X?.cl || isLive(X.cl)) return; const chords = X.where === 'arr' ? ST.P.chords : X.sc.ground.bars, at0 = X.where === 'arr' ? Math.floor(X.cl.start) : 0;
@@ -281,7 +281,11 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     if (k === 'l') { const TT = T(RT.sel.t); if (cl) launch(TT.id, RT.sel.r); return true; }
     return false; }
   // a Session clip as the piano roll sees it (its notes; a live one's worked out over its scene's ground)
+  // where a Session clip open in the piano roll is being heard, in 16ths round its loop (null: not playing)
+  function edPos(id){ if (!E.playing || E.session !== hook) return null; const pos = E.pos(); if (pos == null) return null;
+    for (const [tid, pl] of Object.entries(RT.play)) { const cl = cell(tid, pl.r); if (cl?.id !== id) continue; const L = cl.len || loopLen(cl);
+      return (((pos - pl.start + (isLive(cl) ? 0 : cl.off || 0)) % L) + L) % L; } return null; }
   function findCell(id){ const Sx = S(); if (!Sx) return null; for (const [ti, TT] of ST.P.tracks.entries()) { const r = (Sx.cells[TT.id] || []).findIndex(c => c?.id === id);
     if (r >= 0) { const cl = Sx.cells[TT.id][r]; if (isLive(cl)) viewNotes(cl, TT, Sx.scenes[r].ground); cl.start = 0; return {T: TT, ti, cl, sess: true}; } } return null; }
-  return {open, render, renderClip, frame, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
+  return {open, render, renderClip, frame, edPos, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
     stop: () => { RT.play = {}; RT.next = {}; RT.scene = null; RT.own.clear(); if (RT.rec) recToggle(); render(); playhead(null); }}; }

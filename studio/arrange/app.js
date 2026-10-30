@@ -251,10 +251,12 @@ $('undo').onclick = undo; $('redo').onclick = redo;
 // Claude's mix, or every channel and bus straight (at the loudness the mix gives each: B on the desk's comparison)
 $('engAB').onclick = () => { const v = !E.eng; E.setEng(v); $('engAB').textContent = v ? 'Mix: Claude’s' : 'Mix: straight'; $('engAB').setAttribute('aria-pressed', String(v)); };
 function posText(){ const s = Math.max(0, ST.ph*16), bar = Math.floor(s/16) + 1, beat = Math.floor(s % 16/4) + 1, six = Math.floor(s % 4) + 1; $('pos').textContent = `${bar}.${beat}.${six}`; }
-function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } SS.frame(); if (E.session && SS.RT.mode === 'session') { const p = E.pos(); if (p != null) { ST.ph = p/16; posText(); } requestAnimationFrame(anim); return; }
+// the piano roll kept on the 16th being heard (the timeline's playhead, or a Session clip's place round its loop)
+function edFollow(f){ const s = curPh(f); if (s != null && s >= 0 && s <= f.cl.len) { const xe = ex(s); if (xe > EW - 30 || xe < KEYW) ST.ed.sx = Math.max(0, s*ST.ed.px - 20); } }
+function anim(){ if (!E.playing) { $('play').textContent = 'Play'; return; } SS.frame(); if (E.session && SS.RT.mode === 'session') { const p = E.pos(); if (p != null) { ST.ph = p/16; posText(); } const f = cur(); if (f?.sess && !$('edWrap').hidden) { edFollow(f); drawEd(); } requestAnimationFrame(anim); return; }
   const p = E.pos(); if (p != null) { ST.ph = p/16; posText();
     const x = bx(ST.ph); if (x > AW - 40 || x < 0) ST.sx = Math.max(0, ST.ph*ST.px - 60); draw(); drawEdHead();
-    const f = cur(); if (f) { const s = (ST.ph - f.cl.start)*16; if (s >= 0 && s <= f.cl.len) { const xe = ex(s); if (xe > EW - 30 || xe < KEYW) ST.ed.sx = Math.max(0, s*ST.ed.px - 20); } drawEd(); } }
+    const f = cur(); if (f) { edFollow(f); drawEd(); } }
   requestAnimationFrame(anim); }
 
 /* ---------- the piano roll ---------- */
@@ -262,7 +264,7 @@ const ed = $('ed'), ectx = ed.getContext('2d'), TOP = 18, VEL = 72, KEYW = 76; l
 const cur = () => ST.open && findClip(ST.open.id);
 function openEd(id, quiet){ const f = findClip(id); if (!f) return; ST.open = {id}; ST.ed.sel.clear(); ST.sel.track = f.ti; ST.sel.clips = new Set([id]);
   if (!quiet) { CM[ST.view] = 'roll'; showClip(true); }   // (shown first: the roll is measured as it'll be drawn)
-  [EW, EH] = fit(ed); ST.ed.px = clamp((EW - KEYW - 10)/Math.min(f.cl.len, 64), 3, 48); const s16 = (ST.ph - f.cl.start)*16; ST.ed.sx = s16 < 0 || s16 > f.cl.len ? 0 : clamp(s16*ST.ed.px - 40, 0, Math.max(0, f.cl.len*ST.ed.px - (EW - KEYW) + 40));
+  [EW, EH] = fit(ed); ST.ed.px = clamp((EW - KEYW - 10)/Math.min(f.cl.len, 64), 3, 48); const s16 = f.sess ? SS.edPos(f.cl.id) ?? 0 : (ST.ph - f.cl.start)*16; ST.ed.sx = s16 < 0 || s16 > f.cl.len ? 0 : clamp(s16*ST.ed.px - 40, 0, Math.max(0, f.cl.len*ST.ed.px - (EW - KEYW) + 40));
   if (!isDrum(f.T.role)) { const ps = f.cl.notes.map(n => n.p).sort((a, b) => a - b), mid = ps.length ? ps[ps.length >> 1] : 60; ST.ed.sy = Math.max(0, (108 - mid)*12 - (EH - TOP - VEL)/2); } else ST.ed.sy = 0;
   renderTracks(); renderEd(); draw(); target(); if (!quiet) { ed.focus(); ST.focus = 'ed'; } }
 // (a drum clip's rows fit the editor: a whole kit's pads a little shorter than a few drums')
@@ -277,6 +279,8 @@ function edLive(f){ const box = $('edLive'); box.innerHTML = ''; if (!f) return;
     : h('button', {class: 'mini', title: 'Read its notes back into a rhythm and chord tones, so it follows the chords again', onclick: () => SS.doLive()}, '∿ Make live')); }
 function drawEdHead(){ const f = cur(); edLive(f); if (!f) { $('edName').textContent = ST.view === 'session' ? 'Choose a clip in the grid' : 'Double-click a clip to edit its notes'; $('edInfo').textContent = ''; return; }
   $('edName').textContent = `${f.T.name} · ${f.cl.name || ''}`; $('edInfo').textContent = `${f.sess ? 'a Session clip, ' + Math.ceil(f.cl.len/16) + ' bars round' : `bars ${Math.floor(f.cl.start) + 1}–${Math.ceil(f.cl.start + f.cl.len/16)}`} · ${f.cl.notes.length} notes${ST.ed.sel.size ? ` · ${ST.ed.sel.size} selected` : ''}`; }
+// the 16th heard in the open clip: the timeline's playhead, or a Session clip's place round its loop
+const curPh = f => f.sess ? SS.edPos(f.cl.id) : E.session && SS.RT.own.has(f.T.id) ? null : (ST.ph - f.cl.start)*16;
 function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRect(0, 0, EW, EH); if (!f) return;
   const R = rowsOf(f), n = R.drum ? R.rows.length : R.hi - R.lo + 1, yb = EH - VEL, yOf = r => TOP + r*R.rh - ST.ed.sy, px = ST.ed.px, cl = f.cl, col = colorOf(f.T, f.ti);
   // rows (the black keys darker), the grid, past the clip's end shaded
@@ -290,8 +294,9 @@ function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRec
   for (let s = Math.ceil(s0/16)*16; s <= s1; s += 16) g.fillText(String(Math.floor(cl.start + s/16) + 1), ex(s) + 3, 9);
   // the notes
   g.save(); g.beginPath(); g.rect(KEYW, TOP, EW, yb - TOP); g.clip();
-  cl.notes.forEach((nt, i) => { const r = rowOfNote(R, nt); if (r < 0) return; const x = ex(nt.s), y = yOf(r), w = Math.max(3, nt.l*px - 1), sel = ST.ed.sel.has(i);
-    g.globalAlpha = nt.s >= cl.len ? .3 : .45 + .55*nt.v; g.fillStyle = sel ? '#fff' : col; g.fillRect(x, y + 1, w, R.rh - 2); g.globalAlpha = 1;
+  const hp = E.playing ? curPh(f) : null;   // (the notes being heard lit, as the steps are)
+  cl.notes.forEach((nt, i) => { const r = rowOfNote(R, nt); if (r < 0) return; const x = ex(nt.s), y = yOf(r), w = Math.max(3, nt.l*px - 1), sel = ST.ed.sel.has(i), now = hp != null && hp >= nt.s && hp < nt.s + Math.max(1, nt.l);
+    g.globalAlpha = nt.s >= cl.len ? .3 : now ? 1 : .45 + .55*nt.v; g.fillStyle = sel || now ? '#fff' : col; g.fillRect(x, y + 1, w, R.rh - 2); g.globalAlpha = 1;
     g.strokeStyle = sel ? '#e0a33a' : 'rgba(0,0,0,.6)'; g.strokeRect(x + .5, y + 1.5, w - 1, R.rh - 3);
     if (R.rh >= 12 && w > 26 && !R.drum) { g.fillStyle = sel ? '#111' : '#fff'; g.font = '9px system-ui'; g.fillText(nn(nt.p), x + 3, y + R.rh/2); } });
   if (ST.ebox) { const b = ST.ebox; g.strokeStyle = '#fff'; g.setLineDash([4, 3]); g.strokeRect(Math.min(b.x0, b.x1) + .5, Math.min(b.y0, b.y1) + .5, Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0)); g.setLineDash([]); }
@@ -307,7 +312,7 @@ function drawEd(){ const g = ectx, f = cur(); g.fillStyle = '#1b1e23'; g.fillRec
       g.fillStyle = v === fr ? '#fff' : '#e7e9ee'; g.font = (v === fr ? '600 ' : '') + '11px system-ui'; g.fillText((VNAME[v] || v) + (nat ? ' · ' + nat : ''), 6, y + R.rh/2); g.fillStyle = '#343944'; g.fillRect(0, y + R.rh - 1, KEYW, 1); continue; }
     const p = R.hi - r, black = [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12); g.fillStyle = black ? '#0c0d10' : '#d9dce2'; g.fillRect(black ? 0 : 0, y, black ? KEYW*.62 : KEYW, R.rh - (black ? 0 : 1));
     if (p % 12 === 0) { g.fillStyle = '#333'; g.font = '10px system-ui'; g.fillText(nn(p), KEYW - 30, y + R.rh/2); } }
-  const ph = (ST.ph - cl.start)*16; if (ph >= 0 && ph <= cl.len) { const x = Math.round(ex(ph)) + .5; g.strokeStyle = '#ff5a4f'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, EH); g.stroke(); } }
+  const ph = curPh(f); if (ph != null && ph >= 0 && ph <= cl.len) { const x = Math.round(ex(ph)) + .5; g.strokeStyle = '#ff5a4f'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, EH); g.stroke(); } }
 // a drum clip's row picked (its name clicked): lit, and the velocity lane shows that drum's hits alone
 const focusRow = R => R.drum && R.rows.includes(ST.ed.row) ? ST.ed.row : null;
 function noteAt(f, R, x, y){ for (let i = f.cl.notes.length - 1; i >= 0; i--) { const nt = f.cl.notes[i], r = rowOfNote(R, nt), y0 = TOP + r*R.rh - ST.ed.sy, x0 = ex(nt.s), w = Math.max(3, nt.l*ST.ed.px - 1);
