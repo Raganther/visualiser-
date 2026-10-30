@@ -90,9 +90,10 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
         h('div', {class: 'sname'}, h('b', {}, sc.name), h('button', {class: 'ground', title: 'The ground: the chords every clip in this scene reads. Click to change it', onclick: e => groundMenu(e.currentTarget, r)}, groundWords(sc.ground)))));
       P.tracks.forEach((TT, i) => { const cl = cell(TT.id, r), pl = RT.play[TT.id], on = pl?.r === r, nx = RT.next[TT.id];
         const b = h('button', {class: 'slot', 'data-t': i, 'data-r': r, 'data-has': cl ? '1' : '', 'data-on': on ? '1' : '', 'data-next': nx === r ? '1' : nx === 'stop' && on ? 'stop' : '', 'data-sel': RT.sel.t === i && RT.sel.r === r ? '1' : '',
-          style: cl ? `--c:${A.colorOf(TT, i)}` : '', title: cl ? `${cl.name}: click to launch` : 'Empty: click to stop this track, double-click for a new clip'},
+          style: cl ? `--c:${A.colorOf(TT, i)}` : '', title: cl ? (on ? `${cl.name}: playing (■ stops it)` : `${cl.name}: click to launch`) : 'Empty: click to stop this track, double-click for a new clip'},
           ...(cl ? [h('span', {class: 'go'}, on ? '■' : '▶'), h('span', {class: 'cn'}, cl.name), h('span', {class: 'sk'}, sketch(cl.parts[0].R)), h('i', {class: 'prog'})] : [h('span', {class: 'empty'}, '·')]));
-        b.onclick = () => { select(i, r); if (cl) on && !nx ? stopTrack(TT.id) : launch(TT.id, r); else stopTrack(TT.id); };
+        // a clip: clicked, it's chosen and launched; already playing, only chosen (its ■ stops it); an empty slot stops the track
+        b.onclick = e => { select(i, r); if (!cl) stopTrack(TT.id); else if (!on || nx) launch(TT.id, r); else if (e.target.closest('.go')) stopTrack(TT.id); };
         b.ondblclick = () => { if (!cl) newClip(i, r); };
         grid.append(b); }); });
     grid.append(h('div', {class: 'scene foot'}, h('button', {class: 'sgo', title: 'Stop every track', onclick: stopAll}, '■'), h('span', {class: 'small'}, 'Stop all'),
@@ -103,7 +104,19 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
   // the playing clips' progress round their loops, each frame
   function frame(){ if (!E.playing || E.session !== hook) return; const pos = E.pos(); if (pos == null) return;
     for (const b of document.querySelectorAll('#sessWrap .slot[data-on="1"]')) { const TT = T(+b.dataset.t), pl = RT.play[TT.id], cl = pl && cell(TT.id, pl.r); if (!cl) continue;
-      const len = join(cl.parts[0].role, cl.parts[0].R, cl.parts[0].N)?.len || 16; const pr = b.querySelector('.prog'); if (pr) pr.style.width = (((pos - pl.start) % len + len) % len)/len*100 + '%'; } }
+      const len = join(cl.parts[0].role, cl.parts[0].R, cl.parts[0].N)?.len || 16; const pr = b.querySelector('.prog'); if (pr) pr.style.width = (((pos - pl.start) % len + len) % len)/len*100 + '%'; }
+    playhead(pos); }
+// the Clip tab's playhead: the step heard lit on the rhythm, the note heard on the notes (when the chosen clip is playing)
+function playhead(pos){ const box = $('clipPane'); if (!box || box.hidden) return; const TT = T(RT.sel.t), pl = TT && RT.play[TT.id], cl = selCell();
+  let step = -1, note = -1;
+  if (pl && pl.r === RT.sel.r && cl && pos != null) { const p = cl.parts[Math.min(RT.part, cl.parts.length - 1)], clip = join(p.role, p.R, p.N);
+    if (clip) { const lp = p.loop && p.loop[1] <= clip.len && p.loop[1] > p.loop[0] ? p.loop : null, span = lp ? lp[1] - lp[0] : clip.len, rel = Math.floor(pos) - pl.start;
+      const at = (lp ? lp[0] : 0) + ((rel % span) + span) % span; step = at % p.R.len;
+      // which note that is: the notes go round the hits, so count the hits played since the clip's start
+      const H = p.R.hits.length, seq = p.N?.seq?.length || 0, cyc = Math.floor(at/p.R.len), done = p.R.hits.filter(x => x[0] <= step).length;
+      if (seq && done) note = ((cyc*H + done - 1) % seq + seq) % seq; } }
+  box.querySelectorAll('.st').forEach((b, i) => { const on = i === step ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; });
+  box.querySelectorAll('.nchip').forEach((b, i) => { const on = i === note ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; }); }
   function select(t, r){ RT.sel = {t, r}; RT.part = 0; A.selTrack(t); render(); renderClip(); }
   function groundMenu(at, r){ const Sx = S(), seen = new Map(); for (const sc of Sx.scenes) seen.set(sc.ground.id + JSON.stringify(sc.ground.bars), sc.ground);
     const items = [...seen.values(), ...PROGS].map(H => ({label: `${H.name}`, note: groundWords(H), run: () => { if (!canEdit()) return; Sx.scenes[r].ground = clone({id: H.id, name: H.name, bars: H.bars});
@@ -165,4 +178,4 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     if ((e.key === 'Delete' || e.key === 'Backspace') && cl && canEdit()) { const TT = T(RT.sel.t); S().cells[TT.id][RT.sel.r] = null; A.save(); render(); renderClip(); return true; }
     if (k === 'l') { const TT = T(RT.sel.t); if (cl) launch(TT.id, RT.sel.r); return true; }
     return false; }
-  return {open, render, renderClip, frame, key, launch, launchScene, stopAll, stopTrack, hook, RT, stop: () => { RT.play = {}; RT.next = {}; RT.scene = null; render(); }, select}; }
+  return {open, render, renderClip, frame, key, launch, launchScene, stopAll, stopTrack, hook, RT, stop: () => { RT.play = {}; RT.next = {}; RT.scene = null; render(); playhead(null); }, select}; }

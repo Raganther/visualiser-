@@ -50,6 +50,13 @@ const d1 = await dom();
 await page.click('#sessWrap .scene .sgo >> nth=0'); await wait(200); const d2 = await dom(); await wait(2600); const d3 = await dom();
 const first = await Q(() => window.__daw.ST.P.session.scenes[0].name);
 check('the grid shows a launched clip playing once it is heard, and an earlier scene queued takes over on the bar line', d1.on.includes(`0:${other}`) && !d1.next && d2.next > 0 && d3.rt === 0 && d3.scene === first && !d3.next && d3.on.every(x => x.endsWith(':0')), JSON.stringify({d1, d2, d3}));
+// a playing clip clicked is chosen, not stopped, and the Clip tab's playhead walks its steps and notes as it plays
+const pc = await Q(() => { const b = document.querySelector('#sessWrap .slot[data-on="1"][data-has="1"]:not([data-t="0"])') || document.querySelector('#sessWrap .slot[data-on="1"]'); return [b.dataset.t, b.dataset.r]; });
+await page.click(`#sessWrap .slot[data-t="${pc[0]}"][data-r="${pc[1]}"] .cn`); await wait(400);
+const still = await Q(([t, r]) => window.__daw.SS.RT.play[window.__daw.ST.P.tracks[t].id]?.r === +r, pc);
+const walk = []; for (let i = 0; i < 10; i++) { walk.push(await Q(() => [...document.querySelectorAll('#clipPane .st')].findIndex(x => x.dataset.now === '1'))); await wait(120); }
+const steps = walk.filter(x => x >= 0), moves = steps.filter((x, i) => i && x !== steps[i - 1]).length;
+check('a playing clip clicked is chosen, not stopped, and the Clip tab lights the step being heard as it plays', still && steps.length >= 8 && moves >= 5, JSON.stringify({still, walk}));
 await page.keyboard.press(' '); await wait(300);
 check('Space stops it', await Q(() => !window.__daw.E.playing));
 
