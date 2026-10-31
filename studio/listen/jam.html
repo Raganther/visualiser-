@@ -1,0 +1,210 @@
+<title>Studio Jam</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a session grid. The loop strip and transport stay on top; under them one row per part, its clips as pads in a line,
+   one lit per row, and the saved combinations at the end */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5e6776; --line:#d3d8df; --strip:#131820;
+  --amber:#c76a12; --amber-soft:#fbead6; --like:#2f7d61; --like-soft:#dcefe6;
+  --kick:#b4385a; --drums:#c76a12; --bass:#3b5b8c; --pad:#6a4f8f; --lead:#2f7368; --bells:#8a7a2b;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f131a; --panel:#171d27; --ink:#e8ebf1; --mute:#98a1b1; --line:#283041; --strip:#0a0d12; --amber:#f0a24a; --amber-soft:#3a2810; --like:#5cc79f; --like-soft:#153328; --kick:#ff7b9e; --drums:#f0a24a; --bass:#6f9bdc; --pad:#a98bd6; --lead:#4fbfae; --bells:#d6c25a; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f131a; --panel:#171d27; --ink:#e8ebf1; --mute:#98a1b1; --line:#283041; --strip:#0a0d12; --amber:#f0a24a; --amber-soft:#3a2810; --like:#5cc79f; --like-soft:#153328; --kick:#ff7b9e; --drums:#f0a24a; --bass:#6f9bdc; --pad:#a98bd6; --lead:#4fbfae; --bells:#d6c25a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:18px 48px}
+.wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:14px}
+h1{font:700 clamp(26px, 5vw, 36px)/1.05 var(--display); margin:0; letter-spacing:-.01em}
+h2{font:700 18px var(--display); margin:0}
+.label{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+header{display:flex; flex-wrap:wrap; gap:8px 20px; align-items:flex-end; justify-content:space-between}
+.facts{display:flex; flex-wrap:wrap; gap:4px 16px; font:13px var(--mono); color:var(--mute)} .facts b{color:var(--ink); font-weight:500}
+button{font:inherit; color:inherit; cursor:pointer}
+button:focus-visible, textarea:focus-visible, input:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top, 0px); z-index:10; background:var(--bg)}
+.deck{position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px}
+.row{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.play{width:50px; height:50px; border-radius:50%; border:0; background:var(--amber); color:#fff; font-size:19px; display:grid; place-items:center; flex:none}
+.play:disabled{opacity:.4; cursor:default}
+.btn{border:1px solid var(--line); background:transparent; border-radius:6px; padding:7px 11px; font:500 13px var(--mono)}
+.btn.like{border-color:var(--like); color:var(--like)}
+.strip{position:relative; display:grid; grid-template-columns:repeat(16, 1fr); gap:2px; height:30px; background:var(--strip); border-radius:6px; padding:3px; overflow:hidden; flex:1; min-width:220px}
+.strip .b{border-radius:3px; opacity:.5; display:flex; align-items:flex-end; padding:0 3px 2px; font:10px var(--mono); color:#fff; background:#ffffff22}
+.strip .b.on{opacity:1; background:#ffffff55}
+.strip .head{position:absolute; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 8px #fff9; pointer-events:none; left:0}
+.status{font:12px var(--mono); color:var(--mute); min-height:1em}
+.now{font-size:13px; color:var(--mute); overflow-wrap:anywhere}
+.now b{color:var(--ink); font-weight:600}
+/* the rows */
+.part{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; min-width:0}
+.part.muted{opacity:.5}
+.part .top{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px}
+.part .nm{font:700 16px var(--display); border:0; background:transparent; padding:0}
+.part .note{font:12px var(--mono); color:var(--mute)}
+.part .lvl{display:flex; align-items:center; gap:6px; font:12px var(--mono); color:var(--mute); margin-left:auto}
+.part .lvl input{width:90px; accent-color:var(--c)}
+.clips{display:flex; flex-wrap:wrap; gap:6px}
+.clip{border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:7px 11px; font:500 13px var(--body); text-align:left}
+.clip.maybe{border-style:dashed}
+.clip.maybe::after{content:" ?"; color:var(--mute)}
+.clip[aria-pressed="true"]{background:var(--c); border-color:var(--c); color:#fff}
+.clip.off{font-family:var(--mono); color:var(--mute)}
+.clip.loading{opacity:.6}
+.words{font-size:13px; color:var(--mute); min-height:1.2em}
+/* the saved combinations */
+.saved{display:flex; flex-direction:column; gap:0}
+.combo{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; padding:10px 0; border-bottom:1px solid var(--line)}
+.combo .go{border:1px solid var(--line); background:transparent; border-radius:6px; padding:5px 10px; font:500 12px var(--mono); align-self:start}
+.combo .what{font-size:13px; min-width:0; overflow-wrap:anywhere}
+.combo .what small{display:block; color:var(--mute)}
+.composer{display:flex; flex-direction:column; gap:8px; background:var(--panel); border:1px solid var(--like); border-radius:10px; padding:12px}
+.composer textarea{width:100%; min-height:54px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); padding:8px; font:inherit}
+.keys{font:12px var(--mono); color:var(--mute)}
+.keys kbd{font:inherit; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; color:var(--ink)}
+@media (max-width:560px){.part .lvl{margin-left:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div><div class="label">Studio · jam</div><h1 id="title">Jam</h1></div>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section class="deck" aria-label="Transport">
+    <div class="row">
+      <button class="play" id="play" aria-label="Play" disabled>▶</button>
+      <div class="strip" id="strip"><div class="head" id="head"></div></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="shuffle" title="A random clip in every row (R)">Shuffle</button>
+      <button class="btn like" id="keep" title="Save this combination (K)">👍 Keep this combination</button>
+    </div>
+    <div class="now" id="now"></div>
+    <div class="status" id="status">Loading…</div>
+  </section>
+  <div class="composer" id="composer" hidden>
+    <label class="label" for="cnote">What works in this combination?</label>
+    <textarea id="cnote" placeholder="Optional: “the steel drum and the glass sequence lock together”, “too busy with the gated pad”…"></textarea>
+    <div class="row"><button class="btn like" id="csave">Save</button><button class="btn" id="ccancel">Cancel</button></div>
+  </div>
+
+  <div id="rows" class="wrap" style="max-width:none"></div>
+
+  <section class="part" style="--c:var(--like)">
+    <h2>Kept combinations</h2>
+    <div class="saved" id="saved"><p class="now">None yet. Find a combination you like and keep it; tap one here to bring it back.</p></div>
+  </section>
+  <p class="keys">Tap a clip to swap it in where the loop is · tap a row's name to mute it · <kbd>Space</kbd> play · <kbd>R</kbd> shuffle · <kbd>K</kbd> keep</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DEF = {kick: 'kick-round', drums: 'drums-groove', bass: 'bass-berlin-glass', pad: 'pad-warm', lead: null, bells: 'bells-kalimba'};
+let db = null, jam = null, pick = {}, lvl = {}, muted = {}, combos = [];
+let ac = null, out = null, gains = {}, t0 = 0, playing = false, live = {};   // live: row → {src, g, url}
+const raw = {}, dec = new Map();
+const L = () => jam?.loopSecs || 1;
+
+/* ---------- audio: one source a row, all looping from the same start; a swap starts the new clip where the loop is ---------- */
+function audio(){ if (ac) return ac; ac = new (window.AudioContext || window.webkitAudioContext)();
+  const lim = ac.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 3; lim.ratio.value = 12; lim.attack.value = .002; lim.release.value = .12;
+  out = ac.createGain(); out.gain.value = 1.4; lim.connect(out); out.connect(ac.destination);
+  for (const r of jam.rows) { gains[r.key] = ac.createGain(); gains[r.key].connect(lim); setGain(r.key); } return ac; }
+const bytes = u => raw[u] || (raw[u] = fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }));
+async function buffer(u){ if (dec.has(u)) { const b = dec.get(u); dec.delete(u); dec.set(u, b); return b; }
+  const b = await audio().decodeAudioData((await bytes(u)).slice(0)); dec.set(u, b); while (dec.size > 14) dec.delete(dec.keys().next().value); return b; }
+const offsetAt = t => (((t - t0) % L()) + L()) % L();
+// the url a row plays: the kick's follows the drums' pattern
+function urlOf(row){ const id = pick[row]; if (!id) return null;
+  if (row === 'kick') { const d = jam.rows.find(r => r.key === 'drums').clips.find(c => c.id === pick.drums); return jam.files[`${id}~${d?.kick || 'four'}`]; }
+  return jam.files[id]; }
+async function sync(row){
+  const u = playing ? urlOf(row) : null, cur = live[row];
+  if (cur && cur.url === u) return;
+  const at = ac ? ac.currentTime + .03 : 0;
+  if (cur) { cur.g.gain.setValueAtTime(1, at); cur.g.gain.linearRampToValueAtTime(0, at + .015); try { cur.src.stop(at + .05); } catch {} delete live[row]; }
+  if (!u) return;
+  mark(row, true); let b; try { b = await buffer(u); } catch (e) { $('status').textContent = `That clip didn't load (${e.message}).`; mark(row, false); return; }
+  mark(row, false); if (!playing || urlOf(row) !== u || live[row]?.url === u) return;
+  const t = ac.currentTime + .03, src = ac.createBufferSource(), g = ac.createGain(); src.buffer = b; src.loop = true; src.connect(g); g.connect(gains[row]);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + .015); src.start(t, offsetAt(t)); live[row] = {src, g, url: u};
+}
+const syncAll = () => jam.rows.forEach(r => sync(r.key));
+function setGain(row){ if (!ac) return; gains[row].gain.setTargetAtTime(muted[row] ? 0 : Math.pow(10, (lvl[row] || 0)/20), ac.currentTime, .01); }
+async function toggle(){
+  audio(); if (ac.state !== 'running') await ac.resume();
+  if (playing) { playing = false; for (const r of Object.keys(live)) { try { live[r].src.stop(); } catch {} delete live[r]; } $('play').textContent = '▶'; $('play').setAttribute('aria-label', 'Play'); return; }
+  $('status').textContent = 'Loading the clips…';
+  await Promise.all(jam.rows.map(r => urlOf(r.key) && buffer(urlOf(r.key)).catch(() => {})));
+  if (playing) return;
+  t0 = ac.currentTime + .1; playing = true; syncAll(); $('play').textContent = '❚❚'; $('play').setAttribute('aria-label', 'Pause');
+  $('status').textContent = 'Playing. Swap any clip; it comes in where the loop is.';
+}
+
+/* ---------- the page ---------- */
+function mark(row, on){ document.querySelectorAll(`[data-clip][data-row="${row}"][aria-pressed="true"]`).forEach(b => b.classList.toggle('loading', on)); }
+function render(){
+  $('title').textContent = jam.title;
+  $('facts').innerHTML = [['Tempo', jam.bpm + ' BPM'], ['Loop', jam.bars + ' bars'], ['Clips', jam.rows.reduce((s, r) => s + r.clips.length, 0)]].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+  const st = $('strip'); st.querySelectorAll('.b').forEach(n => n.remove());
+  for (let i = 0; i < jam.bars; i++) { const b = document.createElement('div'); b.className = 'b'; b.textContent = i % 4 === 0 ? jam.chords[Math.floor(i/4) % jam.chords.length] : ''; st.insertBefore(b, $('head')); }
+  const R = $('rows'); R.innerHTML = '';
+  for (const r of jam.rows) {
+    const p = document.createElement('section'); p.className = 'part' + (muted[r.key] ? ' muted' : ''); p.style.setProperty('--c', `var(--${r.key})`);
+    const top = document.createElement('div'); top.className = 'top';
+    const nm = document.createElement('button'); nm.className = 'nm'; nm.textContent = r.label; nm.title = muted[r.key] ? 'Unmute' : 'Mute'; nm.onclick = () => { muted[r.key] = !muted[r.key]; setGain(r.key); render(); };
+    top.append(nm); if (r.note) { const n = document.createElement('span'); n.className = 'note'; n.textContent = r.note; top.append(n); }
+    const lv = document.createElement('label'); lv.className = 'lvl'; lv.htmlFor = 'lv-' + r.key; lv.textContent = 'Level';
+    const sl = document.createElement('input'); sl.type = 'range'; sl.id = 'lv-' + r.key; sl.min = -12; sl.max = 6; sl.step = 1; sl.value = lvl[r.key] || 0; sl.oninput = () => { lvl[r.key] = +sl.value; setGain(r.key); };
+    lv.append(sl); top.append(lv);
+    const cl = document.createElement('div'); cl.className = 'clips';
+    const off = document.createElement('button'); off.className = 'clip off'; off.textContent = 'Off'; off.dataset.clip = ''; off.dataset.row = r.key; off.setAttribute('aria-pressed', String(!pick[r.key])); off.onclick = () => choose(r.key, null); cl.append(off);
+    for (const c of r.clips) { const b = document.createElement('button'); b.className = 'clip' + (c.maybe ? ' maybe' : ''); b.textContent = c.name; b.title = c.words + (c.maybe ? ' (you marked it maybe)' : '');
+      b.dataset.clip = c.id; b.dataset.row = r.key; b.setAttribute('aria-pressed', String(pick[r.key] === c.id)); b.onclick = () => choose(r.key, c.id); cl.append(b); }
+    const w = document.createElement('div'); w.className = 'words'; w.textContent = r.clips.find(c => c.id === pick[r.key])?.words || '';
+    p.append(top, cl, w); R.append(p);
+  }
+  $('now').innerHTML = jam.rows.map(r => `${r.label}: <b>${escape(r.clips.find(c => c.id === pick[r.key])?.name || 'off')}</b>`).join(' · ');
+  renderSaved();
+}
+const escape = s => s.replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+function choose(row, id){ pick[row] = id; render(); if (playing) { sync(row); if (row === 'drums') sync('kick'); } else if (id) toggle(); }
+function shuffle(){ for (const r of jam.rows) { const likes = r.clips.filter(c => !c.maybe); pick[r.key] = r.key === 'lead' && Math.random() < .5 ? null : likes[Math.floor(Math.random()*likes.length)].id; } render(); if (playing) syncAll(); else toggle(); }
+function renderSaved(){ const S = $('saved'); if (!combos.length) return; S.innerHTML = '';
+  for (const c of combos) { const d = document.createElement('div'); d.className = 'combo';
+    const go = document.createElement('button'); go.className = 'go'; go.textContent = 'Play'; go.onclick = () => { pick = {...c.pick}; lvl = {...(c.levels || {})}; muted = {}; jam.rows.forEach(r => setGain(r.key)); render(); if (playing) syncAll(); else toggle(); };
+    const w = document.createElement('div'); w.className = 'what';
+    w.textContent = jam.rows.map(r => r.clips.find(x => x.id === c.pick?.[r.key])?.name).filter(Boolean).join(' · ');
+    if (c.note) { const s = document.createElement('small'); s.textContent = c.note; w.append(s); }
+    d.append(go, w); S.append(d); } }
+async function keep(note){
+  if (!db) { $('status').textContent = 'Sign in to claude.ai to keep combinations.'; return; }
+  const doc = {jam: jam.id, pick: {...pick}, levels: {...lvl}, muted: Object.keys(muted).filter(k => muted[k]), note, names: Object.fromEntries(jam.rows.map(r => [r.key, r.clips.find(c => c.id === pick[r.key])?.name || null])), at: new Date().toISOString()};
+  try { await db.collection('combos').add(doc); $('status').textContent = 'Kept. Claude will build from your kept combinations.'; } catch (e) { $('status').textContent = 'Not saved (' + (e.code || e.message) + '). Try again.'; }
+}
+
+/* ---------- the playhead, keys, loading ---------- */
+let lastBar = -1;
+(function frame(){ if (playing && ac) { const o = offsetAt(ac.currentTime), bar = Math.floor(o/L()*jam.bars); $('head').style.left = `calc(${o/L()*100}% - 1px)`;
+  if (bar !== lastBar) { $('strip').querySelectorAll('.b').forEach((n, i) => n.classList.toggle('on', i === bar)); lastBar = bar; } } requestAnimationFrame(frame); })();
+$('play').onclick = toggle; $('shuffle').onclick = shuffle;
+$('keep').onclick = () => { $('composer').hidden = false; $('cnote').focus(); };
+$('ccancel').onclick = () => { $('composer').hidden = true; };
+$('csave').onclick = () => { keep($('cnote').value.trim()); $('cnote').value = ''; $('composer').hidden = true; };
+document.addEventListener('keydown', e => { if (!jam || e.target.closest('textarea, input')) return;
+  if (e.key === ' ') { e.preventDefault(); toggle(); } else if (e.key === 'r' || e.key === 'R') shuffle(); else if (e.key === 'k' || e.key === 'K') $('keep').click(); });
+(async () => {
+  db = await window.claude?.use?.('db').catch(() => null) || null;
+  if (!db) { $('status').textContent = 'Open this page signed in to claude.ai to hear the jam.'; return; }
+  db.collection('jams').orderBy('order', 'desc').onSnapshot(q => {
+    const docs = q.docs.map(d => ({id: d.id, ...d.data()})); if (!docs.length) { $('status').textContent = 'No jam yet.'; return; }
+    const first = !jam; jam = docs[0];
+    if (first) { for (const r of jam.rows) pick[r.key] = r.clips.some(c => c.id === DEF[r.key]) ? DEF[r.key] : (DEF[r.key] === null ? null : r.clips[0]?.id); }
+    $('play').disabled = false; render(); if (first) $('status').textContent = 'Ready. Press play, then swap clips in any row.';
+    if (first) db.collection('combos').where('jam', '==', jam.id).onSnapshot(c => { combos = c.docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => (b.at || '').localeCompare(a.at || '')); renderSaved(); }, () => {});
+  }, e => { $('status').textContent = 'The jam couldn\'t be loaded (' + e.code + ').'; });
+})();
+</script>

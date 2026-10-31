@@ -4,6 +4,8 @@
 // bass swells it, the threads nearest the pin being walked light up in turn with the beat. Symmetric, calm geometry (the
 // user's taste, principle 9). Simple mode draws the same threads.
 import { S } from '../../state.js';
+import { genFold } from '../../scene/genome.js';
+
 const N = 90, st = {m: 2, from: 2, to: 2, t: 1, phase: -1, walk: 0};
 const hh = x => { const s = Math.sin(x*91.7)*43758.5; return s - Math.floor(s); };
 export default {
@@ -19,6 +21,7 @@ export default {
       if (st.phase !== -1) { st.from = st.m; const T = J.tension || 0; st.to = 2 + (st.to - 2 + 1 + Math.floor(T*2 + hh(ph)*1.5)) % 9; st.t = 0; }   // (2 to 10, a step of one to three)
       st.phase = ph;
     }
+    { const g = genFold(2, 9); if (g && st.to !== g + 1 && st.t >= 1) { st.from = st.m; st.to = g + 1; st.t = 0; } }   // (the genome's symmetry: the times table of n+1 draws n cusps)
     st.t = Math.min(1, st.t + x.dt/Math.max(1, 4*Math.max(.25, S.beatPeriod || .5)));
     const e = st.t*st.t*(3 - 2*st.t); st.m = st.from + (st.to - st.from)*e;
     P.chord = [st.m, .3*(1 + x.sBass*x.react*.06*x.dim), x.t*.03, st.walk];

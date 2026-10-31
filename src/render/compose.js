@@ -4,17 +4,24 @@ import { KAL, PREC } from './shaders.js';
 import { HIT_VISUALS, VISUALS, WORLD_VISUALS } from '../visuals/registry.js';
 
 // texture units the display segments use (1 history, 2 audio data, 3 media and 4 fills belong to others)
-export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8};   // 3 (media) is free in a segment; low only where there are more than 8
+export const UNIT = {main: 0, group: [6, 3], under: 7, mask: [5, 4], low: 8, low2: 9};   // 3 (media) is free in a segment; low only where there are more than 8
 // one full-screen pass for a run of items: worlds, their front planes, trail groups (masked or not) and hits.
 // c holds the picture so far; each item lays itself over it
 // wk: the worlds whose code it holds (those drawing now; the cosmos alone is bigger than the rest together), or all of them
 export function composeSegment(seg, plan, wk){
   const WV = WORLD_VISUALS.filter(v => !wk || wk.includes(v.key));
   // a world that draws at its own lower resolution (lowRes: the cosmos's ground) is read from that picture instead (uLow)
-  const worlds = WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`).join('\n');
-  const fronts = WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
+  // a heavy world drawn in its own pass ('cosmos~' in wk) is only read back here: its code (the cosmos's is 40 KB) isn't in
+  // this shader at all, so a new run with it in is quick to build
+  const RO = WORLD_VISUALS.filter(v => wk && wk.includes(v.key + '~'));
+  // every world drawn in its own pass ('@'): this shader reads the two pictures (uWtA, uWtB) and their weights, the front
+  // planes' coverage from their alpha, and holds no world's code, so it depends only on the scene's layout
+  const SL = !!wk && wk.includes('@');
+  const worlds = SL ? '  if(uWa>0.003) w+=texture2D(uWtA,wuv).rgb*uWa;\n  if(uWb>0.003) w+=texture2D(uWtB,wuv).rgb*uWb;' : WV.map(v => `  if(uW_${v.key}>0.003) w+=${v.lowRes ? `(uLow>0.5?texture2D(uLowT,wuv).rgb:${v.glsl.fn}(wsp))` : `${v.glsl.fn}(wsp)`}*uW_${v.key};`)
+    .concat(RO.map(v => `  if(uW_${v.key}>0.003&&uLow>0.5) w+=texture2D(uLowT,wuv).rgb*uW_${v.key};`)).join('\n');
+  const fronts = SL ? '  vec2 q=sp/vec2(ASP,1.0)+0.5;\n  if(uWa>0.003) fc=max(fc,texture2D(uWtA,q).a*min(uWa,1.0));\n  if(uWb>0.003) fc=max(fc,texture2D(uWtB,q).a*min(uWb,1.0));' : WV.filter(v => v.front).map(v => `  if(uW_${v.key}>0.003) fc=max(fc,${v.front.fn}(sp)*min(uW_${v.key},1.0));`).join('\n');
   const hits = HIT_VISUALS.filter(v => v.glsl).map(v => v.glsl.draw.replace(/^\n/, '')).join('\n');
-  const groups = [...new Set(seg.seg.filter(it => it.t === 'trails').map(it => it.g))];
+  const groups = [...new Set([...seg.seg.filter(it => it.t === 'trails').map(it => it.g), ...(seg.only ? ['main'] : [])])];   // (a world drawn alone still reads the main trails, for the glow on its walls)
   const needW = seg.seg.some(it => it.t === 'world');
   const body = seg.seg.map(it => {
     const k = it.drive ? `*uK${it.i}` : '';   // a weight that follows a signal
@@ -45,9 +52,11 @@ ${skip ? '    }\n' : ''}  }`;
 varying vec2 vUv;
 uniform sampler2D uHist, uUnder, uMask0, uMask1; uniform vec2 uRes; uniform float uMaskOn0, uMaskOn1, uFrontOn;
 uniform sampler2D uLowT; uniform float uLow;   // a world drawn at its own lower resolution this frame, and whether to read it
-uniform vec4 uKal, uKal2; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
+${SL ? 'uniform sampler2D uWtA, uWtB; uniform float uWa, uWb;   // the worlds drawn in their own passes, and their weights' : ''}
+uniform vec4 uKal, uKal2, uKal3, uKal4, uKalL[10]; uniform vec2 uKalC; uniform float uKalW, uKalT;   // the kaleidoscope, folding the worlds (uKalW) or the glow (uKalT)
 uniform vec3 uFit; uniform vec2 uFitSrc;   // fitting a trail group into a world's subject: where, how much smaller; the glow's centre
 ${groups.map(g => `uniform sampler2D uT_${g};`).join('\n')}
+${groups.includes('main') ? '#define HAS_MAIN 1' : ''}
 ${seg.seg.filter(it => it.drive).map(it => `uniform float uK${it.i};`).join('\n')}
 uniform float uTime,uHue,uBass,uMid,uBeat,uReact,uSpZ,uGain; uniform vec3 uPal;   // the palette: three hue offsets   // shrinks and brightens the picture (for one filling an object)
 uniform sampler2D uData;   // waveform and spectrum
@@ -62,6 +71,33 @@ float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float vnz(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
 float paper(vec2 sp){ return 0.93+0.05*vnz(sp*vec2(90.0,260.0))+0.03*vnz(sp*420.0); }
+// motes floating in a 3D world (the Hollow's spores, the Cathedral's dust): one in each cell of a grid, found along the view
+// ray up to tmax (so the rock hides those behind it), each a soft point a few pixels wide, twinkling (sparkle), dimmer far
+// off; drift moves them all (world units); shaft (x and z periods) gathers them into columns of light where it's set
+// the glowing layers' picture (the main trails), wrapped onto a 3D world's walls: tiled mirrored, so it has no seams; black
+// where this pass doesn't draw the trails
+vec3 wallGlow(vec2 uv){
+#ifdef HAS_MAIN
+  return texture2D(uT_main,abs(fract(uv*0.5)*2.0-1.0)).rgb;
+#else
+  return vec3(0.0);
+#endif
+}
+float motes(vec3 ro,vec3 rd,float tmax,float cell,vec3 drift,float size,float sparkle,vec2 shaft){
+  float g=0.0, dt=cell*0.34;
+  for(int i=0;i<30;i++){
+    float t=0.25+float(i)*dt; if(t>tmax) break;
+    vec3 c=floor((ro+rd*t+drift)/cell);
+    vec3 h=fract(sin(vec3(dot(c,vec3(127.1,311.7,74.7)),dot(c,vec3(269.5,183.3,246.1)),dot(c,vec3(113.5,271.9,124.6))))*43758.5453);
+    vec3 m=(c+h)*cell-drift; float along=dot(m-ro,rd);
+    if(abs(along-t)>dt*0.5||along>tmax||along<0.2) continue;   // (each counted once, from the sample nearest it)
+    float d=length(cross(m-ro,rd)), r=max(0.011,size*along),   // (near ones bigger and soft, like lights out of focus; far ones a few pixels)
+      w=(0.25+0.75*step(0.55,h.z))*(1.0-sparkle+sparkle*(0.5+0.5*sin(uTime*(3.0+h.x*7.0)+h.y*40.0)));
+    if(shaft.x>0.0){ vec2 q=vec2(mod(m.x+shaft.x*0.5,shaft.x)-shaft.x*0.5,mod(m.z,shaft.y)-shaft.y*0.5); w*=0.15+exp(-dot(q,q)*1.8); }
+    g+=exp(-d*d/(r*r))*w/(1.0+along*0.2);
+  }
+  return g;
+}
 ${VISUALS.filter(v => v.glsl && v.glsl.functions && (v.kind !== 'world' || WV.includes(v))).map(v => v.glsl.functions.replace(/^\n/, '')).join('\n')}
 ${WV.filter(v => v.front).map(v => v.front.glsl.replace(/^\n/, '')).join('\n')}
 float frontCov(vec2 sp){ float fc=0.0;
@@ -77,8 +113,9 @@ void main(){
   vec3 c=${seg.first ? 'vec3(0.0)' : 'texture2D(uUnder,vUv).rgb'};
 ${needW ? '  vec3 w=vec3(0.0);\n' + worlds : ''}
 ${body}
+  if(uKalW+uKalT>0.0) c=kalCol(c);   // (the colour kinds)
 ${seg.last ? '  c*=smoothstep(1.15,0.35,length(vUv-0.5));' : ''}${seg.fill ? '  c*=uGain;' : ''}
-  gl_FragColor=vec4(c,1.0);
+  gl_FragColor=vec4(c,${seg.only ? 'frontCov(wsp)' : '1.0'});   // (a world drawn alone keeps its front plane's coverage in the alpha)
 }`;
 }
 

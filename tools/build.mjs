@@ -22,3 +22,18 @@ for (const bad of ['src="src/', 'href="styles.css"']) if (html.includes(bad)) th
 fs.mkdirSync(path.join(root, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(root, 'dist/afterglow.html'), html);
 console.log(`dist/afterglow.html: ${(html.length/1024).toFixed(0)} KB`);
+// the Prism lab: the same page, opening straight into src/lab/prism.js (a link to the Artifact can't carry ?lab=prism)
+let lab = swap(html, '<title>Afterglow visualizer</title>', '<title>Prism Lab</title>');
+lab = swap(lab, '<script type="module">', `<script>window.__labs = ['prism'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/prism-lab.html'), lab);
+console.log(`dist/prism-lab.html: ${(lab.length/1024).toFixed(0)} KB`);
+// the genome on the phone: the same page, opening straight into src/lab/genome.js
+let gen = swap(html, '<title>Afterglow visualizer</title>', '<title>Afterglow Genome</title>');
+gen = swap(gen, '<script type="module">', `<script>window.__labs = ['genome'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/genome.html'), gen);
+console.log(`dist/genome.html: ${(gen.length/1024).toFixed(0)} KB`);
+// the bench: the systems one at a time (src/lab/bench.js), on the phone or a computer
+let bench = swap(html, '<title>Afterglow visualizer</title>', '<title>Afterglow Bench</title>');
+bench = swap(bench, '<script type="module">', `<script>window.__labs = ['bench'];</script>\n<script type="module">`);
+fs.writeFileSync(path.join(root, 'dist/bench.html'), bench);
+console.log(`dist/bench.html: ${(bench.length/1024).toFixed(0)} KB`);

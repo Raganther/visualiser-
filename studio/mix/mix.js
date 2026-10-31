@@ -1,0 +1,88 @@
+// A song mixed the traditional way, with every sound and every processor native (computed sample by sample by the parts
+// host), on the desk (studio/lib/parts/desk.js): a channel a part, the drums and the music each into a bus, an echo and
+// a room on sends, the kick keying a sidechain compressor on the bass, the chords, the leads and the room, and the
+// master bus. This module turns a song
+// written out for the DAW (studio/arrange/flatten.js) and its sounds into the host's description (sources, strips) and
+// its timed messages; the page plays them and lets you change the mix.
+import { nativeSet, cutOf, LEN } from '../jam/model.js';
+import { NATIVE } from '../lib/native/index.js';
+import { NATIVE_OF } from '../lib/palette.js';
+import { LEVELS } from './levels.js';
+import { db, channel, buses, ids, sendsOf } from '../lib/parts/desk.js';
+
+const q = (v, s) => Math.round(v/s)*s;
+// the kick: the analog drum machine's (deep, round, no drive, darker: as the one you saved was)
+export const KICK = {kit: 'Analog Deep', over: {kick: {drive: 0, tone: .3, x: .25}}};
+
+// each channel's id from its track (the second lead is lead2)
+export const chanOf = (P, i) => { const T = P.tracks[i], same = P.tracks.slice(0, i).filter(x => x.role === T.role).length; return T.role + (same ? same + 1 : ''); };
+
+// a part's instrument: the drum machine's kick, a drum sound's pads as native slots, or a pitched sound's native instrument
+export function sourceOf(T, SND, s = T.set){ const S = SND[T.sound];
+  if (T.role === 'kick') return {kind: 'kit', ...KICK};
+  if (S.voices) return {kind: 'native', slots: padSlots(S, s)};
+  const name = S.src.native || NATIVE_OF[S.src.palette]; return {kind: 'native', slots: {'': {name, gain: NATIVE[name].gain, params: {...nativeSet(s, name, S.src.set || {}), ...S.src.knobs}}}}; }
+const padSlots = (S, s) => Object.fromEntries(Object.entries(S.voices).filter(([, m]) => m.native).map(([v, m]) => [v, {name: m.native, gain: NATIVE[m.native]?.gain ?? .5,
+  params: {...nativeSet(s, m.native, m.set || {}), ...m.knobs}, choke: v === 'ohh' ? 'hat' : null, chokes: v === 'chh' || v === 'ohh' ? 'hat' : null}]));
+const shiftOf = S => S.src?.shift || 0;
+
+/* ---------- the analog set: the analog drum machine and the analog synth in place of the song's own sounds ---------- */
+// each part's instrument (the kick is the drum machine's in both sets); a drum part's hits to the machine's voices
+// (the forest's woods, stones and drops to its toms, rim, clave, cowbell and cymbals)
+const PERC = {tomL: 'tomL', tomH: 'tomH', log: 'tomL', logH: 'tomH', wood: 'clave', rim: 'rim', clave: 'clave', metal: 'cow', shaker: 'shaker', bowl: 'ride', gong: 'crash'};
+export const ANALOG = {
+  hats: {name: 'Analog Deep hats', words: 'The drum machine\'s six-square metal, soft and dark.', src: {kind: 'kit', kit: 'Analog Deep'}, map: {chh: 'chh', ohh: 'ohh', ride: 'ride'}},
+  perc: {name: 'Analog Warm percussion', words: 'Its toms, rim, clave, cowbell and shaker through warm tape, every hit drifting.', src: {kind: 'kit', kit: 'Analog Warm', over: {tomL: {tune: -3}, tomH: {tune: 2}, cow: {level: .6}, crash: {level: .5}}}, map: PERC},
+  bass: {name: 'Round bass', words: 'The analog synth: a saw and a pulse an octave down through the ladder, plucked open.', src: {kind: 'synth', params: {w1: 0, w2: 1, oct2: -1, fine2: 4, l1: .8, l2: .6, lsub: .3, drive: .3,
+    ftype: 0, cut: 260, res: .3, fenv: .4, fkey: .4, fvel: .5, fa: .002, fd: .26, fs: .15, fr: .12, aa: .002, ad: .4, as: .85, ar: .09, mode: 1, glide: .02, slop: .35, vdrive: .25, emix: 0, chorus: 0, level: .7}}},
+  chords: {name: 'Warm pad', words: 'The analog synth: a pulse the LFO sweeps beside a detuned saw, a lazy ladder, the bucket-brigade chorus.', src: {kind: 'synth', params: {w1: 1, pw1: .5, lpwm: .3, lshape: 0, lrate: .6,
+    w2: 0, fine2: -6, l1: .8, l2: .5, ftype: 0, cut: 1300, res: .15, fenv: .2, fkey: .5, fa: .4, fd: 1.5, fs: .6, fr: 1.2, aa: .3, ad: 1.5, as: .9, ar: 1.2, hpf: 140, chorus: 2, mode: 0, slop: .5, emix: 0, level: .55}}},
+  lead: {name: 'Plucked pulse', words: 'The analog synth: a narrow pulse and a saw an octave up, plucked shut by a fast envelope.', src: {kind: 'synth', params: {w1: 1, pw1: .3, w2: 0, oct2: 1, l1: .8, l2: .35,
+    ftype: 0, cut: 520, res: .4, fenv: .5, fkey: .6, fvel: .5, fa: .001, fd: .2, fs: 0, fr: .2, aa: .001, ad: .4, as: 0, ar: .3, mode: 0, chorus: 1, slop: .4, emix: 0, level: .7}}},
+  lead2: {name: 'Soft mallet', words: 'The analog synth: a triangle and a sine an octave up, struck and ringing away, like a marimba.', src: {kind: 'synth', params: {w1: 2, w2: 3, oct2: 1, l1: .8, l2: .3,
+    ftype: 0, cut: 2400, res: .1, fenv: .3, fkey: .5, fvel: .6, fa: .001, fd: .25, fs: 0, fr: .3, aa: .001, ad: .6, as: 0, ar: .4, mode: 0, chorus: 1, slop: .3, emix: 0, level: .75}}},
+};
+export const SETS = [['song', 'The song\'s sounds'], ['analog', 'Analog']];
+// what a part plays in a set: its name and words for the desk
+export function soundOf(P, SND, i, set){ const T = P.tracks[i], id = chanOf(P, i), S = SND[T.sound];
+  if (T.role === 'kick') return {name: 'Analog Deep kick', words: 'The analog drum machine\'s, made round, dark and undriven.'};
+  return set === 'analog' && ANALOG[id] ? ANALOG[id] : {name: S.name, words: S.words}; }
+
+/* ---------- the mix: the desk's channels (studio/lib/parts/desk.js), their gain staging and faders ---------- */
+// each song's gain staging (levels.js, written by calibrate.mjs, measured offline over the song): each channel's input
+// gain, so its peaks reach the processors near -9 dBFS (gain), and how much louder its processors then leave it (cal), so
+// the fader takes that back off and the song's own balance between its parts stays as it was written
+const lv = (P, k, id, set) => LEVELS[P.song + (set === 'analog' ? ':analog' : '')]?.[k]?.[id] ?? 0;
+// then the balance: the kick, now the analog drum machine's, set against the bass; the others as the song had them
+export const TRIM = {kick: -2, hats: 0, perc: 0, bass: 0, chords: 0, lead: 0, lead2: 0};
+// (the analog set's parts turned to the loudness the song's own sounds have in those channels: the song's balance kept)
+export const faderOf = (P, id, vol, set) => +(db(.85) + (vol || 0) - lv(P, 'gain', id, set) - lv(P, 'cal', id, set) + (TRIM[id] ?? 0)
+  + (set === 'analog' ? lv(P, 'rms', id) - lv(P, 'rms', id, set) : 0)).toFixed(1);
+
+export function mixOf(P, SND, set = 'song'){ const strips = [], sources = {};
+  P.tracks.forEach((T, i) => { const id = chanOf(P, i), an = set === 'analog' && ANALOG[id]; sources[id] = an ? an.src : sourceOf(T, SND);
+    strips.push(channel({id, label: T.name, role: T.role, input: T.role === 'kick' ? {src: id, pad: 'kick'} : an && an.src.kind === 'kit' ? {src: id, pad: '*'} : {src: id},
+      gain: lv(P, 'gain', id, set), lp: cutOf(T.set.x ?? .62), level: faderOf(P, id, T.mix.vol, set), sound: soundOf(P, SND, i, set).name, pan: T.mix.pan || 0, sends: sendsOf(T.set)})); });
+  strips.push(...buses('kick'));
+  return {period: 60/P.bpm, set, sources, strips: ids(strips)}; }
+
+/* ---------- the song as timed messages ---------- */
+// every message from bar `from` on, each at its time in seconds from there: a clip's settings as it starts (its
+// instrument's settings, its level, its sends, its tone), then its notes. The first clip each part is in is set at 0.
+export function eventsOf(P, SND, from = 0, set = 'song'){ const sd = 60/P.bpm/4, out = [], f16 = from*16; let id = 0;
+  P.tracks.forEach((T, i) => { const ch = chanOf(P, i), S = SND[T.sound], an = set === 'analog' && ANALOG[ch];
+    for (const cl of T.clips) { const a = cl.start*16, b = a + cl.len; if (b <= f16) continue;
+      const s = {...T.set, ...cl.set}, t0 = Math.max(0, (a - f16)*sd);
+      // the clip's settings, a moment before its first note (an analog part takes its level and space, not the song's
+      // instrument settings)
+      if (T.role !== 'kick' && !an) { const lv = Math.pow(10, (s.vol || 0)/20), slots = S.voices ? padSlots(S, s) : sourceOf(T, SND, s).slots;
+        out.push({t: t0, m: {type: 'set', src: ch, all: true, slots: Object.fromEntries(Object.entries(slots).map(([k, d]) => [k, {...d.params, lv}]))}}); }
+      out.push({t: t0, m: {type: 'strip', id: ch, set: {sends: sendsOf(s), lp: cutOf(s.x ?? .62), ...(an ? {clip: s.vol || 0} : {})}}});
+      for (const n of cl.notes) { if (n.s < 0 || n.s >= cl.len) continue; const at = a + n.s; if (at < f16) continue; const t = (at - f16)*sd;
+        if (T.role === 'kick') out.push({t, m: {type: 'hit', src: ch, voice: 'kick', vel: n.v}});
+        else if (an?.map) { const v = an.map[n.p]; if (v) out.push({t, m: {type: 'hit', src: ch, voice: v, vel: n.v}}); }
+        else if (an) { const k = ++id; out.push({t, m: {type: 'on', src: ch, id: k, n: n.p, vel: n.v}}, {t: t + n.l*sd, m: {type: 'off', src: ch, id: k}}); }
+        else if (S.voices) { const v = S.voices[n.p]; if (v?.native) out.push({t, m: {type: 'on', src: ch, slot: n.p, id: ++id, n: v.n ?? 60, vel: q(n.v, .1), gv: n.v}}); }
+        else { const len = Math.round(n.l*sd*20)/20, k = ++id; out.push({t, m: {type: 'on', src: ch, id: k, n: n.p + shiftOf(S), vel: q(n.v, .1), gv: n.v, len}}, {t: t + n.l*sd, m: {type: 'off', src: ch, id: k}}); } } } });
+  return out.sort((x, y) => x.t - y.t); }
+export { LEN };

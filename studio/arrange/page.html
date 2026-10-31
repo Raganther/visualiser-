@@ -1,0 +1,241 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Studio DAW</title>
+<!-- Studio DAW: the songs from Studio Jam in a traditional layout. The tracks down the left (level, pan, mute, solo, a
+     like and a note each), the arrangement to the right (sections named across the top, the chords under them, the clips
+     with their notes), and under it the piano roll of the clip being edited with each note's velocity beneath. -->
+<style>
+:root{--bg:#16181d; --panel:#1f2228; --panel2:#262a31; --line:#343944; --ink:#e7e9ee; --mute:#9aa1ad; --acc:#e0a33a; --on:#c86b2c; --sel:#ffffff; --loop:rgba(224,163,58,.18); --mono:ui-monospace,SFMono-Regular,Menlo,monospace; color-scheme:dark}
+[hidden]{display:none!important} *{box-sizing:border-box} html,body{margin:0; height:100%} body{background:var(--bg); color:var(--ink); font:14px/1.35 system-ui,-apple-system,Segoe UI,sans-serif; display:flex; flex-direction:column; overflow:hidden}
+button,select,input{font:inherit; color:inherit} button{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 9px; cursor:pointer; min-height:32px}
+button:hover{border-color:#566} button[aria-pressed="true"]{background:var(--acc); color:#111; border-color:var(--acc)} button:disabled{opacity:.4; cursor:default}
+select{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:5px 8px; min-height:32px}
+.bar{display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line)}
+.bar h1{font-size:15px; margin:0 6px 0 0; letter-spacing:.02em} .spacer{flex:1}
+#play{background:var(--on); border-color:var(--on); color:#fff; min-width:72px; font-weight:600}
+#pos{font:600 15px var(--mono); min-width:86px; text-align:center; background:#0f1114; border:1px solid var(--line); border-radius:7px; padding:5px 8px}
+.muted{color:var(--mute)} .small{font-size:12px}
+#status{font-size:12px; color:var(--mute); white-space:nowrap}
+#work{flex:1; display:flex; min-height:0} #col{flex:1; display:flex; flex-direction:column; min-width:0} #main{flex:1; display:flex; min-height:0}
+#tracks{width:250px; flex:none; background:var(--panel); border-right:1px solid var(--line); overflow:hidden; position:relative}
+#rulerHead{height:72px; position:relative; z-index:1; background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; display:flex; flex-direction:column; justify-content:center; gap:2px}
+.trk{height:56px; border-bottom:1px solid var(--line); padding:4px 8px; display:grid; grid-template-columns:1fr auto; gap:2px 6px; align-items:center; cursor:default}
+.trk[data-sel="1"]{background:#2a2f37} .trk .nm{font-weight:600; font-size:13px; padding-left:6px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .trk .snd{font-size:11px; font-weight:400; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.trk .btns{display:flex; gap:3px} .trk .btns button{min-height:24px; min-width:26px; padding:0 5px; font-size:12px; border-radius:5px}
+.trk .ms[aria-pressed="true"].s{background:#3b82c4; border-color:#3b82c4; color:#fff}
+.trk .sliders{display:flex; gap:6px; align-items:center; grid-column:1 / -1} .trk input[type=range]{width:100%; accent-color:var(--acc); height:16px}
+.trk .sliders .pan{width:60px; flex:none}
+#arrWrap{flex:1; position:relative; min-width:0} #arr,#ed{touch-action:none} #arr{display:block; width:100%; height:100%; cursor:default}
+#split{height:6px; background:var(--line); cursor:ns-resize; flex:none}
+#editor{height:36%; flex:none; display:flex; flex-direction:column; min-height:120px; background:var(--panel)}
+#edHead{display:flex; gap:8px; align-items:center; padding:5px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+#edHead b{font-size:13px} #edWrap{flex:1; position:relative; min-height:0} #ed{display:block; width:100%; height:100%}
+#inst{flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; padding:6px 12px 8px}
+.live{font:600 10px var(--mono); letter-spacing:.08em; color:#111; background:#5fc28a; border-radius:4px; padding:1px 5px; vertical-align:2px}
+.ihead{display:flex; align-items:center; gap:6px; flex-wrap:wrap} .ihead b{font-size:14px} .ihead button{min-height:28px; padding:2px 9px}
+.ibody{flex:1; min-height:0; display:flex; gap:10px}
+.idisp{margin:0; width:250px; flex:none; display:flex; flex-direction:column; gap:3px} #iWave{flex:1; min-height:0; width:100%; border:1px solid var(--line); border-radius:8px; background:var(--bg)}
+#iMods{flex:1; min-width:0; display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; align-items:stretch; padding-bottom:4px}
+.mod{flex:none; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:6px 8px; display:grid; grid-template-columns:auto auto; grid-template-rows:auto 1fr; gap:4px 8px}
+.mod h3{grid-column:1 / -1} .mod .graphs{display:flex; flex-direction:column; gap:4px}
+.mod h3{margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute)}
+.mod .graph{width:200px; height:46px; display:block; border-radius:5px; background:var(--bg)}
+.knobs{display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto); gap:2px 4px; align-content:start}
+.kn{width:62px; display:flex; flex-direction:column; align-items:center; cursor:ns-resize; user-select:none; touch-action:none; border-radius:6px; padding:2px 0}
+.kn:focus-visible{outline:2px solid var(--acc)} .kn-dial{width:38px; height:38px} .kn-track{fill:none; stroke:#3a3f49; stroke-width:4; stroke-linecap:round}
+.kn-fill{fill:none; stroke:var(--acc); stroke-width:4; stroke-linecap:round} .kn-cap{fill:#2e333b; stroke:#4a505b} .kn-tick{stroke:var(--ink); stroke-width:2; stroke-linecap:round}
+.kn-lab{font-size:10.5px; color:var(--ink); text-align:center; line-height:1.15; max-width:62px} .kn-val{font:10px var(--mono); color:var(--mute)}
+.kn-list{display:flex; flex-direction:column; gap:3px; padding:2px 4px} .kn-list.wide{min-width:150px} .kn-list select{min-height:26px; padding:2px 6px; font-size:12px}
+.seg{display:flex; flex-wrap:wrap; gap:2px} .seg button{min-height:24px; padding:0 6px; font-size:11px; border-radius:5px}
+.ifx{flex:none; display:flex; flex-direction:column; gap:4px; background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:9px; padding:6px 8px; min-height:0}
+.ifx .ifull{margin-left:8px; min-height:22px; padding:0 7px; font-size:11px} .ifx h3{margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute)} .ifx p{margin:0}
+.ifx .chain{flex:1; min-height:0; display:flex; gap:6px; align-items:stretch} .ifx .proc{width:190px; overflow-y:auto; color:var(--ink)} .ifx .pwords{display:none} .ifx .padd{align-self:start}
+#iKeys{flex:none; height:64px; display:flex; gap:8px; align-items:stretch}
+.koct{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px} .koct button{min-height:22px; padding:0 8px}
+.kb{position:relative; flex:1; touch-action:none; user-select:none}
+.wk,.bk{position:absolute; top:0; border-radius:0 0 4px 4px; cursor:pointer} .wk{height:100%; background:#d9dce2; border:1px solid #0c0d10; box-sizing:border-box}
+.wk span{position:absolute; bottom:3px; left:3px; font-size:9px; color:#333} .bk{height:60%; background:#121418; z-index:1; border:1px solid #000}
+.wk[data-down="1"]{background:var(--acc)} .bk[data-down="1"]{background:var(--on)}
+.pad{flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:12px; background:var(--panel2)} .pad .pk{font:10px var(--mono); color:var(--mute)}
+.pad[aria-pressed="true"]{background:var(--panel2); color:var(--ink); border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)} .pad[data-down="1"]{background:var(--acc); color:#111}
+.etabs button{min-height:26px; padding:0 10px; font-size:12px} body.phone #tabInst{display:none}
+.addTrk{padding:8px} .addTrk button{width:100%; border-style:dashed; background:none; color:var(--mute)} .addTrk button:hover{color:var(--ink)} body.phone .addTrk, body.phone .trk .more{display:none}
+.pop{position:fixed; z-index:20; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:4px; min-width:220px; box-shadow:0 10px 30px rgba(0,0,0,.45); display:flex; flex-direction:column}
+.pop button{display:flex; align-items:center; gap:8px; background:none; border:none; border-radius:6px; text-align:left; min-height:30px; padding:4px 10px} .pop button:hover,.pop button:focus-visible{background:#353b45; outline:none}
+.pop .dot{width:9px; height:9px; border-radius:50%; flex:none} .pop .sep{height:1px; background:var(--line); margin:4px 2px} .pop .danger{color:#ff8a7a}
+.trk .ren{width:120px; font:600 13px system-ui; background:#0f1114; color:var(--ink); border:1px solid var(--acc); border-radius:5px; padding:1px 4px}
+#notes{position:fixed; right:12px; top:56px; width:340px; max-height:70vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; box-shadow:0 10px 30px rgba(0,0,0,.4); z-index:5}
+#notes h2{font-size:14px; margin:0 0 6px} #notes textarea{width:100%; min-height:70px; background:#0f1114; color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:6px; font:inherit; resize:vertical}
+.note{border-top:1px solid var(--line); padding:6px 0; font-size:13px} .note .tg{color:var(--acc); font-size:12px; cursor:pointer} .note .x{float:right; min-height:22px; padding:0 6px}
+#target{font-size:12px; color:var(--acc); flex:0 1 220px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#help{font-size:12px; color:var(--mute)}
+#side{width:330px; flex:none; background:var(--panel); border-left:1px solid var(--line); overflow:hidden; padding:10px 12px; display:flex; flex-direction:column; gap:8px}
+#sdLib,#sdEdit{flex:1; min-height:0; display:flex; flex-direction:column} #sdList,#sdBody{flex:1; min-height:0; overflow:auto} #sdLib[hidden],#sdEdit[hidden]{display:none}
+.sideHead{display:flex; justify-content:space-between; align-items:flex-start; gap:8px} .sideHead b{font-size:15px}
+.tabs{display:flex; gap:4px} .tabs button{flex:1}
+#sdRoles button,#sdBy button{min-height:26px; font-size:12px; padding:0 6px} #sdLib{gap:6px}
+#sdSyn{display:flex; flex-wrap:wrap; gap:4px} #sdSyn button{min-height:24px; font-size:11.5px; padding:0 8px; border-radius:12px}
+.fam-words{font-size:11.5px; color:var(--mute); padding:3px 4px 4px; line-height:1.3} .yours{font:600 9.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--acc); border:1px solid var(--acc); border-radius:4px; padding:0 4px; margin-left:6px; vertical-align:1px}
+#sdSearch,#sdName,#sdAskT{width:100%; background:#0f1114; border:1px solid var(--line); border-radius:7px; padding:6px 8px; color:var(--ink)}
+#sdName{font-weight:600} #sdName:disabled{opacity:1; border-color:transparent; padding-left:0; background:none}
+.fam{display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); border-radius:0; padding:8px 2px 4px; font-weight:600; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--mute); min-height:0}
+.snd-row{display:flex; align-items:center; gap:6px; padding:5px 6px; border-radius:6px; cursor:pointer} .snd-row:hover{background:var(--panel2)}
+.snd-row[data-pick="1"]{background:#2d333c} .snd-row[data-on="1"] .snd-nm{color:var(--acc)} .snd-row:focus-visible{outline:2px solid var(--acc)}
+.snd-txt{flex:1; min-width:0} .snd-nm{font-size:13px; font-weight:600} .snd-eng{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.snd-row .use{min-height:26px; padding:0 10px; background:var(--acc); color:#111; border-color:var(--acc)}
+.grp{font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--mute); margin:10px 0 2px}
+.knob{display:grid; grid-template-columns:96px 1fr 52px; align-items:center; gap:6px; font-size:12px; margin:3px 0} .knob input[type=range]{width:100%; accent-color:var(--acc)}
+.knob select{min-height:26px; padding:2px 6px; grid-column:2 / 4} .kv{font-family:var(--mono); text-align:right; color:var(--mute)}
+.voices{display:flex; flex-wrap:wrap; gap:4px; margin:6px 0} .voices button{min-height:26px; padding:0 8px; font-size:12px}
+.trk .snd[role=button]{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px} .trk .snd[role=button]:hover{color:var(--ink)}
+#sdAsk{border-top:1px solid var(--line); padding-top:6px; flex:none} #sdAskT{min-height:54px; resize:vertical; font:inherit; font-size:13px; margin:4px 0}
+body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; z-index:6; box-shadow:0 -10px 30px rgba(0,0,0,.5)}
+#flash{position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#000c; padding:6px 12px; border-radius:8px; font-size:13px; pointer-events:none; opacity:0; transition:opacity .2s}
+#flash[data-on="1"]{opacity:1}
+
+/* the Session view: the clip grid (a column a track, a row a scene, the ground beside each scene) */
+.views{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden} .views button{border:0; border-radius:0; min-height:30px} .views button + button{border-left:1px solid var(--line)}
+#sessWrap{flex:1; min-width:0; overflow:auto; background:var(--bg)}
+.sgrid{display:grid; gap:4px; padding:8px; align-content:start; min-width:max-content}
+.shead{background:var(--panel); border-radius:7px; padding:5px 8px; display:flex; flex-direction:column; gap:1px; min-width:0; cursor:pointer; position:relative}
+.shead b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .shead .small{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:56px}
+.shead[data-sel="1"]{background:#2a2f37} .shead.scol{cursor:default; border-top:4px solid transparent}
+.shbtn{position:absolute; right:6px; bottom:5px; display:flex; gap:3px} .shbtn button{min-height:22px; min-width:24px; padding:0 4px; font-size:11px}
+.shbtn .ms.s[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
+.scene{display:flex; align-items:center; gap:6px; background:var(--panel); border-radius:7px; padding:4px 6px; min-height:52px}
+.scene[data-on="1"]{box-shadow:inset 3px 0 0 var(--acc)} .scene[data-next="1"] .sgo{animation:blink .5s steps(2) infinite}
+.scene .sgo{min-width:34px; min-height:34px; padding:0; font-size:13px} .sname{display:flex; flex-direction:column; min-width:0; gap:2px} .sname b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ground{font-size:11px; min-height:22px; padding:0 6px; text-align:left; color:var(--acc); background:none; border-color:#3a3328; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:118px}
+.scene.foot{min-height:40px; flex-wrap:wrap} .scene.foot .mini{min-height:26px; padding:0 7px; font-size:12px}
+.slot{position:relative; min-height:52px; text-align:left; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; gap:0 6px; align-items:center; padding:5px 8px; overflow:hidden; background:#1a1d22}
+.slot[data-has="1"]{background:color-mix(in srgb, var(--c) 22%, #1f2228); border-color:color-mix(in srgb, var(--c) 45%, #343944)}
+.slot .go{grid-row:1 / 3; font-size:12px; color:var(--mute)} .slot .cn{font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.slot .sk{font:10px var(--mono); color:var(--mute); white-space:nowrap; overflow:hidden; letter-spacing:-.5px} .slot .empty{grid-column:1 / -1; text-align:center; color:#3a3f49}
+.slot[data-on="1"]{background:color-mix(in srgb, var(--c) 48%, #1f2228); border-color:var(--c)} .slot[data-on="1"] .go{color:#fff}
+.slot[data-next="1"] .go{animation:blink .5s steps(2) infinite; color:#fff} .slot[data-next="stop"]{opacity:.6}
+.slot[data-sel="1"]{outline:2px solid var(--sel); outline-offset:-2px}
+.slot .prog{position:absolute; left:0; bottom:0; height:3px; width:0; background:#fff; opacity:.75}
+.slot.stop{min-height:32px; display:block; text-align:center; color:var(--mute)}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.slot[data-next="1"] .go,.scene[data-next="1"] .sgo{animation:none}}
+/* the Clip tab */
+#clipPane{flex:1; min-height:0; overflow:auto; padding:8px 12px; display:flex; flex-direction:column; gap:8px}
+.chead{display:flex; align-items:center; gap:8px; flex-wrap:wrap} .chead b{font-size:14px} .chead .parts button{min-height:26px}
+.chead .danger{color:#ff8a7a}
+.cmods{display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:10px}
+.cmod{background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:8px 10px; display:flex; flex-direction:column; gap:8px; min-width:0}
+.cmh{display:flex; align-items:center; gap:8px; flex-wrap:wrap} .cmh select{min-height:26px; padding:1px 6px}
+.steps{display:grid; gap:3px} .st{min-height:26px; padding:0; border-radius:4px; background:#15171b} .st[data-beat="1"]{border-color:#4a505b}
+.st[data-on="1"]{background:var(--acc); border-color:var(--acc); opacity:.65} .st[data-on="2"]{background:var(--acc); border-color:var(--acc)}
+.st[data-now="1"]{box-shadow:inset 0 0 0 2px #fff; background:#3a3f49} .st[data-now="1"][data-on="1"],.st[data-now="1"][data-on="2"]{background:#fff; border-color:#fff; opacity:1} .nchip[data-now="1"]{background:var(--acc); color:#111; border-color:var(--acc)}
+.tools{display:flex; flex-wrap:wrap; gap:4px} .tools button{min-height:28px; padding:0 9px; font-size:12.5px}
+.nseq{display:flex; flex-wrap:wrap; gap:4px; min-height:26px; align-items:center} .nchip{font:12px var(--mono); background:#15171b; border:1px solid var(--line); border-radius:5px; padding:2px 7px}
+.oct{display:inline-flex; align-items:center; gap:4px; font-size:12px} .oct button{min-height:24px; min-width:26px; padding:0}
+.cempty{display:flex; align-items:center; gap:10px; padding:10px 0}
+/* stage 2: one editor in both views, copies that remember where they came from */
+.seg{display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden} .seg button{border:0; border-radius:0; min-height:26px; padding:0 9px; font-size:12.5px} .seg button + button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--acc); color:#111}
+.tag{font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; border:1px solid #4a505b; border-radius:4px; padding:0 5px; color:var(--mute)}
+.putback{min-height:24px; padding:0 8px; font-size:12px; color:var(--acc); border-color:#5a4a2a}
+.srow{display:flex; gap:4px; align-items:center; flex-wrap:wrap}
+.slot .chg{position:absolute; right:5px; top:4px; font-size:9.5px; color:var(--acc); text-transform:uppercase; letter-spacing:.3px}
+.nsteps{display:grid; gap:2px; overflow-x:auto} .nrow{font:11px var(--mono); color:var(--mute); white-space:nowrap; overflow:hidden; align-self:center}
+.nsteps .st{min-height:18px}
+.shead[data-own="1"]{box-shadow:inset 0 -3px 0 var(--acc)}
+#recArr[aria-pressed="true"]{background:#c4413b; border-color:#c4413b; color:#fff}
+#backArr{color:var(--acc); border-color:#5a4a2a}
+button.nudge{animation:nudge .5s ease 2} @keyframes nudge{50%{box-shadow:0 0 0 3px var(--acc)}}
+/* a clip's parts, one under the other, each at its own length (a polyrhythm) */
+.cmod.parts{gap:4px}
+.addp{min-height:26px; font-size:12.5px}
+#clipPane > *{flex-shrink:0} .cview{display:flex} .ptrack{font-size:11px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.4px; margin-top:4px; padding-left:6px; border-left:3px solid var(--c)}
+.cmod.parts.whole .ptrack:first-of-type{margin-top:0}
+/* the Scene view: the scenes along the top, every part below with Vary, Life and Feel */
+.stbar{display:flex; flex-wrap:wrap; gap:6px; padding:8px 8px 4px; align-items:center} .schip{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel)}
+.schip button{border:0; border-radius:0; min-height:30px; padding:0 9px; font-size:12.5px; background:none} .schip .sgo{min-width:28px; padding:0; color:var(--mute)}
+.schip[data-sel="1"]{border-color:var(--acc)} .schip[data-sel="1"] .sname2{color:var(--acc)} .schip[data-on="1"]{background:color-mix(in srgb, var(--acc) 22%, var(--panel))} .schip[data-on="1"] .sgo{color:#fff}
+.schip[data-next="1"] .sgo{animation:blink .5s steps(2) infinite; color:#fff}
+.stground{padding:0 10px 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap} #sessWrap > .cmod.parts.whole{margin:4px 8px 10px}
+body.phone #clipPane{display:none}
+/* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
+body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.phone #snapL, body.phone .trk .sliders{display:none} body.phone .trk{grid-template-columns:1fr}
+@media (max-width:720px){ #tracks{width:150px} .trk .sliders .pan{display:none} #notes{left:8px; right:8px; width:auto} }
+</style>
+<div class="bar">
+  <h1>Studio DAW</h1>
+  <span class="views" id="views" role="group" aria-label="View"><button id="vSess" aria-pressed="true" title="The clips: scenes of loops over the ground (Tab in the Studio)">Session</button><button id="vStk" aria-pressed="false" title="Every part of a scene, one under the other, with the most used controls">Scene</button><button id="vArr" aria-pressed="false" title="The song on a timeline">Arrangement</button></span>
+  <select id="songSel" aria-label="Song"></select>
+  <button id="play" title="Play / stop (Space)">Play</button>
+  <button id="recArr" aria-pressed="false" title="Record what the Session plays into the Arrangement, from where it is">● Rec</button>
+  <button id="toSess" hidden title="The selected bars, section or clips into the Session as a new scene">→ Session</button>
+  <button id="backArr" hidden title="Session clips are playing over these tracks: give them back to the Arrangement">Back to Arrangement</button>
+  <button id="cycle" aria-pressed="false" title="Loop the selected bars (C). Drag across the bar numbers to choose them">⟲ Cycle</button>
+  <span id="pos" aria-label="Position">1.1.1</span>
+  <span class="muted small" id="tempo"></span>
+  <label class="small muted" id="snapL">Snap <select id="snap"><option value="16">Bar</option><option value="4">Beat</option><option value="1" selected>1/16</option><option value="0">Off</option></select></label>
+  <button id="undo" title="Undo (⌘Z)">↶</button><button id="redo" title="Redo (⇧⌘Z)">↷</button>
+  <button id="engAB" aria-pressed="true" title="Claude's mix or the plain one">Mix: Claude’s</button>
+  <button id="ver" title="Your version, or Claude's as it was written">Yours</button>
+  <span class="spacer"></span>
+  <span id="target" title="What a like or a note is about: the selection"></span>
+  <button id="up" title="Like the selection">👍</button><button id="down" title="Dislike the selection">👎</button><button id="say" title="A note for Claude about the selection">💬</button>
+  <button id="soundsB" aria-pressed="false" title="The sounds: choose and change the selected track’s (Y)">Sounds</button>
+  <button id="notesB" aria-pressed="false" title="Your notes on this song">Notes</button>
+  <span id="status"></span>
+</div>
+<div id="work"><div id="col">
+<div id="main">
+  <div id="tracks"><div id="rulerHead"><b class="small">Sections · bars · chords</b><span class="muted small">drag the bar numbers to loop</span></div><div id="trackList"></div></div>
+  <div id="arrWrap"><canvas id="arr" tabindex="0" aria-label="The arrangement"></canvas></div>
+  <div id="sessWrap" hidden aria-label="The session: clips"></div>
+</div>
+<div id="split" title="Drag to resize the editor"></div>
+<section id="editor" aria-label="The piano roll">
+  <div id="edHead"><div class="tabs etabs"><button id="tabClip" aria-pressed="false" title="The chosen clip: its rhythm and notes, with the jam's tools">Clip</button><button id="tabNotes" aria-pressed="false" hidden title="The notes of a clip">Notes</button><button id="tabInst" aria-pressed="false" title="The selected track’s instrument (B)">Instrument</button><button id="tabMix" aria-pressed="false" title="The mixer: every track’s strip, the buses, the returns and the master bus (X)">Mixer</button></div><span class="seg cmode" id="clipMode" hidden role="group" aria-label="Edit as"><button data-m="steps" title="The clip as steps: its rhythm and notes, with the jam's tools">Steps</button><button data-m="roll" title="The clip in the piano roll, note by note">Piano roll</button></span><b id="edName">Double-click a clip to edit its notes</b><span class="muted small" id="edInfo"></span><span id="edLive"></span><span class="spacer"></span>
+    <span id="help">Click: add a note · drag: move · drag an end: length · box-drag: select · ⌥-drag: copy · arrows: nudge · velocity below</span></div>
+  <div id="edWrap"><canvas id="ed" tabindex="0" aria-label="Notes and velocity"></canvas></div>
+  <div id="clipPane" hidden aria-label="The chosen clip"></div>
+  <div id="inst" hidden>
+    <div class="ihead"><div style="min-width:0"><b id="iName"></b> <span id="iLive" class="live" hidden>● LIVE</span> <span class="small muted" id="iFrom"></span></div><span class="spacer"></span><span class="small muted" id="iScope"></span>
+      <button id="iPlay" title="One note of it">▶ Note</button><button id="iTry" title="A bar or two of the track’s notes on it">▶ Phrase</button><button id="iSounds" title="The library of sounds (Y)">Sounds…</button><button id="iReset" hidden>Back to the original</button></div>
+    <div class="ibody"><figure class="idisp"><canvas id="iWave" aria-label="The note’s waveform and spectrum"></canvas><figcaption id="iCap" class="small muted"></figcaption></figure><div id="iMods"></div></div>
+    <div id="iKeys"></div>
+  </div>
+  <div id="mixer" hidden>
+    <div id="mxDesk" aria-label="The desk"></div>
+    <div class="mxedit"><div class="ihead"><b id="mxName"></b><span class="small muted" id="mxWords"></span><span class="spacer"></span><button id="mxFull" hidden title="An EQ and a compressor, as the Mix Lab mixes it">Claude’s full chain</button><button id="mxReset" hidden title="Its processors as the desk starts them: the lighter start">Back to the desk’s</button></div>
+      <div id="mxChain" class="chain"></div></div>
+  </div>
+</section></div>
+  <aside id="side" hidden aria-label="Sounds">
+    <div class="sideHead"><div style="min-width:0"><b id="sdTrack">Track</b><div class="small muted" id="sdScope"></div></div><button id="sdClose" title="Close (Y)">✕</button></div>
+    <div class="tabs"><button id="tabLib" aria-pressed="true">Library</button><button id="tabEdit" aria-pressed="false">Edit the sound</button></div>
+    <div id="sdLib"><div class="tabs" id="sdBy"></div><div class="tabs" id="sdRoles" hidden></div><div id="sdSyn" hidden></div><input id="sdSearch" type="search" placeholder="Search: glass, bowed, FM, analog…" aria-label="Search the sounds"><div class="small muted" style="margin:4px 0 6px">Click a sound to hear it on this track’s notes; Use (or double-click) to choose it.</div><div id="sdList"></div></div>
+    <div id="sdEdit" hidden>
+      <input id="sdName" aria-label="The sound’s name"><div class="small muted" id="sdFrom"></div>
+      <div style="display:flex; gap:6px; margin:6px 0"><button id="sdTry">▶ Try it</button><button id="sdReset" title="Back to the library sound it came from">Back to the original</button></div>
+      <div id="sdBody"></div></div>
+    <div id="sdAsk"><div class="grp">Ask Claude for a sound</div><textarea id="sdAskT" placeholder="Describe it: a woody, hollow bass with a soft attack; hats like rain on glass…"></textarea><button id="sdAskB">Send to Claude</button></div>
+  </aside>
+</div>
+<aside id="notes" hidden><h2>Notes on this song</h2><div id="composer" hidden><div class="small" id="cTarget"></div><textarea id="cText" placeholder="What would you change here?"></textarea>
+  <div style="display:flex; gap:6px; margin-top:6px"><button id="cUp" aria-pressed="false">👍</button><button id="cDown" aria-pressed="false">👎</button><span class="spacer"></span><button id="cCancel">Cancel</button><button id="cSave">Save note</button></div></div><div id="noteList"></div></aside>
+<div id="flash" aria-live="polite"></div>
+<style>
+/* the mixer (the parts' shell styles below, in this page's colours) */
+#mixer{--face:var(--panel2); --panel:#191c21; --accent:var(--acc); --accent-ink:#111; flex:1; min-height:0; overflow:auto; padding:8px 10px; display:grid; grid-auto-rows:max-content; gap:10px; align-content:start}
+#mxDesk{display:grid; grid-auto-flow:column; grid-auto-columns:150px; gap:6px; overflow-x:auto; padding-bottom:4px}
+.mxs{background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:7px; display:grid; gap:6px; align-content:start; min-width:0}
+.mxs[data-kind="bus"]{background:#2b2721} .mxs[data-kind="ret"]{background:#232a26} .mxs[data-kind="rack"]{background:#2e2420; border-color:#6b3a2c} .mxs[data-kind="pad"]{background:#261f1c; border-color:#4a2f26} .mxs .pads{min-height:24px; padding:0; font-size:12px} .mxs[aria-current="true"]{border-color:var(--acc); box-shadow:inset 0 0 0 1px var(--acc)}
+.mxs .sname{display:grid; text-align:left; gap:0; border:0; background:none; padding:0; min-height:0} .mxs .sname b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .mxs .sname span{font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mxs .meter{height:6px; background:#0f1114; border-radius:2px; overflow:hidden} .mxs .meter i{display:block; height:100%; width:0; background:#5fb36a} .mxs .meter i[data-hot="true"]{background:#e2553c}
+.mxs .chips{display:flex; flex-wrap:wrap; gap:3px; min-height:18px} .mxs .chip{font-size:10.5px; border:1px solid var(--line); border-radius:3px; padding:0 4px; display:inline-flex; gap:3px} .mxs .chip[data-off="true"]{opacity:.45; text-decoration:line-through} .mxs .chip .gr{font-size:10px; font-style:normal; display:inline-block; width:8ch; text-align:right}
+.mxs .fdr,.mxs .snd{display:grid; grid-template-columns:1fr auto; gap:1px 4px; font-size:11.5px} .mxs .fdr>span,.mxs .snd>span{color:var(--mute)} .mxs input[type=range]{grid-column:1/-1; width:100%; accent-color:var(--acc)} .mxs output{font:11px var(--mono)}
+.mxs .sends{display:grid; gap:3px} .mxs .msb{display:flex; gap:4px} .mxs .msb button{min-height:24px; flex:1; padding:0} .mxs .ms.s[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
+.mxedit{display:grid; gap:8px} .mxedit .ihead{display:flex; gap:10px; align-items:baseline; flex-wrap:wrap} #mxChain{display:grid; gap:6px; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr))}
+#mixer .proc{color:var(--ink)} #mixer .phead{flex-wrap:wrap}
+/*SHELLCSS*/
+</style>
+<script id="worker-src" type="text/plain">/*WORKER*/</script>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

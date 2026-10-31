@@ -4,12 +4,15 @@ import { ACC_WORDS, HIT_WORDS, NAMES, OBJECT_WORDS, sceneWords } from '../journe
 import { J } from '../journey/core.js';
 import { KAL_KINDS, KAL_WORDS } from '../journey/extras.js';
 import { PACE, paceName } from '../journey/pace.js';
+import { GEARS } from '../journey/gear.js';
+import { STEER } from '../journey/steer.js';
 import { BASE, SOURCES, SPEC, jumpVal, presets } from '../presets.js';
 import { setJourney } from './controls.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { F } from '../audio/foresee.js';
 import { TUNE } from '../tuning.js';
+import { genWords } from '../scene/genome.js';
 import { MEDIA } from '../media/source.js';
 import { HIT_VISUALS, LAYER_VISUALS, OBJECT_VISUALS, WORLD_VISUALS, byKey } from '../visuals/registry.js';
 import { solo } from './presets.js';
@@ -23,6 +26,7 @@ export function updateSectionUI(){
   el.textContent = `Section ${J.type.label}` + (J.type.visits > 1 ? `, heard before (visit ${J.type.visits})` : ', new')
     + (J.recipe ? `, from the ${J.recipe.name} recipe` : '')
     + (J.progStep ? `, evolved ${J.progStep}×` : '')
+    + (genWords() ? `. Its genome: ${genWords()}` : '')
     + (J.lead ? `. ${MEDIA.on ? `The mirror tunnel leads, on your ${MEDIA.kind}` : NAMES[J.lead]}, with ${NAMES[J.accent].toLowerCase()} ${ACC_WORDS[J.accTrig]}.` : '')
     + (J.centre && !MEDIA.on ? ` ${OBJECT_WORDS[J.centre]}.` : '')
     + ((J.worldHold || J.world) === 'cosmos' && !MEDIA.on ? ' The cosmos: the camera flies with the track, drawn in by builds and let go on drops, each section on the galaxy arm that suits it.' + (J.worldHold ? ' The Cosmos lab is holding it here: switch it off below to let Journey move between worlds.' : '') : '')
@@ -33,7 +37,7 @@ export function updateSectionUI(){
     + (J.hit ? ` ${HIT_WORDS[J.hit]}.` : '')
     + (J.lead ? (J.style === 'cut' ? ' Changes cut in on the bar line.' : ' Changes fade in.') : '')
     + (J.type.pal ? ` Colours: ${PAL_WORDS[J.type.pal]}.` : '')
-    + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}.` : '');
+    + (J.pace !== undefined ? ` Pace: ${paceName(J.pace)}, pulsing ${PACE.div === 4 ? 'once a bar' : PACE.div === 2 ? 'every other beat' : 'on every beat'}, moving at ${GEARS[J.gear ?? 1].name}.` : '');
 }
 // sliders
 export const sliders = {};
@@ -105,6 +109,11 @@ $('#jArc').addEventListener('change', e => { J.arcMins = +e.target.value; J.arcS
 $('#jBias').addEventListener('input', e => { J.bias = +e.target.value;
   $('#jBiasOut').textContent = J.bias < .35 ? 'Calm' : J.bias > .65 ? 'Intense' : 'Balanced'; });
 $('#jSpeed').addEventListener('input', e => { J.speed = +e.target.value; $('#jSpeedOut').textContent = J.speed.toFixed(2) + '×'; });
+// the speed gear (journey/gear.js): with the music, or one held; and the movement overall, kept on this device
+export function gearUI(){ const v = STEER.gear ?? -1; $('#jGear').value = v; $('#jGearOut').textContent = v < 0 ? 'Now ' + GEARS[J.gear ?? 1].name : 'Held'; }
+$('#jGear').addEventListener('change', e => { const v = +e.target.value; STEER.gear = v < 0 ? null : v; gearUI(); });
+try { const m = +localStorage.getItem('afterglow.move'); if (m >= .3 && m <= 1.5) { TUNE.gear.scale = m; $('#jMove').value = m; $('#jMoveOut').textContent = m.toFixed(2) + '×'; } } catch (e) {}
+$('#jMove').addEventListener('input', e => { TUNE.gear.scale = +e.target.value; $('#jMoveOut').textContent = TUNE.gear.scale.toFixed(2) + '×'; try { localStorage.setItem('afterglow.move', TUNE.gear.scale); } catch (er) {} });
 setJourney(true, 'fresh');
 $('#react').addEventListener('input', e => $('#reactOut').textContent = (+e.target.value).toFixed(2));
 // Sync: this device's speaker and screen delays, remembered between visits

@@ -1,4 +1,5 @@
 // Shockwaves: rings that ripple out on the pulse and push everything they pass through.
+import { S } from '../../state.js';
 // They live in the trails: they draw in the feedback pass and displace everything there. Their motion is in fx/effects.js.
 const SA = new Float32Array(32);   // the rings for the shader, reused each frame
 export default {
@@ -7,7 +8,7 @@ export default {
   words: 'Shockwaves ripple out on the kicks',
   // busy, driving music; less suited to a world
   suits: (rf, wOn, seed) => rf.busy*.4 + rf.low*.3 + rf.T*.2 + seed - (wOn ? .2 : 0),
-  params(P, x){ P.shockW = Math.max(x.eff.shock, x.J.dropGlow); P.shocks = x.shocks; },   // drops flash the rings too
+  params(P, x){ P.shockW = Math.max(x.eff.shock, x.J.dropGlow, S.shockOn || 0); P.shocks = x.shocks; },   // drops flash the rings too (and the play lab's own, placed by hand)
   feedback: {
     uniforms: 'uniform vec4 uShocks[8];\nuniform float uShockW;',
     functions: `
