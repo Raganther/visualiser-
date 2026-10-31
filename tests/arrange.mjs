@@ -41,7 +41,7 @@ const at = (ti, bar) => D(`(() => { const {ST} = window.__daw; return [${bar}*ST
 const clips = ti => D(`window.__daw.ST.P.tracks[${ti}].clips.map(c => ({id: c.id, start: c.start, len: c.len, n: c.notes.length})).sort((a, b) => a.start - b.start)`);
 
 const info = await D(() => { const {ST} = window.__daw; return {id: ST.id, n: ST.P.tracks.length, drums: ST.P.tracks[0].role, songs: [...document.querySelectorAll('#songSel option')].length}; });
-check('it opens on the newest round, five tracks (the drums one rack), every song in the picker', info.id === 'r4-1' && info.n === 5 && info.drums === 'drums' && info.songs === 6, JSON.stringify(info));
+check('it opens on the newest round, five tracks (the drums one rack), every song in the picker', info.id === 'r4-1' && info.n === 5 && info.drums === 'drums' && info.songs === 7, JSON.stringify(info));
 
 // playing: Space starts and stops, the position moves on
 await page.keyboard.press('Space'); await page.waitForTimeout(2500); const p1 = await D(() => [window.__daw.E.playing, window.__daw.E.pos()]); await page.keyboard.press('Space');

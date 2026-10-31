@@ -2,7 +2,8 @@
 // arranged them in), each a full combination in the snapshot format, with a line on why. Clips come from the packs and
 // the user's own variants, changed with the model's transforms; sounds from the library, steered by their ratings.
 // Usage: node studio/jam/ideas.mjs <dir of exported snaps> <round> <out.json> (round 1 from Snaps 4 and 5, round 2 from Snap 9,
-// round 3 three whole songs from Snap 10: each a list of sections, every section a scene in the v2 format; round 4 the three again)
+// round 3 three whole songs from Snap 10: each a list of sections, every section a scene in the v2 format; round 4 the three again;
+// round 5 a new song: node studio/jam/ideas.mjs <snaps> 5 studio/arrange/songs/round5.json)
 // (export: ArtifactData list snaps → out_dir; write: ArtifactData batch set into `ideas`)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -125,7 +126,7 @@ function kit(S10, seed = 303, hats = null){
         const j = join(c.role, c.rhythm, c.notes); c.clip = {id: preset || 'part', var: 0, len: j.len, steps: j.steps}; });
       return x; })});
   const bassLong = {...pack('bass', 'b3-and'), length: 2, y: .45}, strings = {...pack('chords', 'c3-phrase'), mix: {...base.cols[COL.chords].mix, vol: -7}, y: .7};
-  return {PK, base, LINE, BAR1, pack, rt, nt, of, song, n0: () => (n = 0), bassLong, strings};
+  return {PK, base, GROUND, LINE, BAR1, pack, rt, nt, of, song, n0: () => (n = 0), bassLong, strings};
 }
 // round 3: three whole songs from Snap 10, each a different shape, the bass coming and going
 function round3(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('needs Snap 10 in ' + dir);
@@ -163,13 +164,9 @@ function round3(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('need
       ['Still', 8, 'lib-twomin', {perc: pack('perc', 'p3-air'), bass: bassLong}, 'Long bass notes and the air.'],
     ])),
   ]; }
-// round 4: the three songs again, each grown its own way from the user's comments on round 3 (studio/taste.md,
-// 2026-10-23): smoother, drier hats with a drummer's dynamics and fills; the parts played with small variations and
-// syncopation; the kick held back while the motifs and percussion build; the bass a short grooving motif (Clearing's
-// off-beat one from "Back, changed"); the pad pulsing on the beat, its filter opening into the drop
-function round4(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('needs Snap 10 in ' + dir);
-  const {LINE, pack, rt, nt, of, song, n0, bassLong, strings} = kit(S10, 404, {sound: 'h3-smooth', echo: false, verb: true, y: .25});
-  const HANDS = of('perc'), DROPS = of('lead'), MARIMBA = of('lead2');
+// the drummer's notation and the round 4 grooves, shared by round 4 and round 5: drums bar by bar (each bar 16 steps,
+// '.' a rest, a letter a voice at its own loudness, or a digit's tenths), a line bar by bar ([step, rung, 16ths, loudness, octave])
+function grooves(){
   // drums bar by bar: each bar 16 steps, '.' a rest, a letter a voice (at its own loudness, or a digit's tenths below it)
   const HK = {X: ['chh', 1], x: ['chh', .72], o: ['chh', .45], g: ['chh', .26], O: ['ohh', .8], q: ['ohh', .5], r: ['ride', .6], R: ['ride', .85]},
     PK4 = {T: 'tomL', t: 'tomH', L: 'log', l: 'logH', w: 'wood', m: 'metal', d: 'rim', s: 'shaker', c: 'clave', b: 'bowl', G: 'gong'}, KK = {K: ['kick', 1], k: ['kick', .8], g: ['kick', .4]};
@@ -197,6 +194,15 @@ function round4(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('need
   const P2 = beat('Hands and twigs', PK4, [['...tT.w.t..T.wtl', '...57.3.4..6.354'], ['..wtT...t.cT.wtl', '..357...4.36.354']]);
   const P3 = beat('Hands, twigs and leaves', PK4, [['s..tTsw.t.sT.wtl', '2..5723.4.26.354'], ['s.wtT.s.t.cTswtl', '2.357.2.4.362354']]);
   const PDEV = beat('Hands answering, a bamboo fill', PK4, [['s..tTsw.t.sT.wtl', '2..5723.4.26.354'], ['s.wtT.s.t.cTswtl', '2.357.2.4.362354'], ['s..tTswdt.sT.wtl', '2..572344.26.354'], ['s..tTsw.tTtTtTtT', '2..5723.45677889']]);
+  return {beat, tune, HK, PK4, KK, E16, K4, K13, G1, G2, G3, FILL, HGROOVE, hatsTo, offTo, HSPARSE, HRISE, P1, P2, P3, PDEV}; }
+// round 4: the three songs again, each grown its own way from the user's comments on round 3 (studio/taste.md,
+// 2026-10-23): smoother, drier hats with a drummer's dynamics and fills; the parts played with small variations and
+// syncopation; the kick held back while the motifs and percussion build; the bass a short grooving motif (Clearing's
+// off-beat one from "Back, changed"); the pad pulsing on the beat, its filter opening into the drop
+function round4(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('needs Snap 10 in ' + dir);
+  const {LINE, pack, rt, nt, of, song, n0, bassLong, strings} = kit(S10, 404, {sound: 'h3-smooth', echo: false, verb: true, y: .25});
+  const HANDS = of('perc'), DROPS = of('lead'), MARIMBA = of('lead2');
+  const {beat, tune, HK, PK4, KK, E16, K4, K13, HGROOVE, hatsTo, offTo, HSPARSE, HRISE, P1, P2, P3, PDEV} = grooves();
   // the bass: the off-beat motif you liked ("Back, changed": root, third, seventh, fifth on the and), and its answers
   const M = [[2, 0, 2, .8], [6, 1, 1, .62], [10, 3, 2, .72], [14, 2, 2, .66]], M2 = [[2, 0, 2, .8], [6, 1, 1, .6], [7, 1, 1, .4], [10, 2, 2, .7], [13, 3, 1, .6], [15, 0, 1, .55]],
     M3 = [[2, 0, 2, .8], [6, 1, 1, .62], [10, 2, 2, .7], [14, 3, 2, .66]], M4 = [[2, 4, 2, .8], [6, 3, 1, .6], [9, 1, 1, .55], [10, 1, 1, .45], [14, 0, 1, .66], [15, 1, 1, .5]];
@@ -246,7 +252,59 @@ function round4(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('need
       ['Still', 8, 'lib-twomin', {perc: pack('perc', 'p3-air'), bass: bassLong}, 'Long bass notes and the air.'],
     ])),
   ]; }
-const ideas = {1: round1, 2: round2, 3: round3, 4: round4}[ROUND]();
+// round 5: a new song from round 4's timbre and the user's taste (studio/taste.md): the sounds they liked (the FM pluck
+// bass, the hands, the marimba, the smoothed hats) beside three of the analog instruments (the Deep kick, the warm pulse
+// pad played as a gated chord, the ring bell), in F, on suspended chords that don't resolve. More dynamics than round 4:
+// every part grows a few notes at a time, its loudness shaped bar by bar, the chord's filter opening and closing over
+// sections, a real breakdown and a drop; and more variation: the bell's one note becomes a phrase that's answered, the
+// marimba's seven-step loop drifts against the four and changes a note each time it comes back
+function round5(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('needs Snap 10 in ' + dir);
+  const {base, GROUND, pack, rt, song, n0} = kit(S10, 505, {sound: 'h3-smooth', echo: false, verb: true, y: .25});
+  const {beat, tune, PK4, K4, K13, HGROOVE, hatsTo, HSPARSE, HRISE, P1, P2, P3, PDEV} = grooves();
+  // the grounds, in F: the pedal's colour moving, eleven and six, and the suspended rise for the breakdown
+  for (const id of ['lib-colour', 'lib-elevens', 'lib-susrise']) { const H = inKey(LIB.find(h => h.id === id), 'F'); GROUND[H.id] = H; }
+  const OPEN = 'lib-colour@F', BODY = 'lib-elevens@F', LIFT = 'lib-susrise@F';
+  // the sounds, one a part all the way through (each can go back to round 4's with ↩ by its name)
+  const SND5 = {kick: 'k4-deep', hats: 'h3-smooth', perc: 'p3-forest', bass: 'b-fmpluck', chords: 'a5-mix-chords', lead: 'a5-bell', lead2: 'l-marimba'};
+  const VOL5 = {kick: -1, hats: 5, perc: 0, bass: -2.5, chords: -9, lead: -3, lead2: 4};
+  base.cols.forEach(c => { const k = Object.keys(COL).find(k => COL[k] === base.cols.indexOf(c)); c.sound = SND5[k]; c.locked = true; c.mix = {...c.mix, vol: VOL5[k]}; });
+  const LIGHT = m => ({...m, play: 1}), LOOSE = m => ({...m, play: 2});
+  // a loop of any length from its hits: [step, rung, 16ths, loudness, octave]
+  const loop = (name, len, hits) => ({R: {len, hits: hits.map(([s, , l, v]) => [s, l, v]), feel: 0, name, base: name, ops: []}, N: {seq: hits.map(([, r, , , o = 0]) => [r, o]), name, base: name, ops: []}});
+
+  // the bass grows a few notes at a time (principle 4), on the and like the motif you liked, its loudness shaped
+  const B1 = tune('Two notes on the and', [[[2, 0, 3, .8]], [[2, 0, 2, .76], [10, 2, 2, .62]]]);
+  const B2 = tune('Two notes, then answered', [[[2, 0, 2, .8], [10, 2, 2, .66], [14, 3, 1, .5]], [[2, 0, 2, .78], [7, 0, 1, .42], [10, 2, 2, .68], [14, 1, 1, .55]]]);
+  const B3 = tune('The line, grown', [[[2, 0, 2, .82], [10, 2, 2, .66], [14, 3, 1, .52]], [[2, 0, 2, .78], [7, 0, 1, .44], [10, 2, 2, .7], [14, 1, 1, .56]],
+    [[2, 0, 2, .8], [6, 1, 1, .5], [10, 2, 2, .68], [13, 4, 1, .58]], [[2, 0, 1, .84], [3, 0, 1, .5, 1], [6, 2, 1, .6], [10, 3, 2, .72], [14, 4, 1, .62], [15, 2, 1, .45]]]);
+  const BLONG = tune('Long notes, fading', [[[2, 0, 12, .7]], [[2, 2, 8, .58]], [[2, 0, 12, .5]], [[2, 0, 10, .4]]]);
+  // the bell: one note, then two rising, then a phrase answered (principle 5); up an octave, sparse, nothing held long
+  const L1 = tune('One bell', [[[0, 4, 4, .55, 1]], [], [], []]);
+  const L2 = tune('A bell, rising', [[[0, 4, 3, .58, 1]], [], [[8, 5, 2, .48, 1], [12, 6, 3, .54, 1]], []]);
+  const L3 = tune('The bell’s phrase, answered', [[[0, 4, 2, .6, 1], [6, 5, 2, .48, 1]], [[0, 6, 4, .58, 1]], [[0, 4, 2, .6, 1], [6, 5, 2, .5, 1], [10, 7, 2, .55, 1]], [[0, 6, 3, .62, 1], [12, 4, 2, .42, 1]]]);
+  // the marimba: seven steps against the four, drifting (principle 9); each time it comes back one note has moved
+  const M7 = loop('Seven against four', 7, [[0, 2, 1, .6], [3, 3, 1, .45], [5, 4, 1, .52]]);
+  const M7b = loop('Seven against four, a note moved', 7, [[0, 2, 1, .62], [3, 4, 1, .46], [5, 3, 1, .5, 1]]);
+  const M7c = loop('Seven against four, a step added', 7, [[0, 2, 1, .64], [2, 3, 1, .38], [3, 4, 1, .5], [5, 3, 1, .52, 1]]);
+  // the chord gated in 16ths (as you loved in Glasshouse), never held: its filter opening and closing across the song
+  const GATE = pack('chords', 'c3-gated'), STABS = pack('chords', 'c3-fives');
+  const CH = (m, x, ramp, more = {}) => ({...m, x, motion: 3, ...(ramp ? {ramp: {x: ramp}} : {}), ...more});
+  // the hands with a rim in fives over them for the middle
+  const FIVES = pack('perc', 'p3-five');
+  // the kick waits through the opening, then one and three, then four; the hats a drummer's, fills into each change
+  return [
+    (n0(), song('r5-1', 'Moth light', 'A new song in round 4\'s colours, in F on suspended chords: the hands, the marimba in sevens and one bell open it; the kick waits; your FM pluck bass grows from two notes to a line; a gated analog chord opens like a lamp coming up; a breakdown climbs a suspended rise without resolving, and the drop brings it all back together before it fades to embers. New here: the analog Deep kick, the warm pulse chord and the ring bell (↩ by a track\'s sound puts round 4\'s back).', 122, [
+      ['Moths', 8, OPEN, {perc: LIGHT(P1), lead: L1, lead2: LIGHT(M7)}, 'No kick: the hands thinned, one bell every four bars, the marimba\'s seven-step loop drifting against the bar.'],
+      ['Lamplight', 8, OPEN, {hats: HSPARSE, perc: P2, lead: L2, lead2: LIGHT(M7)}, 'A few closed hats; twigs join the hands; the bell rises to a second and third note.'],
+      ['Wingbeat', 16, BODY, {kick: K13, hats: LIGHT(hatsTo(16)), perc: P3, bass: B1, lead: L2, lead2: M7b}, 'Onto eleven and six: the kick on one and three, the drummer\'s hats, and the bass: just two notes on the and. The marimba has moved a note.'],
+      ['Circling', 16, BODY, {kick: K4, hats: LIGHT(HGROOVE), perc: P3, bass: B2, chords: CH(GATE, .3, [.3, .55]), lead: L3}, 'Four on the floor; the bass answers itself; the gated chord comes in dark and opens a little; the bell finds its phrase. The marimba rests.'],
+      ['Flutter', 16, BODY, {kick: K4, hats: LOOSE(hatsTo(16)), perc: PDEV, bass: rt('bass', 'develop', B2), chords: CH(GATE, .55, [.55, .7]), lead2: LIGHT(M7c)}, 'The bass developed over four bars, the hands answering with a bamboo fill, the marimba back with a step added; the bell rests; the chord brighter.'],
+      ['Glass', 8, LIFT, {hats: HRISE, perc: pack('perc', 'p3-air'), chords: CH(GATE, .2, [.2, .92], {mix: {...base.cols[COL.chords].mix, vol: -7}}), lead: rt('lead', 'thin', L3)}, 'The breakdown: no kick, no bass; a suspended rise that never resolves, the chord\'s filter opening bar by bar, the hats rising into the drop.'],
+      ['Swarm', 16, BODY, {kick: K4, hats: LOOSE(HGROOVE), perc: LIGHT(PDEV), bass: LIGHT(B3), chords: CH(STABS, .78, null, {mix: {...base.cols[COL.chords].mix, vol: -8, duck: 3}}), lead: LIGHT(L3), lead2: LIGHT(M7c)}, 'The drop: the bass\'s whole line, the chord as stabs in fives pumping on the kick, the bell and the marimba together for the first time.'],
+      ['Embers', 8, OPEN, {kick: K13, perc: P1, bass: BLONG, chords: CH(GATE, .6, [.6, .15]), lead: L1, lead2: M7}, 'The kick thins, the bass in long notes fading, the chord closing, one bell, the marimba as it began.'],
+    ])),
+  ]; }
+const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5}[ROUND]();
 ideas.forEach((x, i) => { x.order = i; x.id = `r${ROUND}-${i + 1}`; x.at = new Date().toISOString(); });
 for (const x of ideas) for (const y of x.sections || []) y.at = x.at;
 for (const x of ideas) for (const c of x.cols || []) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }

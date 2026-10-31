@@ -169,3 +169,11 @@ before writing or changing a piece; add to it when they react.
   processing is normal. A desk-style "Claude's mix" on everything is more than a minimal track needs; they chose a
   lighter start: only what does a clear job (low cuts, the sidechain under the kick, the kit's one glue), the full
   chains one click away. Prefer fewer, purposeful processors.
+- 2026-10-31: Asked for an entirely new song in round 4's timbre and style, and to try the analog instruments. Round 5,
+  Moth light (`ideas.mjs` round 5, `arrange/songs/round5.json`): in F on suspended chords (the pedal's colour, eleven and
+  six, a suspended rise for the breakdown), 122 BPM, 96 bars. The liked sounds kept (the FM pluck bass, the hands, the
+  marimba, the smoothed hats) beside three analog ones (the Deep kick, the warm pulse pad played as a gated 16th chord,
+  the ring bell). More dynamics and variation than round 4: the bass grows from two notes to a line, the bell from one
+  note to an answered phrase, the marimba's seven-step loop drifts against the bar and moves a note each return, the
+  chord's filter opens and closes across the song, a breakdown that climbs without resolving, then the drop. To learn
+  by listening: whether the analog kick, chord and bell sit with the natural sounds.

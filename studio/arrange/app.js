@@ -14,6 +14,7 @@ import { makeSession } from './session.js';
 import { isLive, liveNotes } from './clips.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
+import ROUND5 from './songs/round5.json';
 import LIBRARY from '../listen/packs/library.json';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
 import { putBig, getBig } from '../lib/bigdoc.js';
@@ -22,7 +23,7 @@ import { VNAME, noteName } from '../lib/names.js';
 
 
 
-const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
+const SONGS = [...ROUND4, ...ROUND5, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
 const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
 const nn = noteName;
@@ -47,7 +48,7 @@ const projById = id => PROJS.find(p => p.id === id), storeProjs = () => { try { 
 function songList(){ const sel = $('songSel'); sel.innerHTML = ''; const grp = (label, items) => { if (items.length) sel.append(h('optgroup', {label}, ...items)); };
   grp('Your projects', [...PROJS].sort((a, b) => (b.at || 0) - (a.at || 0)).map(p => h('option', {value: p.id}, p.name)));
   grp('Your takes', SONGS.filter(s => s.kind === 'take').map(s => h('option', {value: s.id}, roundOf(s))));
-  grp('Claude’s songs', SONGS.filter(s => s.kind !== 'take').map(s => h('option', {value: s.id}, roundOf(s)))); if (ST.id) sel.value = ST.id; }
+  grp('Claude’s songs', SONGS.filter(s => s.kind !== 'take').sort((a, b) => (b.round || 0) - (a.round || 0)).map(s => h('option', {value: s.id}, roundOf(s)))); if (ST.id) sel.value = ST.id; }
 songList();
 async function addSong(song, {go = true} = {}){ const i = SONGS.findIndex(s => s.id === song.id); if (i >= 0) SONGS[i] = song; else SONGS.unshift(song); storeTakes(); songList();
   if (db) try { await db.collection('takes').doc(song.id).set(JSON.parse(JSON.stringify(song))); } catch {}
