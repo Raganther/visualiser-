@@ -66,9 +66,26 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
   // mode (the Session alone, or over the Arrangement: `own` the tracks it has taken over); recording into the timeline
   const RT = {mode: 'session', scn: 0, show: {}, own: new Set(), play: {}, next: {}, nextScene: null, scene: null, H: null, hStart: 0, notes: new Map(), sel: {t: 0, r: 0}, part: 0, undo: [], rec: null};
   const canEdit = () => { if (ST.mine) return true; A.flash('This is Claude’s version: switch to Yours to change it'); return false; };
-  function open(song){ if (!ST.P.session) ST.P.session = seedSession(ST.P, song); fill();
+  function open(song){ if (!ST.P.session) ST.P.session = seedSession(ST.P, song); else oldOrigins(song); fill();
     RT.play = {}; RT.next = {}; RT.nextScene = null; RT.scene = null; RT.H = null; RT.notes.clear(); RT.undo = []; RT.own.clear(); RT.rec = null; RT.sel = {t: Math.min(RT.sel.t, ST.P.tracks.length - 1), r: 0}; RT.scn = 0; RT.show = {}; render(); renderClip(); }
-  const fill = () => { for (const TT of ST.P.tracks) S().cells[TT.id] ??= S().scenes.map(() => null); };
+  // each clip's original (as it first came: from the song, made new, or kept as a new scene), kept beside it as text, so
+  // a change shows and Revert puts it back; a clip that has none takes what it is now
+  const content = cl => isLive(cl) ? {name: cl.name, parts: cl.parts, ...(cl.off ? {off: cl.off} : {})} : {name: cl.name, len: cl.len, notes: cl.notes};
+  const fill = () => { for (const TT of ST.P.tracks) { const L = S().cells[TT.id] ??= S().scenes.map(() => null); for (const c of L) if (c && c.orig == null) c.orig = JSON.stringify(content(c)); } };
+  const edited = cl => !!cl?.orig && JSON.stringify(content(cl)) !== cl.orig;
+  const partEdited = (cl, j) => { if (!cl?.orig || !isLive(cl)) return false; const o = JSON.parse(cl.orig); return JSON.stringify(cl.parts[j]) !== JSON.stringify(o.parts?.[j]); };
+  const sceneEdited = r => ST.P.tracks.some(TT => edited(cell(TT.id, r)));
+  // back to the original: the clip, one part of it, or every clip in a scene (each undoable in the clip's undo)
+  function revertCell(tid, r, quiet){ const cl = cell(tid, r); if (!edited(cl) || !canEdit()) return false; const ti = ST.P.tracks.findIndex(x => x.id === tid);
+    RT.undo.push({where: 'sess', id: cl.id, t: ti, r, json: JSON.stringify(cl)}); const o = JSON.parse(cl.orig);
+    for (const k of ['parts', 'notes', 'len', 'off']) delete cl[k]; Object.assign(cl, o); cl._k = undefined; RT.part = Math.min(RT.part, (cl.parts?.length || 1) - 1);
+    if (!quiet) { A.save(); render(); renderClip(); A.flash(`${T(ti).name}: back to the original`); } return true; }
+  function revertPart(j){ const X = target(), cl = X?.cl; if (!partEdited(cl, j)) return; const o = JSON.parse(cl.orig);
+    edit(c => { if (o.parts?.[j]) c.parts[j] = o.parts[j]; else c.parts.splice(j, 1); }, `${partName(cl.parts[j])}: back to the original`); }
+  function revertScene(r){ let n = 0; for (const TT of ST.P.tracks) if (revertCell(TT.id, r, true)) n++; A.save(); render(); renderClip(); A.flash(n ? `${S().scenes[r].name}: ${n} clip${n > 1 ? 's' : ''} back to the original` : 'Nothing changed in this scene'); }
+  // a project from before originals were kept: its scenes seeded from the song take the song's clips as their originals
+  function oldOrigins(song){ const sd = seedSession(ST.P, song), Sx = S();
+    for (const TT of ST.P.tracks) (Sx.cells[TT.id] || []).forEach((c, r) => { const o = sd.cells[TT.id]?.[r]; if (c && c.orig == null && o && sd.scenes[r]?.name === Sx.scenes[r]?.name) c.orig = JSON.stringify(content(o)); }); }
   // the drum voices a part plays, and where they land on its track's pads
   const idsOf = TT => TT.sound?.startsWith('rack:') ? TT.sound.slice(5).split('+') : null;
   const renOf = TT => { const ids = idsOf(TT); return ids ? rackSound(ids, SND).ren : null; };
@@ -162,24 +179,25 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     const grid = h('div', {class: 'sgrid', style: `grid-template-columns: 170px repeat(${cols}, 176px)`});
     grid.append(h('div', {class: 'shead scol'}, h('b', {}, 'Scenes'), h('span', {class: 'small muted'}, RT.mode === 'mix' && E.playing ? 'over the song’s chords' : 'and their ground')));
     P.tracks.forEach((TT, i) => grid.append(h('div', {class: 'shead', 'data-sel': RT.sel.t === i ? '1' : '', 'data-own': RT.mode === 'mix' && RT.own.has(TT.id) ? '1' : '', style: `border-top:4px solid ${A.colorOf(TT, i)}`, onclick: () => select(i, rowOf(TT.id))},
-      h('b', {}, TT.name), h('span', {class: 'small muted'}, SND[TT.sound]?.name || TT.sound),
+      h('b', {}, TT.name), h('span', {class: 'small muted'}, SND[TT.sound]?.name || TT.sound, A.soundChanged?.(TT) ? h('button', {class: 'sback', title: `The sound has changed: back to ${SND[A.origSound(TT)]?.name || A.origSound(TT)}`, onclick: e => { e.stopPropagation(); A.revertSound(i); }}, '↩') : ''),
       h('span', {class: 'shbtn'}, h('button', {class: 'ms', 'aria-pressed': String(!!TT.mute), title: 'Mute', onclick: e => { e.stopPropagation(); TT.mute = !TT.mute; A.mixChanged(); render(); }}, 'M'),
         h('button', {class: 'ms s', 'aria-pressed': String(!!TT.mix.solo), title: 'Solo', onclick: e => { e.stopPropagation(); TT.mix.solo = !TT.mix.solo; A.mixChanged(); render(); }}, 'S')))));
     Sx.scenes.forEach((sc, r) => { const back = sc.from?.song === ST.id && P.tracks.some(TT => changedCopy(cell(TT.id, r)));
       grid.append(h('div', {class: 'scene', 'data-sel': RT.scn === r ? '1' : '', 'data-on': RT.scene === r ? '1' : '', 'data-next': RT.nextScene === r ? '1' : ''},
         h('button', {class: 'sgo', title: `Launch the scene (${r + 1})`, onclick: () => launchScene(r)}, '▶'),
         h('div', {class: 'sname'}, h('b', {title: `Select ${sc.name}: the Scene view shows its parts`, onclick: () => { pickScene(r); render(); renderClip(); }}, sc.name), h('span', {class: 'srow'}, h('button', {class: 'ground', title: 'The ground: the chords every clip in this scene reads. Click to change it', onclick: e => groundMenu(e.currentTarget, r)}, groundWords(sc.ground)),
-          ...(back ? [h('button', {class: 'putback', title: `Put this scene's changed clips back into the song, bars ${sc.from.a + 1}–${sc.from.b}`, onclick: () => putBackScene(r)}, '↩ Put back')] : [])))));
+          ...(back ? [h('button', {class: 'putback', title: `Put this scene's changed clips back into the song, bars ${sc.from.a + 1}–${sc.from.b}`, onclick: () => putBackScene(r)}, '↩ Put back')] : []),
+          ...(sceneEdited(r) ? [h('button', {class: 'revert', title: `Every changed clip in ${sc.name} back to its original`, onclick: () => revertScene(r)}, '↩ Revert')] : [])))));
       P.tracks.forEach((TT, i) => { const cl = cell(TT.id, r), pl = RT.play[TT.id], on = pl?.r === r, nx = RT.next[TT.id], ch = changedCopy(cl);
         const b = h('button', {class: 'slot', 'data-t': i, 'data-r': r, 'data-has': cl ? '1' : '', 'data-on': on ? '1' : '', 'data-next': nx === r ? '1' : nx === 'stop' && on ? 'stop' : '', 'data-sel': RT.sel.t === i && RT.sel.r === r ? '1' : '', 'data-shown': cl && rowOf(TT.id) === r ? '1' : '',
           style: cl ? `--c:${A.colorOf(TT, i)}` : '', title: cl ? (on ? `${cl.name}: playing (■ stops it)` : `${cl.name}: click to launch`) + (cl.from?.a != null ? ` · from bars ${cl.from.a + 1}–${cl.from.b}${ch ? ', changed' : ''}` : '') : 'Empty: click to stop this track, double-click for a new clip'},
-          ...(cl ? [h('span', {class: 'go'}, on ? '■' : '▶'), h('span', {class: 'cn'}, (isLive(cl) ? '' : '♪ ') + cl.name), h('span', {class: 'sk'}, sketch(isLive(cl) ? cl.parts[0].R : pseudoR(cl)), ch ? h('em', {class: 'chg'}, ' changed') : ''), h('i', {class: 'prog'})] : [h('span', {class: 'empty'}, '·')]));
+          ...(cl ? [h('span', {class: 'go'}, on ? '■' : '▶'), h('span', {class: 'cn'}, (isLive(cl) ? '' : '♪ ') + cl.name), h('span', {class: 'sk'}, sketch(isLive(cl) ? cl.parts[0].R : pseudoR(cl)), ch ? h('em', {class: 'chg'}, ' changed') : '', edited(cl) ? h('em', {class: 'edt', title: 'Changed from its original (Revert in the Clip tab)'}, ' ✎') : ''), h('i', {class: 'prog'})] : [h('span', {class: 'empty'}, '·')]));
         // a clip: clicked, it's chosen and launched; already playing, only chosen (its ■ stops it); an empty slot stops the track
         b.onclick = e => { select(i, r); if (!cl) stopTrack(TT.id); else if (!on || nx) launch(TT.id, r); else if (e.target.closest('.go')) stopTrack(TT.id); };
         b.ondblclick = () => { if (!cl) newClip(i, r); };
         grid.append(b); }); });
     grid.append(h('div', {class: 'scene foot'}, h('button', {class: 'sgo', title: 'Stop every track', onclick: stopAll}, '■'), h('span', {class: 'small'}, 'Stop all'),
-      h('button', {class: 'mini', title: 'A new empty scene', onclick: addScene}, '＋ Scene'), h('button', {class: 'mini', title: 'A new scene holding what plays now', onclick: capture}, 'Capture')));
+      h('button', {class: 'mini', title: 'A new empty scene', onclick: addScene}, '＋ Scene'), h('button', {class: 'mini keep', title: 'Keep what plays now (or what the Scene view shows) as a new scene; the scenes it came from can still go back to their originals', onclick: capture}, '⤓ Keep as new scene')));
     P.tracks.forEach(TT => grid.append(h('button', {class: 'slot stop', title: `Stop ${TT.name}`, onclick: () => stopTrack(TT.id)}, '■')));
     box.append(grid); A.renderBack?.(RT.mode === 'mix' && E.playing && RT.own.size > 0); }
   const groundWords = H => H?.bars ? [...new Set(H.bars)].slice(0, 4).map(shortOf).join(' · ') + (new Set(H.bars).size > 4 ? ' …' : '') : '—';
@@ -217,9 +235,12 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     A.popup(at, items.slice(0, 40)); }
   function addScene(){ if (!canEdit()) return; const Sx = S(), g = Sx.scenes[Sx.scenes.length - 1]?.ground || DEEP; Sx.scenes.push({id: 's' + uid(), name: `Scene ${Sx.scenes.length + 1}`, ground: clone(g)});
     for (const TT of ST.P.tracks) Sx.cells[TT.id].push(null); A.save(); render(); }
-  function capture(){ if (!canEdit()) return; const Sx = S(), r = Sx.scenes.length; Sx.scenes.push({id: 's' + uid(), name: `Scene ${r + 1}`, ground: clone(RT.H || Sx.scenes[0]?.ground || DEEP)});
-    for (const TT of ST.P.tracks) { const pl = RT.play[TT.id], cl = pl && cell(TT.id, pl.r); Sx.cells[TT.id].push(cl ? {...clone(cl), id: uid(), from: undefined} : null); }
-    A.save(); render(); A.flash(`Captured as ${Sx.scenes[r].name}`); }
+  // Keep as new scene: every track's clip as it is now (what plays, or stopped what's shown: the Scene view's rows), copied
+  // into a new scene whose originals are this moment; the scenes they came from keep their own originals to go back to
+  function capture(){ if (!canEdit()) return; fill(); const Sx = S(), r = Sx.scenes.length, on = live(), n = Sx.scenes.filter(x => /^Kept \d+$/.test(x.name)).length + 1;
+    Sx.scenes.push({id: 's' + uid(), name: `Kept ${n}`, ground: clone((on && RT.mode === 'session' ? RT.H : Sx.scenes[RT.scn]?.ground) || Sx.scenes[0]?.ground || DEEP)});
+    for (const TT of ST.P.tracks) { const cl = cell(TT.id, rowOf(TT.id)); Sx.cells[TT.id].push(cl ? {...clone(cl), id: uid(), from: undefined, orig: undefined} : null); }
+    fill(); A.save(); render(); A.flash(`Kept as a new scene: ${Sx.scenes[r].name} (what you jammed from can still go back to its original)`); }
   function newParts(TT){ const roles = isRack(TT) ? ['kick', 'hats'] : [TT.role === 'drums' ? 'kick' : TT.role];
     return roles.map(role => { const k = isRack(TT) ? PART_ROLES.indexOf(role) : 0, p0 = {role, k}, vs = voicesOf(TT, p0), R = rhythmTool('new', role, null, null, Math.random, vs.length ? vs : [VOICE0[role]]).rhythm;
       return {role, k, R, N: role === 'chords' ? fresh({seq: []}, 'The ground') : notesTool('new', role, null, Math.random, {n: R.hits.length, voices: vs}), play: 0, oct: 0, inv: 0, walk: false, loop: null, voicing: 0}; }); }
@@ -261,6 +282,8 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     head.append(h('span', {class: 'spacer'}));
     if (X.where === 'sess' && changedCopy(cl)) head.append(h('button', {class: 'putback', title: `Put this clip back into the song over bars ${cl.from.a + 1}–${cl.from.b}`, onclick: () => putBackCell(RT.sel.t, RT.sel.r)}, `↩ Put back in bars ${cl.from.a + 1}–${cl.from.b}`));
     else if (X.where === 'sess' && cl.from?.a != null) head.append(h('span', {class: 'small muted'}, `from bars ${cl.from.a + 1}–${cl.from.b}`));
+    if (X.where === 'sess' && edited(cl)) head.append(h('em', {class: 'edt', title: 'Its notes or parts have changed since it was made (from the song, new, or kept)'}, '✎ changed'),
+      h('button', {class: 'revert', title: 'Back to the clip as it first was (undoable)', onclick: () => revertCell(TT.id, RT.sel.r)}, '↩ Revert clip'));
     head.append(isLive(cl) ? h('button', {title: 'Its notes kept as they play now, to edit one by one in the piano roll (it stops following the chords)', onclick: doFreeze}, '❄ Freeze to notes')
       : h('button', {title: 'Read its notes back into a rhythm and chord tones, so it follows the chords again', onclick: doLive}, '∿ Make live'));
     head.append(h('button', {title: 'Undo the last change to a clip', onclick: undo}, '↶ Undo'));
@@ -277,6 +300,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
         sel('Life', PLAYS.map(x => x.name), p.play || 0, v => edit((c, q) => { q.play = v; }, `Life: ${PLAYS[v].name}`), 'Life improvises on the riff each time round (P)'),
         h('span', {class: 'oct', title: 'Its length in steps: parts of different lengths go round against each other (a polyrhythm). Shift: by four'}, 'Length ', h('button', {class: 'lenDn', onclick: e => setLen(-(e.shiftKey ? 4 : 1))}, '−'), h('b', {}, String(R.len)), h('button', {class: 'lenUp', onclick: e => setLen(e.shiftKey ? 4 : 1)}, '+'))),
       h('div', {class: 'tools'}, ...Object.entries(RHYTHM_TOOLS).map(([k, n]) => h('button', {onclick: () => rTool(k)}, n))));
+    const pj = cl.parts.indexOf(p); if (X.where === 'sess' && partEdited(cl, pj)) rhythm.firstChild.append(h('button', {class: 'revert rpart', title: `${partName(p)} back to the original (its rhythm and notes)`, onclick: () => revertPart(pj)}, '↩ Revert part'));
     // the notes: what it plays, in order, one a hit, going round (chords play the ground itself)
     const seq = p.N?.seq || [], chips = h('div', {class: 'nseq'}, ...(p.role === 'chords' ? [h('span', {class: 'small muted'}, 'Plays the ground’s chords')] : seq.map(x => h('span', {class: 'nchip'}, drum ? x : `${x[0] + 1}${x[1] > 0 ? '↑' : x[1] < 0 ? '↓' : ''}`))));
     const notes = h('section', {class: 'cmod'}, h('div', {class: 'cmh'}, h('b', {}, 'Notes'), h('span', {class: 'small muted'}, drum ? 'which drums, in turn' : p.role === 'chords' ? 'the ground, voiced' : 'chord tones (1 the root), in turn: they follow the ground'),
@@ -296,7 +320,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
   // track: in the whole scene each row acts on its own track's clip (the chosen slot moved there first)
   function partRow(ti, cl, q, j, W, sel, wide, o = {}){ const r = o.row ?? RT.sel.r;
     const at = () => { if (RT.sel.t !== ti || RT.sel.r !== r) { RT.sel = {t: ti, r}; A.selTrack?.(ti); render(); } RT.part = j; }, go = f => () => { at(); f(); };
-    return seqRow(q, {...o, W, sel, wide, track: ti, index: j, row: r, canRemove: cl.parts.length > 1, life: PLAYS[q.play || 0].name, feel: FEELS[q.R.feel || 0].name, on: {
+    return seqRow(q, {...o, W, sel, wide, track: ti, index: j, row: r, changed: partEdited(cl, j), canRemove: cl.parts.length > 1, life: PLAYS[q.play || 0].name, feel: FEELS[q.R.feel || 0].name, on: {
       pick: go(renderClip), step: (s, acc) => { at(); toggleHit(s, acc); }, lib: d => { at(); libStep(j, d); }, vary: go(() => rTool('vary')),
       life: go(() => edit((c, x) => { x.play = ((x.play || 0) + 1) % PLAYS.length; }, `${partName(q)}: Life ${PLAYS[((q.play || 0) + 1) % PLAYS.length].name}`)),
       feel: go(() => edit((c, x) => { x.R = {...x.R, feel: ((x.R.feel || 0) + 1) % FEELS.length}; }, `${partName(q)}: ${FEELS[((q.R.feel || 0) + 1) % FEELS.length].name}`)),
@@ -349,9 +373,10 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     Sx.scenes.forEach((sc, r) => bar.append(h('span', {class: 'schip', 'data-sel': r === RT.scn ? '1' : '', 'data-on': RT.scene === r && E.playing && E.session === hook ? '1' : '', 'data-next': RT.nextScene === r ? '1' : ''},
       h('button', {class: 'sgo', title: `Launch ${sc.name} (${r < 9 ? r + 1 : ''})`, onclick: () => launchScene(r)}, '▶'),
       h('button', {class: 'sname2', title: `Show ${sc.name}'s parts`, onclick: () => { pickScene(r); render(); renderClip(); }}, sc.name))));
-    bar.append(h('button', {class: 'mini', title: 'Stop every clip', onclick: stopAll}, '■ Stop'));
+    bar.append(h('button', {class: 'mini', title: 'Stop every clip', onclick: stopAll}, '■ Stop'),
+      h('button', {class: 'mini keep', title: 'Keep what plays now (or what this view shows) as a new scene; the scenes it came from can still go back to their originals', onclick: capture}, '⤓ Keep as new scene'));
     const g = live() && RT.mode === 'session' ? RT.scene ?? RT.scn : RT.scn, sc = Sx.scenes[g];
-    box.append(bar, h('div', {class: 'stground small muted'}, 'Over ', h('button', {class: 'ground', title: `The chords ${sc.name} reads: click to change`, onclick: e => groundMenu(e.currentTarget, g)}, groundWords(sc.ground))), sceneRows(true)); }
+    box.append(bar, h('div', {class: 'stground small muted'}, 'Over ', h('button', {class: 'ground', title: `The chords ${sc.name} reads: click to change`, onclick: e => groundMenu(e.currentTarget, g)}, groundWords(sc.ground)), ...(sceneEdited(g) ? [' ', h('button', {class: 'revert', title: `Every changed clip in ${sc.name} back to its original`, onclick: () => revertScene(g)}, `↩ Revert ${sc.name}`)] : [])), sceneRows(true)); }
   function setStack(on){ RT.stack = !!on; render(); renderClip(); }
   // ‹ ›: the library's rhythms for this kind of part, in turn; only the rhythm changes (its notes, its drums, stay)
   function libStep(j, d){ const X = target(); if (!X?.cl || !isLive(X.cl)) return; const q = X.cl.parts[j], list = LIBR[isDrum(q.role) ? q.role : q.role] || [];
@@ -417,5 +442,5 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
       return (((pos - pl.start + (isLive(cl) ? 0 : cl.off || 0)) % L) + L) % L; } return null; }
   function findCell(id){ const Sx = S(); if (!Sx) return null; for (const [ti, TT] of ST.P.tracks.entries()) { const r = (Sx.cells[TT.id] || []).findIndex(c => c?.id === id);
     if (r >= 0) { const cl = Sx.cells[TT.id][r]; if (isLive(cl)) viewNotes(cl, TT, Sx.scenes[r].ground); cl.start = 0; return {T: TT, ti, cl, sess: true}; } } return null; }
-  return {open, render, renderClip, frame, edPos, partKey, partStep, stackStep, setStack, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
+  return {open, render, revertCell, revertScene, capture, edited, cell, renderClip, frame, edPos, partKey, partStep, stackStep, setStack, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
     stop: () => { RT.play = {}; RT.next = {}; RT.scene = null; RT.own.clear(); if (RT.rec) recToggle(); render(); playhead(null); }}; }

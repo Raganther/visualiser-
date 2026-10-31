@@ -14,9 +14,9 @@ export function stepCells(R, W, onStep, title = ''){ const hits = new Map(R.hits
 // its track's name on its first row, '' after), idle (shown, not playing), canRemove, life, feel (names of the part's
 // settings), on: {pick, step(s, accent), lib(d), vary, life, feel, mute, remove}}
 export function seqRow(q, o){ const on = o.on || {}, nm = partName(q), kind = PART_NAMES[q.role] || q.role;
-  const row = h('div', {class: cls(o), 'data-t': o.track, 'data-j': o.index, 'data-r': o.row, 'data-sel': o.sel ? '1' : '', 'data-mute': q.mute ? '1' : '', 'data-idle': o.idle ? '1' : ''});
+  const row = h('div', {class: cls(o), 'data-t': o.track, 'data-j': o.index, 'data-r': o.row, 'data-sel': o.sel ? '1' : '', 'data-mute': q.mute ? '1' : '', 'data-idle': o.idle ? '1' : '', 'data-chg': o.changed ? '1' : ''});
   if (o.lead !== undefined) row.append(lead(o.lead));
-  row.append(h('button', {class: 'pname', title: `Choose ${nm}: its notes and tools below`, onclick: on.pick}, nm),
+  row.append(h('button', {class: 'pname', title: `Choose ${nm}: its notes and tools below` + (o.changed ? ' (changed from its original)' : ''), onclick: on.pick}, nm + (o.changed ? ' ✎' : '')),
     h('button', {class: 'pv', 'aria-label': 'The library’s rhythm before', title: `The library’s ${kind} rhythms`, onclick: () => on.lib?.(-1)}, '‹'),
     h('button', {class: 'pv', 'aria-label': 'The library’s next rhythm', title: `The library’s ${kind} rhythms`, onclick: () => on.lib?.(1)}, '›'),
     stepCells(q.R, o.W, on.step, `${nm}: click a step for a hit, Shift-click an accent`), h('span', {class: 'plen small muted', title: 'Its length in steps'}, String(q.R.len)),

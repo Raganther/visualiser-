@@ -81,7 +81,7 @@ check('a step tapped in adds a hit, and P turns Life up', h1 === h0 + 1 && life 
 const empty = await Q(() => { const {ST} = window.__daw, S = ST.P.session; for (let r = 0; r < S.scenes.length; r++) for (let t = 0; t < ST.P.tracks.length; t++) if (!S.cells[ST.P.tracks[t].id][r]) return [t, r]; return null; });
 await page.dblclick(`#sessWrap .slot[data-t="${empty[0]}"][data-r="${empty[1]}"]`); await wait(200);
 const made = await Q(([t, r]) => { const {ST} = window.__daw; return !!ST.P.session.cells[ST.P.tracks[t].id][r]?.parts[0].R.hits.length; }, empty);
-const n0 = await Q(() => window.__daw.ST.P.session.scenes.length); await page.click('#sessWrap button >> text=Capture'); await wait(150);
+const n0 = await Q(() => window.__daw.ST.P.session.scenes.length); await page.click('#sessWrap button.keep >> nth=0'); await wait(150);
 await page.click('#sessWrap .ground >> nth=0'); await page.click('#pop button >> nth=-1'); await wait(150);
 const gnd = await Q(() => window.__daw.ST.P.session.scenes[0].ground.name);
 await wait(3500); await page.reload(); await wait(2500);
@@ -250,6 +250,36 @@ let ad3 = null; if (ad0.empty >= 0) { await page.click(`#sessWrap .prow[data-t="
   ad3 = await Q(e => { const P = window.__daw.ST.P, cl = P.session.cells[P.tracks[e].id][1]; return {made: !!cl, parts: cl?.parts?.length, hits: cl?.parts?.[0]?.R.hits.map(x => x[0])}; }, ad0.empty); }
 await page.click('#vSess'); await wait(200);
 check('adding from the Scene view: ‹ › picks a drum no part plays, a tapped step brings it in as its own part with that hit; ＋ opens another track\'s line; an empty track\'s line makes its clip', ad1.parts === ad0.parts + 1 && ad1.name === pick && ad1.hits.join() === '6' && ad1.pads?.length === 1 && ad2.sel === otherT && ad2.lane && !ad2.lane0 && (!ad3 || (ad3.made && ad3.parts === 1 && ad3.hits.join() === '0')), JSON.stringify({ad0, pick, ad1, ad2, ad3}));
+// originals: a changed clip is marked (✎ in the grid, the Clip tab's changed tag) and Revert puts it back; a part alone;
+// a scene; Keep as new scene copies what's shown into a new scene and the scene it came from still goes back
+await page.click('#vSess'); await wait(200);
+const og = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, T0 = P.tracks[0], r = [1, 0, 2, 3].find(r => SS.cell(T0.id, r)?.parts); SS.RT.scn = r; SS.RT.show = {}; SS.revertCell(T0.id, r, true); SS.select(0, r); SS.RT.part = 0;
+  const before = JSON.stringify(SS.cell(T0.id, r).parts); return {r, before, edited0: SS.edited(SS.cell(T0.id, r))}; });
+await page.click('#clipPane .tools button >> nth=0'); await wait(250);
+const o1 = await Q(r => { const {ST, SS} = window.__daw, T0 = ST.P.tracks[0]; return {edited: SS.edited(SS.cell(T0.id, r)), mark: !!document.querySelector(`#sessWrap .slot[data-t="0"][data-r="${r}"] .edt, #sessWrap .slot .edt`), tag: !!document.querySelector('#clipPane .edt'), btn: !!document.querySelector('#clipPane .chead .revert'), part: !!document.querySelector('#clipPane .rpart'), sceneBtn: !!document.querySelector('#sessWrap .scene .revert')}; }, og.r);
+await page.click('#clipPane .rpart'); await wait(250);
+const o2 = await Q(([r, b]) => { const {ST, SS} = window.__daw, T0 = ST.P.tracks[0]; return {same: JSON.stringify(SS.cell(T0.id, r).parts) === b, edited: SS.edited(SS.cell(T0.id, r))}; }, [og.r, og.before]);
+await page.click('#clipPane .tools button >> nth=1'); await wait(200);
+const kp = await Q(() => window.__daw.ST.P.session.scenes.length);
+await page.click('#sessWrap .keep'); await wait(300);
+const o3 = await Q(([r, b, n]) => { const {ST, SS} = window.__daw, P = ST.P, T0 = P.tracks[0], k = P.session.scenes.length - 1, kept = SS.cell(T0.id, k);
+  return {scenes: P.session.scenes.length, name: P.session.scenes[k].name, keptEdited: SS.edited(kept), keptSame: JSON.stringify(kept.parts) === JSON.stringify(SS.cell(T0.id, r).parts), srcEdited: SS.edited(SS.cell(T0.id, r)), n}; }, [og.r, og.before, kp]);
+await page.click('#sessWrap .scene .revert'); await wait(300);
+const o4 = await Q(([r, b]) => { const {ST, SS} = window.__daw, P = ST.P, T0 = P.tracks[0], k = P.session.scenes.length - 1; return {back: JSON.stringify(SS.cell(T0.id, r).parts) === b, keptStill: !SS.edited(SS.cell(T0.id, k)) && JSON.stringify(SS.cell(T0.id, k).parts) !== b}; }, [og.r, og.before]);
+check('originals: a changed clip marked in the grid and the Clip tab, Revert part back exactly; Keep as new scene copies it (its own original), the scene it came from still reverts while the kept copy stays', !og.edited0 && o1.edited && o1.mark && o1.tag && o1.btn && o1.part && o1.sceneBtn && o2.same && !o2.edited && o3.scenes === o3.n + 1 && /^Kept/.test(o3.name) && !o3.keptEdited && o3.keptSame && o3.srcEdited && o4.back && o4.keptStill, JSON.stringify({og: og.edited0, o1, o2, o3, o4}));
+// a track's sound changed: ↩ in its header back to the one it began with
+const sd = await Q(() => { const {ST, SND} = window.__daw, T = ST.P.tracks.find(t => t.role === 'bass') || ST.P.tracks[1], i = ST.P.tracks.indexOf(T), was = T.sound, other = Object.values(SND).find(x => x.role === T.role && x.id !== was && !x.voices)?.id || Object.keys(SND).find(k => k !== was);
+  T.sound = other; window.__daw.SS.render(); return {i, was, other}; });
+const sb = await Q(i => !!document.querySelectorAll('#sessWrap .shead')[i + 1]?.querySelector('.sback'), sd.i);
+await page.click(`#sessWrap .shead >> nth=${sd.i + 1} >> .sback`); await wait(300);
+const sa = await Q(i => window.__daw.ST.P.tracks[i].sound, sd.i);
+check('a track\'s sound changed shows ↩ in its header, which puts back the sound it began with', sb && sa === sd.was && sd.other !== sd.was, JSON.stringify({sb, sa, sd}));
+// Save as: the whole project under a name, listed under Your projects, and opened again with its Session
+await page.click('#saveAs'); await wait(150); await page.fill('#pop input', 'My test project'); await page.click('#saveGo'); await wait(900);
+const pj = await Q(() => { const {ST} = window.__daw; return {id: ST.id, n: ST.P.session.scenes.length, opt: [...document.querySelectorAll('#songSel optgroup')].find(g => g.label === 'Your projects')?.textContent}; });
+await Q(() => window.__daw.open(window.__daw.ST.base)); await wait(300); await Q(id => window.__daw.open(id), pj.id); await wait(500);
+const pj2 = await Q(() => ({id: window.__daw.ST.id, n: window.__daw.ST.P.session.scenes.length, name: window.__daw.ST.P.name}));
+check('Save as: the project named under Your projects, and opened again whole (its kept scene too)', /^proj-/.test(pj.id) && /My test project/.test(pj.opt) && pj2.id === pj.id && pj2.n === pj.n && pj2.name === 'My test project', JSON.stringify({pj, pj2}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

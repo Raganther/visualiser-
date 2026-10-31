@@ -40,12 +40,19 @@ const roundOf = s => s.kind === 'take' ? `Yours: ${s.name}` : `Round ${s.round}:
 // in the page's database (takes)
 const TAKES_KEY = 'studio.takes', storeTakes = () => { try { localStorage.setItem(TAKES_KEY, JSON.stringify(SONGS.filter(s => s.kind === 'take'))); } catch {} };
 try { SONGS.unshift(...JSON.parse(localStorage.getItem(TAKES_KEY) || '[]').filter(s => s.sections?.length)); } catch {}
-function songList(){ $('songSel').innerHTML = ''; for (const s of SONGS) $('songSel').append(h('option', {value: s.id}, roundOf(s))); if (ST.id) $('songSel').value = ST.id; }
+// your projects: a whole project (its tracks, clips, Session, mix) saved under a name, on its base song; kept on the
+// device (studio.projects, each under its own key) and in the database (projects, with its contents in versions)
+const PROJ_KEY = 'studio.projects'; let PROJS = []; try { PROJS = JSON.parse(localStorage.getItem(PROJ_KEY) || '[]'); } catch {}
+const projById = id => PROJS.find(p => p.id === id), storeProjs = () => { try { localStorage.setItem(PROJ_KEY, JSON.stringify(PROJS)); } catch {} };
+function songList(){ const sel = $('songSel'); sel.innerHTML = ''; const grp = (label, items) => { if (items.length) sel.append(h('optgroup', {label}, ...items)); };
+  grp('Your projects', [...PROJS].sort((a, b) => (b.at || 0) - (a.at || 0)).map(p => h('option', {value: p.id}, p.name)));
+  grp('Your takes', SONGS.filter(s => s.kind === 'take').map(s => h('option', {value: s.id}, roundOf(s))));
+  grp('Claude’s songs', SONGS.filter(s => s.kind !== 'take').map(s => h('option', {value: s.id}, roundOf(s)))); if (ST.id) sel.value = ST.id; }
 songList();
 async function addSong(song, {go = true} = {}){ const i = SONGS.findIndex(s => s.id === song.id); if (i >= 0) SONGS[i] = song; else SONGS.unshift(song); storeTakes(); songList();
   if (db) try { await db.collection('takes').doc(song.id).set(JSON.parse(JSON.stringify(song))); } catch {}
   if (go) { try { localStorage.removeItem(keyOf(song.id)); } catch {} await open(song.id); flash('In the arrangement: ' + song.name); } }
-async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s) return; ST.id = id; $('songSel').value = id;
+async function open(id){ if (E.playing) E.stop(); const pr = projById(id), s = songById(pr ? pr.base : id); if (!s) return; ST.id = id; ST.base = s.id; ST.proj = pr || null; $('songSel').value = id; renderProj();
   // (Studio Jam's kick, hats and percussion come as one drum rack track: combineDrums, rack.js)
   ST.orig = combineDrums(flatten(s), SND); let P = null;
   // (yours: the newer of the database's and this device's, so a save the database refused isn't lost to an older one)
@@ -59,6 +66,24 @@ async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
   SS?.open(s); $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {}
   if (ahead) save(); }   // (this device's newer version back into the database)
+// Save: written now (a project, or your version of a song); Save as: the whole project under a new name, opened as it
+function saveNow(){ if (!ST.mine) { flash('This is Claude’s version: switch to Yours first'); return; } if (!ST.proj) { saveAs(); return; } ST.proj.at = Date.now(); storeProjs(); save(0); flash(`Saved: ${ST.proj.name}`); }
+function saveAs(){ if (!ST.mine) { flash('This is Claude’s version: switch to Yours first'); return; } const at = $('saveAs'), r = at.getBoundingClientRect(); closePop();
+  const inp = h('input', {type: 'text', value: ST.proj ? ST.proj.name + ' 2' : `${ST.P.name} (mine)`, 'aria-label': 'Project name', style: 'width:200px'});
+  const go = () => { const name = inp.value.trim(); if (!name) return; closePop(); const id = 'proj-' + Date.now().toString(36), pr = {id, name, base: ST.base, at: Date.now()};
+    PROJS.push(pr); storeProjs(); ST.id = id; ST.proj = pr; ST.P.name = name; songList(); renderProj(); save(0); if (db) db.collection('projects').doc(id).set(pr).catch(() => {});
+    try { localStorage.setItem('studio.daw.song', id); } catch {} flash(`Saved as a project: ${name}`); };
+  const m = h('div', {class: 'pop', id: 'pop', style: `left:${Math.max(8, r.left - 120)}px; top:${r.bottom + 4}px`}, h('div', {class: 'small muted'}, 'Save the whole project as'), inp,
+    h('div', {}, h('button', {id: 'saveGo', onclick: go}, 'Save'), ' ', h('button', {onclick: closePop}, 'Cancel')));
+  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(); if (e.key === 'Escape') closePop(); };
+  document.body.append(m); inp.focus(); inp.select(); setTimeout(() => addEventListener('pointerdown', outside), 0); }
+function renderProj(){ const b = $('saveB'); if (b) b.title = ST.proj ? `Save ${ST.proj.name} now (⌘S)` : 'Save this as a project of your own (⌘S)'; }
+$('saveB').onclick = saveNow; $('saveAs').onclick = saveAs;
+// each track's sound as the project began (one sound a track): changed, ↩ in its header puts it back
+const origSound = T => T.origSound ??= (ST.orig?.tracks.find(x => x.id === T.id)?.sound ?? T.sound);
+const soundChanged = T => T.sound !== origSound(T);
+function revertSound(i){ const T = ST.P.tracks[i]; if (!T || !soundChanged(T) || !editable()) return; checkpoint(); T.sound = origSound(T); for (const c of T.clips) if (c.set) delete c.set.sound;
+  changed(); E.refresh(); renderTracks(); SB.render(); SS?.render(); flash(`${T.name}: back to ${SND[T.sound]?.name || T.sound}`); }
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
@@ -78,9 +103,9 @@ const hashOf = hash36;
 function liveSync(){ const P = ST.P; if (!P) return; P.tracks.forEach((T, i) => { const ren = T.sound?.startsWith('rack:') ? rackSound(T.sound.slice(5).split('+'), SND).ren : null, lane = P.tracks.filter((x, j) => j < i && x.role === T.role).length ? 1 : 0;
   for (const c of T.clips) { if (!isLive(c)) continue; const bars = Math.ceil(c.len/16), at0 = Math.floor(c.start), k = hashOf(JSON.stringify([c.start, c.len, c.off || 0, c.parts, P.chords.slice(at0, at0 + bars + 1), T.sound, lane]));
     if (k === c._k) continue; c.notes = liveNotes(c, P.chords, c.start, bars, {ren, lane}).filter(n => n.s < c.len); c._k = k; } }); }
-function save(){ if (!ST.mine) return; clearTimeout(saveT); clearTimeout(dbT); status('Saving…');
-  saveT = setTimeout(() => { try { localStorage.setItem(keyOf(ST.id), JSON.stringify({at: Date.now(), P: ST.P})); } catch {} status(db ? 'Saving…' : 'Saved on this device'); }, 600);
-  if (db) dbT = setTimeout(async () => { try { await putBig(db.collection('versions'), ST.id, {song: ST.id, name: ST.P.name, round: ST.P.round, at: new Date().toISOString()}, JSON.stringify(ST.P)); status('Saved'); } catch (e) { status('Saved on this device (' + (e.code || e.message) + ')'); } }, 2500); }
+function save(now){ if (!ST.mine) return; clearTimeout(saveT); clearTimeout(dbT); status('Saving…'); const late = now === 0 ? 0 : null;
+  saveT = setTimeout(() => { try { localStorage.setItem(keyOf(ST.id), JSON.stringify({at: Date.now(), P: ST.P})); } catch {} status(db ? 'Saving…' : 'Saved on this device'); }, late ?? 600);
+  if (db) dbT = setTimeout(async () => { try { await putBig(db.collection('versions'), ST.id, {song: ST.id, name: ST.P.name, round: ST.P.round, at: new Date().toISOString()}, JSON.stringify(ST.P)); status('Saved'); } catch (e) { status('Saved on this device (' + (e.code || e.message) + ')'); } }, late ?? 2500); }
 let stTxt = ''; function status(t){ if (t) stTxt = t; const n = E.busy(); $('status').textContent = n ? `Computing ${n} sound${n > 1 ? 's' : ''}…` : stTxt || 'Ready'; }
 let flT = 0; function flash(t){ const f = $('flash'); f.textContent = t; f.dataset.on = '1'; clearTimeout(flT); flT = setTimeout(() => f.dataset.on = '', 1600); }
 // Claude's version, as written, or yours: Claude's can be heard, not edited (Revert, in Notes, makes it yours again)
@@ -96,7 +121,8 @@ const editable = () => { if (PHONE) return false; if (ST.mine) return true; flas
 function renderTracks(){ const box = $('trackList'); box.innerHTML = '';
   ST.P.tracks.forEach((T, i) => { const M = T.mix;
     const row = h('div', {class: 'trk', 'data-sel': ST.sel.track === i ? '1' : '', style: `height:${LANE}px`},
-      h('div', {class: 'nm', style: `border-left:4px solid ${colorOf(T, i)}`, title: SND[T.sound]?.name || T.sound}, T.name, ' ', h('span', {class: 'snd', role: 'button', tabindex: '0', title: 'Change the sound (Y)', onclick: e => { e.stopPropagation(); selTrack(i); SB.show(true); }}, SND[T.sound]?.name || T.sound)),
+      h('div', {class: 'nm', style: `border-left:4px solid ${colorOf(T, i)}`, title: SND[T.sound]?.name || T.sound}, T.name, ' ', h('span', {class: 'snd', role: 'button', tabindex: '0', title: 'Change the sound (Y)', onclick: e => { e.stopPropagation(); selTrack(i); SB.show(true); }}, SND[T.sound]?.name || T.sound),
+        soundChanged(T) ? h('button', {class: 'sback', title: `The sound has changed: back to ${SND[origSound(T)]?.name || origSound(T)}`, onclick: e => { e.stopPropagation(); revertSound(i); }}, '↩') : ''),
       h('div', {class: 'btns'}, h('button', {class: 'ms', 'aria-pressed': String(!!T.mute), title: 'Mute', onclick: e => { e.stopPropagation(); T.mute = !T.mute; changed(true); renderTracks(); }}, 'M'),
         h('button', {class: 'ms s', 'aria-pressed': String(!!M.solo), title: 'Solo', onclick: e => { e.stopPropagation(); M.solo = !M.solo; changed(true); renderTracks(); }}, 'S'),
         h('button', {title: 'A note about this track', onclick: e => { e.stopPropagation(); selTrack(i); compose(); }}, '💬'),
@@ -410,6 +436,7 @@ addEventListener('keydown', e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tag
   if (e.key === ' ') { e.preventDefault(); E.playing ? stop() : play(); return; }
   if (ST.view === 'session' && !mod && SS.key(e)) { e.preventDefault(); return; }
   if (ST.view === 'arrange' && !mod && clipOn() && SS.partKey(e)) { e.preventDefault(); return; }   // (a live clip's parts: ← → after a click in the Clip tab, or [ ])   // (the Session's own keys: scenes, the chosen clip's tools)
+  if (mod && k === 's') { e.preventDefault(); e.shiftKey ? saveAs() : saveNow(); return; }
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; } if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'c') { e.preventDefault(); copy(); return; } if (mod && k === 'v') { e.preventDefault(); paste(); return; }
   if (mod && e.altKey && (k === 'n' || e.code === 'KeyN')) { e.preventDefault(); addMenu($('addTrk')); return; }
@@ -471,7 +498,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 
 /* ---------- the sound panel ---------- */
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
-SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), changed: () => changed(), checkpoint, arrClip: () => arrClip(), findArrClip,
+SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, soundChanged, origSound, revertSound, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), changed: () => changed(), checkpoint, arrClip: () => arrClip(), findArrClip,
   setView: v => (studio()?.show ? studio().show(v) : setView(v)), arrChanged: () => { if (ST.view === 'arrange') draw(); }, recOn: on => $('recArr').setAttribute('aria-pressed', String(on)),
   renderBack: on => { $('backArr').hidden = !on; }, clipChosen: () => { if (clipOn()) { showClip(true); return true; } }, selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, fx: (mods, T, pad, redo) => MX?.fxInto(mods, T, pad, redo), flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
@@ -519,8 +546,9 @@ E.onLive = () => { if (SI.isOn()) SI.render(); };   // (the live voices arrive a
 /* ---------- start ---------- */
 addEventListener('resize', () => { draw(); renderEd(); });
 (async () => { let first = null; try { first = localStorage.getItem('studio.daw.song'); } catch {}
-  await open(songById(first) ? first : SONGS[0].id);
+  await open(songById(first) || projById(first) ? first : SONGS[0].id);
   try { const c = await window.claude?.use?.('db'); if (c) { db = c; await SB.loadDb(c);
+    try { const q = await c.collection('projects').get(); for (const d of q.docs) { const x = d.data(); if (x?.id && x.base && !projById(x.id)) PROJS.push(x); } storeProjs(); songList(); } catch {}
     try { const q = await c.collection('takes').get(); for (const d of q.docs) { const x = d.data(); if (x?.sections?.length && !songById(x.id)) SONGS.unshift(x); } storeTakes(); songList(); } catch {}
     await open(ST.id); } } catch {} })();
 window.__daw = {get SS(){ return SS; }, ST, E, open, openEd, flatten, SB, SND, get SI(){ return SI; }, get MX(){ return MX; }};   // (for tests)
