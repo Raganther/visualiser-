@@ -194,7 +194,7 @@ check('＋ Part on the bass adds a second line ("Bass 2") with its own rhythm, i
 // the Scene view stacks every track's parts in the chosen scene, the track's name beside its first row (one line for a
 // track with nothing there); ↓ walks down them from one track into the next, → steps the chosen part through the library
 await Q(() => window.__daw.SS.select(0, 3)); await wait(200); await page.click('#vStk'); await wait(300); await page.click('#sessWrap .schip >> nth=3 >> .sname2'); await wait(200);
-const w0 = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, want = P.tracks.reduce((n, T) => { const c = P.session.cells[T.id][3]; return n + (c?.parts?.length || 1); }, 0);
+const w0 = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, want = P.tracks.reduce((n, T) => { const c = P.session.cells[T.id][3]; return n + (c?.parts?.length || 1); }, 0) + (P.session.cells[P.tracks[SS.RT.sel.t].id][3] ? 1 : 0);
   return {rows: document.querySelectorAll('#sessWrap .whole .prow').length, want, names: [...document.querySelectorAll('#sessWrap .whole .plead')].filter(x => x.textContent).length, headers: document.querySelectorAll('#sessWrap .whole .ptrack').length, n: P.tracks.length, parts: P.session.cells[P.tracks[0].id][3].parts.length}; });
 await page.click('#sessWrap .whole .cmh b'); for (let i = 0; i < w0.parts; i++) await page.keyboard.press('ArrowDown'); await wait(200);
 const w1 = await Q(() => ({t: window.__daw.SS.RT.sel.t, part: window.__daw.SS.RT.part}));
@@ -234,6 +234,22 @@ await page.click('#sessWrap .schip >> nth=1 >> .sname2'); await wait(200);
 const p2 = await Q(() => ({t0: +document.querySelector('#sessWrap .whole .prow[data-t="0"]')?.dataset.r, chip: [...document.querySelectorAll('#sessWrap .schip')].findIndex(x => x.dataset.sel === '1')}));
 await page.keyboard.press(' '); await wait(400); await page.click('#vSess'); await wait(200);
 check('playing, the Scene view shows what\'s heard: the scene launched, and one track\'s clip launched from another scene on its own row; picking a chip only marks it', p1.t0 === pk && p1.rest.length > 0 && p1.rest.every(r => r === 2) && /Playing now/.test(p1.title) && p2.t0 === pk && p2.chip === 1, JSON.stringify({pk, p1, p2}));
+// adding to a jam from the Scene view: the selected track's add line (‹ › through the drums no part plays yet), a step
+// tapped brings that drum in as a part of its own with that hit; ＋ by another track's name opens its line instead; an
+// empty track's one line is its add line, and a step there makes the clip
+await page.click('#vStk'); await wait(300); await page.click('#sessWrap .schip >> nth=1 >> .sname2'); await wait(200);
+const ad0 = await Q(() => { const {ST, SS} = window.__daw, P = ST.P; SS.RT.sel = {t: 0, r: 1}; SS.render(); const T0 = P.tracks[0], cl = P.session.cells[T0.id][1];
+  const empty = P.tracks.findIndex(T => !P.session.cells[T.id][1]); return {parts: cl?.parts?.length, lanes: document.querySelectorAll('#sessWrap .pname.addl').length, empty, first: document.querySelector('#sessWrap .prow[data-t="0"] .pname.addl')?.textContent}; });
+await page.click('#sessWrap .prow[data-t="0"].empty .pv >> nth=1'); await wait(150); const pick = await Q(() => document.querySelector('#sessWrap .prow[data-t="0"] .pname.addl')?.textContent.replace('＋ ', ''));
+await page.click('#sessWrap .prow[data-t="0"].empty .addcells .pcells i[data-s="6"]'); await wait(300);
+const ad1 = await Q(n => { const {ST} = window.__daw, P = ST.P, cl = P.session.cells[P.tracks[0].id][1], q = cl.parts.at(-1); return {parts: cl.parts.length, name: q.name, hits: q.R.hits.map(x => x[0]), pads: q.pads}; });
+const otherT = await Q(() => { const P = window.__daw.ST.P; return P.tracks.findIndex((T, i) => i > 0 && P.session.cells[T.id][1]); });
+await page.click(`#sessWrap .prow[data-t="${otherT}"] .pladd`); await wait(200);
+const ad2 = await Q(o => ({sel: window.__daw.SS.RT.sel.t, lane: !!document.querySelector(`#sessWrap .prow[data-t="${o}"] .pname.addl`), lane0: !!document.querySelector('#sessWrap .prow[data-t="0"] .pname.addl')}), otherT);
+let ad3 = null; if (ad0.empty >= 0) { await page.click(`#sessWrap .prow[data-t="${ad0.empty}"] .addcells .pcells i[data-s="0"]`); await wait(300);
+  ad3 = await Q(e => { const P = window.__daw.ST.P, cl = P.session.cells[P.tracks[e].id][1]; return {made: !!cl, parts: cl?.parts?.length, hits: cl?.parts?.[0]?.R.hits.map(x => x[0])}; }, ad0.empty); }
+await page.click('#vSess'); await wait(200);
+check('adding from the Scene view: ‹ › picks a drum no part plays, a tapped step brings it in as its own part with that hit; ＋ opens another track\'s line; an empty track\'s line makes its clip', ad1.parts === ad0.parts + 1 && ad1.name === pick && ad1.hits.join() === '6' && ad1.pads?.length === 1 && ad2.sel === otherT && ad2.lane && !ad2.lane0 && (!ad3 || (ad3.made && ad3.parts === 1 && ad3.hits.join() === '0')), JSON.stringify({ad0, pick, ad1, ad2, ad3}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

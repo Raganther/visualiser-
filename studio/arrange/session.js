@@ -300,6 +300,29 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
       life: go(() => edit((c, x) => { x.play = ((x.play || 0) + 1) % PLAYS.length; }, `${partName(q)}: Life ${PLAYS[((q.play || 0) + 1) % PLAYS.length].name}`)),
       feel: go(() => edit((c, x) => { x.R = {...x.R, feel: ((x.R.feel || 0) + 1) % FEELS.length}; }, `${partName(q)}: ${FEELS[((q.R.feel || 0) + 1) % FEELS.length].name}`)),
       mute: go(() => edit(c => { c.parts[j].mute = !c.parts[j].mute || undefined; }, `${partName(q)} ${q.mute ? 'back in' : 'muted'}`)), remove: go(() => removePart(j))}}); }
+  // the add line (the Scene view): what a track could add to its clip there, in turn with ‹ ›. A drum track: each of its
+  // drums no part plays yet (a kit's every pad, a rack's every drum); a pitched one: another line of it. Tapping a step
+  // adds it with that hit (and the clip, if the track had none)
+  const isKit = TT => isDrum(TT.role) || TT.role === 'drums' || isRack(TT);
+  function usedPads(TT, cl){ const ren = renOf(TT), u = new Set(); if (!isLive(cl)) return u;
+    for (const q of cl.parts) if (isDrum(q.role)) { if (q.pads) q.pads.forEach(v => u.add(v)); else for (const v of q.N?.seq || []) if (typeof v === 'string') u.add(ren?.[q.k]?.[v] || v); } return u; }
+  function addCands(TT, cl){ if (cl && !isLive(cl)) return [];
+    if (isKit(TT)) { const u = usedPads(TT, cl); return Object.keys(SND[TT.sound]?.voices || {}).filter(v => !u.has(v)).map(v => ({pad: v, name: VNAME[v.replace(/\d+$/, '')] || v})); }
+    const n = cl ? cl.parts.filter(q => q.role === TT.role).length : 0; return [{name: n ? `${PART_NAME[TT.role] || TT.role} ${n + 1}` : PART_NAME[TT.role] || TT.name}]; }
+  RT.addAt = {};
+  function addStep(ti, r, s){ if (!canEdit()) return; const TT = T(ti), cl = cell(TT.id, r), C = addCands(TT, cl), c = C[(RT.addAt[TT.id] || 0) % Math.max(1, C.length)]; if (!c) return;
+    RT.sel = {t: ti, r}; RT.show[TT.id] = r; A.selTrack?.(ti); const R = fresh({len: 16, hits: [[s, 1, .8]], feel: 0}, c.name);
+    const part = c.pad ? {role: padRole(c.pad, SND[TT.sound]?.voices?.[c.pad], SND), k: -1, pads: [c.pad], name: c.name, R, N: fresh({seq: [c.pad]}, c.name), play: 0, oct: 0, inv: 0, walk: false, loop: null, voicing: 0}
+      : {role: TT.role, k: 0, ...(cl ? {name: c.name} : {}), R, N: TT.role === 'chords' ? fresh({seq: []}, 'The ground') : notesTool('new', TT.role, null, Math.random, {n: 1, voices: []}), play: 0, oct: 0, inv: 0, walk: false, loop: null, voicing: cl?.parts[0]?.voicing || 0};
+    if (!cl) { S().cells[TT.id][r] = {id: uid(), name: c.name, parts: [part]}; RT.part = 0; A.save(); }
+    else edit(x => { x.parts.push(part); RT.part = x.parts.length - 1; }, `${c.name}: in, with a hit on step ${s + 1}`);
+    RT.addAt[TT.id] = 0; render(); renderClip(); if (!cl) A.flash(`${c.name}: a new clip with a hit on step ${s + 1}`); }
+  function addLane(ti, r, W, wide, lead){ const TT = T(ti), cl = cell(TT.id, r), C = addCands(TT, cl), on = !!C.length;
+    if (cl && !isLive(cl)) return plainRow({wide, track: ti, row: r, empty: true, lead}, h('span', {class: 'small muted addl'}, 'a notes clip: ∿ Make live (Clip tab) to add parts'));
+    const i = (RT.addAt[TT.id] || 0) % Math.max(1, C.length), c = C[i], go = d => { RT.addAt[TT.id] = ((RT.addAt[TT.id] || 0) + d + C.length) % C.length; render(); };
+    return plainRow({wide, track: ti, row: r, empty: true, lead}, h('span', {class: 'pname addl', title: on ? `Add ${c.name}: tap a step` : 'Every drum is in'}, on ? '＋ ' + c.name : 'all in'),
+      h('button', {class: 'pv', 'aria-label': 'What to add: the one before', disabled: C.length < 2, onclick: () => go(-1)}, '‹'), h('button', {class: 'pv', 'aria-label': 'What to add: the next', disabled: C.length < 2, onclick: () => go(1)}, '›'),
+      on ? h('span', {class: 'addcells', title: `Tap a step: ${c.name} comes in with a hit there${cl ? '' : ' (a new clip)'}`}, stepCells({len: 16, hits: []}, W, st => addStep(ti, r, st))) : h('span'), h('span', {class: 'plen small muted'}, on ? `${i + 1}/${C.length}` : ''), cl ? h('span') : h('span', {class: 'small muted addnote'}, 'nothing here in this scene')); }
   // the Scene view's rows: every track's clip as it plays (or, stopped, as picked: the selected scene's, or a clip clicked
   // in any scene), its parts one under the other with the track's name before the first, so every sequence lines up; a
   // track with nothing there says so on its one line, with ＋ Clip; a notes clip shows its hits (choose it to edit them)
@@ -308,11 +331,12 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     const from = [...new Set(rows.filter((r, i) => cl0[i]))], title = on ? 'Playing now' : from.length > 1 ? 'Your clips' : `${Sx.scenes[from[0] ?? RT.scn]?.name || 'Scene'}`;
     const where = from.length > 1 ? ` · from ${from.length} scenes` : '';
     const box = h('section', {class: 'cmod parts whole'}, h('div', {class: 'cmh'}, h('b', {}, title + where), h('span', {class: 'small muted'}, '↑ ↓ choose a part · ← → its library rhythms · click a step: a hit' + (wide ? ' · V vary · P Life · F feel' : ''))));
-    P.tracks.forEach((TT, ti) => { const cl = cl0[ti], r = rows[ti], idle = on && !RT.play[TT.id], name = h('span', {class: 'plead', style: `--c:${A.colorOf(TT, ti)}`, title: TT.name + (cl ? ` · ${Sx.scenes[r]?.name || ''}` : '')}, TT.name);
+    P.tracks.forEach((TT, ti) => { const cl = cl0[ti], r = rows[ti], idle = on && !RT.play[TT.id], open = ti === RT.sel.t, name = h('span', {class: 'plead', style: `--c:${A.colorOf(TT, ti)}`, title: TT.name + (cl ? ` · ${Sx.scenes[r]?.name || ''}` : '')}, h('span', {class: 'pltxt'}, TT.name), cl ? h('button', {class: 'pladd', 'aria-pressed': String(open), title: `Add to ${TT.name}: a line opens under it`, onclick: () => { RT.sel = {t: ti, r}; A.selTrack?.(ti); render(); renderClip(); }}, '＋') : '');
       if (isLive(cl)) cl.parts.forEach((q, j) => box.append(partRow(ti, cl, q, j, W, ti === RT.sel.t && r === RT.sel.r && j === Math.min(RT.part, cl.parts.length - 1), wide, {lead: j ? '' : name, idle, row: r})));
       else if (cl) { const R = pseudoR({...cl, len: Math.min(64, cl.len || 16)});
         box.append(plainRow({wide, track: ti, row: r, sel: ti === RT.sel.t && r === RT.sel.r, lead: name, idle}, h('button', {class: 'pname', title: 'A notes clip: choose it to edit its notes', onclick: () => select(ti, r)}, '♪ ' + (cl.name || 'Notes')), h('span'), h('span'), stepCells({len: Math.min(64, cl.len || 16), hits: R.hits}, W), h('span', {class: 'plen small muted'}, String(cl.len || 16)), h('span'), h('span'))); }
-      else box.append(plainRow({wide, track: ti, row: r, empty: true, lead: name}, h('button', {class: 'pname', title: `A new clip for ${TT.name} in ${Sx.scenes[r]?.name || 'this scene'}`, onclick: () => newClip(ti, r)}, '＋ Clip'), h('span'), h('span'), h('span', {class: 'small muted'}, on ? 'nothing playing' : 'nothing here in this scene'))); });
+      else box.append(addLane(ti, r, W, wide, name));
+      if (cl && open) box.append(addLane(ti, r, W, wide, '')); });
     return box; }
   // ↑ ↓ through every part of the scene
   const stackList = () => ST.P.tracks.flatMap((TT, ti) => { const c = cell(TT.id, rowOf(TT.id)); return isLive(c) ? c.parts.map((_, j) => [ti, j]) : c ? [[ti, 0]] : []; });
