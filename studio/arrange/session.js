@@ -8,7 +8,7 @@
 // putting itself back. While the Arrangement plays, a clip launched takes its track over until Back to Arrangement.
 // Seeded from the song's sections (each already a jam scene) the first time it's opened; kept on the project (P.session).
 import { split, join, rhythmTool, notesTool, noteTools, isDrum, RHYTHM_TOOLS, NOTE_TOOLS, VOICE0, fresh, sketch } from '../jam/part.js';
-import { FEELS, STYLES } from '../jam/model.js';
+import { FEELS, STYLES, ARPS } from '../jam/model.js';
 import { PLAYS } from '../jam/play.js';
 import { LIB as PROGS, shortOf } from '../jam/chords.js';
 import { isRack, rackSound, PART_ROLES, padRole } from './rack.js';
@@ -42,7 +42,7 @@ function partOf(c, k){ if (!c || c.mute) return null; let R = c.rhythm, N = c.no
   if (!R && c.clip?.steps?.length) { const s = split(c.role, c.clip, c.clip.name || ''); R = s.rhythm; N = s.notes; }
   if (!R?.hits?.length) return null;
   return {role: c.role, k, R: {...clone(R), feel: R.feel ?? c.feel ?? 0}, N: N ? clone(N) : c.role === 'chords' ? fresh({seq: []}, 'The ground') : null,
-    play: c.play || 0, oct: c.oct || 0, inv: c.inv || 0, walk: !!c.walk, loop: c.loop || null, voicing: c.voicing || 0}; }
+    play: c.play || 0, oct: c.oct || 0, inv: c.inv || 0, walk: !!c.walk, loop: c.loop || null, voicing: c.voicing || 0, ...(c.arp ? {arp: c.arp} : {})}; }
 // which of a section's columns a track plays: a drum rack the kick, hats and percussion; a track from the song its own
 const colsFor = (T, x) => isRack(T) ? x.cols.map((c, i) => [c, i]).filter(([c]) => PART_ROLES.includes(c.role)) : (m => m && x.cols[+m[1]]?.role === T.role ? [[x.cols[+m[1]], +m[1]]] : [])(/^t(\d+)$/.exec(T.id));
 export function seedSession(P, song){ const secs = song?.sections?.length ? song.sections : [];
@@ -278,7 +278,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
     const seq = p.N?.seq || [], chips = h('div', {class: 'nseq'}, ...(p.role === 'chords' ? [h('span', {class: 'small muted'}, 'Plays the ground’s chords')] : seq.map(x => h('span', {class: 'nchip'}, drum ? x : `${x[0] + 1}${x[1] > 0 ? '↑' : x[1] < 0 ? '↓' : ''}`))));
     const notes = h('section', {class: 'cmod'}, h('div', {class: 'cmh'}, h('b', {}, 'Notes'), h('span', {class: 'small muted'}, drum ? 'which drums, in turn' : p.role === 'chords' ? 'the ground, voiced' : 'chord tones (1 the root), in turn: they follow the ground'),
         ...(drum ? [] : [h('span', {class: 'oct'}, 'Octave ', h('button', {onclick: () => edit((c, q) => { q.oct = Math.max(-2, (q.oct || 0) - 1); }, 'Octave down')}, '−'), h('b', {}, String(p.oct || 0)), h('button', {onclick: () => edit((c, q) => { q.oct = Math.min(2, (q.oct || 0) + 1); }, 'Octave up')}, '+'))]),
-        ...(p.role === 'chords' ? [sel('Voicing', STYLES, p.voicing || 0, v => edit((c, q) => { q.voicing = v; }, `Voicing: ${STYLES[v]}`)), h('span', {class: 'oct'}, 'Inversion ', h('button', {onclick: () => edit((c, q) => { q.inv = (q.inv || 0) - 1; }, 'Inversion down')}, '−'), h('b', {}, String(p.inv || 0)), h('button', {onclick: () => edit((c, q) => { q.inv = (q.inv || 0) + 1; }, 'Inversion up')}, '+'))] : [])),
+        ...(p.role === 'chords' ? [sel('Voicing', STYLES, p.voicing || 0, v => edit((c, q) => { q.voicing = v; }, `Voicing: ${STYLES[v]}`)), sel('Arp', ARPS.map(x => x || 'Off'), p.arp || 0, v => edit((c, q) => { q.arp = v || undefined; }, `Arp: ${ARPS[v] || 'off'}`)), h('span', {class: 'oct'}, 'Inversion ', h('button', {onclick: () => edit((c, q) => { q.inv = (q.inv || 0) - 1; }, 'Inversion down')}, '−'), h('b', {}, String(p.inv || 0)), h('button', {onclick: () => edit((c, q) => { q.inv = (q.inv || 0) + 1; }, 'Inversion up')}, '+'))] : [])),
       chips, h('div', {class: 'tools'}, ...noteTools(p.role).map(k => h('button', {onclick: () => nTool(k)}, NOTE_TOOLS[k]))));
     box.append(h('div', {class: 'cmods'}, rhythm, notes)); }
   // the clip's parts, one under the other (a drum rack's kick, hats, percussion and any added): each its own rhythm at its

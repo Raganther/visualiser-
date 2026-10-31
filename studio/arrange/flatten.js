@@ -2,8 +2,8 @@
 // plays: every part a track, every section's part a clip of real notes (the chords resolved through the voice leading,
 // Life's improvising and each rhythm's feel played through and fixed in place). From here a note is a pitch and a time,
 // and changing the chords no longer moves it. A leaf of the arrangement page; the tests run it in node.
-import { notesAt, chordOf, vlChain, STYLES, FEELS, feelAt } from '../jam/model.js';
-import { improvise, PLAYS } from '../jam/play.js';
+import { chordOf, vlChain, STYLES, FEELS, feelAt, arpStep, chordVoices } from '../jam/model.js';
+import { stepNotes, PLAYS } from '../jam/play.js';
 import { join, isDrum } from '../jam/part.js';
 import { rng } from '../lib/rng.js';
 import { fnv } from '../lib/dom.js';
@@ -24,9 +24,8 @@ export function partNotes(c, H, bars, {swing = .06, smooth = true, voicing = 0, 
     const span = loop ? loop[1] - loop[0] : clip.len, pos = (loop ? loop[0] : 0) + (step + (c.phase || 0)) % span,   /* (phase: where a take's part was in its loop as the section began) */ bar = Math.floor(step/16), hb = bar % H.bars.length;
     const opts = {vl: ch && ch[hb], inv: c.inv || 0, walk: c.walk ? Math.floor(step/clip.len) % 4 : 0}, chd = chordOf(H, bar);
     const sw = step % 2 ? (f.swing ?? swing) : 0, fe = feelAt(f, step, R), off = sw + fe.dt;
-    const notes = a && c.role !== 'chords'
-      ? improvise({role: c.role, clip: full, pos, step, bar, lane, a, mem, seed}).flatMap(ev => notesAt({...full, steps: [ev.s]}, pos, chd, opts).map(([n, l, v]) => [n, l, v, ev.dt, ev.fv]))
-      : notesAt(full, pos, chd, opts);
+    let notes = stepNotes({role: c.role, clip: full, pos, step, bar, chord: chd, opts, a, lane, mem, seed});
+    if (c.role === 'chords' && c.arp) notes = arpStep(mem.arp ??= {}, notes, step, chordVoices(H, bar, ch, c.inv || 0), c.arp, R);
     for (const [n, l, v, dt = 0, pv = 1] of notes) out.push({s: +Math.max(0, step + off + dt).toFixed(3), p: drum ? n : n + 12*(c.oct || 0), l: drum ? 1 : +l.toFixed(3), v: +Math.max(.05, Math.min(1, v*fe.v*pv)).toFixed(3)}); }
   return out; }
 

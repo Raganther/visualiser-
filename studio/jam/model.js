@@ -149,3 +149,15 @@ export const XNAMES = {up: '▲ Up', down: '▼ Down', flip: 'Flip', wide: 'Wide
 export const FOLLOW = [null, 'AB', 'AAAB', 'ABAC', 'ABCD', 'random'];
 export const ARPS = [null, 'up', 'down', 'up and down', 'random'];
 export const ECHO = [['⅛·', .75, 4], ['⅛', .5, 3], ['¼', 1, 5], ['¼·', 1.5, 6]];
+
+// a chords part arpeggiated, the same in the jam and the DAW: while a chord the part plays is held, its voices one a 16th
+// in the arp's order (ARPS). st: the part's own state, kept between 16ths; notes: what it plays here as written; voices:
+// the chord's voices now (chordVoices); rnd for the random order
+export function arpStep(st, notes, step, voices, kind, rnd = Math.random){
+  if (notes.length) st.cur = {until: step + Math.max(1, Math.round(notes[0][1])), vel: notes[0][2], i: st.cur?.i ?? 0};
+  const a = st.cur; if (!a || step >= a.until || !voices.length) return []; const m = voices.length, k = a.i++;
+  const j = {up: k % m, down: m - 1 - k % m, 'up and down': m < 2 ? 0 : [...Array(m).keys(), ...[...Array(m).keys()].slice(1, -1).reverse()][k % (2*m - 2)], random: Math.floor(rnd()*m)}[ARPS[kind]];
+  return [[voices[j], .9, a.vel]]; }
+// the chord's voices at a bar: the voice leading's (ch, the chain), else the chord as voiced alone; turned by inv
+export const chordVoices = (H, bar, ch, inv = 0) => { const n = H.bars.length, bi = ((bar % n) + n) % n;
+  return invert(ch ? ch[bi].voicing : notesAt({role: 'chords', steps: [[0, 'chord', 1, 1]]}, 0, chordOf(H, bar)).map(x => x[0]), inv); };

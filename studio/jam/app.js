@@ -3,10 +3,10 @@
 // them has the same verbs: New, Vary, Develop, the module's own tools, Undo, Save to the library, 👍. Life plays each part
 // as a player would. Underneath them all the ground (the harmony, every line reading its chords); above them the form
 // (scenes, your saved scenes, a song of scenes). Changes land on the next bar. Record writes down what plays for Claude.
-import { improvise, reach, keep, PLAYS } from './play.js';
+import { stepNotes, reach, keep, PLAYS } from './play.js';
 import { split, join, linked, cycles, rhythmTool, notesTool, noteTools, spread, fitNotes, sketch, fresh, named, isDrum, family, VOICE0, RHYTHM_TOOLS, NOTE_TOOLS } from './part.js';
 import { KEYS, MODES, MODE_WORDS, COLS, FEELS as HFEELS, LIB as PROGS, matrix, distance, shared, nameOf, shortOf, keyOf as chordKey, inKey } from './chords.js';
-import { notesAt, chordOf, REGISTER, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, ARPS, ECHO } from './model.js';
+import { notesAt, chordOf, REGISTER, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, ARPS, ECHO, arpStep, chordVoices } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
@@ -107,8 +107,8 @@ function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !work
 // the ground's voice-leading chain (smooth), in the chords part's voicing; a part's notes at a step and bar
 const chordsCol = () => st.cols.find(c => c.role === 'chords');
 const chainOf = H => st.smooth ? vlChain(H, STYLES[chordsCol()?.voicing || 0]) : null;
-function partNotes(c, clip, pos, H, bar){ const ch = chainOf(H), i = ((bar % H.bars.length) + H.bars.length) % H.bars.length;
-  return notesAt(clip, pos, chordOf(H, bar), {vl: ch && ch[i], inv: c.inv || 0, walk: c.walk ? walkOf(c) : 0}); }
+const optsOf = (c, H, bar) => { const ch = chainOf(H), i = ((bar % H.bars.length) + H.bars.length) % H.bars.length; return {vl: ch && ch[i], inv: c.inv || 0, walk: c.walk ? walkOf(c) : 0}; };
+const partNotes = (c, clip, pos, H, bar) => notesAt(clip, pos, chordOf(H, bar), optsOf(c, H, bar));
 // the two leads' lanes, so Life has them take turns resting
 const laneOf = c => st.cols.filter(x => x.role === c.role).indexOf(c);
 // where a part is in its clip at the jam's 16th: round its loop when one is set ([from, to) in steps), else the whole clip
@@ -138,14 +138,8 @@ function playStep(step, t0){
     const eff = st.rep ? st.rep.at + ((step - st.rep.at) % st.rep.len) : step, pos = posOf(c, eff);
     const f = FEELS[c.R?.feel || 0], sw = step % 2 ? (f.swing ?? st.swing) : 0, fe = feelAt(f, step), off = sw + fe.dt, t = Math.max(ctx.currentTime, t0 + off*sd());
     const recOff = off - (step % 2 ? st.swing : 0), drum = c.inst.kind === 'drums';
-    let notes = c.play && c.role !== 'chords' ? improvise({role: c.role, clip: c.clip, pos, step, bar, lane: laneOf(c), a: PLAYS[c.play].a, mem: c.pm ??= {}, seed: st.pseed})
-      .flatMap(ev => { (c.heard ??= []).push({step, ...ev}); return partNotes(c, {...c.clip, steps: [ev.s]}, pos, H, bar).map(([n, len, vel]) => [n, len, vel, ev.dt, ev.fv]); })
-      : partNotes(c, c.clip, pos, H, bar);
-    if (c.role === 'chords' && c.arp) { if (notes.length) c.arpSt = {until: step + Math.max(1, Math.round(notes[0][1])), vel: notes[0][2], i: c.arpSt?.i ?? 0};
-      notes = []; const a = c.arpSt; if (a && step < a.until) { const ch = chainOf(H), bi = ((bar % H.bars.length) + H.bars.length) % H.bars.length;
-        const v = invert(ch ? ch[bi].voicing : notesAt({role: 'chords', steps: [[0, 'chord', 1, 1]]}, 0, chordOf(H, bar)).map(x => x[0]), c.inv || 0), m = v.length, k = a.i++;
-        const j = {up: k % m, down: m - 1 - k % m, 'up and down': m < 2 ? 0 : [...Array(m).keys(), ...[...Array(m).keys()].slice(1, -1).reverse()][k % (2*m - 2)], random: Math.floor(Math.random()*m)}[ARPS[c.arp]];
-        notes = [[v[j], .9, a.vel]]; } }
+    let notes = stepNotes({role: c.role, clip: c.clip, pos, step, bar, chord: chordOf(H, bar), opts: optsOf(c, H, bar), a: PLAYS[c.play || 0].a, lane: laneOf(c), mem: c.pm ??= {}, seed: st.pseed, onEv: ev => (c.heard ??= []).push({step, ...ev})});
+    if (c.role === 'chords' && c.arp) notes = arpStep(c.arpSt ??= {}, notes, step, chordVoices(H, bar, chainOf(H), c.inv || 0), c.arp);
     if (c.heard?.length > 600) c.heard.splice(0, c.heard.length - 400);
     for (const [n0, len, vel, dt = 0, pv = 1] of notes) { const n = drum ? n0 : n0 + 12*(c.oct || 0); play(c, n, len, vel, Math.max(ctx.currentTime, t + dt*sd()), fe.v*pv);
       if (st.rec && step >= st.rec.from) st.rec.notes.push([step - st.rec.from, c.id, c.sound, n, len, +Math.min(1, vel*fe.v*pv).toFixed(2), +(recOff + dt).toFixed(3)]); } }

@@ -4,6 +4,8 @@
 // first beat of a bar always as written, changes growing to the phrase's last bar, the fills there), holds each idea for a
 // couple of bars before the next, and lets the loudness drift over bars rather than note to note.
 
+import { notesAt } from './model.js';
+
 // how much it plays round the clip
 export const PLAYS = [{name: 'Off', a: 0}, {name: 'Light', a: .35}, {name: 'Loose', a: .65}, {name: 'Wild', a: 1}];
 const DRUMS = ['kick', 'hats', 'perc'];
@@ -86,3 +88,10 @@ export function keep(heard, from, len){
     t[vi] = Math.round(Math.min(1, Math.max(.15, s[vi]*fv))*20)/20; out.set(k, t); }
   return [...out.values()].sort((x, y) => x[0] - y[0]);
 }
+
+// the notes a part plays at one 16th, the same in the jam (as it plays) and the DAW (a live clip, a song written out):
+// [[n, len16, vel, dt, fv], …]. As written, or improvised on with Life (a > 0; the chords as written); onEv hears
+// each improvised event (the jam's Keep that). chord: the chord at this bar; opts: notesAt's (vl, inv, walk)
+export function stepNotes({role, clip, pos, step, bar, chord, opts, a = 0, lane = 0, mem, seed, onEv}){
+  if (!a || role === 'chords') return notesAt(clip, pos, chord, opts);
+  return improvise({role, clip, pos, step, bar, lane, a, mem, seed}).flatMap(ev => { onEv?.(ev); return notesAt({...clip, steps: [ev.s]}, pos, chord, opts).map(([n, l, v]) => [n, l, v, ev.dt, ev.fv]); }); }

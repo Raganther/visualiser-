@@ -4,6 +4,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { libItems, rhythmsByRole, stepIn, EVEN } from '../studio/lib/library.js';
+import { partNotes } from '../studio/arrange/flatten.js';
+import { stepNotes } from '../studio/jam/play.js';
+import { notesAt, chordOf } from '../studio/jam/model.js';
+import { join } from '../studio/jam/part.js';
 import { VNAME, voiceName, colName, midiOf, noteName, fmtDb } from '../studio/lib/names.js';
 
 let failed = false;
@@ -23,6 +27,15 @@ const P = [1, 2, 3].map(pack);
 
 /* ---------- the names ---------- */
 check('names: a voice, a numbered copy, the second lead, a note both ways, decibels', voiceName('kick2') === 'Kick' && VNAME.chh === 'Closed hat' && colName(6, 'lead') === 'Lead 2' && colName(5, 'lead') === 'Lead' && midiOf('C4') === 60 && midiOf('Bb2') === 46 && noteName(61) === 'C♯4' && fmtDb(-60) === 'off' && fmtDb(3) === '+3.0' && fmtDb(-41, {floor: -40, off: '−∞'}) === '−∞', '');
+
+/* ---------- one way of playing a part: the jam and the DAW both through stepNotes (jam/play.js), arpStep (jam/model.js) ---------- */
+{ const H = {id: 'x', bars: ['A:m9', 'F:maj7']}, R = {len: 16, hits: [[0, 8, .8], [8, 8, .8]], feel: 0}, c = {role: 'chords', rhythm: R, notes: {seq: []}};
+  const arp = partNotes({...c, arp: 1}, H, 2, {}), held = partNotes(c, H, 2, {});
+  check('a chords part arpeggiated is written out arpeggiated (one voice a 16th, rising), held chords as chords', arp.length === 32 && arp[1].p > arp[0].p && held.length < arp.length && held.filter(n => n.s === 0).length > 2, `${arp.length} notes arpeggiated, ${held.length} held`);
+  const clip = join('bass', {len: 16, hits: [[0, 1, .8], [4, 1, .8]]}, {seq: [[0, 0], [2, 0]]}), chd = chordOf(H, 0);
+  check('as written, a step\'s notes are the model\'s own', JSON.stringify(stepNotes({role: 'bass', clip, pos: 4, step: 4, bar: 0, chord: chd, opts: {}})) === JSON.stringify(notesAt(clip, 4, chd, {})), '');
+  const play = a => { const mem = {}; return JSON.stringify(Array.from({length: 128}, (_, k) => stepNotes({role: 'bass', clip, pos: k % 16, step: k, bar: Math.floor(k/16), chord: chd, opts: {}, a, mem, seed: 7}))); };
+  check('with Life it improvises (not only what\'s written), and the same way from the same seed', play(1) !== play(0) && play(1) === play(1), ''); }
 
 /* ---------- the guard: nothing the shared modules hold is defined again in a page's own file ---------- */
 const files = []; (function walk(d){ for (const f of fs.readdirSync(d, {withFileTypes: true})) { const p = path.join(d, f.name);
