@@ -146,22 +146,16 @@ body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; 
 #backArr{color:var(--acc); border-color:#5a4a2a}
 button.nudge{animation:nudge .5s ease 2} @keyframes nudge{50%{box-shadow:0 0 0 3px var(--acc)}}
 /* a clip's parts, one under the other, each at its own length (a polyrhythm) */
-.cmod.parts{gap:4px} .prow{display:grid; grid-template-columns:104px 22px 22px 1fr 26px 26px 24px; gap:6px; align-items:center; border-radius:6px; padding:2px 4px}
-.prow[data-sel="1"]{background:#2a2f37; box-shadow:inset 3px 0 0 var(--acc)} .prow[data-mute="1"] .pcells{opacity:.3}
-.prow .pname{min-height:26px; padding:0 8px; text-align:left; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .prow[data-sel="1"] .pname{color:var(--acc); border-color:var(--acc)}
-.prow .pv{min-height:24px; min-width:22px; padding:0; font-size:13px} .prow .pm,.prow .px{min-height:24px; min-width:24px; padding:0; font-size:11px} .prow .pm[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
-.pcells{display:grid; gap:2px; cursor:pointer} .pcells i{height:22px; border-radius:3px; background:#15171b} .pcells i[data-beat="1"]{background:#20242b} .pcells i:hover{outline:1px solid #5a606b}
-.pcells i[data-on="1"]{background:var(--acc); opacity:.7} .pcells i[data-on="2"]{background:var(--acc)} .pcells i[data-now="1"]{box-shadow:inset 0 0 0 2px #fff} .pcells i[data-now="1"][data-on]:not([data-on=""]){background:#fff; opacity:1}
-.plen{text-align:right; font-family:var(--mono)} .addp{min-height:26px; font-size:12.5px}
+.cmod.parts{gap:4px}
+.addp{min-height:26px; font-size:12.5px}
 #clipPane > *{flex-shrink:0} .cview{display:flex} .ptrack{font-size:11px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.4px; margin-top:4px; padding-left:6px; border-left:3px solid var(--c)}
-.cmod.parts.whole .ptrack:first-of-type{margin-top:0} .prow.empty .pname{color:var(--mute)}
+.cmod.parts.whole .ptrack:first-of-type{margin-top:0}
 /* the Scene view: the scenes along the top, every part below with Vary, Life and Feel */
 .stbar{display:flex; flex-wrap:wrap; gap:6px; padding:8px 8px 4px; align-items:center} .schip{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel)}
 .schip button{border:0; border-radius:0; min-height:30px; padding:0 9px; font-size:12.5px; background:none} .schip .sgo{min-width:28px; padding:0; color:var(--mute)}
 .schip[data-sel="1"]{border-color:var(--acc)} .schip[data-sel="1"] .sname2{color:var(--acc)} .schip[data-on="1"]{background:color-mix(in srgb, var(--acc) 22%, var(--panel))} .schip[data-on="1"] .sgo{color:#fff}
 .schip[data-next="1"] .sgo{animation:blink .5s steps(2) infinite; color:#fff}
 .stground{padding:0 10px 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap} #sessWrap > .cmod.parts.whole{margin:4px 8px 10px}
-.prow.wide{grid-template-columns:104px 22px 22px 1fr 26px 50px 92px 96px 26px 24px} .prow .pq{min-height:24px; padding:0 6px; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .prow .pq[data-on="1"]{color:var(--acc); border-color:#5a4a2a}
 body.phone #clipPane{display:none}
 /* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
 body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.phone #snapL, body.phone .trk .sliders{display:none} body.phone .trk{grid-template-columns:1fr}
