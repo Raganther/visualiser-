@@ -11,11 +11,12 @@ import { develop, sequence, thin } from './riff.js';
 import { split, join, rhythmTool, notesTool, fresh } from './part.js';
 import { LIB, inKey } from './chords.js';
 import { rng } from '../lib/rng.js';
+import { clone } from '../lib/dom.js';
 
 const here = path.dirname(new URL(import.meta.url).pathname), [dir, roundArg, outFile] = process.argv.slice(2), ROUND = +roundArg || 1;
 const PACKS = Object.fromEntries(fs.readdirSync(path.join(here, 'packs')).filter(f => /^pack-\d+\.json$/.test(f)).map(f => { const p = JSON.parse(fs.readFileSync(path.join(here, 'packs', f), 'utf8')); return [p.id, p]; }));
 const SNAPS = Object.fromEntries(fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => { const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')), x = d.data || d; return [x.name, x]; }));
-const R = rng(100 + ROUND), clone = x => JSON.parse(JSON.stringify(x));
+const R = rng(100 + ROUND);
 const COL = {kick: 0, hats: 1, perc: 2, bass: 3, chords: 4, lead: 5, lead2: 6};
 
 // an idea from a snapshot: a copy, then changes; `steps` and `vars` kept together so its strip matches

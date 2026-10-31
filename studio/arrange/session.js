@@ -17,6 +17,7 @@ import PACK1 from '../listen/packs/pack-1.json';
 import PACK2 from '../listen/packs/pack-2.json';
 import PACK3 from '../listen/packs/pack-3.json';
 import { clone } from '../lib/dom.js';
+import { rhythmsByRole, stepIn } from '../lib/library.js';
 import { VNAME, PART_NAMES as PART_NAME, partName, pitchName } from '../lib/names.js';
 export { barNotes };
 
@@ -30,9 +31,7 @@ const START = [[/^kick/, [0, 4, 8, 12]], [/^(chh|hat)/, [2, 6, 10, 14]], [/^ohh/
 const startHits = pad => START.find(([re]) => re.test(pad))[1].map(s => [s, 1, .8]);
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 // the library's rhythms for each kind of part (the jam's packs: what ‹ › steps through), each once
-const LIBR = (() => { const by = {}, seen = new Set();
-  for (const P of [PACK1, PACK2, PACK3]) for (const c of P.clips || []) { const key = c.role + JSON.stringify(c.steps); if (seen.has(key) || !c.steps?.length) continue; seen.add(key); (by[c.role] ||= []).push(c); }
-  return by; })();
+const LIBR = rhythmsByRole([PACK1, PACK2, PACK3]);
 const shortName = s => (s || '').split(': ').slice(1).join(': ') || s || 'Scene';
 const nn = pitchName;
 
@@ -336,8 +335,8 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
   // ‹ ›: the library's rhythms for this kind of part, in turn; only the rhythm changes (its notes, its drums, stay)
   function libStep(j, d){ const X = target(); if (!X?.cl || !isLive(X.cl)) return; const q = X.cl.parts[j], list = LIBR[isDrum(q.role) ? q.role : q.role] || [];
     if (!list.length) { A.flash('No rhythms in the library for this part'); return; }
-    const at = list.findIndex(c => c.id === q.lib), c = list[((at < 0 ? (d > 0 ? -1 : 0) : at) + d + list.length) % list.length], R = split(q.role, c, c.name).rhythm;
-    RT.part = j; edit((cl, p) => { p.R = {...R, len: Math.min(64, R.len), hits: R.hits.filter(x => x[0] < 64), feel: p.R.feel || 0}; p.lib = c.id; }, `${partName(q)}: ${c.name} (${(list.indexOf(c)) + 1} of ${list.length})`); }
+    const {item: c, i} = stepIn(list, q.lib, d), R = clone(c.R);
+    RT.part = j; edit((cl, p) => { p.R = {...R, len: Math.min(64, R.len), hits: R.hits.filter(x => x[0] < 64), feel: p.R.feel || 0}; p.lib = c.id; }, `${partName(q)}: ${c.name} (${i + 1} of ${list.length})`); }
   // ＋ Part: any of the track's drums as a part of its own (a rack's pads; a kit's voices), or on a pitched instrument another line
   function addMenu(cl, TT){ if (!isDrum(TT.role)) return h('button', {class: 'addp', title: 'Another line on this instrument, with its own rhythm and length', onclick: () => addLine()}, '＋ Part');
     const pads = Object.keys(SND[TT.sound]?.voices || {}); if (!pads.length) return '';

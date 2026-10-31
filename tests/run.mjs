@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 // heaviest first, so the two lanes finish together: WebGL-heavy and simple-mode-heavy files alternate
-const FILES = ['scene.mjs', 'golden.mjs', 'objects.mjs', 'sync.mjs', 'grid.mjs', 'listen.mjs', 'visuals.mjs', 'media.mjs', 'journey.mjs', 'quality.mjs', 'cosmos.mjs', 'smoke.mjs', 'dance.mjs', 'steer.mjs', 'foresee.mjs', 'beatmap.mjs', 'dj.mjs', 'audio-engine.mjs', 'effects.mjs', 'drums.mjs', 'synth.mjs', 'sequencer.mjs', 'seq-journey.mjs', 'playlab.mjs', 'facets.mjs', 'explore.mjs', 'plan.mjs', 'genome.mjs', 'space.mjs', 'bench.mjs', 'studio.mjs', 'arrange.mjs', 'synthlab.mjs', 'racklab.mjs', 'ducklab.mjs', 'mixlab.mjs', 'instruments.mjs', 'daw-instruments.mjs', 'studio-shell.mjs', 'session.mjs'];
+const FILES = ['scene.mjs', 'golden.mjs', 'objects.mjs', 'sync.mjs', 'grid.mjs', 'listen.mjs', 'visuals.mjs', 'media.mjs', 'journey.mjs', 'quality.mjs', 'cosmos.mjs', 'smoke.mjs', 'dance.mjs', 'steer.mjs', 'foresee.mjs', 'beatmap.mjs', 'dj.mjs', 'audio-engine.mjs', 'effects.mjs', 'drums.mjs', 'synth.mjs', 'sequencer.mjs', 'seq-journey.mjs', 'playlab.mjs', 'facets.mjs', 'explore.mjs', 'plan.mjs', 'genome.mjs', 'space.mjs', 'bench.mjs', 'studio.mjs', 'arrange.mjs', 'synthlab.mjs', 'racklab.mjs', 'ducklab.mjs', 'mixlab.mjs', 'instruments.mjs', 'daw-instruments.mjs', 'studio-shell.mjs', 'session.mjs', 'modular.mjs'];
 const jobs = +(process.env.TEST_JOBS || 2), queue = [...FILES], results = [];
 const one = t => new Promise(done => {
   const t0 = Date.now(), p = spawn(process.execPath, [path.join(dir, t)]); let out = '';

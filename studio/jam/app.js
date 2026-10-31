@@ -16,6 +16,7 @@ import widthFx from '../../src/audio/engine/fx/width.js';
 import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
 import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
+import { libItems as sharedLib, stepIn } from '../lib/library.js';
 import { PART_NAMES, colName, fmtDb, fmtPan } from '../lib/names.js';
 
 
@@ -202,7 +203,7 @@ function presetsOf(c){ const i = st.cols.indexOf(c), ids = [...new Set([...PACK.
 function preset(c, id){ if (!id) { setPart(c, {R: null, N: null}, {keep: false, preset: null}); flash(`${PART(c)}: resting`); return; }
   const cl = CLIP[id]; if (cl.sound && !c.locked && SND[cl.sound]?.role === SND[c.sound].role && c.sound !== cl.sound) setSound(c, cl.sound);
   setPart(c, fromClip(c, cl, cl.name), {keep: false, preset: id}); flash(`${PART(c)}: ${cl.name}${st.playing ? ', next bar' : ''}`); }
-function stepPreset(c, d){ const ids = [...presetsOf(c), null], i = ids.indexOf(c.preset === undefined ? null : c.preset); preset(c, ids[(i + d + ids.length) % ids.length]); }
+function stepPreset(c, d){ const ids = [...presetsOf(c), null]; preset(c, stepIn(ids.map(id => ({id})), c.preset === undefined ? null : c.preset, d).item.id); }
 function scene(i){ const sc = PACK.scenes[i]; if (!sc) return; if (st.cur) { keepEdit(); st.cur = null; renderSongBar(); } st.cols.forEach((c, j) => { const id = sc.clips[j] || null;
     if (!id) { setPart(c, {R: null, N: null}, {keep: false, preset: null}); return; } const cl = CLIP[id]; if (cl.sound && !c.locked && SND[cl.sound]?.role === SND[c.sound].role && c.sound !== cl.sound) setSound(c, cl.sound);
     setPart(c, fromClip(c, cl, cl.name), {keep: false, preset: id}); }); st.scene = i; renderScenes(); flash('Scene: ' + sc.name + (st.playing ? ', next bar' : '')); }
@@ -700,12 +701,8 @@ try { MYLIB = JSON.parse(localStorage.getItem(MYLIB_KEY) || '[]'); } catch {}
 const storeLib = () => { try { localStorage.setItem(MYLIB_KEY, JSON.stringify(MYLIB)); } catch {} };
 const LV = (() => { const d = {kind: 'all', role: 'this', q: ''}; try { return {...d, ...JSON.parse(localStorage.getItem('studio.jam.libview') || '{}')}; } catch { return d; } })();
 const storeLV = () => { try { localStorage.setItem('studio.jam.libview', JSON.stringify(LV)); } catch {} };
-const EVEN = [['Four on the floor', 4, 16], ['Off-beats', 4, 16, 2], ['Tresillo', 3, 8], ['Cinquillo', 5, 8], ['Five of sixteen', 5, 16], ['Seven of sixteen', 7, 16, 1], ['Nine of sixteen', 9, 16], ['Three of seven', 3, 7], ['Five of twelve', 5, 12], ['Four of eleven', 4, 11], ['Two of five', 2, 5], ['Seven of twelve', 7, 12]];
-// every item: {id, kind: rhythm | notes | part, role, name, from, R?, N?}
-function libItems(){ const out = [];
-  for (const [name, k, n, r = 0] of EVEN) { const R = fresh(spread('lead', k, n, r), name); out.push({id: 'even:' + name, kind: 'rhythm', role: null, name, from: 'Even rhythms', R}); }
-  for (const p of ALLPACKS) for (const cl of p.data.clips) { const s = split(cl.role, cl, cl.name); out.push({id: `${p.id}:${cl.id}`, kind: 'part', role: cl.role, name: cl.name, from: p.name.split(':')[0], R: s.rhythm, N: cl.role === 'chords' ? null : s.notes, words: cl.words || ''}); }
-  return [...MYLIB.map(x => ({...x, mine: true, from: 'Yours'})), ...out]; }
+// every item: {id, kind: rhythm | notes | part, role, name, from, R?, N?} (lib/library.js: the same library as the DAW's)
+const libItems = () => sharedLib(ALLPACKS, MYLIB);
 const fits = (c, x) => !x.role || family(x.role) === family(c.role);
 function useLib(x, what){ const c = selCol(); let R, N;
   if (what !== 'notes' && x.R) R = {...clone(x.R), feel: x.R.feel ?? shown(c).R?.feel ?? 0};
