@@ -150,7 +150,8 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
   const changedCopy = c => !!c?.from?.sig && c.from.song === ST.id && sigOf(c) !== c.from.sig;
 
   /* ---------- the grid ---------- */
-  function render(){ const box = $('sessWrap'), Sx = S(); if (!box || !Sx) return; fill(); box.innerHTML = ''; const P = ST.P, cols = P.tracks.length;
+  function render(){ const box = $('sessWrap'), Sx = S(); if (!box || !Sx) return; fill(); box.innerHTML = '';
+    if (RT.stack) { renderStack(box, Sx); A.renderBack?.(RT.mode === 'mix' && E.playing && RT.own.size > 0); return; } const P = ST.P, cols = P.tracks.length;
     const grid = h('div', {class: 'sgrid', style: `grid-template-columns: 170px repeat(${cols}, 176px)`});
     grid.append(h('div', {class: 'shead scol'}, h('b', {}, 'Scenes'), h('span', {class: 'small muted'}, RT.mode === 'mix' && E.playing ? 'over the song’s chords' : 'and their ground')));
     P.tracks.forEach((TT, i) => grid.append(h('div', {class: 'shead', 'data-sel': RT.sel.t === i ? '1' : '', 'data-own': RT.mode === 'mix' && RT.own.has(TT.id) ? '1' : '', style: `border-top:4px solid ${A.colorOf(TT, i)}`, onclick: () => select(i, RT.sel.r)},
@@ -181,7 +182,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
       const len = loopLen(cl); const pr = b.querySelector('.prog'); if (pr) pr.style.width = (((pos - pl.start + (cl.off || 0)) % len + len) % len)/len*100 + '%'; }
     playhead(pos); }
   // the Clip tab's playhead: the step heard lit on the rhythm, the note heard on the notes (when the chosen clip is playing)
-  function playhead(pos){ const box = $('clipPane'); if (!box || box.hidden) return; const X = target(), TT = X?.T, pl = X?.where === 'sess' && TT && RT.play[TT.id], cl = X?.cl;
+  function playhead(pos){ const box = $('clipPane'); if (!box || (box.hidden && !RT.stack)) return; const X = target(), TT = X?.T, pl = X?.where === 'sess' && TT && RT.play[TT.id], cl = X?.cl;
     let step = -1, note = -1;
     if (X?.where === 'arr' && cl && pos != null && E.playing && !hook.owns(X.ti)) { const rel = Math.floor(pos) - Math.round(cl.start*16); if (rel >= 0 && rel < cl.len) { if (isLive(cl)) { const p = cl.parts[Math.min(RT.part, cl.parts.length - 1)], c = join(p.role, p.R, p.N); if (c) step = ((rel + (cl.off || 0)) % c.len) % p.R.len; } else step = rel % Math.min(64, cl.len); } }
     else if (pl && pl.r === RT.sel.r && cl && pos != null) {
@@ -193,12 +194,12 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
           const H = p.R.hits.length, seq = p.N?.seq?.length || 0, cyc = Math.floor(at/p.R.len), done = p.R.hits.filter(x => x[0] <= step).length;
           if (seq && done) note = ((cyc*H + done - 1) % seq + seq) % seq; } } }
     // each part's row lit at its own place round its own length (in the whole scene, by its own track's clip)
-    if (pos != null && E.playing) box.querySelectorAll('.prow').forEach(row => { const ti = row.dataset.t == null ? X?.ti : +row.dataset.t, TT2 = T(ti), c = X?.where === 'arr' ? cl : TT2 && cell(TT2.id, RT.sel.r);
+    if (pos != null && E.playing) document.querySelectorAll('#clipPane .prow, #sessWrap .prow').forEach(row => { const ti = row.dataset.t == null ? X?.ti : +row.dataset.t, TT2 = T(ti), c = X?.where === 'arr' ? cl : TT2 && cell(TT2.id, RT.sel.r);
         let rel = null; if (c && X?.where === 'arr') { if (!hook.owns(X.ti)) { const r = Math.floor(pos) - Math.round(c.start*16); if (r >= 0 && r < c.len) rel = r + (c.off || 0); } }
         else { const pl2 = TT2 && RT.play[TT2.id]; if (c && pl2 && pl2.r === RT.sel.r) rel = Math.floor(pos) - pl2.start + (c.off || 0); }
         const q = isLive(c) ? c.parts[+row.dataset.j || 0] : null, L = q ? q.R.len : Math.min(64, c?.len || 16), s = rel == null || !c ? -1 : ((rel % L) + L) % L;
         row.querySelectorAll('.pcells [data-s]').forEach(x => { const on = +x.dataset.s === s ? '1' : ''; if (x.dataset.now !== on) x.dataset.now = on; }); });
-    else box.querySelectorAll('.pcells i[data-now="1"]').forEach(c => { c.dataset.now = ''; });
+    else document.querySelectorAll('.pcells i[data-now="1"]').forEach(c => { c.dataset.now = ''; });
     box.querySelectorAll('.st').forEach((b, i) => { const on = +b.dataset.s === step ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; });
     box.querySelectorAll('.nchip').forEach((b, i) => { const on = i === note ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; }); }
   function select(t, r){ RT.sel = {t, r}; RT.part = 0; A.selTrack(t); render(); renderClip(); A.clipChosen?.(); }
@@ -244,7 +245,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     edit(cl => { cl.parts = parts; cl.off = 0; if (X.where === 'sess') { delete cl.len; cl.notes = []; } }, 'Live: it follows the chords again (read from its notes, so check it by ear)'); }
   let watched = false; const watch = () => { if (watched) return; watched = true; $('clipPane')?.addEventListener('pointerdown', () => { RT.focus = 'clip'; }); $('sessWrap')?.addEventListener('pointerdown', () => { RT.focus = 'grid'; }); };
   function renderClip(){ watch(); const box = $('clipPane'); if (!box) return; box.innerHTML = ''; const X = target();
-    if (ST.view === 'session') box.append(h('div', {class: 'cview'}, h('span', {class: 'seg'}, h('button', {'aria-pressed': String(!RT.whole), title: 'The chosen clip alone', onclick: () => setWhole(false)}, 'This clip'),
+    if (ST.view === 'session' && !RT.stack) box.append(h('div', {class: 'cview'}, h('span', {class: 'seg'}, h('button', {'aria-pressed': String(!RT.whole), title: 'The chosen clip alone', onclick: () => setWhole(false)}, 'This clip'),
       h('button', {'aria-pressed': String(!!RT.whole), title: 'Every part of the scene, one under the other: ↑ ↓ to choose, ← → through the library', onclick: () => setWhole(true)}, 'Whole scene'))));
     if (!X) { box.append(h('div', {class: 'cempty'}, h('b', {}, ST.view === 'arrange' ? 'Double-click a clip on the timeline to edit it here' : 'Choose a slot'))); return; }
     const {cl, T: TT} = X, where = X.where === 'arr' ? `${TT.name} · bars ${Math.floor(cl?.start ?? 0) + 1}–${Math.ceil((cl?.start ?? 0) + (cl?.len || 0)/16)}` : `${TT.name} · ${X.sc.name} · over ${X.sc.ground.name}`;
@@ -262,7 +263,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     if (wholeOn()) box.append(sceneRows());
     if (!p) { box.append(noteSteps(cl, TT)); return; }
     const drum = isDrum(p.role);
-    if (!wholeOn()) box.append(partsRows(cl, TT, p));
+    if (!wholeOn() && !RT.stack) box.append(partsRows(cl, TT, p));
     // the rhythm: when it plays (its steps, a hit each lit), its feel and Life, its tools
     const R = p.R;
     const sel = (lab, list, val, set, title) => h('label', {class: 'small', title}, lab + ' ', (() => { const x = h('select', {}, ...list.map((n, i) => h('option', {value: i}, n))); x.value = val; x.onchange = () => set(+x.value); return x; })());
@@ -288,7 +289,7 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     return box; }
   // one part's line: its name, ‹ › through the library, its steps (a click a hit, Shift an accent), length, M, ✕. `ti` is its
   // track: in the whole scene each row acts on its own track's clip (the chosen slot moved there first)
-  function partRow(ti, cl, q, j, W, sel){ const hits = new Map(q.R.hits.map(x => [x[0], x])), row = h('div', {class: 'prow', 'data-t': ti, 'data-j': j, 'data-sel': sel ? '1' : '', 'data-mute': q.mute ? '1' : ''});
+  function partRow(ti, cl, q, j, W, sel, wide){ const hits = new Map(q.R.hits.map(x => [x[0], x])), row = h('div', {class: wide ? 'prow wide' : 'prow', 'data-t': ti, 'data-j': j, 'data-sel': sel ? '1' : '', 'data-mute': q.mute ? '1' : ''});
     const at = () => { if (RT.sel.t !== ti) { RT.sel = {t: ti, r: RT.sel.r}; A.selTrack?.(ti); render(); } RT.part = j; };
     const cells = h('div', {class: 'pcells', style: `grid-template-columns: repeat(${W}, 1fr)`, title: `${partName(q)}: click a step for a hit, Shift-click an accent`, onclick: e => { const s0 = e.target.dataset?.s; if (s0 == null) return; at(); toggleHit(+s0, e.shiftKey); }});
     for (let s = 0; s < q.R.len; s++) { const x = hits.get(s); cells.append(h('i', {'data-s': s, 'data-on': x ? (x[2] > .8 ? '2' : '1') : '', 'data-beat': s % 4 === 0 ? '1' : ''})); }
@@ -296,26 +297,39 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
       h('button', {class: 'pv', 'aria-label': 'The library’s rhythm before', title: `The library’s ${PART_NAME[q.role] || q.role} rhythms`, onclick: () => { at(); libStep(j, -1); }}, '‹'),
       h('button', {class: 'pv', 'aria-label': 'The library’s next rhythm', title: `The library’s ${PART_NAME[q.role] || q.role} rhythms`, onclick: () => { at(); libStep(j, 1); }}, '›'),
       cells, h('span', {class: 'plen small muted', title: 'Its length in steps'}, String(q.R.len)),
+      ...(wide ? [h('button', {class: 'pq', title: 'Vary its rhythm (V)', onclick: () => { at(); rTool('vary'); }}, 'Vary'),
+        h('button', {class: 'pq', title: 'Life: how much it improvises each time round (P cycles)', 'data-on': q.play ? '1' : '', onclick: () => { at(); edit((c, x) => { x.play = ((x.play || 0) + 1) % PLAYS.length; }, `${partName(q)}: Life ${PLAYS[((q.play || 0) + 1) % PLAYS.length].name}`); }}, `Life · ${PLAYS[q.play || 0].name}`),
+        h('button', {class: 'pq', title: 'Feel: how it sits in the groove (F cycles)', 'data-on': q.R.feel ? '1' : '', onclick: () => { at(); edit((c, x) => { x.R = {...x.R, feel: ((x.R.feel || 0) + 1) % FEELS.length}; }, `${partName(q)}: ${FEELS[((q.R.feel || 0) + 1) % FEELS.length].name}`); }}, FEELS[q.R.feel || 0].name)] : []),
       h('button', {class: 'pm', 'aria-pressed': String(!!q.mute), title: q.mute ? 'Unmute this part' : 'Mute this part', onclick: () => { at(); edit(c => { c.parts[j].mute = !c.parts[j].mute || undefined; }, `${partName(q)} ${q.mute ? 'back in' : 'muted'}`); }}, 'M'),
       cl.parts.length > 1 ? h('button', {class: 'px', title: `Take ${partName(q)} out of the clip`, onclick: () => { at(); removePart(j); }}, '✕') : h('span'));
     return row; }
   // the whole scene: every track's parts in this scene, one under the other (as in the jam), the steps lined up across
   // tracks; a track with no clip here gets ＋, a notes clip shows its hits (choose it to edit them)
-  function sceneRows(){ const Sx = S(), r = RT.sel.r, P = ST.P, cl0 = P.tracks.map(TT => cell(TT.id, r));
+  function sceneRows(wide){ const Sx = S(), r = RT.sel.r, P = ST.P, cl0 = P.tracks.map(TT => cell(TT.id, r));
     const W = Math.max(16, ...cl0.flatMap(c => isLive(c) ? c.parts.map(q => q.R.len) : c ? [Math.min(64, c.len || 16)] : []));
-    const box = h('section', {class: 'cmod parts whole'}, h('div', {class: 'cmh'}, h('b', {}, `${Sx.scenes[r]?.name || 'Scene'}: every part`), h('span', {class: 'small muted'}, '↑ ↓ choose a part · ← → its library rhythms · click a step: a hit')));
+    const box = h('section', {class: 'cmod parts whole'}, h('div', {class: 'cmh'}, h('b', {}, `${Sx.scenes[r]?.name || 'Scene'}: every part`), h('span', {class: 'small muted'}, '↑ ↓ choose a part · ← → its library rhythms · click a step: a hit' + (wide ? ' · V vary · P Life · F feel' : ''))));
     P.tracks.forEach((TT, ti) => { const cl = cl0[ti]; box.append(h('div', {class: 'ptrack', style: `--c:${A.colorOf(TT, ti)}`}, TT.name));
-      if (isLive(cl)) cl.parts.forEach((q, j) => box.append(partRow(ti, cl, q, j, W, ti === RT.sel.t && j === Math.min(RT.part, cl.parts.length - 1))));
+      if (isLive(cl)) cl.parts.forEach((q, j) => box.append(partRow(ti, cl, q, j, W, ti === RT.sel.t && j === Math.min(RT.part, cl.parts.length - 1), wide)));
       else if (cl) { const R = pseudoR({...cl, len: Math.min(64, cl.len || 16)}), on = new Set(R.hits.map(x => x[0])), cells = h('div', {class: 'pcells', style: `grid-template-columns: repeat(${W}, 1fr)`});
         for (let s = 0; s < Math.min(64, cl.len || 16); s++) cells.append(h('i', {'data-s': s, 'data-on': on.has(s) ? '1' : '', 'data-beat': s % 4 === 0 ? '1' : ''}));
-        box.append(h('div', {class: 'prow', 'data-t': ti, 'data-sel': ti === RT.sel.t ? '1' : ''}, h('button', {class: 'pname', title: 'A notes clip: choose it to edit its notes', onclick: () => select(ti, r)}, '♪ ' + (cl.name || 'Notes')), h('span'), h('span'), cells, h('span', {class: 'plen small muted'}, String(cl.len || 16)), h('span'), h('span'))); }
-      else box.append(h('div', {class: 'prow empty', 'data-t': ti}, h('button', {class: 'pname', title: `A new clip for ${TT.name} in this scene`, onclick: () => newClip(ti, r)}, '＋ Clip'), h('span'), h('span'), h('span', {class: 'small muted'}, 'nothing here in this scene'))); });
+        box.append(h('div', {class: wide ? 'prow wide' : 'prow', 'data-t': ti, 'data-sel': ti === RT.sel.t ? '1' : ''}, h('button', {class: 'pname', title: 'A notes clip: choose it to edit its notes', onclick: () => select(ti, r)}, '♪ ' + (cl.name || 'Notes')), h('span'), h('span'), cells, h('span', {class: 'plen small muted'}, String(cl.len || 16)), h('span'), h('span'))); }
+      else box.append(h('div', {class: wide ? 'prow wide empty' : 'prow empty', 'data-t': ti}, h('button', {class: 'pname', title: `A new clip for ${TT.name} in this scene`, onclick: () => newClip(ti, r)}, '＋ Clip'), h('span'), h('span'), h('span', {class: 'small muted'}, 'nothing here in this scene'))); });
     return box; }
   // ↑ ↓ through every part of the scene
   const stackList = () => ST.P.tracks.flatMap((TT, ti) => { const c = cell(TT.id, RT.sel.r); return isLive(c) ? c.parts.map((_, j) => [ti, j]) : c ? [[ti, 0]] : []; });
   function stackStep(d){ const L = stackList(); if (!L.length) return false; const now = L.findIndex(([t, j]) => t === RT.sel.t && j === RT.part), [t, j] = L[((now < 0 ? 0 : now + d) + L.length) % L.length];
     if (t !== RT.sel.t) { RT.sel = {t, r: RT.sel.r}; A.selTrack?.(t); render(); } RT.part = j; renderClip(); const c = cell(T(t).id, RT.sel.r); A.flash(`${T(t).name}${isLive(c) ? ' · ' + partName(c.parts[j]) : ''}`); return true; }
-  const wholeOn = () => RT.whole && ST.view === 'session';
+  const wholeOn = () => RT.whole && ST.view === 'session' && !RT.stack;
+  // the Scene view (the Session's third face): the scenes along the top (a click chooses one, ▶ launches it), then every
+  // part of the chosen one, one under the other, each with its most used controls; the chosen part's tools below
+  function renderStack(box, Sx){ const bar = h('div', {class: 'stbar'});
+    Sx.scenes.forEach((sc, r) => bar.append(h('span', {class: 'schip', 'data-sel': r === RT.sel.r ? '1' : '', 'data-on': RT.scene === r && E.playing && E.session === hook ? '1' : '', 'data-next': RT.nextScene === r ? '1' : ''},
+      h('button', {class: 'sgo', title: `Launch ${sc.name} (${r < 9 ? r + 1 : ''})`, onclick: () => launchScene(r)}, '▶'),
+      h('button', {class: 'sname2', title: `Show ${sc.name}'s parts`, onclick: () => { RT.sel = {t: RT.sel.t, r}; RT.part = 0; render(); renderClip(); }}, sc.name))));
+    bar.append(h('button', {class: 'mini', title: 'Stop every clip', onclick: stopAll}, '■ Stop'));
+    const sc = Sx.scenes[RT.sel.r];
+    box.append(bar, h('div', {class: 'stground small muted'}, 'Over ', h('button', {class: 'ground', title: 'The chords this scene reads: click to change', onclick: e => groundMenu(e.currentTarget, RT.sel.r)}, groundWords(sc.ground))), sceneRows(true)); }
+  function setStack(on){ RT.stack = !!on; render(); renderClip(); }
   function setWhole(on){ RT.whole = on; try { localStorage.setItem('studio.daw.whole', on ? '1' : ''); } catch {} renderClip(); }
   // ‹ ›: the library's rhythms for this kind of part, in turn; only the rhythm changes (its notes, its drums, stay)
   function libStep(j, d){ const X = target(); if (!X?.cl || !isLive(X.cl)) return; const q = X.cl.parts[j], list = LIBR[isDrum(q.role) ? q.role : q.role] || [];
@@ -339,8 +353,8 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
     q.R = {...q.R, len, hits: hits.length ? hits : [[0, 1, .8]]}; }); const q = target()?.cl?.parts?.[RT.part]; if (q) A.flash(`${partName(q)}: ${q.R.len} steps`); }
   // ← → or [ ] move between the chosen clip's parts
   function partStep(d){ const cl = target()?.cl; if (!isLive(cl) || cl.parts.length < 2) return false; RT.part = (Math.min(RT.part, cl.parts.length - 1) + d + cl.parts.length) % cl.parts.length; renderClip(); A.flash(partName(cl.parts[RT.part])); return true; }
-  function partKey(e){ const inClip = RT.focus === 'clip' && !$('clipPane').hidden;
-    if (wholeOn()) { if ((e.key === '[' || e.key === ']') || (inClip && (e.key === 'ArrowUp' || e.key === 'ArrowDown'))) return stackStep(e.key === ']' || e.key === 'ArrowDown' ? 1 : -1);
+  function partKey(e){ const inClip = (RT.focus === 'clip' && !$('clipPane').hidden) || RT.stack;
+    if (wholeOn() || RT.stack) { if ((e.key === '[' || e.key === ']') || (inClip && (e.key === 'ArrowUp' || e.key === 'ArrowDown'))) return stackStep(e.key === ']' || e.key === 'ArrowDown' ? 1 : -1);
       if (inClip && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { const c = selCell(); if (isLive(c)) { libStep(Math.min(RT.part, c.parts.length - 1), e.key === 'ArrowRight' ? 1 : -1); return true; } } }
     if ((e.key === '[' || e.key === ']') && partStep(e.key === ']' ? 1 : -1)) return true;
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && RT.focus === 'clip' && !$('clipPane').hidden && partStep(e.key === 'ArrowRight' ? 1 : -1)) return true;
@@ -381,5 +395,5 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A;
       return (((pos - pl.start + (isLive(cl) ? 0 : cl.off || 0)) % L) + L) % L; } return null; }
   function findCell(id){ const Sx = S(); if (!Sx) return null; for (const [ti, TT] of ST.P.tracks.entries()) { const r = (Sx.cells[TT.id] || []).findIndex(c => c?.id === id);
     if (r >= 0) { const cl = Sx.cells[TT.id][r]; if (isLive(cl)) viewNotes(cl, TT, Sx.scenes[r].ground); cl.start = 0; return {T: TT, ti, cl, sess: true}; } } return null; }
-  return {open, render, renderClip, frame, edPos, partKey, partStep, setWhole, stackStep, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
+  return {open, render, renderClip, frame, edPos, partKey, partStep, setWhole, stackStep, setStack, key, launch, launchScene, stopAll, stopTrack, hook, mixHook, RT, select, target, selCell, findCell, recToggle, fromArr, backToArr, doFreeze, doLive, isLive,
     stop: () => { RT.play = {}; RT.next = {}; RT.scene = null; RT.own.clear(); if (RT.rec) recToggle(); render(); playhead(null); }}; }

@@ -155,6 +155,13 @@ button.nudge{animation:nudge .5s ease 2} @keyframes nudge{50%{box-shadow:0 0 0 3
 .plen{text-align:right; font-family:var(--mono)} .addp{min-height:26px; font-size:12.5px}
 #clipPane > *{flex-shrink:0} .cview{display:flex} .ptrack{font-size:11px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.4px; margin-top:4px; padding-left:6px; border-left:3px solid var(--c)}
 .cmod.parts.whole .ptrack:first-of-type{margin-top:0} .prow.empty .pname{color:var(--mute)}
+/* the Scene view: the scenes along the top, every part below with Vary, Life and Feel */
+.stbar{display:flex; flex-wrap:wrap; gap:6px; padding:8px 8px 4px; align-items:center} .schip{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel)}
+.schip button{border:0; border-radius:0; min-height:30px; padding:0 9px; font-size:12.5px; background:none} .schip .sgo{min-width:28px; padding:0; color:var(--mute)}
+.schip[data-sel="1"]{border-color:var(--acc)} .schip[data-sel="1"] .sname2{color:var(--acc)} .schip[data-on="1"]{background:color-mix(in srgb, var(--acc) 22%, var(--panel))} .schip[data-on="1"] .sgo{color:#fff}
+.schip[data-next="1"] .sgo{animation:blink .5s steps(2) infinite; color:#fff}
+.stground{padding:0 10px 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap} #sessWrap > .cmod.parts.whole{margin:4px 8px 10px}
+.prow.wide{grid-template-columns:104px 22px 22px 1fr 26px 50px 92px 96px 26px 24px} .prow .pq{min-height:24px; padding:0 6px; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .prow .pq[data-on="1"]{color:var(--acc); border-color:#5a4a2a}
 body.phone #clipPane{display:none}
 /* a phone: listen, loop a section (tap its name), and leave notes; editing is for a computer */
 body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.phone #snapL, body.phone .trk .sliders{display:none} body.phone .trk{grid-template-columns:1fr}
@@ -162,7 +169,7 @@ body.phone #split, body.phone #editor, body.phone #undo, body.phone #redo, body.
 </style>
 <div class="bar">
   <h1>Studio DAW</h1>
-  <span class="views" id="views" role="group" aria-label="View"><button id="vSess" aria-pressed="true" title="The clips: scenes of loops over the ground (Tab in the Studio)">Session</button><button id="vArr" aria-pressed="false" title="The song on a timeline">Arrangement</button></span>
+  <span class="views" id="views" role="group" aria-label="View"><button id="vSess" aria-pressed="true" title="The clips: scenes of loops over the ground (Tab in the Studio)">Session</button><button id="vStk" aria-pressed="false" title="Every part of a scene, one under the other, with the most used controls">Scene</button><button id="vArr" aria-pressed="false" title="The song on a timeline">Arrangement</button></span>
   <select id="songSel" aria-label="Song"></select>
   <button id="play" title="Play / stop (Space)">Play</button>
   <button id="recArr" aria-pressed="false" title="Record what the Session plays into the Arrangement, from where it is">● Rec</button>

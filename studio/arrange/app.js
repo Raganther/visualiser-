@@ -493,13 +493,13 @@ function showClip(on){ $('tabClip').setAttribute('aria-pressed', String(on)); $(
 for (const b of $('clipMode').querySelectorAll('button')) b.onclick = () => { CM[ST.view] = b.dataset.m; try { localStorage.setItem('studio.daw.cmode', JSON.stringify(CM)); } catch {} showClip(true); };
 const clipOn = () => $('tabClip').getAttribute('aria-pressed') === 'true';
 // the two views: Session (the clip grid) and Arrangement (the timeline); the tracks, the editor's tabs and the mixer the same
-function setView(v){ ST.view = v === 'arrange' ? 'arrange' : 'session'; const sess = ST.view === 'session';
+function setView(v){ ST.view = v === 'arrange' ? 'arrange' : 'session'; const sess = ST.view === 'session'; SS.RT.stack = v === 'scene';
   $('sessWrap').hidden = !sess; $('arrWrap').hidden = sess; $('tracks').hidden = sess; $('cycle').hidden = sess; $('snapL').hidden = sess; $('toSess').hidden = sess;
-  for (const [id, on] of [['vSess', sess], ['vArr', !sess]]) $(id).setAttribute('aria-pressed', String(on));
+  for (const [id, on] of [['vSess', sess && v !== 'scene'], ['vStk', v === 'scene'], ['vArr', !sess]]) $(id).setAttribute('aria-pressed', String(on));
   if (ST.view === 'session' && ST.open && !SS.findCell(ST.open.id)) ST.open = null; if (ST.view === 'arrange' && ST.open && !findArrClip(ST.open.id)) ST.open = null;
   if (!SI.isOn() && !MX.isOn()) showClip(true);
-  try { localStorage.setItem('studio.daw.view', ST.view); } catch {} if (sess) SS.render(); else { draw(); renderEd(); } }
-$('vSess').onclick = () => setView('session'); $('vArr').onclick = () => setView('arrange');
+  try { localStorage.setItem('studio.daw.view', v === 'scene' ? 'scene' : ST.view); } catch {} if (sess) { SS.render(); SS.renderClip(); } else { draw(); renderEd(); } }
+$('vSess').onclick = () => setView('session'); $('vStk').onclick = () => setView('scene'); $('vArr').onclick = () => setView('arrange');
 // Record: what the Session plays written into the Arrangement where it's heard; Send to Session: the bars chosen (a
 // section, a range, or the clips chosen) as a new scene; Back to Arrangement: every track the timeline's again
 $('recArr').onclick = () => SS.recToggle(); $('backArr').onclick = () => SS.backToArr();
@@ -522,4 +522,4 @@ window.__daw = {get SS(){ return SS; }, ST, E, open, openEd, flatten, SB, SND, g
 function studio(){ try { return parent !== window ? parent.__studio : null; } catch { return null; } }
 window.__studioView = {addSong, stop: () => { if (E.playing) stop(); }, view: v => setView(v), name: 'daw'};
 if (studio()) $('views').hidden = true;   // (in the Studio page, its own switch flips the views)
-try { setView(studio()?.view?.() === 'arrange' ? 'arrange' : localStorage.getItem('studio.daw.view') || 'session'); } catch { setView('session'); }
+try { const sv = studio()?.view?.(); setView(sv === 'arrange' || sv === 'scene' ? sv : localStorage.getItem('studio.daw.view') || 'session'); } catch { setView('session'); }

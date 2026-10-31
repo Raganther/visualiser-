@@ -21,12 +21,12 @@ html,body{margin:0; height:100%; overflow:hidden; background:var(--bg); color:va
 .views + .hint{flex:1}
 iframe{position:fixed; inset:44px 0 0 0; width:100%; height:calc(100% - 44px); border:0; display:block; background:var(--bg)}
 iframe[hidden]{display:none}
-@media (max-width:640px){ .hint{display:none} .views{flex:1} .views button{flex:1} }
+@media (max-width:640px){ .hint{display:none} .sbar b{display:none} .views{flex:1} .views button{flex:1 1 0; padding:0 4px; font-size:13px; white-space:nowrap} }
 </style>
 <div class="sbar" role="toolbar" aria-label="Studio">
   <b>Studio</b>
   <div class="views" role="group" aria-label="View">
-    <button id="vSession" aria-pressed="true" title="The clips: scenes of live clips over the ground (Tab)">Session</button><button id="vArrange" aria-pressed="false" title="The song on a timeline, as notes (Tab)">Arrangement</button><button id="vJam" aria-pressed="false" title="Studio Jam v2: the jam as it was, parts and cards">Jam v2</button>
+    <button id="vSession" aria-pressed="true" title="The clips: scenes of live clips over the ground (Tab)">Session</button><button id="vScene" aria-pressed="false" title="Every part of a scene, one under the other, with the most used controls">Scene</button><button id="vArrange" aria-pressed="false" title="The song on a timeline, as notes (Tab)">Arrangement</button><button id="vJam" aria-pressed="false" title="Studio Jam v2: the jam as it was, parts and cards">Jam v2</button>
   </div>
   <span class="hint" id="hint">Tab flips Session and Arrangement · the Clip tab holds the jam's tools</span>
 </div>
@@ -43,7 +43,7 @@ iframe[hidden]{display:none}
   const SHIM = `(() => { const P = parent; window.claude = {use: async n => { for (let i = 0; i < 220 && !P.claude?.use; i++) await new Promise(r => setTimeout(r, 50)); try { return P.claude?.use ? await P.claude.use(n) : null; } catch { return null; } }};
     addEventListener('keydown', e => { if (e.key !== 'Tab' || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return; const t = e.target; if (t !== document.body && t !== document.documentElement && t.tagName !== 'CANVAS') return; e.preventDefault(); e.stopImmediatePropagation(); P.__studio?.flip(); }, true); })();`;
   const doc = body => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><script>${SHIM}<\/script></head><body>${body}</body></html>`;
-  const F = {daw: {f: $('fDaw'), src: 'srcDaw'}, jam: {f: $('fJam'), src: 'srcJam'}}, B = {session: $('vSession'), arrange: $('vArrange'), jam: $('vJam')};
+  const F = {daw: {f: $('fDaw'), src: 'srcDaw'}, jam: {f: $('fJam'), src: 'srcJam'}}, B = {session: $('vSession'), scene: $('vScene'), arrange: $('vArrange'), jam: $('vJam')};
   const frameOf = k => k === 'jam' ? 'jam' : 'daw';
   let view = 'session';
   function load(k){ const v = F[k]; if (v.ready) return v.ready;

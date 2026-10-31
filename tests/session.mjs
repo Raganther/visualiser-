@@ -202,6 +202,17 @@ const lb0 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.track
 await page.keyboard.press('ArrowRight'); await wait(200); const lb1 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][3]?.parts?.[0]?.lib, w1.t);
 await page.click('#clipPane .cview button >> nth=0'); await wait(100);
 check('Whole scene stacks every track\'s parts (a row a part, ＋ where a track has no clip); ↓ walks into the next track, → steps its part through the library', w0.rows === w0.want && w0.tracks === w0.n && w1.t === 1 && w1.part === 0 && lb1 && lb1 !== lb0, JSON.stringify({w0, w1, lb0, lb1}));
+// the Scene view: the scenes along the top, every part of the chosen one in the grid's place with Vary, Life and Feel on
+// its row; a chip chooses a scene, ▶ launches it; back to the Session's grid
+await page.click('#vStk'); await wait(300); await page.click('#sessWrap .schip >> nth=2 >> .sname2'); await wait(200);
+const sv = await Q(() => ({r: window.__daw.SS.RT.sel.r, chips: document.querySelectorAll('#sessWrap .schip').length, rows: document.querySelectorAll('#sessWrap .prow.wide').length, grid: !!document.querySelector('#sessWrap .sgrid'), clipRows: document.querySelectorAll('#clipPane .prow').length}));
+const ht = async t => Q(t => JSON.stringify(window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][2]?.parts?.[0]?.R.hits), 0);
+const v0 = await ht(); await page.click('#sessWrap .prow[data-t="0"][data-j="0"] .pq >> nth=0'); await wait(200); const v1 = await ht();
+const lf = async () => Q(() => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[0].id][2].parts[0].play || 0);
+const lf0 = await lf(); await page.click('#sessWrap .prow[data-t="0"][data-j="0"] .pq >> nth=1'); await wait(200); const lf1 = await lf();
+await page.click('#sessWrap .schip >> nth=2 >> .sgo'); await wait(2500); const on = await Q(() => ({scene: window.__daw.SS.RT.scene, lit: document.querySelector('#sessWrap .schip[data-on="1"] .sname2')?.textContent})); await page.keyboard.press(' '); await wait(300);
+await page.click('#vSess'); await wait(300); const back = await Q(() => !!document.querySelector('#sessWrap .sgrid'));
+check('the Scene view: the scenes along the top, every part of the chosen one with Vary (its rhythm changed), Life (cycled) and Feel on its row, ▶ launching the scene, and back to the grid', sv.r === 2 && sv.chips > 3 && sv.rows > 2 && !sv.grid && sv.clipRows === 0 && v1 !== v0 && lf1 === (lf0 + 1) % 4 && on.scene === 2 && on.lit && back, JSON.stringify({sv, vary: v1 !== v0, lf0, lf1, on, back}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);
