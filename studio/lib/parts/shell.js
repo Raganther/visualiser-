@@ -2,13 +2,8 @@
 // the audio thread, knobs built from any part's settings, a processor chain to edit (add, take out, move, switch off),
 // meters, the waveform, things kept on this device, and notes copied out for Claude.
 import { PROCS } from './procs.js';
-
-export const $ = id => document.getElementById(id);
-export const h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (/^(aria|data)-/.test(n) && typeof v === 'boolean') e.setAttribute(n, v); else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null && x !== false)); return e; };
-// kept on this device under a prefix (a private window or blocked storage just forgets)
-export const store = pre => ({ load: (k, d) => { try { const v = localStorage.getItem(pre + k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  keep: (k, v) => { try { localStorage.setItem(pre + k, JSON.stringify(v)); } catch {} } });
-export const clone = x => JSON.parse(JSON.stringify(x));
+import { $, h, clone, store } from '../dom.js';
+export { $, h, clone, store };
 
 /* ---------- the host in the audio thread ---------- */
 // the worklet's source is bundled into the page (a script tag of type text/plain), so the page needs nothing else

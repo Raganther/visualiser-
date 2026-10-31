@@ -16,13 +16,15 @@ import { barNotes, isLive, loopLen, liveNotes, sigOf, freeze, makeLive, cutRange
 import PACK1 from '../listen/packs/pack-1.json';
 import PACK2 from '../listen/packs/pack-2.json';
 import PACK3 from '../listen/packs/pack-3.json';
+import { clone } from '../lib/dom.js';
+import { VNAME, PART_NAMES as PART_NAME, partName, pitchName } from '../lib/names.js';
 export { barNotes };
 
-const clone = x => JSON.parse(JSON.stringify(x)), uid = () => 'c' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
+const uid = () => 'c' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
 const DEEP = {id: 'lib-deep', name: 'One chord, deep', bars: Array(8).fill('A:m9')};
-const PART_NAME = {kick: 'Kick', hats: 'Hats', perc: 'Percussion', bass: 'Bass', chords: 'Chords', lead: 'Lead'};
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'};
-const partName = p => p.name || PART_NAME[p.role] || p.role;
+
+
+
 // a new part's first rhythm, by what the drum is (16 steps): somewhere to start, shaped with the tools
 const START = [[/^kick/, [0, 4, 8, 12]], [/^(chh|hat)/, [2, 6, 10, 14]], [/^ohh/, [2, 10]], [/^(snare|clap)/, [4, 12]], [/^tom/, [13, 14, 15]], [/^(ride|crash|gong|bowl)/, [0]], [/./, [3, 7, 11, 14]]];
 const startHits = pad => START.find(([re]) => re.test(pad))[1].map(s => [s, 1, .8]);
@@ -32,7 +34,7 @@ const LIBR = (() => { const by = {}, seen = new Set();
   for (const P of [PACK1, PACK2, PACK3]) for (const c of P.clips || []) { const key = c.role + JSON.stringify(c.steps); if (seen.has(key) || !c.steps?.length) continue; seen.add(key); (by[c.role] ||= []).push(c); }
   return by; })();
 const shortName = s => (s || '').split(': ').slice(1).join(': ') || s || 'Scene';
-const nn = p => typeof p === 'number' ? ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'][((p % 12) + 12) % 12] + (Math.floor(p/12) - 1) : p;
+const nn = pitchName;
 
 /* ---------- the model ---------- */
 // a jam column as a clip part: its rhythm and notes (a clip saved before parts had modules taken apart), feel, Life and the rest

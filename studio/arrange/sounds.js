@@ -11,6 +11,8 @@ import { nativeSet } from '../jam/model.js';
 import { PARAMS as POLY, PRESETS as POLYP, DEF as POLYD } from '../lib/native/npoly.js';   // (the native poly synth's: the browser-built one's settings, and its drift and filter drive)
 import { PARAMS as KITP, KIT_NAMES, kitParams } from '../../src/audio/engine/inst/drums.js';
 import { APARAMS, ANALOG_KITS, ANALOG_NAMES, analogParams } from '../lib/native/analogkit.js';
+import { clone, clamp } from '../lib/dom.js';
+import { VNAME } from '../lib/names.js';
 
 const NATURE = ['drop', 'stone', 'leaf', 'twig', 'insect', 'bamboo', 'click', 'bird'], ANALOG = /^(va|k(round|dub|tight|deep)$|hat808|rumble|sub808)/;
 const PADS = ['addpad', 'breath', 'grainpad', 'formant'], BOWED = ['bowed', 'bowmetal', 'glassharm', 'rubbowl'];
@@ -49,8 +51,8 @@ export function engineOf(s){ if (s.voices) { const vs = Object.values(s.voices),
   if (s.src.asynth) return 'Analog synth'; const n = nativeOf(s); return n ? INST[n]?.label || n : `Poly synth: ${PAL[s.src.palette]?.[0] || s.src.palette}`; }
 // what the analog machine's Character turns on each voice
 const VX = {kick: 'Boom → punch', snare: 'Snappy', clap: 'Spread', rim: 'Ring', clave: 'Ring', chh: 'Metal', ohh: 'Metal', ride: 'Bell', crash: 'Metal', tomL: 'Ring', tomH: 'Ring', cow: 'Ring', shaker: 'Swell'};
-const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong', snare: 'Snare', clap: 'Clap', cow: 'Cowbell', crash: 'Crash'};
+
+
 
 export function makeSounds(A){
   const {ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE} = A;

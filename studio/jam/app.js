@@ -15,10 +15,12 @@ import { kitFallback, ANALOG_KITS } from '../lib/native/analogkit.js';
 import widthFx from '../../src/audio/engine/fx/width.js';
 import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
 import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
+import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
+import { PART_NAMES, colName, fmtDb, fmtPan } from '../lib/names.js';
 
-const $ = id => document.getElementById(id);
-const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
-const clone = x => JSON.parse(JSON.stringify(x));
+
+
+
 let PACK = null, SND = {}, CLIP = {}, LIB = [], ALLPACKS = [];
 const st = {eng: (() => { try { return localStorage.getItem('studio.jam.eng') !== '0'; } catch { return true; } })(), smooth: (() => { try { return localStorage.getItem('studio.jam.smooth') !== '0'; } catch { return true; } })(), echoDiv: 0, bar: 0, bpm: 124, swing: .06, harmony: null, hNext: null, hStart: 0, cols: [], sel: 0, tab: 'rhythm', playing: false, step: 0, rec: null, build: null, drop: null, rep: null};
 
@@ -193,7 +195,7 @@ function applyNext(c, step){ const x = c.next; if (!x) return; delete c.next; c.
 function pushUndo(c){ const s = shown(c); (c.undo ??= []).push({R: s.R, N: s.N, preset: c.preset}); if (c.undo.length > 40) c.undo.shift(); }
 function undo(){ const c = selCol(), u = c?.undo?.pop(); if (!u) { flash('Nothing to undo'); return; } c.preset = u.preset; setPart(c, {R: u.R, N: u.N}, {undo: false, now: !!st.edit}); flash('Undone'); }
 const selCol = () => st.cols[st.sel];
-const PART = c => ROLE_NAMES[c.role].replace('Bells and leads', 'Lead') + (c.role === 'lead' && st.cols.indexOf(c) > 5 ? ' 2' : '');
+const PART = c => colName(st.cols.indexOf(c), c.role);
 
 /* ---------- the pack's parts for each role (‹ › and ↑ ↓), its scenes ---------- */
 function presetsOf(c){ const i = st.cols.indexOf(c), ids = [...new Set([...PACK.scenes.map(s => s.clips[i]), ...PACK.clips.filter(k => k.role === c.role).map(k => k.id)].filter(Boolean))]; return ids; }
@@ -475,7 +477,7 @@ function echoTime(){ st.echoDiv = (st.echoDiv + 1) % ECHO.length; tempo(); if (s
 
 /* ---------- the rhythm grid: one cycle of the rhythm, each hit as long as it's held and as tall as it's loud, labelled
    with the note it plays; editing: tap a gap to add a hit, tap a hit to take it away, drag it, drag its end, hold it ---------- */
-const NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nname = n => NN[n % 12] + (Math.floor(n/12) - 1);
+const nname = noteName;
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 function canvas(id){ const cv = $(id), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = r.width, Ht = r.height; if (!W) return null;
   if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(Ht*dpr)) { cv.width = W*dpr; cv.height = Ht*dpr; } const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
@@ -727,7 +729,7 @@ function renderLibrary(){ const box = $('libList'), F = $('libFilters'); if (!bo
   for (const g of groups) { box.append(h('div', {class: 'lab libhead'}, g)); const grid = h('div', {class: 'libgrid'});
     const all = items.filter(y => y.from === g), more = !LV.q && !libOpen.has(g) && all.length > 12;
     for (const x of more ? all.slice(0, 12) : all.slice(0, 120)) { const nOk = x.N && fits(c, x) && c.role !== 'chords';
-      grid.append(h('div', {class: 'libcard'}, h('span', {class: 'kind'}, (x.kind === 'part' ? (ROLE_NAMES[x.role] || '').replace('Bells and leads', 'Lead') : x.kind === 'notes' ? `${(ROLE_NAMES[x.role] || '').replace('Bells and leads', 'lead')} notes` : 'rhythm')), h('b', {}, x.name),
+      grid.append(h('div', {class: 'libcard'}, h('span', {class: 'kind'}, (x.kind === 'part' ? (PART_NAMES[x.role] || '') : x.kind === 'notes' ? `${(ROLE_NAMES[x.role] || '').replace('Bells and leads', 'lead')} notes` : 'rhythm')), h('b', {}, x.name),
         h('span', {class: 'sk'}, x.R ? sketch(x.R) + (x.R.len > 16 ? ` · ${lenWords(x.R.len)}` : x.R.len !== 16 ? ` · ${x.R.len} steps` : '') : `${x.N?.seq.length || 0} notes`),
         h('span', {class: 'row'}, x.R ? h('button', {class: 'use', title: 'Its rhythm onto the chosen part', onclick: () => useLib(x, 'rhythm')}, 'Rhythm') : '',
           nOk ? h('button', {class: 'use', title: 'Its notes onto the chosen part', onclick: () => useLib(x, 'notes')}, 'Notes') : '',
@@ -748,8 +750,8 @@ const storeMix = () => { try { localStorage.setItem(mixKey(), JSON.stringify({co
 function masterMix(){ if (!mstr) return; const M = st.mx, now = ctx.currentTime, g = GLUE[M.glue][1];
   glide(mstr.lo.gain, M.lo, now, .02); glide(mstr.hi.gain, M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width][1]); glide(mstr.vol.gain, Math.pow(10, M.vol/20), now, .02);
   const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; } }
-const fmtDb = v => v <= -40 ? '−∞' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
-const fmtPan = v => Math.abs(v) < .01 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100);
+const dbWords = v => fmtDb(v, {floor: -40, off: '−∞', unit: ' dB'});
+
 // a change from the mixer or the Space tab: applied, remembered, recorded (master changes on the '*' column); quiet: no
 // redraw (a slider being dragged)
 function mixSet(c, k, v, quiet){ if (c) { c.mix[k] = v; if (k === 'solo') st.cols.forEach(macros); else macros(c); logMacro(c, 'mix.' + k, typeof v === 'boolean' ? +v : v); }
@@ -766,23 +768,23 @@ function fader(val, set){ const track = h('div', {class: 'ftrack', role: 'slider
   track.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); set(Math.max(-40, Math.min(6, val + (e.key === 'ArrowUp' ? 1.5 : -1.5)))); } });
   track.meter = meter.firstChild; return track; }
 const stepper = (lab, txt, dn, up) => h('div', {class: 'mstep'}, h('span', {class: 'lab'}, lab), h('button', {class: 'mini', 'aria-label': lab + ' down', onclick: dn}, '−'), h('b', {}, txt), h('button', {class: 'mini', 'aria-label': lab + ' up', onclick: up}, '+'));
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
 let meters = [];
 function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) return; const fi = [...box.querySelectorAll('.ftrack')].indexOf(document.activeElement); box.innerHTML = ''; meters = [];
-  st.cols.forEach((c, i) => { const M = c.mix, f = fader(M.vol, (v, live, end) => { if (live) { c.mix.vol = v; macros(c); f.setAttribute('aria-valuenow', String(v)); f.parentNode.querySelector('.fval').textContent = fmtDb(v); } else { if (end) logMacro(c, 'mix.vol', c.mix.vol); if (!end) mixSet(c, 'vol', v); else { storeMix(); } } });
+  st.cols.forEach((c, i) => { const M = c.mix, f = fader(M.vol, (v, live, end) => { if (live) { c.mix.vol = v; macros(c); f.setAttribute('aria-valuenow', String(v)); f.parentNode.querySelector('.fval').textContent = dbWords(v); } else { if (end) logMacro(c, 'mix.vol', c.mix.vol); if (!end) mixSet(c, 'vol', v); else { storeMix(); } } });
     meters.push([c.ch?.meter, f.meter]);
     box.append(h('div', {class: 'mstrip', 'data-sel': i === st.sel ? '1' : ''},
       h('button', {class: 'sname', onclick: () => { st.sel = i; renderParts(); renderCard(); renderMix(); }}, h('b', {}, PART(c)), h('span', {}, SND[c.sound]?.name || '')),
-      f, h('span', {class: 'fval'}, fmtDb(M.vol)),
+      f, h('span', {class: 'fval'}, dbWords(M.vol)),
       h('div', {class: 'mrow'}, h('button', {class: 'mini', 'aria-label': 'Quieter', onclick: () => mixSet(c, 'vol', clamp(M.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', 'aria-label': 'Louder', onclick: () => mixSet(c, 'vol', clamp(M.vol + 1.5, -40, 6))}, '+')),
       h('div', {class: 'mrow'}, h('button', {class: 'mini ms', 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; macros(c); logMacro(c, 'mute', c.mute ? 1 : 0); renderParts(); renderMix(); }}, 'M'),
         h('button', {class: 'mini ms solo', 'aria-pressed': String(!!M.solo), onclick: () => mixSet(c, 'solo', !M.solo)}, 'S')),
       stepper('Pan', fmtPan(M.pan), () => mixSet(c, 'pan', clamp(Math.round((M.pan - .25)*4)/4, -1, 1)), () => mixSet(c, 'pan', clamp(Math.round((M.pan + .25)*4)/4, -1, 1))),
       ...[['lo', 'Low'], ['mid', 'Mid'], ['hi', 'High']].map(([k, lab]) => stepper(lab, (M[k] > 0 ? '+' : '') + M[k], () => mixSet(c, k, clamp(M[k] - 1.5, -15, 9)), () => mixSet(c, k, clamp(M[k] + 1.5, -15, 9)))),
       c.role === 'kick' ? h('span', {class: 'muted sidenote'}, 'drives the duck') : h('button', {class: 'mini duckb', title: 'How far the kick ducks this part (sidechain)', onclick: () => mixSet(c, 'duck', (M.duck + 1) % DUCKS.length)}, 'Duck: ' + DUCKS[M.duck][0]))); });
-  const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = fmtDb(v); } else if (!end) mixSet(null, 'vol', v); else { logMaster('vol', st.mx.vol); storeMix(); } });
+  const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = dbWords(v); } else if (!end) mixSet(null, 'vol', v); else { logMaster('vol', st.mx.vol); storeMix(); } });
   meters.push([mstr?.meter, mf.meter]);
-  box.append(h('div', {class: 'mstrip master'}, h('div', {class: 'sname'}, h('b', {}, 'Master'), h('span', {}, 'limiter always on')), mf, h('span', {class: 'fval'}, fmtDb(X.vol)),
+  box.append(h('div', {class: 'mstrip master'}, h('div', {class: 'sname'}, h('b', {}, 'Master'), h('span', {}, 'limiter always on')), mf, h('span', {class: 'fval'}, dbWords(X.vol)),
     h('div', {class: 'mrow'}, h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol + 1.5, -40, 6))}, '+')),
     h('button', {class: 'mini duckb', title: 'The glue compressor on the whole mix', onclick: () => mixSet(null, 'glue', (X.glue + 1) % GLUE.length)}, 'Glue: ' + GLUE[X.glue][0]),
     h('button', {class: 'mini duckb', title: 'Stereo width (the bass stays mono)', onclick: () => mixSet(null, 'width', (X.width + 1) % WIDTHS.length)}, 'Width: ' + WIDTHS[X.width][0]),
@@ -800,7 +802,7 @@ let LIKES = {}, likeFilter = 'all', noteFor = null;
 const LIKE_KEY = 'studio.jam.likes';
 try { LIKES = JSON.parse(localStorage.getItem(LIKE_KEY) || '{}'); } catch {}
 const storeLikes = () => { try { localStorage.setItem(LIKE_KEY, JSON.stringify(LIKES)); } catch {} };
-const hashOf = v => { let x = 2166136261; for (const ch of JSON.stringify(v)) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return (x >>> 0).toString(36); };
+const hashOf = hash36;
 const likeId = it => `${it.kind}:${it.key}`.replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 190);
 const liked = it => LIKES[likeId(it)]?.rating === 1;
 const soundItem = id => ({kind: 'sound', key: id, name: SND[id]?.name || id, sum: `${ROLE_NAMES[SND[id]?.role] || ''} · ${ALLPACKS.find(p => p.id === SND[id]?.pack)?.name.split(':')[0] || ''}`, data: {sound: id, role: SND[id]?.role, pack: SND[id]?.pack}});
@@ -888,7 +890,7 @@ const origSec = id => IDEAS.flatMap(x => x.sections || []).find(y => y.id === id
 const secNow = id => EDITS[id]?.scene || origSec(id);
 const shortName = y => y.name.split(': ').slice(1).join(': ') || y.name;
 // what a section as you have it changes against Claude's: [[part, [what, …]], …]
-const COLNAME = (i, role) => role === 'lead' && i > 5 ? 'Lead 2' : (ROLE_NAMES[role] || role).replace('Bells and leads', 'Lead');
+const COLNAME = colName;
 const sig = m => m ? JSON.stringify([m.len, m.hits || m.seq, m.feel || 0]) : '';
 function changes(a, b){ const out = [], near = (x, y, d) => Math.abs((x ?? 0) - (y ?? 0)) <= d;
   if ((a.harmony !== b.harmony)) out.push(['Ground', [`${a.harmonyName || a.harmony} → ${b.harmonyName || b.harmony}`]]);
@@ -899,7 +901,7 @@ function changes(a, b){ const out = [], near = (x, y, d) => Math.abs((x ?? 0) - 
     if (on && on2) { if (sig(ca.rhythm) !== sig(cb.rhythm)) w.push(`rhythm: ${cb.rhythm.name}`); if (sig(ca.notes) !== sig(cb.notes) && ca.role !== 'chords') w.push(`notes: ${cb.notes?.name || '—'}`); }
     if ((ca.play || 0) !== (cb.play || 0)) w.push(`life: ${PLAYS[cb.play || 0].name.toLowerCase()}`);
     if (!!ca.mute !== !!cb.mute) w.push(cb.mute ? 'muted' : 'unmuted');
-    const ma = ca.mix || {}, mb = cb.mix || {}; if (!near(ma.vol, mb.vol, .4)) w.push(`level ${fmtDb(mb.vol ?? 0)}`); if (!near(ma.pan, mb.pan, .04)) w.push(`pan ${fmtPan(mb.pan ?? 0)}`);
+    const ma = ca.mix || {}, mb = cb.mix || {}; if (!near(ma.vol, mb.vol, .4)) w.push(`level ${dbWords(mb.vol ?? 0)}`); if (!near(ma.pan, mb.pan, .04)) w.push(`pan ${fmtPan(mb.pan ?? 0)}`);
     if (['lo', 'mid', 'hi'].some(k => !near(ma[k], mb[k], .4))) w.push('EQ'); if ((ma.duck ?? 0) !== (mb.duck ?? 0)) w.push(`duck ${DUCKS[mb.duck ?? 0][0].toLowerCase()}`);
     if (!near(ca.x, cb.x, .03)) w.push(cb.x > ca.x ? 'brighter' : 'darker'); if (!near(ca.y, cb.y, .03)) w.push(cb.y > ca.y ? 'further' : 'nearer');
     if (ca.length !== cb.length) w.push(['short', 'normal', 'long'][cb.length] + ' notes'); if ((ca.motion || 0) !== (cb.motion || 0)) w.push('motion ' + ['still', 'slow', 'fast', 'pulse'][cb.motion]);

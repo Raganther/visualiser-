@@ -1,9 +1,10 @@
 // The playground's examples: a patch for the analog synth (studio/lib/native/asynth.js, its settings over the defaults)
 // and a phrase written for it, in 16ths: [step, length in steps, note, velocity]. A note held past the next one's start
 // slides into it in Legato (the acid line, the leads). Each says its tempo and the drums it sits on (any can be changed).
-const NAMES = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
-export const midi = s => { const m = /^([A-G][#b]?)(-?\d)$/.exec(s); return 12*(+m[2] + 1) + NAMES[m[1]]; };
-export const NOTE = n => ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12] + (Math.floor(n/12) - 1);
+import { midiOf, noteName, SHARPS } from '../lib/names.js';
+
+export const midi = midiOf;
+export const NOTE = n => noteName(n, SHARPS);
 const chord = (at, len, names, vel = .75) => names.split(' ').map(s => [at, len, s, vel]);
 // an arpeggio: the chord's notes up and back each bar, in 16ths, the downbeats a little harder
 const arp = (bar, names, order = [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 2, 1, 3]) => { const ns = names.split(' ');

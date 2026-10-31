@@ -9,12 +9,14 @@ import { control, chainEditor, showGr } from '../lib/parts/shell.js';
 import { PROCS } from '../lib/parts/procs.js';
 import { sendsOf, channel } from '../lib/parts/desk.js';
 import { kickOf } from './desk.js';
+import { clone } from '../lib/dom.js';
+import { VNAME, fmtDb } from '../lib/names.js';
 
-const clone = x => JSON.parse(JSON.stringify(x));
+
 const PAN = {key: 'pan', label: 'Pan', min: -1, max: 1, def: 0, unit: 'pan'};
 const CHIP = {cut: 'Low cut', glue: 'Comp', saturate: 'Sat', sidechain: 'Sidechain', ceiling: 'Ceiling', trim: 'Gain'};
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'};
-const fmtDb = v => v <= -59.5 ? 'off' : (v > 0 ? '+' : '') + (+v).toFixed(1);
+
+
 
 export function makeMixer(A){
   const {ST, E, $, checkpoint, changed, flash, editable, SND} = A, V = {on: false, sel: null, raf: 0, shut: new Set()};

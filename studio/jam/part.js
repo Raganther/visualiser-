@@ -6,6 +6,7 @@
 // shifting against them. Every tool here returns a new module (or null when it can't), never changing the one it's given.
 import { TOOLS, euclid, MAX } from './riff.js';
 import { FEELS } from './model.js';
+import { clone } from '../lib/dom.js';
 
 export const DRUMS = ['kick', 'hats', 'perc', 'drums'];
 export const isDrum = role => DRUMS.includes(role);
@@ -14,7 +15,7 @@ export const VOICE0 = {kick: 'kick', hats: 'chh', perc: 'wood'};
 // the longest a joined clip runs before the notes and the hits line up again (16 bars)
 export const JOIN_MAX = 256;
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
-const clone = x => JSON.parse(JSON.stringify(x));
+
 
 /* ---------- a clip apart and together ---------- */
 // (the hits keep the clip's order, so a drum clip's voices on one step come back in the same order)

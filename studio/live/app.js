@@ -6,6 +6,7 @@
 import { NATIVE } from '../lib/native/index.js';
 
 import { INST, defaultOf } from '../lib/native/knobs.js';
+import { $, h } from '../lib/dom.js';
 
 // the note rows of each kind of track (top row highest): over A, the notes that sit inside every suspended chord
 const ROWS = {kick: [33], hat: [60], tom: [55, 50, 45, 43], bells: [79, 76, 74, 71, 69, 67, 64, 62, 59, 57], bass: [57, 55, 52, 50, 48, 45, 43, 40, 38, 36, 33]};
@@ -89,7 +90,7 @@ async function start(){ if (!ctx) initAudio(); await ctx.resume(); if (playing) 
 function stop(){ playing = false; clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); lightStep(-1); }
 
 /* ---------- the page ---------- */
-const $ = id => document.getElementById(id), h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
+
 function busy(){ const n = asked.size; $('busy').textContent = !worker ? 'Sounds are computed when you press Play' : n ? `Computing ${n} note${n > 1 ? 's' : ''}…` : 'All notes ready'; $('busy').dataset.on = n ? '1' : ''; }
 let saveT = 0; function changed(t, what){ if (t && what === 'ch') applyChan(t); prewarm(); clearTimeout(saveT); saveT = setTimeout(save, 400); }
 function save(){ try { localStorage.setItem('studio.live', JSON.stringify(P)); } catch {} }

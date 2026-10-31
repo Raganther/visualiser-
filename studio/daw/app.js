@@ -7,9 +7,10 @@ import { playSession } from '../lib/play-session.js';
 import { SOUNDS, NATIVE_OF } from '../lib/palette.js';
 import { INST, defaultOf } from '../lib/native/knobs.js';
 import { PRESETS } from '../lib/desk.js';
+import { $, h } from '../lib/dom.js';
 
-const $ = id => document.getElementById(id);
-const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
+
+
 let INDEX = [], S = null, base = null;   // (the songs; the session open, and as it was loaded)
 let ctx = null, worker = null, live = null, timer = 0, t0 = 0, playing = false, from = 0;
 const cache = new Map(), pending = new Set();

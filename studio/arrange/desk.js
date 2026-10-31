@@ -10,7 +10,7 @@ import { PEAKS } from './peaks.js';
 import { ANALOG_KITS, busChain } from '../lib/native/analogkit.js';
 import { isRack, padsOf, padRole, inputsOf } from './rack.js';
 
-const clone = x => JSON.parse(JSON.stringify(x));
+import { clone } from '../lib/dom.js';
 // a role's typical peak where a sound hasn't been measured (your own copies take their original's)
 const ROLE_PK = {kick: -3.3, hats: -16, perc: -7, bass: -5.5, chords: -11.5, lead: -14};
 // the strip the sidechains listen to: the kick's track, or a drum rack's kick pad

@@ -15,14 +15,16 @@ import { isLive, liveNotes } from './clips.js';
 import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
+import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
+import { VNAME, noteName } from '../lib/names.js';
 
-const $ = id => document.getElementById(id);
-const h = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v != null) e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; };
-const clone = x => JSON.parse(JSON.stringify(x)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+
+
 const SONGS = [...ROUND4, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
 const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
-const VNAME = {kick: 'Kick', chh: 'Closed hat', ohh: 'Open hat', ride: 'Ride', snare: 'Snare', clap: 'Clap', crash: 'Crash', cow: 'Cowbell', tomL: 'Low tom', tomH: 'High tom', log: 'Log', logH: 'High log', wood: 'Wood', rim: 'Rim', clave: 'Clave', shaker: 'Shaker', metal: 'Metal', bowl: 'Bowl', gong: 'Gong'}, NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], nn = p => NN[((p % 12) + 12) % 12] + (Math.floor(p/12) - 1);
+const nn = noteName;
 const ST = {view: 'session', id: null, P: null, orig: null, mine: true, px: 28, sx: 0, snap: 1, ph: 0, focus: 'arr', past: [], fut: [], sel: {clips: new Set(), range: null, mark: null, track: 0, trackOnly: false},
   open: null, ed: {px: 16, sx: 0, sy: 0, sel: new Set()}, lastLen: 2, lastVel: .8, clipboard: null, noteboard: null, notes: [], rating: 0, nid: 1};
 let db = null, MX = null, SS = null;
@@ -68,7 +70,7 @@ function redo(){ if (!ST.fut.length) { flash('Nothing to redo'); return; } ST.pa
 let saveT = 0, dbT = 0;
 function changed(mixOnly){ if (!mixOnly) { liveSync(); E.compile(); E.prewarm(); } else E.mix(); draw(); drawEd(); save(); }
 // the live clips' notes, worked out over the song's chords where each one is (again only when it, or the chords under it, changed)
-const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+const hashOf = hash36;
 function liveSync(){ const P = ST.P; if (!P) return; P.tracks.forEach((T, i) => { const ren = T.sound?.startsWith('rack:') ? rackSound(T.sound.slice(5).split('+'), SND).ren : null, lane = P.tracks.filter((x, j) => j < i && x.role === T.role).length ? 1 : 0;
   for (const c of T.clips) { if (!isLive(c)) continue; const bars = Math.ceil(c.len/16), at0 = Math.floor(c.start), k = hashOf(JSON.stringify([c.start, c.len, c.off || 0, c.parts, P.chords.slice(at0, at0 + bars + 1), T.sound, lane]));
     if (k === c._k) continue; c.notes = liveNotes(c, P.chords, c.start, bars, {ren, lane}).filter(n => n.s < c.len); c._k = k; } }); }

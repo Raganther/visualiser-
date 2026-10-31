@@ -2,6 +2,7 @@
 // pads, the gated and dotted chords, kalimba, vibes, music box, steel drum, woodblocks, marimba, the one-note ping, the
 // Detroit fifths), the grooves they liked (Slow Bloom's hats, broken beat, lo-fi, toms, metal and bells in polyrhythms), and
 // helpers for writing whole pieces with them in any harmony: chords by symbol, voicings, progressions, spans of bars.
+import { PC } from './names.js';
 import { MIX } from '../tracks/mix.js';
 import { MODAL, modal } from './native/modal.js';
 import { grains, rain as rainBuf } from './native/body.js';
@@ -13,7 +14,7 @@ export const Q = {m9: [0, 3, 7, 10, 14], m7: [0, 3, 7, 10], m11: [0, 3, 7, 10, 1
   maj9: [0, 4, 7, 11, 14], maj7: [0, 4, 7, 11], '69': [0, 4, 7, 9, 14], add9: [0, 4, 7, 14], lyd: [0, 4, 7, 11, 18],
   dom9: [0, 4, 7, 10, 14], '13': [0, 4, 10, 14, 21], sus2: [0, 2, 7, 14], sus4: [0, 5, 7, 10, 14], '7sus': [0, 5, 7, 10, 14],
   q: [0, 5, 10, 15, 19], five: [0, 7, 12, 14, 19], dim: [0, 3, 6, 10, 14], m7b5: [0, 3, 6, 10]};
-const NOTE = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
+const NOTE = PC;
 // 'A:m9' → {root: the bass's root (E1 to D#2), tones}
 export const chord = sym => { const [n, q] = sym.split(':'); let r = 24 + NOTE[n]; if (r < 28) r += 12; return {sym, root: r, tones: Q[q]}; };
 // a progression: [[symbol, bars], …] round and round from bar `from`

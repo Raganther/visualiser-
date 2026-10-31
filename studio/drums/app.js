@@ -4,8 +4,9 @@
 // stands beside (held, or swapping every two bars); notes are kept here and copied out for Claude.
 import { BEATS, ROWS, VEL } from './beats.js';
 import { ANALOG_KITS, ANALOG_NAMES, APARAMS, analogParams, kitFallback } from '../lib/native/analogkit.js';
+import { $, h } from '../lib/dom.js';
 
-const $ = id => document.getElementById(id), h = (t, a = {}, ...k) => { const e = document.createElement(t); for (const [n, v] of Object.entries(a)) { if (n.startsWith('on')) e[n] = v; else if (n.startsWith('aria-') && typeof v === 'boolean') e.setAttribute(n, v); else if (v != null && v !== false) e.setAttribute(n, v === true ? '' : v); } e.append(...k.flat().filter(x => x != null)); return e; };
+
 const load = (k, d) => { try { const v = localStorage.getItem('drumlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } }, keep = (k, v) => { try { localStorage.setItem('drumlab.' + k, JSON.stringify(v)); } catch {} };
 const S = {kit: load('kit', 'Analog 808'), beat: load('beat', 'four'), bpm: null, swing: null, playing: false, ab: 'a', abSwap: false, mute: {}, voice: 'kick', over: load('over', {}), edits: load('edits', {}), notes: load('notes', ''), step: -1};
 let ctx = null, node = null, an = null, timer = 0, next = 0, slot = 0;

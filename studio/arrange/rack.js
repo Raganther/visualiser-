@@ -8,7 +8,7 @@ export const PADS = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'to
 export const PART_ROLES = ['kick', 'hats', 'perc'];
 export const isRack = T => T?.role === 'drums';
 const HAT = new Set(['chh', 'ohh', 'ride', 'crash']);
-const clone = x => JSON.parse(JSON.stringify(x));
+import { clone } from '../lib/dom.js';
 // a pad's role (its processors and gain staging): its sound's, else by the drum
 export const padRole = (pad, m, SND) => { const r = SND?.[m?.from]?.role; return PART_ROLES.includes(r) ? r : pad === 'kick' ? 'kick' : HAT.has(pad) ? 'hats' : 'perc'; };
 const order = list => [...PADS.filter(v => list.has(v)), ...[...list].filter(v => !PADS.includes(v))];

@@ -1,8 +1,9 @@
 // The ducking playground's grooves: four bars each of drums (a bar of 16ths a row, repeated), and a bass, a pad and a
 // lead ([step, length in 16ths, note, velocity] over the four bars), written so the parts collide where ducking matters:
 // held bass under every kick, pads under the kick and under the lead. Each says which pairs it's meant to show.
-const NAMES = {C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11};
-const midi = s => { const m = /^([A-G]#?)(-?\d)$/.exec(s); return 12*(+m[2] + 1) + NAMES[m[1]]; };
+import { midiOf } from '../lib/names.js';
+
+const midi = midiOf;
 const chord = (at, len, names, vel = .7) => names.split(' ').map(n => [at, len, n, vel]);
 const N = list => list.map(([s, l, n, v = .8]) => ({s, l, n: midi(n), v}));
 

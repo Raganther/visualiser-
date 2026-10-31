@@ -7,6 +7,7 @@
 import { $, h, store, clone, startHost, control, chainEditor, showGr, scope, copyOut } from '../lib/parts/shell.js';
 import { PROCS } from '../lib/parts/procs.js';
 import { mixOf, eventsOf, SETS, soundOf, chanOf } from './mix.js';
+import { fmtDb } from '../lib/names.js';
 
 // the songs (round 4's three, the same parts and sounds), each played on its own sounds or the analog set, each of those
 // with its own mix kept apart
@@ -65,7 +66,7 @@ function paintPos(){ const b = posBar(), m = markAt(Math.floor(b)); $('pos').tex
   for (const e of document.querySelectorAll('[data-mark]')) e.setAttribute('aria-current', S.playing && e.dataset.mark === m.id); }
 function paintMarks(){ $('marks').replaceChildren(...P.marks.map(m => h('button', {class: 'mark', 'data-mark': m.id, onclick: () => play(m.at), title: m.why || ''},
   h('b', {}, m.name), h('span', {}, `bar ${m.at + 1} · ${m.bars} bars`)))); }
-const fmtDb = v => v <= -59.5 ? 'off' : (v > 0 ? '+' : '') + (+v).toFixed(1);
+
 // the processors' short names on the desk
 const CHIP = {cut: 'Low cut', glue: 'Comp', saturate: 'Sat', sidechain: 'Sidechain', ceiling: 'Ceiling', trim: 'Gain'};
 const PAN = {key: 'pan', label: 'Pan', min: -1, max: 1, def: 0, unit: 'pan'};

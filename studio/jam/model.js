@@ -3,6 +3,7 @@
 // any chord and any progression. A drum clip stores which voice hits on each step. A clip has its own length in 16ths
 // (6, 12, 13 … so clips go round against each other) and a few variations. A harmony is a list of chord symbols, one a bar.
 import { chord, voice } from '../lib/palette.js';
+import { ROLE_NAMES } from '../lib/names.js';
 
 // a chord's ladder: its tones as pitch classes in order (root first), repeating up the octaves; rung k from base
 export const ladder = (c, base, k) => { const pcs = [...new Set(c.tones.map(t => t % 12))].sort((a, b) => a - b), n = pcs.length;
@@ -27,7 +28,7 @@ export function notesAt(clip, step, c, o = {}){
 }
 export const chordOf = (h, bar) => chord(h.bars[((bar % h.bars.length) + h.bars.length) % h.bars.length]);
 export const ROLES = ['kick', 'hats', 'perc', 'bass', 'chords', 'lead'];
-export const ROLE_NAMES = {kick: 'Kick', hats: 'Hats', perc: 'Percussion', bass: 'Bass', chords: 'Chords', lead: 'Bells and leads'};
+export { ROLE_NAMES };
 // a small random change to a clip (Mutate): a step moved a 16th, a rung up or down, a step added or dropped, an accent moved
 export function mutate(clip, rnd = Math.random){
   const steps = clip.steps.map(s => s.slice()), pitched = !['kick', 'hats', 'perc'].includes(clip.role), i = Math.floor(rnd()*steps.length), s = steps[i], r = rnd();

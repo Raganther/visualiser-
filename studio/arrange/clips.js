@@ -6,8 +6,9 @@
 import { partNotes } from './flatten.js';
 import { join, isDrum, fresh } from '../jam/part.js';
 import { chordOf, ladder, REGISTER } from '../jam/model.js';
+import { clone, hash36 } from '../lib/dom.js';
 
-const clone = x => JSON.parse(JSON.stringify(x));
+
 export const isLive = cl => !!cl?.parts?.length;
 // a clip's loop length in 16ths: its first part's (as the grid shows it), or its own length
 export const loopLen = cl => { const p = cl?.parts?.[0], c = p && join(p.role, p.R, p.N); return c?.len || cl?.len || 16; };
@@ -24,7 +25,7 @@ export function liveNotes(cl, chords, at0, bars, {ren = null, lane = 0, salt = 0
       const s = +(b*16 + n.s).toFixed(3); if (s >= len) continue; out.push({s, p: isDrum(part.role) ? ren?.[part.k]?.[n.p] || n.p : n.p, l: n.l, v: n.v}); } }); }
   return out.sort((a, b) => a.s - b.s); }
 // a fingerprint of what a clip plays (to tell a copy that's been changed)
-export const sigOf = cl => { const s = JSON.stringify(isLive(cl) ? cl.parts : [cl.len, cl.notes]); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+export const sigOf = cl => hash36(JSON.stringify(isLive(cl) ? cl.parts : [cl.len, cl.notes]));
 // a live clip frozen: its notes kept, its parts let go
 export function freeze(cl){ delete cl.parts; delete cl.off; delete cl._k; return cl; }
 // notes read back into a live part: the hits where notes start (within a 64-step loop), each note as the chord tone

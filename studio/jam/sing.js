@@ -4,6 +4,7 @@
 // apart by where their energy lies (low a kick, high a hat, between a snare or a hand drum). Then everything is placed on
 // the 16ths, the whole take nudged so it sits on the grid (the singer's and the speakers' delays). A leaf module: the page
 // turns what it hears into a part's rhythm and notes (app.js), the tests feed it made-up voices.
+import { noteName } from '../lib/names.js';
 
 // the voice brought down to about 11 kHz (averaged, so what's above that doesn't fold back), as mono
 function down(x, sr){ const d = Math.max(1, Math.floor(sr/11025)), n = Math.floor(x.length/d), y = new Float32Array(n);
@@ -69,4 +70,4 @@ export function grid(ev, {six, t0, steps}){
 
 // how many bars a take fills, rounded up to 1, 2, 4, 8 or 16
 export const barsFor = (secs, bar) => [1, 2, 4, 8, 16].find(b => b*bar >= secs - .05) || 16;
-export const NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'], noteName = m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m/12) - 1);
+export { noteName };

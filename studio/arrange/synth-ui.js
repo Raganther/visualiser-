@@ -8,7 +8,8 @@
 // again when it's let go. Every change is one undo step on your own copy of the sound, as in the sound panel.
 const WK = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'], BK = {w: 1, e: 3, t: 6, y: 8, u: 10, o: 13, p: 15};
 import { ladderMag } from '../lib/native/npoly.js';
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), BLACK = [1, 3, 6, 8, 10];
+import { clamp } from '../lib/dom.js';
+const BLACK = [1, 3, 6, 8, 10];
 
 export function makeSynthUI(A){
   const {ST, E, SB, h, $, isDrum, flash, editable, nn} = A;

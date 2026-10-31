@@ -6,11 +6,13 @@ import { notesAt, chordOf, vlChain, STYLES, FEELS, feelAt } from '../jam/model.j
 import { improvise, PLAYS } from '../jam/play.js';
 import { join, isDrum } from '../jam/part.js';
 import { rng } from '../lib/rng.js';
+import { fnv } from '../lib/dom.js';
+import { colName } from '../lib/names.js';
 
-export const NAMES = ['Kick', 'Hats', 'Percussion', 'Bass', 'Chords', 'Lead', 'Lead 2'];
+
 // the settings a clip carries onto its track's channel when it starts (a section's own tone, space, motion, ramp)
 const SET = ['sound', 'x', 'y', 'motion', 'length', 'echo', 'verb', 'ramp'];
-const hashOf = s => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const hashOf = fnv;
 
 // the notes one part plays over one section (bars long, its harmony H), in 16ths from the section's start:
 // [{s, p, l, v}] (s may fall between 16ths: the feel, the swing, Life's timing)
@@ -32,7 +34,7 @@ export function partNotes(c, H, bars, {swing = .06, smooth = true, voicing = 0, 
 export function flatten(song, {swing = .06} = {}){
   const S = song.sections, tracks = [], marks = [], chords = [], seed = hashOf(song.id || song.name || 'song'); let at = 0;
   const first = S[0];
-  first.cols.forEach((c, i) => tracks.push({id: 't' + i, role: c.role, name: NAMES[i] || c.role, sound: c.sound, mix: {vol: 0, pan: 0, duck: 0, lo: 0, mid: 0, hi: 0, ...c.mix, solo: false},
+  first.cols.forEach((c, i) => tracks.push({id: 't' + i, role: c.role, name: colName(i, c.role), sound: c.sound, mix: {vol: 0, pan: 0, duck: 0, lo: 0, mid: 0, hi: 0, ...c.mix, solo: false},
     set: {x: c.x, y: c.y, motion: c.motion || 0, length: c.length ?? 1, echo: !!c.echo, verb: !!c.verb}, mute: false, clips: []}));
   for (const [si, x] of S.entries()) { const H = {id: x.harmony, name: x.harmonyName, bars: x.harmonyBars}, bars = x.bars, voicing = x.cols.find(c => c.role === 'chords')?.voicing || 0;
     marks.push({id: x.id, name: (x.name || '').split(': ').slice(1).join(': ') || x.name, at, bars, why: x.why || '', harmony: H.name});
@@ -44,7 +46,7 @@ export function flatten(song, {swing = .06} = {}){
       const set = {}; for (const k of SET) if (c[k] !== undefined && JSON.stringify(c[k]) !== JSON.stringify(k === 'sound' ? T.sound : T.set[k])) set[k] = c[k];
       if (set.ramp) set.ramp = {...set.ramp, bars};
       if ((c.mix?.vol ?? 0) !== T.mix.vol) set.vol = +((c.mix?.vol ?? 0) - T.mix.vol).toFixed(2); if ((c.mix?.duck ?? 0) !== T.mix.duck) set.duck = c.mix?.duck ?? 0;
-      T.clips.push({id: `c${si}.${i}`, start: at, len: bars*16, name: [c.rhythm?.name, c.role === 'chords' || isDrum(c.role) ? null : c.notes?.name].filter((v, j, a) => v && a.indexOf(v) === j).join(' · ') || NAMES[i], set, notes}); });
+      T.clips.push({id: `c${si}.${i}`, start: at, len: bars*16, name: [c.rhythm?.name, c.role === 'chords' || isDrum(c.role) ? null : c.notes?.name].filter((v, j, a) => v && a.indexOf(v) === j).join(' · ') || colName(i, c.role), set, notes}); });
     at += bars; }
   return {v: 1, song: song.id, name: song.name, round: song.round, why: song.why || '', bpm: song.bpm || first.bpm || 120, bars: at, pack: first.pack, mx: first.mx || {}, echoDiv: first.echoDiv || 0,
     marks, chords, tracks}; }
