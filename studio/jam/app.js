@@ -8,15 +8,12 @@ import { split, join, linked, cycles, rhythmTool, notesTool, noteTools, spread, 
 import { KEYS, MODES, MODE_WORDS, COLS, FEELS as HFEELS, LIB as PROGS, matrix, distance, shared, nameOf, shortOf, keyOf as chordKey, inKey } from './chords.js';
 import { notesAt, chordOf, REGISTER, ROLE_NAMES, nativeSet, cutOf, LEN, X0, vlChain, invert, STYLES, FEELS, feelAt, ARPS, ECHO, arpStep, chordVoices } from './model.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
-import { NATIVE } from '../lib/native/index.js';
-import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
-import { makeDrums } from '../../src/audio/engine/inst/drums.js';
-import { kitFallback, ANALOG_KITS } from '../lib/native/analogkit.js';
-import widthFx from '../../src/audio/engine/fx/width.js';
-import { engOf, engChain, retChain, RET, glide, duckAt } from './mixeng.js';
+import { RET, glide, duckAt } from './mixeng.js';
 import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
 import { libItems as sharedLib, stepIn } from '../lib/library.js';
+import { makeInstruments } from '../lib/play/inst.js';
+import { makeMaster, setMaster, makeStrip, DUCKS, GLUE, WIDTHS } from '../lib/play/master.js';
 import { PART_NAMES, colName, fmtDb, fmtPan } from '../lib/names.js';
 
 
@@ -29,38 +26,24 @@ const st = {eng: (() => { try { return localStorage.getItem('studio.jam.eng') !=
 const SG = {bars: 2, busy: false, msg: '', heard: '', open: false};
 
 /* ---------- audio: a channel per part (EQ, the tone filter with an LFO, pan, the kick's duck, echo and reverb sends) ---------- */
-let ctx, master, hp, delay, verb, worker, nextT = 0, timer = 0, mstr = null, rets = null, liveOK = false, nid = 0;
-const cache = new Map(), pending = new Set();
+let ctx, master, hp, delay, verb, nextT = 0, timer = 0, mstr = null, rets = null, liveOK = false, B = null, meter = null;
+// the instruments (lib/play/inst.js, the DAW's too): a column is its own channel, its input c.ch.in, its settings itself
+const I = makeInstruments({SND: new Proxy({}, {get: (o, k) => SND[k]}), sd: () => sd(), ctx: () => ctx, ok: () => liveOK, inOf: c => c.ch.in, setOf: c => c, t0: () => st.t0, pitches: c => c.ps || [], onBusy: () => busy()}), {cache, pending} = I;
 function initAudio(){ if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'playback'});
-  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 12; lim.attack.value = .003; lim.release.value = .12;
-  hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 18; master = ctx.createGain(); master.gain.value = .85;
-  // the master: EQ (low and high shelves), width (mid and side, the bass kept mono), the glue compressor, then the build's
-  // high-pass, the limiter, the master volume and its meter
-  mstr = {lo: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), width: widthFx.make(ctx), glue: ctx.createDynamicsCompressor(), vol: ctx.createGain(), meter: ctx.createAnalyser(), lim};
-  mstr.lo.type = 'lowshelf'; mstr.lo.frequency.value = 110; mstr.hi.type = 'highshelf'; mstr.hi.frequency.value = 7000; mstr.width.set('mono', 150); mstr.meter.fftSize = 1024;
-  master.connect(mstr.lo); mstr.lo.connect(mstr.hi); mstr.hi.connect(mstr.width.input); mstr.width.output.connect(mstr.glue); mstr.glue.connect(hp); hp.connect(lim); lim.connect(mstr.vol); mstr.vol.connect(ctx.destination); mstr.vol.connect(mstr.meter);
-  delay = {in: ctx.createGain(), d: ctx.createDelay(2), fb: ctx.createGain(), lp: ctx.createBiquadFilter()};
-  delay.lp.frequency.value = 2400; delay.fb.gain.value = .45; delay.in.connect(delay.d); delay.d.connect(delay.lp); delay.lp.connect(delay.fb); delay.fb.connect(delay.d); 
-  verb = ctx.createConvolver(); const L = 2.8*ctx.sampleRate, ir = ctx.createBuffer(2, L, ctx.sampleRate);
-  for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); let lp = 0; for (let i = 0; i < L; i++) { lp += (.3 - .25*i/L)*((Math.random()*2 - 1) - lp); x[i] = lp*Math.pow(1 - i/L, 2.2); } }
-  verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .8; verb.connect(vg);
-  // the returns through Claude's mix (out of the low end, ducked a little by the kick) into the master
-  rets = Object.fromEntries([['echo', delay.lp], ['verb', vg]].map(([k, from]) => { const r = retChain(ctx, RET[k]), d = ctx.createGain(); from.connect(r.input); r.output.connect(d); d.connect(master); return [k, {...r, duck: d}]; }));
-  worker = new Worker(URL.createObjectURL(new Blob([$('worker-src').textContent], {type: 'text/javascript'})));
-  worker.onmessage = e => { const {key, L, R, error} = e.data; pending.delete(key); if (!error) { const b = ctx.createBuffer(2, L.length, ctx.sampleRate); b.copyToChannel(L, 0); b.copyToChannel(R, 1); cache.set(key, b); } busy(); };
+  // the master (lib/play/master.js, the DAW's too): EQ, width, the glue compressor, then the build's high-pass, the
+  // limiter, the master volume and its meter; the echo and reverb returned through Claude's mix
+  B = makeMaster(ctx, {hp: true}); ({master, mstr, delay, verb, rets, hp} = B); meter = ctx.createAnalyser(); meter.fftSize = 1024; B.out.connect(meter);
+  I.attach($('worker-src').textContent);
   for (const c of st.cols) { makeChan(c); buildSound(c); } engSet(st.eng, true); tempo(); masterMix(); renderMix();
   // the live voices (the DAW's worklet): once loaded, the analog synth's sounds are played on it, not the poly synth standing in
   const wl = $('worklet-src')?.textContent; if (wl && ctx.audioWorklet) ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([wl], {type: 'text/javascript'})))
-    .then(() => { liveOK = true; for (const c of st.cols) if (usesLive(SND[c.sound])) buildSound(c); }).catch(() => {});
+    .then(() => { liveOK = true; for (const c of st.cols) { buildSound(c); prewarm(c); } }).catch(() => {});
 }
 // Claude's mix on or off (mixeng.js): every channel's chain and the returns, eased over a moment, so you can A/B it as it plays
 function engSet(v, quiet){ st.eng = v; try { localStorage.setItem('studio.jam.eng', v ? '1' : '0'); } catch {} const b = $('engAB'); if (b) { b.setAttribute('aria-pressed', String(v)); b.textContent = v ? 'Mix: Claude’s' : 'Mix: plain'; }
   if (ctx) { for (const c of st.cols) c.ch?.eng.on(v); for (const r of Object.values(rets || {})) r.on(v); } if (st.rec) st.rec.eng = v; if (!quiet) flash(v ? 'Claude’s mix: each part carved and enriched' : 'Plain mix: as it was'); }
-function makeChan(c){ const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain(), lfo: ctx.createOscillator(), lfoG: ctx.createGain(), meter: ctx.createAnalyser()};
-  x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.meter.fftSize = 512;
-  x.eng = engChain(ctx, engOf(c.role, laneOf(c))); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.out.connect(x.meter); x.pan.connect(x.duck); x.duck.connect(x.out); x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb);
-  x.lfo.connect(x.lfoG); x.lfo.start(); x.f.Q.value = 1.2; x.eng.on(st.eng); c.ch = x; macros(c); }
+function makeChan(c){ c.ch = makeStrip(ctx, B, c.role, laneOf(c), st.eng, {lfo: true, meter: true}); macros(c); }
 // a part's settings onto its channel: tone (the filter, and a native sound's mallet), space (echo and reverb), motion (the
 // LFO), its level, pan and EQ
 function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s = .05;
@@ -72,38 +55,16 @@ function macros(c){ if (!c.ch) return; const x = c.ch, now = ctx.currentTime, s 
   const rate = [0, 1/(8*60/st.bpm), 1/(.5*60/st.bpm), 0][c.motion]; glide(x.lfo.frequency, rate || .1, now, s); glide(x.lfoG.gain, [0, .45, .35, 0][c.motion]*cutOf(c.x), now, s);
   const lfo = c.motion === 1 || c.motion === 2; if (lfo !== !!x.lfoOn) { x.lfoOn = lfo; if (x.lfoOn) x.lfoG.connect(x.f.frequency); else x.lfoG.disconnect(); }
   // a ramp across a section (ramp.x: the tone from one value to another over its bars) glides the filter over a bar
-  if (c.ramp && c.rampAt != null) glide(x.f.frequency, cutOf(c.x), now, 15*sd()/3); }
-function tempo(){ if (!ctx) return; glide(delay.d.delayTime, ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) { macros(c); c.inst?.live?.port.postMessage({type: 'set', params: {period: 4*sd()}}); } }
+  if (c.ramp && c.rampAt != null) glide(x.f.frequency, cutOf(c.x), now, 15*sd()/3);
+  // a live instrument hears its new tone too (a native instrument's mallet and ring: nativeSet)
+  I.liveSet(c); }
+function tempo(){ if (!ctx) return; glide(delay.d.delayTime, ECHO[st.echoDiv][1]*60/st.bpm, ctx.currentTime, .05); for (const c of st.cols) { macros(c); I.liveSet(c); } }
 
 /* ---------- sounds: a part's sound built on its channel (poly synth, drum kits, native instruments) ---------- */
 const env = {period: () => 60/st.bpm};
-function buildSound(c){ if (!ctx) return; const s = SND[c.sound]; dropLive(c); c.inst = {kind: 'pitched'};
-  // the analog synth, live (its voices in the worklet, as in the DAW); without worklets, its palette's poly synth stands in
-  if (s.src?.asynth && liveOK) { const n = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); n.connect(c.ch.in);
-    n.port.postMessage({type: 'load', engine: 'asynth', params: {...s.src.asynth, ...s.src.knobs, period: 4*sd()}}); c.inst.live = n; c.inst.shift = s.src.shift || 0; return; }
-  if (s.voices) { const kits = {}; c.inst = {kind: 'drums', voices: {}};
-    // the analog drum machine's voices, live (the DAW's worklet: one machine a kit, a slot a voice); without it the
-    // browser-built kit nearest it stands in
-    const ak = liveOK ? Object.entries(s.voices).filter(([, m]) => m.kit && ANALOG_KITS[m.kit]) : [];
-    if (ak.length) { const n = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}), slots = {}, lk = {}; n.connect(c.ch.in);
-      for (const [v, m] of ak) { const g = m.kit + JSON.stringify(m.over || {}); lk[g] = {kit: m.kit, over: m.over || {}}; slots[v] = {kit: g, voice: m.voice || v}; c.inst.voices[v] = {live: true}; }
-      n.port.postMessage({type: 'load', slots, kits: lk}); c.inst.live = n; }
-    for (const [v, m] of Object.entries(s.voices)) { if (c.inst.voices[v]) continue; if (m.native) { c.inst.voices[v] = {native: m.native, n: m.n, set: m.set || {}}; continue; }
-      const key = m.kit + JSON.stringify(m.over || {}); if (!kits[key]) { kits[key] = makeDrums(ctx, c.ch.in); kits[key].load(kitFallback(m.kit), m.over || {}); } c.inst.voices[v] = {kit: kits[key], voice: m.voice}; } return; }
-  const src = s.src; if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, c.ch.in, env); syn.load({...PRESETS[p], chord: 0, ...set}); c.inst.poly = syn; c.inst.base = set; }
-  else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; }
-  lengthTo(c); }
-const usesLive = s => !!(s?.src?.asynth || s?.voices && Object.values(s.voices).some(m => m.kit && ANALOG_KITS[m.kit]));
-// a live instrument let go: what sounds fades, then the node closes
-function dropLive(c){ const n = c.inst?.live; if (!n) return; n.port.postMessage({type: 'stop', close: true}); setTimeout(() => n.disconnect(), 400); }
-// length: a synth's decay and release stretch (a native sound's ring: nativeSet in model.js)
-function lengthTo(c){ if (c.inst?.poly) { const b = c.inst.base; c.inst.poly.set('ad', (b.ad ?? .3)*LEN[c.length]); c.inst.poly.set('ar', (b.ar ?? .2)*LEN[c.length]); } }
-const q = (v, s) => Math.round(v/s)*s;
-const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
-function nativeNote(c, name, n, vel, o, t, lenSec, fv = 1){ const set = NATIVE[name].held ? {...o, len: Math.round(lenSec*20)/20} : o, k = keyOf(name, n, vel, set), b = cache.get(k);
-  if (!b) { want(k, name, n, vel, set); return; }
-  const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; g.gain.value = NATIVE[name].gain*(.4 + .6*vel)*fv; s.connect(g); g.connect(c.ch.in); s.start(t); s.onended = () => g.disconnect(); return {g, t}; }
-function want(k, name, n, vel, set){ if (cache.has(k) || pending.has(k) || !worker) return; pending.add(k); worker.postMessage({key: k, name, n, vel: q(vel, .1), o: set, sr: ctx.sampleRate}); busy(); }
+function buildSound(c){ if (!ctx) return; I.build(c, c.sound); lengthTo(c); I.liveSet(c); I.clock(c); }
+// length: a synth's decay and release stretch (a native sound's ring: nativeSet in model.js, sent to a live one)
+function lengthTo(c){ I.lengthTo(c, LEN[c.length]); I.liveSet(c); }
 // the ground's voice-leading chain (smooth), in the chords part's voicing; a part's notes at a step and bar
 const chordsCol = () => st.cols.find(c => c.role === 'chords');
 const chainOf = H => st.smooth ? vlChain(H, STYLES[chordsCol()?.voicing || 0]) : null;
@@ -116,12 +77,12 @@ const loopOf = c => c.clip && c.loop && c.loop[1] <= c.clip.len && c.loop[1] > c
 function posOf(c, s){ const lp = loopOf(c), n = lp ? lp[1] - lp[0] : c.clip.len; return (lp ? lp[0] : 0) + (((s - c.start) % n) + n) % n; }
 const walkOf = c => c.clip ? Math.floor(Math.max(0, st.step - c.start)/c.clip.len) % 4 : 0;
 // every native note a part will need over the whole ground, computed ahead (and those Life may reach)
-function prewarm(c, clip = c.next ? c.next.clip : c.clip, also = true){ if (!ctx || !clip || !c.inst) return; if (also && c.play) for (const x of reach(c.role, clip)) prewarm(c, x, false); const H = st.hNext || st.harmony, sd = 60/st.bpm/4, ch = chainOf(H), arp = c.role === 'chords' && c.arp;
+function prewarm(c, clip = c.next ? c.next.clip : c.clip, also = true){ if (!ctx || !clip || !c.inst) return; if (also) c.ps = []; if (also && c.play) for (const x of reach(c.role, clip)) prewarm(c, x, false);
+  const H = st.hNext || st.harmony, ch = chainOf(H), arp = c.role === 'chords' && c.arp, drum = c.inst.kind === 'drums', ps = new Set(c.ps);
   for (let bar = 0; bar < H.bars.length; bar++) for (const w of c.walk ? [0, 1, 2, 3] : [0]) for (const p of new Set(clip.steps.map(s => s[0])))
-    for (const [n, len, vel] of notesAt(clip, p, chordOf(H, bar), {vl: ch && ch[bar], inv: c.inv || 0, walk: w})) {
-      if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (v?.native) { const o = nativeSet(c, v.native, v.set); want(keyOf(v.native, v.n, vel, o), v.native, v.n, vel, o); } }
-      else if (c.inst.native) { const nm = c.inst.native, o = nativeSet(c, nm, c.inst.set), set = NATIVE[nm].held ? {...o, len: Math.round((arp ? .9 : len)*sd*20)/20} : o, m = n + c.inst.shift + 12*(c.oct || 0);
-        want(keyOf(nm, m, vel, set), nm, m, vel, set); } } }
+    for (const [n, len, vel] of notesAt(clip, p, chordOf(H, bar), {vl: ch && ch[bar], inv: c.inv || 0, walk: w})) { const m = drum ? n : n + 12*(c.oct || 0); if (!drum) ps.add(m); I.need(c, m, arp ? .9 : len, vel); }
+  // (a live grain pad makes its struck bars ready for the pitches it will play)
+  c.ps = [...ps]; if (also && c.inst.live && c.inst.native === 'grainpad') I.warm(c); busy(); }
 function busy(){ const n = pending.size; $('busy').textContent = !ctx ? 'Press Play' : n ? `Computing ${n} sound${n > 1 ? 's' : ''}…` : st.playing ? 'Playing' : 'Ready'; $('busy').dataset.on = n ? '1' : ''; }
 
 /* ---------- the clock: steps scheduled ahead; parts, the ground and moves change on the next bar ---------- */
@@ -147,14 +108,7 @@ function playStep(step, t0){
 }
 // fv: the feel's loudness (a native note is computed at its own loudness and played louder or softer, so the feel never
 // waits on a new note being computed)
-function play(c, n, len, vel, t, fv = 1){ const v2 = Math.max(.05, Math.min(1, vel*fv));
-  if (c.inst.kind === 'drums') { const v = c.inst.voices[n]; if (!v) return; if (v.live) c.inst.live.port.postMessage({type: 'on', id: ++nid, slot: n, n: 60, vel: q(v2, .1), gv: v2, t}); else if (v.kit) v.kit.play(v.voice || n, t, v2, null); else {
-      // a hat closed (or hit again) while the open one rings stops it, as a real pair of cymbals does
-      if ((n === 'chh' || n === 'ohh') && c.open && t > c.open.t) { c.open.g.gain.setTargetAtTime(0, t, .012); c.open = null; }
-      const h = nativeNote(c, v.native, v.n, vel, nativeSet(c, v.native, v.set), t, .5, fv); if (n === 'ohh' && h) c.open = h; }
-    if (c.role === 'kick') duck(t); return; }
-  if (c.inst.live) { const id = ++nid; c.inst.live.port.postMessage({type: 'on', id, n: n + c.inst.shift, vel: q(v2, .1), gv: v2, t, len: Math.round(len*sd()*20)/20}); c.inst.live.port.postMessage({type: 'off', id, t: t + len*sd()}); return; }
-  if (c.inst.poly) c.inst.poly.play(n, t, len*sd(), v2); else nativeNote(c, c.inst.native, n + c.inst.shift, vel, nativeSet(c, c.inst.native, c.inst.set), t, len*sd(), fv); }
+function play(c, n, len, vel, t, fv = 1){ if (I.play(c, n, len, vel, t, fv) === 'drums' && c.role === 'kick') duck(t); }
 function duck(t){ if (st.eng && rets) for (const [k, r] of Object.entries(rets)) { duckAt(r.duck.gain, RET[k].duck, t); }
   for (const c of st.cols) { if (c.role === 'kick' || !c.ch) continue; const d = DUCKS[c.mix.duck][1]; if (!d) continue; duckAt(c.ch.duck.gain, d, t); } }
 function barLine(step){
@@ -168,7 +122,7 @@ function barLine(step){
   const bar = Math.floor((step - st.hStart)/16); st.bar = bar; $('chordNow').textContent = shortOf(st.harmony.bars[bar % st.harmony.bars.length]); $('barNow').textContent = `bar ${bar % st.harmony.bars.length + 1} of ${st.harmony.bars.length}`;
   if (st.take) takeBar(step);
   renderGround(); if (HV.tab === 'chords' && HV.open) renderMatrix(); if (changed) { renderParts(); renderCard(); } else renderPartGround(); }
-async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; studio()?.playing?.('session'); st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1;
+async function start(){ initAudio(); await ctx.resume(); if (st.playing) return; st.playing = true; studio()?.playing?.('session'); st.step = 0; st.hStart = 0; st.pseed = Math.floor(Math.random()*1e9); for (const c of st.cols) { c.pm = {}; c.heard = []; } nextT = ctx.currentTime + .1; st.t0 = nextT; for (const c of st.cols) I.clock(c);
   for (const c of st.cols) { if (c.next) applyNext(c, 0); c.start = 0; } timer = setInterval(tick, 25); tick(); $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true'); busy(); }
 function stop(){ if (st.take) takeEnd(); st.playing = false; if (st.arr) { st.arr = null; renderArr(); } clearInterval(timer); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); light(-1); if (st.rec) record(); busy(); }
 
@@ -731,16 +685,11 @@ const libOpen = new Set();
 $('libSearch').oninput = e => { LV.q = e.target.value; renderLibrary(); };
 
 /* ---------- the mixer: each part's fader, pan, mute and solo, EQ and duck; the master's volume, EQ, width and glue ---------- */
-const DUCKS = [['Off', 0], ['Light', .25], ['Medium', .4], ['Heavy', .65]];
-const GLUE = [['Off', null], ['Gentle', {thr: -14, ratio: 1.8, att: .03, rel: .25}], ['Glue', {thr: -20, ratio: 3, att: .01, rel: .2}], ['Punch', {thr: -24, ratio: 4, att: .03, rel: .12}]];
-const WIDTHS = [['Mono', 0], ['Narrow', .6], ['Normal', 1], ['Wide', 1.35], ['Wider', 1.7]];
 const MASTER0 = {vol: 0, lo: 0, hi: 0, glue: 1, width: 2}, PAN0 = [0, .15, -.2, 0, 0, -.3, .3];
 const mixKey = () => 'studio.jam.mix.' + PACK.id, savedMix = () => { try { return JSON.parse(localStorage.getItem(mixKey()) || '{}'); } catch { return {}; } };
 function mixOf(c, i){ const saved = savedMix().cols?.[i]; return {vol: 0, pan: PAN0[i] || 0, lo: 0, mid: 0, hi: 0, duck: c.role === 'kick' ? 0 : c.role === 'chords' ? 3 : 2, solo: false, ...(saved || {}), ...(c.mix || {})}; }
 const storeMix = () => { try { localStorage.setItem(mixKey(), JSON.stringify({cols: st.cols.map(c => ({...c.mix, solo: false})), master: st.mx})); } catch {} };
-function masterMix(){ if (!mstr) return; const M = st.mx, now = ctx.currentTime, g = GLUE[M.glue][1];
-  glide(mstr.lo.gain, M.lo, now, .02); glide(mstr.hi.gain, M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width][1]); glide(mstr.vol.gain, Math.pow(10, M.vol/20), now, .02);
-  const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; } }
+function masterMix(){ if (B) setMaster(B, st.mx, ctx); }
 const dbWords = v => fmtDb(v, {floor: -40, off: '−∞', unit: ' dB'});
 
 // a change from the mixer or the Space tab: applied, remembered, recorded (master changes on the '*' column); quiet: no
@@ -774,7 +723,7 @@ function renderMix(){ const box = $('mixer'); if (!box || !st.cols.length) retur
       ...[['lo', 'Low'], ['mid', 'Mid'], ['hi', 'High']].map(([k, lab]) => stepper(lab, (M[k] > 0 ? '+' : '') + M[k], () => mixSet(c, k, clamp(M[k] - 1.5, -15, 9)), () => mixSet(c, k, clamp(M[k] + 1.5, -15, 9)))),
       c.role === 'kick' ? h('span', {class: 'muted sidenote'}, 'drives the duck') : h('button', {class: 'mini duckb', title: 'How far the kick ducks this part (sidechain)', onclick: () => mixSet(c, 'duck', (M.duck + 1) % DUCKS.length)}, 'Duck: ' + DUCKS[M.duck][0]))); });
   const X = st.mx, mf = fader(X.vol, (v, live, end) => { if (live) { st.mx.vol = v; masterMix(); mf.setAttribute('aria-valuenow', String(v)); mf.parentNode.querySelector('.fval').textContent = dbWords(v); } else if (!end) mixSet(null, 'vol', v); else { logMaster('vol', st.mx.vol); storeMix(); } });
-  meters.push([mstr?.meter, mf.meter]);
+  meters.push([meter, mf.meter]);
   box.append(h('div', {class: 'mstrip master'}, h('div', {class: 'sname'}, h('b', {}, 'Master'), h('span', {}, 'limiter always on')), mf, h('span', {class: 'fval'}, dbWords(X.vol)),
     h('div', {class: 'mrow'}, h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol - 1.5, -40, 6))}, '−'), h('button', {class: 'mini', onclick: () => mixSet(null, 'vol', clamp(X.vol + 1.5, -40, 6))}, '+')),
     h('button', {class: 'mini duckb', title: 'The glue compressor on the whole mix', onclick: () => mixSet(null, 'glue', (X.glue + 1) % GLUE.length)}, 'Glue: ' + GLUE[X.glue][0]),

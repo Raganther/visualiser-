@@ -13,6 +13,8 @@ import { makePoly, PRESETS } from '../../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../../src/audio/engine/inst/drums.js';
 
 export const q = (v, s) => Math.round(v/s)*s;
+// a palette sound on the poly synth: its preset, your changes over it (base), and every setting the native one plays (full)
+export const polyOf = src => { const [preset, set] = PAL[src.palette]; return {preset, base: {...set, ...src.poly}, full: {...NPDEF, ...PRESETS[preset], chord: 0, ...set, ...src.poly}}; };
 // a computed note's key in the cache: the instrument, pitch, velocity and settings (rounded, so near ones share)
 export const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1).toFixed(1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
 // the instruments played live, sample by sample as they sound: every native instrument (and, by the build below, the
@@ -57,11 +59,11 @@ export function makeInstruments(o){ const {SND, sd} = o, CX = o.ctx, ok = o.ok, 
       if (prev?.live && prev.engine === 'asynth') c.inst.live = prev.live;
       else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(inOf(c)); c.inst.live.port.postMessage({type: 'load', engine: 'asynth', params: liveParams(c)}); clock(c); }
       liveSet(c); return; }
-    if (src.palette && !NATIVE_OF[src.palette] && ok()) { const [p, set] = PAL[src.palette]; Object.assign(c.inst, {engine: 'poly', shift: 0, preset: p, base: {...set, ...src.poly}, full: {...NPDEF, ...PRESETS[p], chord: 0, ...set, ...src.poly}});
+    if (src.palette && !NATIVE_OF[src.palette] && ok()) { Object.assign(c.inst, {engine: 'poly', shift: 0, ...polyOf(src)});
       if (prev?.live && prev.engine === 'poly') c.inst.live = prev.live;
       else { drop(prev); c.inst.live = new AudioWorkletNode(ctx, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2]}); c.inst.live.connect(inOf(c)); c.inst.live.port.postMessage({type: 'load', engine: 'poly', params: liveParams(c)}); clock(c); }
       liveSet(c); return; }
-    if (src.palette && !NATIVE_OF[src.palette]) { const [p, set] = PAL[src.palette], syn = makePoly(ctx, inOf(c), {period: () => 4*sd()}); syn.load({...PRESETS[p], chord: 0, ...set, ...src.poly}); c.inst.poly = syn; c.inst.base = {...set, ...src.poly}; }
+    if (src.palette && !NATIVE_OF[src.palette]) { const {preset, base} = polyOf(src), syn = makePoly(ctx, inOf(c), {period: () => 4*sd()}); syn.load({...PRESETS[preset], chord: 0, ...base}); c.inst.poly = syn; c.inst.base = base; }
     else { const name = src.native || NATIVE_OF[src.palette], oct = src.palette ? 12*(PAL[src.palette][1].oct || 0) : 0; c.inst.native = name; c.inst.shift = (src.shift || 0) + oct; c.inst.set = src.set || {}; c.inst.knobs = src.knobs || {};
       const le = ok() && liveEngine(name);
       if (le) { if (prev?.live && prev.native === name) c.inst.live = prev.live;   // (the same instrument: its voices ring on, with the new settings)

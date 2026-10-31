@@ -8,6 +8,7 @@ import { SOUNDS, NATIVE_OF } from '../lib/palette.js';
 import { INST, defaultOf } from '../lib/native/knobs.js';
 import { PRESETS } from '../lib/desk.js';
 import { $, h } from '../lib/dom.js';
+import { keyOf, q } from '../lib/play/inst.js';
 
 
 
@@ -17,8 +18,6 @@ const cache = new Map(), pending = new Set();
 const barDur = () => 240/S.meta.bpm;
 
 /* ---------- native notes: the same keys as lib/native/index.js's cache, computed by the worker ---------- */
-const q = (v, s) => Math.round(v/s)*s;
-const keyOf = (name, n, vel, o) => `${name}|${n}|${q(vel, .1)}|${Object.entries(o).sort().map(([k, v]) => k + q(+v, .02)).join(',')}`;
 function nativeBuf(name, n, vel, o){ const k = keyOf(name, n, vel, o), b = cache.get(k); if (b) return b;
   if (!pending.has(k) && worker) { pending.add(k); worker.postMessage({key: k, name, n, vel: q(vel, .1), o, sr: ctx.sampleRate}); status(); } return null; }
 function initAudio(){ if (ctx) return;

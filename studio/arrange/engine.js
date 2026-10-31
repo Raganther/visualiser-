@@ -4,7 +4,7 @@
 // round the loop when the cycle is on. Each clip, as it starts, sets its track's tone, space and motion as its section did.
 import { nativeSet, cutOf, LEN, ECHO } from '../jam/model.js';
 import { isDrum } from '../jam/part.js';
-import { engOf, engChain, retChain, RET, glide, duckAt } from '../jam/mixeng.js';
+import { retChain, RET, glide, duckAt } from '../jam/mixeng.js';
 import { SOUNDS as PAL, NATIVE_OF } from '../lib/palette.js';
 import { NATIVE } from '../lib/native/index.js';
 import { kitHit } from '../lib/native/kit.js';
@@ -13,8 +13,8 @@ import { DEF as NPDEF } from '../lib/native/npoly.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import { synthRender } from '../lib/native/asynth.js';
-import { makeInstruments, liveEngine, keyOf, q } from '../lib/play/inst.js';
-import { makeMaster, setMaster, DUCKS as DUCKP } from '../lib/play/master.js';
+import { makeInstruments, liveEngine, keyOf, q, polyOf } from '../lib/play/inst.js';
+import { makeMaster, setMaster, makeStrip, DUCKS as DUCKP } from '../lib/play/master.js';
 import { deskOf, faderOf, gainOf, sectionStrip, padFader, rackChain } from './desk.js';
 import { isRack, inputsOf, inputCount, padRole } from './rack.js';
 
@@ -46,10 +46,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     // on the native desk a track's instrument goes into its strip's input (studio/arrange/desk.js), and the desk does the
     // rest (a drum rack's pads each into their own: io)
     if (E.deskNode) { const io = E.IO[i] || {base: i}, x = {in: ctx.createGain(), desk: true}; if (!io.pads) x.in.connect(E.deskNode, 0, io.base); return {T, i, io, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
-    const x = {in: ctx.createGain(), lo: ctx.createBiquadFilter(), mid: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(), f: ctx.createBiquadFilter(), pan: ctx.createStereoPanner(), duck: ctx.createGain(), clip: ctx.createGain(), out: ctx.createGain(), echo: ctx.createGain(), verb: ctx.createGain()};
-    x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.f.Q.value = 1.2;
-    x.eng = engChain(ctx, engOf(T.role, lane)); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck); x.duck.connect(x.clip); x.clip.connect(x.out);
-    x.out.connect(master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(delay.in); x.verb.connect(verb); x.eng.on(E.eng);
+    const x = makeStrip(ctx, B, T.role, lane, E.eng, {clip: true});
     return {T, x, s: {...T.set}, sound: null, inst: null, open: null, rampAt: null, ramp: null, clip: null}; }
   // a clip's settings onto its track's channel (the section's tone, space, motion, ramp; its level and duck)
   function settle(c, clip, t = E.ctx.currentTime){ const s = c.s = {...c.T.set, ...(clip?.set || {})}, snd = s.sound || c.T.sound;
@@ -165,9 +162,9 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     if (snd.voices) { const m = snd.voices[p]; if (!m?.kit) return null;
       if (E.liveOK) { const h = kitHit(E.ctx.sampleRate, m.kit, m.voice || p, v, m.over || {}, 2.5), b = E.ctx.createBuffer(2, h.L.length, E.ctx.sampleRate); b.copyToChannel(h.L, 0); b.copyToChannel(h.R, 1); return b; }
       const kit = makeDrums(off, g); kit.load(kitFallback(m.kit), m.over || {}); kit.play(m.voice || p, .02, v, null); }
-    else if (E.liveOK && E.wurl) { const src = snd.src, [pp, set] = PAL[src.palette]; await off.audioWorklet.addModule(E.wurl);
-      const n = new AudioWorkletNode(off, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'load', engine: 'poly', params: {...NPDEF, ...PRESETS[pp], chord: 0, ...set, ...src.poly, period: 4*sd()}}, {type: 'on', id: 1, n: p, vel: v, gv: v, t: .02}, {type: 'off', id: 1, t: .02 + secs}]}}); n.connect(g); }
-    else { const src = snd.src, [pp, set] = PAL[src.palette], syn = makePoly(off, g, {period: () => 4*sd()}); syn.load({...PRESETS[pp], chord: 0, ...set, ...src.poly}); syn.play(p, .02, secs, v); }
+    else if (E.liveOK && E.wurl) { await off.audioWorklet.addModule(E.wurl);
+      const n = new AudioWorkletNode(off, 'native-voices', {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {init: [{type: 'load', engine: 'poly', params: {...polyOf(snd.src).full, period: 4*sd()}}, {type: 'on', id: 1, n: p, vel: v, gv: v, t: .02}, {type: 'off', id: 1, t: .02 + secs}]}}); n.connect(g); }
+    else { const {preset, base} = polyOf(snd.src), syn = makePoly(off, g, {period: () => 4*sd()}); syn.load({...PRESETS[preset], chord: 0, ...base}); syn.play(p, .02, secs, v); }
     return off.startRendering(); };
   E.gen = 0;
   // whether a track's instrument plays live now

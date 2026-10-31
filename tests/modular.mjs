@@ -51,6 +51,14 @@ const SHARED = [
   ['the FNV hash over a string (lib/dom.js fnv)', /2166136261[^]{0,80}charCodeAt/, ['lib/dom.js']],
   ['decibels as words (lib/names.js fmtDb)', /\bfmtDb = v =>/, ['lib/names.js']],
   ['the even rhythms (lib/library.js)', /'Four on the floor', 4, 16/, ['lib/library.js']],
+  ['a computed note’s cache key (lib/play/inst.js)', /\bkeyOf = \(name, n, vel, o\) =>/, ['lib/play/inst.js']],
+  ['playing a native note from the cache (lib/play/inst.js)', /function nativeNote\(/, ['lib/play/inst.js']],
+  ['building an instrument for a sound (lib/play/inst.js)', /\.\.\.PRESETS\[\w+\], chord: 0, \.\.\.set/, ['lib/play/inst.js']],
+  ['the master chain (lib/play/master.js)', /mstr = \{lo: ctx\.createBiquadFilter\(\)/, ['lib/play/master.js']],
+  ['the glue settings (lib/play/master.js)', /\['Gentle', \{thr: -14/, ['lib/play/master.js']],
+  ['a part’s browser channel strip (lib/play/master.js makeStrip)', /x\.eng = engChain\(ctx/, ['lib/play/master.js']],
+  ['the notes a part plays at a step (jam/play.js stepNotes)', /improvise\(\{role[^]{0,200}notesAt\(\{\.\.\./, ['jam/play.js']],
+  ['the chords’ arpeggio (jam/model.js arpStep)', /'up and down': m < 2/, ['jam/model.js']],
 ];
 for (const [what, re, allow] of SHARED) { const hits = files.filter(f => !allow.some(a => f.endsWith(path.sep + a.split('/').join(path.sep))) && re.test(fs.readFileSync(f, 'utf8'))).map(f => path.relative(root, f));
   check(`defined once: ${what}`, !hits.length, hits.join(', ')); }

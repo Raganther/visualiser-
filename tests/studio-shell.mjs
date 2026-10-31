@@ -67,7 +67,7 @@ const inDaw = (p, fn, a) => p.evaluate(([f, a]) => (0, eval)(f)(document.getElem
   const kit = await inJam(p, async w => { const A = w.__jamAudio(), ki = A.cols.findIndex(c => c.role === 'kick'), was = A.cols.map(c => c.mute); w.__jamSound(ki, 'k4-808');
     A.cols.forEach((c, i) => { c.mute = i !== ki; }); w.document.getElementById('play').click(); await new Promise(r => setTimeout(r, 900));
     const a = A.ctx.createAnalyser(); A.out.connect(a); let m = 0; for (let k = 0; k < 30; k++) { await new Promise(r => setTimeout(r, 50)); const x = new Float32Array(2048); a.getFloatTimeDomainData(x); for (const v of x) m = Math.max(m, Math.abs(v)); }
-    A.cols.forEach((c, i) => { c.mute = was[i]; }); w.document.getElementById('play').click(); return {live: !!A.cols[ki].inst?.live && !!A.cols[ki].inst.voices.kick?.live, peak: +m.toFixed(3)}; });
+    A.cols.forEach((c, i) => { c.mute = was[i]; }); w.document.getElementById('play').click(); return {live: !!A.cols[ki].inst?.live && A.cols[ki].inst.engine === 'drums' && !!A.cols[ki].inst.voices.kick, peak: +m.toFixed(3)}; });
   check('and the analog drum machine (the 808 kick) plays live, and is heard', kit.live && kit.peak > .02, JSON.stringify(kit));
   check('no page errors (computer)', !errs.length, errs.join('; '));
   await ctx.close(); }

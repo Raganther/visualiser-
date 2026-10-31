@@ -3,7 +3,7 @@
 // compressor; a high-pass for the jam's build if asked; a limiter; the volume), an echo and a reverb returned into it
 // through Claude's mix (mixeng.js: out of the low end, ducked by the kick). With the settings' names and values.
 import widthFx from '../../../src/audio/engine/fx/width.js';
-import { retChain, RET, glide } from '../../jam/mixeng.js';
+import { retChain, RET, glide, engOf, engChain } from '../../jam/mixeng.js';
 
 // how far the kick ducks a part; the glue compressor's settings; the stereo width: [name, value]
 export const DUCKS = [['Off', 0], ['Light', .25], ['Medium', .4], ['Heavy', .65]];
@@ -31,3 +31,17 @@ export function makeMaster(ctx, {hp: withHp = false} = {}){
 export function setMaster(B, M, ctx){ const {mstr} = B, now = ctx.currentTime, g = GLUE[M.glue]?.[1];
   glide(mstr.lo.gain, M.lo, now, .02); glide(mstr.hi.gain, M.hi, now, .02); mstr.width.set('w', WIDTHS[M.width]?.[1] ?? 1); glide(mstr.vol.gain, Math.pow(10, M.vol/20), now, .02);
   const C = mstr.glue; if (g) { C.threshold.value = g.thr; C.ratio.value = g.ratio; C.attack.value = g.att; C.release.value = g.rel; C.knee.value = 8; } else { C.threshold.value = 0; C.ratio.value = 1; } }
+
+// a part's channel on the browser's mix, the same in the jam and the DAW: in → Claude's mix for its role (mixeng.js) →
+// three-band EQ → the tone filter → pan → the kick's duck → (a section's own level, clip) → out, into the master and the
+// two sends. o: {clip (a level of its own before out), lfo (an LFO for the tone filter), meter}
+export function makeStrip(ctx, B, role, lane, on, o = {}){
+  const g = () => ctx.createGain(), bq = () => ctx.createBiquadFilter();
+  const x = {in: g(), lo: bq(), mid: bq(), hi: bq(), f: bq(), pan: ctx.createStereoPanner(), duck: g(), out: g(), echo: g(), verb: g()};
+  x.lo.type = 'lowshelf'; x.lo.frequency.value = 120; x.mid.type = 'peaking'; x.mid.frequency.value = 1000; x.mid.Q.value = .8; x.hi.type = 'highshelf'; x.hi.frequency.value = 6000; x.f.Q.value = 1.2;
+  x.eng = engChain(ctx, engOf(role, lane)); x.in.connect(x.eng.input); x.eng.output.connect(x.lo); x.lo.connect(x.mid); x.mid.connect(x.hi); x.hi.connect(x.f); x.f.connect(x.pan); x.pan.connect(x.duck);
+  if (o.clip) { x.clip = g(); x.duck.connect(x.clip); x.clip.connect(x.out); } else x.duck.connect(x.out);
+  x.out.connect(B.master); x.out.connect(x.echo); x.out.connect(x.verb); x.echo.connect(B.delay.in); x.verb.connect(B.verb);
+  if (o.meter) { x.meter = ctx.createAnalyser(); x.meter.fftSize = 512; x.out.connect(x.meter); }
+  if (o.lfo) { x.lfo = ctx.createOscillator(); x.lfoG = g(); x.lfo.connect(x.lfoG); x.lfo.start(); }
+  x.eng.on(on); return x; }
