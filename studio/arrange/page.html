@@ -103,7 +103,7 @@ body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; 
 .shbtn{position:absolute; right:6px; bottom:5px; display:flex; gap:3px} .shbtn button{min-height:22px; min-width:24px; padding:0 4px; font-size:11px}
 .shbtn .ms.s[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
 .scene{display:flex; align-items:center; gap:6px; background:var(--panel); border-radius:7px; padding:4px 6px; min-height:52px}
-.scene[data-on="1"]{box-shadow:inset 3px 0 0 var(--acc)} .scene[data-next="1"] .sgo{animation:blink .5s steps(2) infinite}
+.scene[data-on="1"]{box-shadow:inset 3px 0 0 var(--acc)} .scene[data-sel="1"] .sname > b{color:var(--acc)} .scene .sname > b{cursor:pointer} .scene[data-next="1"] .sgo{animation:blink .5s steps(2) infinite}
 .scene .sgo{min-width:34px; min-height:34px; padding:0; font-size:13px} .sname{display:flex; flex-direction:column; min-width:0; gap:2px} .sname b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .ground{font-size:11px; min-height:22px; padding:0 6px; text-align:left; color:var(--acc); background:none; border-color:#3a3328; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:118px}
 .scene.foot{min-height:40px; flex-wrap:wrap} .scene.foot .mini{min-height:26px; padding:0 7px; font-size:12px}
@@ -113,7 +113,7 @@ body.phone #side{position:fixed; inset:auto 0 0 0; width:auto; max-height:60vh; 
 .slot .sk{font:10px var(--mono); color:var(--mute); white-space:nowrap; overflow:hidden; letter-spacing:-.5px} .slot .empty{grid-column:1 / -1; text-align:center; color:#3a3f49}
 .slot[data-on="1"]{background:color-mix(in srgb, var(--c) 48%, #1f2228); border-color:var(--c)} .slot[data-on="1"] .go{color:#fff}
 .slot[data-next="1"] .go{animation:blink .5s steps(2) infinite; color:#fff} .slot[data-next="stop"]{opacity:.6}
-.slot[data-sel="1"]{outline:2px solid var(--sel); outline-offset:-2px}
+.slot[data-sel="1"]{outline:2px solid var(--sel); outline-offset:-2px} .slot[data-shown="1"]::before{content:""; position:absolute; left:3px; top:3px; width:5px; height:5px; border-radius:50%; background:var(--acc); opacity:.8}
 .slot .prog{position:absolute; left:0; bottom:0; height:3px; width:0; background:#fff; opacity:.75}
 .slot.stop{min-height:32px; display:block; text-align:center; color:var(--mute)}
 @keyframes blink{50%{opacity:.25}}

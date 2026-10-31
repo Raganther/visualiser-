@@ -16,6 +16,7 @@ import ROUND3 from './songs/round3.json';
 import ROUND4 from './songs/round4.json';
 import LIBRARY from '../listen/packs/library.json';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
+import { putBig, getBig } from '../lib/bigdoc.js';
 import { VNAME, noteName } from '../lib/names.js';
 
 
@@ -47,14 +48,17 @@ async function addSong(song, {go = true} = {}){ const i = SONGS.findIndex(s => s
 async function open(id){ if (E.playing) E.stop(); const s = songById(id); if (!s) return; ST.id = id; $('songSel').value = id;
   // (Studio Jam's kick, hats and percussion come as one drum rack track: combineDrums, rack.js)
   ST.orig = combineDrums(flatten(s), SND); let P = null;
-  if (db) try { const d = await db.collection('versions').doc(id).get(); if (d.exists) P = JSON.parse(d.data().json); } catch {}
-  if (!P) try { const l = localStorage.getItem(keyOf(id)); if (l) P = JSON.parse(l).P; } catch {}
+  // (yours: the newer of the database's and this device's, so a save the database refused isn't lost to an older one)
+  let dbAt = 0, loc = null; if (db) try { const g = await getBig(db.collection('versions'), id); if (g) { P = JSON.parse(g.str); dbAt = Date.parse(g.meta.at) || 0; } } catch {}
+  try { const l = localStorage.getItem(keyOf(id)); if (l) loc = JSON.parse(l); } catch {}
+  const ahead = !!(db && loc?.P && P && (loc.at || 0) > dbAt + 1000); if (loc?.P && (!P || ahead)) P = loc.P;
   if (P?.v === 1) { ensureRacks(P, SND); P = combineDrums(P, SND); }
   ST.P = P && P.v === 1 ? P : clone(ST.orig); SB.adopt(ST.P.sounds); ST.mine = true; ST.past = []; ST.fut = []; ST.open = null; ST.ed.sel.clear(); clearSel(); ST.ph = 0;
   for (const T of ST.P.tracks) for (const c of T.clips) { const n = +String(c.id).replace(/\D+/g, '') || 0; ST.nid = Math.max(ST.nid, n + 1); }
   liveSync(); E.load(ST.P); E.cycle = false; $('cycle').setAttribute('aria-pressed', 'false');
   ST.px = Math.max(16, ($('arrWrap').clientWidth - 20)/Math.min(ST.P.bars, 48)); ST.sx = 0; ST.sy = 0; scrollTracks();
-  SS?.open(s); $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {} }
+  SS?.open(s); $('tempo').textContent = `${ST.P.bpm} BPM · ${ST.P.bars} bars`; renderTracks(); renderVer(); loadNotes(); renderEd(); draw(); status(); try { localStorage.setItem('studio.daw.song', id); } catch {}
+  if (ahead) save(); }   // (this device's newer version back into the database)
 $('songSel').onchange = e => open(e.target.value);
 
 /* ---------- history and saving ---------- */
@@ -76,7 +80,7 @@ function liveSync(){ const P = ST.P; if (!P) return; P.tracks.forEach((T, i) => 
     if (k === c._k) continue; c.notes = liveNotes(c, P.chords, c.start, bars, {ren, lane}).filter(n => n.s < c.len); c._k = k; } }); }
 function save(){ if (!ST.mine) return; clearTimeout(saveT); clearTimeout(dbT); status('Saving…');
   saveT = setTimeout(() => { try { localStorage.setItem(keyOf(ST.id), JSON.stringify({at: Date.now(), P: ST.P})); } catch {} status(db ? 'Saving…' : 'Saved on this device'); }, 600);
-  if (db) dbT = setTimeout(async () => { try { await db.collection('versions').doc(ST.id).set({song: ST.id, name: ST.P.name, round: ST.P.round, at: new Date().toISOString(), json: JSON.stringify(ST.P)}); status('Saved'); } catch (e) { status('Saved on this device (' + (e.code || e.message) + ')'); } }, 2500); }
+  if (db) dbT = setTimeout(async () => { try { await putBig(db.collection('versions'), ST.id, {song: ST.id, name: ST.P.name, round: ST.P.round, at: new Date().toISOString()}, JSON.stringify(ST.P)); status('Saved'); } catch (e) { status('Saved on this device (' + (e.code || e.message) + ')'); } }, 2500); }
 let stTxt = ''; function status(t){ if (t) stTxt = t; const n = E.busy(); $('status').textContent = n ? `Computing ${n} sound${n > 1 ? 's' : ''}…` : stTxt || 'Ready'; }
 let flT = 0; function flash(t){ const f = $('flash'); f.textContent = t; f.dataset.on = '1'; clearTimeout(flT); flT = setTimeout(() => f.dataset.on = '', 1600); }
 // Claude's version, as written, or yours: Claude's can be heard, not edited (Revert, in Notes, makes it yours again)
@@ -240,7 +244,7 @@ function drag(e, move, up){ const mm = ev => { const [x, y] = pt(e.target, ev); 
 
 /* ---------- the transport ---------- */
 // Play: the Session launches the chosen scene, the Arrangement plays the timeline from the playhead
-function play(from = ST.ph){ if (ST.view === 'session') { SS.launchScene(SS.RT.sel.r); return; }
+function play(from = ST.ph){ if (ST.view === 'session') { SS.launchScene(SS.RT.stack ? SS.RT.scn : SS.RT.sel.r); return; }
   if (E.cycle && (from < E.loop[0] || from >= E.loop[1])) from = E.loop[0]; studio()?.playing?.('daw'); E.session = SS.mixHook(); E.play(from); $('play').textContent = 'Stop'; anim(); }
 function playSession(){ studio()?.playing?.('daw'); E.play(Math.max(0, Math.floor(ST.ph))); $('play').textContent = 'Stop'; anim(); }
 function stop(){ E.stop(); if (E.session) { E.session = null; SS.stop(); } $('play').textContent = 'Play'; }

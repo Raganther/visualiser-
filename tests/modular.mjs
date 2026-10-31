@@ -8,6 +8,7 @@ import { partNotes } from '../studio/arrange/flatten.js';
 import { stepNotes } from '../studio/jam/play.js';
 import { notesAt, chordOf } from '../studio/jam/model.js';
 import { join } from '../studio/jam/part.js';
+import { putBig, getBig } from '../studio/lib/bigdoc.js';
 import { VNAME, voiceName, colName, midiOf, noteName, fmtDb } from '../studio/lib/names.js';
 
 let failed = false;
@@ -36,6 +37,15 @@ check('names: a voice, a numbered copy, the second lead, a note both ways, decib
   check('as written, a step\'s notes are the model\'s own', JSON.stringify(stepNotes({role: 'bass', clip, pos: 4, step: 4, bar: 0, chord: chd, opts: {}})) === JSON.stringify(notesAt(clip, 4, chd, {})), '');
   const play = a => { const mem = {}; return JSON.stringify(Array.from({length: 128}, (_, k) => stepNotes({role: 'bass', clip, pos: k % 16, step: k, bar: Math.floor(k/16), chord: chd, opts: {}, a, mem, seed: 7}))); };
   check('with Life it improvises (not only what\'s written), and the same way from the same seed', play(1) !== play(0) && play(1) === play(1), ''); }
+
+/* ---------- a big document (lib/bigdoc.js): the database refuses one over 256 KiB ---------- */
+{ const store = new Map(), col = {doc: id => ({set: async v => { const n = JSON.stringify(v).length; if (n > 256*1024) throw {code: 'invalid_argument'}; store.set(id, v); }, get: async () => ({exists: store.has(id), data: () => store.get(id)})})};
+  const small = JSON.stringify({a: 1}); await putBig(col, 's', {at: 'x'}, small); const g0 = await getBig(col, 's');
+  let x = 1; const rnd = () => (x = (x*48271) % 2147483647)/2147483647, song = JSON.stringify({notes: Array.from({length: 60000}, (_, i) => ({s: i % 64, p: 36 + Math.floor(rnd()*36), l: 1, v: +rnd().toFixed(2)}))});
+  await putBig(col, 'big', {at: 'y'}, song); const g1 = await getBig(col, 'big'), parts = store.get('big').parts;
+  const noisy = Array.from({length: 900000}, () => String.fromCharCode(33 + Math.floor(rnd()*90))).join('');
+  await putBig(col, 'noisy', {}, noisy); const g2 = await getBig(col, 'noisy');
+  check('a big document: small ones as they are, a song past 256 KiB compressed, one that won\'t compress enough split, each read back whole', g0.str === small && g0.meta.at === 'x' && g1.str === song && store.get('big').gz && g2.str === noisy && store.get('noisy').parts > 1, `song ${(song.length/1024).toFixed(0)} KiB in ${parts} part(s), noise in ${store.get('noisy').parts}`); }
 
 /* ---------- the guard: nothing the shared modules hold is defined again in a page's own file ---------- */
 const files = []; (function walk(d){ for (const f of fs.readdirSync(d, {withFileTypes: true})) { const p = path.join(d, f.name);

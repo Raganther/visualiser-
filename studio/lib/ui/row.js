@@ -10,10 +10,12 @@ export function stepCells(R, W, onStep, title = ''){ const hits = new Map(R.hits
   const cells = h('div', {class: 'pcells', style: `grid-template-columns: repeat(${W}, 1fr)`, title, onclick: onStep ? e => { const s = e.target.dataset?.s; if (s != null) onStep(+s, e.shiftKey); } : null});
   for (let s = 0; s < R.len; s++) { const x = hits.get(s); cells.append(h('i', {'data-s': s, 'data-on': x ? (x[2] > .8 ? '2' : '1') : '', 'data-beat': s % 4 === 0 ? '1' : ''})); }
   return cells; }
-// one part's row. o: {W, sel, wide, track (data-t), index (data-j), canRemove, life, feel (names of the part's settings),
-// on: {pick, step(s, accent), lib(d), vary, life, feel, mute, remove}}
+// one part's row. o: {W, sel, wide, track (data-t), index (data-j), row (data-r: its clip's scene), lead (a label before it:
+// its track's name on its first row, '' after), idle (shown, not playing), canRemove, life, feel (names of the part's
+// settings), on: {pick, step(s, accent), lib(d), vary, life, feel, mute, remove}}
 export function seqRow(q, o){ const on = o.on || {}, nm = partName(q), kind = PART_NAMES[q.role] || q.role;
-  const row = h('div', {class: o.wide ? 'prow wide' : 'prow', 'data-t': o.track, 'data-j': o.index, 'data-sel': o.sel ? '1' : '', 'data-mute': q.mute ? '1' : ''});
+  const row = h('div', {class: cls(o), 'data-t': o.track, 'data-j': o.index, 'data-r': o.row, 'data-sel': o.sel ? '1' : '', 'data-mute': q.mute ? '1' : '', 'data-idle': o.idle ? '1' : ''});
+  if (o.lead !== undefined) row.append(lead(o.lead));
   row.append(h('button', {class: 'pname', title: `Choose ${nm}: its notes and tools below`, onclick: on.pick}, nm),
     h('button', {class: 'pv', 'aria-label': 'The library’s rhythm before', title: `The library’s ${kind} rhythms`, onclick: () => on.lib?.(-1)}, '‹'),
     h('button', {class: 'pv', 'aria-label': 'The library’s next rhythm', title: `The library’s ${kind} rhythms`, onclick: () => on.lib?.(1)}, '›'),
@@ -25,7 +27,10 @@ export function seqRow(q, o){ const on = o.on || {}, nm = partName(q), kind = PA
     o.canRemove ? h('button', {class: 'px', title: `Take ${nm} out of the clip`, onclick: on.remove}, '✕') : h('span'));
   return row; }
 // a row that isn't a part (a notes clip's hits, an empty slot): a name button, then whatever it shows
-export const plainRow = (o, ...kids) => h('div', {class: (o.wide ? 'prow wide' : 'prow') + (o.empty ? ' empty' : ''), 'data-t': o.track, 'data-sel': o.sel ? '1' : ''}, ...kids);
+export const plainRow = (o, ...kids) => h('div', {class: cls(o) + (o.empty ? ' empty' : ''), 'data-t': o.track, 'data-r': o.row, 'data-sel': o.sel ? '1' : '', 'data-idle': o.idle ? '1' : ''}, ...(o.lead !== undefined ? [lead(o.lead)] : []), ...kids);
+const cls = o => 'prow' + (o.wide ? ' wide' : '') + (o.lead !== undefined ? ' lead' : '');
+// a track's name before its first row (a colour bar of its own), nothing before the rest, so every row's steps line up
+const lead = x => typeof x === 'string' || x == null ? h('span', {class: 'plead'}, x || '') : x;
 // the playhead on a row: the step heard lit (-1: none)
 export function lightRow(row, s){ row.querySelectorAll('.pcells [data-s]').forEach(x => { const on = +x.dataset.s === s ? '1' : ''; if (x.dataset.now !== on) x.dataset.now = on; }); }
 
@@ -36,6 +41,9 @@ export const ROW_CSS = `.prow{display:grid; grid-template-columns:104px 22px 22p
 .prow .pv{min-height:24px; min-width:22px; padding:0; font-size:13px} .prow .pm,.prow .px{min-height:24px; min-width:24px; padding:0; font-size:11px} .prow .pm[aria-pressed="true"]{background:#3b82c4; border-color:#3b82c4; color:#fff}
 .pcells{display:grid; gap:2px; cursor:pointer} .pcells i{height:22px; border-radius:3px; background:#15171b} .pcells i[data-beat="1"]{background:#20242b} .pcells i:hover{outline:1px solid #5a606b}
 .pcells i[data-on="1"]{background:var(--acc); opacity:.7} .pcells i[data-on="2"]{background:var(--acc)} .pcells i[data-now="1"]{box-shadow:inset 0 0 0 2px #fff} .pcells i[data-now="1"][data-on]:not([data-on=""]){background:#fff; opacity:1}
-.plen{text-align:right; font-family:var(--mono)} .prow.empty .pname{color:var(--mute)}
+.plen{text-align:right; font-family:var(--mono)} .prow.empty .pname{color:var(--mute)} .prow[data-idle="1"] .pcells{opacity:.45}
+.prow.lead{grid-template-columns:92px 104px 22px 22px 1fr 26px 26px 24px} .prow.wide.lead{grid-template-columns:92px 104px 22px 22px 1fr 26px 50px 92px 96px 26px 24px}
+.plead{font-size:11px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.4px; padding-left:6px; border-left:3px solid var(--c, transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:stretch; display:flex; align-items:center}
+@media (max-width:700px){ .prow.lead, .prow.wide.lead{grid-template-columns:52px 76px 20px 20px 1fr 22px 22px; gap:4px} .prow.lead .pq, .prow.lead .plen{display:none} .prow.lead .pname{padding:0 5px} .prow .pcells{grid-template-columns:repeat(16, 1fr) !important; gap:1px} .prow .pcells i{height:12px} }
 .prow.wide{grid-template-columns:104px 22px 22px 1fr 26px 50px 92px 96px 26px 24px} .prow .pq{min-height:24px; padding:0 6px; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .prow .pq[data-on="1"]{color:var(--acc); border-color:#5a4a2a}`;
 export function rowStyles(doc = document){ if (doc.getElementById('seq-row-css')) return; doc.head.append(Object.assign(doc.createElement('style'), {id: 'seq-row-css', textContent: ROW_CSS})); }

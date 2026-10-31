@@ -191,21 +191,22 @@ const line = await Q(t => { const {ST, SS} = window.__daw, S = ST.P.session, c =
   SS.RT.play = {}; SS.RT.notes.clear(); const q = c.parts[1], want = []; for (let k = 0; k < 64; k++) if (q.R.hits.some(x => x[0] === k % q.R.len)) want.push(k);
   return {n: c.parts.length, name: q.name, rows: document.querySelectorAll('#clipPane .prow').length, heard: want.filter(k => at.has(k)).length, want: want.length}; }, bt);
 check('＋ Part on the bass adds a second line ("Bass 2") with its own rhythm, its hits heard with the first line\'s', line.n === 2 && line.rows === 2 && line.name === 'Bass 2' && line.want > 0 && line.heard === line.want, JSON.stringify(line));
-// the whole scene: every track's parts in the chosen scene one under the other; ↓ walks down them from one track into the
-// next, → steps the chosen part through the library's rhythms (its own track's clip changed)
-await Q(() => window.__daw.SS.select(0, 3)); await wait(200); await page.click('#clipPane .cview button >> nth=1'); await wait(200);
+// the Scene view stacks every track's parts in the chosen scene, the track's name beside its first row (one line for a
+// track with nothing there); ↓ walks down them from one track into the next, → steps the chosen part through the library
+await Q(() => window.__daw.SS.select(0, 3)); await wait(200); await page.click('#vStk'); await wait(300); await page.click('#sessWrap .schip >> nth=3 >> .sname2'); await wait(200);
 const w0 = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, want = P.tracks.reduce((n, T) => { const c = P.session.cells[T.id][3]; return n + (c?.parts?.length || 1); }, 0);
-  return {rows: document.querySelectorAll('#clipPane .whole .prow').length, want, tracks: document.querySelectorAll('#clipPane .whole .ptrack').length, n: P.tracks.length, parts: P.session.cells[P.tracks[0].id][3].parts.length}; });
-await page.click('#clipPane .whole .cmh b'); for (let i = 0; i < w0.parts; i++) await page.keyboard.press('ArrowDown'); await wait(200);
+  return {rows: document.querySelectorAll('#sessWrap .whole .prow').length, want, names: [...document.querySelectorAll('#sessWrap .whole .plead')].filter(x => x.textContent).length, headers: document.querySelectorAll('#sessWrap .whole .ptrack').length, n: P.tracks.length, parts: P.session.cells[P.tracks[0].id][3].parts.length}; });
+await page.click('#sessWrap .whole .cmh b'); for (let i = 0; i < w0.parts; i++) await page.keyboard.press('ArrowDown'); await wait(200);
 const w1 = await Q(() => ({t: window.__daw.SS.RT.sel.t, part: window.__daw.SS.RT.part}));
 const lb0 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][3]?.parts?.[0]?.lib, w1.t);
 await page.keyboard.press('ArrowRight'); await wait(200); const lb1 = await Q(t => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][3]?.parts?.[0]?.lib, w1.t);
-await page.click('#clipPane .cview button >> nth=0'); await wait(100);
-check('Whole scene stacks every track\'s parts (a row a part, ＋ where a track has no clip); ↓ walks into the next track, → steps its part through the library', w0.rows === w0.want && w0.tracks === w0.n && w1.t === 1 && w1.part === 0 && lb1 && lb1 !== lb0, JSON.stringify({w0, w1, lb0, lb1}));
+const cv = await Q(() => !!document.querySelector('#clipPane .cview'));
+await page.click('#vSess'); await wait(300);
+check('the Scene view stacks every track\'s parts (a row a part, each track\'s name beside its first, no header lines); ↓ walks into the next track, → steps its part through the library; the Session\'s Clip tab has no Whole scene switch', w0.rows === w0.want && w0.names === w0.n && w0.headers === 0 && w1.t === 1 && w1.part === 0 && lb1 && lb1 !== lb0 && !cv, JSON.stringify({w0, w1, lb0, lb1, cv}));
 // the Scene view: the scenes along the top, every part of the chosen one in the grid's place with Vary, Life and Feel on
 // its row; a chip chooses a scene, ▶ launches it; back to the Session's grid
 await page.click('#vStk'); await wait(300); await page.click('#sessWrap .schip >> nth=2 >> .sname2'); await wait(200);
-const sv = await Q(() => ({r: window.__daw.SS.RT.sel.r, chips: document.querySelectorAll('#sessWrap .schip').length, rows: document.querySelectorAll('#sessWrap .prow.wide').length, grid: !!document.querySelector('#sessWrap .sgrid'), clipRows: document.querySelectorAll('#clipPane .prow').length}));
+const sv = await Q(() => ({r: window.__daw.SS.RT.scn, chips: document.querySelectorAll('#sessWrap .schip').length, rows: document.querySelectorAll('#sessWrap .prow.wide').length, grid: !!document.querySelector('#sessWrap .sgrid'), clipRows: document.querySelectorAll('#clipPane .prow').length}));
 const ht = async t => Q(t => JSON.stringify(window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[t].id][2]?.parts?.[0]?.R.hits), 0);
 const v0 = await ht(); await page.click('#sessWrap .prow[data-t="0"][data-j="0"] .pq >> nth=0'); await wait(200); const v1 = await ht();
 const lf = async () => Q(() => window.__daw.ST.P.session.cells[window.__daw.ST.P.tracks[0].id][2].parts[0].play || 0);
@@ -213,6 +214,26 @@ const lf0 = await lf(); await page.click('#sessWrap .prow[data-t="0"][data-j="0"
 await page.click('#sessWrap .schip >> nth=2 >> .sgo'); await wait(2500); const on = await Q(() => ({scene: window.__daw.SS.RT.scene, lit: document.querySelector('#sessWrap .schip[data-on="1"] .sname2')?.textContent})); await page.keyboard.press(' '); await wait(300);
 await page.click('#vSess'); await wait(300); const back = await Q(() => !!document.querySelector('#sessWrap .sgrid'));
 check('the Scene view: the scenes along the top, every part of the chosen one with Vary (its rhythm changed), Life (cycled) and Feel on its row, ▶ launching the scene, and back to the grid', sv.r === 2 && sv.chips > 3 && sv.rows > 2 && !sv.grid && sv.clipRows === 0 && v1 !== v0 && lf1 === (lf0 + 1) % 4 && on.scene === 2 && on.lit && back, JSON.stringify({sv, vary: v1 !== v0, lf0, lf1, on, back}));
+// one selection: a clip clicked in the Session's grid from another scene shows on its track in the Scene view, beside the
+// selected scene's clips on the rest; a scene picked in either view is picked in the other
+const mx = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, has = r => !!P.session.cells[P.tracks[0].id][r];
+  const r0 = [1, 3, 4, 0].find(has); SS.RT.scn = 2; SS.RT.show = {}; SS.select(0, r0); return r0; });
+await page.click('#vStk'); await wait(300);
+const m1 = await Q(() => ({t0: +document.querySelector('#sessWrap .whole .prow[data-t="0"]')?.dataset.r, t1: +document.querySelector('#sessWrap .whole .prow[data-t="1"]')?.dataset.r, title: document.querySelector('#sessWrap .whole .cmh b')?.textContent}));
+await page.click('#sessWrap .schip >> nth=4 >> .sname2'); await wait(200); await page.click('#vSess'); await wait(300);
+const m2 = await Q(() => ({sel: [...document.querySelectorAll('#sessWrap .scene')].findIndex(x => x.dataset.sel === '1'), shown: [...document.querySelectorAll('#sessWrap .slot[data-shown="1"]')].map(x => +x.dataset.r)}));
+await page.click('#sessWrap .scene >> nth=1 >> .sname b'); await wait(200); await page.click('#vStk'); await wait(300);
+const m3 = await Q(() => ({chip: [...document.querySelectorAll('#sessWrap .schip')].findIndex(x => x.dataset.sel === '1'), rows: [...new Set([...document.querySelectorAll('#sessWrap .whole .prow')].map(x => x.dataset.r))]}));
+check('one selection: a clip from another scene shows on its track beside the selected scene\'s (two scenes named), and a scene picked in the Scene view is the Session\'s, and back', m1.t0 === mx && m1.t1 === 2 && /2 scenes/.test(m1.title) && m2.sel === 4 && m2.shown.every(r => r === 4) && m3.chip === 1 && m3.rows.length === 1 && m3.rows[0] === '1', JSON.stringify({mx, m1, m2, m3}));
+// while it plays the Scene view shows what's heard: a scene launched, then one track's clip from another scene launched on
+// its own; picking another scene's chip only marks it (the rows stay what's playing)
+await page.click('#sessWrap .schip >> nth=2 >> .sgo'); await wait(2600);
+const pk = await Q(() => { const {ST, SS} = window.__daw, P = ST.P, T0 = P.tracks[0], r = [4, 3, 1, 0].find(r => r !== 2 && P.session.cells[T0.id][r]); SS.launch(T0.id, r); return r; }); await wait(2600);
+const p1 = await Q(() => ({t0: +document.querySelector('#sessWrap .whole .prow[data-t="0"]')?.dataset.r, rest: [...document.querySelectorAll('#sessWrap .whole .prow:not([data-t="0"])')].filter(x => !x.classList.contains('empty')).map(x => +x.dataset.r), title: document.querySelector('#sessWrap .whole .cmh b')?.textContent}));
+await page.click('#sessWrap .schip >> nth=1 >> .sname2'); await wait(200);
+const p2 = await Q(() => ({t0: +document.querySelector('#sessWrap .whole .prow[data-t="0"]')?.dataset.r, chip: [...document.querySelectorAll('#sessWrap .schip')].findIndex(x => x.dataset.sel === '1')}));
+await page.keyboard.press(' '); await wait(400); await page.click('#vSess'); await wait(200);
+check('playing, the Scene view shows what\'s heard: the scene launched, and one track\'s clip launched from another scene on its own row; picking a chip only marks it', p1.t0 === pk && p1.rest.length > 0 && p1.rest.every(r => r === 2) && /Playing now/.test(p1.title) && p2.t0 === pk && p2.chip === 1, JSON.stringify({pk, p1, p2}));
 check('no page errors', !errs.length, errs.join('; '));
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);
