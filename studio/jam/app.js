@@ -12,7 +12,7 @@ import { RET, glide, duckAt } from './mixeng.js';
 import { track, notesOf, hitsOf, grid, barsFor, noteName } from './sing.js';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
 import { libItems as sharedLib, stepIn } from '../lib/library.js';
-import { makeInstruments } from '../lib/play/inst.js';
+import { makeInstruments, AHEAD } from '../lib/play/inst.js';
 import { makeMaster, setMaster, makeStrip, DUCKS, GLUE, WIDTHS } from '../lib/play/master.js';
 import { PART_NAMES, colName, fmtDb, fmtPan } from '../lib/names.js';
 
@@ -87,7 +87,7 @@ function busy(){ const n = pending.size; $('busy').textContent = !ctx ? 'Press P
 
 /* ---------- the clock: steps scheduled ahead; parts, the ground and moves change on the next bar ---------- */
 const sd = () => 60/st.bpm/4;
-function tick(){ while (nextT < ctx.currentTime + .12) { playStep(st.step, nextT); st.step++; nextT += sd(); } }
+function tick(){ while (nextT < ctx.currentTime + AHEAD) { playStep(st.step, nextT); st.step++; nextT += sd(); } }
 // one 16th: each part's notes, grooved by its rhythm's feel (loudness, swing, ahead or behind), played with Life; a chords
 // part with an arp plays its chord's voices one a 16th for as long as the chord is held
 function playStep(step, t0){

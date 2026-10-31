@@ -32,7 +32,8 @@ const cls = o => 'prow' + (o.wide ? ' wide' : '') + (o.lead !== undefined ? ' le
 // a track's name before its first row (a colour bar of its own), nothing before the rest, so every row's steps line up
 const lead = x => typeof x === 'string' || x == null ? h('span', {class: 'plead'}, x || '') : x;
 // the playhead on a row: the step heard lit (-1: none)
-export function lightRow(row, s){ row.querySelectorAll('.pcells [data-s]').forEach(x => { const on = +x.dataset.s === s ? '1' : ''; if (x.dataset.now !== on) x.dataset.now = on; }); }
+export function lightRow(row, s){ if (row._s === s) return; const c = row._c ||= row.querySelectorAll('.pcells [data-s]');   // (each frame: only the cell left and the cell lit change)
+  if (row._s >= 0 && c[row._s]) c[row._s].dataset.now = ''; if (s >= 0 && c[s]) c[s].dataset.now = '1'; row._s = s; }
 
 // the row's styles, added to the page once (its colours from the page's --acc and --mono)
 export const ROW_CSS = `.prow{display:grid; grid-template-columns:104px 22px 22px 1fr 26px 26px 24px; gap:6px; align-items:center; border-radius:6px; padding:2px 4px}

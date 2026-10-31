@@ -473,7 +473,7 @@ $('notesB').onclick = () => { const v = $('notes').hidden; $('notes').hidden = !
 let SI = null; const SB = makeSounds({ST, E, SND, h, $, isDrum, checkpoint, changed, flash, editable, addNote, trackRange, PHONE, nn, db: () => db, draw: () => draw(), renderEd: () => renderEd(), renderTracks: () => renderTracks(), openClip: () => cur()});
 SS = makeSession({ST, E, SND, h, $, flash, save, colorOf, popup, playSession, stopTransport: () => stop(), mixChanged: () => changed(true), changed: () => changed(), checkpoint, arrClip: () => arrClip(), findArrClip,
   setView: v => (studio()?.show ? studio().show(v) : setView(v)), arrChanged: () => { if (ST.view === 'arrange') draw(); }, recOn: on => $('recArr').setAttribute('aria-pressed', String(on)),
-  renderBack: on => { $('backArr').hidden = !on; }, clipChosen: () => { if (clipOn()) showClip(true); }, selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
+  renderBack: on => { $('backArr').hidden = !on; }, clipChosen: () => { if (clipOn()) { showClip(true); return true; } }, selTrack: i => { ST.sel = {clips: new Set(), range: null, mark: null, track: i, trackOnly: true}; renderTracks(); target(); if (SI?.isOn()) SI.render(); }});
 SI = makeSynthUI({ST, E, SB, h, $, isDrum, fx: (mods, T, pad, redo) => MX?.fxInto(mods, T, pad, redo), flash, editable, nn, trackRange, draw: () => draw(), renderEd: () => renderEd(), drawEdHead: () => drawEdHead()});
 // one drum picked at a time, the same in the notes, the instrument and the mixer (and the sound panel's voices): the
 // sound panel holds it (SB.voice), and whichever tab picks one, the others follow

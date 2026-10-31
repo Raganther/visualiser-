@@ -13,7 +13,7 @@ import { DEF as NPDEF } from '../lib/native/npoly.js';
 import { makePoly, PRESETS } from '../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../src/audio/engine/inst/drums.js';
 import { synthRender } from '../lib/native/asynth.js';
-import { makeInstruments, liveEngine, keyOf, q, polyOf } from '../lib/play/inst.js';
+import { makeInstruments, liveEngine, keyOf, q, polyOf, AHEAD } from '../lib/play/inst.js';
 import { makeMaster, setMaster, makeStrip, DUCKS as DUCKP } from '../lib/play/master.js';
 import { deskOf, faderOf, gainOf, sectionStrip, padFader, rackChain } from './desk.js';
 import { isRack, inputsOf, inputCount, padRole } from './rack.js';
@@ -195,7 +195,7 @@ export function makeEngine({SND, workerSrc, workletSrc, onBusy = () => {}, onTic
     if (SE) for (const [i, list] of SE.at(k)) { const c = E.ch[i]; if (c && own(i)) for (const n of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + n.off*sd())); }
     E.by.forEach((m, i) => { const list = m.get(k), c = E.ch[i]; if (!list || !c || own(i)) return; for (const {off, n} of list) play(c, n.p, n.l, n.v, Math.max(E.ctx.currentTime, t + off*sd())); });
     E.when.push([t, k]); if (E.when.length > 64) E.when.splice(0, 32); }
-  function tick(){ const ctx = E.ctx; while (E.nextT < ctx.currentTime + .15) { slotAt(E.slot, E.nextT); E.slot++; E.nextT += sd();
+  function tick(){ const ctx = E.ctx; while (E.nextT < ctx.currentTime + AHEAD) { slotAt(E.slot, E.nextT); E.slot++; E.nextT += sd();
       if (E.session?.endless()) continue;   // (the Session alone plays on until it's stopped)
       if (E.cycle && E.slot >= E.loop[1]*16) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; }
       else if (E.slot >= E.end) { if (E.cycle) { E.slot = Math.round(E.loop[0]*16); E.from = E.slot; } else { E.stopAt = E.nextT + 2; break; } } }

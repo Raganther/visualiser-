@@ -13,6 +13,9 @@ import { makePoly, PRESETS } from '../../../src/audio/engine/inst/poly.js';
 import { makeDrums } from '../../../src/audio/engine/inst/drums.js';
 
 export const q = (v, s) => Math.round(v/s)*s;
+// how far ahead notes are scheduled on the audio clock (the jam's and the DAW's transport): a page busy for longer than
+// this (a redraw, a save, a note drawn) drops notes, so it's well over a frame's hitch; 0.15 s gapped on a laptop at edits
+export const AHEAD = .35;
 // a palette sound on the poly synth: its preset, your changes over it (base), and every setting the native one plays (full)
 export const polyOf = src => { const [preset, set] = PAL[src.palette]; return {preset, base: {...set, ...src.poly}, full: {...NPDEF, ...PRESETS[preset], chord: 0, ...set, ...src.poly}}; };
 // a computed note's key in the cache: the instrument, pitch, velocity and settings (rounded, so near ones share)

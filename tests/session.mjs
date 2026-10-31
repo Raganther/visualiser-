@@ -43,7 +43,7 @@ check('a scene launched plays its clips and is heard', heard.peak > .02 && heard
 const other = await Q(() => { const {ST, SS} = window.__daw, S = ST.P.session; for (let r = 0; r < S.scenes.length; r++) if (r !== 3 && S.cells.rack?.[r]) return r; return -1; });
 await page.click(`#sessWrap .slot[data-t="0"][data-r="${other}"]`); const q0 = await Q(() => ({next: window.__daw.SS.RT.next.rack, step: window.__daw.E.slot}));
 await wait(2600); const q1 = await Q(() => window.__daw.SS.RT.play.rack);
-check('a clip launched while playing waits for the next bar line, then plays from it', q0.next === other && q1?.r === other && q1.start % 16 === 0 && q1.start > q0.step - 16, JSON.stringify({q0, q1}));
+check('a clip launched while playing waits for the next bar line, then plays from it', (q0.next === other || q1?.start === q0.step - 1) && q1?.r === other && q1.start % 16 === 0 && q1.start >= q0.step - 1, JSON.stringify({q0, q1}));
 // the grid shows it once it's heard: the clip lit as playing, nothing left flashing; and a scene queued further up (an
 // earlier one) takes over on its bar line, the grid with it
 const dom = () => Q(() => ({on: [...document.querySelectorAll('#sessWrap .slot[data-on="1"]')].map(b => b.dataset.t + ':' + b.dataset.r), next: document.querySelectorAll('#sessWrap [data-next="1"], #sessWrap [data-next="stop"]').length,

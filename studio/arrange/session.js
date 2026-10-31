@@ -206,10 +206,11 @@ export function makeSession(A){ const {ST, E, SND, h, $} = A; rowStyles();
         else { const pl2 = TT2 && RT.play[TT2.id]; if (c && pl2 && pl2.r === rr) rel = Math.floor(pos) - pl2.start + (c.off || 0); }
         const q = isLive(c) ? c.parts[+row.dataset.j || 0] : null, L = q ? q.R.len : Math.min(64, c?.len || 16), s = rel == null || !c ? -1 : ((rel % L) + L) % L;
         lightRow(row, s); });
-    else document.querySelectorAll('.pcells i[data-now="1"]').forEach(c => { c.dataset.now = ''; });
+    else if (RT.lit) document.querySelectorAll('.prow').forEach(row => lightRow(row, -1));
+    RT.lit = pos != null && E.playing;
     box.querySelectorAll('.st').forEach((b, i) => { const on = +b.dataset.s === step ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; });
     box.querySelectorAll('.nchip').forEach((b, i) => { const on = i === note ? '1' : ''; if (b.dataset.now !== on) b.dataset.now = on; }); }
-  function select(t, r){ RT.sel = {t, r}; RT.part = 0; if (T(t)) RT.show[T(t).id] = r; A.selTrack(t); render(); renderClip(); A.clipChosen?.(); }
+  function select(t, r){ RT.sel = {t, r}; RT.part = 0; if (T(t)) RT.show[T(t).id] = r; A.selTrack(t); render(); if (!A.clipChosen?.()) renderClip(); }
   function groundMenu(at, r){ const Sx = S(), seen = new Map(); for (const sc of Sx.scenes) seen.set(sc.ground.id + JSON.stringify(sc.ground.bars), sc.ground);
     const items = [...seen.values(), ...PROGS].map(H => ({label: `${H.name}`, note: groundWords(H), run: () => { if (!canEdit()) return; Sx.scenes[r].ground = clone({id: H.id, name: H.name, bars: H.bars});
       if (RT.scene === r && E.playing) { RT.H = Sx.scenes[r].ground; } A.save(); render(); A.flash(`${Sx.scenes[r].name}: ${H.name}`); }}));
