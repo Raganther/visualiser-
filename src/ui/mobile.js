@@ -24,7 +24,7 @@ import { genKey } from './keys.js';
 const DESK = matchMedia('(pointer: fine)').matches && innerWidth >= 900;   // (a computer: room for the heavier worlds)
 // a song for the groovebox: an intro, the groove, a lift, a breakdown and the drop, 64 bars round and round
 const SONG = [...Array(8).fill(0), ...Array(16).fill(1), ...Array(8).fill(3), ...Array(8).fill(2), ...Array(16).fill(1), ...Array(8).fill(3)];
-const FULL = 'https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ';
+const FULL = 'https://claude.ai/artifact/YCnFduvQuf4cNJRuyKp7e5';
 
 const CSS = `
 body.genlab #bar,body.genlab #welcome,body.genlab #caption,body.genlab #keyHud,body.genlab #panel,body.genlab #fps{display:none!important}

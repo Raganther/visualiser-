@@ -3,11 +3,11 @@
 What the published pages keep in their databases, copied here so it can be restored into a new artifact (on another
 account, say), since each artifact's database is its own and a new one starts empty.
 
-- `studio/<collection>/<doc id>.json`: the Studio (https://claude.ai/artifact/Sh5taBdvs5HZZej4d4qKV2): feedback,
+- `studio/<collection>/<doc id>.json`: the Studio (https://claude.ai/artifact/YRAMd4GbUFkGJTipvARJhg): feedback,
   snaps, likes, songs (your versions of Claude's songs), ideas (the rounds), versions (your DAW versions, saved with
   `putBig`: a document whose id ends `~1`, `~2` … is a part of a big one), sounds (your own sounds), and later projects,
   takes and notes.
-- `afterglow/<collection>/<doc id>.json`: the visualiser (https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ): moments
+- `afterglow/<collection>/<doc id>.json`: the visualiser (https://claude.ai/artifact/YCnFduvQuf4cNJRuyKp7e5): moments
   (your 👍 / 👎) and comments.
 
 A `:` in a document's id is written `%3A` in its file name (Windows can't have `:` in a name); restoring turns it back.

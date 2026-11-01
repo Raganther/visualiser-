@@ -12,10 +12,10 @@ repo holds a copy (see `data/README.md`). Settings kept only in a browser's `loc
 
 1. For each collection, `ArtifactData` `list` with `query.limit` 1000 (page with `cursor` if `next_cursor` comes back) and
    `out_dir` the folder below, so each document lands at `<out_dir>/<collection>/<doc id>.json`:
-   - the Studio, https://claude.ai/artifact/Sh5taBdvs5HZZej4d4qKV2 → `out_dir` `data/studio`: `feedback`, `snaps`,
+   - the Studio, https://claude.ai/artifact/YRAMd4GbUFkGJTipvARJhg → `out_dir` `data/studio`: `feedback`, `snaps`,
      `likes`, `songs`, `ideas`, `versions`, `sounds`, `projects`, `takes`, `notes`, `jams`, `arrangements`, `library`,
      and `settings` once the page keeps one;
-   - the visualiser, https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ → `out_dir` `data/afterglow`: `moments`, `comments`, `settings` (its browser settings).
+   - the visualiser, https://claude.ai/artifact/YCnFduvQuf4cNJRuyKp7e5 → `out_dir` `data/afterglow`: `moments`, `comments`, `settings` (its browser settings).
    Clear each collection's folder first, so documents deleted in the artifact don't linger.
 2. Rename every file with `:` in its name to `%3A` (`for f in $(find data -name '*:*'); do mv "$f" "${f//:/%3A}"; done`).
 3. Rewrite `data/MANIFEST.json` (the time, the two URLs, a count per collection).

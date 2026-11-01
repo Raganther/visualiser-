@@ -5,7 +5,7 @@ description: Build Afterglow into one self-contained page, test the bundle, and 
 
 # Publish the Artifact
 
-The published copy is https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ. It's built from the working tree, not from `main`.
+The published copy is https://claude.ai/artifact/YCnFduvQuf4cNJRuyKp7e5. It's built from the working tree, not from `main`.
 
 1. **Tests first.** Run `npm test` if it hasn't passed since the last code change. It takes about 10 minutes; run it in the background.
 2. **Build and test the bundle.** Run `npm run test:dist`. It builds `dist/afterglow.html` with esbuild (`npm install` first if `node_modules` is missing), then runs the whole suite against the bundle. Every file must pass. A failure here that `npm test` didn't show usually means a test imports `/src/...` modules, which the bundle doesn't serve. Make that test read the DOM instead.
