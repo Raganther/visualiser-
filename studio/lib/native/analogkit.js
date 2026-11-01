@@ -11,10 +11,14 @@ import { VOICES, PARAMS } from '../../../src/audio/engine/inst/drums.js';
 import { rng } from '../rng.js';
 import { adaa, svf, clip, toneHz, dB } from '../parts/dsp.js';
 import { Chain } from '../parts/procs.js';
+import { peak, biq } from './asynth.js';
 
 // every voice's settings: the browser kit's seven (tune, decay, tone, drive, level, pan, character) and three of its own
 export const APARAMS = [...PARAMS, {key: 'snap', label: 'Snap', min: 0, max: 1, def: .5, unit: '%'}, {key: 'body', label: 'Body', min: 0, max: 1, def: .5, unit: '%'},
-  {key: 'vary', label: 'Variation', min: 0, max: 1, def: .3, unit: '%'}];
+  {key: 'vary', label: 'Variation', min: 0, max: 1, def: .3, unit: '%'},
+  // the voice's own tone stage: a broad cut (or lift) round 2.5 kHz, where a drum turns tinny or harsh; and for the hats,
+  // how much of them is the warm cymbal (below) rather than the 808's metal
+  {key: 'mids', label: 'Mids', min: -12, max: 6, def: 0, unit: 'dB'}, {key: 'warm', label: 'Warm cymbal (hats)', min: 0, max: 1, def: 0, unit: '%'}];
 const D = Object.fromEntries(APARAMS.map(p => [p.key, p.def]));
 // the kits: each voice's settings over the defaults, the bus (drive: tape saturation, tone, glue: the compressor, weight:
 // dB of low end, width, buzz: the snare wires answering the kick), and the browser kit standing in where nothing native plays
@@ -114,10 +118,20 @@ const VOICE = {
 function metal(mul, sr){ const ph = METAL.map((_, i) => i*.137 % 1), dt = METAL.map(f => f*mul/sr); return () => { let y = 0; for (let i = 0; i < 6; i++) { y += square(ph[i], dt[i]); ph[i] += dt[i]; ph[i] -= Math.floor(ph[i]); } return y/6; }; }
 // hats: the metal (or noise, the less metallic) through two resonant bands and a high-pass, brighter and longer the harder
 // they're hit; the open one falls fast then rings on (its two stages, as the 808's)
+// the warm cymbal: fourteen sine partials, inharmonic, from 4.4 kHz up and quieter as they go up (the top rounded off),
+// each beating slowly against a twin a few hertz away (the shimmer), over soft noise kept between 5 and 9 kHz: nothing in
+// the 1–4 kHz band where the metal turns tinny. One hit's own set, its phases at random
+const WARM = [4410, 4870, 5230, 5790, 6170, 6640, 7120, 7590, 8130, 8660, 9240, 9870, 10500, 11300];
+function warmHat(m, v, R, sr){ const P = WARM.map((f, i) => { const a = Math.pow(.84, i), ff = f*m*(1 + (R() - .5)*.01), beat = 1.5 + R()*4;
+    return [TAU*ff/sr, TAU*(ff + beat)/sr, R()*TAU, R()*TAU, a]; }), lo = svf(9000, .5, sr), hi = svf(5000, .5, sr), hi2 = svf(4500, .6, sr), n = P.length;
+  let ph = 0, z = 0; return (t, nz) => { let y = 0; ph++; for (let i = 0; i < n; i++) { const q = P[i]; y += (Math.sin(q[0]*ph + q[2]) + Math.sin(q[1]*ph + q[3]))*q[4]; }
+    z = hi2(hi(lo(nz).lp).hp).hp; return y*.075 + z*.6; }; }
 function hat(p, v, R, sr, w, base, open){ const m = st(p.tune)*w.f, d = base*p.decay*w.d*(.8 + .4*v), up = .85 + .3*v + .2*(p.tone - .5), mt = metal(m*1.6, sr), mx = .25 + p.x*.9, nx = (1 - p.x)*.7 + .08;
   const b1 = svf(7400*up, 1.6, sr), b2 = svf(10200*up, 1.2, sr), h = svf(6800*up, .7, sr), b1R = svf(7550*up, 1.6, sr), b2R = svf(10400*up, 1.2, sr), hR = svf(6900*up, .7, sr);
-  return {end: d*1.1 + .02, open, f: t => { const e = (t < .0004 ? t/.0004 : 1)*(open ? .55*Math.exp(-T*t/(d*.22)) + .45*Math.exp(-T*t/d) : Math.exp(-T*t/d))*v, mm = mt()*mx, n1 = R()*2 - 1, n2 = R()*2 - 1;
-    const xl = mm + n1*nx, xr = mm + n2*nx, l = h(b1(xl).bp*.8 + b2(xl).bp).hp, r = hR(b1R(xr).bp*.8 + b2R(xr).bp).hp; return [l*e*1.5, r*e*1.5]; }}; }
+  const wm = p.warm || 0, wL = wm > 0 ? warmHat(m, v, R, sr) : null, wR = wm > 0 ? warmHat(m*1.003, v, R, sr) : null, md = 1 - wm;
+  return {end: d*1.1 + .02, open, f: t => { const e = (t < .0004 ? t/.0004 : 1)*(open ? .55*Math.exp(-T*t/(d*.22)) + .45*Math.exp(-T*t/d) : Math.exp(-T*t/d))*v, n1 = R()*2 - 1, n2 = R()*2 - 1;
+    let l = 0, r = 0; if (md > 0) { const mm = mt()*mx, xl = mm + n1*nx, xr = mm + n2*nx; l = h(b1(xl).bp*.8 + b2(xl).bp).hp*md; r = hR(b1R(xr).bp*.8 + b2R(xr).bp).hp*md; }
+    if (wL) { l += wL(t, n1)*wm; r += wR(t, n2)*wm; } return [l*e*1.5, r*e*1.5]; }}; }
 function tom(p, v, R, sr, w, base){ const f = base*st(p.tune)*w.f, d = .55*p.decay*w.d*(1 + .4*p.body), sag = (.35 + .4*p.snap)*v, th = svf(420*st(p.tune), 1, sr), ring = .6 + .4*p.x; let a = 0, b = 0;
   return {end: d*1.1 + .03, f: t => { const e = (t < .001 ? t/.001 : 1)*Math.exp(-T*t/d), ff = f*(1 + sag*e*e + .3*Math.exp(-t/.01)); a += TAU*ff/sr; b += TAU*ff*1.52/sr;
     const y = (Math.sin(a) + .14*Math.sin(b)*Math.exp(-T*t/(d*.4)))*e*ring + th(R()*2 - 1).bp*Math.exp(-t/.02)*(.9 - .7*p.x)*.8; return y*v*.85; }}; }
@@ -131,7 +145,8 @@ export class AnalogKit {
   constructor(sr, seed = 11){ this.sr = sr; this.R = rng(seed); this.P = {}; this.hits = []; this.B = {}; this.ch = Object.fromEntries(VOICES.map(v => [v.key, {key: v.key}])); this.load('Analog 808'); }
   apply(key){ const p = this.P[key], c = this.ch[key], sr = this.sr; c.lp = [svf(toneHz(p.tone), .6, sr), svf(toneHz(p.tone), .6, sr)]; c.open = p.tone >= .995;
     c.K = 1 + p.drive*4; c.sat = p.drive > .01 ? [adaa(), adaa()] : null; c.kn = clip(c.K); c.lv = p.level*(1 - p.drive*.3);
-    const x = (p.pan + 1)/2*Math.PI/2; c.gl = Math.cos(x)*Math.SQRT2; c.gr = Math.sin(x)*Math.SQRT2; }
+    const x = (p.pan + 1)/2*Math.PI/2; c.gl = Math.cos(x)*Math.SQRT2; c.gr = Math.sin(x)*Math.SQRT2;
+    c.mq = p.mids ? peak(sr, 2500, .9, p.mids) : null; c.mz ||= [[0, 0, 0, 0], [0, 0, 0, 0]]; }
   // the bus, a chain of processors (../parts/procs.js): weight (a low shelf at 70 Hz), tape, tone, glue, width, the
   // ceiling; a kit's bus settings say how much of each. The glue's threshold is where it was before the tape's makeup.
   busSet(b){ this.B = {...b}; this.bus = new Chain(this.sr, busChain(b)); }
@@ -175,6 +190,7 @@ export class AnalogKit {
       const oL = c.out[0], oR = c.out[1];
       for (let j = 0; j < n; j++) { let l = c.in[0][j], r = c.in[1][j]; if (!c.open) { l = c.lp[0](l).lp; r = c.lp[1](r).lp; }
         if (c.sat) { l = c.sat[0](c.K*l)/c.kn; r = c.sat[1](c.K*r)/c.kn; } oL[j] = l*c.lv*c.gl; oR[j] = r*c.lv*c.gr; }
+      if (c.mq) { biq(c.mq, c.mz[0], oL, 0, n); biq(c.mq, c.mz[1], oR, 0, n); }
       live.push(c); }
     return any; }
 }

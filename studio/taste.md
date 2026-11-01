@@ -201,3 +201,6 @@ before writing or changing a piece; add to it when they react.
   tighter, but quite high". **Hats:** both "tinny": want warmer, shimmering, rounded hats. **Percussion:** Rim and clave
   fine, Hand toms 👍 but mid-heavy, the Shaker wants to be wetter. The thread through it: harshness in the mids (roughly
   1–4 kHz) is what they dislike most, in leads, hats and basses alike.
+- 2026-11-01: The user agreed the sounds should be good before any processing. The instruments gained a tone stage
+  (the synth's Mids and warm↔bright tilt; each drum voice's Mids), FM that stays in tune and falls away (Linear cross
+  mod with its own decay) and a warm cymbal for the hats. Sound lab round 2: thirty sounds grown from round 1's ratings.

@@ -29,7 +29,9 @@ export const PARAMS = [
   ['Oscillator 1', [L('w1', 'Wave', WAVES), {key: 'oct1', label: 'Octave', min: -2, max: 2, def: 0, unit: 'oct'}, {key: 'pw1', label: 'Pulse width', min: .05, max: .95, def: .5, unit: '%'}]],
   ['Oscillator 2', [L('w2', 'Wave', WAVES), {key: 'oct2', label: 'Octave', min: -2, max: 2, def: 0, unit: 'oct'}, {key: 'semi2', label: 'Semitones', min: -12, max: 12, def: 0, unit: 'st'},
     {key: 'fine2', label: 'Detune', min: -50, max: 50, def: 7, unit: 'ct'}, {key: 'pw2', label: 'Pulse width', min: .05, max: .95, def: .5, unit: '%'},
-    L('sync', 'Hard sync', ['Off', 'On']), {key: 'xmod', label: 'Cross mod', min: 0, max: 1, def: 0, unit: '%'}]],
+    L('sync', 'Hard sync', ['Off', 'On']), {key: 'xmod', label: 'Cross mod', min: 0, max: 1, def: 0, unit: '%'},
+    L('xtype', 'Cross mod kind', ['Exponential', 'Linear']), {key: 'xenv', label: 'Cross mod falls', min: 0, max: 1, def: 0, unit: '%'},
+    {key: 'xdec', label: 'Cross mod decay', min: .01, max: 4, def: .3, unit: 's', log: true}]],
   ['Mixer', [{key: 'l1', label: 'Osc 1', min: 0, max: 1, def: .8, unit: '%'}, {key: 'l2', label: 'Osc 2', min: 0, max: 1, def: .6, unit: '%'},
     {key: 'lsub', label: 'Sub', min: 0, max: 1, def: 0, unit: '%'}, L('subo', 'Sub octave', ['−1', '−2']), {key: 'lnoise', label: 'Noise', min: 0, max: 1, def: 0, unit: '%'},
     {key: 'lring', label: 'Ring mod', min: 0, max: 1, def: 0, unit: '%'}, {key: 'drive', label: 'Drive', min: 0, max: 1, def: .2, unit: '%'}]],
@@ -38,6 +40,10 @@ export const PARAMS = [
     {key: 'fvel', label: 'Velocity', min: 0, max: 1, def: .3, unit: '%'}, {key: 'hpf', label: 'High-pass', min: 10, max: 2000, def: 10, unit: 'Hz', log: true}]],
   ['Filter envelope', [{key: 'fa', label: 'Attack', min: .001, max: 8, def: .005, unit: 's', log: true}, {key: 'fd', label: 'Decay', min: .005, max: 10, def: .4, unit: 's', log: true},
     {key: 'fs', label: 'Sustain', min: 0, max: 1, def: .3, unit: '%'}, {key: 'fr', label: 'Release', min: .005, max: 12, def: .4, unit: 's', log: true}]],
+  // the tone: a broad cut (or lift) in the band where a sound turns nasal or piercing, and a tilt from warm to bright,
+  // after the voices and before the effects, so a sound can be easy on the ear before any mixing
+  ['Tone', [{key: 'mids', label: 'Mids', min: -12, max: 6, def: 0, unit: 'dB'}, {key: 'midf', label: 'Mids at', min: 500, max: 6000, def: 2500, unit: 'Hz', log: true},
+    {key: 'tilt', label: 'Warm ↔ bright', min: -1, max: 1, def: 0, unit: '±'}]],
   ['Amp envelope', [{key: 'aa', label: 'Attack', min: .001, max: 8, def: .003, unit: 's', log: true}, {key: 'ad', label: 'Decay', min: .005, max: 10, def: .5, unit: 's', log: true},
     {key: 'as', label: 'Sustain', min: 0, max: 1, def: .8, unit: '%'}, {key: 'ar', label: 'Release', min: .005, max: 12, def: .35, unit: 's', log: true},
     {key: 'avel', label: 'Velocity', min: 0, max: 1, def: .5, unit: '%'}]],
@@ -153,7 +159,7 @@ export class AnalogSynth {
   start(v, id, n, vel, from, trig){ const P = this.P;
     v.id = id; v.note = n; v.held = true; v.vel = vel; v.age = this.clock; v.pitch = from;
     if (Math.round(P.mode) === 0) v.pan = 0, v.det = 0;
-    if (trig) { v.ae.st = 1; v.fe.st = 1; v.born = 0; }   // (an envelope retriggered starts from where it is: no click)
+    if (trig) { v.ae.st = 1; v.fe.st = 1; v.born = 0; v.xe = 1; }   // (an envelope retriggered starts from where it is: no click)
     if (!v.ae.v) { v.o1.t = this.rand(); v.o2.t = this.rand(); v.sub.t = v.o1.t*.5; v.ld.s.fill(0); v.sv.s.fill(0); } }
   release(v){ v.held = false; if (v.ae.st) v.ae.st = 3; if (v.fe.st) v.fe.st = 3; }
   stop(){ this.stack = []; for (const v of this.V) this.release(v); }
@@ -170,7 +176,7 @@ export class AnalogSynth {
     const air = P.air*.35, ag = air > 0 ? Math.tan(Math.PI*Math.min(P.airTone, sr*.45)/sr) : 0, aG = ag/(1 + ag);
     const k = 4.3*P.res*P.res*(3 - 2*P.res), drive = 1 + P.drive*5, dnorm = 1/Math.sqrt(drive), slop = P.slop, glideK = P.glide > 0 ? 1 : 0, glideK4 = P.glide > 0 ? Math.exp(-4/(P.glide*.33*sr)) : 0;
     const bend = this.bendV*P.brange, vib = this.wheelV*.6, hpg = Math.tan(Math.PI*Math.min(P.hpf, sr*.45)/sr), hpG = hpg/(1 + hpg);
-    const o1 = 12*Math.round(P.oct1), o2 = 12*Math.round(P.oct2) + Math.round(P.semi2) + P.fine2/100, two = ft === 1, sv = ft >= 2, uniDet = P.udet*.35, spread = P.spread, lv = P.level*.8;
+    const xlin = Math.round(P.xtype) === 1, xk = Math.exp(-FALL/(Math.max(.01, P.xdec)*sr)), o1 = 12*Math.round(P.oct1), o2 = 12*Math.round(P.oct2) + Math.round(P.semi2) + P.fine2/100, two = ft === 1, sv = ft >= 2, uniDet = P.udet*.35, spread = P.spread, lv = P.level*.8;
     for (const v of this.V) { if (!v.ae.st) continue;
       const ek = 1 + (v.envK - 1)*slop, fc3 = rates(P.fa*ek, P.fd*ek, P.fr*ek, sr), ac3 = rates(P.aa*ek, P.ad*ek, P.ar*ek, sr);
       const vk = 1 - P.avel + P.avel*v.vel, pan = v.pan*spread + (mode === 0 ? (v.i/7 - .5)*spread*.5 : 0), gl = Math.cos((pan + 1)*Math.PI/4), gr = Math.sin((pan + 1)*Math.PI/4);
@@ -192,7 +198,11 @@ export class AnalogSynth {
           // the cutoff: its base, the envelope (as much as 7 octaves), the LFO; tan prewarped for the filter's doubled rate
           const fc = C(Math.pow(2, cutB + fe*P.fenv*7*(1 + .08*(v.vel - .7)) + lfo*P.lcut), 20, sr*.9); v.g = Math.tan(Math.PI*fc/(2*sr)); }
         let dt1 = v.dt1; const dt2 = v.dt2, pw1 = v.pw1, pw2 = v.pw2, g = v.g;
-        if (P.xmod > 0) dt1 = Math.min(.45, dt1*Math.pow(2, P.xmod*3*v.o2.prev));
+        // cross mod: oscillator 2 shaking 1's pitch; Exponential bends it upwards (an analog one's way: brighter, its pitch
+        // sharpening as it deepens), Linear swings it evenly either side so the note stays in tune (FM's clean bells and
+        // woody basses); it can fall away over the note (`xenv`, `xdec`), from a knock into a plain tone
+        if (P.xmod > 0) { const xm = P.xmod*(1 - P.xenv*(1 - (v.xe ?? 1))); v.xe = (v.xe ?? 1)*xk;
+          dt1 = xlin ? C(dt1*(1 + 1.6*xm*v.o2.prev), dt1*.02, .45) : Math.min(.45, dt1*Math.pow(2, xm*3*v.o2.prev)); }
         // oscillator 1 (the master), the sub following it down, then oscillator 2 (reset as 1 wraps when synced)
         const wrap = v.o1.t + dt1 >= 1 ? (v.o1.t + dt1 - 1)/dt1 : -1;
         const s1 = step(v.o1, w1, dt1, pw1), s2 = step(v.o2, w2, dt2, pw2, sync && wrap >= 0 ? wrap : -1), ss = step(v.sub, 1, dt1/subd, .5);
@@ -220,13 +230,33 @@ export class AnalogSynth {
     : shape === 5 ? this.lsm0 + (this.lsm1 - this.lsm0)*(.5 - .5*Math.cos(Math.PI*t)) : 2*(t < SWELL ? Math.sin(Math.PI/2*t/SWELL)**2 : Math.cos(Math.PI/2*(t - SWELL)/(1 - SWELL))**2) - 1; }
 
   /* ---------- the effects: chorus, echo, saturation, the DC kept out, a ceiling (processors: ../parts/procs.js) ---------- */
+  // the tone stage: a peaking cut a little under an octave and a half wide, and a tilt (a low and a high shelf about
+  // 900 Hz, one down as the other goes up, ±6 dB); RBJ's biquads, their coefficients made again only when a setting moves
+  tone(Lo, Ro, a, b){ const P = this.P, key = P.mids + '|' + P.midf + '|' + P.tilt;
+    if (this.tk !== key) { this.tk = key; const sr = this.sr, Q = .9;
+      this.tq = [P.mids ? peak(sr, P.midf, Q, P.mids) : null, P.tilt ? shelf(sr, 900, -6*P.tilt, false) : null, P.tilt ? shelf(sr, 900, 6*P.tilt, true) : null].filter(Boolean);
+      this.ts ||= [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]; }
+    this.tq.forEach((q, i) => { biq(q, this.ts[2*i], Lo, a, b); biq(q, this.ts[2*i + 1], Ro, a, b); }); }
   fx(Lo, Ro, a, b){ const P = this.P, n = b - a, [c, e, s] = this.out.list;
+    if (P.mids || P.tilt) this.tone(Lo, Ro, a, b);
     c.p.mode = Math.round(P.chorus); Object.assign(e.p, {time: Math.round(P.etime), mix: P.emix, fb: P.efb, tone: P.etone}); s.p.amount = P.vdrive;
     // (worked in double precision, then written back once)
     if (!this.xb || this.xb[0].length < n) this.xb = [new Float64Array(Math.max(n, 128)), new Float64Array(Math.max(n, 128))];
     const [xl, xr] = this.xb; for (let j = 0; j < n; j++) { xl[j] = Lo[a + j]; xr[j] = Ro[a + j]; }
     this.out.run(xl, xr, 0, n, {period: this.period}); for (let j = 0; j < n; j++) { Lo[a + j] = xl[j]; Ro[a + j] = xr[j]; } }
 }
+// biquads (Robert Bristow-Johnson's cookbook): a peaking filter, a low or high shelf (slope 1); and one run in place,
+// direct form I, its state [x1, x2, y1, y2]
+function peak(sr, f, Q, g){ const A = Math.pow(10, g/40), w = 2*Math.PI*f/sr, al = Math.sin(w)/(2*Q), c = Math.cos(w), a0 = 1 + al/A;
+  return [(1 + al*A)/a0, -2*c/a0, (1 - al*A)/a0, -2*c/a0, (1 - al/A)/a0]; }
+function shelf(sr, f, g, high){ const A = Math.pow(10, g/40), w = 2*Math.PI*f/sr, c = Math.cos(w), al = Math.sin(w)/2*Math.SQRT2, sA = 2*Math.sqrt(A)*al;
+  const a0 = high ? (A + 1) - (A - 1)*c + sA : (A + 1) + (A - 1)*c + sA;
+  return high ? [A*((A + 1) + (A - 1)*c + sA)/a0, -2*A*((A - 1) + (A + 1)*c)/a0, A*((A + 1) + (A - 1)*c - sA)/a0, 2*((A - 1) - (A + 1)*c)/a0, ((A + 1) - (A - 1)*c - sA)/a0]
+    : [A*((A + 1) - (A - 1)*c + sA)/a0, 2*A*((A - 1) - (A + 1)*c)/a0, A*((A + 1) - (A - 1)*c - sA)/a0, -2*((A - 1) + (A + 1)*c)/a0, ((A + 1) + (A - 1)*c - sA)/a0]; }
+export function biq(q, z, X, a, b){ const [b0, b1, b2, a1, a2] = q; let [x1, x2, y1, y2] = z;
+  for (let j = a; j < b; j++) { const x = X[j], y = b0*x + b1*x1 + b2*x2 - a1*y1 - a2*y2; x2 = x1; x1 = x; y2 = y1; y1 = Math.abs(y) < 1e-20 ? 0 : y; X[j] = y; }
+  z[0] = x1; z[1] = x2; z[2] = y1; z[3] = y2; }
+export { peak, shelf };
 // the synth's output chain: the chorus, the tape echo, saturation, a DC blocker and a ceiling at -3 dB
 export const OUT_CHAIN = [{key: 'chorus', params: {mode: 0}}, {key: 'echo', params: {mix: 0}}, {key: 'saturate', params: {amount: 0}}, {key: 'dc'}, {key: 'ceiling', params: {knee: .7}, o: {fast: true}}];
 // a stretch of notes rendered offline: [{t, len, n, vel}] (seconds), with the settings; for tests and the page's drawings

@@ -62,6 +62,8 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
 .snd h3 { margin: 0; font-family: var(--display); font-weight: 650; font-stretch: 88%; font-size: 19px; line-height: 1.15; flex: 1; min-width: 0 }
 .src { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--mute); white-space: nowrap }
 .snd p { margin: 0; font-size: 14px; color: var(--mute); max-width: 60ch }
+.snd p.from { font: 12px var(--mono); letter-spacing: .02em; color: var(--mute) } .snd p.from b { color: var(--accent); font-weight: 500 }
+.vol output { min-width: 4ch; font: 12px var(--mono) }
 .plays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
 .play { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid var(--line); border-radius: 3px; background: transparent; font-weight: 600; font-size: 14px; padding: 0 6px }
 .play .ico { width: 0; height: 0; border-left: 8px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent }
@@ -79,9 +81,9 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
 
 <div class="wrap">
   <header class="intro">
-    <span class="meta">Round 1 · 30 sounds · all in A at 122 BPM</span>
+    <span class="meta">Round 2 · 30 sounds · all in A at 122 BPM</span>
     <h1>Analog <em>Sound Lab</em></h1>
-    <p>Every sound here comes from the two analog instruments we built: the analog synth and the analog drum machine. Hear each one alone, in a short phrase, or in that phrase over a quiet groove. They all play at the same loudness. Mark each Like, Maybe or Not for me, and add a note where you can say why. The next round will follow what you like.</p>
+    <p>Round 2 grows from your ratings of round 1: round, clean basses without the buzz; the chords you liked, a little warmer; the leads you liked with their nasal, piercing band cut; short, dry, lower kicks; warm, shimmering hats. Each card says which sound it came from. Some sit in a room; the Room control turns that up, down or off for all of them. Hear each alone, in a phrase, or in a loop, and mark it Like, Maybe or Not for me.</p>
   </header>
 
   <div class="transport">
@@ -89,6 +91,7 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
       <button id="stop" disabled>Stop</button>
       <span id="now" aria-live="polite">Nothing playing</span>
       <label class="vol" for="vol">Volume <input id="vol" type="range" min="0" max="1.5" step=".01" value="1"></label>
+      <label class="vol" for="room">Room <input id="room" type="range" min="0" max="2" step=".05" value="1"><output id="roomOut">100%</output></label>
       <div class="prog"><div class="nums"><b id="count">0 of 30 rated</b><span id="likes"></span></div><div id="bar"></div></div>
     </div>
     <div class="status"><span id="saved" role="status">Loading your ratings…</span><button id="copy" class="ghost" hidden>Copy my ratings</button></div>

@@ -53,7 +53,14 @@ reads them and makes the next version.
   analog synth, ten from the analog drum machine, `sounds/sounds.js`), each heard alone, in a phrase for its role and in
   that phrase over a quiet groove, all in A at 122 BPM; `node studio/sounds/build.mjs` renders every phrase offline and
   matches their loudness (a sound mustn't win by being louder). Ratings go to the page's `ratings` collection (a document
-  a sound: rating 1 like, 2 maybe, -1 not for me, and a note): read them with ArtifactData before the next round.
+  a sound: rating 1 like, 2 maybe, -1 not for me, and a note): read them with ArtifactData before the next round. Round 2
+  (`ROUND` in `sounds.js`; `ROUNDS` keeps every round's list) grows from round 1's ratings, each card saying which sound
+  it came from, some sent into the lab's room (`room` on a sound, the page's Room scaling them all: `procs.js`'s room in
+  the worklet). The instruments gained what the ratings asked for: the analog synth a **Tone** stage (`mids`, `midf`:
+  a broad cut round where a sound turns nasal or piercing; `tilt`, warm to bright) and a cross mod that can be
+  **Linear** (`xtype`: the note stays in tune, FM's clean bells and woody basses) and **fall away** over a note
+  (`xenv`, `xdec`); the analog drum machine a per-voice **Mids** cut and a **warm cymbal** for the hats (`warm`:
+  inharmonic partials from 4.4 kHz up, beating slowly, rounded at the top, blended with the 808's metal).
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

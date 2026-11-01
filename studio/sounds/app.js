@@ -6,7 +6,7 @@ import { SOUNDS, GROUPS, ROUND, BPM, BARS, grooveFor } from './sounds.js';
 import { $, h } from '../lib/dom.js';
 
 const GAIN = __GAINS__, sd = 60/BPM/4, LEN = BARS*16;
-const S = {playing: null, rate: {}, db: null, vol: 1};
+const S = {playing: null, rate: {}, db: null, vol: 1, room: 1};
 const load = (k, d) => { try { const v = localStorage.getItem('soundlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const keep = (k, v) => { try { localStorage.setItem('soundlab.' + k, JSON.stringify(v)); } catch {} };
 let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 0;
@@ -15,14 +15,14 @@ let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 
 async function start(){ if (ctx) { if (ctx.state !== 'running') await ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'interactive'});
   const u = URL.createObjectURL(new Blob([$('worklet-src').textContent], {type: 'text/javascript'})); await ctx.audioWorklet.addModule(u);
-  node = new AudioWorkletNode(ctx, 'sound-lab', {numberOfInputs: 0, outputChannelCount: [2]}); out = ctx.createGain(); out.gain.value = S.vol; node.connect(out); out.connect(ctx.destination); }
+  node = new AudioWorkletNode(ctx, 'sound-lab', {numberOfInputs: 0, outputChannelCount: [2]}); node.port.postMessage({type: 'room', v: S.room}); out = ctx.createGain(); out.gain.value = S.vol; node.connect(out); out.connect(ctx.destination); }
 const send = m => node?.port.postMessage({...m, period: 60/BPM});
 const byId = id => SOUNDS.find(s => s.id === id);
 
 // play a sound one of three ways (the same button again stops it)
 async function play(id, mode){ const was = S.playing; stop(); if (was && was.id === id && was.mode === mode) return;
   await start(); const s = byId(id);
-  if (s.kind === 'synth') send({type: 'synth', params: {...s.patch, period: 60/BPM}, gain: GAIN[id]}); else send({type: 'kit', kit: s.kit, over: s.over, gain: GAIN[id]});
+  if (s.kind === 'synth') send({type: 'synth', params: {...s.patch, period: 60/BPM}, gain: GAIN[id], room: s.room}); else send({type: 'kit', kit: s.kit, over: s.over, gain: GAIN[id], room: s.room});
   S.playing = {id, mode}; slot = 0; next = ctx.currentTime + .08; send({type: 'clock', t0: next});
   endAt = mode === 'alone' ? (s.kind === 'synth' ? Math.max(...s.alone.map(x => x.s + x.l)) + 24 : 16) : Infinity;
   tick(); timer = setInterval(tick, 25); paint(); }
@@ -66,6 +66,7 @@ function card(s, i){ const r = S.rate[s.id] || {};
   note.oninput = () => rate(s.id, {note: note.value});
   return h('article', {class: 'snd', id: 'snd-' + s.id, 'data-rating': r.rating || 0},
     h('div', {class: 'top'}, h('span', {class: 'num'}, String(i + 1).padStart(2, '0')), h('h3', {}, s.name), h('span', {class: 'src'}, source(s))),
+    s.from ? h('p', {class: 'from'}, 'From ', h('b', {}, s.from), s.room ? ' · in the room' : '') : (s.room ? h('p', {class: 'from'}, 'In the room') : null),
     h('p', {}, s.words),
     h('div', {class: 'plays', role: 'group', 'aria-label': 'Play ' + s.name}, ...MODES.map(([m, label]) => h('button', {class: 'play', 'data-mode': m, 'aria-pressed': 'false', onclick: () => play(s.id, m)}, h('span', {class: 'ico', 'aria-hidden': 'true'}), label))),
     h('div', {class: 'rate', role: 'group', 'aria-label': 'Rate ' + s.name}, ...RATES.map(([v, label]) => h('button', {'data-v': v, 'aria-pressed': String(r.rating === v), onclick: () => rate(s.id, {rating: (S.rate[s.id]?.rating === v ? 0 : v)})}, label))),
@@ -81,6 +82,7 @@ function count(){ const n = SOUNDS.filter(s => S.rate[s.id]?.rating).length, lik
 
 $('stop').onclick = stop; $('copy').onclick = copyRatings;
 $('vol').oninput = e => { S.vol = +e.target.value; if (out) out.gain.value = S.vol; };
+$('room').oninput = e => { S.room = +e.target.value; $('roomOut').textContent = S.room ? Math.round(S.room*100) + '%' : 'off'; node?.port.postMessage({type: 'room', v: S.room}); };
 addEventListener('keydown', e => { if (e.key === 'Escape' || (e.code === 'Space' && !e.target.matches('textarea, input, button'))) { if (S.playing) { e.preventDefault(); stop(); } } });
 connect();
 window.__soundlab = {S, SOUNDS, GAIN, play, stop, rate, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)
