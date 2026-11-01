@@ -26,7 +26,8 @@ export const inputCount = io => io.reduce((n, x) => n + (x.pads ? x.pads.length 
 // comes back): each sound's pads, a pad another already has renamed (`crash2`); ren: each sound's pads as renamed
 export function rackSound(ids, SND){ const id = 'rack:' + ids.join('+'), ren = ids.map(() => ({}));
   if (!SND[id]) { const voices = {};
-    ids.forEach((sid, i) => { for (const [v, m] of Object.entries(SND[sid]?.voices || {})) { let k = v, n = 2; while (voices[k]) k = v + n++; voices[k] = {...m, from: m.from || sid}; } });
+    // (a renamed pad still plays its own drum: `ride2` is the machine's ride, not a drum called "ride2")
+    ids.forEach((sid, i) => { for (const [v, m] of Object.entries(SND[sid]?.voices || {})) { let k = v, n = 2; while (voices[k]) k = v + n++; voices[k] = {...m, ...(k !== v && !m.voice && !m.native ? {voice: v} : {}), from: m.from || sid}; } });
     SND[id] = {id, role: 'drums', rack: true, voices, name: ids.map(s => SND[s]?.name || s).join(' + '), words: 'The song’s own drums as one rack: ' + ids.map(s => SND[s]?.name || s).join(', ') + ', each drum on its own pad.'}; }
   // (the renames, worked out the same way each time)
   const seen = new Set(); ids.forEach((sid, i) => { for (const v of Object.keys(SND[sid]?.voices || {})) { let k = v, n = 2; while (seen.has(k)) k = v + n++; seen.add(k); if (k !== v) ren[i][v] = k; } });

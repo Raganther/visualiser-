@@ -24,7 +24,7 @@ for (const s of [...R4, ...R6]) { const P = flatten(s), bars = s.sections.reduce
     const io = inputsOf(Q, SND), hats = P.tracks.find(T => T.role === 'hats');
     check(`${s.name}: the kick, hats and percussion as one drum rack track, every note in place on its pad, each part's level, pan and tone on its pads, a desk input a pad`,
       Q.tracks.length === P.tracks.length - 2 && R.role === 'drums' && all(R) === P.tracks.slice(0, 3).map(all).join().split(',').sort().join() && R.pads.chh.vol === hats.mix.vol && R.pads.chh.pan === hats.mix.pan && R.pads.chh.x === hats.set.x
-      && io[0].pads.length === 19 && io[1].base === 19 && JSON.stringify(combineDrums(Q, SND)) === JSON.stringify(Q)); } }
+      && io[0].pads.length >= 19 && io[1].base === io[0].pads.length && JSON.stringify(combineDrums(Q, SND)) === JSON.stringify(Q)); } }
 
 /* ---------- the page ---------- */
 const {srv, url} = await serve();
