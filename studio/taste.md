@@ -177,3 +177,13 @@ before writing or changing a piece; add to it when they react.
   note to an answered phrase, the marimba's seven-step loop drifts against the bar and moves a note each return, the
   chord's filter opens and closes across the song, a breakdown that climbs without resolving, then the drop. To learn
   by listening: whether the analog kick, chord and bell sit with the natural sounds.
+- 2026-11-01: Asked for a few songs from their own jam scenes, using only the analog sounds, to hear them alone. Round 6
+  (`ideas.mjs` round 6, `arrange/songs/round6.json`), each song a run of scenes played as they left them and grown the
+  usual way (the kick waiting, the bass from its root to its whole line, stabs or a gated chord whose filter moves, a
+  breakdown that doesn't resolve, the drop): Drift (Scenes 11–13, 122, C and D sus2: the Deep kick, Warm hats and hands,
+  the round bass on the tresillo, the warm pad as stabs in fives, the soft mallet and plucked pulse), Broken light
+  (Scenes 14–16, 126: the Warm kick's broken four, the Deep kit, the round bass, the warm pad gated in 16ths, the ring
+  bell's bamboo answer; Scene 15 the breakdown, Scene 16's open fifths the drop), Seven (Snap 8, 122, the A pedal and D
+  minor: the 808 kit, the seven-step bass on the round bass, the stab on the and as pulse brass, the bird calls on the
+  ring bell). Left out on purpose: the Reese, wobble, acid and hoover, the clap and snare. To learn by listening: which
+  kit, and whether the analog bass and leads hold up without the natural sounds.

@@ -3,7 +3,8 @@
 // the user's own variants, changed with the model's transforms; sounds from the library, steered by their ratings.
 // Usage: node studio/jam/ideas.mjs <dir of exported snaps> <round> <out.json> (round 1 from Snaps 4 and 5, round 2 from Snap 9,
 // round 3 three whole songs from Snap 10: each a list of sections, every section a scene in the v2 format; round 4 the three again;
-// round 5 a new song: node studio/jam/ideas.mjs <snaps> 5 studio/arrange/songs/round5.json)
+// round 5 a new song: node studio/jam/ideas.mjs <snaps> 5 studio/arrange/songs/round5.json; round 6 three songs from the
+// user's scenes, all analog: node studio/jam/ideas.mjs <snaps> 6 studio/arrange/songs/round6.json)
 // (export: ArtifactData list snaps → out_dir; write: ArtifactData batch set into `ideas`)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -104,7 +105,8 @@ function kit(S10, seed = 303, hats = null){
   // the base: Snap 10 with every part taken apart into its rhythm and notes (its own feel kept on the rhythm)
   const base = clone(S10); delete base.id;
   base.cols.forEach(c => { for (const k of ['vars', 'made', 'lens', 'vi', 'follow']) delete c[k]; c.play = 0; c.mute = false;
-    if (c.clip) { const nm = PK.clips.find(k => k.id === c.clip.id)?.name || 'Saved part', sp = split(c.role, c.clip, nm); c.rhythm = {...sp.rhythm, feel: c.feel || 0}; c.notes = sp.notes; c.preset = PK.clips.some(k => k.id === c.clip.id) ? c.clip.id : null; } });
+    // (a v2 scene already holds its rhythm and notes, a line of notes longer than its rhythm included: kept as they are)
+    if (c.clip && !c.rhythm?.hits) { const nm = PK.clips.find(k => k.id === c.clip.id)?.name || 'Saved part', sp = split(c.role, c.clip, nm); c.rhythm = {...sp.rhythm, feel: c.feel || 0}; c.notes = sp.notes; c.preset = PK.clips.some(k => k.id === c.clip.id) ? c.clip.id : null; } });
   if (hats) Object.assign(base.cols[COL.hats], hats);
   const line = base.cols[COL.bass]; line.rhythm = fresh(line.rhythm, 'Your off-beat line'); line.notes = fresh(line.notes, 'Your off-beat line'); line.preset = null;
   const LINE = {R: line.rhythm, N: line.notes}, R3 = rng(seed);
@@ -113,7 +115,7 @@ function kit(S10, seed = 303, hats = null){
     return {R: {...sp.rhythm, feel: col?.feel || 0}, N: sp.notes, preset: id}; };
   const rt = (role, k, m) => { const o = rhythmTool(k, role, m.R, m.N, R3); return {R: o.rhythm, N: o.notes || m.N}; };
   const nt = (role, k, m) => ({R: m.R, N: notesTool(k, role, m.N, R3)});
-  const BAR1 = rt('bass', 'shorter', rt('bass', 'shorter', LINE));                    // one bar of your line
+  const BAR1 = LINE.R.len > 16 ? rt('bass', 'shorter', rt('bass', 'shorter', LINE)) : LINE; // one bar of your line (a line a bar or shorter as it is)
   const of = col => ({R: base.cols[COL[col]].rhythm, N: base.cols[COL[col]].notes, preset: base.cols[COL[col]].preset});
   // a section: Snap 10 with its parts as given (null rests; a missing part rests too, so each section says what plays)
   let n = 0; const song = (id, name, why, bpm, list) => ({id, kind: 'song', name, why, bpm, round: ROUND, pack: S10.pack,
@@ -304,7 +306,82 @@ function round5(){ const S10 = SNAPS['Snap 10']; if (!S10) throw new Error('need
       ['Embers', 8, OPEN, {kick: K13, perc: P1, bass: BLONG, chords: CH(GATE, .6, [.6, .15]), lead: L1, lead2: M7}, 'The kick thins, the bass in long notes fading, the chord closing, one bell, the marimba as it began.'],
     ])),
   ]; }
-const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5}[ROUND]();
+// round 6: three songs from the user's own jam scenes, every sound analog (the analog drum machine's kits, pack 4, and
+// the analog synth, pack 5), as they asked to hear the analog sounds alone. Each song takes a run of scenes and plays
+// their loops as they left them (the parts, the grounds, the tempo), grown the way studio/taste.md asks: the kick
+// waiting, a bass gaining notes a few at a time, chords as stabs or a gated pulse whose filter opens and closes across
+// the song (never a held pad), a breakdown that doesn't resolve, then the drop. None of the analog sounds they'd not
+// like: no Reese, wobble, acid or hoover, no clap or snare on the backbeat, no long held lead
+function round6(){ const need = n => { if (!SNAPS[n]) throw new Error(`needs ${n} in ${dir}`); return SNAPS[n]; };
+  const S13 = need('Scene 13'), S14 = need('Scene 14'), S15 = need('Scene 15'), S16 = need('Scene 16'), S8 = need('Snap 8');
+  const {beat, PK4, K4, K13, HGROOVE, hatsTo, offTo, HSPARSE, HRISE, P1, PDEV} = grooves();
+  const LIGHT = m => ({...m, play: 1}), LOOSE = m => ({...m, play: 2});
+  // a part straight from a scene: its rhythm and notes as the user left them
+  const from = (S, col) => { const c = S.cols[COL[col]]; return {R: clone(c.rhythm), N: c.notes ? clone(c.notes) : null, preset: c.preset || null}; };
+  // the same rhythm, its notes only the root (where a line starts, before it gains its notes)
+  // (kit names the bass line it takes apart "Your off-beat line", after Snap 10's: these are the scenes' own)
+  const mine = (m, name) => ({...m, R: fresh(m.R, name), N: m.N && fresh(m.N, name)});
+  const rootOnly = (m, name) => ({...m, N: fresh({seq: [[0, 0]]}, name)});
+  // every part on an analog sound, at its own level
+  const analog = (base, SND, VOL) => base.cols.forEach((c, i) => { const k = Object.keys(COL).find(k => COL[k] === i); c.sound = SND[k]; c.locked = true; c.mix = {...c.mix, vol: VOL[k]}; });
+  const VOL = {kick: -1, hats: -2, perc: -1, bass: -2.5, chords: -9, lead: -4, lead2: -3};
+  const CH = (m, x, ramp, more = {}) => ({...m, x, ...(ramp ? {ramp: {x: ramp}} : {}), ...more});
+  const HATS = {echo: false, verb: true, y: .25};
+  const songs = [];
+
+  // Drift: Scenes 11 to 13 (Sus2 drift, 122): the kick that skips every third bar, the 16th hats, the hand groove, the
+  // tresillo bass with its twenty-note line, the stabs in fives, the blip in seven and the drops
+  { const {base, GROUND, pack, rt, nt, of, song, n0} = kit(S13, 606, HATS);
+    analog(base, {kick: 'k4-deep', hats: 'h4-warm', perc: 'p4-warm', bass: 'a5-mix-bass', chords: 'a5-mix-chords', lead: 'a5-mix-lead2', lead2: 'a5-mix-lead'}, VOL);
+    for (const [id, key] of [['lib-susrise', 'C'], ['lib-susbreath', 'D']]) { const H = inKey(LIB.find(h => h.id === id), key); GROUND[H.id] = H; }
+    const SKIP = of('kick'), H16 = of('hats'), HANDS = of('perc'), TRES = mine(of('bass'), 'Your tresillo line'), FIVES = of('chords'), BLIP = of('lead'), DROPS = of('lead2');
+    const TRES1 = rootOnly(TRES, 'Tresillo on the root'), CHM = base.cols[COL.chords].mix;
+    songs.push((n0(), song('r6-1', 'Drift', 'Scenes 11 to 13 as a song, every sound analog: the Warm kit\'s hands and the soft mallet\'s blip in seven open it; the kick waits, then comes in on one and three; your tresillo bass starts on its root and gains its twenty-note line; the stabs in fives come in dark and open up; a breakdown climbs suspended chords without landing, and the drop brings back your scene whole, with the kick that skips every third bar.', 122, [
+      ['Mist', 8, 'sus-3', {perc: LIGHT(P1), lead: LIGHT(BLIP)}, 'The hands, thinned, and your blip in seven on the soft mallet, drifting against the bar.'],
+      ['Drift', 8, 'sus-3', {hats: HSPARSE, perc: HANDS, lead: BLIP, lead2: LIGHT(rt('lead', 'thin', DROPS))}, 'A few closed hats; your hand groove; the drops come in, thinned, on the plucked pulse.'],
+      ['Footfall', 16, 'sus-3', {kick: K13, hats: LIGHT(hatsTo(16)), perc: HANDS, bass: TRES1, lead: BLIP, lead2: LIGHT(DROPS)}, 'The kick on one and three; the drummer\'s hats; the bass on your tresillo, the root alone for now.'],
+      ['The drift', 16, 'sus-3', {kick: SKIP, hats: LIGHT(H16), perc: HANDS, bass: TRES, chords: CH(FIVES, .3, [.3, .6]), lead: BLIP}, 'Your scene: the kick skipping every third bar, the 16th hats, the tresillo with its whole line, the stabs in fives coming in dark and opening a little.'],
+      ['Lift', 8, 'lib-susrise@C', {hats: HRISE, perc: pack('perc', 'p3-air'), chords: CH(FIVES, .2, [.2, .92], {mix: {...CHM, vol: -7}}), lead2: nt('lead', 'answer', DROPS)}, 'The breakdown: no kick, no bass; sus2 chords stepping up from C without landing, the stabs opening bar by bar, the drops answered, the hats rising into the drop.'],
+      ['Open water', 16, 'sus-3', {kick: K4, hats: LOOSE(HGROOVE), perc: LIGHT(PDEV), bass: LIGHT(TRES), chords: CH(FIVES, .75, null, {mix: {...CHM, vol: -8, duck: 3}}), lead: LIGHT(nt('lead', 'develop', BLIP)), lead2: LIGHT(DROPS)}, 'The drop: four on the floor, the stabs open and pumping on the kick, the blip developed, the drops back, the hands answering with a fill.'],
+      ['Ebb', 8, 'lib-susbreath@D', {kick: K13, perc: P1, bass: TRES1, chords: CH(FIVES, .55, [.55, .12]), lead: BLIP}, 'On D, suspended: the kick thins, the bass back to its root, the stabs closing, the blip as it began.'],
+    ]))); }
+
+  // Broken light: Scenes 14 to 16 (126): the broken four, the open off-beat hats, the long bass on the and, the gated
+  // 16th chord, the bamboo answer and the blip developed; then Scene 15's kickless F minor and Scene 16's open fifths
+  { const {base, GROUND, song, n0} = kit(S14, 616, {...HATS, verb: false});
+    analog(base, {kick: 'k4-warm', hats: 'h4-deep', perc: 'p4-deep', bass: 'a5-round', chords: 'a5-juno', lead: 'a5-bell', lead2: 'a5-mix-lead2'}, VOL);
+    GROUND['lib-open'] = LIB.find(h => h.id === 'lib-open');
+    const BROKEN = from(S14, 'kick'), OPENH = from(S14, 'hats'), HANDS = from(S14, 'perc'), LONG = from(S14, 'bass'), GATE = from(S14, 'chords'), ANSWER = from(S14, 'lead'), BLIP7 = from(S14, 'lead2');
+    const ROLL = from(S15, 'bass'), ANSWER15 = from(S15, 'lead'), OFFS = from(S16, 'hats'), CHM = base.cols[COL.chords].mix;
+    const G = (x, ramp, more = {}) => CH(GATE, x, ramp, {motion: 3, ...more});
+    songs.push((n0(), song('r6-2', 'Broken light', 'Scenes 14 to 16 in the order you made them, every sound analog: the gated chord on the warm pad (its filter moving all the way through), your broken four on the Warm kick, the bamboo answer on the ring bell and the blip in seven on the soft mallet. Scene 15 becomes the breakdown, no kick and the bass rolling in threes on F minor; Scene 16\'s open fifths are the drop.', 126, [
+      ['Glint', 8, 'sus-3', {perc: LIGHT(HANDS), chords: G(.15, [.15, .3], {mix: {...CHM, vol: -11}}), lead2: LIGHT(BLIP7)}, 'The hands, the blip in seven, and the gated chord far off, dark.'],
+      ['Shards', 8, 'sus-3', {hats: offTo(8), perc: HANDS, chords: G(.3, [.3, .42]), lead: ANSWER, lead2: BLIP7}, 'Off-beat hats with a fill into the change; the bamboo answer on the ring bell; the chord a little brighter.'],
+      ['Broken four', 16, 'sus-3', {kick: BROKEN, hats: LIGHT(OPENH), perc: HANDS, bass: LONG, chords: G(.42, [.42, .58]), lead: ANSWER, lead2: LIGHT(BLIP7)}, 'Scene 14: your broken four, the open off-beats with ticks between, the long bass on the and.'],
+      ['Undertow', 8, 'f-madd9-3', {perc: HANDS, bass: rootOnly(ROLL, 'Rolling threes on the root'), chords: G(.35, [.35, .5]), lead: ANSWER15}, 'Scene 15: no kick and no hats, on F minor add 9; the bass rolling in threes, on its root at first.'],
+      ['Rise', 8, 'f-madd9-3', {hats: HRISE, perc: LIGHT(HANDS), bass: ROLL, chords: G(.5, [.5, .95], {mix: {...CHM, vol: -8}}), lead: ANSWER15}, 'The bass gains its fifth; the chord opening bar by bar; the hats rising into the drop.'],
+      ['Open fifths', 16, 'lib-open', {kick: K4, hats: LOOSE(OFFS), perc: LIGHT(PDEV), bass: LIGHT(ROLL), chords: G(.78, null, {mix: {...CHM, vol: -8, duck: 3}}), lead: LIGHT(ANSWER), lead2: LIGHT(BLIP7)}, 'Scene 16, the drop: open fifths to fourths on A, four on the floor, the off-beat hats played loose, the gated chord open and pumping on the kick, everything back.'],
+      ['Afterglow', 8, 'sus-3', {kick: K13, perc: P1, bass: LONG, chords: G(.55, [.55, .1]), lead2: BLIP7}, 'The kick thins, the long bass on the and, the chord closing, the blip in seven to end.'],
+    ]))); }
+
+  // Seven: Snap 8 (the A pedal, 122) and its D minor turn: the seven-step bass, the stab on the and, the bird calls and
+  // the marimba's answer, on the 808 kit
+  { const {base, pack, nt, rt, of, song, n0, bassLong} = kit(S8, 626, HATS);
+    analog(base, {kick: 'k4-808', hats: 'h4-808', perc: 'p4-808', bass: 'a5-round', chords: 'a5-pulse', lead: 'a5-bell', lead2: 'a5-mix-lead2'}, VOL);
+    const FOUR = of('kick'), H16 = of('hats'), HANDS = of('perc'), SEVEN = mine(of('bass'), 'Your seven-step line'), AND = of('chords'), BIRDS = of('lead'), ANSWER = of('lead2');
+    const SEVEN1 = rootOnly(SEVEN, 'Seven steps on the root'), SEVEND = nt('bass', 'develop', SEVEN), CHM = base.cols[COL.chords].mix;
+    const LOGS = beat('Logs between the hands', PK4, [['...tT..l...T..wl', '...57..3...6..34'], ['...tT.l...tT.lwl', '...57.3...46.344']]);
+    songs.push((n0(), song('r6-3', 'Seven', 'Snap 8, which you really liked, as a song on the 808 kit and the analog synth: your seven-step bass drifting against the four, starting on its root and growing into the whole line, developed when the harmony turns to D minor; the stab on the and as pulse brass, its filter opening into a kickless hollow; the bird calls on the ring bell and the marimba\'s answer on the soft mallet.', 122, [
+      ['Seed', 8, 'a-pedal-3', {perc: LIGHT(P1), lead2: LIGHT(ANSWER)}, 'The hands, thinned, and the answer on the soft mallet.'],
+      ['Seven', 8, 'a-pedal-3', {hats: HSPARSE, perc: HANDS, bass: SEVEN1, lead2: ANSWER}, 'A few hats; your hand groove; the bass on its seven steps, the root alone, drifting against the bar.'],
+      ['Walk', 16, 'a-pedal-3', {kick: FOUR, hats: LIGHT(hatsTo(16)), perc: HANDS, bass: SEVEN, lead: BIRDS, lead2: LIGHT(ANSWER)}, 'The kick; the drummer\'s hats; the bass\'s whole line; the bird calls on the ring bell.'],
+      ['The bass walks on', 16, 'd-m7m9', {kick: FOUR, hats: LIGHT(H16), perc: LOGS, bass: SEVEND, chords: CH(AND, .35, [.35, .6]), lead: BIRDS}, 'On D minor: the line developed (as it was, its tail moved, again, answered), your 16th hats, logs between the hands, the stab on the and coming in.'],
+      ['Hollow', 8, 'd-m7m9', {hats: HRISE, perc: pack('perc', 'p3-air'), chords: CH(AND, .2, [.2, .9], {mix: {...CHM, vol: -7}}), lead: rt('lead', 'thin', BIRDS)}, 'No kick, no bass: the stab opening bar by bar, a bird or two, the hats rising into the drop.'],
+      ['Full circle', 16, 'a-pedal-3', {kick: FOUR, hats: LOOSE(HGROOVE), perc: LIGHT(PDEV), bass: LIGHT(SEVEN), chords: CH(AND, .75, null, {mix: {...CHM, vol: -8, duck: 3}}), lead: LIGHT(BIRDS), lead2: LIGHT(ANSWER)}, 'The drop, home on the A pedal: everything together, the stab open and pumping on the kick, the hats played loose.'],
+      ['Seed again', 8, 'a-pedal-3', {kick: K13, perc: P1, bass: bassLong, lead2: ANSWER}, 'The kick thins to one and three, the bass long on the and, the answer as it began.'],
+    ]))); }
+  return songs; }
+const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5, 6: round6}[ROUND]();
 ideas.forEach((x, i) => { x.order = i; x.id = `r${ROUND}-${i + 1}`; x.at = new Date().toISOString(); });
 for (const x of ideas) for (const y of x.sections || []) y.at = x.at;
 for (const x of ideas) for (const c of x.cols || []) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }

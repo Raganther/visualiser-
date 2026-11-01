@@ -11,14 +11,16 @@ const check = (name, ok, detail) => { if (!ok) failed = true; console.log(`${ok 
 
 /* ---------- flatten: the songs as notes ---------- */
 const R4 = JSON.parse(fs.readFileSync(new URL('../studio/arrange/songs/round4.json', import.meta.url)));
-for (const s of R4) { const P = flatten(s), bars = s.sections.reduce((a, x) => a + x.bars, 0);
+// (and round 6: the user's scenes as songs, every sound analog)
+const R6 = JSON.parse(fs.readFileSync(new URL('../studio/arrange/songs/round6.json', import.meta.url)));
+for (const s of [...R4, ...R6]) { const P = flatten(s), bars = s.sections.reduce((a, x) => a + x.bars, 0);
   const inside = P.tracks.every(T => T.clips.every(c => c.start >= 0 && c.start + c.len/16 <= P.bars && c.notes.every(n => n.s >= 0 && n.s < c.len + 1 && n.l > 0 && n.v > 0 && n.v <= 1)));
   const pitched = P.tracks.filter(T => !['kick', 'hats', 'perc'].includes(T.role)).every(T => T.clips.every(c => c.notes.every(n => Number.isInteger(n.p))));
   check(`${s.name}: ${P.marks.length} sections, ${P.bars} bars, every note inside its clip, pitches fixed`, P.bars === bars && P.marks.length === s.sections.length && P.chords.length === bars && inside && pitched);
   const again = flatten(s); check(`${s.name}: written out the same every time`, JSON.stringify(again) === JSON.stringify(P)); }
 // the drum rack: a song's kick, hats and percussion as one track, every note kept on its pad, each part's settings on its pads
 { const {combineDrums, inputsOf} = await import('../studio/arrange/rack.js'), LIB = JSON.parse(fs.readFileSync(new URL('../studio/listen/packs/library.json', import.meta.url))), SND = Object.fromEntries(LIB.sounds.map(x => [x.id, x]));
-  for (const s of R4) { const P = flatten(s), Q = combineDrums(P, SND), R = Q.tracks[0], all = T => T.clips.flatMap(c => c.notes.map(n => (c.start*16 + n.s).toFixed(3) + n.p)).sort().join();
+  for (const s of [...R4, ...R6]) { const P = flatten(s), Q = combineDrums(P, SND), R = Q.tracks[0], all = T => T.clips.flatMap(c => c.notes.map(n => (c.start*16 + n.s).toFixed(3) + n.p)).sort().join();
     const io = inputsOf(Q, SND), hats = P.tracks.find(T => T.role === 'hats');
     check(`${s.name}: the kick, hats and percussion as one drum rack track, every note in place on its pad, each part's level, pan and tone on its pads, a desk input a pad`,
       Q.tracks.length === P.tracks.length - 2 && R.role === 'drums' && all(R) === P.tracks.slice(0, 3).map(all).join().split(',').sort().join() && R.pads.chh.vol === hats.mix.vol && R.pads.chh.pan === hats.mix.pan && R.pads.chh.x === hats.set.x
@@ -41,7 +43,7 @@ const at = (ti, bar) => D(`(() => { const {ST} = window.__daw; return [${bar}*ST
 const clips = ti => D(`window.__daw.ST.P.tracks[${ti}].clips.map(c => ({id: c.id, start: c.start, len: c.len, n: c.notes.length})).sort((a, b) => a.start - b.start)`);
 
 const info = await D(() => { const {ST} = window.__daw; return {id: ST.id, n: ST.P.tracks.length, drums: ST.P.tracks[0].role, songs: [...document.querySelectorAll('#songSel option')].length}; });
-check('it opens on the newest round, five tracks (the drums one rack), every song in the picker', info.id === 'r4-1' && info.n === 5 && info.drums === 'drums' && info.songs === 7, JSON.stringify(info));
+check('it opens on the newest round, five tracks (the drums one rack), every song in the picker', info.id === 'r4-1' && info.n === 5 && info.drums === 'drums' && info.songs === 10, JSON.stringify(info));
 
 // playing: Space starts and stops, the position moves on
 await page.keyboard.press('Space'); await page.waitForTimeout(2500); const p1 = await D(() => [window.__daw.E.playing, window.__daw.E.pos()]); await page.keyboard.press('Space');
