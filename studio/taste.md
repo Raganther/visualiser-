@@ -191,3 +191,13 @@ before writing or changing a piece; add to it when they react.
   and the mix, "everything really". They want to go back to how the collaboration started: Claude makes sounds, they
   like or dislike them, and that steers. None of the analog sounds had been rated. The sound lab, round 1: thirty
   analog sounds (`studio/sounds/`), analog only, at matched loudness; the songs wait until there are sounds they like.
+- 2026-11-01: The sound lab, round 1 rated (all 30; `ratings` in its artifact). **Basses:** the saw and pulse ones
+  "farty" (Round pluck, Felt, Hollow, Sync knock 👎): the buzzy low mids of a resonant ladder sweep in the low register;
+  👍 Wooden FM ("clearer": sines and cross-mod); Dub bass rounder but "very subby". So: round and clean, harmonics without
+  buzz. **Chords:** every one liked (Gated warm "warm and wide", Pulse brass, Breathing pad, Sus pluck "yes this sound",
+  Dub chord open, Glass stab though "a lot of mids"). **Leads:** liked the timbres but "nasal", "piercing", "a sharpness
+  that hurts the ears" in the mids (Ring bell, Tine, Soft mallet); 👍 Blip, Glass FM bell, Pulse pluck, Wood pluck.
+  **Texture:** Air swell 👍. **Kicks:** "too wet" (Deep 👎, Warm, 808 boom: long booming tails), Short round kick "closer,
+  tighter, but quite high". **Hats:** both "tinny": want warmer, shimmering, rounded hats. **Percussion:** Rim and clave
+  fine, Hand toms 👍 but mid-heavy, the Shaker wants to be wetter. The thread through it: harshness in the mids (roughly
+  1–4 kHz) is what they dislike most, in leads, hats and basses alike.
