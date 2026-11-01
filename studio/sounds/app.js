@@ -111,7 +111,7 @@ function count(){ const all = shown(), n = all.filter(s => S.rate[s.id]?.rating)
 const BASE = {bass: 24, chords: 48, lead: 60, texture: 48}, KEYS = 'awsedftgyhujkolp;\'', PADKEYS = 'asdfghjkl';
 const drumsOf = s => [...new Set([...s.alone.map(x => x.v), ...s.phrase.map(x => x.v)])];
 async function openEd(id){ await start(); const s = byId(id); if (S.playing && S.playing.id !== id) stop(); S.ed = id; S.pad = drumsOf(s)[0]; loadSound(id); paintEd(); $('bench').hidden = false; document.body.classList.add('benching'); }
-function closeEd(){ releaseAll(); S.ed = null; $('bench').hidden = true; document.body.classList.remove('benching'); }
+function closeEd(){ releaseAll(); fold(false); S.ed = null; $('bench').hidden = true; document.body.classList.remove('benching'); }
 // a change: heard at once and kept as your version (set back to the round's value, it's no longer a change)
 function change(s, key, v, voice){ const e = structuredClone(edits(s.id) || {});
   if (voice) { const orig = {...analogParams(s.kit)[voice], ...(s.over[voice] || {})}[key]; e[voice] ||= {}; if (Math.abs(v - orig) < 1e-9) delete e[voice][key]; else e[voice][key] = v; if (!Object.keys(e[voice]).length) delete e[voice];
@@ -158,6 +158,18 @@ addEventListener('keydown', e => { if (!S.ed || e.target.matches('textarea, inpu
 addEventListener('keyup', e => { const n = typed.get(e.key.toLowerCase()); if (n == null) return; typed.delete(e.key.toLowerCase()); noteOff(n); });
 addEventListener('blur', () => { typed.clear(); releaseAll(); });
 $('edClose').onclick = closeEd; $('revert').onclick = revert;
+// the workbench's height: drag its top edge (or the arrow keys on it), kept on this device; Fold leaves just its head
+{ const g = $('grip'), MIN = 90, maxH = () => innerHeight*.88;
+  const setH = px => { const v = Math.round(Math.max(MIN, Math.min(maxH(), px))); document.documentElement.style.setProperty('--benchH', v + 'px'); keep('benchH', v); fold(false); };
+  const saved = load('benchH', 0); if (saved) document.documentElement.style.setProperty('--benchH', Math.min(saved, innerHeight*.88) + 'px');
+  g.onpointerdown = e => { e.preventDefault(); g.setPointerCapture(e.pointerId); g.classList.add('drag'); };
+  g.onpointermove = e => { if (g.classList.contains('drag')) setH(innerHeight - e.clientY); };
+  g.onpointerup = g.onpointercancel = () => g.classList.remove('drag');
+  g.onkeydown = e => { const h0 = $('bench').getBoundingClientRect().height; if (e.key === 'ArrowUp') { e.preventDefault(); setH(h0 + 40); } else if (e.key === 'ArrowDown') { e.preventDefault(); setH(h0 - 40); } };
+  g.ondblclick = () => fold(!$('bench').classList.contains('folded'));
+  $('edFold').onclick = () => fold(!$('bench').classList.contains('folded')); }
+function fold(on){ const b = $('bench'); b.classList.toggle('folded', on); $('edFold').textContent = on ? 'Unfold' : 'Fold'; $('edFold').setAttribute('aria-expanded', String(!on));
+  if (on) b.style.height = 'auto'; else b.style.height = ''; document.body.style.paddingBottom = on ? (b.getBoundingClientRect().height + 16) + 'px' : ''; }
 for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).onclick = () => play(S.ed, m);
 
 $('stop').onclick = stop; $('copy').onclick = copyRatings;

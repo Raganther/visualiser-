@@ -79,9 +79,12 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
 .snd textarea::placeholder { color: var(--mute) }
 
 /* the workbench: docked at the foot of the screen, the keys then the settings in modules */
-body.benching { padding-bottom: 62vh }
-.bench { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 60vh; overflow-y: auto; background: var(--sheet); border-top: 2px solid var(--accent);
+body.benching { padding-bottom: calc(var(--benchH, 50vh) + 16px) }
+.bench { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; height: var(--benchH, 50vh); overflow-y: auto; background: var(--sheet); border-top: 2px solid var(--accent); align-content: start;
   padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 10px; box-shadow: 0 -8px 24px rgba(0,0,0,.12) }
+.grip { position: sticky; top: -12px; margin: -12px 0 -4px; height: 18px; display: grid; place-items: center; cursor: ns-resize; touch-action: none; z-index: 2; background: var(--sheet) }
+.grip span { width: 56px; height: 5px; border-radius: 3px; background: var(--accent); opacity: .75 } .grip:hover span, .grip:focus-visible span, .grip.drag span { opacity: 1; width: 80px }
+.bench.folded > :not(.grip):not(.bhead) { display: none }
 .bhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 1180px; width: 100%; margin: 0 auto }
 .bname { display: flex; align-items: baseline; gap: 10px; min-width: 0 } .bname b { font-family: var(--display); font-size: 20px; font-stretch: 85% }
 .plays.mini { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0 }
@@ -91,7 +94,7 @@ body.benching { padding-bottom: 62vh }
 .mine { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--accent) }
 .kb { position: relative; height: 110px; max-width: 1180px; width: 100%; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none }
 .key { position: absolute; top: 0; box-sizing: border-box; border: 1px solid var(--line); border-radius: 0 0 4px 4px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font: 10px var(--mono); color: var(--mute) }
-.key.w { height: 100%; background: var(--bg) } .key.b { height: 60%; background: var(--ink); z-index: 1; border-color: var(--ink) }
+.key.w { height: 100%; background: #f4f3ef; color: #6b6b6b; border-color: #b9b7b0 } .key.b { height: 60%; background: #1c1d20; z-index: 1; border-color: #1c1d20 }
 .key[data-on] { background: var(--accent) !important; border-color: var(--accent) }
 .pads { display: flex; flex-wrap: wrap; gap: 8px; max-width: 1180px; width: 100%; margin: 0 auto }
 .pad { display: grid; gap: 2px; min-width: 96px; min-height: 64px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); padding: 8px 12px; text-align: left; touch-action: none }
@@ -145,11 +148,13 @@ body.benching { padding-bottom: 62vh }
   <main id="groups"></main>
 </div>
 <aside id="bench" class="bench" hidden aria-label="The sound's settings">
+  <div id="grip" class="grip" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Drag up or down to resize the settings (arrow keys too; double-click to fold)" title="Drag to resize · double-click to fold"><span></span></div>
   <div class="bhead">
     <div class="bname"><b id="edName"></b><span id="edSrc" class="src"></span></div>
     <div class="plays mini" role="group" aria-label="Play it"><button id="edAlone" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>Alone</button><button id="edPhrase" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>Phrase</button><button id="edLoop" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>In a loop</button></div>
     <span id="edSay" class="say"></span>
     <button id="revert" class="ghost">Back to the original</button>
+    <button id="edFold" class="ghost" aria-expanded="true">Fold</button>
     <button id="edClose" class="ghost" aria-label="Close the settings">Close</button>
   </div>
   <div id="kb" class="kb" hidden></div>
