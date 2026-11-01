@@ -204,3 +204,12 @@ before writing or changing a piece; add to it when they react.
 - 2026-11-01: The user agreed the sounds should be good before any processing. The instruments gained a tone stage
   (the synth's Mids and warm↔bright tilt; each drum voice's Mids), FM that stays in tune and falls away (Linear cross
   mod with its own decay) and a warm cymbal for the hats. Sound lab round 2: thirty sounds grown from round 1's ratings.
+- 2026-11-01: Sound lab round 2 rated: 23 👍, 4 maybe, 2 👎. **Basses:** 👍 FM round and FM wood (the Linear FM that
+  falls away: this is the bass family); Triangle pluck maybe; Round pluck clean still "a bit farty"; 👎 FM deep
+  ("farty": FM at the same pitch growls in the low mids) and Dub round. **Chords:** all 👍 again (Gated warm softer,
+  Sus pluck warm, Breathing wide, Pulse brass gated, Glass stab tamed, Dub chord in a room). **Leads:** the tamed Ring
+  bell, Tine and Soft mallet 👍 with no complaint now (the Mids cut works); FM bell 👍; Wood pluck lower 👍; but Blip,
+  FM kalimba and Pulse pluck "nice but harsh to the ear" (their harshness is higher, above the 2–3 kHz cut, or in the
+  attack). **Kicks:** all three short, dry, low ones 👍. **Hats:** the warm cymbal "closer", still "a bit tinny"; on the
+  open one "maybe it's the attack, it's quite harsh". **Perc:** toms tamed 👍; the shaker "maybe too wet now" (half the
+  room); rim and clave "harsh frequency somewhere". They asked how open and closed hats and the choke are handled.
