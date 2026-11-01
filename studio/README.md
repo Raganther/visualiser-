@@ -67,7 +67,13 @@ reads them and makes the next version.
   phrases too, **Back to the original**; and keys to play it, a piano for a synth (the mouse, or A to ' and Z X for the
   octave) or a pad a drum (A S D …). Every round is on the page (`ALL`, each sound knowing its `round`; their ids
   never repeat), a tab each (the newest marked new) and **★ Kept**: ☆ Keep on any card (`keep` in its `ratings`
-  document) gathers it there beside the others kept from any round, its round named on it.
+  document) gathers it there beside the others kept from any round, its round named on it. The sounds are grouped in **families**
+  (`PARENTS` in `sounds.js`: each sound's parents, the first its main line, none for a new design; `FAMILIES` follows
+  each back to its root): **Every sound** shows a card a family, its versions in a row round by round (only the rounds it
+  has, branching where a sound had several children, "Last in round N" where it stopped, "New in round N" where it
+  began), your rating and ★ on each; picking a version shows and plays it (carrying on in time if that family is
+  playing, the workbench following), and **⇄ A/B** swaps between the last two picked. **New in round N** shows the
+  newest round alone; **★ Kept** the kept ones. A new round's sounds name their parents there.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

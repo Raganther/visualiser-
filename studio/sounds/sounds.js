@@ -230,6 +230,26 @@ const drums = list => list.map(([id, role, name, words, kit, over, alone, patter
 export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)]};
 for (const [r, list] of Object.entries(ROUNDS)) for (const x of list) x.round = +r;
 export const SOUNDS = ROUNDS[ROUND], ALL = Object.values(ROUNDS).flat();
+// each sound's parents: the sound (or sounds) it grew from, the first its main line; none for a new design. From these
+// the families build themselves: a family is a first sound and everything grown from it, round by round, branching
+// where one sound had several children, ending where a sound had none
+export const PARENTS = {
+  fmround: ['woodfm'], fmwood: ['woodfm'], fmdeep: ['dubbass'], trisub: ['felt'], roundclean: ['round'], dubround: ['dubbass'],
+  gatedsoft: ['gatedwarm'], glasstamed: ['glassstab'], pulsegated: ['pulsebrass', 'gatedwarm'], breathwide: ['breathing'], suswarm: ['suspluck'], dubroom: ['dubopen'],
+  belltamed: ['ringbell'], tinetamed: ['tine'], malletsoft: ['mallet'], fmbell: ['glassfm'], fmkalimba: ['tine'], blipround: ['blip'], woodlow: ['woodpluck'], pluckwarm: ['pulsepluck'], airdark: ['air'],
+  kicklow: ['shortkick'], kickdeeper: ['shortkick'], kicktight: ['warmkick'], warmhats: ['softhats'], warmbright: ['brighthats'], warmshimmer: ['softhats'], tomstamed: ['handtoms'], shakerwet: ['shaker'], rimroom: ['rimclave'],
+  fmshort: ['fmround'], fmslow: ['fmround'], fmglide: ['fmround'], fmfifth: ['fmwood'], fmtwo: ['fmround'], fmtri: ['fmround', 'trisub'], fmwoodlong: ['fmwood'],
+  blipsoft: ['blipround'], kalimbasoft: ['fmkalimba'], plucksoft: ['pluckwarm'], fmmarimba: ['malletsoft'], fmglass: ['fmbell'], bellsoft: ['belltamed'], woodwarm: ['woodlow'],
+  fmgated: ['gatedsoft', 'fmkeys'], brasssoft: ['pulsebrass'], susroom: ['suswarm'],
+  hatsoft: ['warmhats'], hatbody: ['warmhats'], hatdark: ['warmshimmer'], hatring: ['hatchoke'], hat808soft: ['warmbright'], shakerhalf: ['shakerwet'], rimsoft: ['rimroom'], shakertoms: ['tomstamed'], kickround: ['kicklow'],
+};
+const BYID = Object.fromEntries(ALL.map(x => [x.id, x]));
+for (const x of ALL) { x.parents = PARENTS[x.id] || []; if (x.parents.length) x.from = x.parents.map(p => BYID[p].name + (BYID[p].round !== x.round - 1 ? ` (round ${BYID[p].round})` : '')).join(' and '); }
+// the families: each sound's root (its main line followed back), the members in order of round, and its roles
+const rootOf = x => { let r = x; while (r.parents.length) r = BYID[r.parents[0]]; return r.id; };
+for (const x of ALL) x.family = rootOf(x);
+export const FAMILIES = [...new Set(ALL.map(x => x.family))].map(root => { const members = ALL.filter(x => x.family === root).sort((a, b) => a.round - b.round);
+  const last = members.at(-1); return {root, members, rounds: [...new Set(members.map(x => x.round))], last, role: last.role, ended: last.round < ROUND}; });
 // what each round set out to do, for the page
 export const INTROS = {
   1: 'Thirty sounds from the two analog instruments: the analog synth and the analog drum machine, a wide spread to find out what you like.',

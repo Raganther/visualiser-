@@ -4,7 +4,7 @@
 // like, 2 maybe, -1 not for me), where Claude reads them; without a database they stay on this device and can be copied.
 // Each sound opens in the workbench: its instrument's settings (the synth's, or each drum's) to change as it plays, your
 // version kept with your rating (`edits`) and Back to the original, and keys to play it (on screen, or the computer's).
-import { ROUNDS, ALL, INTROS, GROUPS, ROUND, BPM, BARS, grooveFor } from './sounds.js';
+import { ROUNDS, ALL, INTROS, GROUPS, ROUND, BPM, BARS, FAMILIES, grooveFor } from './sounds.js';
 import { $, h } from '../lib/dom.js';
 import { control } from '../lib/parts/shell.js';
 import { PARAMS, DEF } from '../lib/native/asynth.js';
@@ -14,7 +14,7 @@ import { voiceName, noteName, SHARPS } from '../lib/names.js';
 const GAIN = __GAINS__, sd = 60/BPM/4, LEN = BARS*16;
 const load = (k, d) => { try { const v = localStorage.getItem('soundlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const keep = (k, v) => { try { localStorage.setItem('soundlab.' + k, JSON.stringify(v)); } catch {} };
-const S = {tab: load('tab', ROUND), playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
+const S = {tab: ['families', 'new', 'kept'].includes(load('tab', 'families')) ? load('tab', 'families') : 'families', sel: load('sel', {}), prev: {}, playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
 let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 0;
 
 /* ---------- the sound ---------- */
@@ -25,7 +25,8 @@ async function start(){ if (ctx) { if (ctx.state !== 'running') await ctx.resume
 const send = m => node?.port.postMessage({...m, period: 60/BPM});
 const byId = id => ALL.find(s => s.id === id);
 // the sounds on the page: a round's, or the ones you've kept from any round
-const shown = () => S.tab === 'kept' ? ALL.filter(s => S.rate[s.id]?.keep) : ROUNDS[S.tab] || ROUNDS[ROUND];
+const shown = () => S.tab === 'kept' ? ALL.filter(s => S.rate[s.id]?.keep) : S.tab === 'families' ? FAMILIES.map(f => byId(selOf(f))) : ROUNDS[ROUND];
+const famOf = id => FAMILIES.find(f => f.root === byId(id).family), selOf = f => f.members.some(x => x.id === S.sel[f.root]) ? S.sel[f.root] : f.last.id;
 
 // play a sound one of three ways (the same button again stops it)
 // a sound as you've left it: the round's settings with your changes over them
@@ -54,7 +55,7 @@ function tick(){ const p = S.playing; if (!p) return; const s = byId(p.id);
 
 /* ---------- the ratings: the page's database, or this device ---------- */
 const RATES = [[1, 'Like'], [2, 'Maybe'], [-1, 'Not for me']];
-function rate(id, patch){ const s = byId(id), r = {...(S.rate[id] || {}), ...patch}; if (r.rating === undefined) r.rating = 0; S.rate[id] = r; keep('rate', S.rate); paintCard(id); count();
+function rate(id, patch){ const s = byId(id), r = {...(S.rate[id] || {}), ...patch}; if (r.rating === undefined) r.rating = 0; S.rate[id] = r; keep('rate', S.rate); paintCard(id); count(); if ('rating' in patch && S.tab === 'families') paintFamily(s.family);
   if (S.db) { saying('Saving…'); clearTimeout(rate.t[id]); rate.t[id] = setTimeout(() => S.db.doc('ratings/' + id).set({rating: r.rating, note: r.note || '', edits: r.edits || null, keep: !!r.keep, name: s.name, kind: s.kind, role: s.role, round: s.round, at: new Date().toISOString()})
     .then(() => saying('Saved'), e => saying(e?.code === 'not_granted' || e?.code === 'forbidden' ? 'Not saved: this page can only save for its owner' : 'Not saved: try again in a moment')), patch.note !== undefined || 'edits' in patch ? 700 : 0); } }
 rate.t = {};
@@ -77,25 +78,50 @@ const source = s => s.kind === 'synth' ? 'Analog synth' : s.kit.replace('Analog 
 function card(s, i){ const r = S.rate[s.id] || {};
   const note = h('textarea', {id: 'note-' + s.id, rows: 2, placeholder: 'A note, if you like: what works, what doesn\'t'}); note.value = r.note || '';
   note.oninput = () => rate(s.id, {note: note.value});
-  return h('article', {class: 'snd', id: 'snd-' + s.id, 'data-rating': r.rating || 0},
+  return h('article', {class: 'snd', id: 'snd-' + s.id, 'data-family': s.family, 'data-rating': r.rating || 0},
     h('div', {class: 'top'}, h('span', {class: 'num'}, String(i + 1).padStart(2, '0')), h('h3', {}, s.name), h('span', {class: 'src'}, source(s))),
     h('div', {class: 'tools'}, h('button', {class: 'ghost open', onclick: () => openEd(s.id)}, s.kind === 'synth' ? 'Open the synth' : 'Open the drums'), h('span', {class: 'mine', hidden: !r.edits}, 'Your version'),
-      S.tab === 'kept' ? h('span', {class: 'rnd'}, 'Round ' + s.round) : null,
-      h('button', {class: 'keep', 'aria-pressed': String(!!r.keep), title: 'Keep this sound: it joins the Kept tab', onclick: () => { rate(s.id, {keep: !S.rate[s.id]?.keep}); if (S.tab === 'kept') paintAll(); paintTabs(); }}, r.keep ? '★ Kept' : '☆ Keep')),
+      S.tab !== 'new' ? h('span', {class: 'rnd'}, 'Round ' + s.round) : null,
+      h('button', {class: 'keep', 'aria-pressed': String(!!r.keep), title: 'Keep this sound: it joins the Kept tab', onclick: () => { rate(s.id, {keep: !S.rate[s.id]?.keep}); if (S.tab === 'kept') paintAll(); else paintFamily(s.family); paintTabs(); }}, r.keep ? '★ Kept' : '☆ Keep')),
     s.from ? h('p', {class: 'from'}, 'From ', h('b', {}, s.from), s.room ? ' · in the room' : '') : (s.room ? h('p', {class: 'from'}, 'In the room') : null),
     h('p', {}, s.words),
     h('div', {class: 'plays', role: 'group', 'aria-label': 'Play ' + s.name}, ...MODES.map(([m, label]) => h('button', {class: 'play', 'data-mode': m, 'aria-pressed': 'false', onclick: () => play(s.id, m)}, h('span', {class: 'ico', 'aria-hidden': 'true'}), label))),
     h('div', {class: 'rate', role: 'group', 'aria-label': 'Rate ' + s.name}, ...RATES.map(([v, label]) => h('button', {'data-v': v, 'aria-pressed': String(r.rating === v), onclick: () => rate(s.id, {rating: (S.rate[s.id]?.rating === v ? 0 : v)})}, label))),
     note); }
+/* ---------- families: a card a sound's line, its versions round by round, one heard at a time, A/B between two ---------- */
+const RMARK = {1: '👍', 2: '~', '-1': '👎'};
+function famCard(f, i){ const sel = selOf(f), cur = byId(sel), prev = S.prev[f.root];
+  const chips = f.rounds.map(r => h('div', {class: 'vround'}, h('span', {class: 'vr'}, 'R' + r), ...f.members.filter(x => x.round === r).map(x => { const rt = S.rate[x.id]?.rating;
+    return h('button', {class: 'ver', 'aria-pressed': String(x.id === sel), 'data-b': String(x.id === prev), title: `Round ${x.round}: ${x.name}${x.id === prev ? ' (B: the one A/B swaps to)' : ''}`, onclick: () => pick(f, x.id)},
+      x.name, rt ? h('i', {class: 'r' + rt}, RMARK[rt]) : null, S.rate[x.id]?.keep ? h('i', {class: 'k'}, '★') : null); })));
+  const note = f.ended ? `Last in round ${f.members.at(-1).round}` : f.members.length === 1 ? 'New in round ' + f.members[0].round : '';
+  return h('div', {class: 'fam', id: 'fam-' + f.root},
+    h('div', {class: 'vers'}, ...chips,
+      h('div', {class: 'vtools'}, note ? h('span', {class: 'vnote'}, note) : null,
+        f.members.length > 1 ? h('button', {class: 'ab ghost', disabled: !prev, title: prev ? `Swap to ${byId(prev).name}, in time if it's playing` : 'Pick another version first: A/B swaps between the last two', onclick: () => prev && pick(f, prev)}, '⇄ A/B', prev ? h('small', {}, ' ' + byId(prev).name) : null) : null)),
+    card(cur, i)); }
+// a version picked: shown, and if this line is playing it carries on in time with the new one (A/B); the workbench follows
+function pick(f, id){ const was = selOf(f); if (id === was) return; S.prev[f.root] = was; S.sel[f.root] = id; keep('sel', S.sel);
+  if (S.playing && famOf(S.playing.id)?.root === f.root) { S.playing.id = id; loadSound(id); }
+  if (S.ed && famOf(S.ed)?.root === f.root) { S.ed = id; S.pad = drumsOf(byId(id))[0]; paintEd(); }
+  paintFamily(f.root); paint(); }
+function paintFamily(root){ const el = $('fam-' + root); if (!el) { const c = document.querySelector(`.snd[data-family="${root}"]`); if (c) paintCard(c.id.slice(4)); return; }
+  const f = FAMILIES.find(x => x.root === root); el.replaceWith(famCard(f, FAMILIES.indexOf(f))); }
+
 function paintAll(){ const all = shown(); paintTabs();
-  $('meta').textContent = S.tab === 'kept' ? `Kept · ${all.length} sound${all.length === 1 ? '' : 's'} from every round` : `Round ${S.tab} of ${Object.keys(ROUNDS).length} · ${all.length} sounds · all in A at ${BPM} BPM`;
-  $('lede').textContent = S.tab === 'kept' ? 'The sounds you have kept, from every round, side by side. ☆ Keep on any card adds it here; ★ Kept takes it away.' : INTROS[S.tab];
-  const groups = GROUPS.map(([role, title]) => { const list = all.filter(s => s.role === role); if (!list.length) return null;
+  const NR = Object.keys(ROUNDS).length;
+  $('meta').textContent = S.tab === 'kept' ? `Kept · ${all.length} sound${all.length === 1 ? '' : 's'} from every round` : S.tab === 'families' ? `${FAMILIES.length} sounds and their versions · ${NR} rounds · all in A at ${BPM} BPM` : `New in round ${ROUND} · ${all.length} sounds · all in A at ${BPM} BPM`;
+  $('lede').textContent = S.tab === 'kept' ? 'The sounds you have kept, from every round, side by side. ☆ Keep on any card adds it here; ★ Kept takes it away.'
+    : S.tab === 'families' ? 'Each card is one sound and every version of it, round by round (R1, R2, R3), where it branched and where it stopped. Pick a version to hear it; ⇄ A/B swaps between the last two you picked, in time if it\'s playing. Your ratings show on each version.' : INTROS[ROUND];
+  const groups = S.tab === 'families' ? GROUPS.map(([role, title]) => { const list = FAMILIES.filter(f => f.role === role); if (!list.length) return null;
+      return h('section', {class: 'group'}, h('h2', {}, title, h('small', {}, ` ${list.length}`)), h('div', {class: 'cards'}, ...list.map(f => famCard(f, FAMILIES.indexOf(f))))); }).filter(Boolean)
+    : GROUPS.map(([role, title]) => { const list = all.filter(s => s.role === role); if (!list.length) return null;
     return h('section', {class: 'group'}, h('h2', {}, title, h('small', {}, ` ${list.length}`)), h('div', {class: 'cards'}, ...list.map(s => card(s, all.indexOf(s))))); }).filter(Boolean);
   $('groups').replaceChildren(...(groups.length ? groups : [h('p', {class: 'empty'}, 'Nothing kept yet. Press ☆ Keep on any sound in any round and it will be here.')])); count(); paint(); }
 // the tabs: each round, newest last, and what you've kept
 function paintTabs(){ const kept = ALL.filter(s => S.rate[s.id]?.keep).length;
-  $('tabs').replaceChildren(...Object.keys(ROUNDS).map(r => h('button', {role: 'tab', 'aria-selected': String(S.tab == r), onclick: () => pickTab(+r)}, 'Round ' + r, +r === ROUND ? h('small', {}, ' new') : null)),
+  $('tabs').replaceChildren(h('button', {role: 'tab', 'aria-selected': String(S.tab === 'families'), onclick: () => pickTab('families')}, 'Every sound', h('small', {}, ` ${FAMILIES.length}`)),
+    h('button', {role: 'tab', 'aria-selected': String(S.tab === 'new'), onclick: () => pickTab('new')}, `New in round ${ROUND}`, h('small', {}, ` ${ROUNDS[ROUND].length}`)),
     h('button', {role: 'tab', class: 'kepttab', 'aria-selected': String(S.tab === 'kept'), onclick: () => pickTab('kept')}, '★ Kept', h('small', {}, ` ${kept}`))); }
 function pickTab(t){ if (S.ed) closeEd(); stop(); S.tab = t; keep('tab', t); paintAll(); scrollTo({top: 0}); }
 function paintCard(id){ const el = $('snd-' + id), r = S.rate[id] || {}; if (!el) return; el.dataset.rating = r.rating || 0; el.querySelector('.mine').hidden = !r.edits; const kb = el.querySelector('.keep'); kb.setAttribute('aria-pressed', String(!!r.keep)); kb.textContent = r.keep ? '★ Kept' : '☆ Keep';
@@ -177,4 +203,4 @@ $('vol').oninput = e => { S.vol = +e.target.value; if (out) out.gain.value = S.v
 $('room').oninput = e => { S.room = +e.target.value; $('roomOut').textContent = S.room ? Math.round(S.room*100) + '%' : 'off'; node?.port.postMessage({type: 'room', v: S.room}); };
 addEventListener('keydown', e => { if (e.key === 'Escape' && S.ed && !S.playing) { closeEd(); return; } if (e.key === 'Escape' || (e.code === 'Space' && !e.target.matches('textarea, input, button'))) { if (S.playing) { e.preventDefault(); stop(); } } });
 connect();
-window.__soundlab = {S, get SOUNDS(){ return shown(); }, ALL, pickTab, GAIN, play, stop, rate, openEd, closeEd, change, revert, noteOn, noteOff, hit, patchOf, overOf, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)
+window.__soundlab = {pick, FAMILIES, S, get SOUNDS(){ return shown(); }, ALL, pickTab, GAIN, play, stop, rate, openEd, closeEd, change, revert, noteOn, noteOff, hit, patchOf, overOf, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)

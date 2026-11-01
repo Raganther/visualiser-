@@ -122,6 +122,19 @@ body.benching { padding-bottom: calc(var(--benchH, 50vh) + 16px) }
 .keep[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600 }
 .rnd { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--mute) }
 .empty { color: var(--mute); margin: 0 }
+
+/* a family: the version row over the card, round by round */
+.fam { display: grid; align-content: start; border: 1px solid var(--line); border-radius: 4px; background: var(--sheet); overflow: hidden }
+.fam > .snd { border: 0; border-radius: 0; border-top: 1px solid var(--line) }
+.vers { display: grid; gap: 6px; padding: 10px 12px; background: var(--bg) }
+.vround { display: flex; flex-wrap: wrap; align-items: center; gap: 5px }
+.vr { font: 600 11px var(--mono); color: var(--accent); min-width: 22px }
+.ver { border: 1px solid var(--line); background: var(--sheet); border-radius: 12px; padding: 3px 9px; font-size: 12.5px; display: inline-flex; gap: 5px; align-items: center; max-width: 100% }
+.ver[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.ver[data-b="true"] { border-color: var(--accent); border-style: dashed }
+.ver i { font-style: normal; font-size: 11px } .ver i.k { color: var(--accent) } .ver i.r-1 { opacity: .8 }
+.vtools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px } .vnote { font: 11px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--mute) }
+.ab { margin-left: auto; font-weight: 600 } .ab small { font-weight: 400; color: var(--mute) } .ab:disabled { opacity: .45; cursor: default }
 @media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
 </style>
 
