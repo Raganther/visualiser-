@@ -228,3 +228,11 @@ before writing or changing a piece; add to it when they react.
   energy at 1–4 kHz, its felt body, than the metal hats; "tinny" may be the metal hats lacking that body), the voices
   not used yet made gently (snare ghosts, an off-beat clap, ride, a swelling crash, a bowl, a gong), the synth's unison,
   sync and a self-oscillating filter ping, the native poly synth, and the toms and rim dried out.
+- 2026-11-01: Round 4 rated (19 of 25): 18 👍, 1 maybe, none 👎. The real hi-hat: "yes this is the right direction" (Real
+  hats, 808 and real hats), both pairs 👍. The native poly synth all 👍 (pluck, glass bell, dub chord, pulsing pad); the
+  unison pad and soft sync lead 👍; the filter ping 👍 but "a lot of mids". Kits: Warm and 808 👍 (Deep, 909, Grit not
+  rated). Snare ghosts, gong, dry rim/clave and toms 👍; the off-beat clap 👍 but "too much mid and bass". Their first
+  edits in the workbench, the clearest signal yet: on the 808 kit the kick shorter (decay .63), a little more punch
+  (character .49), mids -4; the hats shorter with more variation; the rim tuned down 6, darker, mids -4.4; the tom
+  shorter, mids -5. The clap's mids -10, shorter, softer start; the ride shorter, tuned down 3, darker, mids -6.5, little
+  bell. Every edit cut the mids (4–10 dB) and most shortened and darkened; they added human variation.
