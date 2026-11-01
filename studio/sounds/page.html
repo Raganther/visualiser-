@@ -108,14 +108,25 @@ body.benching { padding-bottom: 62vh }
 .ctl .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg) }
 .ctl.changed > span { color: var(--accent); font-weight: 600 } .ctl.changed > span::after { content: " ●"; font-size: 9px }
 #revert:disabled { opacity: .4; cursor: default }
+
+/* the rounds as tabs, under the transport; kept marked with a star */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px }
+.tabs button { border: 1px solid var(--line); background: transparent; border-radius: 3px; padding: 6px 12px; font-weight: 600; font-size: 14px }
+.tabs button small { font: 11px var(--mono); color: var(--mute); font-weight: 400 }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) } .tabs button[aria-selected="true"] small { color: inherit; opacity: .75 }
+.tabs .kepttab { margin-left: auto }
+.keep { margin-left: auto; border: 1px solid var(--line); background: transparent; border-radius: 3px; padding: 4px 10px; font-size: 13px }
+.keep[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600 }
+.rnd { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--mute) }
+.empty { color: var(--mute); margin: 0 }
 @media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
 </style>
 
 <div class="wrap">
   <header class="intro">
-    <span class="meta">Round 3 · 28 sounds · all in A at 122 BPM</span>
+    <span class="meta" id="meta"></span>
     <h1>Analog <em>Sound Lab</em></h1>
-    <p>Round 3 grows from your round 2 ratings: more basses in the FM family you liked (FM round, FM wood), the leads you still found harsh cut higher up and started softer, warm hats with their click taken off and a little body under them, played as closed-and-open pairs (choked and ringing), the shaker in half the room and rim and clave softened. Each card says what it came from, and Open the synth or Open the drums lets you change any setting and play it on the keys.</p>
+    <p id="lede"></p>
   </header>
 
   <div class="transport">
@@ -126,6 +137,7 @@ body.benching { padding-bottom: 62vh }
       <label class="vol" for="room">Room <input id="room" type="range" min="0" max="2" step=".05" value="1"><output id="roomOut">100%</output></label>
       <div class="prog"><div class="nums"><b id="count">0 of 30 rated</b><span id="likes"></span></div><div id="bar"></div></div>
     </div>
+    <div id="tabs" class="tabs" role="tablist" aria-label="Rounds"></div>
     <div class="status"><span id="saved" role="status">Loading your ratings…</span><button id="copy" class="ghost" hidden>Copy my ratings</button></div>
     <textarea id="dump" hidden aria-label="Your ratings, to copy"></textarea>
   </div>

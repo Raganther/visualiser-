@@ -228,7 +228,14 @@ const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) =>
 const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
 const drums = list => list.map(([id, role, name, words, kit, over, alone, pattern, x = {}]) => ({id, kind: 'drum', role, name, words, kit, over, alone: alone.map(([v, vel], i) => ({s: i*4, v, vel})), phrase: rows(pattern), from: x.from, room: x.room || 0}));
 export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)]};
-export const SOUNDS = ROUNDS[ROUND];
+for (const [r, list] of Object.entries(ROUNDS)) for (const x of list) x.round = +r;
+export const SOUNDS = ROUNDS[ROUND], ALL = Object.values(ROUNDS).flat();
+// what each round set out to do, for the page
+export const INTROS = {
+  1: 'Thirty sounds from the two analog instruments: the analog synth and the analog drum machine, a wide spread to find out what you like.',
+  2: 'Grown from your round 1 ratings: round, clean basses without the buzz; the chords you liked, a little warmer; the leads with their nasal, piercing band cut; short, dry, lower kicks; the new warm hats; some sounds in a room.',
+  3: 'Grown from your round 2 ratings: more basses in the FM family you liked, the leads you still found harsh cut higher up and started softer, warm hats with their click taken off and a little body, played as choked and ringing pairs, the shaker in half the room, rim and clave softened.',
+};
 export const GROUPS = [['bass', 'Basses'], ['chords', 'Chords'], ['lead', 'Plucks, bells and leads'], ['texture', 'Texture'], ['kick', 'Kicks'], ['hats', 'Hats'], ['perc', 'Percussion']];
 // the quiet groove under a phrase in "In a loop": the Deep kit, set back. A kick sound gets the hats and shaker alone;
 // hats get the kick alone; the rest get the kick, a few closed hats and the shaker

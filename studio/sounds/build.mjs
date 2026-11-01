@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { build } from 'esbuild';
-import { SOUNDS, BPM, BARS } from './sounds.js';
+import { ALL as SOUNDS, BPM, BARS } from './sounds.js';
 import { PLIST, DEF, synthRender } from '../lib/native/asynth.js';
 import { AnalogKit } from '../lib/native/analogkit.js';
 
@@ -19,8 +19,9 @@ function measure(L, R){ let s = 0, pk = 0; for (let i = 0; i < L.length; i++) { 
 function drums(s){ const K = new AnalogKit(sr, 11); K.load(s.kit, s.over); const n = Math.ceil((secs + .5)*sr), L = new Float32Array(n), R = new Float32Array(n), hits = [...s.phrase].sort((a, b) => a.s - b.s); let h = 0;
   for (let j = 0; j < n; j += 128) { while (h < hits.length && hits[h].s*sd*sr < j + 128) { K.on(hits[h].v, hits[h].vel); h++; } K.render(L, R, j, Math.min(n, j + 128)); }
   return {L, R}; }
-const gains = {}, report = [];
+const gains = {}, report = [], seen = new Set();
 for (const s of SOUNDS) {
+  if (seen.has(s.id)) throw new Error(`${s.id}: in two rounds`); seen.add(s.id);
   if (s.kind === 'synth') { for (const [k, v] of Object.entries(s.patch)) { const p = PLIST.find(q => q.key === k); if (!p) throw new Error(`${s.id}: no setting ${k}`); if (v < p.min || v > p.max) throw new Error(`${s.id}: ${k} ${v} outside ${p.min}..${p.max}`); } }
   else for (const x of s.phrase) if (x.s >= BARS*16) throw new Error(`${s.id}: a hit past two bars`);
   const out = s.kind === 'synth' ? synthRender(sr, {...DEF, ...s.patch, period: 60/BPM}, s.phrase.map(x => ({t: x.s*sd, len: x.l*sd, n: x.n, vel: x.v})), secs + .5) : drums(s);

@@ -65,7 +65,9 @@ reads them and makes the next version.
   synth's modules, or the picked drum's ten and its Mids and warmth), heard at once and marked when changed, your version
   kept with your rating (`edits` in its `ratings` document: a synth's settings, or a drum's by voice) and played by the
   phrases too, **Back to the original**; and keys to play it, a piano for a synth (the mouse, or A to ' and Z X for the
-  octave) or a pad a drum (A S D …).
+  octave) or a pad a drum (A S D …). Every round is on the page (`ALL`, each sound knowing its `round`; their ids
+  never repeat), a tab each (the newest marked new) and **★ Kept**: ☆ Keep on any card (`keep` in its `ratings`
+  document) gathers it there beside the others kept from any round, its round named on it.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two
