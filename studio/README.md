@@ -81,7 +81,10 @@ reads them and makes the next version.
   percussion, bass, chords, lead: `SLOTS`; each part's choices the sounds of its kind liked or kept, edits included),
   each its own instrument in the worklet (`slot` messages: a synth of either engine or a drum machine, its own buffer,
   level, mute and room, summed set back by `PAL`), a part changed while it plays swapping in time; the picks kept in the
-  database (`palette/mine`).
+  database (`palette/mine`). The lab plays each sound dry, as its instrument makes it: the synth's own tone stage, chorus and echo, the
+  drum machine's own bus (tape, glue, weight), a room send and a soft ceiling, but none of the Arrangement's desk (the
+  channel strips, the kick's sidechain, the buses, the master bus). **Pack 7** (`jam/make-pack-7.mjs`) brings the lab's
+  chosen sounds into the library, with the user's edits, so the DAW plays them on its desk.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

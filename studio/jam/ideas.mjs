@@ -381,7 +381,49 @@ function round6(){ const need = n => { if (!SNAPS[n]) throw new Error(`needs ${n
       ['Seed again', 8, 'a-pedal-3', {kick: K13, perc: P1, bass: bassLong, lead2: ANSWER}, 'The kick thins to one and three, the bass long on the and, the answer as it began.'],
     ]))); }
   return songs; }
-const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5, 6: round6}[ROUND]();
+// round 7: the first song from the sound lab's sounds (pack 7: the user's palette with their edits), minimal techno in A,
+// built round an LFO pad that evolves: its cutoff breathing on a slow LFO of its own while the song moves its tone
+// across the sections (closed in the haze, opening through the groove, blooming in the breakdown, gated at the drop,
+// closing at the end). Dynamics bar by bar: the kick waiting, the bass from two notes to its line, the hats a drummer's,
+// loudness shaped in every groove; the parts' levels moving section by section (`mix.vol`), the pad pumping on the kick
+function round7(){ const S16 = SNAPS['Scene 16']; if (!S16) throw new Error('needs Scene 16 in ' + dir);
+  const {base, GROUND, pack, song, n0} = kit(S16, 707, {echo: false, verb: true, y: .25});
+  const {beat, tune, PK4, K4, K13, HGROOVE, hatsTo, HSPARSE, HRISE, P1, P2, P3, PDEV} = grooves();
+  for (const id of ['lib-deep', 'lib-colour', 'lib-dorswing', 'lib-susrise']) GROUND[id] ??= inKey(LIB.find(h => h.id === id), 'A');
+  const SND7 = {kick: 'l7-kick', hats: 'l7-hats', perc: 'l7-perc', bass: 'l7-bass', chords: 'l7-pad', lead: 'l7-marimba', lead2: 'l7-glass'};
+  const VOL7 = {kick: 0, hats: -3, perc: -2, bass: -1, chords: -6, lead: -5, lead2: -8};
+  base.cols.forEach((c, i) => { const k = Object.keys(COL).find(k => COL[k] === i); c.sound = SND7[k]; c.locked = true; c.mix = {...c.mix, vol: VOL7[k], duck: 0}; });
+  const LIGHT = m => ({...m, play: 1}), LOOSE = m => ({...m, play: 2});
+  const MX = (col, more) => ({...base.cols[COL[col]].mix, ...more});
+  const loop = (name, len, hits) => ({R: {len, hits: hits.map(([s, , l, v]) => [s, l, v]), feel: 0, name, base: name, ops: []}, N: {seq: hits.map(([, r, , , o = 0]) => [r, o]), name, base: name, ops: []}});
+  // the pad: one chord a phrase (it moves by itself: the LFO on its cutoff), its tone set and moved by each section
+  const PHRASE = pack('chords', 'c3-phrase'), GATED = pack('chords', 'c3-gated');
+  const PAD = (x, ramp, more = {}) => ({...PHRASE, x, ...(ramp ? {ramp: {x: ramp}} : {}), ...more});
+  // the bass: two notes on the and, then answered, then its whole line (louder notes on the 1 of each bar)
+  const B1 = tune('Two notes on the and', [[[2, 0, 3, .82]], [[2, 0, 2, .76], [10, 2, 2, .6]]]);
+  const B2 = tune('Answered', [[[2, 0, 2, .84], [10, 2, 2, .64], [14, 3, 1, .5]], [[2, 0, 2, .78], [7, 0, 1, .42], [10, 2, 2, .66], [14, 1, 1, .52]]]);
+  const B3 = tune('The line', [[[2, 0, 2, .86], [10, 2, 2, .66], [14, 3, 1, .52]], [[2, 0, 2, .8], [7, 0, 1, .46], [10, 2, 2, .7], [14, 1, 1, .56]],
+    [[2, 0, 2, .82], [6, 1, 1, .5], [10, 2, 2, .68], [13, 4, 1, .56]], [[2, 0, 1, .86], [3, 0, 1, .5, 1], [6, 2, 1, .6], [10, 3, 2, .72], [14, 4, 1, .6], [15, 2, 1, .44]]]);
+  const BLONG = tune('Long, fading', [[[2, 0, 12, .7]], [[2, 2, 8, .58]], [[2, 0, 12, .48]], [[2, 0, 10, .38]]]);
+  // the marimba: seven steps against the four, a note moved each time it comes back
+  const M7 = loop('Seven against four', 7, [[0, 2, 1, .6], [3, 4, 1, .45], [5, 3, 1, .5]]), M7b = loop('Seven, a note moved', 7, [[0, 2, 1, .62], [3, 3, 1, .46], [5, 4, 1, .52, 1]]);
+  // the glass: stabs in fives, high and sparse, a rung moving
+  const GL = loop('Glass in fives', 80, [[2, 4, 1, .55, 1], [22, 4, 1, .4, 1], [42, 5, 1, .5, 1], [62, 3, 1, .42, 1]]);
+  // the hats: a drummer's, with more ghosts in the groove and a fill into each change
+  const H = n => hatsTo(n);
+  return [
+    (n0(), song('r7-1', 'Low Tide', 'The first song from the sound lab: your palette (your 808 kick, the real hats, the dry hands and wood, FM round, the glass stab, the FM marimba) round an evolving LFO pad. The pad breathes by itself (its cutoff on a slow LFO), and the song moves its tone across the sections: closed in the haze, opening through the groove, blooming in the breakdown, gated at the drop, closing at the end. The kick waits, the bass grows from two notes to its line, the hats play like a drummer, every part\'s loudness shaped.', 122, [
+      ['Haze', 16, 'lib-deep', {perc: LIGHT(P1), chords: PAD(.18, [.18, .38], {mix: MX('chords', {vol: -5})})}, 'The pad alone with the hands: its filter nearly closed, breathing on its own LFO, opening a little over sixteen bars.'],
+      ['Pulse', 16, 'lib-colour', {kick: K13, hats: HSPARSE, perc: P2, chords: PAD(.38, [.38, .48], {mix: MX('chords', {vol: -6, duck: 2})}), lead: LIGHT(M7)}, 'The kick on one and three, a few hats, twigs in the hands, the marimba\'s seven steps drifting against the bar; the pad starts to pump.'],
+      ['Groove', 32, 'lib-colour', {kick: K4, hats: LIGHT(H(32)), perc: P3, bass: B1, chords: PAD(.46, [.46, .62], {mix: MX('chords', {vol: -7, duck: 3})}), lead: LIGHT(M7)}, 'Four on the floor, the drummer\'s hats, and the bass: two notes on the and. The pad opening slowly over thirty-two bars.'],
+      ['Deeper', 16, 'lib-dorswing', {kick: K4, hats: LIGHT(H(16)), perc: PDEV, bass: B2, chords: PAD(.62, [.62, .7], {mix: MX('chords', {vol: -7, duck: 3})}), lead: M7b, lead2: LIGHT(GL)}, 'The dorian lift (A minor 9 to D 9): the bass answers itself, the hands answer each other, the glass stab comes in high and sparse.'],
+      ['Bloom', 8, 'lib-susrise', {perc: pack('perc', 'p3-air'), chords: PAD(.3, [.3, .95], {mix: MX('chords', {vol: -4})}), lead2: GL}, 'The breakdown: no kick, no bass; sus2 chords stepping up, the pad blooming open bar by bar.'],
+      ['Rise', 8, 'lib-susrise', {hats: HRISE, perc: LIGHT(P1), chords: {...GATED, sound: 'l7-padgate', x: .5, ramp: {x: [.5, .85]}, mix: MX('chords', {vol: -6})}, lead: LIGHT(M7b)}, 'The pad becomes the gated unison pad, cut into 16ths and opening; the hats rising into the drop.'],
+      ['Drop', 32, 'lib-colour', {kick: K4, hats: LOOSE(HGROOVE), perc: LIGHT(PDEV), bass: LIGHT(B3), chords: {...GATED, sound: 'l7-padgate', x: .8, mix: MX('chords', {vol: -7, duck: 4})}, lead: LIGHT(M7b), lead2: LIGHT(GL)}, 'The drop: the bass\'s whole line, the gated pad open and pumping on the kick, the marimba and the glass together, the hats played loose.'],
+      ['Ebb', 16, 'lib-deep', {kick: K13, perc: P1, bass: BLONG, chords: PAD(.6, [.6, .14], {mix: MX('chords', {vol: -6})}), lead: M7}, 'The kick thins, the bass in long notes fading, the evolving pad back and closing, the marimba as it began.'],
+    ])),
+  ]; }
+const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5, 6: round6, 7: round7}[ROUND]();
 ideas.forEach((x, i) => { x.order = i; x.id = `r${ROUND}-${i + 1}`; x.at = new Date().toISOString(); });
 for (const x of ideas) for (const y of x.sections || []) y.at = x.at;
 for (const x of ideas) for (const c of x.cols || []) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }

@@ -43,7 +43,8 @@ if (drumI >= 0 && synthI >= 0) for (const i of [drumI, synthI, drumI, synthI, dr
 check('the keys follow the track picked, from drums to a synth and back', drumI >= 0 && synthI >= 0 && !back.length, back.join(' '));
 
 // pads over the song playing: louder than the song alone
-if (drumI >= 0) { await page.locator('.trk').nth(drumI).click(); await page.click('#tabInst'); await wait(400); await page.keyboard.press(' '); await wait(1500);
+// (on a steady song: the newest in the menu may open quietly and swell, so its own level moves more than a pad adds)
+if (drumI >= 0) { await page.selectOption('#songSel', 'r4-1'); await wait(1500); drumI = await page.evaluate(() => window.__daw.ST.P.tracks.findIndex(T => T.role === 'drums')); await page.locator('.trk').nth(drumI).click(); await page.click('#tabInst'); await wait(400); await page.keyboard.press(' '); await wait(1500);
   const alone = await peak(() => wait(600)); const withPad = await peak(() => press(page.locator('#iKeys .pad').first())); await page.keyboard.press(' ');
   check('a pad is heard over the song playing', withPad >= alone*.9 && withPad > .005, `song ${alone.toFixed(3)}, with the pad ${withPad.toFixed(3)}`); }
 check('no page errors', !errs.length, errs.join('; '));
