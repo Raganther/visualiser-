@@ -19,9 +19,11 @@ html,body{margin:0; height:100%; overflow:hidden; background:var(--bg); color:va
 .views button:focus-visible{outline:2px solid var(--acc); outline-offset:-2px}
 .hint{color:var(--mute); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
 .views + .hint{flex:1}
+.xb{font:inherit; font-size:12.5px; color:var(--mute); background:none; border:1px solid var(--line); border-radius:7px; padding:0 9px; min-height:30px; cursor:pointer} .xb:hover{color:var(--ink)}
+#flash{position:fixed; left:50%; top:52px; transform:translateX(-50%); background:var(--bar); border:1px solid var(--line); border-radius:8px; padding:6px 12px; z-index:3; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none} #flash[data-on="1"]{opacity:1}
 iframe{position:fixed; inset:44px 0 0 0; width:100%; height:calc(100% - 44px); border:0; display:block; background:var(--bg)}
 iframe[hidden]{display:none}
-@media (max-width:640px){ .hint{display:none} .sbar b{display:none} .views{flex:1} .views button{flex:1 1 0; padding:0 4px; font-size:13px; white-space:nowrap} }
+@media (max-width:640px){ .xb{padding:0 6px} .hint{display:none} .sbar b{display:none} .views{flex:1} .views button{flex:1 1 0; padding:0 4px; font-size:13px; white-space:nowrap} }
 </style>
 <div class="sbar" role="toolbar" aria-label="Studio">
   <b>Studio</b>
@@ -29,11 +31,14 @@ iframe[hidden]{display:none}
     <button id="vSession" aria-pressed="true" title="The clips: scenes of live clips over the ground (Tab)">Session</button><button id="vScene" aria-pressed="false" title="Every part of a scene, one under the other, with the most used controls">Scene</button><button id="vArrange" aria-pressed="false" title="The song on a timeline, as notes (Tab)">Arrangement</button><button id="vJam" aria-pressed="false" title="Studio Jam v2: the jam as it was, parts and cards">Jam v2</button>
   </div>
   <span class="hint" id="hint">Tab flips Session and Arrangement · the Clip tab holds the jam's tools</span>
+  <button class="xb" id="exp" title="Everything you've made and set (your likes, songs, sounds, settings) as one file, to take to another account">Export</button><button class="xb" id="imp" title="A file made by Export: everything in it back into this Studio">Import</button><input type="file" id="impF" accept=".json,application/json" hidden>
 </div>
+<span id="flash" role="status"></span>
 <iframe id="fDaw" title="The Studio: Session and Arrangement"></iframe>
 <iframe id="fJam" title="Studio Jam v2" hidden></iframe>
 <script type="text/plain" id="srcDaw">/*ARRANGE*/</script>
 <script type="text/plain" id="srcJam">/*SESSION*/</script>
+<script>/*SETTINGS*/</script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -61,6 +66,14 @@ iframe[hidden]{display:none}
     // a take (or your song) from the Session, into the Arrangement as one of its songs
     toArrangement: async song => { const w = await load('daw'); await w.__studioView.addSong(song); show('arrange'); },
   };
+  // your settings with your account, and Export / Import (studio/studio/settings.js)
+  let flT = 0; const flash = t => { const f = $('flash'); f.textContent = t; f.dataset.on = '1'; clearTimeout(flT); flT = setTimeout(() => f.dataset.on = '', 2600); };
+  const reload = () => { for (const v of Object.values(F)) if (v.ready) { v.ready = null; load(Object.keys(F).find(k => F[k] === v)); } show(view); };
+  const ST = window.__studioSettings; let db = null; ST.startSettings({reload, flash}).then(d => { db = d; });
+  $('exp').onclick = async () => { flash('Gathering everything…'); try { flash('Exported: ' + await ST.exportAll(db)); } catch (e) { flash('Export failed: ' + e.message); } };
+  $('imp').onclick = () => $('impF').click();
+  $('impF').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { const n = await ST.importAll(db, await f.text()); flash(`Imported: your settings and ${n} saved things`); reload(); } catch (x) { flash('Import failed: ' + x.message); } };
+  window.__studio.reload = reload;
   let first = 'session'; try { first = localStorage.getItem('studio.view') || 'session'; } catch {}
   load('daw'); show(['arrange', 'jam'].includes(first) ? first : 'session');
 })();

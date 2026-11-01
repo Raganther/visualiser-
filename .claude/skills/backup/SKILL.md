@@ -27,9 +27,12 @@ repo holds a copy (see `data/README.md`). Settings kept only in a browser's `loc
 
 1. Publish the page from the repo (the `publish` skill for the visualiser; `node studio/studio/build.mjs` and the
    Studio's `studio/listen/studio.html` with the same `db` capability rules as the old one: one rule a collection,
-   `read: view, write: interact`, `ideas` `write: admin`, plus `settings`). Note the new URL in CLAUDE.md.
+   `read: view, write: interact`, `ideas` `write: admin`, plus `settings`, and `downloads: true` for Export). Note the new URL in CLAUDE.md.
 2. For each `data/<artifact>/<collection>/<file>.json`: its document id is the file name without `.json`, `%3A` back
    to `:`. `ArtifactData` `batch` `set` them into the new artifact, up to 50 a batch and under 1 MiB a batch (send
    the big ones, `ideas`, `songs`, `versions`, a few at a time, with `file_path`).
 3. `list` each collection in the new artifact and check the counts against `data/MANIFEST.json`.
-4. Tell the user to reload the page.
+4. Tell the user to reload the page: its browser settings come back from `settings/local` by themselves.
+
+Without Claude: the Studio's **Export** button saves one file of everything (the database and the browser's settings,
+song versions too) and **Import** on the other account's Studio loads it.
