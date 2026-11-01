@@ -48,6 +48,12 @@ reads them and makes the next version.
   `arrange/rack.js`, a whole kit on one track with a strip a pad, pack 6's kits or the song's own drums put together); `npoly.js` is the poly synth and `kit.js` the
   drum machine rebuilt the same way; `analogkit.js` is a drum machine of our own, built as analog circuits behave (five
   kits, in pack 4; each as one drum rack in pack 6).
+- **The sound lab** (`sounds/`, `listen/sound-lab.html`: https://claude.ai/artifact/GcRj9RriTw49xjf3LynKaG): rounds of
+  sounds for the user to like or not, the way the collaboration began. Round 1 is thirty analog sounds (twenty from the
+  analog synth, ten from the analog drum machine, `sounds/sounds.js`), each heard alone, in a phrase for its role and in
+  that phrase over a quiet groove, all in A at 122 BPM; `node studio/sounds/build.mjs` renders every phrase offline and
+  matches their loudness (a sound mustn't win by being louder). Ratings go to the page's `ratings` collection (a document
+  a sound: rating 1 like, 2 maybe, -1 not for me, and a note): read them with ArtifactData before the next round.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

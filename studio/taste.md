@@ -187,3 +187,7 @@ before writing or changing a piece; add to it when they react.
   minor: the 808 kit, the seven-step bass on the round bass, the stab on the and as pulse brass, the bird calls on the
   ring bell). Left out on purpose: the Reese, wobble, acid and hoover, the clap and snare. To learn by listening: which
   kit, and whether the analog bass and leads hold up without the natural sounds.
+- 2026-11-01: Round 6 "not working": unsure whether the writing, the mix or the instruments, leaning towards the sound
+  and the mix, "everything really". They want to go back to how the collaboration started: Claude makes sounds, they
+  like or dislike them, and that steers. None of the analog sounds had been rated. The sound lab, round 1: thirty
+  analog sounds (`studio/sounds/`), analog only, at matched loudness; the songs wait until there are sounds they like.

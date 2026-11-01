@@ -1,0 +1,101 @@
+<meta charset="utf-8">
+<title>Analog Sound Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a patch log. A sticky transport across the top (what's playing, how far through the round), then the sounds
+   grouped by role, each a numbered patch sheet: what it is, three ways to hear it, a verdict and a note. */
+:root {
+  --bg: #e7ebe4; --sheet: #f7f8f4; --ink: #18201b; --mute: #59645d; --line: #c3cbc2;
+  --accent: #b9521b; --accent-ink: #fff;
+  --like: #2a7448; --maybe: #8c6a0e; --no: #a63a2c;
+  --display: 'Bricolage Grotesque', 'Arial Narrow', system-ui, sans-serif; --body: 'IBM Plex Sans', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101412; --sheet: #191e1b; --ink: #e3e8e2; --mute: #98a39c; --line: #303934;
+  --accent: #ec8a4a; --accent-ink: #1b0e05; --like: #63c18b; --maybe: #dbb04a; --no: #e4766a; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #101412; --sheet: #191e1b; --ink: #e3e8e2; --mute: #98a39c; --line: #303934;
+  --accent: #ec8a4a; --accent-ink: #1b0e05; --like: #63c18b; --maybe: #dbb04a; --no: #e4766a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px }
+button, textarea { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+header.intro { display: grid; gap: 10px; padding-top: 28px }
+h1 { margin: 0; font-family: var(--display); font-weight: 750; font-stretch: 78%; font-size: clamp(34px, 6vw, 58px); line-height: .95; letter-spacing: -.01em; text-wrap: balance }
+h1 em { font-style: normal; color: var(--accent) }
+.intro p { margin: 0; max-width: 64ch; color: var(--mute) }
+.meta { font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mute) }
+
+/* the transport */
+.transport { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line) }
+.tbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px }
+#stop { border: 0; border-radius: 3px; background: var(--ink); color: var(--bg); font-weight: 600; padding: 8px 16px; min-height: 38px }
+#stop:disabled { opacity: .35; cursor: default }
+#now { font-weight: 600; min-width: 0; flex: 1 1 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.vol { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); color: var(--mute); text-transform: uppercase; letter-spacing: .06em }
+.vol input { width: 110px; accent-color: var(--accent) }
+.prog { display: grid; gap: 4px; min-width: 170px }
+.prog .nums { display: flex; gap: 10px; font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--mute) }
+.prog .nums b { color: var(--ink); font-weight: 500 }
+#bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; --done: 0 }
+#bar::after { content: ""; display: block; height: 100%; width: calc(var(--done)*100%); background: var(--accent); transition: width .3s }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; font-size: 13px; color: var(--mute) }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 3px; padding: 5px 10px; font-size: 13px }
+#dump { width: 100%; min-height: 120px; font: 12px var(--mono); background: var(--sheet); border: 1px solid var(--line); border-radius: 3px; padding: 8px }
+
+/* the sounds */
+#groups { display: grid; gap: 28px }
+.group { display: grid; gap: 12px }
+h2 { margin: 0; font-family: var(--display); font-weight: 650; font-stretch: 85%; font-size: 22px; text-wrap: balance }
+h2 small { font: 500 12px var(--mono); color: var(--mute) }
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)) }
+.snd { background: var(--sheet); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px 14px; display: grid; gap: 10px; align-content: start; position: relative }
+.snd::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 4px; border-radius: 4px 0 0 4px; background: transparent }
+.snd[data-rating="1"]::before { background: var(--like) } .snd[data-rating="2"]::before { background: var(--maybe) } .snd[data-rating="-1"]::before { background: var(--no) }
+.top { display: flex; align-items: baseline; gap: 10px; min-width: 0 }
+.num { font: 500 12px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums }
+.snd h3 { margin: 0; font-family: var(--display); font-weight: 650; font-stretch: 88%; font-size: 19px; line-height: 1.15; flex: 1; min-width: 0 }
+.src { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--mute); white-space: nowrap }
+.snd p { margin: 0; font-size: 14px; color: var(--mute); max-width: 60ch }
+.plays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.play { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid var(--line); border-radius: 3px; background: transparent; font-weight: 600; font-size: 14px; padding: 0 6px }
+.play .ico { width: 0; height: 0; border-left: 8px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent }
+.play[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.play[aria-pressed="true"] .ico { width: 9px; height: 9px; border: 0; background: currentColor }
+.rate { display: flex; gap: 6px; flex-wrap: wrap }
+.rate button { flex: 1 1 auto; min-height: 36px; border: 1px solid var(--line); border-radius: 18px; background: transparent; font-size: 13.5px; font-weight: 500; padding: 0 12px }
+.rate button[data-v="1"][aria-pressed="true"] { background: var(--like); border-color: var(--like); color: var(--sheet) }
+.rate button[data-v="2"][aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--sheet) }
+.rate button[data-v="-1"][aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--sheet) }
+.snd textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 40px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); padding: 7px 9px; font-size: 14px }
+.snd textarea::placeholder { color: var(--mute) }
+@media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="meta">Round 1 · 30 sounds · all in A at 122 BPM</span>
+    <h1>Analog <em>Sound Lab</em></h1>
+    <p>Every sound here comes from the two analog instruments we built: the analog synth and the analog drum machine. Hear each one alone, in a short phrase, or in that phrase over a quiet groove. They all play at the same loudness. Mark each Like, Maybe or Not for me, and add a note where you can say why. The next round will follow what you like.</p>
+  </header>
+
+  <div class="transport">
+    <div class="tbar">
+      <button id="stop" disabled>Stop</button>
+      <span id="now" aria-live="polite">Nothing playing</span>
+      <label class="vol" for="vol">Volume <input id="vol" type="range" min="0" max="1.5" step=".01" value="1"></label>
+      <div class="prog"><div class="nums"><b id="count">0 of 30 rated</b><span id="likes"></span></div><div id="bar"></div></div>
+    </div>
+    <div class="status"><span id="saved" role="status">Loading your ratings…</span><button id="copy" class="ghost" hidden>Copy my ratings</button></div>
+    <textarea id="dump" hidden aria-label="Your ratings, to copy"></textarea>
+  </div>
+
+  <main id="groups"></main>
+</div>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>
