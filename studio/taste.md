@@ -217,3 +217,9 @@ before writing or changing a piece; add to it when they react.
   4–5 kHz and started softer, hats with the drum machine's new Attack (no click) and a bronze Body, in choked and ringing
   pairs, the shaker in half the room, rim and clave softened. The user asked why the lab's synth looks unlike the
   Studio's (sliders, not knobs and drawings) and whether the sounds are native (they are).
+- 2026-11-01: Sound lab round 3 rated (24 of 28): 15 👍, 8 maybe, 1 👎. Basses: FM round short and slow fall 👍, gliding
+  and a fifth maybe ("very similar to the other ones": the FM family has converged). Chords: FM keys, Pulse brass softer
+  👍, Sus pluck in a room maybe. Leads: Ring bell softer, Blip soft, Pulse pluck soft, Wood pluck warm, FM marimba 👍 (the
+  softer starts and higher cuts worked); FM glass, FM kalimba soft maybe. Hats: Warm hats soft attack and 808 hats
+  softened 👍; with body 👎; the pairs "still very tinny", the ringing pair "a strange attack timbre". Perc: rim and
+  clave and the toms "too much reverb"; shaker half wet 👍. Kick rounder maybe. Asked about the analog drum kits.
