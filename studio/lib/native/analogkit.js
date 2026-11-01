@@ -12,6 +12,7 @@ import { rng } from '../rng.js';
 import { adaa, svf, clip, toneHz, dB } from '../parts/dsp.js';
 import { Chain } from '../parts/procs.js';
 import { peak, biq } from './asynth.js';
+import { HihatV, HIHAT_D } from './hats.js';
 
 // every voice's settings: the browser kit's seven (tune, decay, tone, drive, level, pan, character) and three of its own
 export const APARAMS = [...PARAMS, {key: 'snap', label: 'Snap', min: 0, max: 1, def: .5, unit: '%'}, {key: 'body', label: 'Body', min: 0, max: 1, def: .5, unit: '%'},
@@ -20,7 +21,10 @@ export const APARAMS = [...PARAMS, {key: 'snap', label: 'Snap', min: 0, max: 1, 
   // how much of them is the warm cymbal (below) rather than the 808's metal
   {key: 'mids', label: 'Mids', min: -12, max: 6, def: 0, unit: 'dB'}, {key: 'warm', label: 'Warm cymbal (hats)', min: 0, max: 1, def: 0, unit: '%'},
   // a softer start: the hit fades in over this long (a click is a hit reaching full in a fraction of a millisecond)
-  {key: 'atk', label: 'Attack', min: 0, max: 15, def: 0, unit: 'ms'}];
+  {key: 'atk', label: 'Attack', min: 0, max: 15, def: 0, unit: 'ms'},
+  // the hats as a real pair of cymbals (the native hi-hat, hats.js: partials from 3 to 15 kHz, the plates' rattle, the
+  // stick's tick, a felt body), instead of (or blended with) the metal; Tone and Body reach it too
+  {key: 'real', label: 'Real hi-hat (hats)', min: 0, max: 1, def: 0, unit: '%'}];
 const D = Object.fromEntries(APARAMS.map(p => [p.key, p.def]));
 // the kits: each voice's settings over the defaults, the bus (drive: tape saturation, tone, glue: the compressor, weight:
 // dB of low end, width, buzz: the snare wires answering the kick), and the browser kit standing in where nothing native plays
@@ -132,12 +136,16 @@ function warmHat(m, v, R, sr, body = 0){ const P = WARM.map((f, i) => { const a 
   let ph = 0, z = 0; return (t, nz) => { let y = 0; ph++; for (let i = 0; i < n; i++) { const q = P[i]; y += (Math.sin(q[0]*ph + q[2]) + Math.sin(q[1]*ph + q[3]))*q[4]; }
     if (B.length) { const eb = Math.exp(-t/.035); for (const q of B) y += Math.sin(q[0]*ph + q[1])*q[2]*eb*.6; }
     z = hi2(hi(lo(nz).lp).hp).hp; return y*.075 + z*.6; }; }
+// (the real hi-hat's level beside the metal's, so blending them keeps the loudness)
+const REAL = .9;
 function hat(p, v, R, sr, w, base, open){ const m = st(p.tune)*w.f, d = base*p.decay*w.d*(.8 + .4*v), up = .85 + .3*v + .2*(p.tone - .5), mt = metal(m*1.6, sr), mx = .25 + p.x*.9, nx = (1 - p.x)*.7 + .08;
   const b1 = svf(7400*up, 1.6, sr), b2 = svf(10200*up, 1.2, sr), h = svf(6800*up, .7, sr), b1R = svf(7550*up, 1.6, sr), b2R = svf(10400*up, 1.2, sr), hR = svf(6900*up, .7, sr);
-  const wm = p.warm || 0, bd = Math.max(0, p.body - .5)*2, wL = wm > 0 ? warmHat(m, v, R, sr, bd) : null, wR = wm > 0 ? warmHat(m*1.003, v, R, sr, bd) : null, md = 1 - wm;
-  return {end: d*1.1 + .02, open, f: t => { const e = (t < .0004 ? t/.0004 : 1)*(open ? .55*Math.exp(-T*t/(d*.22)) + .45*Math.exp(-T*t/d) : Math.exp(-T*t/d))*v, n1 = R()*2 - 1, n2 = R()*2 - 1;
+  const rl = p.real || 0, RH = rl > 0 ? new HihatV(sr, 0, {...HIHAT_D, open: open ? Math.min(1, .55 + .3*(p.decay - 1) + .2*p.x) : .03 + .05*(p.decay - 1), tone: p.tone*.6, body: p.body, seed: 1 + Math.floor(R()*997)}, v) : null;
+  const wm = (p.warm || 0)*(1 - rl), bd = Math.max(0, p.body - .5)*2, wL = wm > 0 ? warmHat(m, v, R, sr, bd) : null, wR = wm > 0 ? warmHat(m*1.003, v, R, sr, bd) : null, md = (1 - (p.warm || 0))*(1 - rl);
+  return {end: Math.max(d*1.1 + .02, RH ? RH.end/sr : 0), open, f: t => { const e = (t < .0004 ? t/.0004 : 1)*(open ? .55*Math.exp(-T*t/(d*.22)) + .45*Math.exp(-T*t/d) : Math.exp(-T*t/d))*v, n1 = R()*2 - 1, n2 = R()*2 - 1;
     let l = 0, r = 0; if (md > 0) { const mm = mt()*mx, xl = mm + n1*nx, xr = mm + n2*nx; l = h(b1(xl).bp*.8 + b2(xl).bp).hp*md; r = hR(b1R(xr).bp*.8 + b2R(xr).bp).hp*md; }
-    if (wL) { l += wL(t, n1)*wm; r += wR(t, n2)*wm; } return [l*e*1.5, r*e*1.5]; }}; }
+    if (wL) { l += wL(t, n1)*wm; r += wR(t, n2)*wm; } l *= e*1.5; r *= e*1.5;
+    if (RH) { const [hl, hr] = RH.next(); l += hl*rl*REAL; r += hr*rl*REAL; } return [l, r]; }}; }
 function tom(p, v, R, sr, w, base){ const f = base*st(p.tune)*w.f, d = .55*p.decay*w.d*(1 + .4*p.body), sag = (.35 + .4*p.snap)*v, th = svf(420*st(p.tune), 1, sr), ring = .6 + .4*p.x; let a = 0, b = 0;
   return {end: d*1.1 + .03, f: t => { const e = (t < .001 ? t/.001 : 1)*Math.exp(-T*t/d), ff = f*(1 + sag*e*e + .3*Math.exp(-t/.01)); a += TAU*ff/sr; b += TAU*ff*1.52/sr;
     const y = (Math.sin(a) + .14*Math.sin(b)*Math.exp(-T*t/(d*.4)))*e*ring + th(R()*2 - 1).bp*Math.exp(-t/.02)*(.9 - .7*p.x)*.8; return y*v*.85; }}; }

@@ -9,6 +9,7 @@ import { build } from 'esbuild';
 import { ALL as SOUNDS, BPM, BARS } from './sounds.js';
 import { PLIST, DEF, synthRender } from '../lib/native/asynth.js';
 import { AnalogKit } from '../lib/native/analogkit.js';
+import { NativePoly, DEF as NDEF } from '../lib/native/npoly.js';
 
 const here = path.dirname(new URL(import.meta.url).pathname), keys = new Set(PLIST.map(p => p.key)), sr = 48000, sd = 60/BPM/4, secs = BARS*16*sd;
 // the loudness each phrase is brought to (RMS over its two bars, dBFS), and the most it may be raised
@@ -16,15 +17,21 @@ const TARGET = -21, MAXUP = 18;
 const dB = x => 20*Math.log10(Math.max(1e-9, x));
 function measure(L, R){ let s = 0, pk = 0; for (let i = 0; i < L.length; i++) { s += L[i]*L[i] + R[i]*R[i]; pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); if (!Number.isFinite(L[i])) return {bad: true}; }
   return {rms: Math.sqrt(s/(2*L.length)), pk}; }
+// the native poly synth rendered the same way as synthRender does the analog one
+function npoly(P, notes, secs){ const S = new NativePoly(sr); S.period = 60/BPM; S.load(P); const n = Math.ceil(secs*sr), L = new Float32Array(n), R = new Float32Array(n);
+  const ev = notes.flatMap((x, i) => [{t: x.t, on: 1, i, x}, {t: x.t + x.len, on: 0, i}]).sort((a, b) => a.t - b.t || a.on - b.on); let e = 0;
+  for (let j = 0; j < n; j += 128) { const end = Math.min(n, j + 128); while (e < ev.length && ev[e].t*sr < end) { const q = ev[e++]; if (q.on) S.on(q.i, q.x.n, q.x.vel ?? .8); else S.off(q.i); } S.render(L, R, j, end); }
+  return {L, R}; }
 function drums(s){ const K = new AnalogKit(sr, 11); K.load(s.kit, s.over); const n = Math.ceil((secs + .5)*sr), L = new Float32Array(n), R = new Float32Array(n), hits = [...s.phrase].sort((a, b) => a.s - b.s); let h = 0;
   for (let j = 0; j < n; j += 128) { while (h < hits.length && hits[h].s*sd*sr < j + 128) { K.on(hits[h].v, hits[h].vel); h++; } K.render(L, R, j, Math.min(n, j + 128)); }
   return {L, R}; }
 const gains = {}, report = [], seen = new Set();
 for (const s of SOUNDS) {
   if (seen.has(s.id)) throw new Error(`${s.id}: in two rounds`); seen.add(s.id);
-  if (s.kind === 'synth') { for (const [k, v] of Object.entries(s.patch)) { const p = PLIST.find(q => q.key === k); if (!p) throw new Error(`${s.id}: no setting ${k}`); if (v < p.min || v > p.max) throw new Error(`${s.id}: ${k} ${v} outside ${p.min}..${p.max}`); } }
+  if (s.kind === 'synth' && s.engine !== 'npoly') { for (const [k, v] of Object.entries(s.patch)) { const p = PLIST.find(q => q.key === k); if (!p) throw new Error(`${s.id}: no setting ${k}`); if (v < p.min || v > p.max) throw new Error(`${s.id}: ${k} ${v} outside ${p.min}..${p.max}`); } }
   else for (const x of s.phrase) if (x.s >= BARS*16) throw new Error(`${s.id}: a hit past two bars`);
-  const out = s.kind === 'synth' ? synthRender(sr, {...DEF, ...s.patch, period: 60/BPM}, s.phrase.map(x => ({t: x.s*sd, len: x.l*sd, n: x.n, vel: x.v})), secs + .5) : drums(s);
+  const notes = s.kind === 'synth' ? s.phrase.map(x => ({t: x.s*sd, len: x.l*sd, n: x.n, vel: x.v})) : null;
+  const out = s.kind !== 'synth' ? drums(s) : s.engine === 'npoly' ? npoly({...NDEF, ...s.patch}, notes, secs + .5) : synthRender(sr, {...DEF, ...s.patch, period: 60/BPM}, notes, secs + .5);
   const m = measure(out.L, out.R); if (m.bad) throw new Error(`${s.id}: not a number in its sound`); if (m.rms < 1e-4) throw new Error(`${s.id}: silent`);
   const g = Math.min(Math.pow(10, MAXUP/20), Math.pow(10, (TARGET - dB(m.rms))/20), .95/m.pk);
   gains[s.id] = +g.toFixed(4); report.push(`${s.id.padEnd(12)} rms ${dB(m.rms).toFixed(1).padStart(6)} peak ${dB(m.pk).toFixed(1).padStart(6)}  → ×${g.toFixed(2)} (${dB(m.rms*g).toFixed(1)} dB, peak ${dB(m.pk*g).toFixed(1)})`); }

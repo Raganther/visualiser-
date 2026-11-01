@@ -223,3 +223,8 @@ before writing or changing a piece; add to it when they react.
   softer starts and higher cuts worked); FM glass, FM kalimba soft maybe. Hats: Warm hats soft attack and 808 hats
   softened 👍; with body 👎; the pairs "still very tinny", the ringing pair "a strange attack timbre". Perc: rim and
   clave and the toms "too much reverb"; shaker half wet 👍. Kick rounder maybe. Asked about the analog drum kits.
+- 2026-11-01: Round 4 (25 sounds): the five analog kits whole on one groove (909 and Grit for the first time), the
+  drum machine's Real hi-hat (the native pair-of-cymbals model behind the "Soft hats" liked long ago: much more of its
+  energy at 1–4 kHz, its felt body, than the metal hats; "tinny" may be the metal hats lacking that body), the voices
+  not used yet made gently (snare ghosts, an off-beat clap, ride, a swelling crash, a bowl, a gong), the synth's unison,
+  sync and a self-oscillating filter ping, the native poly synth, and the toms and rim dried out.

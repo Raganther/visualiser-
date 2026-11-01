@@ -5,8 +5,9 @@
 // A wide spread on purpose, leaning to what studio/taste.md says they like (round, plucked, struck, moving) and leaving
 // out what they've said no to (Reese, wobble, acid, hoover, plain sub, gritty or driven kicks, long held leads).
 import { midiOf } from '../lib/names.js';
+import { PRESETS as NPRESETS } from '../lib/native/npoly.js';
 
-export const ROUND = 3, BPM = 122, BARS = 2;
+export const ROUND = 4, BPM = 122, BARS = 2;
 const chord = (at, len, names, vel = .75) => names.split(' ').map(n => [at, len, n, vel]);
 const N = list => list.map(([s, l, n, v = .8]) => ({s, l, n: midiOf(n), v}));
 
@@ -223,11 +224,71 @@ const DRUM3 = [
   // a kick: the liked low one, its click rounder
   ['kickround', 'kick', 'Short kick, rounder', 'Short kick, lower, with less click at the front.', 'Analog Deep', {kick: {decay: .62, body: .32, snap: .02, x: .25, tune: -7, atk: .6}}, [['kick', 1]], {kick: 'X...x...x...x...X...x...x...x..g'}, {from: 'Short kick, lower'}],
 ];
+// round 4: the kits, a real hi-hat, the parts not used yet, and round 3's fixes. Each of the analog drum machine's five
+// kits played whole on one groove (909 and Grit heard for the first time); the hats as a real pair of cymbals (the
+// native hi-hat brought into the drum machine: the "Soft hats" they liked long ago were it); the voices not used yet,
+// made to their taste (no snare or clap on the backbeat, nothing harsh): snare ghosts, an off-beat clap, ride, a soft
+// crash, a bowl and a gong; the synth's unison, sync and self-oscillating filter, gently; the native poly synth; and the
+// toms and rim dried out. No more bass variations: the FM family has settled (FM round, short and slow fall)
+const R3 = Object.fromEntries(SYNTH3.map(x => [x[0], x[4]]));
+const NP = (name, over = {}) => ({...NPRESETS[name], ...over});
+const SYNTH4 = [
+  // the analog synth's parts not used yet
+  ['unipad', 'chords', 'Unison pad', 'Four voices of the analog synth stacked on each note and gently detuned, through the soft ladder, warm, pulsing on the beat: wide without a Reese\'s growl.',
+    {mode: 3, uni: 4, udet: .18, spread: .9, w1: 0, w2: 1, pw2: .4, fine2: -6, l1: .6, l2: .4, ftype: 1, cut: 1100, res: .1, fenv: .15, fa: .2, fs: .6, aa: .15, ad: .8, as: .85, ar: .9, lshape: 6, lsync: 3, lamp: .35, hpf: 160, chorus: 1, tilt: -.3, mids: -3, midf: 2500, level: .45}, A.chord, P.pads, {room: .15}],
+  ['syncsoft', 'lead', 'Sync lead, soft', 'Oscillator 2 hard-synced, its sweep gentle, the mids cut and the start softened: the tearing lead made smooth.',
+    {w1: 0, l1: .2, w2: 0, sync: 1, semi2: 7, l2: .8, epitch: 6, etgt: 1, ftype: 0, cut: 2200, res: .1, fenv: .2, fa: .004, fd: .4, fs: .2, fr: .3, aa: .006, ad: .5, as: .7, ar: .3, mode: 2, glide: .05, mids: -7, midf: 2600, tilt: -.35, emix: .2, etime: 1, efb: .3, level: .55}, A.lead, P.bell, {room: .1}],
+  ['filterping', 'lead', 'Filter ping', 'No oscillators at all: the ladder filter itself, resonating at full, struck by a click and ringing at the note: a pure, wooden ping.',
+    {w1: 0, l1: 0, l2: 0, lnoise: .25, ftype: 0, cut: 400, res: .97, fkey: 1, fenv: .2, fa: .001, fd: .02, fs: 0, fr: .3, aa: .001, ad: .6, as: 0, ar: .4, mode: 0, tilt: -.2, level: .7}, A.lead, P.threes, {}],
+  // the native poly synth, never heard in the lab yet
+  ['nppluck', 'lead', 'Poly pluck', 'The native poly synth\'s pluck: a saw and a square an octave up, its ladder filter plucked shut, drifting a little as analog voices do.',
+    NP('Pluck', {cut: 420, res: .25, chorus: .3}), A.lead, P.threes, {engine: 'npoly'}],
+  ['npbell', 'lead', 'Poly glass bell', 'The native poly synth\'s bell: a sine and a triangle an octave and a fifth up, ringing long, chorused.', NP('Glass bell', {oct: 0, chorus: .4}), A.lead, P.bell, {engine: 'npoly', room: .15}],
+  ['npdub', 'chords', 'Poly dub chord', 'The native poly synth\'s dub chord, played as the stabs in fives.', NP('Dub chord', {chord: 0, cut: 1000, res: .3}), A.chord, P.stabs, {engine: 'npoly', room: .2}],
+  ['nppad', 'chords', 'Poly warm pad, pulsing', 'The native poly synth\'s warm pad, its volume pulsing on every beat (never a held pad).', NP('Warm pad', {chord: 0, ldest: 2, lsync: 7, lamt: .5, aa: .3, fa: .4}), A.chord, P.pads, {engine: 'npoly'}],
+];
+const KITPAT = {kick: 'X...x...x...x...X...x...x...x..g', chh: 'g.x.g.x.g.x.g.xog.x.g.x.g.x.g.x.', ohh: '..............x...............x.',
+  rim: '...x..x.....x.......x..x.....x..', shaker: 'g.o.g.o.g.o.g.o.g.o.g.o.g.o.g.o.', tomH: '.......x...........x.......x....'};
+const HPAT2 = {chh: 'g.x.g.X.g.x.g.x.g.x.g.X.g.xog.x.', ohh: '..............x...............x.'};
+const DRUM4 = [
+  // each kit whole, on the same groove
+  ...['Deep', 'Warm', '808', '909', 'Grit'].map(k => [`kit${k.toLowerCase()}`, 'kits', `${k} kit`, {Deep: 'Deep and round: a long sub kick with little click, dark hats, the low end weighted.', Warm: 'Through warm tape: rounded, a little compressed, the highs softened, every hit drifting a little.', '808': 'The 808 as its circuits behave: a long booming kick, the six-square metal hats.', '909': 'The 909 as its circuits behave: a punchy kick with a click on top, crisp hats. Heard here for the first time.', Grit: 'Driven hard: the kick and percussion distorted, gritty metal, the bus pushed. Heard here for the first time, to know where the edge is.'}[k] + ' Kick, hats, rim, shaker and a tom on one groove.',
+    'Analog ' + k, {}, [['kick', 1], ['chh', .8], ['rim', .8]], KITPAT, {}]),
+  // the real hi-hat: the native pair of cymbals inside the drum machine
+  ['realhats', 'hats', 'Real hats', 'The hats as a real pair of cymbals: partials from 3 to 15 kHz, the plates\' rattle, the stick\'s tick and a felt body round 3 kHz that gives them weight. The model of the "Soft hats" you liked before.', 'Analog Deep',
+    {chh: {real: 1, tone: .75}, ohh: {real: 1, tone: .7}}, [['chh', .9], ['ohh', .8]], HPAT2, {}],
+  ['realsoft', 'hats', 'Real hats, darker', 'The real hats darker and a touch softer.', 'Analog Deep', {chh: {real: 1, tone: .5, atk: 1}, ohh: {real: 1, tone: .45, atk: 1.5}}, [['chh', .9], ['ohh', .8]], HPAT2, {}],
+  ['realpair', 'hats', 'Real hat pair, choked', 'The real hats as a pair, each open hat closed by the next closed one, a drummer\'s foot.', 'Analog Deep',
+    {chh: {real: 1, tone: .65}, ohh: {real: 1, tone: .6, decay: 1.3}}, [['ohh', .85], ['chh', .8]], {chh: 'x.g.x..xx.g.x..xx.g.x..xx.g.x..x', ohh: '......x.......x.......x.......x.'}, {}],
+  ['realring', 'hats', 'Real hat pair, ringing', 'The real open hat left to ring over a few soft closed ones.', 'Analog Deep',
+    {chh: {real: 1, tone: .6}, ohh: {real: 1, tone: .55, decay: 1.4}}, [['ohh', .85], ['chh', .8]], {chh: 'x...g...x...g...x...g...x...g...', ohh: '..x.......x.......x.......x.....'}, {room: .08}],
+  ['real808', 'hats', '808 and real hats', 'Half the 808\'s metal, half the real pair: the 808 hats you liked, with a real hat\'s body under them.', 'Analog 808',
+    {chh: {real: .5, mids: -4, tone: .75, atk: 2}, ohh: {real: .5, mids: -4, tone: .75, atk: 2}}, [['chh', .9], ['ohh', .8]], HPAT2, {}],
+  // the voices not used yet, made gently, off the backbeat
+  ['snareghost', 'perc', 'Snare ghosts', 'The snare played only as soft ghost notes between the beats, never on 2 and 4: a brushed rustle under the groove.', 'Analog Warm',
+    {snare: {tone: .45, mids: -5, atk: 1}}, [['snare', .45], ['snare', .9]], {snare: '.g...g.o..g...o..g...g.o..g..go.'}, {}],
+  ['clapoff', 'perc', 'Clap, off the beat', 'A round, soft clap on the off-beats and a 16th before the bar, never the backbeat.', 'Analog Warm',
+    {clap: {tone: .55, mids: -5, atk: 2, decay: .8}}, [['clap', .8]], {clap: '...........x..x....x...........x'}, {room: .15}],
+  ['ridebell', 'hats', 'Ride', 'The ride on the off-beats, its bell soft, the mids cut: a wash that moves.', 'Analog Deep',
+    {ride: {mids: -5, tone: .6, x: .3, atk: 1}}, [['ride', .8]], {ride: '..x...x...x...x...x...x...x...x.'}, {room: .1}],
+  ['crashswell', 'hats', 'Crash, swelling', 'A crash once in two bars, fading in rather than struck, darker: a swell, not a smash.', 'Analog Deep',
+    {crash: {atk: 12, tone: .45, mids: -6, decay: 1.2}}, [['crash', .7]], {crash: 'x...............................'}, {room: .2}],
+  ['bowl', 'perc', 'Bowl', 'The ride tuned down and left to ring: a struck metal bowl.', 'Analog Deep',
+    {ride: {tune: -7, decay: 1.6, x: .9, tone: .5, mids: -4}}, [['ride', .8]], {ride: 'x.......x.....x.x.......x.......'}, {room: .15}],
+  ['gong', 'perc', 'Gong', 'The crash tuned well down, swelling in and ringing long: a small gong once in two bars.', 'Analog Deep',
+    {crash: {tune: -12, decay: 1.8, atk: 15, tone: .35}}, [['crash', .8]], {crash: 'x...............................'}, {room: .2}],
+  // round 3's fixes: drier
+  ['rimdry', 'perc', 'Rim and clave, dry', 'Rim and clave softened as you liked them, with almost no reverb.', 'Analog Deep',
+    {rim: {mids: -7, tone: .55, atk: 1}, clave: {mids: -7, tune: -3, atk: 1}}, [['rim', .8], ['clave', .8]], {rim: '..x..x..x..x..x..x..x..x..x..x..', clave: '.x....x....x....x....x....x....'}, {room: .03}],
+  ['tomsdry', 'perc', 'Toms and shaker, dry', 'The toms and shaker with almost no reverb on the toms.', 'Analog Warm',
+    {tomH: {tune: 4, decay: .6, mids: -6}, tomL: {tune: 2, decay: .7, mids: -6}}, [['tomH', .8], ['shaker', .8]],
+    {tomH: '..x....x.....x....x....o.....x..', tomL: '...x......x.......x.......x....x', shaker: 'g.o.g.o.g.o.g.o.g.o.g.o.g.o.g.o.'}, {room: .03}],
+];
 const LEVEL = {g: .25, o: .45, x: .75, X: 1};
 const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) => c === '.' ? null : {s, v, vel: LEVEL[c]}).filter(Boolean));
-const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
+const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', engine: x.engine || 'asynth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
 const drums = list => list.map(([id, role, name, words, kit, over, alone, pattern, x = {}]) => ({id, kind: 'drum', role, name, words, kit, over, alone: alone.map(([v, vel], i) => ({s: i*4, v, vel})), phrase: rows(pattern), from: x.from, room: x.room || 0}));
-export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)]};
+export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)], 4: [...synths(SYNTH4), ...drums(DRUM4)]};
 for (const [r, list] of Object.entries(ROUNDS)) for (const x of list) x.round = +r;
 export const SOUNDS = ROUNDS[ROUND], ALL = Object.values(ROUNDS).flat();
 // each sound's parents: the sound (or sounds) it grew from, the first its main line; none for a new design. From these
@@ -241,7 +302,8 @@ export const PARENTS = {
   fmshort: ['fmround'], fmslow: ['fmround'], fmglide: ['fmround'], fmfifth: ['fmwood'], fmtwo: ['fmround'], fmtri: ['fmround', 'trisub'], fmwoodlong: ['fmwood'],
   blipsoft: ['blipround'], kalimbasoft: ['fmkalimba'], plucksoft: ['pluckwarm'], fmmarimba: ['malletsoft'], fmglass: ['fmbell'], bellsoft: ['belltamed'], woodwarm: ['woodlow'],
   fmgated: ['gatedsoft', 'fmkeys'], brasssoft: ['pulsebrass'], susroom: ['suswarm'],
-  hatsoft: ['warmhats'], hatbody: ['warmhats'], hatdark: ['warmshimmer'], hatring: ['hatchoke'], hat808soft: ['warmbright'], shakerhalf: ['shakerwet'], rimsoft: ['rimroom'], shakertoms: ['tomstamed'], kickround: ['kicklow'],
+  hatsoft: ['warmhats'], hatbody: ['warmhats'],
+  realsoft: ['realhats'], realpair: ['hatchoke'], realring: ['hatring'], real808: ['hat808soft'], rimdry: ['rimsoft'], tomsdry: ['shakertoms'], gong: ['crashswell'], bowl: ['ridebell'], syncsoft: ['syncknock'], hatdark: ['warmshimmer'], hatring: ['hatchoke'], hat808soft: ['warmbright'], shakerhalf: ['shakerwet'], rimsoft: ['rimroom'], shakertoms: ['tomstamed'], kickround: ['kicklow'],
 };
 const BYID = Object.fromEntries(ALL.map(x => [x.id, x]));
 for (const x of ALL) { x.parents = PARENTS[x.id] || []; if (x.parents.length) x.from = x.parents.map(p => BYID[p].name + (BYID[p].round !== x.round - 1 ? ` (round ${BYID[p].round})` : '')).join(' and '); }
@@ -254,9 +316,10 @@ export const FAMILIES = [...new Set(ALL.map(x => x.family))].map(root => { const
 export const INTROS = {
   1: 'Thirty sounds from the two analog instruments: the analog synth and the analog drum machine, a wide spread to find out what you like.',
   2: 'Grown from your round 1 ratings: round, clean basses without the buzz; the chords you liked, a little warmer; the leads with their nasal, piercing band cut; short, dry, lower kicks; the new warm hats; some sounds in a room.',
+  4: 'Each of the five analog kits played whole on one groove (909 and Grit for the first time); a new hi-hat model inside the drum machine, a real pair of cymbals (the model of the Soft hats you once liked); the parts not used yet, made gently: snare ghosts, an off-beat clap, ride, a swelling crash, a bowl, a gong, the synth\'s unison, sync and a filter ping, and the native poly synth; the toms and rim dried out.',
   3: 'Grown from your round 2 ratings: more basses in the FM family you liked, the leads you still found harsh cut higher up and started softer, warm hats with their click taken off and a little body, played as choked and ringing pairs, the shaker in half the room, rim and clave softened.',
 };
-export const GROUPS = [['bass', 'Basses'], ['chords', 'Chords'], ['lead', 'Plucks, bells and leads'], ['texture', 'Texture'], ['kick', 'Kicks'], ['hats', 'Hats'], ['perc', 'Percussion']];
+export const GROUPS = [['kits', 'Whole kits'], ['bass', 'Basses'], ['chords', 'Chords'], ['lead', 'Plucks, bells and leads'], ['texture', 'Texture'], ['kick', 'Kicks'], ['hats', 'Hats'], ['perc', 'Percussion']];
 // the quiet groove under a phrase in "In a loop": the Deep kit, set back. A kick sound gets the hats and shaker alone;
 // hats get the kick alone; the rest get the kick, a few closed hats and the shaker
 export const GROOVE = {
@@ -264,4 +327,4 @@ export const GROOVE = {
   hats: rows({kick: 'x...x...x...x...x...x...x...x...'}),
   rest: rows({kick: 'x...x...x...x...x...x...x...x...', chh: '..o...o...o...o...o...o...o...o.', shaker: 'g.g.g.g.g.g.g.g.g.g.g.g.g.g.g.g.'}),
 };
-export const grooveFor = s => s.role === 'kick' ? GROOVE.kick : s.role === 'hats' ? GROOVE.hats : GROOVE.rest;
+export const grooveFor = s => s.role === 'kits' ? [] : s.role === 'kick' ? GROOVE.kick : s.role === 'hats' ? GROOVE.hats : GROOVE.rest;

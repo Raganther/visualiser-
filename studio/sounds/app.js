@@ -7,7 +7,10 @@
 import { ROUNDS, ALL, INTROS, GROUPS, ROUND, BPM, BARS, FAMILIES, grooveFor } from './sounds.js';
 import { $, h } from '../lib/dom.js';
 import { control } from '../lib/parts/shell.js';
-import { PARAMS, DEF } from '../lib/native/asynth.js';
+import { PARAMS as APAR, DEF as ADEF } from '../lib/native/asynth.js';
+import { PARAMS as NPAR, DEF as NDEF } from '../lib/native/npoly.js';
+// each synth engine's settings and their defaults
+const ENG = s => s.engine === 'npoly' ? {PARAMS: NPAR, DEF: NDEF} : {PARAMS: APAR, DEF: ADEF};
 import { APARAMS, analogParams } from '../lib/native/analogkit.js';
 import { voiceName, noteName, SHARPS } from '../lib/names.js';
 
@@ -31,10 +34,10 @@ const famOf = id => FAMILIES.find(f => f.root === byId(id).family), selOf = f =>
 // play a sound one of three ways (the same button again stops it)
 // a sound as you've left it: the round's settings with your changes over them
 const edits = id => S.rate[id]?.edits || null;
-const patchOf = s => ({...DEF, ...s.patch, ...(edits(s.id) || {})});
+const patchOf = s => ({...ENG(s).DEF, ...s.patch, ...(edits(s.id) || {})});
 const overOf = s => { const o = {...s.over}, e = edits(s.id) || {}; for (const [v, x] of Object.entries(e)) o[v] = {...(o[v] || {}), ...x}; return o; };
 function loadSound(id){ const s = byId(id); S.loaded = id;
-  if (s.kind === 'synth') send({type: 'synth', params: {...patchOf(s), period: 60/BPM}, gain: GAIN[id], room: s.room}); else send({type: 'kit', kit: s.kit, over: overOf(s), gain: GAIN[id], room: s.room}); }
+  if (s.kind === 'synth') send({type: 'synth', engine: s.engine, params: {...patchOf(s), period: 60/BPM}, gain: GAIN[id], room: s.room}); else send({type: 'kit', kit: s.kit, over: overOf(s), gain: GAIN[id], room: s.room}); }
 async function play(id, mode){ const was = S.playing; stop(); if (S.ed && S.ed !== id) closeEd(); if (was && was.id === id && was.mode === mode) return;
   await start(); const s = byId(id); loadSound(id);
   S.playing = {id, mode}; slot = 0; next = ctx.currentTime + .08; send({type: 'clock', t0: next});
@@ -74,7 +77,7 @@ function copyRatings(){ const lines = ALL.map((s, i) => { const r = S.rate[s.id]
 
 /* ---------- the page ---------- */
 const MODES = [['alone', 'Alone'], ['phrase', 'Phrase'], ['loop', 'In a loop']];
-const source = s => s.kind === 'synth' ? 'Analog synth' : s.kit.replace('Analog ', '') + ' kit';
+const source = s => s.kind === 'synth' ? (s.engine === 'npoly' ? 'Native poly synth' : 'Analog synth') : s.kit.replace('Analog ', '') + ' kit';
 function card(s, i){ const r = S.rate[s.id] || {};
   const note = h('textarea', {id: 'note-' + s.id, rows: 2, placeholder: 'A note, if you like: what works, what doesn\'t'}); note.value = r.note || '';
   note.oninput = () => rate(s.id, {note: note.value});
@@ -142,7 +145,7 @@ function closeEd(){ releaseAll(); fold(false); S.ed = null; $('bench').hidden = 
 function change(s, key, v, voice){ const e = structuredClone(edits(s.id) || {});
   if (voice) { const orig = {...analogParams(s.kit)[voice], ...(s.over[voice] || {})}[key]; e[voice] ||= {}; if (Math.abs(v - orig) < 1e-9) delete e[voice][key]; else e[voice][key] = v; if (!Object.keys(e[voice]).length) delete e[voice];
     send({type: 'voice', v: voice, key, val: v}); }
-  else { const orig = {...DEF, ...s.patch}[key]; if (Math.abs(v - orig) < 1e-9) delete e[key]; else e[key] = v; send({type: 'set', params: {[key]: v}}); }
+  else { const orig = {...ENG(s).DEF, ...s.patch}[key]; if (Math.abs(v - orig) < 1e-9) delete e[key]; else e[key] = v; send({type: 'set', params: {[key]: v}}); }
   rate(s.id, {edits: Object.keys(e).length ? e : null}); sayEd(s); }
 function revert(){ const s = byId(S.ed); rate(s.id, {edits: null}); loadSound(s.id); paintEd(); }
 function sayEd(s){ const e = edits(s.id), n = !e ? 0 : s.kind === 'synth' ? Object.keys(e).length : Object.values(e).reduce((a, x) => a + Object.keys(x).length, 0);
@@ -160,8 +163,8 @@ function paintEd(){ const s = byId(S.ed); $('edName').textContent = s.name; $('e
       h('b', {}, voiceName(v)), h('span', {}, PADKEYS[i]?.toUpperCase() || '')))); $('pads').hidden = false; $('kb').hidden = true;
     $('kbSay').textContent = 'Keys: ' + drumsOf(s).map((v, i) => `${PADKEYS[i].toUpperCase()} ${voiceName(v).toLowerCase()}`).join(' · ') + ' · a pad picked shows its settings'; }
   // the settings: the synth's modules, or the picked drum's
-  if (s.kind === 'synth') { const P = patchOf(s), O = {...DEF, ...s.patch};
-    $('edSet').replaceChildren(...PARAMS.map(([g, ps]) => h('section', {class: 'mod'}, h('h4', {}, g), ...ps.map(p => { const c = control(p, P[p.key], v => change(s, p.key, v), {reset: O[p.key]}); if (Math.abs(P[p.key] - O[p.key]) > 1e-9) c.classList.add('changed'); return c; })))); }
+  if (s.kind === 'synth') { const P = patchOf(s), O = {...ENG(s).DEF, ...s.patch};
+    $('edSet').replaceChildren(...ENG(s).PARAMS.map(([g, ps]) => h('section', {class: 'mod'}, h('h4', {}, g), ...ps.map(p => { const c = control(p, P[p.key], v => change(s, p.key, v), {reset: O[p.key]}); if (Math.abs(P[p.key] - O[p.key]) > 1e-9) c.classList.add('changed'); return c; })))); }
   else { const v = S.pad, P = overOf(s)[v] ? {...analogParams(s.kit)[v], ...overOf(s)[v]} : analogParams(s.kit)[v], O = {...analogParams(s.kit)[v], ...(s.over[v] || {})};
     $('edSet').replaceChildren(h('section', {class: 'mod wide'}, h('h4', {}, voiceName(v) + ' · ' + s.kit), ...APARAMS.map(p => { const c = control(p, P[p.key] ?? p.def, x => change(s, p.key, x, v), {reset: O[p.key] ?? p.def}); if (Math.abs((P[p.key] ?? p.def) - (O[p.key] ?? p.def)) > 1e-9) c.classList.add('changed'); return c; }))); } }
 // playing it: a note held while the key is, a drum hit

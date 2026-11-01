@@ -44,6 +44,9 @@ export class HihatV {
       p.lp = s + (p.lp - s)*p.lc; ys[ci] = p.lp*Math.min(1, i/(sr*.0004 + 1)); }
     const d = (ys[1] - ys[0])*.5*this.width; return [ys[0] + d, ys[0] - d]; }
   off(){}
+  // the next sample, for a voice played a sample at a time (the analog drum machine's hats)
+  next(){ const i = this.i; if (i >= this.end) { this.done = true; return [0, 0]; } const w = this.head[0].length, f = this.fo;
+    const [l, r] = i < w ? [this.head[0][i], this.head[1][i]] : this.sample(i), e = this.g*(i > this.end - f ? (this.end - i)/f : 1); this.i++; return [l*e, r*e]; }
   run(oL, oR, a, b){ const n = this.end, w = this.head[0].length, f = this.fo;
     for (let j = a; j < b; j++) { const i = this.i; if (i >= n) { this.done = true; return; }
       const [l, r] = i < w ? [this.head[0][i], this.head[1][i]] : this.sample(i), e = this.g*(i > n - f ? (n - i)/f : 1); oL[j] += l*e; oR[j] += r*e; this.i++; } }

@@ -73,7 +73,11 @@ reads them and makes the next version.
   has, branching where a sound had several children, "Last in round N" where it stopped, "New in round N" where it
   began), your rating and ★ on each; picking a version shows and plays it (carrying on in time if that family is
   playing, the workbench following), and **⇄ A/B** swaps between the last two picked. **New in round N** shows the
-  newest round alone; **★ Kept** the kept ones. A new round's sounds name their parents there.
+  newest round alone; **★ Kept** the kept ones. A new round's sounds name their parents there. Round 4 adds **whole kits** (each of the
+  five analog kits on one groove), the drum machine's **Real hi-hat** (`real`: the native pair of cymbals, `hats.js`'s
+  `HihatV`, played a sample at a time by `next()`, blended with the metal and the warm cymbal) and the **native poly
+  synth** (`engine: 'npoly'` on a sound: the worklet plays it beside the analog synth, each into its own buffer, and
+  the workbench shows its own settings).
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

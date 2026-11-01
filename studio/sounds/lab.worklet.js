@@ -3,20 +3,22 @@
 // "In a loop". Notes and hits arrive with their audio-clock times and start on their exact sample.
 import { AnalogSynth } from '../lib/native/asynth.js';
 import { AnalogKit } from '../lib/native/analogkit.js';
+import { NativePoly } from '../lib/native/npoly.js';
 import { Chain } from '../lib/parts/procs.js';
 
 const soft = x => { const a = Math.abs(x); return a < .85 ? x : Math.sign(x)*(.85 + .15*Math.tanh((a - .85)/.15)); };
 
 class Lab extends AudioWorkletProcessor {
-  constructor(){ super(); this.S = new AnalogSynth(sampleRate); this.A = new AnalogKit(sampleRate, 11); this.B = new AnalogKit(sampleRate, 23); this.B.load('Analog Deep');
+  constructor(){ super(); this.AS = new AnalogSynth(sampleRate); this.NP = new NativePoly(sampleRate); this.S = this.AS; this.A = new AnalogKit(sampleRate, 11); this.B = new AnalogKit(sampleRate, 23); this.B.load('Analog Deep');
     this.g = {synth: 1, drum: 1, groove: .35, send: 0, room: 1};
     // the room: a send from the sound (each its own amount, all of them scaled by the page's Room), the reverb alone
-    this.room = new Chain(sampleRate, [{key: 'room', params: {size: 1.1, decay: 1.8, damp: .55, pre: 14, cut: 220, mix: 1, dry: 0}}]); this.ev = []; this.on = new Set(); this.b = [new Float32Array(128), new Float32Array(128), new Float32Array(128), new Float32Array(128)];
+    this.room = new Chain(sampleRate, [{key: 'room', params: {size: 1.1, decay: 1.8, damp: .55, pre: 14, cut: 220, mix: 1, dry: 0}}]); this.ev = []; this.on = new Set(); this.b = [0, 1, 2, 3, 4, 5].map(() => new Float32Array(128));
     this.port.onmessage = e => this.msg(e.data); }
   msg(m){
     if (m.period) this.S.period = m.period;
     if (m.type === 'clock') { this.S.t0 = m.t0; return; }
-    if (m.type === 'synth') { this.S.load(m.params); this.g.synth = m.gain; this.g.send = m.room || 0; }
+    // a synth sound: the analog synth, or the native poly synth (`engine`), the other let go
+    if (m.type === 'synth') { const next = m.engine === 'npoly' ? this.NP : this.AS; if (next !== this.S) { this.S.stop(); this.on.clear(); } this.S = next; this.S.period = this.AS.period; this.S.load(m.params); this.g.synth = m.gain; this.g.send = m.room || 0; }
     else if (m.type === 'kit') { this.A.load(m.kit, m.over || {}); this.g.drum = m.gain; this.g.send = m.room || 0; }
     else if (m.type === 'room') this.g.room = m.v;
     // a setting turned in the editor: heard at once, in the notes already sounding (the synth) or on the next hit (a drum)
@@ -30,12 +32,14 @@ class Lab extends AudioWorkletProcessor {
   run(m){ if (m.type === 'on') { this.on.add(m.id); this.S.on(m.id, m.n, m.vel); } else if (m.type === 'off') { this.on.delete(m.id); this.S.off(m.id); }
     else if (m.type === 'hit') (m.groove ? this.B : this.A).on(m.v, m.vel); }
   process(_, outs){ const L = outs[0][0], R = outs[0][1] || outs[0][0], n = L.length, t0 = currentTime;
-    if (this.b[0].length < n) this.b = [0, 1, 2, 3, 4, 5].map(() => new Float32Array(n));
+    if (this.b[0].length < n || this.b.length < 6) this.b = [0, 1, 2, 3, 4, 5].map(() => new Float32Array(Math.max(n, 128)));
     if (!this.r) this.r = [new Float64Array(128), new Float64Array(128)]; if (this.r[0].length < n) this.r = [new Float64Array(n), new Float64Array(n)];
-    const [sL, sR, dL, dR] = this.b; for (const x of this.b) x.fill(0, 0, n); let a = 0;
-    const upTo = j => { if (j > a) { this.S.now = t0 + a/sampleRate; this.S.render(sL, sR, a, j); this.A.render(dL, dR, a, j); this.B.render(L, R, a, j); a = j; } };
+    // (each synth into its own buffer: each runs its effects over the buffer it's given, so they must not share one)
+    const [sL, sR, dL, dR, nL, nR] = this.b; for (const x of this.b) x.fill(0, 0, n); let a = 0;
+    const upTo = j => { if (j > a) { this.S.now = t0 + a/sampleRate; this.AS.now = this.S.now; this.AS.render(sL, sR, a, j); this.NP.render(nL, nR, a, j); this.A.render(dL, dR, a, j); this.B.render(L, R, a, j); a = j; } };
     while (this.ev.length && this.ev[0].t < t0 + n/sampleRate) { const m = this.ev.shift(); upTo(Math.max(a, Math.min(n, Math.round((m.t - t0)*sampleRate)))); this.run(m); }
     upTo(n);
+    for (let j = 0; j < n; j++) { sL[j] += nL[j]; sR[j] += nR[j]; }
     const {synth, drum, groove} = this.g, send = this.g.send*this.g.room, [rL, rR] = this.r;
     for (let j = 0; j < n; j++) { rL[j] = (sL[j]*synth + dL[j]*drum)*send; rR[j] = (sR[j]*synth + dR[j]*drum)*send; }
     this.room.run(rL, rR, 0, n, {period: this.S.period});
