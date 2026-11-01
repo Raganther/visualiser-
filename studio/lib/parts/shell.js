@@ -28,10 +28,14 @@ export function fmt(p, v){ if (p.list) return p.list[Math.round(v)];
     case '×': return (+v).toFixed(2) + '×';
     case 'st': return (v > 0 ? '+' : '') + Math.round(v) + ' st';
     case 'pan': return Math.abs(v) < .02 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v)*100);
+    case 'oct': return (v > 0 ? '+' : '') + Math.round(v) + ' oct';
+    case 'ct': return (v > 0 ? '+' : '') + Math.round(v) + ' ct';
+    case '#': return String(Math.round(v));
+    case '±': return (v > 0 ? '+' : '') + Math.round(v*100) + '%';
     default: return Math.round(v*100) + '%'; } }
 // a slider's place (0..1000) and its value: log where it's asked for (frequencies, times, ratios)
-const toV = (p, x) => { x /= 1000; return p.log ? p.min*Math.pow(p.max/p.min, x) : p.min + (p.max - p.min)*x; };
-const toX = (p, v) => Math.round(1000*(p.log ? Math.log(v/p.min)/Math.log(p.max/p.min) : (v - p.min)/(p.max - p.min)));
+const toV = (p, x) => { x /= 1000; return p.log ? p.min*Math.pow(p.max/p.min, x) : p.pow ? p.min + (p.max - p.min)*Math.pow(x, p.pow) : p.min + (p.max - p.min)*x; };
+const toX = (p, v) => Math.round(1000*(p.log ? Math.log(v/p.min)/Math.log(p.max/p.min) : p.pow ? Math.pow((v - p.min)/(p.max - p.min), 1/p.pow) : (v - p.min)/(p.max - p.min)));
 // one setting as a control: a slider with its value in words, or buttons for a short list, a menu for a long one;
 // double-click a slider: back to `reset` (or the setting's default)
 export function control(p, v, on, {id, reset} = {}){ id ||= 'c-' + p.key + '-' + Math.random().toString(36).slice(2, 7);
@@ -39,7 +43,7 @@ export function control(p, v, on, {id, reset} = {}){ id ||= 'c-' + p.key + '-' +
     ...p.list.map((name, i) => h('button', {'aria-pressed': Math.round(v) === i, onclick: e => { for (const b of e.target.parentNode.children) b.setAttribute('aria-pressed', b === e.target); on(i); }}, name))));
   if (p.list) { const s = h('select', {id, 'aria-label': p.label}, ...p.list.map((name, i) => h('option', {value: i, selected: Math.round(v) === i}, name))); s.onchange = () => on(+s.value);
     return h('div', {class: 'ctl', 'data-key': p.key}, h('span', {}, p.label), s); }
-  const whole = p.unit === 'st', r = h('input', {type: 'range', id, min: whole ? p.min : 0, max: whole ? p.max : 1000, step: 1, value: whole ? Math.round(v) : toX(p, v)}), out = h('output', {for: id}, fmt(p, v));
+  const whole = ['st', 'oct', '#'].includes(p.unit) && !p.pow, r = h('input', {type: 'range', id, min: whole ? p.min : 0, max: whole ? p.max : 1000, step: 1, value: whole ? Math.round(v) : toX(p, v)}), out = h('output', {for: id}, fmt(p, v));
   r.oninput = () => { const x = whole ? +r.value : toV(p, +r.value); out.textContent = fmt(p, x); on(x); };
   r.ondblclick = () => { const x = reset ?? p.def; r.value = whole ? x : toX(p, x); out.textContent = fmt(p, x); on(x); };
   return h('label', {class: 'ctl', 'data-key': p.key, title: 'Double-click: back to where it started'}, h('span', {}, p.label), out, r); }

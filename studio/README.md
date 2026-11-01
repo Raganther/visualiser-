@@ -60,7 +60,12 @@ reads them and makes the next version.
   a broad cut round where a sound turns nasal or piercing; `tilt`, warm to bright) and a cross mod that can be
   **Linear** (`xtype`: the note stays in tune, FM's clean bells and woody basses) and **fall away** over a note
   (`xenv`, `xdec`); the analog drum machine a per-voice **Mids** cut and a **warm cymbal** for the hats (`warm`:
-  inharmonic partials from 4.4 kHz up, beating slowly, rounded at the top, blended with the 808's metal).
+  inharmonic partials from 4.4 kHz up, beating slowly, rounded at the top, blended with the 808's metal). Each card's
+  **Open the synth / Open the drums** docks a workbench at the foot of the page: every setting of its instrument (the
+  synth's modules, or the picked drum's ten and its Mids and warmth), heard at once and marked when changed, your version
+  kept with your rating (`edits` in its `ratings` document: a synth's settings, or a drum's by voice) and played by the
+  phrases too, **Back to the original**; and keys to play it, a piano for a synth (the mouse, or A to ' and Z X for the
+  octave) or a pad a drum (A S D …).
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

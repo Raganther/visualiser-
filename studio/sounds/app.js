@@ -2,11 +2,17 @@
 // that phrase over a quiet groove, live in the audio thread (lab.worklet.js), at matched loudness (the build measured
 // them: __GAINS__). A rating and a note per sound go to the page's database (`ratings`, a document a sound: rating 1
 // like, 2 maybe, -1 not for me), where Claude reads them; without a database they stay on this device and can be copied.
+// Each sound opens in the workbench: its instrument's settings (the synth's, or each drum's) to change as it plays, your
+// version kept with your rating (`edits`) and Back to the original, and keys to play it (on screen, or the computer's).
 import { SOUNDS, GROUPS, ROUND, BPM, BARS, grooveFor } from './sounds.js';
 import { $, h } from '../lib/dom.js';
+import { control } from '../lib/parts/shell.js';
+import { PARAMS, DEF } from '../lib/native/asynth.js';
+import { APARAMS, analogParams } from '../lib/native/analogkit.js';
+import { voiceName, noteName, SHARPS } from '../lib/names.js';
 
 const GAIN = __GAINS__, sd = 60/BPM/4, LEN = BARS*16;
-const S = {playing: null, rate: {}, db: null, vol: 1, room: 1};
+const S = {playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
 const load = (k, d) => { try { const v = localStorage.getItem('soundlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const keep = (k, v) => { try { localStorage.setItem('soundlab.' + k, JSON.stringify(v)); } catch {} };
 let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 0;
@@ -20,9 +26,14 @@ const send = m => node?.port.postMessage({...m, period: 60/BPM});
 const byId = id => SOUNDS.find(s => s.id === id);
 
 // play a sound one of three ways (the same button again stops it)
-async function play(id, mode){ const was = S.playing; stop(); if (was && was.id === id && was.mode === mode) return;
-  await start(); const s = byId(id);
-  if (s.kind === 'synth') send({type: 'synth', params: {...s.patch, period: 60/BPM}, gain: GAIN[id], room: s.room}); else send({type: 'kit', kit: s.kit, over: s.over, gain: GAIN[id], room: s.room});
+// a sound as you've left it: the round's settings with your changes over them
+const edits = id => S.rate[id]?.edits || null;
+const patchOf = s => ({...DEF, ...s.patch, ...(edits(s.id) || {})});
+const overOf = s => { const o = {...s.over}, e = edits(s.id) || {}; for (const [v, x] of Object.entries(e)) o[v] = {...(o[v] || {}), ...x}; return o; };
+function loadSound(id){ const s = byId(id); S.loaded = id;
+  if (s.kind === 'synth') send({type: 'synth', params: {...patchOf(s), period: 60/BPM}, gain: GAIN[id], room: s.room}); else send({type: 'kit', kit: s.kit, over: overOf(s), gain: GAIN[id], room: s.room}); }
+async function play(id, mode){ const was = S.playing; stop(); if (S.ed && S.ed !== id) closeEd(); if (was && was.id === id && was.mode === mode) return;
+  await start(); const s = byId(id); loadSound(id);
   S.playing = {id, mode}; slot = 0; next = ctx.currentTime + .08; send({type: 'clock', t0: next});
   endAt = mode === 'alone' ? (s.kind === 'synth' ? Math.max(...s.alone.map(x => x.s + x.l)) + 24 : 16) : Infinity;
   tick(); timer = setInterval(tick, 25); paint(); }
@@ -42,17 +53,17 @@ function tick(){ const p = S.playing; if (!p) return; const s = byId(p.id);
 /* ---------- the ratings: the page's database, or this device ---------- */
 const RATES = [[1, 'Like'], [2, 'Maybe'], [-1, 'Not for me']];
 function rate(id, patch){ const s = byId(id), r = {...(S.rate[id] || {}), ...patch}; if (r.rating === undefined) r.rating = 0; S.rate[id] = r; keep('rate', S.rate); paintCard(id); count();
-  if (S.db) { saying('Saving…'); clearTimeout(rate.t[id]); rate.t[id] = setTimeout(() => S.db.doc('ratings/' + id).set({rating: r.rating, note: r.note || '', name: s.name, kind: s.kind, role: s.role, round: ROUND, at: new Date().toISOString()})
-    .then(() => saying('Saved'), e => saying(e?.code === 'not_granted' || e?.code === 'forbidden' ? 'Not saved: this page can only save for its owner' : 'Not saved: try again in a moment')), patch.note !== undefined ? 700 : 0); } }
+  if (S.db) { saying('Saving…'); clearTimeout(rate.t[id]); rate.t[id] = setTimeout(() => S.db.doc('ratings/' + id).set({rating: r.rating, note: r.note || '', edits: r.edits || null, name: s.name, kind: s.kind, role: s.role, round: ROUND, at: new Date().toISOString()})
+    .then(() => saying('Saved'), e => saying(e?.code === 'not_granted' || e?.code === 'forbidden' ? 'Not saved: this page can only save for its owner' : 'Not saved: try again in a moment')), patch.note !== undefined || 'edits' in patch ? 700 : 0); } }
 rate.t = {};
 function saying(t){ $('saved').textContent = t; }
 async function connect(){ S.rate = load('rate', {}); paintAll();
   let db = null; try { db = await window.claude?.use?.('db'); } catch {}
   if (!db) { saying('Saved on this device. Copy your ratings to send them to Claude.'); $('copy').hidden = false; return; }
   S.db = db; saying('Your ratings save as you go.');
-  try { const q = await db.collection('ratings').get(); for (const d of q.docs) { const x = d.data(); if (x) S.rate[d.id] = {rating: x.rating ?? 0, note: x.note || ''}; } keep('rate', S.rate); paintAll(); }
+  try { const q = await db.collection('ratings').get(); for (const d of q.docs) { const x = d.data(); if (x) S.rate[d.id] = {rating: x.rating ?? 0, note: x.note || '', edits: x.edits || null}; } keep('rate', S.rate); paintAll(); }
   catch { saying('Couldn\'t load your earlier ratings. New ones still save.'); } }
-function copyRatings(){ const lines = SOUNDS.map((s, i) => { const r = S.rate[s.id]; return r?.rating || r?.note ? `${i + 1}. ${s.name} (${s.id}): ${RATES.find(x => x[0] === r.rating)?.[1] || 'unrated'}${r.note ? ' — ' + r.note : ''}` : null; }).filter(Boolean);
+function copyRatings(){ const lines = SOUNDS.map((s, i) => { const r = S.rate[s.id]; return r?.rating || r?.note || r?.edits ? `${i + 1}. ${s.name} (${s.id}): ${RATES.find(x => x[0] === r.rating)?.[1] || 'unrated'}${r.note ? ' — ' + r.note : ''}${r.edits ? ' · your changes: ' + JSON.stringify(r.edits) : ''}` : null; }).filter(Boolean);
   const txt = `Analog sound lab, round ${ROUND}\n${lines.join('\n') || '(nothing rated yet)'}`;
   const done = () => { saying('Copied: paste it to Claude'); };
   try { navigator.clipboard.writeText(txt).then(done, fallback); } catch { fallback(); }
@@ -66,6 +77,7 @@ function card(s, i){ const r = S.rate[s.id] || {};
   note.oninput = () => rate(s.id, {note: note.value});
   return h('article', {class: 'snd', id: 'snd-' + s.id, 'data-rating': r.rating || 0},
     h('div', {class: 'top'}, h('span', {class: 'num'}, String(i + 1).padStart(2, '0')), h('h3', {}, s.name), h('span', {class: 'src'}, source(s))),
+    h('div', {class: 'tools'}, h('button', {class: 'ghost open', onclick: () => openEd(s.id)}, s.kind === 'synth' ? 'Open the synth' : 'Open the drums'), h('span', {class: 'mine', hidden: !r.edits}, 'Your version')),
     s.from ? h('p', {class: 'from'}, 'From ', h('b', {}, s.from), s.room ? ' · in the room' : '') : (s.room ? h('p', {class: 'from'}, 'In the room') : null),
     h('p', {}, s.words),
     h('div', {class: 'plays', role: 'group', 'aria-label': 'Play ' + s.name}, ...MODES.map(([m, label]) => h('button', {class: 'play', 'data-mode': m, 'aria-pressed': 'false', onclick: () => play(s.id, m)}, h('span', {class: 'ico', 'aria-hidden': 'true'}), label))),
@@ -73,16 +85,71 @@ function card(s, i){ const r = S.rate[s.id] || {};
     note); }
 function paintAll(){ let i = 0; $('groups').replaceChildren(...GROUPS.map(([role, title]) => { const list = SOUNDS.filter(s => s.role === role); if (!list.length) return null;
   return h('section', {class: 'group'}, h('h2', {}, title, h('small', {}, ` ${list.length}`)), h('div', {class: 'cards'}, ...list.map(s => card(s, SOUNDS.indexOf(s))))); }).filter(Boolean)); count(); paint(); }
-function paintCard(id){ const el = $('snd-' + id), r = S.rate[id] || {}; if (!el) return; el.dataset.rating = r.rating || 0;
+function paintCard(id){ const el = $('snd-' + id), r = S.rate[id] || {}; if (!el) return; el.dataset.rating = r.rating || 0; el.querySelector('.mine').hidden = !r.edits;
   for (const b of el.querySelectorAll('.rate button')) b.setAttribute('aria-pressed', String(+b.dataset.v === r.rating)); }
-function paint(){ for (const b of document.querySelectorAll('.play')) { const id = b.closest('.snd').id.slice(4); b.setAttribute('aria-pressed', String(S.playing?.id === id && S.playing.mode === b.dataset.mode)); }
+function paint(){ for (const b of document.querySelectorAll('.snd .play')) { const id = b.closest('.snd').id.slice(4); b.setAttribute('aria-pressed', String(S.playing?.id === id && S.playing.mode === b.dataset.mode)); }
+  for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).setAttribute('aria-pressed', String(!!S.ed && S.playing?.id === S.ed && S.playing.mode === m));
   $('stop').disabled = !S.playing; $('now').textContent = S.playing ? `${byId(S.playing.id).name}, ${MODES.find(m => m[0] === S.playing.mode)[1].toLowerCase()}` : 'Nothing playing'; }
 function count(){ const n = SOUNDS.filter(s => S.rate[s.id]?.rating).length, likes = SOUNDS.filter(s => S.rate[s.id]?.rating === 1).length;
   $('count').textContent = `${n} of ${SOUNDS.length} rated`; $('likes').textContent = likes ? `${likes} liked` : ''; $('bar').style.setProperty('--done', n/SOUNDS.length); }
 
+/* ---------- the workbench: the sound's settings, your version, and keys to play it ---------- */
+// where each kind of sound's keyboard starts (the lowest C), and the computer's keys over two octaves from it
+const BASE = {bass: 24, chords: 48, lead: 60, texture: 48}, KEYS = 'awsedftgyhujkolp;\'', PADKEYS = 'asdfghjkl';
+const drumsOf = s => [...new Set([...s.alone.map(x => x.v), ...s.phrase.map(x => x.v)])];
+async function openEd(id){ await start(); const s = byId(id); if (S.playing && S.playing.id !== id) stop(); S.ed = id; S.pad = drumsOf(s)[0]; loadSound(id); paintEd(); $('bench').hidden = false; document.body.classList.add('benching'); }
+function closeEd(){ releaseAll(); S.ed = null; $('bench').hidden = true; document.body.classList.remove('benching'); }
+// a change: heard at once and kept as your version (set back to the round's value, it's no longer a change)
+function change(s, key, v, voice){ const e = structuredClone(edits(s.id) || {});
+  if (voice) { const orig = {...analogParams(s.kit)[voice], ...(s.over[voice] || {})}[key]; e[voice] ||= {}; if (Math.abs(v - orig) < 1e-9) delete e[voice][key]; else e[voice][key] = v; if (!Object.keys(e[voice]).length) delete e[voice];
+    send({type: 'voice', v: voice, key, val: v}); }
+  else { const orig = {...DEF, ...s.patch}[key]; if (Math.abs(v - orig) < 1e-9) delete e[key]; else e[key] = v; send({type: 'set', params: {[key]: v}}); }
+  rate(s.id, {edits: Object.keys(e).length ? e : null}); sayEd(s); }
+function revert(){ const s = byId(S.ed); rate(s.id, {edits: null}); loadSound(s.id); paintEd(); }
+function sayEd(s){ const e = edits(s.id), n = !e ? 0 : s.kind === 'synth' ? Object.keys(e).length : Object.values(e).reduce((a, x) => a + Object.keys(x).length, 0);
+  $('edSay').textContent = n ? `${n} setting${n > 1 ? 's' : ''} changed from the original` : 'As in the round'; $('revert').disabled = !n; }
+function paintEd(){ const s = byId(S.ed); $('edName').textContent = s.name; $('edSrc').textContent = source(s); sayEd(s);
+  // the keys: a piano for a synth sound, a pad a drum for a drum sound
+  if (s.kind === 'synth') { const lo = BASE[s.role] + 12*S.oct, white = [], keys = [];
+    for (let n = lo; n <= lo + 24; n++) if (![1, 3, 6, 8, 10].includes(n % 12)) white.push(n);
+    const W = 100/white.length;
+    for (const n of white) keys.push(h('div', {class: 'key w', 'data-n': n, style: `left:${white.indexOf(n)*W}%;width:${W}%`}, n % 12 === 0 ? noteName(n, SHARPS) : ''));
+    for (let n = lo; n <= lo + 24; n++) if ([1, 3, 6, 8, 10].includes(n % 12)) keys.push(h('div', {class: 'key b', 'data-n': n, style: `left:${(white.indexOf(n - 1) + 1)*W - W*.32}%;width:${W*.64}%`}));
+    $('kb').replaceChildren(...keys); $('kb').hidden = false; $('pads').hidden = true;
+    $('kbSay').textContent = `Keys: A to ' play from ${noteName(lo + 12, SHARPS)} · Z X octave down, up`; }
+  else { $('pads').replaceChildren(...drumsOf(s).map((v, i) => h('button', {class: 'pad', 'data-v': v, 'aria-pressed': String(S.pad === v), onpointerdown: e => { e.preventDefault(); hit(v, .9); S.pad = v; paintEd(); }},
+      h('b', {}, voiceName(v)), h('span', {}, PADKEYS[i]?.toUpperCase() || '')))); $('pads').hidden = false; $('kb').hidden = true;
+    $('kbSay').textContent = 'Keys: ' + drumsOf(s).map((v, i) => `${PADKEYS[i].toUpperCase()} ${voiceName(v).toLowerCase()}`).join(' · ') + ' · a pad picked shows its settings'; }
+  // the settings: the synth's modules, or the picked drum's
+  if (s.kind === 'synth') { const P = patchOf(s), O = {...DEF, ...s.patch};
+    $('edSet').replaceChildren(...PARAMS.map(([g, ps]) => h('section', {class: 'mod'}, h('h4', {}, g), ...ps.map(p => { const c = control(p, P[p.key], v => change(s, p.key, v), {reset: O[p.key]}); if (Math.abs(P[p.key] - O[p.key]) > 1e-9) c.classList.add('changed'); return c; })))); }
+  else { const v = S.pad, P = overOf(s)[v] ? {...analogParams(s.kit)[v], ...overOf(s)[v]} : analogParams(s.kit)[v], O = {...analogParams(s.kit)[v], ...(s.over[v] || {})};
+    $('edSet').replaceChildren(h('section', {class: 'mod wide'}, h('h4', {}, voiceName(v) + ' · ' + s.kit), ...APARAMS.map(p => { const c = control(p, P[p.key] ?? p.def, x => change(s, p.key, x, v), {reset: O[p.key] ?? p.def}); if (Math.abs((P[p.key] ?? p.def) - (O[p.key] ?? p.def)) > 1e-9) c.classList.add('changed'); return c; }))); } }
+// playing it: a note held while the key is, a drum hit
+let kid = 0;
+function noteOn(n, vel = .8){ if (S.held.has(n)) return; const id = 'k' + (++kid); S.held.set(n, id); send({type: 'on', id, n, vel}); litKeys(); }
+function noteOff(n){ const id = S.held.get(n); if (!id) return; S.held.delete(n); send({type: 'off', id}); litKeys(); }
+function releaseAll(){ for (const n of [...S.held.keys()]) noteOff(n); }
+function hit(v, vel){ send({type: 'hit', v, vel}); }
+function litKeys(){ for (const k of $('kb').children) k.toggleAttribute('data-on', S.held.has(+k.dataset.n)); }
+{ const kb = $('kb'), down = new Map(), at = e => { const k = document.elementFromPoint(e.clientX, e.clientY)?.closest('.key'); return k ? +k.dataset.n : null; },
+    vel = e => { const r = e.target.closest('.key')?.getBoundingClientRect(); return r ? Math.min(1, .45 + .55*(e.clientY - r.top)/r.height) : .8; };
+  kb.onpointerdown = e => { e.preventDefault(); kb.setPointerCapture(e.pointerId); const n = at(e); if (n == null) return; down.set(e.pointerId, n); noteOn(n, vel(e)); };
+  kb.onpointermove = e => { if (!down.has(e.pointerId)) return; const n = at(e), was = down.get(e.pointerId); if (n == null || n === was) return; down.set(e.pointerId, n); noteOn(n, vel(e)); noteOff(was); };
+  kb.onpointerup = kb.onpointercancel = e => { const n = down.get(e.pointerId); down.delete(e.pointerId); if (n != null) noteOff(n); }; }
+const typed = new Map();
+addEventListener('keydown', e => { if (!S.ed || e.target.matches('textarea, input, select') || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return; const s = byId(S.ed), k = e.key.toLowerCase();
+  if (s.kind === 'synth') { if (k === 'z' || k === 'x') { S.oct = Math.max(-2, Math.min(2, S.oct + (k === 'z' ? -1 : 1))); releaseAll(); paintEd(); return; }
+    const i = KEYS.indexOf(k); if (i < 0) return; e.preventDefault(); const n = BASE[s.role] + 12*S.oct + 12 + i; typed.set(k, n); noteOn(n); }
+  else { const i = PADKEYS.indexOf(k), v = drumsOf(s)[i]; if (i < 0 || !v) return; e.preventDefault(); hit(v, .9); } });
+addEventListener('keyup', e => { const n = typed.get(e.key.toLowerCase()); if (n == null) return; typed.delete(e.key.toLowerCase()); noteOff(n); });
+addEventListener('blur', () => { typed.clear(); releaseAll(); });
+$('edClose').onclick = closeEd; $('revert').onclick = revert;
+for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).onclick = () => play(S.ed, m);
+
 $('stop').onclick = stop; $('copy').onclick = copyRatings;
 $('vol').oninput = e => { S.vol = +e.target.value; if (out) out.gain.value = S.vol; };
 $('room').oninput = e => { S.room = +e.target.value; $('roomOut').textContent = S.room ? Math.round(S.room*100) + '%' : 'off'; node?.port.postMessage({type: 'room', v: S.room}); };
-addEventListener('keydown', e => { if (e.key === 'Escape' || (e.code === 'Space' && !e.target.matches('textarea, input, button'))) { if (S.playing) { e.preventDefault(); stop(); } } });
+addEventListener('keydown', e => { if (e.key === 'Escape' && S.ed && !S.playing) { closeEd(); return; } if (e.key === 'Escape' || (e.code === 'Space' && !e.target.matches('textarea, input, button'))) { if (S.playing) { e.preventDefault(); stop(); } } });
 connect();
-window.__soundlab = {S, SOUNDS, GAIN, play, stop, rate, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)
+window.__soundlab = {S, SOUNDS, GAIN, play, stop, rate, openEd, closeEd, change, revert, noteOn, noteOff, hit, patchOf, overOf, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)

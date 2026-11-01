@@ -19,8 +19,13 @@ class Lab extends AudioWorkletProcessor {
     if (m.type === 'synth') { this.S.load(m.params); this.g.synth = m.gain; this.g.send = m.room || 0; }
     else if (m.type === 'kit') { this.A.load(m.kit, m.over || {}); this.g.drum = m.gain; this.g.send = m.room || 0; }
     else if (m.type === 'room') this.g.room = m.v;
+    // a setting turned in the editor: heard at once, in the notes already sounding (the synth) or on the next hit (a drum)
+    else if (m.type === 'set') this.S.set(m.params);
+    else if (m.type === 'voice') this.A.set(m.v, m.key, m.val);
     // stopped: what's waiting dropped, what sounds let go (the synth's release and the drums' tails die away)
     else if (m.type === 'stop') { this.ev = []; for (const id of this.on) this.S.off(id); this.on.clear(); this.A.stop(); this.B.stop(); }
+    // the keys and pads: played now
+    else if (m.t == null) this.run(m);
     else { this.ev.push(m); this.ev.sort((a, b) => a.t - b.t); } }
   run(m){ if (m.type === 'on') { this.on.add(m.id); this.S.on(m.id, m.n, m.vel); } else if (m.type === 'off') { this.on.delete(m.id); this.S.off(m.id); }
     else if (m.type === 'hit') (m.groove ? this.B : this.A).on(m.v, m.vel); }

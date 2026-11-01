@@ -76,6 +76,37 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
 .rate button[data-v="-1"][aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--sheet) }
 .snd textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 40px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); padding: 7px 9px; font-size: 14px }
 .snd textarea::placeholder { color: var(--mute) }
+
+/* the workbench: docked at the foot of the screen, the keys then the settings in modules */
+body.benching { padding-bottom: 62vh }
+.bench { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 60vh; overflow-y: auto; background: var(--sheet); border-top: 2px solid var(--accent);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 10px; box-shadow: 0 -8px 24px rgba(0,0,0,.12) }
+.bhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 1180px; width: 100%; margin: 0 auto }
+.bname { display: flex; align-items: baseline; gap: 10px; min-width: 0 } .bname b { font-family: var(--display); font-size: 20px; font-stretch: 85% }
+.plays.mini { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0 }
+.bench > * { min-width: 0 } .bench .mod, .bench .ctl { min-width: 0 } .plays.mini .play { min-height: 34px; padding: 0 10px }
+.say { color: var(--mute); font-size: 13px; flex: 1 1 160px }
+.tools { display: flex; align-items: center; gap: 10px } .open { font-weight: 600 }
+.mine { font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--accent) }
+.kb { position: relative; height: 110px; max-width: 1180px; width: 100%; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none }
+.key { position: absolute; top: 0; box-sizing: border-box; border: 1px solid var(--line); border-radius: 0 0 4px 4px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font: 10px var(--mono); color: var(--mute) }
+.key.w { height: 100%; background: var(--bg) } .key.b { height: 60%; background: var(--ink); z-index: 1; border-color: var(--ink) }
+.key[data-on] { background: var(--accent) !important; border-color: var(--accent) }
+.pads { display: flex; flex-wrap: wrap; gap: 8px; max-width: 1180px; width: 100%; margin: 0 auto }
+.pad { display: grid; gap: 2px; min-width: 96px; min-height: 64px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); padding: 8px 12px; text-align: left; touch-action: none }
+.pad span { font: 11px var(--mono); color: var(--mute) } .pad[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
+.pad:active { background: var(--accent); color: var(--accent-ink) }
+.kbsay { margin: 0 auto; max-width: 1180px; width: 100%; font-size: 12.5px; color: var(--mute) }
+.edset { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); max-width: 1180px; width: 100%; margin: 0 auto }
+.mod { display: grid; gap: 8px; align-content: start; border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; background: var(--bg) } .mod.wide { grid-column: 1 / -1; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)) }
+.mod h4 { margin: 0; font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); grid-column: 1 / -1 }
+.ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12.5px } .ctl > span { color: var(--mute) }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent) } .ctl output { font: 12px var(--mono); font-variant-numeric: tabular-nums }
+.ctl .seg, .ctl select { grid-column: 1 / -1 } .ctl select { background: var(--sheet); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; font: inherit; font-size: 13px }
+.ctl .seg { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 3px; overflow: hidden } .ctl .seg button { flex: 1; border: 0; background: transparent; padding: 4px 6px; font-size: 12px }
+.ctl .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg) }
+.ctl.changed > span { color: var(--accent); font-weight: 600 } .ctl.changed > span::after { content: " ●"; font-size: 9px }
+#revert:disabled { opacity: .4; cursor: default }
 @media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
 </style>
 
@@ -100,5 +131,18 @@ h2 small { font: 500 12px var(--mono); color: var(--mute) }
 
   <main id="groups"></main>
 </div>
+<aside id="bench" class="bench" hidden aria-label="The sound's settings">
+  <div class="bhead">
+    <div class="bname"><b id="edName"></b><span id="edSrc" class="src"></span></div>
+    <div class="plays mini" role="group" aria-label="Play it"><button id="edAlone" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>Alone</button><button id="edPhrase" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>Phrase</button><button id="edLoop" class="play" aria-pressed="false"><span class="ico" aria-hidden="true"></span>In a loop</button></div>
+    <span id="edSay" class="say"></span>
+    <button id="revert" class="ghost">Back to the original</button>
+    <button id="edClose" class="ghost" aria-label="Close the settings">Close</button>
+  </div>
+  <div id="kb" class="kb" hidden></div>
+  <div id="pads" class="pads" hidden></div>
+  <p id="kbSay" class="kbsay"></p>
+  <div id="edSet" class="edset"></div>
+</aside>
 <script id="worklet-src" type="text/plain">/*WORKLET*/</script>
 <script>/*APP*/</script>
