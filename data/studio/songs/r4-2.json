@@ -1,0 +1,1256 @@
+{
+  "at": "2026-10-23T15:16:41.233Z",
+  "edits": {
+    "r4-2.6": {
+      "at": "2026-10-23T15:16:39.174Z",
+      "scene": {
+        "at": "2026-10-23T15:03:58.048Z",
+        "bars": 8,
+        "bpm": 120,
+        "cols": [
+          {
+            "arp": 0,
+            "clip": null,
+            "echo": false,
+            "feel": 0,
+            "inv": 0,
+            "length": 1,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 0,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": 0,
+              "solo": false,
+              "vol": -1
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": null,
+            "oct": 0,
+            "play": 0,
+            "preset": null,
+            "ramp": null,
+            "rhythm": null,
+            "role": "kick",
+            "sound": "k-round",
+            "verb": false,
+            "voicing": 0,
+            "walk": false,
+            "x": 0.62,
+            "y": 0.3
+          },
+          {
+            "arp": 0,
+            "clip": {
+              "id": "part",
+              "len": 128,
+              "steps": [
+                [
+                  2,
+                  "chh",
+                  0.72
+                ],
+                [
+                  6,
+                  "chh",
+                  0.72
+                ],
+                [
+                  10,
+                  "chh",
+                  0.72
+                ],
+                [
+                  14,
+                  "chh",
+                  0.72
+                ],
+                [
+                  18,
+                  "chh",
+                  0.72
+                ],
+                [
+                  22,
+                  "chh",
+                  0.72
+                ],
+                [
+                  26,
+                  "chh",
+                  0.72
+                ],
+                [
+                  28,
+                  "chh",
+                  0.26
+                ],
+                [
+                  30,
+                  "chh",
+                  0.72
+                ],
+                [
+                  34,
+                  "chh",
+                  0.72
+                ],
+                [
+                  38,
+                  "chh",
+                  0.72
+                ],
+                [
+                  42,
+                  "chh",
+                  0.72
+                ],
+                [
+                  46,
+                  "chh",
+                  0.72
+                ],
+                [
+                  50,
+                  "chh",
+                  0.72
+                ],
+                [
+                  54,
+                  "chh",
+                  0.72
+                ],
+                [
+                  58,
+                  "chh",
+                  0.72
+                ],
+                [
+                  60,
+                  "chh",
+                  0.26
+                ],
+                [
+                  62,
+                  "chh",
+                  0.72
+                ],
+                [
+                  66,
+                  "chh",
+                  0.72
+                ],
+                [
+                  70,
+                  "chh",
+                  0.72
+                ],
+                [
+                  74,
+                  "chh",
+                  0.72
+                ],
+                [
+                  78,
+                  "chh",
+                  0.72
+                ],
+                [
+                  82,
+                  "chh",
+                  0.72
+                ],
+                [
+                  86,
+                  "chh",
+                  0.72
+                ],
+                [
+                  90,
+                  "chh",
+                  0.72
+                ],
+                [
+                  92,
+                  "chh",
+                  0.26
+                ],
+                [
+                  94,
+                  "chh",
+                  0.72
+                ],
+                [
+                  98,
+                  "chh",
+                  0.72
+                ],
+                [
+                  102,
+                  "chh",
+                  0.72
+                ],
+                [
+                  106,
+                  "chh",
+                  0.72
+                ],
+                [
+                  110,
+                  "chh",
+                  0.72
+                ],
+                [
+                  112,
+                  "chh",
+                  0.45
+                ],
+                [
+                  114,
+                  "chh",
+                  0.72
+                ],
+                [
+                  116,
+                  "chh",
+                  0.45
+                ],
+                [
+                  118,
+                  "chh",
+                  0.72
+                ],
+                [
+                  120,
+                  "chh",
+                  0.26
+                ],
+                [
+                  121,
+                  "chh",
+                  0.45
+                ],
+                [
+                  122,
+                  "chh",
+                  1
+                ],
+                [
+                  123,
+                  "chh",
+                  0.45
+                ],
+                [
+                  124,
+                  "chh",
+                  0.72
+                ],
+                [
+                  125,
+                  "chh",
+                  0.45
+                ],
+                [
+                  126,
+                  "chh",
+                  1
+                ],
+                [
+                  127,
+                  "chh",
+                  0.72
+                ]
+              ],
+              "var": 0
+            },
+            "echo": false,
+            "feel": 0,
+            "inv": 0,
+            "length": 1,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 2,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": 0.15,
+              "solo": false,
+              "vol": 6
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": {
+              "base": "Off-beats, a fill into the change",
+              "name": "Off-beats, a fill into the change",
+              "ops": [],
+              "seq": [
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh",
+                "chh"
+              ]
+            },
+            "oct": 0,
+            "play": 0,
+            "preset": null,
+            "ramp": null,
+            "rhythm": {
+              "base": "Off-beats, a fill into the change",
+              "feel": 0,
+              "hits": [
+                [
+                  2,
+                  1,
+                  0.72
+                ],
+                [
+                  6,
+                  1,
+                  0.72
+                ],
+                [
+                  10,
+                  1,
+                  0.72
+                ],
+                [
+                  14,
+                  1,
+                  0.72
+                ],
+                [
+                  18,
+                  1,
+                  0.72
+                ],
+                [
+                  22,
+                  1,
+                  0.72
+                ],
+                [
+                  26,
+                  1,
+                  0.72
+                ],
+                [
+                  28,
+                  1,
+                  0.26
+                ],
+                [
+                  30,
+                  1,
+                  0.72
+                ],
+                [
+                  34,
+                  1,
+                  0.72
+                ],
+                [
+                  38,
+                  1,
+                  0.72
+                ],
+                [
+                  42,
+                  1,
+                  0.72
+                ],
+                [
+                  46,
+                  1,
+                  0.72
+                ],
+                [
+                  50,
+                  1,
+                  0.72
+                ],
+                [
+                  54,
+                  1,
+                  0.72
+                ],
+                [
+                  58,
+                  1,
+                  0.72
+                ],
+                [
+                  60,
+                  1,
+                  0.26
+                ],
+                [
+                  62,
+                  1,
+                  0.72
+                ],
+                [
+                  66,
+                  1,
+                  0.72
+                ],
+                [
+                  70,
+                  1,
+                  0.72
+                ],
+                [
+                  74,
+                  1,
+                  0.72
+                ],
+                [
+                  78,
+                  1,
+                  0.72
+                ],
+                [
+                  82,
+                  1,
+                  0.72
+                ],
+                [
+                  86,
+                  1,
+                  0.72
+                ],
+                [
+                  90,
+                  1,
+                  0.72
+                ],
+                [
+                  92,
+                  1,
+                  0.26
+                ],
+                [
+                  94,
+                  1,
+                  0.72
+                ],
+                [
+                  98,
+                  1,
+                  0.72
+                ],
+                [
+                  102,
+                  1,
+                  0.72
+                ],
+                [
+                  106,
+                  1,
+                  0.72
+                ],
+                [
+                  110,
+                  1,
+                  0.72
+                ],
+                [
+                  112,
+                  1,
+                  0.45
+                ],
+                [
+                  114,
+                  1,
+                  0.72
+                ],
+                [
+                  116,
+                  1,
+                  0.45
+                ],
+                [
+                  118,
+                  1,
+                  0.72
+                ],
+                [
+                  120,
+                  1,
+                  0.26
+                ],
+                [
+                  121,
+                  1,
+                  0.45
+                ],
+                [
+                  122,
+                  1,
+                  1
+                ],
+                [
+                  123,
+                  1,
+                  0.45
+                ],
+                [
+                  124,
+                  1,
+                  0.72
+                ],
+                [
+                  125,
+                  1,
+                  0.45
+                ],
+                [
+                  126,
+                  1,
+                  1
+                ],
+                [
+                  127,
+                  1,
+                  0.72
+                ]
+              ],
+              "len": 128,
+              "name": "Off-beats, a fill into the change",
+              "ops": []
+            },
+            "role": "hats",
+            "sound": "h3-smooth",
+            "verb": true,
+            "voicing": 0,
+            "walk": false,
+            "x": 0.844,
+            "y": 0.25
+          },
+          {
+            "arp": 0,
+            "clip": {
+              "id": "p3-hands",
+              "len": 16,
+              "steps": [
+                [
+                  3,
+                  "tomH",
+                  0.5
+                ],
+                [
+                  4,
+                  "tomL",
+                  0.7
+                ],
+                [
+                  8,
+                  "tomH",
+                  0.45
+                ],
+                [
+                  11,
+                  "tomL",
+                  0.6
+                ],
+                [
+                  14,
+                  "tomH",
+                  0.5
+                ],
+                [
+                  15,
+                  "logH",
+                  0.4
+                ]
+              ],
+              "var": 0
+            },
+            "echo": true,
+            "feel": 9,
+            "inv": 0,
+            "length": 1,
+            "locked": false,
+            "loop": null,
+            "mix": {
+              "duck": 2,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": -0.2,
+              "solo": false,
+              "vol": 0
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": {
+              "base": "Hand groove",
+              "name": "Hand groove",
+              "ops": [],
+              "seq": [
+                "tomH",
+                "tomL",
+                "tomH",
+                "tomL",
+                "tomH",
+                "logH"
+              ]
+            },
+            "oct": 0,
+            "play": 0,
+            "preset": "p3-hands",
+            "ramp": null,
+            "rhythm": {
+              "base": "Hand groove",
+              "feel": 9,
+              "hits": [
+                [
+                  3,
+                  1,
+                  0.5
+                ],
+                [
+                  4,
+                  1,
+                  0.7
+                ],
+                [
+                  8,
+                  1,
+                  0.45
+                ],
+                [
+                  11,
+                  1,
+                  0.6
+                ],
+                [
+                  14,
+                  1,
+                  0.5
+                ],
+                [
+                  15,
+                  1,
+                  0.4
+                ]
+              ],
+              "len": 16,
+              "name": "Hand groove",
+              "ops": []
+            },
+            "role": "perc",
+            "sound": "p3-forest",
+            "verb": true,
+            "voicing": 0,
+            "walk": false,
+            "x": 0.84,
+            "y": 0.3
+          },
+          {
+            "arp": 0,
+            "clip": null,
+            "echo": false,
+            "feel": 0,
+            "inv": 0,
+            "length": 0,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 3,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": 0,
+              "solo": false,
+              "vol": -2.5
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": null,
+            "oct": 0,
+            "play": 0,
+            "preset": null,
+            "ramp": null,
+            "rhythm": null,
+            "role": "bass",
+            "sound": "b-fmpluck",
+            "verb": false,
+            "voicing": 0,
+            "walk": true,
+            "x": 0.45,
+            "y": 0.3
+          },
+          {
+            "arp": 0,
+            "clip": {
+              "id": "c3-phrase",
+              "len": 64,
+              "steps": [
+                [
+                  0,
+                  "chord",
+                  60,
+                  0.5
+                ]
+              ],
+              "var": 0
+            },
+            "echo": true,
+            "feel": 0,
+            "inv": 0,
+            "length": 1,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 3,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": 0,
+              "solo": false,
+              "vol": -6
+            },
+            "motion": 1,
+            "mute": false,
+            "notes": {
+              "base": "One chord a phrase",
+              "name": "One chord a phrase",
+              "ops": [],
+              "seq": []
+            },
+            "oct": 0,
+            "play": 0,
+            "preset": "c3-phrase",
+            "ramp": {
+              "bars": 8,
+              "x": [
+                0.2,
+                0.72
+              ]
+            },
+            "rhythm": {
+              "base": "One chord a phrase",
+              "feel": 0,
+              "hits": [
+                [
+                  0,
+                  60,
+                  0.5
+                ]
+              ],
+              "len": 64,
+              "name": "One chord a phrase",
+              "ops": []
+            },
+            "role": "chords",
+            "sound": "c2-strings",
+            "verb": true,
+            "voicing": 1,
+            "walk": false,
+            "x": 0.72,
+            "y": 0.7
+          },
+          {
+            "arp": 0,
+            "clip": {
+              "id": "part",
+              "len": 64,
+              "steps": [
+                [
+                  0,
+                  4,
+                  1,
+                  0.7
+                ],
+                [
+                  3,
+                  2,
+                  1,
+                  0.5
+                ],
+                [
+                  6,
+                  5,
+                  1,
+                  0.55
+                ],
+                [
+                  11,
+                  3,
+                  1,
+                  0.5
+                ],
+                [
+                  16,
+                  4,
+                  1,
+                  0.7
+                ],
+                [
+                  19,
+                  2,
+                  1,
+                  0.5
+                ],
+                [
+                  22,
+                  6,
+                  1,
+                  0.55
+                ],
+                [
+                  27,
+                  2,
+                  1,
+                  0.5
+                ],
+                [
+                  32,
+                  4,
+                  1,
+                  0.7
+                ],
+                [
+                  35,
+                  2,
+                  1,
+                  0.5
+                ],
+                [
+                  38,
+                  5,
+                  1,
+                  0.55
+                ],
+                [
+                  43,
+                  3,
+                  1,
+                  0.5
+                ],
+                [
+                  48,
+                  2,
+                  1,
+                  0.7
+                ],
+                [
+                  51,
+                  4,
+                  1,
+                  0.5
+                ],
+                [
+                  54,
+                  1,
+                  1,
+                  0.55
+                ],
+                [
+                  59,
+                  4,
+                  1,
+                  0.5
+                ]
+              ],
+              "var": 0
+            },
+            "echo": true,
+            "feel": 0,
+            "inv": 0,
+            "length": 1,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 1,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": -0.3,
+              "solo": false,
+              "vol": 4.5
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": {
+              "base": "Drops",
+              "name": "Drops, developed",
+              "ops": [
+                "developed"
+              ],
+              "seq": [
+                [
+                  4,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  5,
+                  0
+                ],
+                [
+                  3,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  6,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  5,
+                  0
+                ],
+                [
+                  3,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  1,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ]
+              ]
+            },
+            "oct": 0,
+            "play": 1,
+            "preset": null,
+            "ramp": null,
+            "rhythm": {
+              "base": "Drops",
+              "feel": 0,
+              "hits": [
+                [
+                  0,
+                  1,
+                  0.7
+                ],
+                [
+                  3,
+                  1,
+                  0.5
+                ],
+                [
+                  6,
+                  1,
+                  0.55
+                ],
+                [
+                  11,
+                  1,
+                  0.5
+                ],
+                [
+                  16,
+                  1,
+                  0.7
+                ],
+                [
+                  19,
+                  1,
+                  0.5
+                ],
+                [
+                  22,
+                  1,
+                  0.55
+                ],
+                [
+                  27,
+                  1,
+                  0.5
+                ],
+                [
+                  32,
+                  1,
+                  0.7
+                ],
+                [
+                  35,
+                  1,
+                  0.5
+                ],
+                [
+                  38,
+                  1,
+                  0.55
+                ],
+                [
+                  43,
+                  1,
+                  0.5
+                ],
+                [
+                  48,
+                  1,
+                  0.7
+                ],
+                [
+                  51,
+                  1,
+                  0.5
+                ],
+                [
+                  54,
+                  1,
+                  0.55
+                ],
+                [
+                  59,
+                  1,
+                  0.5
+                ]
+              ],
+              "len": 64,
+              "name": "Drops, developed",
+              "ops": [
+                "developed"
+              ]
+            },
+            "role": "lead",
+            "sound": "l3-bamboo",
+            "verb": true,
+            "voicing": 0,
+            "walk": false,
+            "x": 0.62,
+            "y": 0.3
+          },
+          {
+            "arp": 0,
+            "clip": {
+              "id": "l3-answer",
+              "len": 32,
+              "steps": [
+                [
+                  2,
+                  0,
+                  2,
+                  0.7
+                ],
+                [
+                  5,
+                  2,
+                  2,
+                  0.55
+                ],
+                [
+                  18,
+                  3,
+                  2,
+                  0.6
+                ],
+                [
+                  21,
+                  1,
+                  2,
+                  0.55
+                ],
+                [
+                  26,
+                  0,
+                  2,
+                  0.5
+                ]
+              ],
+              "var": 0
+            },
+            "echo": true,
+            "feel": 0,
+            "inv": 0,
+            "length": 1,
+            "locked": true,
+            "loop": null,
+            "mix": {
+              "duck": 1,
+              "hi": 0,
+              "lo": 0,
+              "mid": 0,
+              "pan": 0.3,
+              "solo": false,
+              "vol": 5.5
+            },
+            "motion": 0,
+            "mute": false,
+            "notes": {
+              "base": "Bamboo answer",
+              "name": "Bamboo answer",
+              "ops": [],
+              "seq": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  3,
+                  0
+                ],
+                [
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ]
+              ]
+            },
+            "oct": 0,
+            "play": 0,
+            "preset": "l3-answer",
+            "ramp": null,
+            "rhythm": {
+              "base": "Bamboo answer",
+              "feel": 0,
+              "hits": [
+                [
+                  2,
+                  2,
+                  0.7
+                ],
+                [
+                  5,
+                  2,
+                  0.55
+                ],
+                [
+                  18,
+                  2,
+                  0.6
+                ],
+                [
+                  21,
+                  2,
+                  0.55
+                ],
+                [
+                  26,
+                  2,
+                  0.5
+                ]
+              ],
+              "len": 32,
+              "name": "Bamboo answer",
+              "ops": []
+            },
+            "role": "lead",
+            "sound": "l-marimba",
+            "verb": true,
+            "voicing": 0,
+            "walk": false,
+            "x": 0.62,
+            "y": 0.3
+          }
+        ],
+        "echoDiv": 0,
+        "harmony": "a-pedal-3",
+        "harmonyBars": [
+          "A:m7",
+          "A:m7",
+          "A:m7",
+          "A:m7",
+          "A:sus4",
+          "A:sus4",
+          "A:m9",
+          "A:m9"
+        ],
+        "harmonyName": "A pedal, the top moving",
+        "id": "r4-2.6",
+        "mx": {
+          "glue": 2,
+          "hi": 0,
+          "lo": 0,
+          "vol": 0,
+          "width": 3
+        },
+        "name": "Two rivers: Wood river, no kick",
+        "pack": "pack-3",
+        "smooth": true,
+        "v": 2,
+        "why": "No kick: the pad swells in under the wood, slowly opening, ready for the sea."
+      }
+    }
+  },
+  "name": "Two rivers",
+  "round": 4,
+  "song": "r4-2"
+}

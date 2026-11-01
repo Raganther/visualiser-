@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-23T22:20:15.449Z",
+  "base": "c3-gate",
+  "id": "u-mvlj9kbj121",
+  "name": "Gated chord (native) (yours)",
+  "pack": "mine",
+  "role": "chords",
+  "src": {
+    "knobs": {
+      "drive": 0.62,
+      "res": 0.73
+    },
+    "native": "vagate"
+  },
+  "words": "Your version of Gated chord (native)."
+}

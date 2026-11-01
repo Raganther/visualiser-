@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-23T22:31:10.208Z",
+  "base": "c-gated",
+  "id": "u-mvljk6hj417",
+  "name": "Gated chord (yours)",
+  "pack": "mine",
+  "role": "chords",
+  "src": {
+    "palette": "gated",
+    "poly": {
+      "as": 0.76,
+      "lamt": 0.44,
+      "lsync": 4
+    }
+  },
+  "words": "Your version of Gated chord."
+}

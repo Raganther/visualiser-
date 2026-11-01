@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-23T22:03:56.456Z",
+  "base": "l3-bamboo",
+  "id": "u-mvlioicb235",
+  "name": "Bamboo (yours)",
+  "pack": "mine",
+  "role": "lead",
+  "src": {
+    "knobs": {
+      "hard": 0.45,
+      "pos": 0.48,
+      "ring": 3
+    },
+    "native": "bamboo"
+  },
+  "words": "Your version of Bamboo."
+}

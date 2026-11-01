@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-25T12:46:49.355Z",
+  "base": "rack:u-mvljrpaq802+h3-smooth+p3-forest",
+  "id": "u-mvntnvvl765",
+  "name": "Low round kick (yours) + Smooth hats + Forest floor (yours)",
+  "pack": "mine",
+  "rack": true,
+  "role": "drums",
+  "voices": {
+    "bowl": {
+      "from": "p3-forest",
+      "n": 86,
+      "native": "drop"
+    },
+    "chh": {
+      "from": "h3-smooth",
+      "n": 60,
+      "native": "hihat",
+      "set": {
+        "body": 0.7,
+        "open": 0,
+        "tone": 0.25
+      }
+    },
+    "clave": {
+      "from": "p3-forest",
+      "n": 60,
+      "native": "insect"
+    },
+    "gong": {
+      "from": "p3-forest",
+      "n": 60,
+      "native": "leaf",
+      "set": {
+        "secs": 0.5
+      }
+    },
+    "kick": {
+      "from": "u-mvljrpaq802",
+      "kit": "Minimal",
+      "over": {
+        "kick": {
+          "decay": 0.344,
+          "drive": 0,
+          "tone": 0.1,
+          "tune": -3,
+          "x": 0.32
+        }
+      }
+    },
+    "log": {
+      "from": "p3-forest",
+      "n": 45,
+      "native": "bamboo"
+    },
+    "logH": {
+      "from": "p3-forest",
+      "n": 84,
+      "native": "stone"
+    },
+    "metal": {
+      "from": "p3-forest",
+      "n": 90,
+      "native": "stone"
+    },
+    "ohh": {
+      "from": "h3-smooth",
+      "n": 60,
+      "native": "hihat",
+      "set": {
+        "body": 0.6,
+        "open": 0.5,
+        "tone": 0.28
+      }
+    },
+    "ride": {
+      "from": "h3-smooth",
+      "n": 60,
+      "native": "hihat",
+      "set": {
+        "body": 0.55,
+        "open": 0.3,
+        "tone": 0.32
+      }
+    },
+    "rim": {
+      "from": "p3-forest",
+      "n": 79,
+      "native": "drop"
+    },
+    "shaker": {
+      "from": "p3-forest",
+      "n": 60,
+      "native": "leaf",
+      "set": {
+        "secs": 0.12
+      }
+    },
+    "tomH": {
+      "from": "p3-forest",
+      "n": 59,
+      "native": "bamboo"
+    },
+    "tomL": {
+      "from": "p3-forest",
+      "n": 52,
+      "native": "bamboo"
+    },
+    "wood": {
+      "from": "p3-forest",
+      "n": 60,
+      "native": "twig"
+    }
+  },
+  "words": "Your version of Low round kick (yours) + Smooth hats + Forest floor."
+}

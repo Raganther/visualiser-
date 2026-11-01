@@ -1,0 +1,155 @@
+{
+  "accent": "flow",
+  "at": "2026-09-29T22:32:45.022Z",
+  "bpm": 129.87,
+  "caption": null,
+  "centre": "dodeca",
+  "hit": "lightning",
+  "journey": true,
+  "lead": "unfold",
+  "lens": 0,
+  "look": {
+    "centre": "dodeca",
+    "mods": {
+      "rot": {
+        "amt": 0.2,
+        "src": "drift"
+      }
+    },
+    "scene": [
+      {
+        "world": "all"
+      },
+      {
+        "trails": "main"
+      },
+      {
+        "fill": {
+          "world": true
+        },
+        "object": "dodeca"
+      },
+      {
+        "hits": true
+      },
+      {
+        "objects": true
+      }
+    ],
+    "sceneKey": "reflect",
+    "settings": {
+      "aurora": 0.997,
+      "burst": 0,
+      "city": 0,
+      "colorSpeed": 0.042,
+      "comets": 0,
+      "constellation": 0,
+      "cosmos": 0,
+      "decay": 0.881,
+      "deep": 0,
+      "dodeca": 0.9,
+      "dunes": 0,
+      "fireflies": 0,
+      "flow": 0,
+      "forest": 0.002,
+      "fractal": 0,
+      "geosphere": 0,
+      "glitch": 0,
+      "grain": null,
+      "horizon": 0,
+      "hueDrift": 0.01,
+      "kal": 8,
+      "kalMode": 1,
+      "kalTurn": 0.03,
+      "kalWhere": 1,
+      "knot": 0,
+      "land": 0,
+      "lasers": 0.443,
+      "lightning": 0.8,
+      "lines": 0,
+      "mandala": 0,
+      "manta": 0,
+      "mirror": 0,
+      "mood": 0,
+      "objStyle": 3,
+      "orbit": 0,
+      "outline": 0,
+      "plasma": 0,
+      "rain": 0,
+      "ribbons": 0,
+      "ring": 0,
+      "rot": -0.002,
+      "scope": 0,
+      "sea": 0,
+      "shock": 0,
+      "skull": 0,
+      "space": 0,
+      "sparkle": 0,
+      "spikes": 0,
+      "star": 0,
+      "stargate": 0,
+      "sym": 1,
+      "torus": 0,
+      "tunnel": 0,
+      "unfold": 0.525,
+      "unicorn": 0,
+      "vectorscope": 0,
+      "wander": 0.01,
+      "warp": 0.328,
+      "zoom": 1.007
+    },
+    "tw": {
+      "unfold": {
+        "j": 1,
+        "size": 1.08,
+        "speed": 1.2
+      }
+    }
+  },
+  "name": "Aurora, Unfolding mandala, Wire dodecahedron",
+  "onScreen": "Aurora; layers Lasers, Unfolding mandala; hits Lightning; Wire dodecahedron. Set by Journey, from the Lasers recipe.",
+  "pace": "steady",
+  "place": null,
+  "pos": "4:22",
+  "preset": null,
+  "recipe": "Currents",
+  "scene": "reflect",
+  "section": "K",
+  "settings": {
+    "aurora": 0.997,
+    "colorSpeed": 0.042,
+    "comets": 0,
+    "cosmos": 0,
+    "decay": 0.881,
+    "dodeca": 0.9,
+    "dunes": 0,
+    "fireflies": 0,
+    "flow": 0,
+    "forest": 0.002,
+    "grain": null,
+    "horizon": 0,
+    "hueDrift": 0.01,
+    "kal": 8,
+    "kalMode": 1,
+    "kalTurn": 0.03,
+    "kalWhere": 1,
+    "lasers": 0.443,
+    "lightning": 0.8,
+    "mirror": 0,
+    "mood": 0,
+    "objStyle": 3,
+    "ribbons": 0,
+    "ring": 0,
+    "rot": 0,
+    "sym": 1,
+    "unfold": 0.525,
+    "wander": 0.01,
+    "warp": 0.328,
+    "zoom": 1.007
+  },
+  "tension": 0.229,
+  "thumb": "data:image/jpeg;base64,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",
+  "track": "Evolving Groove1 of 4",
+  "v": 1,
+  "world": "aurora"
+}

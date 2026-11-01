@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-25T12:02:31.685Z",
+  "base": "k-low",
+  "id": "u-mvljrpaq802",
+  "name": "Low round kick (yours)",
+  "pack": "mine",
+  "role": "kick",
+  "voices": {
+    "kick": {
+      "kit": "Minimal",
+      "over": {
+        "kick": {
+          "decay": 0.344,
+          "drive": 0,
+          "tone": 0.1,
+          "tune": -3,
+          "x": 0.32
+        }
+      }
+    }
+  },
+  "words": "Your version of Low round kick."
+}

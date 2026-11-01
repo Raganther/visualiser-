@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-21T21:33:39.793Z",
+  "data": {
+    "pack": "pack-1",
+    "role": "hats",
+    "sound": "h-minimal"
+  },
+  "key": "h-minimal",
+  "kind": "sound",
+  "name": "Soft hats",
+  "note": "",
+  "rating": 1,
+  "sum": "Hats · Pack 1"
+}

@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-25T12:47:55.826Z",
+  "base": "b-fmpluck",
+  "id": "u-mvlilky9515",
+  "name": "FM pluck bass (yours)",
+  "pack": "mine",
+  "role": "bass",
+  "src": {
+    "knobs": {
+      "drive": 0.12,
+      "fenv": 0.45,
+      "res": 0.28,
+      "stretch": 1.15
+    },
+    "native": "vadub",
+    "shift": 0
+  },
+  "words": "Your version of FM pluck bass."
+}

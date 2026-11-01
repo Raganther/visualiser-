@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-21T10:03:48.015Z",
+  "data": {
+    "pack": "pack-3",
+    "role": "hats",
+    "sound": "h3-ticks"
+  },
+  "key": "h3-ticks",
+  "kind": "sound",
+  "name": "Ticks",
+  "note": "",
+  "rating": -1,
+  "sum": "Hats · Pack 3"
+}
