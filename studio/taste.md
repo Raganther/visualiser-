@@ -236,3 +236,7 @@ before writing or changing a piece; add to it when they react.
   (character .49), mids -4; the hats shorter with more variation; the rim tuned down 6, darker, mids -4.4; the tom
   shorter, mids -5. The clap's mids -10, shorter, softer start; the ride shorter, tuned down 3, darker, mids -6.5, little
   bell. Every edit cut the mids (4–10 dB) and most shortened and darkened; they added human variation.
+- 2026-11-01: Round 5 (13 sounds), every sound starting where the user's edits pointed (mids cut, shorter, darker, a
+  little variation): their 808 kit as edited, with half and all real hats; the Warm and Deep kits tightened the same
+  way; the clap and ride from their edits; the poly synth darker and its first bass; the unison pad gated. And the
+  Palette: their liked sounds playing together, a part each, to hear how they sit before writing songs with them.

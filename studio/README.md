@@ -77,7 +77,11 @@ reads them and makes the next version.
   five analog kits on one groove), the drum machine's **Real hi-hat** (`real`: the native pair of cymbals, `hats.js`'s
   `HihatV`, played a sample at a time by `next()`, blended with the metal and the warm cymbal) and the **native poly
   synth** (`engine: 'npoly'` on a sound: the worklet plays it beside the analog synth, each into its own buffer, and
-  the workbench shows its own settings).
+  the workbench shows its own settings). The **Palette** tab plays a sound for each part together on one loop (kit, hats,
+  percussion, bass, chords, lead: `SLOTS`; each part's choices the sounds of its kind liked or kept, edits included),
+  each its own instrument in the worklet (`slot` messages: a synth of either engine or a drum machine, its own buffer,
+  level, mute and room, summed set back by `PAL`), a part changed while it plays swapping in time; the picks kept in the
+  database (`palette/mine`).
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

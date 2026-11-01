@@ -7,7 +7,7 @@
 import { midiOf } from '../lib/names.js';
 import { PRESETS as NPRESETS } from '../lib/native/npoly.js';
 
-export const ROUND = 4, BPM = 122, BARS = 2;
+export const ROUND = 5, BPM = 122, BARS = 2;
 const chord = (at, len, names, vel = .75) => names.split(' ').map(n => [at, len, n, vel]);
 const N = list => list.map(([s, l, n, v = .8]) => ({s, l, n: midiOf(n), v}));
 
@@ -232,6 +232,7 @@ const DRUM3 = [
 // toms and rim dried out. No more bass variations: the FM family has settled (FM round, short and slow fall)
 const R3 = Object.fromEntries(SYNTH3.map(x => [x[0], x[4]]));
 const NP = (name, over = {}) => ({...NPRESETS[name], ...over});
+const R4P = id => SYNTH4.find(x => x[0] === id)[4];
 const SYNTH4 = [
   // the analog synth's parts not used yet
   ['unipad', 'chords', 'Unison pad', 'Four voices of the analog synth stacked on each note and gently detuned, through the soft ladder, warm, pulsing on the beat: wide without a Reese\'s growl.',
@@ -284,11 +285,41 @@ const DRUM4 = [
     {tomH: {tune: 4, decay: .6, mids: -6}, tomL: {tune: 2, decay: .7, mids: -6}}, [['tomH', .8], ['shaker', .8]],
     {tomH: '..x....x.....x....x....o.....x..', tomL: '...x......x.......x.......x....x', shaker: 'g.o.g.o.g.o.g.o.g.o.g.o.g.o.g.o.'}, {room: .03}],
 ];
+// round 5: from round 4's ratings and the user's own edits (studio/taste.md): every edit cut the mids by 4 to 10 dB and
+// most made the sound shorter and darker, with a little human variation. So the new defaults: mids cut, shorter,
+// darker. The 808 kit as they edited it is the starting point, with the real hats in it; the clap and ride from their
+// edits; the poly synth they liked, darker; and its first bass, round and clean
+const MINE808 = {kick: {body: .573, decay: .635, mids: -4.15, x: .491}, chh: {decay: .866, vary: .536}, ohh: {decay: 1.025, vary: .768},
+  rim: {atk: .495, decay: .595, mids: -4.4, tone: .374, tune: -6}, tomH: {decay: .656, mids: -5.34}};
+const withHats = (o, real, tone) => ({...o, chh: {...o.chh, real, tone, mids: -3}, ohh: {...o.ohh, real, tone, mids: -3}});
+const TIGHT = {kick: {decay: .65, mids: -4, vary: .4}, chh: {decay: .85, vary: .55, mids: -3}, ohh: {decay: 1, vary: .7, mids: -3}, rim: {mids: -4.5, tone: .45, tune: -5, decay: .65}, tomH: {decay: .65, mids: -5}, shaker: {mids: -3, vary: .5}};
+const SYNTH5 = [
+  ['pingtamed', 'lead', 'Filter ping, tamed', 'The filter ping you liked, its mids cut a long way and a little darker.', {...R4P('filterping'), mids: -8, midf: 1400, tilt: -.25}, A.lead, P.threes, {}],
+  ['nppluck2', 'lead', 'Poly pluck, darker', 'The poly pluck you liked, its filter lower and a touch shorter, the chorus wider.', NP('Pluck', {cut: 330, res: .2, ad: .28, ar: .25, chorus: .45, drive: 0}), A.lead, P.threes, {engine: 'npoly'}],
+  ['npbell2', 'lead', 'Poly bell, shorter', 'The poly glass bell rung shorter and softer at the top.', NP('Glass bell', {oct: 0, chorus: .4, ad: .9, ar: .9, cut: 5000}), A.lead, P.bell, {engine: 'npoly', room: .15}],
+  ['npbass', 'bass', 'Poly round bass', 'The native poly synth as a bass for the first time: a sine with a triangle an octave up, a low filter barely moving, no resonance: round, the note clear.', NP('Sub bass', {w1: 3, w2: 2, semi: 12, mix2: .3, sub: .15, cut: 900, res: 0, fenv: .12, fd: .2, oct: -1, drive: .1, level: .9}), A.bass, P.pluckBass, {engine: 'npoly'}],
+  ['unigated', 'chords', 'Unison pad, gated', 'The unison pad you liked cut into 16ths, its mids a little lower.', {...R4P('unipad'), ad: .15, as: .45, ar: .07, lamp: 0, mids: -5, aa: .003}, A.chord, P.gated, {}],
+];
+const DRUM5 = [
+  ['kitmine', 'kits', 'Your 808 kit, real hats', 'The 808 kit exactly as you edited it (the kick shorter with more punch, hats shorter with more variation, the rim tuned down and darker, the tom shorter, the mids cut), its hats now half the real hi-hat.', 'Analog 808',
+    withHats(MINE808, .5, .7), [['kick', 1], ['chh', .8], ['rim', .8]], KITPAT, {}],
+  ['kitmine2', 'kits', 'Your 808 kit, all real hats', 'Your 808 kit with the hats all real.', 'Analog 808', withHats(MINE808, 1, .65), [['kick', 1], ['chh', .8], ['rim', .8]], KITPAT, {}],
+  ['kitwarm2', 'kits', 'Warm kit, tightened', 'The Warm kit you liked with your 808 edits\' direction: shorter, mids cut, a little more variation, real hats.', 'Analog Warm', withHats(TIGHT, .7, .65), [['kick', 1], ['chh', .8], ['rim', .8]], KITPAT, {}],
+  ['kitdeep2', 'kits', 'Deep kit, tightened', 'The Deep kit made the same way: shorter, mids cut, real hats.', 'Analog Deep', withHats(TIGHT, .8, .6), [['kick', 1], ['chh', .8], ['rim', .8]], KITPAT, {}],
+  ['realshort', 'hats', 'Real hats, shorter', 'The real hats a little shorter, with more variation from hit to hit, as you set the 808\'s.', 'Analog Deep',
+    {chh: {real: 1, tone: .7, decay: .85, vary: .55, mids: -2}, ohh: {real: 1, tone: .65, decay: 1, vary: .7, mids: -2}}, [['chh', .9], ['ohh', .8]], HPAT2, {}],
+  ['clap2', 'perc', 'Clap, from your edit', 'The off-beat clap as you edited it (mids cut 10 dB, shorter, a softer start), its low end thinned too: less mid and bass.', 'Analog Warm',
+    {clap: {atk: 2.5, decay: .6, mids: -10.4, vary: .23, x: .1, tone: .5, body: .2}}, [['clap', .8]], {clap: '...........x..x....x...........x'}, {room: .12}],
+  ['ride2', 'hats', 'Ride, from your edit', 'The ride as you edited it (shorter, tuned down, darker, mids cut, little bell), on the off-beats with a ghost between.', 'Analog Deep',
+    {ride: {atk: 2.1, body: .1, decay: .55, mids: -6.5, snap: .08, tone: .55, tune: -4, x: .12}}, [['ride', .8]], {ride: '..x...x.g.x...x...x...x.g.x...x.'}, {room: .08}],
+  ['ghost2', 'perc', 'Snare ghosts, darker', 'The snare ghosts you liked, darker and with a little more variation.', 'Analog Warm',
+    {snare: {tone: .35, mids: -7, atk: 1, vary: .5}}, [['snare', .45], ['snare', .9]], {snare: '.g...g.o..g...o..g...g.o..g..go.'}, {}],
+];
 const LEVEL = {g: .25, o: .45, x: .75, X: 1};
 const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) => c === '.' ? null : {s, v, vel: LEVEL[c]}).filter(Boolean));
 const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', engine: x.engine || 'asynth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
 const drums = list => list.map(([id, role, name, words, kit, over, alone, pattern, x = {}]) => ({id, kind: 'drum', role, name, words, kit, over, alone: alone.map(([v, vel], i) => ({s: i*4, v, vel})), phrase: rows(pattern), from: x.from, room: x.room || 0}));
-export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)], 4: [...synths(SYNTH4), ...drums(DRUM4)]};
+export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)], 4: [...synths(SYNTH4), ...drums(DRUM4)], 5: [...synths(SYNTH5), ...drums(DRUM5)]};
 for (const [r, list] of Object.entries(ROUNDS)) for (const x of list) x.round = +r;
 export const SOUNDS = ROUNDS[ROUND], ALL = Object.values(ROUNDS).flat();
 // each sound's parents: the sound (or sounds) it grew from, the first its main line; none for a new design. From these
@@ -303,6 +334,8 @@ export const PARENTS = {
   blipsoft: ['blipround'], kalimbasoft: ['fmkalimba'], plucksoft: ['pluckwarm'], fmmarimba: ['malletsoft'], fmglass: ['fmbell'], bellsoft: ['belltamed'], woodwarm: ['woodlow'],
   fmgated: ['gatedsoft', 'fmkeys'], brasssoft: ['pulsebrass'], susroom: ['suswarm'],
   hatsoft: ['warmhats'], hatbody: ['warmhats'],
+  pingtamed: ['filterping'], nppluck2: ['nppluck'], npbell2: ['npbell'], unigated: ['unipad'], kitmine: ['kit808'], kitmine2: ['kit808'], kitwarm2: ['kitwarm'], kitdeep2: ['kitdeep'],
+  realshort: ['realhats'], clap2: ['clapoff'], ride2: ['ridebell'], ghost2: ['snareghost'],
   realsoft: ['realhats'], realpair: ['hatchoke'], realring: ['hatring'], real808: ['hat808soft'], rimdry: ['rimsoft'], tomsdry: ['shakertoms'], gong: ['crashswell'], bowl: ['ridebell'], syncsoft: ['syncknock'], hatdark: ['warmshimmer'], hatring: ['hatchoke'], hat808soft: ['warmbright'], shakerhalf: ['shakerwet'], rimsoft: ['rimroom'], shakertoms: ['tomstamed'], kickround: ['kicklow'],
 };
 const BYID = Object.fromEntries(ALL.map(x => [x.id, x]));
@@ -316,6 +349,7 @@ export const FAMILIES = [...new Set(ALL.map(x => x.family))].map(root => { const
 export const INTROS = {
   1: 'Thirty sounds from the two analog instruments: the analog synth and the analog drum machine, a wide spread to find out what you like.',
   2: 'Grown from your round 1 ratings: round, clean basses without the buzz; the chords you liked, a little warmer; the leads with their nasal, piercing band cut; short, dry, lower kicks; the new warm hats; some sounds in a room.',
+  5: 'From your round 4 ratings and your own edits, which all cut the mids and most made the sound shorter and darker: so that is now where every sound starts. Your 808 kit exactly as you edited it, with real hats; the Warm and Deep kits tightened the same way; the clap and ride from your edits; the poly synth darker, and its first bass.',
   4: 'Each of the five analog kits played whole on one groove (909 and Grit for the first time); a new hi-hat model inside the drum machine, a real pair of cymbals (the model of the Soft hats you once liked); the parts not used yet, made gently: snare ghosts, an off-beat clap, ride, a swelling crash, a bowl, a gong, the synth\'s unison, sync and a filter ping, and the native poly synth; the toms and rim dried out.',
   3: 'Grown from your round 2 ratings: more basses in the FM family you liked, the leads you still found harsh cut higher up and started softer, warm hats with their click taken off and a little body, played as choked and ringing pairs, the shaker in half the room, rim and clave softened.',
 };

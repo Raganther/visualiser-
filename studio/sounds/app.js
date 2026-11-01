@@ -17,7 +17,7 @@ import { voiceName, noteName, SHARPS } from '../lib/names.js';
 const GAIN = __GAINS__, sd = 60/BPM/4, LEN = BARS*16;
 const load = (k, d) => { try { const v = localStorage.getItem('soundlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const keep = (k, v) => { try { localStorage.setItem('soundlab.' + k, JSON.stringify(v)); } catch {} };
-const S = {tab: ['families', 'new', 'kept'].includes(load('tab', 'families')) ? load('tab', 'families') : 'families', sel: load('sel', {}), prev: {}, playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
+const S = {tab: ['families', 'new', 'kept', 'palette'].includes(load('tab', 'families')) ? load('tab', 'families') : 'families', pal: load('pal', null), palLv: load('palLv', {}), palMute: load('palMute', {}), sel: load('sel', {}), prev: {}, playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
 let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 0;
 
 /* ---------- the sound ---------- */
@@ -29,6 +29,28 @@ const send = m => node?.port.postMessage({...m, period: 60/BPM});
 const byId = id => ALL.find(s => s.id === id);
 // the sounds on the page: a round's, or the ones you've kept from any round
 const shown = () => S.tab === 'kept' ? ALL.filter(s => S.rate[s.id]?.keep) : S.tab === 'families' ? FAMILIES.map(f => byId(selOf(f))) : ROUNDS[ROUND];
+// the palette: a sound for each part, playing together on one loop (each its own phrase, all in A at 122)
+const SLOTS = [['kit', 'Kit', ['kits', 'kick']], ['hats', 'Hats', ['hats']], ['perc', 'Percussion', ['perc']], ['bass', 'Bass', ['bass']], ['chords', 'Chords', ['chords']], ['lead', 'Lead', ['lead', 'texture']]];
+const PAL0 = {kit: 'kitmine', hats: null, perc: 'tomsdry', bass: 'fmshort', chords: 'gatedsoft', lead: 'bellsoft'}, LV0 = {kit: 1, hats: .8, perc: .7, bass: .9, chords: .6, lead: .65};
+const palPick = k => (S.pal || PAL0)[k] ?? null;
+// a part's choices: the sounds of its kind you liked or kept (and the one picked, whatever it is), newest round first
+const palChoices = (k, roles) => ALL.filter(x => roles.includes(x.role) && (S.rate[x.id]?.rating === 1 || S.rate[x.id]?.keep || x.id === palPick(k))).sort((a, b) => b.round - a.round);
+function palSlot(k){ const id = palPick(k), s = id && byId(id), lv = S.palLv[k] ?? LV0[k];
+  send(s ? {type: 'slot', slot: k, inst: s.kind === 'drum' ? 'kit' : s.engine, kit: s.kit, over: s.kind === 'drum' ? overOf(s) : null, params: s.kind === 'synth' ? {...patchOf(s), period: 60/BPM} : null, gain: GAIN[id], level: lv, room: s.room, mute: !!S.palMute[k]} : {type: 'slot', slot: k, inst: null}); }
+function palSave(){ keep('pal', S.pal || PAL0); keep('palLv', S.palLv); keep('palMute', S.palMute);
+  if (S.db) S.db.doc('palette/mine').set({picks: S.pal || PAL0, levels: S.palLv, mutes: S.palMute, at: new Date().toISOString()}).catch(() => {}); }
+async function playPalette(){ const was = S.playing; stop(); if (S.ed) closeEd(); if (was?.mode === 'palette') return; await start();
+  for (const [k] of SLOTS) palSlot(k); S.playing = {id: 'palette', mode: 'palette'}; slot = 0; next = ctx.currentTime + .08; send({type: 'clock', t0: next}); endAt = Infinity;
+  tick(); timer = setInterval(tick, 25); paint(); }
+function paintPalette(){ const rows = SLOTS.map(([k, label, roles]) => { const id = palPick(k), ch = palChoices(k, roles), lv = S.palLv[k] ?? LV0[k];
+    const sel = h('select', {id: 'pal-' + k, 'aria-label': label}, h('option', {value: ''}, '— none —'), ...ch.map(x => h('option', {value: x.id, selected: x.id === id}, `${x.name} · R${x.round}${S.rate[x.id]?.keep ? ' ★' : ''}${S.rate[x.id]?.edits ? ' · yours' : ''}`)));
+    sel.onchange = () => { S.pal = {...(S.pal || PAL0), [k]: sel.value || null}; palSave(); if (S.playing?.mode === 'palette') palSlot(k); paintPalette(); };
+    const r = h('input', {type: 'range', min: 0, max: 1.5, step: .01, value: lv, 'aria-label': label + ' level'}); r.oninput = () => { S.palLv[k] = +r.value; send({type: 'mix', slot: k, level: +r.value}); palSave(); };
+    const m = h('button', {class: 'ghost', 'aria-pressed': String(!!S.palMute[k]), onclick: () => { S.palMute[k] = !S.palMute[k]; send({type: 'mix', slot: k, mute: S.palMute[k]}); palSave(); paintPalette(); }}, S.palMute[k] ? 'Muted' : 'Mute');
+    const open = id ? h('button', {class: 'ghost', onclick: () => { S.tab = 'families'; keep('tab', S.tab); paintAll(); setTimeout(() => $('snd-' + id)?.scrollIntoView({block: 'center'}), 50); }}, 'See it') : null;
+    return h('div', {class: 'palrow'}, h('b', {}, label), sel, h('label', {class: 'vol'}, 'Level ', r), m, open); });
+  $('groups').replaceChildren(h('section', {class: 'palette'}, h('div', {class: 'palhead'}, h('button', {id: 'palPlay', class: 'play', 'aria-pressed': String(S.playing?.mode === 'palette'), onclick: playPalette}, h('span', {class: 'ico', 'aria-hidden': 'true'}), S.playing?.mode === 'palette' ? 'Stop the palette' : 'Play the palette together'),
+      h('p', {}, 'Each part\'s choices are the sounds of its kind you liked or kept, your edits included. Change one while it plays and it swaps in time. Your picks save as you go.')), ...rows)); }
 const famOf = id => FAMILIES.find(f => f.root === byId(id).family), selOf = f => f.members.some(x => x.id === S.sel[f.root]) ? S.sel[f.root] : f.last.id;
 
 // play a sound one of three ways (the same button again stops it)
@@ -45,7 +67,13 @@ async function play(id, mode){ const was = S.playing; stop(); if (S.ed && S.ed !
   tick(); timer = setInterval(tick, 25); paint(); }
 function stop(){ if (!S.playing) return; S.playing = null; clearInterval(timer); send({type: 'stop'}); paint(); }
 // a 16th at a time, a little ahead on the audio clock
-function tick(){ const p = S.playing; if (!p) return; const s = byId(p.id);
+function tick(){ const p = S.playing; if (!p) return;
+  if (p.mode === 'palette') { while (next < ctx.currentTime + .12) { const st = slot % LEN, lap = Math.floor(slot/LEN);
+      for (const [k] of SLOTS) { const id = palPick(k), s = id && byId(id); if (!s) continue;
+        for (const [i, x] of s.phrase.entries()) { if (Math.floor(x.s) !== st) continue; const t = next + (x.s - st)*sd;
+          if (s.kind === 'synth') { const nid = `${k}:${lap}:${i}`; send({type: 'on', slot: k, id: nid, n: x.n, vel: x.v, t}); send({type: 'off', slot: k, id: nid, t: t + x.l*sd}); } else send({type: 'hit', slot: k, v: x.v, vel: x.vel, t}); } }
+      next += sd; slot++; } return; }
+  const s = byId(p.id);
   while (next < ctx.currentTime + .12) {
     if (slot >= endAt) { stop(); return; }
     const st = p.mode === 'alone' ? slot : slot % LEN, lap = p.mode === 'alone' ? 0 : Math.floor(slot/LEN);
@@ -67,6 +95,7 @@ async function connect(){ S.rate = load('rate', {}); paintAll();
   let db = null; try { db = await window.claude?.use?.('db'); } catch {}
   if (!db) { saying('Saved on this device. Copy your ratings to send them to Claude.'); $('copy').hidden = false; return; }
   S.db = db; saying('Your ratings save as you go.');
+  try { const d = await db.doc('palette/mine').get(); const x = d.data?.(); if (x?.picks) { S.pal = x.picks; S.palLv = x.levels || {}; S.palMute = x.mutes || {}; } } catch {}
   try { const q = await db.collection('ratings').get(); for (const d of q.docs) { const x = d.data(); if (x) S.rate[d.id] = {rating: x.rating ?? 0, note: x.note || '', edits: x.edits || null, keep: !!x.keep}; } keep('rate', S.rate); paintAll(); }
   catch { saying('Couldn\'t load your earlier ratings. New ones still save.'); } }
 function copyRatings(){ const lines = ALL.map((s, i) => { const r = S.rate[s.id]; return r?.rating || r?.note || r?.edits || r?.keep ? `Round ${s.round}: ${s.name} (${s.id})${r.keep ? ' ★ kept' : ''}: ${RATES.find(x => x[0] === r.rating)?.[1] || 'unrated'}${r.note ? ' — ' + r.note : ''}${r.edits ? ' · your changes: ' + JSON.stringify(r.edits) : ''}` : null; }).filter(Boolean);
@@ -111,7 +140,8 @@ function pick(f, id){ const was = selOf(f); if (id === was) return; S.prev[f.roo
 function paintFamily(root){ const el = $('fam-' + root); if (!el) { const c = document.querySelector(`.snd[data-family="${root}"]`); if (c) paintCard(c.id.slice(4)); return; }
   const f = FAMILIES.find(x => x.root === root); el.replaceWith(famCard(f, FAMILIES.indexOf(f))); }
 
-function paintAll(){ const all = shown(); paintTabs();
+function paintAll(){ if (S.tab === 'palette') { paintTabs(); $('meta').textContent = 'Palette · a sound for each part, together'; $('lede').textContent = 'Your liked sounds playing together: a kit, hats, percussion, a bass, chords and a lead, on one loop. Pick each part, set its level, and hear how they sit with each other before we write songs with them.'; $('count').textContent = ''; $('likes').textContent = ''; paintPalette(); paint(); return; }
+  const all = shown(); paintTabs();
   const NR = Object.keys(ROUNDS).length;
   $('meta').textContent = S.tab === 'kept' ? `Kept · ${all.length} sound${all.length === 1 ? '' : 's'} from every round` : S.tab === 'families' ? `${FAMILIES.length} sounds and their versions · ${NR} rounds · all in A at ${BPM} BPM` : `New in round ${ROUND} · ${all.length} sounds · all in A at ${BPM} BPM`;
   $('lede').textContent = S.tab === 'kept' ? 'The sounds you have kept, from every round, side by side. ☆ Keep on any card adds it here; ★ Kept takes it away.'
@@ -125,13 +155,14 @@ function paintAll(){ const all = shown(); paintTabs();
 function paintTabs(){ const kept = ALL.filter(s => S.rate[s.id]?.keep).length;
   $('tabs').replaceChildren(h('button', {role: 'tab', 'aria-selected': String(S.tab === 'families'), onclick: () => pickTab('families')}, 'Every sound', h('small', {}, ` ${FAMILIES.length}`)),
     h('button', {role: 'tab', 'aria-selected': String(S.tab === 'new'), onclick: () => pickTab('new')}, `New in round ${ROUND}`, h('small', {}, ` ${ROUNDS[ROUND].length}`)),
+    h('button', {role: 'tab', 'aria-selected': String(S.tab === 'palette'), onclick: () => pickTab('palette')}, 'Palette'),
     h('button', {role: 'tab', class: 'kepttab', 'aria-selected': String(S.tab === 'kept'), onclick: () => pickTab('kept')}, '★ Kept', h('small', {}, ` ${kept}`))); }
 function pickTab(t){ if (S.ed) closeEd(); stop(); S.tab = t; keep('tab', t); paintAll(); scrollTo({top: 0}); }
 function paintCard(id){ const el = $('snd-' + id), r = S.rate[id] || {}; if (!el) return; el.dataset.rating = r.rating || 0; el.querySelector('.mine').hidden = !r.edits; const kb = el.querySelector('.keep'); kb.setAttribute('aria-pressed', String(!!r.keep)); kb.textContent = r.keep ? '★ Kept' : '☆ Keep';
   for (const b of el.querySelectorAll('.rate button')) b.setAttribute('aria-pressed', String(+b.dataset.v === r.rating)); }
 function paint(){ for (const b of document.querySelectorAll('.snd .play')) { const id = b.closest('.snd').id.slice(4); b.setAttribute('aria-pressed', String(S.playing?.id === id && S.playing.mode === b.dataset.mode)); }
   for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).setAttribute('aria-pressed', String(!!S.ed && S.playing?.id === S.ed && S.playing.mode === m));
-  $('stop').disabled = !S.playing; $('now').textContent = S.playing ? `${byId(S.playing.id).name}, ${MODES.find(m => m[0] === S.playing.mode)[1].toLowerCase()}` : 'Nothing playing'; }
+  $('stop').disabled = !S.playing; $('now').textContent = !S.playing ? 'Nothing playing' : S.playing.mode === 'palette' ? 'The palette, together' : `${byId(S.playing.id).name}, ${MODES.find(m => m[0] === S.playing.mode)[1].toLowerCase()}`; if ($('palPlay')) { $('palPlay').setAttribute('aria-pressed', String(S.playing?.mode === 'palette')); $('palPlay').lastChild.textContent = S.playing?.mode === 'palette' ? 'Stop the palette' : 'Play the palette together'; } }
 function count(){ const all = shown(), n = all.filter(s => S.rate[s.id]?.rating).length, likes = all.filter(s => S.rate[s.id]?.rating === 1).length;
   $('count').textContent = `${n} of ${all.length} rated`; $('likes').textContent = likes ? `${likes} liked` : ''; $('bar').style.setProperty('--done', all.length ? n/all.length : 0); }
 
@@ -206,4 +237,4 @@ $('vol').oninput = e => { S.vol = +e.target.value; if (out) out.gain.value = S.v
 $('room').oninput = e => { S.room = +e.target.value; $('roomOut').textContent = S.room ? Math.round(S.room*100) + '%' : 'off'; node?.port.postMessage({type: 'room', v: S.room}); };
 addEventListener('keydown', e => { if (e.key === 'Escape' && S.ed && !S.playing) { closeEd(); return; } if (e.key === 'Escape' || (e.code === 'Space' && !e.target.matches('textarea, input, button'))) { if (S.playing) { e.preventDefault(); stop(); } } });
 connect();
-window.__soundlab = {pick, FAMILIES, S, get SOUNDS(){ return shown(); }, ALL, pickTab, GAIN, play, stop, rate, openEd, closeEd, change, revert, noteOn, noteOff, hit, patchOf, overOf, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)
+window.__soundlab = {playPalette, palPick, pick, FAMILIES, S, get SOUNDS(){ return shown(); }, ALL, pickTab, GAIN, play, stop, rate, openEd, closeEd, change, revert, noteOn, noteOff, hit, patchOf, overOf, get ctx(){ return ctx; }, get node(){ return node; }, get out(){ return out; }};   // (for tests)

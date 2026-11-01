@@ -135,6 +135,13 @@ body.benching { padding-bottom: calc(var(--benchH, 50vh) + 16px) }
 .ver i { font-style: normal; font-size: 11px } .ver i.k { color: var(--accent) } .ver i.r-1 { opacity: .8 }
 .vtools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px } .vnote { font: 11px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--mute) }
 .ab { margin-left: auto; font-weight: 600 } .ab small { font-weight: 400; color: var(--mute) } .ab:disabled { opacity: .45; cursor: default }
+
+/* the palette: a row a part */
+.palette { display: grid; gap: 10px; max-width: 900px }
+.palhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px } .palhead p { margin: 0; color: var(--mute); font-size: 14px; flex: 1 1 260px }
+#palPlay { min-height: 44px; padding: 0 18px; border: 0; background: var(--accent); color: var(--accent-ink) } #palPlay[aria-pressed="true"] { background: var(--ink); color: var(--bg) }
+.palrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--sheet); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px }
+.palrow b { min-width: 92px; font-family: var(--display); font-size: 17px } .palrow select { flex: 1 1 220px; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; font: inherit; font-size: 14px }
 @media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
 </style>
 
