@@ -15,13 +15,14 @@ repo holds a copy (see `data/README.md`). Settings kept only in a browser's `loc
    - the Studio, https://claude.ai/artifact/Sh5taBdvs5HZZej4d4qKV2 → `out_dir` `data/studio`: `feedback`, `snaps`,
      `likes`, `songs`, `ideas`, `versions`, `sounds`, `projects`, `takes`, `notes`, `jams`, `arrangements`, `library`,
      and `settings` once the page keeps one;
-   - the visualiser, https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ → `out_dir` `data/afterglow`: `moments`, `comments`.
+   - the visualiser, https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ → `out_dir` `data/afterglow`: `moments`, `comments`, `settings` (its browser settings).
    Clear each collection's folder first, so documents deleted in the artifact don't linger.
 2. Rename every file with `:` in its name to `%3A` (`for f in $(find data -name '*:*'); do mv "$f" "${f//:/%3A}"; done`).
 3. Rewrite `data/MANIFEST.json` (the time, the two URLs, a count per collection).
 4. The repo is public: the user agreed (2026-11-01) their musical ratings, notes and settings may be public. Check
    the copy holds no emails, `u_…` account ids or anything else personal before committing; if it does, ask.
-5. Commit `data/` ("Back up the artifacts' databases") and push.
+5. If nothing in `data/` changed but `MANIFEST.json`'s time, discard it and stop. Otherwise commit `data/` ("Back up
+   the artifacts' databases") and push to main.
 
 ## Restore (into a new artifact)
 
@@ -32,7 +33,10 @@ repo holds a copy (see `data/README.md`). Settings kept only in a browser's `loc
    to `:`. `ArtifactData` `batch` `set` them into the new artifact, up to 50 a batch and under 1 MiB a batch (send
    the big ones, `ideas`, `songs`, `versions`, a few at a time, with `file_path`).
 3. `list` each collection in the new artifact and check the counts against `data/MANIFEST.json`.
-4. Tell the user to reload the page: its browser settings come back from `settings/local` by themselves.
+4. Put the new URLs in CLAUDE.md (and in this skill), and set up the daily backup routine on this account
+   (`create_trigger`, a fresh session each day, the prompt: "Run the backup skill in Raganther/visualiser-: export the
+   artifacts' databases into data/, and commit and push to main only if something changed."). Commit and push.
+5. Tell the user to open both pages: their browser settings come back from `settings/local` by themselves.
 
 Without Claude: the Studio's **Export** button saves one file of everything (the database and the browser's settings,
 song versions too) and **Import** on the other account's Studio loads it.

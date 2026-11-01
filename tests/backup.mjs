@@ -1,5 +1,6 @@
 // The Studio's settings with your account and Export / Import (studio/studio/settings.js), against a stand-in database:
-// mirrored into it, an Export file holding everything, a new browser given them back, and Import on an empty one
+// mirrored into it, an Export file holding everything, a new browser given them back, and Import on an empty one;
+// and the visualiser's own settings kept and given back the same way (studio/lib/settings.js)
 import { serve, launch } from './lib.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -33,5 +34,12 @@ await p.addInitScript(FAKE, {}); await p.goto(url + 'studio/listen/studio.html')
 await p.setInputFiles('#impF', f); await p.waitForTimeout(2500);
 const im = await p.evaluate(() => ({like: !!window.__DB.likes?.['sound:x'], song: localStorage.getItem('studio.daw.v1.r4-1'), flash: document.getElementById('flash').textContent}));
 ok('Import on another account: the documents into its database, the settings and song versions into the browser', im.like && im.song === '{"big":1}', JSON.stringify(im));
+// the visualiser: its afterglow.* settings (not the moments) into its database, and back to a new browser, reloading once
+ctx = await browser.newContext(); p = await ctx.newPage(); p.on('pageerror', e => { failed = true; console.log('FAIL page error', e.message); });
+await p.addInitScript(FAKE, {}); await p.goto(url + 'index.html'); await p.evaluate(() => { localStorage.setItem('afterglow.morph', '{"x":1}'); localStorage.setItem('afterglow.moments', '[]'); });
+await p.waitForTimeout(17000); const vs = await p.evaluate(() => window.__DB.settings?.local), VL = vs && JSON.parse(vs.json); await ctx.close();
+ok('the visualiser\'s settings kept in its database (not its moments)', VL && VL['afterglow.morph'] === '{"x":1}' && !('afterglow.moments' in VL), JSON.stringify(VL)?.slice(0, 160));
+ctx = await browser.newContext(); p = await ctx.newPage(); await p.addInitScript(FAKE, {settings: {local: vs}}); await p.goto(url + 'index.html'); await p.waitForTimeout(6000);
+ok('a new browser gets the visualiser\'s settings back', await p.evaluate(() => localStorage.getItem('afterglow.morph') === '{"x":1}')); await ctx.close();
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

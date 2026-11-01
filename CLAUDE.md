@@ -17,6 +17,23 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
 - **Voice:** an experiment, set aside by the user: the page Afterglow Voice (https://claude.ai/artifact/HBgUQnbG3XJEeNQ22XKgGi, `tools/voice/afterglow-voice.html`) reads aloud whatever is in its database document `voice/latest`. Pages can't use the microphone, so it never became a spoken back-and-forth. Don't write to it unless asked.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
 
+## Your data, and moving to another account
+
+Each artifact's database is its own, and a new artifact (another account's, or a fresh publish) starts empty. So the
+user's data lives in the repo too, in `data/` (`data/README.md`, `data/MANIFEST.json`): the Studio's database (likes,
+ratings, snapshots, song versions, sounds, projects, takes, notes, and `settings`, the Studio's browser settings) and
+the visualiser's (its 👍 / 👎 moments, comments, and `settings`, its `afterglow.*` browser settings). Both pages copy
+their browser settings into their database by themselves (`studio/lib/settings.js`).
+- **Kept up to date by itself:** a daily routine on the account that owns the artifacts runs the `backup` skill and
+  pushes `data/` when anything changed. Any session that changes what's saved runs it before committing, and the user
+  can say "back up" any time.
+- **"Restore my data"** (on a new account): run the `backup` skill's restore: publish the Studio and the visualiser
+  from the repo, load `data/` into their new databases, check the counts, put the new links in this file (the links
+  below are the old account's), set up the daily backup routine there too, commit and push. The browser settings come
+  back when the user opens the pages.
+- **Not covered:** the labs (Prism lab, bench, genome page, drum, synth, rack, ducking and mix labs) keep their
+  settings in the browser only, each its own artifact.
+
 ## Layout
 
 ```

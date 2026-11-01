@@ -13,11 +13,19 @@ import { setPreset } from './presets.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
 import { OBJECT_VISUALS, byKey } from '../visuals/registry.js';
+import { keepSettings, ownKeys } from '../../studio/lib/settings.js';
 
 const LOCAL = 'afterglow.moments', KEEP = 300, SHOWN = 80, PICTURE = ['Layers', 'Hits', 'Worlds', 'Media and objects', 'Kaleidoscope'];
 let db = null, want = 0, count = 0, liked = [];   // liked: the liked moments that can be restored, newest first
 // the Artifact's database, when this page is one and it's granted; never waited on
-if (window.claude && window.claude.use) window.claude.use('db').then(d => { db = d; if (db) watch(); }).catch(() => {});
+if (window.claude && window.claude.use) window.claude.use('db').then(d => { db = d; if (db) { watch(); keepPage(db); } }).catch(() => {});
+// this page's settings kept with your account (studio/lib/settings.js): the afterglow.* keys (not the moments, comments,
+// stall log or thumbnails, which are kept elsewhere or are this device's own) into settings/local, and a new browser or
+// a restored artifact given them back, the page reloaded once to take them
+const OWN = /^afterglow\./, NOT = /^afterglow\.(moments|comments|stalls|thumbs)$/, AUTO = /^afterglow\.(gfxAuto|phone|phoneview|fps|sharp|heavyW)$/;
+const FIRST = ownKeys(/^afterglow\./, /^afterglow\.(moments|comments|stalls|thumbs)$/);   // (as the page found it: it writes some itself as it starts)
+function keepPage(d){ keepSettings(d, {match: OWN, skip: NOT, fresh: () => !Object.keys(FIRST).some(k => !AUTO.test(k)),
+  restored: () => { try { if (sessionStorage.getItem('afterglow.restored')) return; sessionStorage.setItem('afterglow.restored', '1'); } catch {} location.reload(); }}); }
 const local = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || '[]'); } catch (e) { return []; } };
 const keepLocal = a => { try { localStorage.setItem(LOCAL, JSON.stringify(a.slice(-KEEP))); } catch (e) {} };
 count = local().length;
