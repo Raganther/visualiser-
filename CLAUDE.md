@@ -12,6 +12,7 @@ A music visualiser that runs entirely in the browser. You drop in MP3s, it analy
   - `taste-review`: the user's 👍 / 👎 moments from the published page, turned into `docs/taste.md` and tuning.
   - `next-idea`: build the top idea from `docs/ideas.md` on its own branch, with a preview and a pull request (for a scheduled builder);
   - `blender-object`: model an object in Blender (or take the user's .glb) and bring it in, with a shape key it plays on the beat.
+  - `backup`: the Studio's and the visualiser's databases copied into `data/` (or restored into a new artifact, e.g. on another account); run it before committing Studio work that changed what's saved.
 - **Taste:** `docs/taste.md` holds what the user likes and doesn't, with evidence. Read it before changing how anything looks or behaves, and add to it when the user reacts.
 - **Voice:** an experiment, set aside by the user: the page Afterglow Voice (https://claude.ai/artifact/HBgUQnbG3XJEeNQ22XKgGi, `tools/voice/afterglow-voice.html`) reads aloud whatever is in its database document `voice/latest`. Pages can't use the microphone, so it never became a spoken back-and-forth. Don't write to it unless asked.
 - **Audience:** the user tests with real tracks, mostly minimal techno. Most feedback is about how it *feels* over a whole set: busy vs sparse, fast vs calm, repetitive vs progressing.
