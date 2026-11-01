@@ -6,7 +6,7 @@
 // out what they've said no to (Reese, wobble, acid, hoover, plain sub, gritty or driven kicks, long held leads).
 import { midiOf } from '../lib/names.js';
 
-export const ROUND = 2, BPM = 122, BARS = 2;
+export const ROUND = 3, BPM = 122, BARS = 2;
 const chord = (at, len, names, vel = .75) => names.split(' ').map(n => [at, len, n, vel]);
 const N = list => list.map(([s, l, n, v = .8]) => ({s, l, n: midiOf(n), v}));
 
@@ -167,11 +167,67 @@ const DRUM2 = [
   ['rimroom', 'perc', 'Rim and clave, roomy', 'Rim and clave as you liked them, a little room round them.', 'Analog Deep', {}, [['rim', .8], ['clave', .8]],
     {rim: '..x..x..x..x..x..x..x..x..x..x..', clave: '.x....x....x....x....x....x....'}, {from: 'Rim and clave', room: .2}],
 ];
+// round 3: from round 2's ratings (studio/taste.md). The bass family is FM that stays in tune and falls away (FM round and
+// FM wood liked; same-pitch FM and anything from a saw or pulse "farty"): variations on its ratio, fall and length. The
+// leads they liked but still found harsh (Blip, FM kalimba, Pulse pluck) cut higher up, where they're harsh (4–6 kHz),
+// and started a few milliseconds softer. The hats get the new Attack (no click) and a low body, played in pairs, the
+// closed hat choking the open one or the open left to ring. The shaker in half the room; rim and clave softened.
+const R2 = Object.fromEntries(SYNTH2.map(x => [x[0], x[4]]));
+const FMB = {w1: 3, w2: 3, xtype: 1, l1: .9, l2: 0, ftype: 1, cut: 2400, res: 0, fenv: 0, aa: .002, ad: .5, as: .7, ar: .12, mode: 1, slop: .2, vdrive: .25, level: .75};
+const SYNTH3 = [
+  ['fmshort', 'bass', 'FM round, short', 'FM round played short and plucky: the knock and a little note, gone before the next.', {...R2.fmround, ad: .22, as: .15, ar: .08}, A.bass, P.pluckBass, {from: 'FM round'}],
+  ['fmslow', 'bass', 'FM round, slow fall', 'FM round with its shaking falling away over a quarter of a second: more of the knock\'s colour in each note.', {...R2.fmround, xdec: .26, xenv: .75}, A.bass, P.pluckBass, {from: 'FM round'}],
+  ['fmglide', 'bass', 'FM round, gliding', 'FM round played legato, each note sliding into the next: a rubbery line without the buzz.', {...R2.fmround, mode: 2, glide: .06, as: .8}, A.bass, P.longBass, {from: 'FM round'}],
+  ['fmfifth', 'bass', 'FM wood, a fifth', 'The FM shaking a fifth above the octave, falling fast: wood with a hollow ring.', {...FMB, oct2: 1, semi2: 7, xmod: .5, xenv: .9, xdec: .1, cut: 2000}, A.bass, P.pluckBass, {from: 'FM wood'}],
+  ['fmtwo', 'bass', 'FM round, two octaves', 'Shaken by a sine two octaves up, falling away: a brighter knock, still round underneath.', {...FMB, oct2: 2, xmod: .4, xenv: .9, xdec: .09, cut: 2600}, A.bass, P.pluckBass, {from: 'FM round'}],
+  ['fmtri', 'bass', 'FM round on a triangle', 'FM round with a quiet triangle under it, a little more body in the low mids, no buzz.', {...R2.fmround, w2: 2, oct2: 0, l2: .25, xmod: .5}, A.bass, P.pluckBass, {from: 'FM round and Triangle pluck'}],
+  ['fmwoodlong', 'bass', 'FM wood, long', 'FM wood held longer and softer at the front, a note that sings out a little.', {...R2.fmwood, aa: .004, as: .75, ad: .8, xdec: .3}, A.bass, P.longBass, {from: 'FM wood'}],
+  // leads: the harshness cut higher, a softer start
+  ['blipsoft', 'lead', 'Blip, soft', 'Blip with the band at 5 kHz cut, a warmer top, and a few milliseconds softer at the start.', {...R2.blipround, mids: -8, midf: 5000, tilt: -.45, aa: .004}, A.high, P.blips, {from: 'Blip, rounder'}],
+  ['kalimbasoft', 'lead', 'FM kalimba, soft', 'FM kalimba with its shaking less bright, the 4 kHz band cut and a softer start.', {...R2.fmkalimba, xmod: .35, mids: -8, midf: 4200, tilt: -.35, aa: .003}, A.lead, P.threes, {from: 'FM kalimba'}],
+  ['plucksoft', 'lead', 'Pulse pluck, soft', 'Pulse pluck through a lower filter, the 4 kHz band cut, the echo darker.', {...R2.pluckwarm, cut: 420, mids: -7, midf: 4000, tilt: -.4, etone: .3, aa: .003}, A.lead, P.threes, {from: 'Pulse pluck, warm'}],
+  ['fmmarimba', 'lead', 'FM marimba', 'A sine shaken by one two octaves up, falling away in an instant: a mallet on wood, rounder than the Soft mallet.', {...FMB, oct2: 2, xmod: .45, xenv: 1, xdec: .03, mode: 0, ad: .45, as: 0, ar: .35, cut: 5000, tilt: -.2, level: .75}, A.lead, P.threes, {from: 'Soft mallet, softer'}],
+  ['fmglass', 'lead', 'FM glass', 'Shaken at an odd ratio (an octave and a major sixth), falling away slowly: a glassy bell, its partials not a harmonic series.', {...FMB, oct2: 1, semi2: 9, xmod: .35, xenv: .6, xdec: .6, mode: 0, ad: 1.6, as: 0, ar: 1.4, cut: 6000, chorus: 1, emix: .2, etime: 3, efb: .35, mids: -4, midf: 3500, level: .65}, A.lead, P.bell, {from: 'FM bell, pure', room: .15}],
+  ['bellsoft', 'lead', 'Ring bell, softer', 'Ring bell tamed as you liked it, with a softer start and warmer still.', {...R2.belltamed, aa: .004, tilt: -.35}, A.lead, P.bell, {from: 'Ring bell, tamed', room: .2}],
+  ['woodwarm', 'lead', 'Wood pluck, warm', 'Wood pluck lower, its resonance a little wider: a log drum, warmer.', {...R2.woodlow, res: .7, tilt: -.3, mids: -4, midf: 3000}, A.lead, P.threes, {from: 'Wood pluck, lower'}],
+  // chords: they liked them all; a few new ones in the same direction
+  ['fmkeys', 'chords', 'FM keys', 'Chords on a sine shaken an octave up, gently, falling away: an electric piano\'s bell and body, played as stabs.', {...FMB, oct2: 1, xmod: .3, xenv: .7, xdec: .35, mode: 0, ad: 1, as: .2, ar: .4, cut: 4000, chorus: 1, tilt: -.2, level: .55}, A.chord, P.stabs, {from: 'Sus pluck and FM bell', room: .15}],
+  ['fmgated', 'chords', 'FM keys, gated', 'The FM keys cut into 16ths, like the gated chord you liked.', {...FMB, oct2: 1, xmod: .3, xenv: .5, xdec: .08, mode: 0, ad: .15, as: .4, ar: .06, cut: 4000, chorus: 2, tilt: -.2, level: .5}, A.chord, P.gated, {from: 'Gated warm, softer'}],
+  ['brasssoft', 'chords', 'Pulse brass, softer', 'Pulse brass speaking a little later and softer, warmer.', {...R1.pulsebrass, aa: .06, fa: .14, tilt: -.25}, A.chord, P.pads, {from: 'Pulse brass', room: .1}],
+  ['susroom', 'chords', 'Sus pluck, in a room', 'Sus pluck, warm, as you liked it, a little more room.', {...R2.suswarm}, A.chord, P.stabs, {from: 'Sus pluck, warm', room: .3}],
+];
+const HPAT = {chh: 'g.x.g.X.g.x.g.x.g.x.g.X.g.xog.x.', ohh: '..............x...............x.'};
+const DRUM3 = [
+  // hats: the new Attack, the body, and pairs
+  ['hatsoft', 'hats', 'Warm hats, soft attack', 'The warm cymbal with its click taken off: each hit fades in over 3 ms.', 'Analog Deep',
+    {chh: {warm: .9, atk: 3, mids: -3}, ohh: {warm: .9, atk: 4, mids: -3}}, [['chh', .9], ['ohh', .8]], HPAT, {from: 'Warm hats'}],
+  ['hatbody', 'hats', 'Warm hats with body', 'The soft-attack warm cymbal with a little bronze body under it: less thin.', 'Analog Deep',
+    {chh: {warm: .9, atk: 3, body: .9, mids: -3}, ohh: {warm: .9, atk: 4, body: .8, mids: -3}}, [['chh', .9], ['ohh', .8]], HPAT, {from: 'Warm hats'}],
+  ['hatdark', 'hats', 'Warm hats, darker', 'Softer still at the top and the start, the open one longer: a hush more than a tick.', 'Analog Deep',
+    {chh: {warm: 1, atk: 5, tone: .6, mids: -4}, ohh: {warm: 1, atk: 6, tone: .6, decay: 1.3, mids: -4}}, [['chh', .9], ['ohh', .8]], HPAT, {from: 'Warm hats, open'}],
+  ['hatchoke', 'hats', 'Hat pair, choked', 'A closed and an open hat as a pair: each open hat cut short by the closed one a 16th after it, as a drummer\'s foot closes it.', 'Analog Deep',
+    {chh: {warm: .9, atk: 3, body: .8, mids: -3}, ohh: {warm: .9, atk: 4, body: .7, decay: 1.4, mids: -3}}, [['ohh', .85], ['chh', .8]],
+    {chh: 'x.g.x..xx.g.x..xx.g.x..xx.g.x..x', ohh: '......x.......x.......x.......x.'}, {from: 'your question: the choke'}],
+  ['hatring', 'hats', 'Hat pair, ringing', 'The same pair, the open hats left to ring out over a few soft closed ones.', 'Analog Deep',
+    {chh: {warm: .9, atk: 3, body: .8, mids: -3}, ohh: {warm: .9, atk: 4, body: .7, decay: 1.4, mids: -3}}, [['ohh', .85], ['chh', .8]],
+    {chh: 'x...g...x...g...x...g...x...g...', ohh: '..x.......x.......x.......x.....'}, {from: 'your question: no choke', room: .1}],
+  ['hat808soft', 'hats', '808 hats, softened', 'The 808\'s own metal, a third warm cymbal, its click taken off and the mids cut.', 'Analog 808',
+    {chh: {warm: .35, atk: 3, mids: -6, tone: .75}, ohh: {warm: .35, atk: 4, mids: -6, tone: .75}}, [['chh', .9], ['ohh', .8]], HPAT, {from: 'Warm hats, brighter'}],
+  // percussion
+  ['shakerhalf', 'perc', 'Shaker, half wet', 'The shaker in half the room it had.', 'Analog Warm', {}, [['shaker', .9]], {shaker: 'gox.gox.goxggox.gox.gox.goxggoxo'}, {from: 'Shaker, wet', room: .22}],
+  ['rimsoft', 'perc', 'Rim and clave, softened', 'Rim and clave with their 2.5 kHz ring cut, darker and a touch softer at the start.', 'Analog Deep',
+    {rim: {mids: -7, tone: .55, atk: 1}, clave: {mids: -7, tune: -3, atk: 1}}, [['rim', .8], ['clave', .8]], {rim: '..x..x..x..x..x..x..x..x..x..x..', clave: '.x....x....x....x....x....x....'}, {from: 'Rim and clave, roomy', room: .15}],
+  ['shakertoms', 'perc', 'Toms and shaker', 'The tamed hand toms with the shaker under them, in a little room.', 'Analog Warm',
+    {tomH: {tune: 4, decay: .6, mids: -6}, tomL: {tune: 2, decay: .7, mids: -6}}, [['tomH', .8], ['shaker', .8]],
+    {tomH: '..x....x.....x....x....o.....x..', tomL: '...x......x.......x.......x....x', shaker: 'g.o.g.o.g.o.g.o.g.o.g.o.g.o.g.o.'}, {from: 'Hand toms, tamed', room: .15}],
+  // a kick: the liked low one, its click rounder
+  ['kickround', 'kick', 'Short kick, rounder', 'Short kick, lower, with less click at the front.', 'Analog Deep', {kick: {decay: .62, body: .32, snap: .02, x: .25, tune: -7, atk: .6}}, [['kick', 1]], {kick: 'X...x...x...x...X...x...x...x..g'}, {from: 'Short kick, lower'}],
+];
 const LEVEL = {g: .25, o: .45, x: .75, X: 1};
 const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) => c === '.' ? null : {s, v, vel: LEVEL[c]}).filter(Boolean));
 const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
 const drums = list => list.map(([id, role, name, words, kit, over, alone, pattern, x = {}]) => ({id, kind: 'drum', role, name, words, kit, over, alone: alone.map(([v, vel], i) => ({s: i*4, v, vel})), phrase: rows(pattern), from: x.from, room: x.room || 0}));
-export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)]};
+export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)]};
 export const SOUNDS = ROUNDS[ROUND];
 export const GROUPS = [['bass', 'Basses'], ['chords', 'Chords'], ['lead', 'Plucks, bells and leads'], ['texture', 'Texture'], ['kick', 'Kicks'], ['hats', 'Hats'], ['perc', 'Percussion']];
 // the quiet groove under a phrase in "In a loop": the Deep kit, set back. A kick sound gets the hats and shaker alone;

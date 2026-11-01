@@ -18,7 +18,9 @@ export const APARAMS = [...PARAMS, {key: 'snap', label: 'Snap', min: 0, max: 1, 
   {key: 'vary', label: 'Variation', min: 0, max: 1, def: .3, unit: '%'},
   // the voice's own tone stage: a broad cut (or lift) round 2.5 kHz, where a drum turns tinny or harsh; and for the hats,
   // how much of them is the warm cymbal (below) rather than the 808's metal
-  {key: 'mids', label: 'Mids', min: -12, max: 6, def: 0, unit: 'dB'}, {key: 'warm', label: 'Warm cymbal (hats)', min: 0, max: 1, def: 0, unit: '%'}];
+  {key: 'mids', label: 'Mids', min: -12, max: 6, def: 0, unit: 'dB'}, {key: 'warm', label: 'Warm cymbal (hats)', min: 0, max: 1, def: 0, unit: '%'},
+  // a softer start: the hit fades in over this long (a click is a hit reaching full in a fraction of a millisecond)
+  {key: 'atk', label: 'Attack', min: 0, max: 15, def: 0, unit: 'ms'}];
 const D = Object.fromEntries(APARAMS.map(p => [p.key, p.def]));
 // the kits: each voice's settings over the defaults, the bus (drive: tape saturation, tone, glue: the compressor, weight:
 // dB of low end, width, buzz: the snare wires answering the kick), and the browser kit standing in where nothing native plays
@@ -122,13 +124,17 @@ function metal(mul, sr){ const ph = METAL.map((_, i) => i*.137 % 1), dt = METAL.
 // each beating slowly against a twin a few hertz away (the shimmer), over soft noise kept between 5 and 9 kHz: nothing in
 // the 1–4 kHz band where the metal turns tinny. One hit's own set, its phases at random
 const WARM = [4410, 4870, 5230, 5790, 6170, 6640, 7120, 7590, 8130, 8660, 9240, 9870, 10500, 11300];
-function warmHat(m, v, R, sr){ const P = WARM.map((f, i) => { const a = Math.pow(.84, i), ff = f*m*(1 + (R() - .5)*.01), beat = 1.5 + R()*4;
+// (and a body under it, when the voice's Body is past half: three low bronze partials dying in a few tens of ms, the
+// weight a real hat has that the metal alone lacks)
+function warmHat(m, v, R, sr, body = 0){ const P = WARM.map((f, i) => { const a = Math.pow(.84, i), ff = f*m*(1 + (R() - .5)*.01), beat = 1.5 + R()*4;
     return [TAU*ff/sr, TAU*(ff + beat)/sr, R()*TAU, R()*TAU, a]; }), lo = svf(9000, .5, sr), hi = svf(5000, .5, sr), hi2 = svf(4500, .6, sr), n = P.length;
+  const B = body > 0 ? [[620, .5], [910, .35], [1330, .22]].map(([f, a]) => [TAU*f*m/sr, R()*TAU, a*body]) : [];
   let ph = 0, z = 0; return (t, nz) => { let y = 0; ph++; for (let i = 0; i < n; i++) { const q = P[i]; y += (Math.sin(q[0]*ph + q[2]) + Math.sin(q[1]*ph + q[3]))*q[4]; }
+    if (B.length) { const eb = Math.exp(-t/.035); for (const q of B) y += Math.sin(q[0]*ph + q[1])*q[2]*eb*.6; }
     z = hi2(hi(lo(nz).lp).hp).hp; return y*.075 + z*.6; }; }
 function hat(p, v, R, sr, w, base, open){ const m = st(p.tune)*w.f, d = base*p.decay*w.d*(.8 + .4*v), up = .85 + .3*v + .2*(p.tone - .5), mt = metal(m*1.6, sr), mx = .25 + p.x*.9, nx = (1 - p.x)*.7 + .08;
   const b1 = svf(7400*up, 1.6, sr), b2 = svf(10200*up, 1.2, sr), h = svf(6800*up, .7, sr), b1R = svf(7550*up, 1.6, sr), b2R = svf(10400*up, 1.2, sr), hR = svf(6900*up, .7, sr);
-  const wm = p.warm || 0, wL = wm > 0 ? warmHat(m, v, R, sr) : null, wR = wm > 0 ? warmHat(m*1.003, v, R, sr) : null, md = 1 - wm;
+  const wm = p.warm || 0, bd = Math.max(0, p.body - .5)*2, wL = wm > 0 ? warmHat(m, v, R, sr, bd) : null, wR = wm > 0 ? warmHat(m*1.003, v, R, sr, bd) : null, md = 1 - wm;
   return {end: d*1.1 + .02, open, f: t => { const e = (t < .0004 ? t/.0004 : 1)*(open ? .55*Math.exp(-T*t/(d*.22)) + .45*Math.exp(-T*t/d) : Math.exp(-T*t/d))*v, n1 = R()*2 - 1, n2 = R()*2 - 1;
     let l = 0, r = 0; if (md > 0) { const mm = mt()*mx, xl = mm + n1*nx, xr = mm + n2*nx; l = h(b1(xl).bp*.8 + b2(xl).bp).hp*md; r = hR(b1R(xr).bp*.8 + b2R(xr).bp).hp*md; }
     if (wL) { l += wL(t, n1)*wm; r += wR(t, n2)*wm; } return [l*e*1.5, r*e*1.5]; }}; }
@@ -158,7 +164,9 @@ export class AnalogKit {
     const w = {f: 1 + vy*.012*(R() - .5), d: 1 + vy*.12*(R() - .5), j: vy*(R() - .5)*2};
     // a closed hat (or the next open one) closes the open one as its pedal would
     if (key === 'chh' || key === 'ohh') for (const h of this.hits) if (h.key === 'ohh' && !h.choke) h.choke = 1;
-    const h = mk(p, v, R, this.sr, w), f = h.f, c = CAL[key]; h.f = t => { const y = f(t); return typeof y === 'number' ? y*c : [y[0]*c, y[1]*c]; };
+    const h = mk(p, v, R, this.sr, w), f = h.f, c = CAL[key], ak = p.atk > 0 ? 1/(p.atk/1000) : 0;
+    h.f = ak ? t => { const y = f(t), g = t*ak < 1 ? c*Math.sin(Math.PI/2*t*ak)**2 : c; return typeof y === 'number' ? y*g : [y[0]*g, y[1]*g]; }
+      : t => { const y = f(t); return typeof y === 'number' ? y*c : [y[0]*c, y[1]*c]; };
     this.hits.push({key, i: 0, ...h});
     // the snare's wires answer the kick a little (Buzz), as they do in a kit
     if (key === 'kick' && this.B.buzz > 0) { const sp = this.P.snare, a = this.B.buzz*.045*v, hp = svf(3000, .7, this.sr), d = .04;
