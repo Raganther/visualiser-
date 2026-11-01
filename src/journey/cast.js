@@ -1,15 +1,20 @@
 // Journey: casting the lead, accent and hit for each section.
-import { ELEMS, FEATS, J, OPENING, SUITS, worldOn } from './core.js';
+import { ELEMS, FEATS, HITS, J, OPENING, SUITS, WORLDS, worldOn } from './core.js';
 import { pickRecipe, recipeMods, setLens } from './recipes.js';
-import { relFeat } from './sections.js';
+import { relFeat, resetProgress } from './sections.js';
 import { updateSectionUI } from '../ui/panel.js';
 import { ACCENT, ALT_TRIG, HIT_VISUALS, NAMES, OBJECT_VISUALS, OVER_WORLD, byKey } from '../visuals/registry.js';
 import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
+import { S } from '../state.js';
 import { TEMPLATES, byTemplate, fits, pickTemplate } from '../scene/templates.js';
 import { STEER, banned, pinned } from './steer.js';
 import { chooseWorld } from './worlds.js';
-import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal } from './extras.js';
+import { applyTw, chooseGrain, chooseKal, chooseFrac, chooseMand, chooseTw, steerKal, genKalApply } from './extras.js';
+import { crowd, fit } from './combos.js';
+import { PLAN, headObject, planBonus, planChance } from './plan.js';
+import { genAdopt, genRelease } from '../scene/genome.js';
+
 export { NAMES, OVER_WORLD };
 
 export const ACC_WORDS = {bar:'on the downbeat', hit:'on stabs and hits', mid:'when the melody swells', peak:'at the start of loud phrases'};
@@ -24,6 +29,7 @@ function scoreElems(ty, rf, fresh){
     for (const f in SUITS[k]) v += SUITS[k][f]*rf[f];
     if (wOn) v += OVER_WORLD[k] || 0;
     v -= J.fat[k]*TUNE.fatigueWeight;                         // tired elements step back
+    v += TUNE.combos.weight*(fit(k, [J.world]) - crowd({world: J.world, lead: k}, J.tension)) + planBonus(k);   // goes with the world, doesn't crowd it (journey/combos.js); the track's plan (journey/plan.js)
     if (pinned(k)) v += 6; if (banned(k)) v -= 99;            // steered by hand (journey/steer.js)
     return {k, v};
   }).sort((a, b) => b.v - a.v);
@@ -31,7 +37,8 @@ function scoreElems(ty, rf, fresh){
 // the accent should contrast with the lead: a different kind of trigger where possible
 function chooseAccent(scored, avoid){
   const leadTrig = ACCENT[J.lead];
-  const pool = scored.filter(r => r.k !== J.lead && r.k !== avoid);
+  const W = TUNE.combos.weight, c0 = crowd({world: J.world, lead: J.lead}, J.tension);   // (and goes with the world and the lead, without crowding them)
+  const pool = scored.filter(r => r.k !== J.lead && r.k !== avoid).map(r => ({k: r.k, v: r.v + W*(fit(r.k, [J.world, J.lead]) - (crowd({world: J.world, lead: J.lead, accent: r.k}, J.tension) - c0))})).sort((a, b) => b.v - a.v);
   let pick = null, trig = null;
   for (const r of pool) {
     const opts = [ACCENT[r.k], ALT_TRIG[r.k]].filter(t => t && t !== leadTrig);
@@ -49,23 +56,36 @@ function chooseHit(ty, rf, fresh, avoid){
   for (const v of HIT_VISUALS) hsc[v.key] = v.suits(rf, wOn, hs[v.key] || 0) + jit() + (pinned(v.key) ? 99 : 0) - (banned(v.key) ? 99 : 0);   // each hit's module says what suits it (and steering)
   if (R.hit) hsc[R.hit] += .5; else hsc.none += TUNE.hitNoneNoRecipe;
   if (avoid !== undefined) hsc[avoid || 'none'] -= 5;
+  const seen = J.hitSeen || (J.hitSeen = {});   // a hit not seen yet this visit gets a nudge, so the rare ones get their turn
+  for (const v of HIT_VISUALS) if (!seen[v.key]) hsc[v.key] += TUNE.combos.unseen;
   const hk = Object.keys(hsc).sort((a, b) => hsc[b] - hsc[a])[0];
-  J.hit = hk === 'none' ? null : hk;
+  J.hit = hk === 'none' ? null : hk; if (J.hit) seen[J.hit] = 1;
 }
 // a 3D centrepiece in some sections (TUNE.scene.centreChance), the least tired object; an object's own chance above 0
 // (a lab's, say) takes over the draw
 // how a centrepiece is drawn: glass wire and holograms suit calm music, solid, outlines and points intense (TUNE.objStyles)
 function chooseStyle(){ const w = TUNE.objStyles.calm.map((c, i) => c + (TUNE.objStyles.intense[i] - c)*J.tension); let r = Math.random()*w.reduce((a, b) => a + b, 0);
   J.objStyle = w.findIndex(x => (r -= x) <= 0); if (J.objStyle < 0) J.objStyle = 0; }
-function chooseCentre(){
+function chooseCentre(){ pickCentre(); J.litLook = byKey[J.centre] && byKey[J.centre].lit ? pickLook() : 0;
+  J.stage = !!J.centre && J.centre !== 'jewel' && !(byKey[J.centre] || {}).noRoom && !!byKey.room && roomRnd() < (J.centre === 'prism' ? TUNE.prism.room.chance : TUNE.prism.room.others);   // the centrepiece, sometimes in the room (worlds/room.js): the Prism most
+  if (J.stage) { const w = TUNE.prism.styles, ks = Object.keys(w).filter(k => J.centre === 'prism' || k !== 'mirror'); let r = roomRnd()*ks.reduce((a, k) => a + w[k], 0); J.stageStyle = ks.find(k => (r -= w[k]) < 0) || 'cove'; } }
+// the room's own random numbers, so putting a centrepiece in it leaves Journey's other draws as they were
+let roomSeed = 7; const roomRnd = () => (roomSeed = (roomSeed*16807) % 2147483647)/2147483647;
+// which object comes in has its own too, so adding an object leaves Journey's other choices as they were
+let centreSeed = 11; const centreRnd = () => (centreSeed = (centreSeed*16807) % 2147483647)/2147483647;
+// a lit object's look (real, toon, neon, chrome, marble): the user loves the neon (TUNE.lit.looks)
+function pickLook(){ const w = TUNE.lit.looks; let r = Math.random()*w.reduce((a, b) => a + b, 0); const i = w.findIndex(x => (r -= x) <= 0); return i < 0 ? 0 : i; }
+function pickCentre(){
   J.centre = null; chooseStyle();
   const pin = OBJECT_VISUALS.find(v => pinned(v.key)); if (pin) { J.centre = pin.key; return; }   // steered: always this one
   const R = J.recipe;   // a liked look brings its centrepiece along, most of the time
   if (R && R.liked && R.centre && byKey[R.centre] && !banned(R.centre) && !MEDIA.on && Math.random() < TUNE.liked.centre) { J.centre = R.centre; return; }
   const own = OBJECT_VISUALS.filter(v => ((TUNE[v.key] || {}).chance || 0) > 0 && !banned(v.key));
   if (own.length) { for (const v of own) if (Math.random() < TUNE[v.key].chance) { J.centre = v.key; break; } return; }
-  if (Math.random() >= TUNE.scene.centreChance) return;
-  const pool = OBJECT_VISUALS.filter(v => !banned(v.key)).map(v => ({k: v.key, v: Math.random() - (J.oFat[v.key] || 0)})).sort((a, b) => b.v - a.v);
+  const head = headObject(); if (head) { J.centre = head; return; }   // the track's big moment (journey/plan.js)
+  const cast = {world: J.world, lead: J.lead, accent: J.accent}, full = crowd({...cast, centre: 1}, J.tension) - crowd(cast, J.tension);
+  if (Math.random() >= TUNE.scene.centreChance*planChance()*Math.exp(-full*TUNE.combos.kalCrowd*TUNE.combos.weight)) return;   // (fewer at a track's opening and close, and when the picture is already full)
+  const pool = OBJECT_VISUALS.filter(v => !banned(v.key) && !(v.key === 'branches' && !S.explore.grow) && (pinned(v.key) || (TUNE[v.key] || {}).journey !== 0)).map(v => ({k: v.key, v: centreRnd()**(1/(v.lit ? TUNE.lit.journey : (TUNE[v.key] || {}).journey || 1)) - (J.oFat[v.key] || 0) + TUNE.combos.weight*fit(v.key, [J.world, J.lead, J.accent]) + planBonus(v.key)})).sort((a, b) => b.v - a.v);   // (the growing branches only while their switch is on)
   J.centre = pool.length ? pool[0].k : null;
 }
 // how the section is composed: a scene template that fits its cast and suits the music
@@ -76,17 +96,20 @@ function chooseScene(rf, fresh, avoid){   // (a liked look's own template, favou
 }
 const built = new Map();
 // the scene the section wants right now (the same object each time for the same cast, so its draw plan is kept)
+const castSig = c => [c.world, c.lead, c.accent, c.centre].join('|');
 export function sceneNow(){
   const c = castOf(), t = byTemplate[J.sceneKey] || TEMPLATES[0];
+  if (J.handScene && !MEDIA.on && J.handScene.sig === castSig(c) && J.sceneKey === 'plain') return J.handScene.sc;   // the scene made by hand, while its cast lasts
+  J.handScene = null;
   if (MEDIA.on || !fits(t, c) || t.key === 'plain') return null;   // with media the mirror tunnel fills the screen as it is
-  const sig = [t.key, c.world, c.lead, c.accent, c.centre].join('|');
+  const sig = [t.key, castSig(c)].join('|');
   if (!built.has(sig)) built.set(sig, t.build(c));
   return built.get(sig);
 }
 export const sceneWords = () => { const c = castOf(), t = byTemplate[J.sceneKey]; return t && fits(t, c) ? t.words(c) : ''; };
 const relFeats = () => { const rf = {}; FEATS.forEach(f => rf[f] = relFeat(f)); rf.T = J.tension - .5; return rf; };
 function saveCast(){ const ty = J.type || OPENING; ty.casts = ty.casts || {};
-  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, sceneKey: J.sceneKey,
+  ty.casts[J.world] = {...(ty.casts[J.world] || {}), lead: J.lead, accent: J.accent, accTrig: J.accTrig, hit: J.hit, recipe: J.recipe, centre: J.centre, objStyle: J.objStyle, litLook: J.litLook, stage: J.stage, stageStyle: J.stageStyle, sceneKey: J.sceneKey,
     kal: J.kal, grain: J.grain, tw: J.tw, mand: J.mand, fracV: J.fracV}; }
 // a small variation: a different accent, or a different hit
 export function varySmall(){
@@ -111,19 +134,59 @@ export function applySteer(k, state){
   } else if (kind === 'scene') {
     if (state === 'pin' && fits(byTemplate[k], castOf())) J.sceneKey = k; else if (state === 'ban' && J.sceneKey === k) chooseScene(rf, true);
   }
+  if (state === 'out') {   // taken out by hand: it leaves now, and Journey may bring it back later (not banned)
+    if (kind === 'layer' && J.lead === k) { J.lead = scoreElems(ty, rf, true).sort((a, b) => b.v - a.v).find(r => r.k !== k && r.k !== J.accent)?.k || J.lead; }
+    if (kind === 'layer' && J.accent === k) { J.accent = J.lead; J.accTrig = ACCENT[J.lead]; }
+    if (kind === 'world' && J.world === k) { J.world = 'none'; J.worldTime = 0; }
+    if (kind === 'hit' && J.hit === k) J.hit = null;
+    if (kind === 'object' && J.centre === k) J.centre = null;
+    if (kind === 'scene' && J.sceneKey === k) J.sceneKey = 'plain';
+  }
+  if (state === 'pin') { if (genAdopt(k)) genKalApply(); } else genRelease(k);   // (a pinned piece's own traits go into the genome while it's kept: scene/genome.js)
   saveCast(); updateSectionUI();
 }
-export function recast(fresh){
+// Journey turned back on from a look made by hand (ui/controls.js): what's on screen becomes the section's cast (its world,
+// its strongest layers as the lead and accent, its hit, its object, its kaleidoscope), so Journey carries on from it and
+// develops it a step at a time, instead of fading back to the cast it had before. s: the settings as set by hand
+export function adoptLook(s, scene){
+  const top = keys => keys.filter(k => (s[k] || 0) > .15).sort((a, b) => s[b] - s[a]);
+  const worlds = top(WORLDS), layers = top(ELEMS), hits = top(HITS), objs = top(OBJECT_VISUALS.map(v => v.key));
+  J.world = worlds[0] || 'none'; J.worldTime = 0;
+  if (layers[0]) J.lead = layers[0];
+  else { const sc = scoreElems(J.type || OPENING, relFeats(), false).sort((a, b) => b.v - a.v); J.lead = sc[0].k; }   // (Journey always has a lead: it fades in)
+  J.accent = layers[1] || J.lead; J.accTrig = ACCENT[J.accent]; J.accEnv = 0;
+  J.hit = hits[0] || null; J.centre = objs[0] || null; J.objStyle = s.objStyle || 0; J.litLook = s.litLook || 0; J.stage = false;
+  J.kal = (s.kal || 0) >= 2 ? {n: Math.round(s.kal), where: s.kalWhere || 0, turn: s.kalTurn || 0, mode: s.kalMode || 0} : null;
+  J.lens = !J.kal && (s.sym || 1) >= 2 ? {n: Math.round(s.sym), mirror: s.mirror > .5 ? 1 : 0} : null; J.lensOn = !!J.lens; J.lensShift = 0;
+  J.grain = s.grain || 0; J.mand = s.mandDetail ?? .5; J.fracV = s.fracVortex || 0; J.tw = {};
+  J.recipe = null; J.sceneKey = 'plain'; J.handScene = scene ? {sc: scene, sig: castSig(castOf())} : null;
+  J.recast = false; J.adopt = true;   // the next section grows out of it (recast below) rather than replacing it
+  resetProgress(); saveCast(); updateSectionUI();
+}
+export function recast(fresh, keep){
   const ty = J.type || OPENING, key = J.world;
   ty.casts = ty.casts || {};
   J.recast = false;
+  // a world coming in or going to rest changes only the world: the layers, the hit and the object carry on, and the scene
+  // is chosen again to relate them to it (it used to bring a whole other cast at once: lead, object and kaleidoscope)
+  if (keep === true && J.lead) { J.adopt = false; setLens(); chooseScene(relFeats(), false); saveCast(); recipeMods(); updateSectionUI(); return; }
+  // a progression step through steady music (progression.js): a new recipe and lead (and its accent), the object, the hit
+  // and the kaleidoscope carrying on, so it moves on one part at a time
+  if (keep === 'lead' && J.lead) {
+    J.adopt = false; const rf = relFeats(), prev = J.lead; J.recipe = pickRecipe(ty, rf, true); setLens();
+    const sc = scoreElems(ty, rf, true); sc.forEach(r => { if (r.k === prev) r.v -= 1; }); sc.sort((a, b) => b.v - a.v);
+    J.lead = sc[0].k; chooseAccent(sc); chooseScene(rf, true); chooseTw(); saveCast(); recipeMods(); updateSectionUI(); return;
+  }
+  // the first new section after a look handed back changes one thing about it, as a progression step would
+  if (J.adopt && !fresh) { J.adopt = false; varySmall(); updateSectionUI(); return; }   // (the look's own movers stay)
+  J.adopt = false;
   const cast = ty.casts[key];
   const steered = c => c && (banned(c.lead) || banned(c.accent) || (c.hit && banned(c.hit)) || (c.centre && banned(c.centre)) || banned(c.sceneKey)
     || Object.keys(STEER.pin).some(k => byKey[k] && byKey[k].kind === 'layer' && c.lead !== k && c.accent !== k));
   if (!fresh && cast && !steered(cast)) {                         // a returning part looks the same (unless steering says otherwise)...
     ({lead: J.lead, accent: J.accent, hit: J.hit, recipe: J.recipe} = cast);
-    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.sceneKey = cast.sceneKey || 'plain';
-    J.kal = cast.kal || null; steerKal(); J.grain = cast.grain || 0; J.tw = cast.tw || {}; applyTw(); J.mand = cast.mand ?? .5; J.fracV = cast.fracV || 0;
+    J.accTrig = cast.accTrig || ACCENT[J.accent]; J.accEnv = 0; J.centre = cast.centre || null; J.objStyle = cast.objStyle || 0; J.litLook = cast.litLook || 0; J.stage = !!cast.stage; J.stageStyle = cast.stageStyle; J.sceneKey = cast.sceneKey || 'plain';
+    J.kal = cast.kal || null; genKalApply(); J.grain = cast.grain || 0; J.tw = cast.tw || {}; applyTw(); J.mand = cast.mand ?? .5; J.fracV = cast.fracV || 0;
     setLens();
     if (ty.visits >= 3 && cast.variedAt !== ty.visits) { varySmall(); ty.casts[key].variedAt = ty.visits; }   // ...but not identical forever
     recipeMods(); updateSectionUI(); return;

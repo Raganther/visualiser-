@@ -1,0 +1,117 @@
+{
+  "accent": "orbit",
+  "at": "2026-09-28T23:04:33.766Z",
+  "bpm": 166.667,
+  "caption": null,
+  "centre": null,
+  "hit": null,
+  "journey": false,
+  "lead": "comets",
+  "lens": 0,
+  "look": {
+    "centre": "dodeca",
+    "mods": {},
+    "scene": [
+      {
+        "world": "all"
+      },
+      {
+        "trails": "main"
+      },
+      {
+        "fill": {
+          "world": true
+        },
+        "object": "skull"
+      },
+      {
+        "hits": true
+      },
+      {
+        "objects": true
+      }
+    ],
+    "sceneKey": null,
+    "settings": {
+      "aurora": 0,
+      "burst": 0,
+      "city": 0,
+      "colorSpeed": 0.054,
+      "comets": 0.75,
+      "cosmos": 0,
+      "decay": 0.887,
+      "dodeca": 0.9,
+      "flow": 0,
+      "geosphere": 0,
+      "horizon": 0,
+      "hueDrift": 0.016,
+      "kal": 9,
+      "kalTurn": 0,
+      "kalWhere": 0,
+      "knot": 0,
+      "land": 1,
+      "lasers": 0.8,
+      "lines": 0,
+      "mirror": 0,
+      "orbit": 0.056,
+      "outline": 0,
+      "plasma": 0.8,
+      "ribbons": 0.8,
+      "ring": 0,
+      "rot": -0.05,
+      "scope": 0,
+      "shock": 0,
+      "skull": 0,
+      "space": 0,
+      "sparkle": 0,
+      "spikes": 0,
+      "star": 0,
+      "sym": 1,
+      "torus": 0,
+      "tunnel": 0,
+      "unicorn": 0,
+      "wander": 0,
+      "warp": 0.267,
+      "zoom": 1.007
+    },
+    "tw": {}
+  },
+  "name": "Snapshot",
+  "onScreen": "Landscape; layers Plasma, Comets, Ribbons, Orbits, Lasers; Wire dodecahedron. Set by the Snapshot preset.",
+  "pace": "frantic",
+  "place": null,
+  "pos": "2:59",
+  "preset": "Snapshot",
+  "recipe": "Liked: City, Horizon",
+  "scene": "split",
+  "section": "C",
+  "settings": {
+    "city": 0,
+    "colorSpeed": 0.054,
+    "comets": 0.75,
+    "cosmos": 0,
+    "decay": 0.887,
+    "dodeca": 0.9,
+    "flow": 0,
+    "horizon": 0,
+    "hueDrift": 0.016,
+    "kal": 9,
+    "kalWhere": 0,
+    "land": 1,
+    "lasers": 0.8,
+    "orbit": 0.056,
+    "plasma": 0.8,
+    "ribbons": 0.8,
+    "rot": -0.05,
+    "skull": 0,
+    "sym": 1,
+    "wander": 0,
+    "warp": 0.267,
+    "zoom": 1.007
+  },
+  "tension": 0.742,
+  "thumb": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCABaAKADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAABQYCAwQHAQD/xAA7EAACAQMDAgQDBgQDCQAAAAABAgMABBEFITESQQYTUXEiYYEUMpGhsfAVQsHRFlLhIzM1Q1NicqLx/8QAGgEAAgMBAQAAAAAAAAAAAAAAAwQBAgUABv/EACYRAAICAgICAgICAwAAAAAAAAECAAMEERIhEzEFIjJBFFEVI2H/2gAMAwEAAhEDEQA/AGHolQjoUlVGMDfNYda0ldRtzlmVlJcZ435/Sg974pk6YmihxIM5zuAP70Y0TVP4lAruEQhiCM4JOBgj8+KtsGYjVXVasI1AMvhm5gtVeI+czbsMYxWCTRr6OHzngcKfUV0RiUXJBJJ9akrAjDAe2anj/UunyFwHY2Jy1onXbpOe+1RRXZwAp/CunT6ZZ3C4kgXfvisQ8M6f0FUQqx/mzvVBWdRlfkVPRBE88LQyR6UpdgSxJx6VbdXkIvGhZsMOQa26ZY/YLbyQ5cLkgmknxAznWpW3Ug4BGRQ8hOdfExaqgX2t3Deq6kbBA8R+I4xjvRXTNQt9UtSu3VjDqa5/JNPPLGs79QT7px6/1rTYT3FlcCW3ODxjkGg4/wDqXiY7/jwa9D8o+9NppNqxOI0G5oHb639uv5IlHTGCAo+VB9W1G61BwJMKi8KBQ1JJLWdHhHxAHHfOe1XufmhVZC/H/Ul/yMeWnjicdbgfWtt4Hayl8ofEU2+e1c+W4mlu42mkLHqBxnA/Cuiyo0lj0x4DMuBn1xXYdXiQj3EcjF8JXv3OV3BbzT1jfvUQSwx+FOf+FDLGTcXGG7FRtVtt4UtI1HnSFz9BR+B1H/59S/UncRxGx3Cn51fBazTN0woWfGwrodvptlaqRHCvGCSM5qcMFtECIIo19hUhd+4Fvk+iFWJ3h3Tr0X7SyxdKqCGEi8Htz86cHn6Sqnk7N6D1FRklhtUy5CIASM5wP7VjttWsLi4McUiZAy3VsfcZO9SOonZY17cyvUTXsLiCyNzKhVScKDVENw8LqY2KlTt07U+avai602ePYHpyPcb1z94mRjkbDuKBU3LZM1cTI/kIS39zoWjajBe2iKZQ0wX4ga2zW4Y9ePiUfiK5ra3UlrMroxBU5p90LWF1KMoRiVBv86KPuCpmdlYppPNfRl3U2eSKB6tqN/Y3KmKYhGOMHcUT14XVtCZ7VAQPvDgilC8vbm9TpkZCoOcY4x86QSq2l+z1CYOPy+3sQrB4o1BV+NUc/Me9ZZIpL6drh8BnOTnbf6D5GsltGzMqOpyfhz+P961/aTPp0scEklq4bIkzgsu2fngnHpz7iil2Y6E26qK07A1IGBFvYrZgzysRjpXbBOOSf0q21eWNpPOsSsvwmKJj0ls5zkkcZHOMcjtt5brcCKKK3kZowoDFT0k47g74NWadot44b7S+XhkKjJzscMD/AO2at4PtpjB2ZldZkWmee0jLWJF3IQFiU4zsT334B237bk8Z/KVp1SSKaOd9ljZMnON/2cbHPetmpaRdRRtJA5818RoAfvE7EZ7bZ+lVqbuK4U3EsxZE6fMaQswPcjPG/wCVcae9LJrzK7dSlrSa3dZGR06TnJXH9aNHxayRBVtsMNj8W3f+1CbaYQ6c6390ZmJ2cL1EZOCSeSPcA7n5Csl2vluQRlvT05qquykgy92PXZosIftfEt3eXCxLEijGSecUbFzLgZODSNpt69jIztD1M2N87jb0po0i9fUmyInVRySMAUO1sh20nqYmZj8O1GhCaCWRwxchO4A5qxgIlZyQNsnNeXN1BZQeZK4VQNvnSTrOuTXkrJGxSIcAU8N1qATsxamh7zoep7q2uzXolgAVYWGCMZNBY08seYnVtsTUCSW96a/DumRy6Y73MYYTHYH0FUsbXc13NeLVsDqWa/ri24NrbhXdhhyc7D02NKxuWYbIi5J3GT+tRbM7NJnqJO5olpmg3N+hdMKoOCTXIvFepNaV41QG4IYFs4G9HfD9vfg+dZIc5wSeDR6x8L20I6rlvMbPHAoyiw2MHTEgVV4UDerhett1E8jOVvqg3Lokaa0CXSrkr8Q5FJGtadHaaj0wMCrAHGdxntWzWfEV0zmCCN4RxkjBNA1eSSUySMWY7kmh2uCOoxg0Op5k6B/U2S2qCzVJLnyWmOFAGS+33QNudv2RmNxcX19NHGJAvlgqI2UFCCdwSPkB68bete3TQ3XkwS20s0sa9adIyOcEY9dh6+nzq7S7pJLwvPPbjfJLSqD+GaFSqntvcezH4V9QrH06To0lxcoIpEBH+cH0I74/A0t6j4xv5pRHYIAo3boGcjfb9K1+PHdbSHDeZBJuvxDAPbHr69+/atHgizs3sY28vLHLF+sgswxsNtsZB+Zx6U2NAbMzMPGW0eR+yYLsvGN5bTJBPCohBwC46SFx+/0pnmMWp6UtzbqZWYbKmNz78AfOhPjWysUtmbKq6oCB1nIbfA4787/1qrwJNM9rMDIywR/fLnI44HoOK49jYnZmMtQ8iexKLcSQ3MkNwiBJY2RIt28ttwpJ4z3yM88dhalpKtnu8MgTYNGTnHzB4O4+mPlm3Ub2CO/DQNC5DZ2YEVRpxtLZbkQ3DPJKOoowOQBkZz7N7ilblAHITTxGL17IkbDTZNQvRAuy8k44p7gt4tMsQiISFXPGSaQo7ye0uRNCxDD9/v8ACmbSfE0VwBFeYRzwex/tRaiIj8hXY3Y7UQD4j1GW+YZQosZOFbk0vqc4J9a6ZqWm22p2xUgAndXGKVNQ8MXNt8UQ81c9uauwI7MHiZVQ+mtQNG0KgDODySRwad9FvYLmxRInUvGMMBn8d6RZ7eSI4kRl37irtOu5bG6WVCR2Yeoodi8lh8mgX1ED3+o5abottZI0TIsoJ6ssN8+lFfhhULGgUeg2FL1t4ptprrokDxxgHBz1dXyNbbXxFYzyrEeqMHu3FHBGupkWU3k8nBMJtLKGASM4/wA1Uvkk9f51JdTsCwAuEz71etzazEKssbk8DIpa+jz+m1AsCNbGos67NZpEUaFXduAe9LkMYDZLfQfv6U/3OhWF2S7riQ9wTQm98KpBA80NxjoBIDfKqpjGtde5r4eTUq6J7gu1SVZILiF41S36mfrJ3GxOPoPl6cVGyEcN0Lq3MQjJIDRjgnkZ3P0JPP1r22uIljeKReqJ8g5OMjcc+x7VWYLfzFs4cwRlS6PO4Ck533zt29TxsOarWyoTymrbWLE1GHUbOLWrBVEqhuE6hyccY78flSN5GtaI0sKdXQ3+zKncEZ2I+vp60ZsZ57O9LSFHfJCBSSsQ9F9xjf0xvuaMy69bxRTSMqiURnBIzkgbfmfzpsMdbmKguxjxUbETltNY1qSGKQMqgdHT046Rk8+u/wCtO2lWKaHYsC0YL7sFHDb537/gKh/G7aTEsMYD9HwnAyAcHH6fhQW4nvb++zbI7ozATRqSM/8Adn+XbbPGwzmuZut/qcwuyTxYaEhcWsM155pgQRjbMY6d9yBttv6kH8qtuVuvMnluQI2lI6Qh2OCd8dslvf133qElrbzF7C5eZDDJksoyrH3xsSOrG2Pmasu5Y5BHBCOkIoRAdthnHPuKUsKuRxm3VWK01BUokB2YsPl/b2pj0ewsnjWVGLvzluari8LX0oDOyR53xnj0ovp3h02J6jOxB3K9O1c9DuulOpl5mRWV0rTZDIYsAbj0q9bhHJAIyOV7ipLBGO2fc195SjOOke1FxqraxpzuYmx3uYdS0231OIK/wlTkMKVtV8PTW6KLVmlcH4gPQ8fpTl1wxkoZFDdwTVH2qATtEzqHGwVmAJ/fvTBAMPTkWV/iepz2C3eRHaBMmPc45xVDMQe+RTf4UszHZyTuBmRsL7Cr9U0K1uFeeNAkoBJA4b/WlhYA2jNU5yLcam9f3EsOwBAPFercSpIrhiCOCDg1dNII0MISPIGM9IyPr61THH5jgDfJonoxsgEaMb/Db3d9P5z3MhjTYqTyaI+Kr37NpwjR8M+3PbvUvD+nixsRnPXJu1fajaw3c+ZV6unYZ7VF1i1V7MxDcvn2fQiIsyodvvegIrXBMGjImAZHG6kbY/f6UU1+2ihsgsMeNxwOd6w2GkXt44EcZROzMNh3FKofKvICbVWUrLzPQlr2zPaRjTbhbdx8LmUk9Qxtk4+nH4Y3ruFgjuWhngllR1HmtEuP5gecY7dsc8jetGq6bcaSkZL9SNywOMH/AOULkuGEXJ3/AH++KsQ6jW4yLUtXY7E228ZuFkaCP7PJFGqI1x7Y9MHgdvp3MpLRorFVu5iLoP1CSMYIG/f5j2/LfELlulWDH3zwaKW2kX19ZefH0r/lDHGan7sNb6kNbXWuz1B08/QfgGEY7j1PqfU/61nEpyrrnAOeKld281uXjnjZceo+go5ZaPaXNkjtGofABIHNUdlpGzAXZKoNn0Y0aVdG60yOTO5G+PWl7VNcv7CeSN1jGPunHNF9GtxZwGFWPSNwD2oJ4xspHaO5H3ApUj0p1XDoGUzEqKNdxI2DAh1/UGLE3DnJ9qh/Gb5TkXMmeeaHgY5GwrQlt5zBY2LM3AAzk+lV9nc2BTWo0BPDdSvIZHdixOSc96g7StN5vmt1Mc5Jpg07wu5IkvWCrjZF5PvWDxFai01DpRcIUBWq8wzaEol9T2eNe4a0vWrS3tEgmVowm3XyN6KLf2lzC3k3CPlSMA7/AIUgXhIuXAOwY4HpvUI2ZZAVJBz2NVeoexAW/H1uS4OjPZFPmsPQkUd8LWUVzeFpj/ux1BTwaEHe5Od96avB6jyJDgZzzijL9ujC5lhWgsPcY3kCJtwo2ArPHE8nxMOnPrU/+Y30rRHxXW0pbrlME6CiUGzgJUyKGIOR1cVC61W1snSIkdTHAAoZ4qd1s/hdhv2NK1gzPIC7Fj1Dk5qSAg0o1G8Wnydseo965aC/01h/OPiHuKUdM0Zrhuu5TCDOFPHuaeIt4E9v6CsAADHAA9qVzmKJsezIqyXRCgimdHmXUI7dQTGzYDelPCmLTNPUHZI132rNbgG5BIGQf6VDxAT/AApv33omKxarmfcs97XMqN6mk/YtTturpSRWFVpYLDGFhOwGADSfZTSxyBY5XRcjZWIFPMBJtwSc7UV61tXTCAyAa2Kb6maNvJmUPsWOKnfWy3tm8DdxVkgBU53rxeD7/wBKiqkVpxHqDP0AYTmmoW7Wt08L46lOK0+Hs/xeAYyC2Tkem9e6xvqM5P8A1DUvD3/FU/8AE1V+lInoGY+At/yPfNLvipIpFhPwM65BGdxWfXLidJQqTSKDyA5FB2JJOSTvQqU2dzPwcXiRbuf/2Q==",
+  "track": "Splinter Pulse good2 of 2",
+  "v": 1,
+  "world": "aurora"
+}

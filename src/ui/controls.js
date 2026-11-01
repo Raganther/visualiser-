@@ -3,12 +3,13 @@ import { S } from '../state.js';
 import { actx, addFiles, nextTrack, playing, prevTrack, togglePlay } from '../audio/player.js';
 import { J, jState } from '../journey/core.js';
 import { freshJourney } from '../journey/director.js';
+import { adoptLook } from '../journey/cast.js';
 import { SPEC, curP } from '../presets.js';
 import { syncSliders, updateSectionUI } from './panel.js';
 import { nextPreset, randomize, setPreset } from './presets.js';
 import { toast } from './toast.js';
 import { $, clone } from '../util.js';
-import { showFps } from './fps.js';
+import { nextGfx, showFps } from './fps.js';
 import { MEDIA, clearMedia, startCamera } from '../media/source.js';
 import { unhookMediaAudio } from '../audio/player.js';
 import { TUNE } from '../tuning.js';
@@ -45,7 +46,7 @@ export function pollPad(){
 }
 addEventListener('gamepadconnected', () => toast('Controller connected'));
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' && e.key !== ' ') return;
+  if ((e.target.tagName === 'INPUT' && e.key !== ' ') || e.target.tagName === 'TEXTAREA') return;   // (typing a comment)
   wake();
   switch (e.key.toLowerCase()) {
     case ' ': e.preventDefault(); togglePlay(); break;
@@ -58,6 +59,7 @@ addEventListener('keydown', e => {
     case 'h': document.body.classList.toggle('clean'); break;
     case 'f': fullscreen(); break;
     case 'p': showFps($('#fps').hidden); break;
+    case 'q': nextGfx(); break;
   }
 });
 addEventListener('keyup', e => { if (e.key.toLowerCase() === 'x') keyHold = false; });
@@ -73,6 +75,7 @@ export function setJourney(on, snapshot){
     if (snapshot === 'fresh') { freshJourney(); J.handoff = null; jState.tw = {}; }
     else if (hand) {   // it carries on from what's on screen: the same settings, movers and scene, until the music moves it on
       jState.mods = clone(hand.mods || {}); J.sceneLive = hand.scene || null; jState.tw = clone(hand.tw || {});   // (each layer's own speed, size, sound: Journey leaves them be)
+      adoptLook(jState, hand.scene);   // and takes it as its own composition, to develop from (journey/cast.js)
       J.handoff = {t: performance.now(), type: J.type, drop: J.lastDrop, step: J.progStep};
     }
     S.active = jState; $('#pName').textContent = 'Journey'; toast(J.handoff ? 'Journey: carrying on from here' : 'Journey'); syncSliders();

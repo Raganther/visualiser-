@@ -1,5 +1,5 @@
 // Journey: the per-frame director, drops, fresh starts, nudges and debug state.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { lastBeat, sBass, sMid, sTreb } from '../audio/analysis.js';
 import { G } from '../audio/beatgrid.js';
 import { comets, shocks } from '../fx/effects.js';
@@ -8,6 +8,7 @@ import { OBJECT_VISUALS, OPT_IN, byKey } from '../visuals/registry.js';
 import { recast, sceneNow } from './cast.js';
 import { ELEMS, FEATS, HITS, J, OPENING, TKEYS, WORLDS, jState, worldOn } from './core.js';
 import { PACE, paceName, pickPace } from './pace.js';
+import { gearDrop } from './gear.js';
 import { progress } from './progression.js';
 import { MOTION, recipeMods, setLens } from './recipes.js';
 import { energyLevel, energySpan, enterType, fdist, features, matchType, newSection, newType, recipeSeeds, relFeat, resetProgress, stillness } from './sections.js';
@@ -20,6 +21,9 @@ import { TUNE } from '../tuning.js';
 import { MEDIA } from '../media/source.js';
 import { L } from '../audio/listen.js';
 import { F } from '../audio/foresee.js';
+import { PLAN, planStep } from './plan.js';
+import { GEN, genNew, genPick } from '../scene/genome.js';
+
 
 // the set arc (TUNE.arc): where in the set we are shifts Journey calmer or more intense, on top of the calm-to-intense slider
 export function arcBias(now){
@@ -39,7 +43,7 @@ function foreStep(dt, now){
   const beat = G.locked && G.period ? G.period : .47;
   let crossed = null, prev = -1e9;
   for (const d of F.drops) {
-    if (d.t - prev < Fo.gap || d.t < 8) continue;
+    if (d.t - prev < Fo.gap || d.t < 8 && !d.seq) continue;   // (a track's first seconds aren't a drop; the sequencer's drops are what it plays)
     prev = d.t;
     if (d.t <= last) continue;
     if (d.t <= t) { if (t - last < .5) crossed = d; continue; }
@@ -50,11 +54,13 @@ function foreStep(dt, now){
     break;
   }
   // the beat map's own section lines (audio/foresee.js): a change one beat off starts a section on its downbeat
+  // (any time in its last beat, once: a change the sequencer plans late, a pattern picked just before the bar line, still counts)
   const M = F.map; J.mapNear = false;
+  if (!J.chSeen || t < last - .5) J.chSeen = new Set();   // (a seek back: they can come again)
   if (M) { const P = M.period, near = TUNE.foresee.map.coverBars*4*P;
     for (const c of M.changes) {
       if (Math.abs(c.t - t) < near) J.mapNear = true;
-      if (!(c.t - P > last && c.t - P <= t)) continue;
+      const id = Math.round(c.t*100); if (c.t - P > t || c.t <= t || J.chSeen.has(id)) continue; J.chSeen.add(id);
       if (J.on && J.type && !J.pending && J.secAge > TUNE.sectionMinAge && !STEER.hold) { J.pending = true; J.pendingSince = now; J.pendStrength = Math.max(1, c.nov/2); J.novBar = J.bar + 1; }
     } }
   return crossed;
@@ -78,12 +84,22 @@ export function stepJourney(now, dt){
   J.dropGlow *= Math.pow(.35, dt);
   J.zoomFlip *= Math.pow(.25, dt);
   features(dt);
-  if (!J.on) return;
+  // while it's off, it keeps up with the music (the drops and events heard, the music now as its section's), so turning it
+  // back on doesn't fire a drop that passed long ago, or start a new section for a change it never saw
+  if (!J.on) { J.drops = L.drops; J.events = L.events; J.M = null; J.novHold = 0; J.pending = false; return; }
   // a drop we saw coming lands on the moment: new sections held for it start with it (the live rules below then stand down)
   if (drop && now - J.lastDrop > 5000) { J.lastDrop = now; J.foreDrops = (J.foreDrops || 0) + 1; dropFX(); if (J.pending) newSection(Math.max(1, J.pendStrength)); J.cutNow = true; }
   if (J.eS > J.eL*1.4 + .03 && J.tmin < .45 && lvl > .6 && J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); }
   // or the bass coming back after a breakdown (audio/listen.js): the drop, even when the loudness hardly changed
   if (L.drops !== J.drops) { J.drops = L.drops; if (J.intro < .5 && now - J.lastDrop > 15000) { J.lastDrop = now; dropFX(); } }
+  // the track's plan (journey/plan.js): the opening's lead becomes the motif; the headline lands with the biggest drop (a
+  // whole new cast, cut in on it); the close brings the motif back as a new lead
+  const ph = planStep();
+  if (PLAN.on && !PLAN.motif && PLAN.phase && PLAN.phase !== 'open' && J.lead) PLAN.motif = {lead: J.lead, world: J.world};
+  if (ph === 'peak') J.peakDue = true;
+  if (J.peakDue && (drop || (F.at && PLAN.peak && F.at() >= PLAN.peak.t + .5))) { J.peakDue = false;
+    if (!STEER.hold) { if (PLAN.head && PLAN.head.w) chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; } }
+  if (ph === 'close' && PLAN.motif && PLAN.motif.lead && J.lead !== PLAN.motif.lead && !STEER.hold) J.recast = J.recast || 'lead';
 
   // ---- sections: notice when the music's character changes, and recognise parts that return
   J.secAge += dt;
@@ -141,7 +157,7 @@ export function stepJourney(now, dt){
   ELEMS.forEach(k => J.fat[k] = J.fat[k]*Math.exp(-dt/TUNE.fatigueRecoverSecs) + dt*Math.min(1, jState[k])/TUNE.fatigueBuildSecs);
   J.stillT = (J.stillT || 0) + dt; J.progT = (J.progT || 0) + dt;
   if (J.type && !STEER.hold && now - lastBeat > TUNE.noKickMs && J.progT > TUNE.progressNoKickSecs/J.speed) progress();   // no kick to count: go by time
-  if (!J.lead || J.recast) recast(J.recast === 'fresh');
+  if (!J.lead || J.recast) recast(J.recast === 'fresh', J.recast === 'keep' || (J.recast === 'lead' && 'lead'));
   ELEMS.forEach(k => tgt[k] = 0);
   tgt[J.lead] = wOn ? .75 : .9;
   HITS.forEach(k => tgt[k] = 0);
@@ -154,6 +170,7 @@ export function stepJourney(now, dt){
   // a centrepiece object stands in front; the lead steps back a little so it isn't crowded (the tunnel wins while media is on)
   for (const v of OBJECT_VISUALS) tgt[v.key] = J.centre === v.key && !MEDIA.on ? TUNE.mesh.level : 0;
   if (J.centre && !MEDIA.on) tgt[J.lead] *= .7;
+  if (byKey.room) { tgt.room = J.stage && J.centre && !MEDIA.on && !J.worldHold && !worldPinned ? 1 : 0; if (tgt.room) { WORLDS.forEach(k => tgt[k] = 0); for (const k of ['orbit', 'comets', 'fireflies', 'stargate', 'rain']) if (tgt[k]) tgt[k] *= TUNE.prism.show.flat; } }   // (those it draws in 3D, flat only faintly)   // the Prism in its room: the room is the world
   const trig = J.accTrig;
   if (trig === 'mid') J.accGate = relFeat('mid') > .15 && sMid > .15;
   if (trig === 'mid') J.accEnv += ((J.accGate ? 1 : 0) - J.accEnv)*Math.min(1, dt*(J.accGate ? 6 : 1.2));
@@ -194,7 +211,9 @@ export function stepJourney(now, dt){
   if (ty.pace === undefined) ty.pace = pickPace();
   // music without a clear dance pulse (a slow song, a free intro) keeps calmer: its drums don't make it frantic
   J.beatClear += ((G.acP ? G.acConf : 1) - J.beatClear)*Math.min(1, dt/4);
-  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))));
+  // and without the kick (a breakdown, an ambient stretch) it floats: calmer, slower, until the groove comes back
+  const GR = TUNE.grid.groove; J.grooveE += (J.groove - J.grooveE)*Math.min(1, dt/(J.groove > J.grooveE ? GR.up : GR.down));
+  const paceT = Math.min(1, Math.max(.03, (ty.pace*.65 + T*.35 + (J.biasEff - .5)*.3 + breath*.04)*(1 - TUNE.listen.unclearCalm*(1 - J.beatClear))*(1 - GR.calm*(1 - J.grooveE))));
   J.pace = J.pace === undefined ? paceT : J.pace + (paceT - J.pace)*Math.min(1, dt/3);
   // the recipe's way of moving, half and half with Journey's own reading of the music
   if (J.recipe) for (const k of MOTION) tgt[k] += (J.recipe.p[k] - tgt[k])*.5;
@@ -228,7 +247,8 @@ export function stepJourney(now, dt){
     }
     jState[k] += (tgt[k] - jState[k])*(HITS.includes(k) ? 1 : k === 'zoom' ? Math.min(1, dt*2) : WORLDS.includes(k) ? rate*.6 : (ELEMS.includes(k) || OPT_IN.includes(k) || k === 'kal') ? swap : rate);   // (the kaleidoscope unfolds over about a bar)
   }
-  jState.objStyle = J.objStyle || 0;   // how the centrepiece is drawn (cast.js)
+  jState.objStyle = J.objHand ?? genPick([1, 0, 3, 1], J.objStyle || 0);   // how the centrepiece is drawn (cast.js; one set by hand with the genome on is kept, J.objHand; else the genome's material: stone solid, glass glass wire, neon a hologram, metal solid)
+  jState.litLook = J.litHand ?? genPick([4, 0, 2, 3], J.litLook || 0);     // and a lit one's look (stone marble, glass real, neon neon, metal chrome)
   if (J.kal && !MEDIA.on) jState.kalWhere = J.kal.where;   // what the kaleidoscope folds: a switch
   if (J.centre && !MEDIA.on) { jState.sym = 1; jState.mirror = 0; }   // a lens goes at once when a centrepiece comes in (it assembles in the clear)
   // the cut lands like a kick, and an outgoing layer's trails are wiped so the new scene starts clean
@@ -240,11 +260,13 @@ export function stepJourney(now, dt){
   if (J.accent !== J.lead) jState[J.accent] = Math.max(jState[J.accent], J.accEnv*(wOn ? .7 : .85));
 }
 function dropFX(){
-  const asp = innerWidth/innerHeight;
+  const asp = viewAsp();
   for (let i = 0; i < 6; i++) {
     const from = i < 3 ? comets[i] : {x:(Math.random() - .5)*asp*.6, y:(Math.random() - .5)*.6};
     const sh = shocks[S.shockN++ % 8]; sh.x = from.x; sh.y = from.y; sh.r = .01 + i*.03; sh.s = 1;
   }
+  if (J.beatClear > .5) J.groove = 1;
+  gearDrop();   // (at least normal speed: it lands with weight)   // (the kick is back: the groove lands with the drop, not a beat later)
   S.beat = 1.3; S.hueKick += .35; J.zoomFlip = -.06; J.dropGlow = 1; J.clock += 4; J.accEnv = 1; J.style = 'cut';
 }
 export function freshJourney(){
@@ -259,4 +281,4 @@ export function freshJourney(){
   const el = $('#jSection'); if (el) el.textContent = 'Listening for sections';
 }
 window.__jdbg = () => ({pace: {v: PACE.v, name: paceName(PACE.v), div: PACE.div, ts: PACE.ts, punch: PACE.punch}, grid: {bpm: G.period && 60/G.period, locked: G.locked, conf: G.conf, down: G.down, pos: J.pos, bar: J.bar, ev: G.ev, dsure: G.dsure}, accTrig: J.accTrig, progStep: J.progStep, progBeats: J.progBeats, stillT: J.stillT, fat: {...J.fat}, recipe: J.recipe && J.recipe.name, lens: J.lens, lensOn: J.lensOn, extras: {kal: J.kal, grain: J.grain, tw: J.tw}, mods: Object.keys(jState.mods).join(','), lead: J.lead, accent: J.accent, hit: J.hit, style: J.style, held: Object.keys(J.held).filter(k => J.held[k]), starAge: STAR.age, accEnv: J.accEnv, world: J.world, scene: J.sceneLive ? J.sceneKey : 'plain', centre: J.centre, land: eff.land, space: eff.space, ringsVisible: shocks.filter(h => h.s > .05).length*Math.max(eff.shock, J.dropGlow), ...jState, T: J.tension, sec: J.type && J.type.label, types: J.types.length, nov: J.nov, novAvg: J.novAvg, feats: {...J.fS}});
-export function nudge(){ J.clock += 6 + Math.random()*10; chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }
+export function nudge(){ J.clock += 6 + Math.random()*10; if (GEN.on) genNew(J.type); chooseWorld(true); J.recast = 'fresh'; J.style = 'cut'; J.cutNow = true; if (J.type) { ELEMS.forEach(k => J.type.seed[k] = (Math.random() - .5)*.7); J.type.recipeSeed = recipeSeeds(); } toast('Heading somewhere new'); }

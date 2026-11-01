@@ -1,0 +1,128 @@
+<title>Studio DAW</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the song's header and transport, then the arrangement (track heads stuck to the left, the bars scrolling under
+   a ruler of sections), then the mixer's faders. The studio's family: copper for notes, verdigris for accents. */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#cfd4dc; --well:#e4e7ec; --band:#d9dee6;
+  --on:#b8642a; --acc:#2f7d74;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --acc:#5cc2b4; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2c3441; --well:#1d242e; --band:#252d39; --on:#e08a4c; --acc:#5cc2b4; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:20px 56px}
+.wrap{max-width:1280px; margin:0 auto; display:flex; flex-direction:column; gap:14px}
+h1,h2{font-family:var(--display); font-weight:700; margin:0; letter-spacing:-.01em; text-wrap:balance}
+h1{font-size:clamp(26px, 4.5vw, 36px); line-height:1.05}
+h2{font-size:18px}
+.lab{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+.muted{color:var(--mute)}
+p{margin:0; max-width:75ch}
+button,select,input,textarea{font:inherit; color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+header{display:flex; flex-wrap:wrap; gap:10px 24px; align-items:flex-end; justify-content:space-between}
+.facts{display:flex; flex-wrap:wrap; gap:4px 16px; font:13px var(--mono); color:var(--mute)}
+.facts b{color:var(--ink); font-weight:500}
+.bar{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center}
+#play{min-width:92px; height:42px; border:0; border-radius:21px; background:var(--on); color:#fff; font-weight:600}
+#play[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+#song{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:6px 8px; max-width:100%}
+#clock{font:500 14px var(--mono); font-variant-numeric:tabular-nums}
+#status{font:12px var(--mono); color:var(--mute)}
+#status[data-busy="1"]{color:var(--on)}
+.tk{display:flex; align-items:center; gap:6px; font-size:13px}
+.spacer{flex:1}
+/* the arrangement: one scroller; the heads stick to its left edge */
+#scroll{position:relative; overflow:auto; max-height:70vh; background:var(--panel); border:1px solid var(--line); border-radius:10px}
+.arrange{display:grid; grid-template-columns:180px max-content; width:max-content; min-width:100%}
+#heads{position:sticky; left:0; z-index:3; background:var(--panel); border-right:1px solid var(--line)}
+.rulerhead{height:30px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid var(--line)}
+.head{height:44px; display:grid; grid-template-columns:1fr 26px 26px; gap:4px; align-items:center; padding:0 6px 0 10px; border-bottom:1px solid var(--line)}
+.tn{display:flex; flex-direction:column; min-width:0; line-height:1.2}
+.tn b{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tn span{font:11px var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ms{width:26px; height:24px; border:1px solid var(--line); background:transparent; border-radius:5px; font:600 11px var(--mono); padding:0}
+.ms[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.ms.solo[aria-pressed="true"]{background:var(--acc); border-color:var(--acc); color:#fff}
+.lane{position:relative}
+#arr{display:block; cursor:pointer}
+#head{position:absolute; top:0; bottom:0; left:0; width:2px; background:var(--ink); pointer-events:none; z-index:2}
+/* the mixer */
+.mixer{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px}
+#mixer{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:6px 20px; margin-top:8px}
+.fader{display:grid; grid-template-columns:110px minmax(0, 1fr) 56px; gap:8px; align-items:center; font-size:13px}
+.fader input{width:100%; accent-color:var(--on)}
+.fader output{font:12px var(--mono); color:var(--mute); text-align:right; font-variant-numeric:tabular-nums}
+.keep{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px}
+.keeprow{display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:8px}
+.keeprow input{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:8px 10px; min-width:0}
+#keep{border:0; border-radius:6px; background:var(--ink); color:var(--bg); padding:8px 16px; font-weight:600}
+#keep:disabled{opacity:.45; cursor:default}
+#keepStatus{font:12px var(--mono); color:var(--mute); min-height:1em}
+.head.sel{background:var(--band)}
+.head{cursor:pointer}
+.ghost{border:1px solid var(--line); background:transparent; border-radius:6px; padding:5px 10px; font-size:13px}
+.ghost:disabled{opacity:.4; cursor:default}
+.mono{font:500 13px var(--mono); font-variant-numeric:tabular-nums}
+.editor{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px}
+.edhead{display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:space-between; align-items:flex-end}
+.edtools{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.edtools select{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:4px 6px}
+#rollbox{overflow:auto; max-height:420px; border:1px solid var(--line); border-radius:6px}
+#roll{display:block; cursor:crosshair; touch-action:none}
+.edfoot{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center}
+.edfoot .fader{min-width:260px}
+.instgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 20px}
+.instgrid select{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:4px 6px; min-width:0}
+h3.lab{margin:4px 0 0}
+@media (max-width:640px){.arrange{grid-template-columns:120px max-content} .tn span{display:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div><div class="lab">Studio · DAW</div><h1 id="title">Loading…</h1></div>
+    <div class="facts" id="facts"></div>
+  </header>
+  <p class="muted" id="words"></p>
+  <div class="bar" role="group" aria-label="Transport">
+    <button id="play" aria-pressed="false">Play</button>
+    <span id="clock">0:00 · bar 1</span>
+    <select id="song" aria-label="Song"></select>
+    <label class="tk"><span class="lab">Zoom</span><input id="zoom" type="range" min="8" max="64" value="22"></label>
+    <label class="tk"><input id="follow" type="checkbox" checked> Follow</label>
+    <span class="spacer"></span>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="scroll"><div class="arrange"><div id="heads"></div><div class="lane"><canvas id="arr"></canvas><div id="head"></div></div></div></div>
+  <section class="editor" id="editor" hidden aria-label="Editor">
+    <div class="edhead"><div><h2 id="edName"></h2><span class="muted" id="edDesc"></span></div>
+      <div class="edtools">
+        <button class="ghost" id="prev" aria-label="Earlier bars">‹</button><span id="win" class="mono"></span><button class="ghost" id="next" aria-label="Later bars">›</button>
+        <select id="winN" aria-label="Bars shown"><option value="1">1 bar</option><option value="2">2 bars</option><option value="4" selected>4 bars</option><option value="8">8 bars</option></select>
+        <button class="ghost" id="playWin">Play these bars</button>
+        <button class="ghost" id="copy">Copy bars</button><button class="ghost" id="paste" disabled>Paste here</button><button class="ghost" id="clear">Clear bars</button>
+        <button class="ghost" id="undo">Undo</button>
+      </div></div>
+    <div id="rollbox"><canvas id="roll"></canvas></div>
+    <div class="edfoot">
+      <label class="fader"><span>Velocity</span><input id="vel" type="range" min=".05" max="1.3" step=".01" disabled><output id="velOut">—</output></label>
+      <button class="ghost" id="del" disabled>Delete note</button>
+      <span id="edStatus" class="muted" aria-live="polite"></span>
+    </div>
+    <h3 class="lab">Instrument</h3>
+    <div id="inst" class="instgrid"></div>
+  </section>
+  <p class="muted">Tap the bars to play from there, and a track's lane or name to edit it. M mutes a track, S solos it. In the editor: click to add a note, drag it to move, drag its right end to stretch it, double-click (or Delete) to remove it. Every sound plays live from the same code the renders use; the native ones are computed the first time, then kept.</p>
+  <section class="mixer"><h2>Mixer</h2><div id="mixer"></div></section>
+  <section class="keep">
+    <h2>Keep for Claude</h2>
+    <div class="keeprow"><input id="note" placeholder="What you changed, what you'd like next…" aria-label="Note for Claude"><button id="keep" disabled>Keep</button></div>
+    <div id="keepStatus" aria-live="polite"></div>
+  </section>
+</div>
+<script id="worker-src" type="text/plain">/*WORKER*/</script>
+<script>/*APP*/</script>

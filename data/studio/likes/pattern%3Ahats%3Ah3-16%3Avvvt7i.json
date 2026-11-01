@@ -1,0 +1,96 @@
+{
+  "at": "2026-10-21T22:23:39.108Z",
+  "data": {
+    "clipId": "h3-16",
+    "col": "col1",
+    "harmony": "a-pedal-3",
+    "len": 16,
+    "pack": "pack-3",
+    "role": "hats",
+    "sound": "h-minimal",
+    "steps": [
+      [
+        0,
+        "chh",
+        0.8
+      ],
+      [
+        1,
+        "chh",
+        0.45
+      ],
+      [
+        2,
+        "chh",
+        0.8
+      ],
+      [
+        3,
+        "chh",
+        0.45
+      ],
+      [
+        4,
+        "chh",
+        0.8
+      ],
+      [
+        5,
+        "chh",
+        0.45
+      ],
+      [
+        6,
+        "chh",
+        0.8
+      ],
+      [
+        7,
+        "chh",
+        0.45
+      ],
+      [
+        9,
+        "chh",
+        0.45
+      ],
+      [
+        10,
+        "chh",
+        0.8
+      ],
+      [
+        11,
+        "chh",
+        0.45
+      ],
+      [
+        12,
+        "chh",
+        0.8
+      ],
+      [
+        13,
+        "chh",
+        0.45
+      ],
+      [
+        14,
+        "chh",
+        0.8
+      ],
+      [
+        15,
+        "chh",
+        0.45
+      ]
+    ],
+    "vi": 1
+  },
+  "key": "hats:h3-16:vvvt7i",
+  "kind": "pattern",
+  "name": "16ths (variant B) on Soft hats",
+  "note": "",
+  "rating": 1,
+  "sum": "Hats · 16 steps · over A pedal, the top moving"
+}

@@ -1,0 +1,44 @@
+{
+  "at": "2026-10-25T13:47:28.001Z",
+  "base": "a5-round",
+  "id": "u-mvnvtvh3648",
+  "name": "Round bass (yours)",
+  "pack": "mine",
+  "role": "bass",
+  "src": {
+    "asynth": {
+      "aa": 0.002,
+      "ad": 0.4,
+      "ar": 0.09,
+      "as": 0.85,
+      "cut": 240,
+      "drive": 0.35,
+      "fa": 0.002,
+      "fd": 0.26,
+      "fenv": 0.42,
+      "fine2": 4,
+      "fkey": 0.4,
+      "fr": 0.12,
+      "fs": 0.12,
+      "ftype": 0,
+      "fvel": 0.5,
+      "glide": 0.02,
+      "l1": 0.8,
+      "l2": 0.6,
+      "level": 0.7,
+      "lsub": 0.3,
+      "mode": 1,
+      "oct2": -1,
+      "res": 0.35,
+      "slop": 0.35,
+      "vdrive": 0.25,
+      "w1": 0,
+      "w2": 1
+    },
+    "knobs": {
+      "tone": 0.3
+    },
+    "palette": "dubSub"
+  },
+  "words": "Your version of Round bass."
+}

@@ -1,0 +1,5932 @@
+{
+  "at": "2026-10-22T14:06:35.155Z",
+  "bpm": 120,
+  "id": "r3-2",
+  "kind": "song",
+  "name": "Two rivers",
+  "order": 1,
+  "pack": "pack-3",
+  "round": 3,
+  "sections": [
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 8,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-four",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Four",
+            "name": "Four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-four",
+          "rhythm": {
+            "base": "Four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-16",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "chh",
+                0.8
+              ],
+              [
+                1,
+                "chh",
+                0.45
+              ],
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                3,
+                "chh",
+                0.45
+              ],
+              [
+                4,
+                "chh",
+                0.8
+              ],
+              [
+                5,
+                "chh",
+                0.45
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                7,
+                "chh",
+                0.45
+              ],
+              [
+                9,
+                "chh",
+                0.45
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                11,
+                "chh",
+                0.45
+              ],
+              [
+                12,
+                "chh",
+                0.8
+              ],
+              [
+                13,
+                "chh",
+                0.45
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ],
+              [
+                15,
+                "chh",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "16ths",
+            "name": "16ths",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "h3-16",
+          "rhythm": {
+            "base": "16ths",
+            "feel": 1,
+            "hits": [
+              [
+                0,
+                1,
+                0.8
+              ],
+              [
+                1,
+                1,
+                0.45
+              ],
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                3,
+                1,
+                0.45
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                5,
+                1,
+                0.45
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                7,
+                1,
+                0.45
+              ],
+              [
+                9,
+                1,
+                0.45
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                12,
+                1,
+                0.8
+              ],
+              [
+                13,
+                1,
+                0.45
+              ],
+              [
+                14,
+                1,
+                0.8
+              ],
+              [
+                15,
+                1,
+                0.45
+              ]
+            ],
+            "len": 16,
+            "name": "16ths",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 64,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                1,
+                0.55
+              ],
+              [
+                10,
+                3,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                2,
+                0.55
+              ],
+              [
+                19,
+                1,
+                2,
+                0.55
+              ],
+              [
+                23,
+                2,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                1,
+                0.55
+              ],
+              [
+                36,
+                3,
+                2,
+                0.8
+              ],
+              [
+                40,
+                1,
+                2,
+                0.8
+              ],
+              [
+                44,
+                3,
+                2,
+                0.8
+              ],
+              [
+                48,
+                4,
+                1,
+                0.8
+              ],
+              [
+                53,
+                3,
+                2,
+                0.55
+              ],
+              [
+                57,
+                3,
+                2,
+                0.55
+              ],
+              [
+                61,
+                3,
+                2,
+                0.55
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Your off-beat line",
+            "name": "Your off-beat line",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Your off-beat line",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                10,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                0.55
+              ],
+              [
+                19,
+                2,
+                0.55
+              ],
+              [
+                23,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                0.55
+              ],
+              [
+                36,
+                2,
+                0.8
+              ],
+              [
+                40,
+                2,
+                0.8
+              ],
+              [
+                44,
+                2,
+                0.8
+              ],
+              [
+                48,
+                1,
+                0.8
+              ],
+              [
+                53,
+                2,
+                0.55
+              ],
+              [
+                57,
+                2,
+                0.55
+              ],
+              [
+                61,
+                2,
+                0.55
+              ]
+            ],
+            "len": 64,
+            "name": "Your off-beat line",
+            "ops": []
+          },
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "d-m7m9",
+      "harmonyBars": [
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m9",
+        "D:m9",
+        "D:m9",
+        "D:m9"
+      ],
+      "harmonyName": "D minor 7 ↔ 9",
+      "id": "r3-2.1",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Bass river",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "The drums and your bass, no melody."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 8,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-four",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Four",
+            "name": "Four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-four",
+          "rhythm": {
+            "base": "Four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-off",
+            "len": 16,
+            "steps": [
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Off-beats",
+            "name": "Off-beats",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "h3-off",
+          "rhythm": {
+            "base": "Off-beats",
+            "feel": 1,
+            "hits": [
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                14,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Off-beats",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-seven",
+            "len": 7,
+            "steps": [
+              [
+                0,
+                "rim",
+                0.75
+              ],
+              [
+                4,
+                "wood",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Sevens",
+            "name": "Sevens",
+            "ops": [],
+            "seq": [
+              "rim",
+              "wood"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-seven",
+          "rhythm": {
+            "base": "Sevens",
+            "feel": 9,
+            "hits": [
+              [
+                0,
+                1,
+                0.75
+              ],
+              [
+                4,
+                1,
+                0.45
+              ]
+            ],
+            "len": 7,
+            "name": "Sevens",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "l3-drops",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                4,
+                1,
+                0.7
+              ],
+              [
+                3,
+                2,
+                1,
+                0.5
+              ],
+              [
+                6,
+                5,
+                1,
+                0.55
+              ],
+              [
+                11,
+                3,
+                1,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Drops",
+            "name": "Drops",
+            "ops": [],
+            "seq": [
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                5,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "l3-drops",
+          "rhythm": {
+            "base": "Drops",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                0.7
+              ],
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                11,
+                1,
+                0.5
+              ]
+            ],
+            "len": 16,
+            "name": "Drops",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "l3-answer",
+            "len": 32,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                2,
+                0.55
+              ],
+              [
+                18,
+                3,
+                2,
+                0.6
+              ],
+              [
+                21,
+                1,
+                2,
+                0.55
+              ],
+              [
+                26,
+                0,
+                2,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Bamboo answer",
+            "name": "Bamboo answer",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "l3-answer",
+          "rhythm": {
+            "base": "Bamboo answer",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                0.55
+              ],
+              [
+                18,
+                2,
+                0.6
+              ],
+              [
+                21,
+                2,
+                0.55
+              ],
+              [
+                26,
+                2,
+                0.5
+              ]
+            ],
+            "len": 32,
+            "name": "Bamboo answer",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "a-pedal-3",
+      "harmonyBars": [
+        "A:m7",
+        "A:m7",
+        "A:m7",
+        "A:m7",
+        "A:sus4",
+        "A:sus4",
+        "A:m9",
+        "A:m9"
+      ],
+      "harmonyName": "A pedal, the top moving",
+      "id": "r3-2.2",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Wood river",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "No bass: the drops and the marimba, a rim in sevens against the four."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 8,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-four",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Four",
+            "name": "Four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-four",
+          "rhythm": {
+            "base": "Four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-16",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "chh",
+                0.8
+              ],
+              [
+                1,
+                "chh",
+                0.45
+              ],
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                3,
+                "chh",
+                0.45
+              ],
+              [
+                4,
+                "chh",
+                0.8
+              ],
+              [
+                5,
+                "chh",
+                0.45
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                7,
+                "chh",
+                0.45
+              ],
+              [
+                9,
+                "chh",
+                0.45
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                11,
+                "chh",
+                0.45
+              ],
+              [
+                12,
+                "chh",
+                0.8
+              ],
+              [
+                13,
+                "chh",
+                0.45
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ],
+              [
+                15,
+                "chh",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "16ths",
+            "name": "16ths",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 1,
+          "preset": "h3-16",
+          "rhythm": {
+            "base": "16ths",
+            "feel": 1,
+            "hits": [
+              [
+                0,
+                1,
+                0.8
+              ],
+              [
+                1,
+                1,
+                0.45
+              ],
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                3,
+                1,
+                0.45
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                5,
+                1,
+                0.45
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                7,
+                1,
+                0.45
+              ],
+              [
+                9,
+                1,
+                0.45
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                12,
+                1,
+                0.8
+              ],
+              [
+                13,
+                1,
+                0.45
+              ],
+              [
+                14,
+                1,
+                0.8
+              ],
+              [
+                15,
+                1,
+                0.45
+              ]
+            ],
+            "len": 16,
+            "name": "16ths",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 48,
+            "steps": [
+              [
+                1,
+                0,
+                1.2,
+                0.85
+              ],
+              [
+                4,
+                1,
+                1.2,
+                0.6
+              ],
+              [
+                7,
+                3,
+                1.2,
+                0.6
+              ],
+              [
+                10,
+                2,
+                1.2,
+                0.6
+              ],
+              [
+                13,
+                1,
+                1.2,
+                0.6
+              ],
+              [
+                17,
+                2,
+                1.2,
+                0.85
+              ],
+              [
+                20,
+                1,
+                1.2,
+                0.6
+              ],
+              [
+                23,
+                1,
+                1.2,
+                0.6
+              ],
+              [
+                26,
+                3,
+                1.2,
+                0.6
+              ],
+              [
+                29,
+                1,
+                1.2,
+                0.6
+              ],
+              [
+                33,
+                3,
+                1.2,
+                0.85
+              ],
+              [
+                36,
+                4,
+                1.2,
+                0.6
+              ],
+              [
+                39,
+                3,
+                1.2,
+                0.6
+              ],
+              [
+                42,
+                3,
+                1.2,
+                0.6
+              ],
+              [
+                45,
+                3,
+                1.2,
+                0.6
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Your off-beat line",
+            "name": "Your off-beat line",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Rolling threes",
+            "feel": 0,
+            "hits": [
+              [
+                1,
+                1.2,
+                0.85
+              ],
+              [
+                4,
+                1.2,
+                0.6
+              ],
+              [
+                7,
+                1.2,
+                0.6
+              ],
+              [
+                10,
+                1.2,
+                0.6
+              ],
+              [
+                13,
+                1.2,
+                0.6
+              ]
+            ],
+            "len": 16,
+            "name": "Rolling threes",
+            "ops": []
+          },
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "d-m7m9",
+      "harmonyBars": [
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m9",
+        "D:m9",
+        "D:m9",
+        "D:m9"
+      ],
+      "harmonyName": "D minor 7 ↔ 9",
+      "id": "r3-2.3",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Bass river, rolling",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "Your line's notes on the rolling-threes rhythm: the same notes, a new way of walking."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 16,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-broken",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                11,
+                "kick",
+                0.45
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Broken four",
+            "name": "Broken four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-broken",
+          "rhythm": {
+            "base": "Broken four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Broken four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-gaps",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "chh",
+                0.8
+              ],
+              [
+                2,
+                "chh",
+                0.45
+              ],
+              [
+                3,
+                "chh",
+                0.8
+              ],
+              [
+                5,
+                "chh",
+                0.8
+              ],
+              [
+                7,
+                "chh",
+                0.45
+              ],
+              [
+                8,
+                "chh",
+                0.8
+              ],
+              [
+                9,
+                "chh",
+                0.8
+              ],
+              [
+                11,
+                "chh",
+                0.45
+              ],
+              [
+                13,
+                "chh",
+                0.8
+              ],
+              [
+                15,
+                "chh",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "16ths with gaps",
+            "name": "16ths with gaps",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "h3-gaps",
+          "rhythm": {
+            "base": "16ths with gaps",
+            "feel": 1,
+            "hits": [
+              [
+                0,
+                1,
+                0.8
+              ],
+              [
+                2,
+                1,
+                0.45
+              ],
+              [
+                3,
+                1,
+                0.8
+              ],
+              [
+                5,
+                1,
+                0.8
+              ],
+              [
+                7,
+                1,
+                0.45
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                9,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                13,
+                1,
+                0.8
+              ],
+              [
+                15,
+                1,
+                0.45
+              ]
+            ],
+            "len": 16,
+            "name": "16ths with gaps",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 64,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                1,
+                0.55
+              ],
+              [
+                10,
+                3,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                2,
+                0.55
+              ],
+              [
+                19,
+                1,
+                2,
+                0.55
+              ],
+              [
+                23,
+                2,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                1,
+                0.55
+              ],
+              [
+                36,
+                3,
+                2,
+                0.8
+              ],
+              [
+                40,
+                1,
+                2,
+                0.8
+              ],
+              [
+                44,
+                3,
+                2,
+                0.8
+              ],
+              [
+                48,
+                4,
+                1,
+                0.8
+              ],
+              [
+                53,
+                3,
+                2,
+                0.55
+              ],
+              [
+                57,
+                3,
+                2,
+                0.55
+              ],
+              [
+                61,
+                3,
+                2,
+                0.55
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Your off-beat line",
+            "name": "Your off-beat line",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Your off-beat line",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                10,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                0.55
+              ],
+              [
+                19,
+                2,
+                0.55
+              ],
+              [
+                23,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                0.55
+              ],
+              [
+                36,
+                2,
+                0.8
+              ],
+              [
+                40,
+                2,
+                0.8
+              ],
+              [
+                44,
+                2,
+                0.8
+              ],
+              [
+                48,
+                1,
+                0.8
+              ],
+              [
+                53,
+                2,
+                0.55
+              ],
+              [
+                57,
+                2,
+                0.55
+              ],
+              [
+                61,
+                2,
+                0.55
+              ]
+            ],
+            "len": 64,
+            "name": "Your off-beat line",
+            "ops": []
+          },
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 128,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                2,
+                0.55
+              ],
+              [
+                18,
+                3,
+                2,
+                0.6
+              ],
+              [
+                21,
+                1,
+                2,
+                0.55
+              ],
+              [
+                26,
+                0,
+                2,
+                0.5
+              ],
+              [
+                34,
+                1,
+                2,
+                0.7
+              ],
+              [
+                37,
+                3,
+                2,
+                0.55
+              ],
+              [
+                50,
+                4,
+                2,
+                0.6
+              ],
+              [
+                53,
+                2,
+                2,
+                0.55
+              ],
+              [
+                58,
+                1,
+                2,
+                0.5
+              ],
+              [
+                66,
+                2,
+                2,
+                0.7
+              ],
+              [
+                69,
+                4,
+                2,
+                0.55
+              ],
+              [
+                82,
+                5,
+                2,
+                0.6
+              ],
+              [
+                85,
+                3,
+                2,
+                0.55
+              ],
+              [
+                90,
+                2,
+                2,
+                0.5
+              ],
+              [
+                98,
+                0,
+                2,
+                0.7
+              ],
+              [
+                101,
+                2,
+                2,
+                0.55
+              ],
+              [
+                114,
+                3,
+                2,
+                0.6
+              ],
+              [
+                117,
+                1,
+                2,
+                0.55
+              ],
+              [
+                122,
+                0,
+                2,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Bamboo answer",
+            "name": "Bamboo answer, sequenced",
+            "ops": [
+              "sequenced"
+            ],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                5,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                0,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Bamboo answer",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                0.55
+              ],
+              [
+                18,
+                2,
+                0.6
+              ],
+              [
+                21,
+                2,
+                0.55
+              ],
+              [
+                26,
+                2,
+                0.5
+              ]
+            ],
+            "len": 32,
+            "name": "Bamboo answer",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "phryg-3",
+      "harmonyBars": [
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "E:m7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7",
+        "F:maj7"
+      ],
+      "harmonyName": "A semitone up and back",
+      "id": "r3-2.4",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Where they meet",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "Bass and marimba together for the first time, on E minor 7 to F major 7; the kick broken."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 8,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-four",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Four",
+            "name": "Four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-four",
+          "rhythm": {
+            "base": "Four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-16",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "chh",
+                0.8
+              ],
+              [
+                1,
+                "chh",
+                0.45
+              ],
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                3,
+                "chh",
+                0.45
+              ],
+              [
+                4,
+                "chh",
+                0.8
+              ],
+              [
+                5,
+                "chh",
+                0.45
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                7,
+                "chh",
+                0.45
+              ],
+              [
+                9,
+                "chh",
+                0.45
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                11,
+                "chh",
+                0.45
+              ],
+              [
+                12,
+                "chh",
+                0.8
+              ],
+              [
+                13,
+                "chh",
+                0.45
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ],
+              [
+                15,
+                "chh",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "16ths",
+            "name": "16ths",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "h3-16",
+          "rhythm": {
+            "base": "16ths",
+            "feel": 1,
+            "hits": [
+              [
+                0,
+                1,
+                0.8
+              ],
+              [
+                1,
+                1,
+                0.45
+              ],
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                3,
+                1,
+                0.45
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                5,
+                1,
+                0.45
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                7,
+                1,
+                0.45
+              ],
+              [
+                9,
+                1,
+                0.45
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                12,
+                1,
+                0.8
+              ],
+              [
+                13,
+                1,
+                0.45
+              ],
+              [
+                14,
+                1,
+                0.8
+              ],
+              [
+                15,
+                1,
+                0.45
+              ]
+            ],
+            "len": 16,
+            "name": "16ths",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 64,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                1,
+                0.55
+              ],
+              [
+                10,
+                3,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                2,
+                0.55
+              ],
+              [
+                19,
+                1,
+                2,
+                0.55
+              ],
+              [
+                23,
+                2,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                1,
+                0.55
+              ],
+              [
+                36,
+                3,
+                2,
+                0.8
+              ],
+              [
+                40,
+                1,
+                2,
+                0.8
+              ],
+              [
+                44,
+                3,
+                2,
+                0.8
+              ],
+              [
+                48,
+                4,
+                1,
+                0.8
+              ],
+              [
+                53,
+                3,
+                2,
+                0.55
+              ],
+              [
+                57,
+                3,
+                2,
+                0.55
+              ],
+              [
+                61,
+                3,
+                2,
+                0.55
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Your off-beat line",
+            "name": "Your off-beat line",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Your off-beat line",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                10,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                0.55
+              ],
+              [
+                19,
+                2,
+                0.55
+              ],
+              [
+                23,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                0.55
+              ],
+              [
+                36,
+                2,
+                0.8
+              ],
+              [
+                40,
+                2,
+                0.8
+              ],
+              [
+                44,
+                2,
+                0.8
+              ],
+              [
+                48,
+                1,
+                0.8
+              ],
+              [
+                53,
+                2,
+                0.55
+              ],
+              [
+                57,
+                2,
+                0.55
+              ],
+              [
+                61,
+                2,
+                0.55
+              ]
+            ],
+            "len": 64,
+            "name": "Your off-beat line",
+            "ops": []
+          },
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "d-m7m9",
+      "harmonyBars": [
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m9",
+        "D:m9",
+        "D:m9",
+        "D:m9"
+      ],
+      "harmonyName": "D minor 7 ↔ 9",
+      "id": "r3-2.5",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Bass river",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "The theme again, as it was."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 8,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-off",
+            "len": 16,
+            "steps": [
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Off-beats",
+            "name": "Off-beats",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "h3-off",
+          "rhythm": {
+            "base": "Off-beats",
+            "feel": 1,
+            "hits": [
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                14,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Off-beats",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": null,
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": null,
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": null,
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.62
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 64,
+            "steps": [
+              [
+                0,
+                4,
+                1,
+                0.7
+              ],
+              [
+                3,
+                2,
+                1,
+                0.5
+              ],
+              [
+                6,
+                5,
+                1,
+                0.55
+              ],
+              [
+                11,
+                3,
+                1,
+                0.5
+              ],
+              [
+                16,
+                4,
+                1,
+                0.7
+              ],
+              [
+                19,
+                2,
+                1,
+                0.5
+              ],
+              [
+                22,
+                6,
+                1,
+                0.55
+              ],
+              [
+                27,
+                2,
+                1,
+                0.5
+              ],
+              [
+                32,
+                4,
+                1,
+                0.7
+              ],
+              [
+                35,
+                2,
+                1,
+                0.5
+              ],
+              [
+                38,
+                5,
+                1,
+                0.55
+              ],
+              [
+                43,
+                3,
+                1,
+                0.5
+              ],
+              [
+                48,
+                2,
+                1,
+                0.7
+              ],
+              [
+                51,
+                4,
+                1,
+                0.5
+              ],
+              [
+                54,
+                1,
+                1,
+                0.55
+              ],
+              [
+                59,
+                4,
+                1,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Drops",
+            "name": "Drops, developed",
+            "ops": [
+              "developed"
+            ],
+            "seq": [
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                5,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                6,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                5,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                4,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": null,
+          "rhythm": {
+            "base": "Drops",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                0.7
+              ],
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                11,
+                1,
+                0.5
+              ],
+              [
+                16,
+                1,
+                0.7
+              ],
+              [
+                19,
+                1,
+                0.5
+              ],
+              [
+                22,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                0.5
+              ],
+              [
+                32,
+                1,
+                0.7
+              ],
+              [
+                35,
+                1,
+                0.5
+              ],
+              [
+                38,
+                1,
+                0.55
+              ],
+              [
+                43,
+                1,
+                0.5
+              ],
+              [
+                48,
+                1,
+                0.7
+              ],
+              [
+                51,
+                1,
+                0.5
+              ],
+              [
+                54,
+                1,
+                0.55
+              ],
+              [
+                59,
+                1,
+                0.5
+              ]
+            ],
+            "len": 64,
+            "name": "Drops, developed",
+            "ops": [
+              "developed"
+            ]
+          },
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "l3-answer",
+            "len": 32,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                2,
+                0.55
+              ],
+              [
+                18,
+                3,
+                2,
+                0.6
+              ],
+              [
+                21,
+                1,
+                2,
+                0.55
+              ],
+              [
+                26,
+                0,
+                2,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Bamboo answer",
+            "name": "Bamboo answer",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "l3-answer",
+          "rhythm": {
+            "base": "Bamboo answer",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                0.55
+              ],
+              [
+                18,
+                2,
+                0.6
+              ],
+              [
+                21,
+                2,
+                0.55
+              ],
+              [
+                26,
+                2,
+                0.5
+              ]
+            ],
+            "len": 32,
+            "name": "Bamboo answer",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "a-pedal-3",
+      "harmonyBars": [
+        "A:m7",
+        "A:m7",
+        "A:m7",
+        "A:m7",
+        "A:sus4",
+        "A:sus4",
+        "A:m9",
+        "A:m9"
+      ],
+      "harmonyName": "A pedal, the top moving",
+      "id": "r3-2.6",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: Wood river, no kick",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "The kick drops out; the drops developed over four bars."
+    },
+    {
+      "at": "2026-10-22T14:06:35.155Z",
+      "bars": 16,
+      "bpm": 120,
+      "cols": [
+        {
+          "arp": 0,
+          "clip": {
+            "id": "k3-four",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "kick",
+                1
+              ],
+              [
+                4,
+                "kick",
+                0.8
+              ],
+              [
+                8,
+                "kick",
+                0.8
+              ],
+              [
+                12,
+                "kick",
+                0.8
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 0,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -1
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Four",
+            "name": "Four",
+            "ops": [],
+            "seq": [
+              "kick",
+              "kick",
+              "kick",
+              "kick"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "k3-four",
+          "rhythm": {
+            "base": "Four",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                1
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                8,
+                1,
+                0.8
+              ],
+              [
+                12,
+                1,
+                0.8
+              ]
+            ],
+            "len": 16,
+            "name": "Four",
+            "ops": []
+          },
+          "role": "kick",
+          "sound": "k-round",
+          "verb": false,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "h3-16",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                "chh",
+                0.8
+              ],
+              [
+                1,
+                "chh",
+                0.45
+              ],
+              [
+                2,
+                "chh",
+                0.8
+              ],
+              [
+                3,
+                "chh",
+                0.45
+              ],
+              [
+                4,
+                "chh",
+                0.8
+              ],
+              [
+                5,
+                "chh",
+                0.45
+              ],
+              [
+                6,
+                "chh",
+                0.8
+              ],
+              [
+                7,
+                "chh",
+                0.45
+              ],
+              [
+                9,
+                "chh",
+                0.45
+              ],
+              [
+                10,
+                "chh",
+                0.8
+              ],
+              [
+                11,
+                "chh",
+                0.45
+              ],
+              [
+                12,
+                "chh",
+                0.8
+              ],
+              [
+                13,
+                "chh",
+                0.45
+              ],
+              [
+                14,
+                "chh",
+                0.8
+              ],
+              [
+                15,
+                "chh",
+                0.45
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 1,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.15,
+            "solo": false,
+            "vol": 6
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "16ths",
+            "name": "16ths",
+            "ops": [],
+            "seq": [
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh",
+              "chh"
+            ]
+          },
+          "oct": 0,
+          "play": 2,
+          "preset": "h3-16",
+          "rhythm": {
+            "base": "16ths",
+            "feel": 1,
+            "hits": [
+              [
+                0,
+                1,
+                0.8
+              ],
+              [
+                1,
+                1,
+                0.45
+              ],
+              [
+                2,
+                1,
+                0.8
+              ],
+              [
+                3,
+                1,
+                0.45
+              ],
+              [
+                4,
+                1,
+                0.8
+              ],
+              [
+                5,
+                1,
+                0.45
+              ],
+              [
+                6,
+                1,
+                0.8
+              ],
+              [
+                7,
+                1,
+                0.45
+              ],
+              [
+                9,
+                1,
+                0.45
+              ],
+              [
+                10,
+                1,
+                0.8
+              ],
+              [
+                11,
+                1,
+                0.45
+              ],
+              [
+                12,
+                1,
+                0.8
+              ],
+              [
+                13,
+                1,
+                0.45
+              ],
+              [
+                14,
+                1,
+                0.8
+              ],
+              [
+                15,
+                1,
+                0.45
+              ]
+            ],
+            "len": 16,
+            "name": "16ths",
+            "ops": []
+          },
+          "role": "hats",
+          "sound": "h-minimal",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.844,
+          "y": 0.604
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "p3-hands",
+            "len": 16,
+            "steps": [
+              [
+                3,
+                "tomH",
+                0.5
+              ],
+              [
+                4,
+                "tomL",
+                0.7
+              ],
+              [
+                8,
+                "tomH",
+                0.45
+              ],
+              [
+                11,
+                "tomL",
+                0.6
+              ],
+              [
+                14,
+                "tomH",
+                0.5
+              ],
+              [
+                15,
+                "logH",
+                0.4
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 9,
+          "inv": 0,
+          "length": 1,
+          "locked": false,
+          "mix": {
+            "duck": 2,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.2,
+            "solo": false,
+            "vol": 0
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Hand groove",
+            "name": "Hand groove",
+            "ops": [],
+            "seq": [
+              "tomH",
+              "tomL",
+              "tomH",
+              "tomL",
+              "tomH",
+              "logH"
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "p3-hands",
+          "rhythm": {
+            "base": "Hand groove",
+            "feel": 9,
+            "hits": [
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                4,
+                1,
+                0.7
+              ],
+              [
+                8,
+                1,
+                0.45
+              ],
+              [
+                11,
+                1,
+                0.6
+              ],
+              [
+                14,
+                1,
+                0.5
+              ],
+              [
+                15,
+                1,
+                0.4
+              ]
+            ],
+            "len": 16,
+            "name": "Hand groove",
+            "ops": []
+          },
+          "role": "perc",
+          "sound": "p3-forest",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.84,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "part",
+            "len": 64,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                1,
+                0.55
+              ],
+              [
+                10,
+                3,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                2,
+                0.55
+              ],
+              [
+                19,
+                1,
+                2,
+                0.55
+              ],
+              [
+                23,
+                2,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                1,
+                0.55
+              ],
+              [
+                36,
+                3,
+                2,
+                0.8
+              ],
+              [
+                40,
+                1,
+                2,
+                0.8
+              ],
+              [
+                44,
+                3,
+                2,
+                0.8
+              ],
+              [
+                48,
+                4,
+                1,
+                0.8
+              ],
+              [
+                53,
+                3,
+                2,
+                0.55
+              ],
+              [
+                57,
+                3,
+                2,
+                0.55
+              ],
+              [
+                61,
+                3,
+                2,
+                0.55
+              ]
+            ],
+            "var": 0
+          },
+          "echo": false,
+          "feel": 0,
+          "inv": 0,
+          "length": 0,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -2.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Your off-beat line",
+            "name": "Your off-beat line",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 1,
+          "preset": null,
+          "rhythm": {
+            "base": "Your off-beat line",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.55
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                10,
+                2,
+                0.55
+              ],
+              [
+                14,
+                2,
+                0.55
+              ],
+              [
+                19,
+                2,
+                0.55
+              ],
+              [
+                23,
+                1,
+                0.55
+              ],
+              [
+                27,
+                1,
+                0.55
+              ],
+              [
+                31,
+                1,
+                0.55
+              ],
+              [
+                36,
+                2,
+                0.8
+              ],
+              [
+                40,
+                2,
+                0.8
+              ],
+              [
+                44,
+                2,
+                0.8
+              ],
+              [
+                48,
+                1,
+                0.8
+              ],
+              [
+                53,
+                2,
+                0.55
+              ],
+              [
+                57,
+                2,
+                0.55
+              ],
+              [
+                61,
+                2,
+                0.55
+              ]
+            ],
+            "len": 64,
+            "name": "Your off-beat line",
+            "ops": []
+          },
+          "role": "bass",
+          "sound": "b-fmpluck",
+          "verb": false,
+          "voicing": 0,
+          "walk": true,
+          "x": 0.45,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "c3-phrase",
+            "len": 64,
+            "steps": [
+              [
+                0,
+                "chord",
+                60,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 3,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0,
+            "solo": false,
+            "vol": -7
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "One chord a phrase",
+            "name": "One chord a phrase",
+            "ops": [],
+            "seq": []
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "c3-phrase",
+          "rhythm": {
+            "base": "One chord a phrase",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                60,
+                0.5
+              ]
+            ],
+            "len": 64,
+            "name": "One chord a phrase",
+            "ops": []
+          },
+          "role": "chords",
+          "sound": "c2-strings",
+          "verb": true,
+          "voicing": 1,
+          "walk": false,
+          "x": 0.639,
+          "y": 0.7
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "l3-drops",
+            "len": 16,
+            "steps": [
+              [
+                0,
+                4,
+                1,
+                0.7
+              ],
+              [
+                3,
+                2,
+                1,
+                0.5
+              ],
+              [
+                6,
+                5,
+                1,
+                0.55
+              ],
+              [
+                11,
+                3,
+                1,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": -0.3,
+            "solo": false,
+            "vol": 4.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Drops",
+            "name": "Drops",
+            "ops": [],
+            "seq": [
+              [
+                4,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                5,
+                0
+              ],
+              [
+                3,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "l3-drops",
+          "rhythm": {
+            "base": "Drops",
+            "feel": 0,
+            "hits": [
+              [
+                0,
+                1,
+                0.7
+              ],
+              [
+                3,
+                1,
+                0.5
+              ],
+              [
+                6,
+                1,
+                0.55
+              ],
+              [
+                11,
+                1,
+                0.5
+              ]
+            ],
+            "len": 16,
+            "name": "Drops",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l3-bamboo",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        },
+        {
+          "arp": 0,
+          "clip": {
+            "id": "l3-answer",
+            "len": 32,
+            "steps": [
+              [
+                2,
+                0,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                2,
+                0.55
+              ],
+              [
+                18,
+                3,
+                2,
+                0.6
+              ],
+              [
+                21,
+                1,
+                2,
+                0.55
+              ],
+              [
+                26,
+                0,
+                2,
+                0.5
+              ]
+            ],
+            "var": 0
+          },
+          "echo": true,
+          "feel": 0,
+          "inv": 0,
+          "length": 1,
+          "locked": true,
+          "mix": {
+            "duck": 1,
+            "hi": 0,
+            "lo": 0,
+            "mid": 0,
+            "pan": 0.3,
+            "solo": false,
+            "vol": 5.5
+          },
+          "motion": 0,
+          "mute": false,
+          "notes": {
+            "base": "Bamboo answer",
+            "name": "Bamboo answer",
+            "ops": [],
+            "seq": [
+              [
+                0,
+                0
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          },
+          "oct": 0,
+          "play": 0,
+          "preset": "l3-answer",
+          "rhythm": {
+            "base": "Bamboo answer",
+            "feel": 0,
+            "hits": [
+              [
+                2,
+                2,
+                0.7
+              ],
+              [
+                5,
+                2,
+                0.55
+              ],
+              [
+                18,
+                2,
+                0.6
+              ],
+              [
+                21,
+                2,
+                0.55
+              ],
+              [
+                26,
+                2,
+                0.5
+              ]
+            ],
+            "len": 32,
+            "name": "Bamboo answer",
+            "ops": []
+          },
+          "role": "lead",
+          "sound": "l-marimba",
+          "verb": true,
+          "voicing": 0,
+          "walk": false,
+          "x": 0.62,
+          "y": 0.3
+        }
+      ],
+      "echoDiv": 0,
+      "harmony": "d-m7m9",
+      "harmonyBars": [
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m7",
+        "D:m9",
+        "D:m9",
+        "D:m9",
+        "D:m9"
+      ],
+      "harmonyName": "D minor 7 ↔ 9",
+      "id": "r3-2.7",
+      "mx": {
+        "glue": 2,
+        "hi": 0,
+        "lo": 0,
+        "vol": 0,
+        "width": 3
+      },
+      "name": "Two rivers: The sea",
+      "pack": "pack-3",
+      "smooth": true,
+      "v": 2,
+      "why": "Both rivers at once, strings under them."
+    }
+  ],
+  "why": "A rondo (A B A C A B, then the sea): the bass and the wood take turns, never together until they meet. The bass's river on D minor, the wood's on the A pedal, and where they meet a darker turn, a semitone up and back."
+}

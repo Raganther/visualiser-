@@ -15,13 +15,14 @@ import { $ } from '../util.js';
 const GROUPS = [['Objects', OBJECT_VISUALS], ['Worlds', WORLD_VISUALS], ['Layers', LAYER_VISUALS], ['Hits', HIT_VISUALS]];
 // where each object came from (the rest are one module each, under src/visuals/)
 const SOURCES = {skull: 'tools/skull-mesh.mjs (distance functions, meshed)', unicorn: 'tools/unicorn-mesh.mjs', manta: 'tools/blender/manta.py (Blender)',
-  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', goblin: 'tools/blender/goblin.py (Blender, sculpted from metaballs)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
+  lotus: 'tools/blender/lotus.py (Blender)', jelly: 'tools/blender/jelly.py (Blender)', goblin: 'tools/blender/goblin.py (Blender, sculpted from metaballs)', goblinLit: 'tools/blender/goblin_hd.py (Blender: sculpted, baked into textures)', tentacle: 'tools/blender/tentacle.py (Blender: sculpted, baked into textures)', hand: 'tools/blender/hand.py (Blender: sculpted round a skeleton, baked)', heart: 'tools/blender/heart.py (Blender: sculpted, baked into textures)', geosphere: 'meshes/maths.js', torus: 'meshes/maths.js', knot: 'meshes/maths.js',
   dodeca: 'meshes/maths.js', spikes: 'meshes/maths.js', crystal: 'meshes/maths.js'};
-const STYLES = ['Glass wire', 'Solid', 'Outline', 'Hologram', 'Points', 'Shaded'];
+const STYLES = ['Glass wire', 'Solid', 'Outline', 'Hologram', 'Points', 'Shaded'], LOOKS = ['Real', 'Toon', 'Neon', 'Chrome', 'Marble'];   // (the wire objects' styles; the lit objects' looks)
 let el = null, cur = null, thumbs = {}, fps = {n: 0, t: 0, v: 0}, keepDance = null;
 try { thumbs = JSON.parse(localStorage.getItem('afterglow.thumbs') || '{}'); } catch (e) {}
 
 function stats(v){
+  if (v.stats) return v.stats;
   if (v.kind !== 'object') return `${v.kind}` + (v.optIn ? ' (by hand only)' : '');
   const pieces = v.mesh.pieces, panes = pieces.reduce((s, p) => s + p.tri.length/3, 0), parts = new Set(pieces.flatMap(p => [...p.part])).size;
   return `${panes.toLocaleString()} panes · ${parts} parts${pieces.some(p => p.morph) ? ' · a shape key' : ''}`;
@@ -31,7 +32,8 @@ function build(){
   el = document.createElement('div'); el.id = 'assets'; el.hidden = true;
   el.innerHTML = `<div class="aside"><div class="head"><b>Assets</b><button id="aThumbs" title="Step through them all and keep a picture of each">Thumbnails</button><button id="aClose" aria-label="Close">✕</button></div><div class="list"></div></div>
     <div class="stage" hidden><div class="info"></div><div class="obj">
-      <div class="arow">${STYLES.map((s, i) => `<button data-style="${i}">${s}</button>`).join('')}</div>
+      <div class="arow wire">${STYLES.map((s, i) => `<button data-style="${i}">${s}</button>`).join('')}</div>
+      <div class="arow lit">${LOOKS.map((s, i) => `<button data-look="${i}">${s}</button>`).join('')}</div>
       <div class="arow"><label><input type="checkbox" id="aMusic" checked> shape key from the music</label><input type="range" id="aMorph" min="-1" max="1" step=".01" value="0" disabled></div>
       <div class="arow"><label><input type="checkbox" id="aDance" checked> dancing</label><button id="aShatter">Shatter</button><button id="aReset">Face on</button><span class="tip">drag to turn · wheel to zoom</span></div>
     </div></div>`;
@@ -48,6 +50,7 @@ function build(){
   el.querySelector('#aClose').onclick = () => open(false);
   el.querySelector('#aThumbs').onclick = contactSheet;
   el.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { S.active.objStyle = +b.dataset.style; syncSliders(); mark(); });
+  el.querySelectorAll('[data-look]').forEach(b => b.onclick = () => { S.active.litLook = curP.litLook = +b.dataset.look; syncSliders(); mark(); });
   const music = el.querySelector('#aMusic'), morph = el.querySelector('#aMorph');
   music.onchange = () => { morph.disabled = music.checked; if (S.view) S.view.morph = music.checked ? null : +morph.value; };
   morph.oninput = () => { if (S.view) S.view.morph = +morph.value; };
@@ -71,6 +74,8 @@ function info(){
 function mark(){
   el.querySelectorAll('.item').forEach(b => b.classList.toggle('on', b.dataset.key === cur));
   el.querySelectorAll('[data-style]').forEach(b => b.classList.toggle('on', +b.dataset.style === Math.round(S.active.objStyle || 0)));
+  el.querySelectorAll('[data-look]').forEach(b => b.classList.toggle('on', +b.dataset.look === Math.round(S.active.litLook || 0)));
+  const lit = cur && byKey[cur].lit; el.querySelector('.arow.wire').hidden = !!lit; el.querySelector('.arow.lit').hidden = !lit;
 }
 function pick(key){
   cur = key; solo(key);

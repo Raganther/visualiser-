@@ -1,0 +1,806 @@
+{
+  "at": "2026-10-26T20:55:12.871Z",
+  "bpm": 126,
+  "cols": [
+    {
+      "arp": 0,
+      "clip": null,
+      "echo": false,
+      "feel": 0,
+      "inv": 0,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 0,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": 0,
+        "solo": false,
+        "vol": -1
+      },
+      "motion": 0,
+      "mute": false,
+      "notes": null,
+      "oct": 0,
+      "play": 0,
+      "preset": null,
+      "rhythm": null,
+      "role": "kick",
+      "sound": "k-round",
+      "verb": false,
+      "voicing": 0,
+      "walk": false,
+      "x": 0.62,
+      "y": 0.3
+    },
+    {
+      "arp": 0,
+      "clip": null,
+      "echo": true,
+      "feel": 0,
+      "inv": 0,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 2,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": 0.15,
+        "solo": false,
+        "vol": 6
+      },
+      "motion": 0,
+      "mute": false,
+      "notes": null,
+      "oct": 0,
+      "play": 0,
+      "preset": null,
+      "rhythm": null,
+      "role": "hats",
+      "sound": "h-minimal",
+      "verb": true,
+      "voicing": 0,
+      "walk": false,
+      "x": 0.844,
+      "y": 0.604
+    },
+    {
+      "arp": 0,
+      "clip": {
+        "id": "p3-hands",
+        "len": 16,
+        "steps": [
+          [
+            2,
+            "tomH",
+            0.5
+          ],
+          [
+            3,
+            "tomL",
+            0.7
+          ],
+          [
+            7,
+            "tomH",
+            0.45
+          ],
+          [
+            10,
+            "tomL",
+            0.6
+          ],
+          [
+            13,
+            "tomH",
+            0.5
+          ],
+          [
+            14,
+            "logH",
+            0.4
+          ]
+        ],
+        "var": 0
+      },
+      "echo": true,
+      "feel": 9,
+      "inv": 0,
+      "length": 1,
+      "locked": false,
+      "loop": null,
+      "mix": {
+        "duck": 2,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": -0.2,
+        "solo": false,
+        "vol": 0
+      },
+      "motion": 0,
+      "mute": false,
+      "notes": {
+        "base": "Hand groove",
+        "name": "Hand groove",
+        "ops": [],
+        "seq": [
+          "tomH",
+          "tomL",
+          "tomH",
+          "tomL",
+          "tomH",
+          "logH"
+        ]
+      },
+      "oct": 0,
+      "play": 0,
+      "preset": "p3-hands",
+      "rhythm": {
+        "base": "Hand groove",
+        "feel": 9,
+        "hits": [
+          [
+            2,
+            1,
+            0.5
+          ],
+          [
+            3,
+            1,
+            0.7
+          ],
+          [
+            7,
+            1,
+            0.45
+          ],
+          [
+            10,
+            1,
+            0.6
+          ],
+          [
+            13,
+            1,
+            0.5
+          ],
+          [
+            14,
+            1,
+            0.4
+          ]
+        ],
+        "len": 16,
+        "name": "Hand groove",
+        "ops": []
+      },
+      "role": "perc",
+      "sound": "p3-forest",
+      "verb": true,
+      "voicing": 0,
+      "walk": false,
+      "x": 0.84,
+      "y": 0.3
+    },
+    {
+      "arp": 0,
+      "clip": {
+        "id": "b3-roll",
+        "len": 16,
+        "steps": [
+          [
+            1,
+            0,
+            1.2,
+            0.85
+          ],
+          [
+            4,
+            0,
+            1.2,
+            0.6
+          ],
+          [
+            7,
+            0,
+            1.2,
+            0.6
+          ],
+          [
+            10,
+            2,
+            1.2,
+            0.6
+          ],
+          [
+            13,
+            0,
+            1.2,
+            0.6
+          ]
+        ],
+        "var": 0
+      },
+      "echo": false,
+      "feel": 0,
+      "inv": 0,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 3,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": 0,
+        "solo": false,
+        "vol": -2.5
+      },
+      "motion": 2,
+      "mute": false,
+      "notes": {
+        "base": "Rolling threes",
+        "name": "Rolling threes",
+        "ops": [],
+        "seq": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "oct": 0,
+      "play": 0,
+      "preset": "b3-roll",
+      "rhythm": {
+        "base": "Rolling threes",
+        "feel": 0,
+        "hits": [
+          [
+            1,
+            1.2,
+            0.85
+          ],
+          [
+            4,
+            1.2,
+            0.6
+          ],
+          [
+            7,
+            1.2,
+            0.6
+          ],
+          [
+            10,
+            1.2,
+            0.6
+          ],
+          [
+            13,
+            1.2,
+            0.6
+          ]
+        ],
+        "len": 16,
+        "name": "Rolling threes",
+        "ops": []
+      },
+      "role": "bass",
+      "sound": "b-clean",
+      "verb": false,
+      "voicing": 0,
+      "walk": true,
+      "x": 0.45,
+      "y": 0.07
+    },
+    {
+      "arp": 1,
+      "clip": {
+        "id": "c3-gated",
+        "len": 16,
+        "steps": [
+          [
+            0,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            1,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            2,
+            "chord",
+            0.8,
+            0.52
+          ],
+          [
+            3,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            4,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            5,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            6,
+            "chord",
+            0.8,
+            0.52
+          ],
+          [
+            7,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            8,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            9,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            10,
+            "chord",
+            0.8,
+            0.52
+          ],
+          [
+            11,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            12,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            13,
+            "chord",
+            0.8,
+            0.3
+          ],
+          [
+            14,
+            "chord",
+            0.8,
+            0.52
+          ],
+          [
+            15,
+            "chord",
+            0.8,
+            0.3
+          ]
+        ],
+        "var": 0
+      },
+      "echo": true,
+      "feel": 0,
+      "inv": -1,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 2,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": 0,
+        "solo": false,
+        "vol": 0
+      },
+      "motion": 1,
+      "mute": false,
+      "notes": {
+        "base": "Gated 16ths",
+        "name": "Gated 16ths",
+        "ops": [],
+        "seq": []
+      },
+      "oct": 0,
+      "play": 0,
+      "preset": "c3-gated",
+      "rhythm": {
+        "base": "Gated 16ths",
+        "feel": 0,
+        "hits": [
+          [
+            0,
+            0.8,
+            0.3
+          ],
+          [
+            1,
+            0.8,
+            0.3
+          ],
+          [
+            2,
+            0.8,
+            0.52
+          ],
+          [
+            3,
+            0.8,
+            0.3
+          ],
+          [
+            4,
+            0.8,
+            0.3
+          ],
+          [
+            5,
+            0.8,
+            0.3
+          ],
+          [
+            6,
+            0.8,
+            0.52
+          ],
+          [
+            7,
+            0.8,
+            0.3
+          ],
+          [
+            8,
+            0.8,
+            0.3
+          ],
+          [
+            9,
+            0.8,
+            0.3
+          ],
+          [
+            10,
+            0.8,
+            0.52
+          ],
+          [
+            11,
+            0.8,
+            0.3
+          ],
+          [
+            12,
+            0.8,
+            0.3
+          ],
+          [
+            13,
+            0.8,
+            0.3
+          ],
+          [
+            14,
+            0.8,
+            0.52
+          ],
+          [
+            15,
+            0.8,
+            0.3
+          ]
+        ],
+        "len": 16,
+        "name": "Gated 16ths",
+        "ops": []
+      },
+      "role": "chords",
+      "sound": "c3-bloom",
+      "verb": true,
+      "voicing": 1,
+      "walk": false,
+      "x": 0.639,
+      "y": 0.62
+    },
+    {
+      "arp": 0,
+      "clip": {
+        "id": "l3-answer",
+        "len": 32,
+        "steps": [
+          [
+            2,
+            2,
+            2,
+            0.7
+          ],
+          [
+            5,
+            0,
+            2,
+            0.55
+          ],
+          [
+            18,
+            2,
+            2,
+            0.6
+          ],
+          [
+            21,
+            3,
+            2,
+            0.55
+          ],
+          [
+            26,
+            2,
+            2,
+            0.5
+          ]
+        ],
+        "var": 0
+      },
+      "echo": true,
+      "feel": 0,
+      "inv": 0,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 1,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": -0.3,
+        "solo": false,
+        "vol": 4.5
+      },
+      "motion": 0,
+      "mute": false,
+      "notes": {
+        "base": "New lead notes",
+        "name": "New lead notes",
+        "ops": [],
+        "seq": [
+          [
+            2,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            2,
+            0
+          ]
+        ]
+      },
+      "oct": 0,
+      "play": 0,
+      "preset": "l3-answer",
+      "rhythm": {
+        "base": "Bamboo answer",
+        "feel": 0,
+        "hits": [
+          [
+            2,
+            2,
+            0.7
+          ],
+          [
+            5,
+            2,
+            0.55
+          ],
+          [
+            18,
+            2,
+            0.6
+          ],
+          [
+            21,
+            2,
+            0.55
+          ],
+          [
+            26,
+            2,
+            0.5
+          ]
+        ],
+        "len": 32,
+        "name": "Bamboo answer",
+        "ops": []
+      },
+      "role": "lead",
+      "sound": "l3-bamboo",
+      "verb": true,
+      "voicing": 0,
+      "walk": false,
+      "x": 0.62,
+      "y": 0.3
+    },
+    {
+      "arp": 0,
+      "clip": {
+        "id": "l3-drops",
+        "len": 16,
+        "steps": [
+          [
+            0,
+            4,
+            1,
+            0.7
+          ],
+          [
+            3,
+            2,
+            1,
+            0.5
+          ],
+          [
+            6,
+            5,
+            1,
+            0.55
+          ],
+          [
+            11,
+            3,
+            1,
+            0.5
+          ]
+        ],
+        "var": 0
+      },
+      "echo": true,
+      "feel": 0,
+      "inv": 0,
+      "length": 1,
+      "locked": true,
+      "loop": null,
+      "mix": {
+        "duck": 1,
+        "hi": 0,
+        "lo": 0,
+        "mid": 0,
+        "pan": 0.3,
+        "solo": false,
+        "vol": 5.5
+      },
+      "motion": 2,
+      "mute": false,
+      "notes": {
+        "base": "Drops",
+        "name": "Drops",
+        "ops": [],
+        "seq": [
+          [
+            4,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            3,
+            0
+          ]
+        ]
+      },
+      "oct": 0,
+      "play": 0,
+      "preset": "l3-drops",
+      "rhythm": {
+        "base": "Drops",
+        "feel": 0,
+        "hits": [
+          [
+            0,
+            1,
+            0.7
+          ],
+          [
+            3,
+            1,
+            0.5
+          ],
+          [
+            6,
+            1,
+            0.55
+          ],
+          [
+            11,
+            1,
+            0.5
+          ]
+        ],
+        "len": 16,
+        "name": "Drops",
+        "ops": []
+      },
+      "role": "lead",
+      "sound": "l-kalimba",
+      "verb": true,
+      "voicing": 0,
+      "walk": false,
+      "x": 0.62,
+      "y": 0.3
+    }
+  ],
+  "echoDiv": 0,
+  "harmony": "f-madd9-3",
+  "harmonyBars": [
+    "F:madd9"
+  ],
+  "harmonyName": "F minor add 9",
+  "id": "smvpqjug71yd",
+  "mx": {
+    "glue": 2,
+    "hi": 0,
+    "lo": 0,
+    "vol": 0,
+    "width": 3
+  },
+  "name": "Scene 15",
+  "pack": "pack-3",
+  "smooth": true,
+  "v": 2
+}

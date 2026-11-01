@@ -1,0 +1,21 @@
+{
+  "at": "2026-10-23T22:27:48.698Z",
+  "base": "c2-dark",
+  "id": "u-mvljepxl138",
+  "name": "Dark stab (yours)",
+  "pack": "mine",
+  "role": "chords",
+  "src": {
+    "palette": "darkStab",
+    "poly": {
+      "aa": 0.0366,
+      "cut": 1480,
+      "fr": 0.01,
+      "noise": 0,
+      "spread": 0.25,
+      "sub": 0.63,
+      "w1": 1
+    }
+  },
+  "words": "Your version of Dark stab."
+}

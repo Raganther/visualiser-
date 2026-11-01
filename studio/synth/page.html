@@ -1,0 +1,139 @@
+<meta charset="utf-8">
+<title>Analog Synth Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a synthesizer's front panel read top to bottom: the transport and what you hear, the examples, the phrase,
+   the keyboard with its wheels, then the modules left to right as the signal flows (oscillators → mixer → filter → VCA → effects) */
+:root {
+  --panel: #e4e1da; --face: #f2f0eb; --ink: #1d1e21; --mute: #5f6168; --line: #bdb9b0; --key: #fbfaf7; --keyb: #24252a;
+  --amber: #c9781a; --amber-ink: #fff; --glow: #e8962c; --cool: #2c6e9e; --trace: #b5651a;
+  --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --panel: #141517; --face: #1e1f23; --ink: #ece7dc; --mute: #9b9ea6; --line: #383a40; --key: #dcd8cf; --keyb: #0b0b0d;
+  --amber: #f0a33c; --amber-ink: #1a1206; --glow: #ffb54d; --cool: #69a8d8; --trace: #f0a33c; color-scheme: dark } }
+:root[data-theme="dark"] { --panel: #141517; --face: #1e1f23; --ink: #ece7dc; --mute: #9b9ea6; --line: #383a40; --key: #dcd8cf; --keyb: #0b0b0d;
+  --amber: #f0a33c; --amber-ink: #1a1206; --glow: #ffb54d; --cool: #69a8d8; --trace: #f0a33c; color-scheme: dark }
+body { background: var(--panel); color: var(--ink); font-family: var(--display); font-stretch: 92%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 800; font-stretch: 70%; letter-spacing: .02em; text-transform: uppercase; line-height: 1 }
+h1 small { font-weight: 500; color: var(--amber) }
+header p { margin: 0; color: var(--mute); max-width: 66ch; font-stretch: 100%; line-height: 1.45 }
+h2, h3 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); text-wrap: balance }
+button, select { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--cool); outline-offset: 2px }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#play { min-width: 104px; padding: 12px 18px; border: 0; border-radius: 4px; background: var(--amber); color: var(--amber-ink); font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase }
+#play[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.fader { display: grid; gap: 2px; min-width: 140px } .fader span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute) }
+.fader output { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums }
+.fader input { width: 150px; accent-color: var(--amber) }
+.seg { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; overflow: hidden }
+.seg button { border: 0; background: transparent; padding: 7px 10px; font-size: 13px; font-weight: 600 } .seg button + button { border-left: 1px solid var(--line) }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); display: block; margin-bottom: 3px }
+.scopes { display: flex; gap: 10px; flex: 1 1 300px; min-width: 0 }
+.wrap > * { min-width: 0 }
+.scopes canvas { flex: 1 1 0; width: 0; min-width: 0; height: 54px; background: var(--panel); border-radius: 3px }
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)) }
+.ex { text-align: left; display: grid; gap: 3px; align-content: start; background: var(--face); border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px }
+.ex b { font-size: 16px; font-weight: 700; font-stretch: 85% } .ex span { font-size: 12.5px; color: var(--mute); font-stretch: 100%; line-height: 1.35 }
+.ex[aria-pressed="true"] { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber) }
+.ex i { font-style: normal; font-size: 11px; color: var(--amber); letter-spacing: .1em; text-transform: uppercase }
+.box { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px }
+.boxhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 8px }
+.legend { font-size: 12px; color: var(--mute); font-stretch: 100% }
+#roll { width: 100%; height: 92px; display: block; background: var(--panel); border-radius: 3px }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
+.ghost[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+/* the keyboard, its wheels beside it */
+.play { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: stretch }
+.wheels { display: flex; gap: 12px; align-items: stretch }
+.wheel { display: grid; justify-items: center; gap: 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute) }
+.wheel input { writing-mode: vertical-lr; direction: rtl; height: 120px; width: 28px; accent-color: var(--amber) }
+.kbwrap { overflow-x: auto; min-width: 0 }
+#kb { position: relative; height: 150px; min-width: 520px; touch-action: none; user-select: none; -webkit-user-select: none }
+.key { position: absolute; top: 0; border: 1px solid var(--line); border-radius: 0 0 5px 5px; background: var(--key); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+  font: 600 10px var(--mono); color: #6b6b6b }
+.key.b { background: var(--keyb); height: 62%; z-index: 2; border-color: var(--keyb); color: #8c8c8c }
+.key.w { height: 100% }
+.key[data-on] { background: var(--glow); color: var(--amber-ink) }
+.kbtools { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px }
+#octOut { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 6ch; text-align: center }
+/* the modules */
+.mods { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) }
+.mod { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; align-content: start; min-width: 0 }
+.mod h3 { margin: 0; color: var(--ink) } .mod h3 small { font-weight: 500; color: var(--mute); letter-spacing: .04em; text-transform: none; font-size: 11.5px }
+.mod canvas { width: 100%; height: 70px; background: var(--panel); border-radius: 3px; display: block }
+.ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12.5px } .ctl > span { color: var(--mute); letter-spacing: .03em }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--amber) } .ctl output { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums }
+.ctl .seg, .ctl select { grid-column: 1 / -1 } .ctl .seg { flex-wrap: nowrap } .ctl .seg button { flex: 1 1 auto; padding: 6px 4px; font-size: 12px; white-space: nowrap; min-width: 0 } .ctl select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px; font-size: 13px }
+.ctl[data-changed] > span { color: var(--amber) }
+.patch { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center }
+#saveName { font: 14px system-ui, sans-serif; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; width: 180px }
+.chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; font-size: 12.5px }
+.chip button { border: 0; background: transparent; padding: 4px 10px } .chip button + button { padding: 4px 8px; color: var(--mute); border-left: 1px solid var(--line) }
+#saved { display: flex; flex-wrap: wrap; gap: 6px }
+.notes { display: grid; gap: 8px } textarea { font: 14px/1.45 system-ui, sans-serif; background: var(--face); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 10px; min-height: 84px; resize: vertical }
+.notes div { display: flex; gap: 12px; align-items: center } #copied, #sayPatch { font-size: 13px; color: var(--mute) }
+@media (max-width: 640px) { .play { grid-template-columns: 1fr } .wheels { justify-content: flex-start } .wheel input { writing-mode: horizontal-tb; direction: ltr; height: auto; width: 140px } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Analog Synth Lab <small>· live</small></h1>
+    <p>A synthesizer built from the ground up the way analog circuits behave, computed sample by sample as it plays. Pick an example and press Play (or Space), play the keys (A to ; on your keyboard, Z and X for octaves), and turn anything while it sounds.</p>
+  </header>
+
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <label class="fader"><span>Tempo</span><output id="bpmOut">120</output><input id="bpm" type="range" min="60" max="170" step="1" value="120"></label>
+    <div><span class="lbl">Drums under it</span><div class="seg" role="group" aria-label="Drums under it" id="drums"></div></div>
+    <div class="scopes"><canvas id="scope" aria-label="The waveform"></canvas><canvas id="spec" aria-label="The spectrum"></canvas></div>
+  </div>
+
+  <section><h2>Examples · a patch and a phrase written for it</h2><div id="exs" class="cards"></div></section>
+
+  <section class="box">
+    <div class="boxhead"><h2 style="margin:0">Phrase · <span id="exName"></span></h2><span class="legend" id="exWords"></span></div>
+    <canvas id="roll" aria-label="The phrase's notes"></canvas>
+  </section>
+
+  <section class="box">
+    <div class="play">
+      <div class="wheels">
+        <label class="wheel">Bend<input id="bend" type="range" min="-1" max="1" step=".01" value="0"></label>
+        <label class="wheel">Mod<input id="wheel" type="range" min="0" max="1" step=".01" value="0"></label>
+      </div>
+      <div class="kbwrap"><div id="kb" role="group" aria-label="Keyboard"></div></div>
+    </div>
+    <div class="kbtools">
+      <div class="seg" role="group" aria-label="Octave"><button id="octDn" aria-label="Octave down">−</button><button id="octOut" disabled></button><button id="octUp" aria-label="Octave up">+</button></div>
+      <button id="hold" class="ghost" aria-pressed="false">Hold</button>
+      <button id="panic" class="ghost">All notes off</button>
+      <span class="legend">Keys: A W S E D F T G Y H U J K O L P ; · Z X octave · the mod wheel adds vibrato</span>
+    </div>
+  </section>
+
+  <section><h2>The synth · signal flows left to right</h2><div id="mods" class="mods"></div></section>
+
+  <section class="box">
+    <div class="boxhead"><h2 style="margin:0">Your patch</h2><span id="sayPatch"></span></div>
+    <div class="patch">
+      <input id="saveName" placeholder="Name this sound" aria-label="Name this sound"><button id="save" class="ghost">Save</button>
+      <button id="reset" class="ghost">Back to the example</button><button id="init" class="ghost">Start from scratch</button><button id="surprise" class="ghost">Surprise me</button>
+    </div>
+    <div id="saved" style="margin-top:10px"></div>
+  </section>
+
+  <section class="notes">
+    <h2>Notes for Claude</h2>
+    <textarea id="notes" placeholder="What sounds right or wrong: the filter's resonance is too thin, the pad needs more movement, the bass clicks…"></textarea>
+    <div><button id="copy" class="ghost">Copy notes and settings</button><span id="copied" role="status"></span></div>
+  </section>
+</div>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

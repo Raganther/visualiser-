@@ -1,5 +1,5 @@
 // Journey: listening to the music, detecting sections and recognising ones that return.
-import { S } from '../state.js';
+import { S, viewAsp } from '../state.js';
 import { LIN } from '../audio/analysis.js';
 import { shocks } from '../fx/effects.js';
 import { ELEMS, FEATS, FWEIGHT, HITS, J } from './core.js';
@@ -12,6 +12,8 @@ import { sstep } from '../util.js';
 import { TUNE } from '../tuning.js';
 import { G } from '../audio/beatgrid.js';
 import { L } from '../audio/listen.js';
+import { genEnter } from '../scene/genome.js';
+
 
 // (over six: the fingerprint's first six features set the scale; the listening's hats and noise add to it rather than
 // thinning the others out, which made every section change harder)
@@ -53,7 +55,8 @@ export function matchType(F){
   for (const t of J.types) { const d = fdist(F, t.F); if (d < bd) { bd = d; best = t; } }
   return bd < TUNE.sameType*(1 - .4*stillness()) ? best : newType(F);
 }
-export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; chooseWorld(); J.recast = true; resetProgress(); updateSectionUI(); } }
+export function enterType(t){ if (J.type !== t) { t.visits++; J.type = t; genEnter(t); if (!J.adopt) chooseWorld(); J.recast = true;   // (its genome first, scene/genome.js; a look just handed back keeps its world)
+    resetProgress(); updateSectionUI(); } }
 // 0 when the music has just changed, rising to 1 after about two minutes of sameness
 export function stillness(){ return sstep(TUNE.stillFrom, TUNE.stillTo, J.stillT || 0); }
 export function resetProgress(){ J.stillT = 0; J.progBeats = 0; J.progT = 0; J.progStep = 0; }
@@ -65,7 +68,7 @@ export function newSection(strength){
   pickStyle(strength);
   // a flourish on the bar line to mark the change
   if (eff.shock > .2) {
-    const asp = innerWidth/innerHeight, n = 2 + Math.round(Math.min(1, strength)*3);
+    const asp = viewAsp(), n = 2 + Math.round(Math.min(1, strength)*3);
     for (let i = 0; i < n; i++) { const sh = shocks[S.shockN++ % 8];
       sh.x = (Math.random() - .5)*asp*.7; sh.y = (Math.random() - .5)*.7; sh.r = .01 + i*.04; sh.s = .9; }
   } else { S.beat = Math.max(S.beat, 1); J.zoomFlip = Math.random() < .5 ? -.03 : .03; S.hueKick += .1; }

@@ -10,7 +10,7 @@ import { TUNE } from '../tuning.js';
 
 // ready: the scan is done; drops: [{t (seconds into the track), brk (when its breakdown began), depth (dB the bass fell)}];
 // map: the beat map (below), or null when the track has no steady beat to map (a band playing freely, a beatless piece)
-export const F = {ready: false, drops: [], brks: [], map: null, dur: 0, id: 0};
+export const F = {ready: false, drops: [], brks: [], map: null, dur: 0, id: 0, rate: 1};   // rate: how fast the track plays (a DJ deck's tempo)
 const HOP = .01;
 // a two-pole low-pass (Butterworth), as a function that filters a sample at a time
 function lowpass(fc, sr){
@@ -162,11 +162,17 @@ export function beatMap(E, drops = [], dur = E.eL.length*E.dt){
 // read a decoded track (an AudioBuffer); a newer track starts a new read and this one gives up
 export async function foresee(buffer){
   const id = ++F.id; F.ready = false; F.drops = []; F.brks = []; F.map = null; F.dur = buffer ? buffer.duration : 0;
-  if (!buffer || !TUNE.foresee.on) return F;
-  const chans = Array.from({length: Math.min(2, buffer.numberOfChannels)}, (_, c) => buffer.getChannelData(c));
-  const E = await envelopes(chans, buffer.sampleRate, () => id === F.id);
-  if (!E) return F;
-  const D = findDrops(E.db);
-  Object.assign(F, D, {map: TUNE.foresee.map.on ? beatMap(E, D.drops, buffer.duration) : null, ready: true});
+  const r = await readAhead(buffer, () => id === F.id);
+  if (r) Object.assign(F, r);
   return F;
+}
+// the same reading for a track that isn't the one playing (a DJ deck's: audio/dj.js), into its own result, leaving F alone;
+// null when there's nothing to read or it was given up (alive() false)
+export async function readAhead(buffer, alive = () => true){
+  if (!buffer || !TUNE.foresee.on) return null;
+  const chans = Array.from({length: Math.min(2, buffer.numberOfChannels)}, (_, c) => buffer.getChannelData(c));
+  const E = await envelopes(chans, buffer.sampleRate, alive);
+  if (!E) return null;
+  const D = findDrops(E.db);
+  return {...D, map: TUNE.foresee.map.on ? beatMap(E, D.drops, buffer.duration) : null, dur: buffer.duration, ready: true};
 }

@@ -1,4 +1,5 @@
 // Sparkles: small four-point glints that pop at random spots on the stabs.
+import { viewAsp } from '../../state.js';
 import { hc } from '../../util.js';
 
 const SPARKS = Array.from({length:6}, () => ({x:0, y:0, s:.05, age:9}));
@@ -9,7 +10,7 @@ export default {
   // bright and stabby
   suits: (rf, wOn, seed) => rf.busy*.5 + rf.bright*.5 - rf.low*.2 + seed + (wOn ? .1 : 0),
   fire(){
-    const asp = innerWidth/innerHeight, n = 2 + Math.floor(Math.random()*3);
+    const asp = viewAsp(), n = 2 + Math.floor(Math.random()*3);
     for (let i = 0; i < n; i++) { const sp = SPARKS[sparkN++ % 6];
       sp.x = (Math.random() - .5)*asp*.85; sp.y = (Math.random() - .5)*.8; sp.s = .04 + Math.random()*.05; sp.age = 0; }
   },

@@ -5,7 +5,7 @@ description: Read the user's 👍 / 👎 moments from the published Afterglow pa
 
 # Review the user's taste
 
-Each 👍 / 👎 on the published page (https://claude.ai/artifact/RVGKQgxeH9VnoQBLXorKYJ) saves a moment to the Artifact's database, collection `moments`. Presses in a local copy stay in that browser's `localStorage` (`afterglow.moments`), out of reach.
+Each 👍 / 👎 on the published page (https://claude.ai/artifact/YCnFduvQuf4cNJRuyKp7e5) saves a moment to the Artifact's database, collection `moments`. Presses in a local copy stay in that browser's `localStorage` (`afterglow.moments`), out of reach.
 
 Each moment holds:
 - `v`: 1 for a like, −1 for a dislike; `at` and `track`/`pos` for when;

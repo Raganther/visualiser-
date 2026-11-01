@@ -12,6 +12,7 @@ import { L, listenBar } from './listen.js';
 import { danceBeat } from '../scene/dance.js';
 import { STEER } from '../journey/steer.js';
 import { F } from './foresee.js';
+import { gearPhrase } from '../journey/gear.js';
 
 export function onBeatFX(){
   J.kr += .5;
@@ -20,16 +21,23 @@ export function onBeatFX(){
 // one beat of the bar (pos 0 is the downbeat), from the beat grid, or from the kicks until the grid locks
 function gridBeat(pos){
   J.beats++; J.pos = pos;
-  if (pos % PACE.div === 0) firePulse(G.map ? TUNE.foresee.map.softPulse + (1 - TUNE.foresee.map.softPulse)*G.kick : 1);   // (read ahead: as hard as the kick there is)
+  // the groove: how much kick there is now. A kick lifts it at once; each beat without one it falls away, so a breakdown,
+  // an ambient stretch or a slow song without drums floats instead of pulsing on (the clock still keeps the bars)
+  const k = G.map ? G.kick : !G.locked || G.lastT - G.onAt < 1.6*G.period ? 1 : 0;   // (live: a kick on the grid in the last beat or so)
+  J.groove = k >= J.groove ? k : J.groove + (k - J.groove)*TUNE.grid.groove.fall;
+  if (pos % PACE.div === 0) {   // read ahead, as hard as the kick there is (a soft pulse for a missed one, while the groove lasts)
+    const sp = TUNE.foresee.map.softPulse*J.groove, amt = G.map ? sp + (1 - sp)*G.kick : J.groove;
+    if (amt > .02) firePulse(amt);
+  }
   for (const v of VISUALS) if (v.onBeat) v.onBeat(pos, J.beats);   // visuals that move with the beat (moons, city windows)
   danceBeat(pos, J);   // the dancers: a kick, and on the downbeat perhaps a new move (scene/dance.js)
   const down = pos === 0;
   if (down) { J.bar++; listenBar(); }   // the bar's summary, compared with the bars before (audio/listen.js)
   const barIn = J.bar - J.phraseAnchor, phrase = down && barIn % 4 === 0;
-  if (down) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
+  if (down && J.groove > TUNE.grid.groove.hits) for (const h of HIT_VISUALS) if (h.trigger === 'downbeat' && eff[h.key] > .02) h.fire({J, ty: J.on ? J.type || OPENING : OPENING});
   if (!J.on) return;
   if (down) J.cutNow = true;                             // held switches land on the bar line
-  if (phrase) J.phraseNow = true;
+  if (phrase) { J.phraseNow = true; gearPhrase(); }   // (and perhaps a new speed gear: journey/gear.js)
   if (J.pending && down && !J.foreHold) newSection(J.pendStrength);   // (a known drop is near: it brings the change)
   if (down && J.accTrig === 'bar') J.accEnv = 1;
   if (phrase && J.accTrig === 'peak' && J.fS.lvl > .55) J.accEnv = 1;   // start of each loud phrase
@@ -100,7 +108,7 @@ export function gridKick(t){
   // (and only when the low end has a clear pulse, once there's enough heard to say: a slow song's drums otherwise lock a
   // false dance tempo)
   if (G.fit >= 3 && (envN < 240 || G.acConf > TUNE.grid.acLock)) {
-    G.locked = true; G.conf = .5; G.miss = 0; G.next = t;
+    G.locked = true; G.conf = .5; G.miss = 0; G.next = t; G.onAt = t;
     G.n = J.upos; G.down = 0;                            // carry on counting from where the kicks had got to
     G.bb.fill(0); G.mid.fill(0); G.ev = 0; G.candN = 0; G.win = null;
   }
@@ -111,10 +119,10 @@ export function gridKick(t){
 function mapFrame(t){
   const M = F.map, x = M && F.at ? F.at() : null;
   if (x == null) { if (G.map) { G.map = false; G.locked = false; G.fit = 0; } return false; }
-  const B = M.beats, fresh = !G.map || Math.abs((x - G.mapX) - (t - G.mapT)) > .25;   // starting, or a seek: no burst of beats
+  const B = M.beats, fresh = !G.map || G.mapOf !== M || Math.abs((x - G.mapX) - (t - G.mapT)) > .25;   // starting, a seek, or another map (its beats counted afresh): no burst of beats
   if (fresh) {
     let lo = 0, hi = B.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (B[mid] <= x + .008) lo = mid + 1; else hi = mid; }
-    G.mi = lo; G.map = true; G.locked = true;
+    G.mi = lo; G.map = true; G.locked = true; G.mapOf = M;
     const bar = Math.floor((lo - M.down)/4);   // the bars counted as the map counts them, and phrases on its phrase lines
     J.bar = bar; J.mapPhrase = M.phrase; J.phraseAnchor = bar - (((bar - M.phrase) % 4) + 4) % 4;
   }
@@ -126,7 +134,8 @@ function mapFrame(t){
     gridBeat(pos);
   }
   const i = Math.min(B.length - 1, G.mi);
-  G.period = i > 0 ? B[i] - B[i - 1] : M.period; G.next = t + (B[i] - x); G.conf = 1; G.down = 0; G.dsure = M.dsure; G.ev = 99;
+  const r = F.rate || 1;   // (a DJ deck sped up or slowed down: its beats come that much sooner or later)
+  G.period = (i > 0 ? B[i] - B[i - 1] : M.period)/r; G.next = t + (B[i] - x)/r; G.conf = 1; G.down = 0; G.dsure = M.dsure; G.ev = 99;
   S.beatPeriod = G.period;
   return true;
 }

@@ -1,0 +1,122 @@
+<title>Studio Live</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a channel strip per track, stacked like a mixing desk's rows: head (name, instrument, loop length), the step grid
+   (a piano roll for the tuned tracks), then the sound (the instrument's physics beside the channel). The same family as the
+   Listening Room and the Loop Lab, in its own colours: copper for what plays, verdigris for accents. */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#1a2029; --mute:#5c6573; --line:#d4d8df; --well:#e2e5ea;
+  --on:#b8642a; --on-soft:#f3e0d2; --acc:#2f7d74; --now:#1a2029;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2a323f; --well:#1f2631; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --now:#e6e9ef; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141a; --panel:#171d26; --ink:#e6e9ef; --mute:#97a0af; --line:#2a323f; --well:#1f2631; --on:#e08a4c; --on-soft:#3a2617; --acc:#5cc2b4; --now:#e6e9ef; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:20px 56px}
+.wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+h1,h2,h3{font-family:var(--display); font-weight:700; margin:0; letter-spacing:-.01em; text-wrap:balance}
+h1{font-size:clamp(28px, 5vw, 38px); line-height:1.05}
+h2{font-size:18px}
+h3{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute); margin-bottom:8px}
+.label,.lab{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+.muted{color:var(--mute)}
+p{margin:0; max-width:68ch}
+button,select,input,textarea{font:inherit; color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+header{display:flex; flex-direction:column; gap:6px}
+/* the transport */
+.transport{position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top, 0px); z-index:10; background:var(--bg)}
+#play{min-width:96px; height:46px; border:0; border-radius:23px; background:var(--on); color:#fff; font-weight:600; font-size:16px}
+#play[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+.tk{display:flex; align-items:center; gap:8px}
+.tk input{width:120px}
+.tk output{font:500 13px var(--mono); font-variant-numeric:tabular-nums; min-width:44px}
+#busy{font:12px var(--mono); color:var(--mute)}
+#busy[data-on="1"]{color:var(--on)}
+.spacer{flex:1}
+.ghost{border:1px solid var(--line); background:transparent; border-radius:6px; padding:7px 12px; font-size:14px}
+/* a track */
+.track{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.head{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px}
+.head h2{min-width:56px}
+.head select{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:5px 8px; max-width:100%}
+.lenbox{display:flex; align-items:center; gap:4px}
+.lenbox .lab{margin-right:4px}
+.len{font:500 14px var(--mono); min-width:22px; text-align:center; font-variant-numeric:tabular-nums}
+.mini{border:1px solid var(--line); background:transparent; border-radius:5px; min-width:28px; height:28px; padding:0 8px; font:500 14px var(--mono)}
+.mute[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+/* the grid: 16 steps; a tuned track is a small piano roll with its notes down the side */
+.grid{display:grid; grid-template-columns:repeat(16, minmax(0, 1fr)); gap:3px; overflow-x:auto}
+.grid.roll{grid-template-columns:34px repeat(16, minmax(0, 1fr))}
+.note{font:11px/1 var(--mono); color:var(--mute); align-self:center; text-align:right; padding-right:4px}
+.cell{height:26px; min-width:14px; border:0; border-radius:4px; background:var(--well); padding:0}
+.roll .cell{height:20px}
+.cell[data-beat="1"]{box-shadow:inset 2px 0 0 var(--line)}
+.cell[data-v="1"]{background:var(--on)}
+.cell[data-v="2"]{background:var(--on); box-shadow:inset 0 0 0 3px var(--acc)}
+.cell[data-off="1"]{opacity:.28}
+.cell[data-now="1"]{outline:2px solid var(--now); outline-offset:-2px}
+.grid.chords{grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px}
+.chord{height:44px; border:1px solid var(--line); border-radius:6px; background:var(--on-soft); font:500 13px var(--mono); padding:0 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.chord[data-off="1"]{opacity:.35; cursor:default}
+.chord[data-now="1"]{outline:2px solid var(--now); outline-offset:-2px}
+/* the sound */
+details.sound summary{cursor:pointer; font:500 13px var(--mono); color:var(--acc); width:max-content}
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:14px 24px; margin-top:10px}
+@media (max-width:640px){.cols{grid-template-columns:1fr}}
+.knobs{display:flex; flex-direction:column; gap:6px}
+.knob{display:grid; grid-template-columns:96px minmax(0, 1fr) 64px; gap:8px; align-items:center; font-size:13px}
+.knob output{font:12px var(--mono); color:var(--mute); text-align:right; font-variant-numeric:tabular-nums}
+.knob input[type=range]{width:100%; accent-color:var(--on)}
+.knob select{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:3px 6px}
+/* keeping */
+.keepbox{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px}
+.keeprow{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 2fr) auto; gap:8px}
+@media (max-width:640px){.keeprow{grid-template-columns:1fr}}
+.keeprow input{border:1px solid var(--line); background:var(--bg); border-radius:6px; padding:8px 10px; min-width:0}
+#keep{border:0; border-radius:6px; background:var(--ink); color:var(--bg); padding:8px 16px; font-weight:600}
+#keep:disabled{opacity:.45; cursor:default}
+#kept{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+#kept li{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; font-size:13px}
+.recall{border:0; background:transparent; padding:0; font-weight:600; color:var(--acc); text-align:left}
+#status{font:12px var(--mono); color:var(--mute); min-height:1em}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="label">Studio · live</div>
+    <h1>Studio Live</h1>
+    <p class="muted">Every sound here is computed from its physics as you play: struck skins, bars, bells, plucked strings, FM and additive tones. Each track loops at its own length, so a 6-step tom against a 12-step bell makes a polyrhythm. Tap a step to add a note, again for an accent, again to clear. Open Sound to shape a track while it plays.</p>
+  </header>
+
+  <div class="transport" role="group" aria-label="Transport">
+    <button id="play" aria-pressed="false">Play</button>
+    <label class="tk"><span class="lab">Tempo</span><input id="bpm" type="range" min="100" max="140" step="1"><output id="bpmOut"></output></label>
+    <label class="tk"><span class="lab">Swing</span><input id="swing" type="range" min="0" max=".3" step=".01"><output id="swingOut"></output></label>
+    <label class="tk"><span class="lab">Pump</span><input id="pump" type="range" min="0" max=".9" step=".01"><output id="pumpOut"></output></label>
+    <span class="spacer"></span>
+    <span id="busy" aria-live="polite"></span>
+    <button class="ghost" id="reset">Start again</button>
+  </div>
+
+  <div id="tracks" class="wrap" style="max-width:none"></div>
+
+  <section class="keepbox" aria-label="Keep for Claude">
+    <h2>Keep for Claude</h2>
+    <p class="muted" id="saveNote">Keep a pattern you like, with a word on what you're after. Claude reads it and builds a whole track around it, rendered at full quality.</p>
+    <div class="keeprow">
+      <input id="name" placeholder="Name" aria-label="Name">
+      <input id="note" placeholder="What you like, where it should go…" aria-label="Note for Claude">
+      <button id="keep">Keep</button>
+    </div>
+    <div id="status" aria-live="polite"></div>
+    <ul id="kept"></ul>
+  </section>
+</div>
+<script id="worker-src" type="text/plain">/*WORKER*/</script>
+<script>/*APP*/</script>

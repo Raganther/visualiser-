@@ -11,6 +11,7 @@ import { S } from '../state.js';
 import { SIG } from './signals.js';
 import { TUNE } from '../tuning.js';
 import { L } from '../audio/listen.js';
+import { genN } from './genome.js';
 
 let seed = 0x9e3779b9;
 const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = seed; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0)/4294967296; };
@@ -53,12 +54,15 @@ const wrap = d => { for (const k of ['rot', 'yaw']) { const s = d.s[k], n = Math
 const dancer = () => ({move: 'still', bar: 0, sign: 1, n: 3, turn: 0, flip: 0, kick: 0, stab: 0, burst: 0,
   s: {rot: spring(), dx: spring(), dy: spring(), sc: spring(), yaw: spring(), pitch: spring(), roll: spring(), sq: spring(), lift: spring()}});
 const D = {};                                     // dancers by key
-export const DANCE = {layer: {}, obj: {}, comets: {shape: 'free', p: [0, 0, 0], amt: 0, n: 3}, flow: {mode: 'field', amt: 0}, energy: 0};
+export const DANCE = {layer: {}, obj: {}, comets: {shape: 'free', p: [0, 0, 0], amt: 0, n: 3}, flow: {mode: 'field', amt: 0}, energy: 0, near: 1};   // (near: how near the objects have come, a size: the objects coming to you)
 const F = {mode: 'field', move: 'field', amt: 0};
 const C = {shape: 'free', t: 0, amt: 0, from: 'free', k: 3, a: 3, b: 2, turn: 0, since: 0};
 let bar = 0, drops = -1, lastType = null, mood = {c: 1, i: 0, b: 0}, energy = 0;
 
 // the music's mood now: how calm, how intense, how much a breakdown
+// how steady the beat is (Journey's: the low end's pulse, eased): a song played freely (Us and Them) has none to dance to
+const clearOf = J => J && J.beatClear != null ? J.beatClear : 1;
+const BEATY = new Set(['bang', 'groove', 'pulse', 'face', 'spin', 'turns', 'push']);
 function moodNow(J){
   const T = Math.min(1, Math.max(0, SIG.tension || (J ? J.tension : .4))), brk = L.brk ? 1 : 0;
   return {c: (1 - T)*(1 - brk), i: T*(1 - brk), b: brk};
@@ -69,7 +73,8 @@ function choose(d, key, menu, J, character){
   const ty = J && J.type, mem = ty && (ty.dance || (ty.dance = {}));
   if (mem && mem[key] && rnd() < TUNE.dance.remember && mem[key] !== d.move) return mem[key];   // the section's own move comes back
   const w = {};
-  for (const k in menu) w[k] = score(menu[k], mood)*((character && character[k]) ?? 1)*(k === d.move ? .25 : 1);
+  const cl = Math.min(clearOf(J), J && J.grooveE != null ? J.grooveE : 1);   // (without a steady beat, or without the kick, the moves tied to it give way to the flowing ones)
+  for (const k in menu) w[k] = score(menu[k], mood)*((character && character[k]) ?? 1)*(k === d.move ? .25 : 1)*(BEATY.has(k) ? .05 + cl*cl : 1);
   const m = pick(w);
   if (mem && !mem[key]) mem[key] = m;
   return m;
@@ -77,7 +82,8 @@ function choose(d, key, menu, J, character){
 
 // ---- once a beat (from the beat grid): kicks, the bar, new moves on the downbeat ----
 export function danceBeat(pos, J){
-  for (const k in D) { D[k].kick = 1; if (pos === 1 || pos === 3) D[k].flip ^= 1; }
+  const gv = J && J.groove != null ? J.groove : 1;   // (as hard as the kick there is: none in a breakdown)
+  for (const k in D) { D[k].kick = gv; if (pos === 1 || pos === 3) D[k].flip ^= 1; }
   if (pos !== 0) return;
   bar++;
   if (drops < 0 && J) drops = J.drops;   // (the first beat heard isn't a drop)
@@ -86,9 +92,9 @@ export function danceBeat(pos, J){
   const phrase = bar % TUNE.dance.barsPerMove === 0, section = J && J.type !== lastType; lastType = J && J.type;
   for (const k in D) {
     const d = D[k];
-    d.turn += d.move === 'face' ? d.sign*TAU/(d.n || 4) : d.move === 'turns' ? d.sign*TAU/12 : 0;   // snap turns step round on the bar (a layer by a notch)
-    if (drop) { wrap(d); d.burst = 1; d.move = 'spin'; d.bar = bar; continue; }
-    if (phrase || section || d.move === 'still' && mood.b < .5) {
+    d.turn += d.move === 'face' ? d.sign*TAU/(genN(2, 12) || d.n || 4) : d.move === 'turns' ? d.sign*TAU/(genN(2, 12) || 12) : 0;   // snap turns step round on the bar (a layer by a notch; by the genome's symmetry while it's on)
+    if (drop && clearOf(J) > .5) { wrap(d); d.bar = bar; if (d.reach) d.move = 'reach'; else { d.burst = clearOf(J); d.move = 'spin'; } continue; }   // a reacher reaches out at us instead of spinning (no spin without a steady beat: a band swelling isn't a drop)
+    if ((phrase || section || d.move === 'still' && mood.b < .5) && !(d.move === 'reach' && bar - d.bar < 3)) {   // (a reach plays out)
       wrap(d);
       d.move = choose(d, k, k.startsWith('o:') ? OBJ_MOVES : LAYER_MOVES, J, d.character); d.bar = bar;
       d.sign = rnd() < .5 ? -1 : 1;
@@ -103,6 +109,24 @@ export function danceBeat(pos, J){
   }
 }
 
+// ---- the objects coming to you (S.explore.near, TUNE.dance.near): how near they are, as a size against the usual. They
+// hang back when calm or in a breakdown, draw in as the music builds and through a run-up to a drop we saw coming, fill the
+// screen on the drop and ease back over a few bars, and at full tension come slowly towards you and back
+let nearV = 1, nearDrop = null, nearAt = -1e9;
+function near(dt, J){
+  const N = TUNE.dance.near, bp = S.beatPeriod > .2 ? S.beatPeriod : .5;
+  if (!S.explore.near || !J) { nearV += (1 - nearV)*Math.min(1, dt*N.ease); DANCE.near = nearV; return; }
+  if (nearDrop !== null && J.lastDrop !== nearDrop) nearAt = performance.now(); nearDrop = J.lastDrop ?? null;
+  const T = SIG.tension || 0, since = (performance.now() - nearAt)/1000/(4*bp), calm = L.brk ? 1 : Math.max(0, 1 - (J.grooveE ?? 1));
+  let want = N.calm + (N.full - N.calm)*T;
+  want += (N.wave*T*T)*Math.max(0, Math.sin(Math.PI*2*(bar + (SIG.barPhase || 0))/N.waveBars));   // the slow approach and back
+  want = want*(1 - calm) + N.calm*calm;
+  if (J.anticip > 0) want = Math.max(want, N.calm + (N.runUp - N.calm)*J.anticip*J.anticip);   // the run-up: drawn in
+  if (since < N.holdBars) want = N.drop; else if (since < N.holdBars + N.backBars) want = Math.max(want, N.drop + (want - N.drop)*(since - N.holdBars)/N.backBars);   // the drop: engulfing, then back
+  nearV += (want - nearV)*Math.min(1, dt*N.ease*(since < .25 ? 4 : 1));   // (it surges in on the drop)
+  DANCE.near = nearV;
+}
+
 // ---- every frame: each dancer's pose from its move, through its springs ----
 // on: the keys drawing now (layers by key, objects as 'o:'+key); chars: each object's character (move weights, symmetry)
 export function stepDance(dt, x, layers, objects, chars){
@@ -112,58 +136,63 @@ export function stepDance(dt, x, layers, objects, chars){
   const want = new Set([...layers, ...objects.map(k => 'o:' + k)]);
   for (const k of want) if (!D[k]) { D[k] = dancer(); D[k].move = choose(D[k], k, k.startsWith('o:') ? OBJ_MOVES : LAYER_MOVES, J, null); }
   for (const k in D) if (!want.has(k)) delete D[k];
+  near(dt, J);
   let i = 0;
   for (const k of layers) {
     const d = D[k], t = (bar - d.bar + bp), s = d.s, g = d.sign, a = T.layer, lead = i++ % 2 ? -1 : 1;   // the second layer answers the first
     d.kick *= Math.exp(-dt*6); d.burst *= Math.exp(-dt*1.2);
-    let rot = 0, dx = 0, dy = 0, sc = 1;   // (no offsets: every layer move keeps its centre)
+    let rot = 0, dx = 0, dy = 0, sc = 1, hit = 0;   // (no offsets: every layer move keeps its centre; hit: the kick's, past the springs)
     switch (d.move) {
       case 'rock': rot = g*lead*a.rock*Math.sin(t*Math.PI*.25)*big; break;                     // turning slowly one way and back, over four bars
       case 'turns': rot = d.turn; break;                                                       // a notch on each bar
       case 'breathe': sc = 1 + a.breathe*Math.sin(t*Math.PI*.25); break;
       case 'spin': rot = g*lead*t*a.spin; break;                                               // turning steadily (the second layer the other way)
       case 'push': sc = 1 + a.push*Math.min(1, t/4)*big; break;                                // growing through a build
-      case 'pulse': sc = 1 + a.pulse*d.kick*big; break;                                        // swelling on the kick
+      case 'pulse': hit = a.pulse*d.kick*big; break;                                           // swelling on the kick
       case 'bloom': sc = 1 + a.bloom*((t/4) % 1); break;                                       // opening out over four bars, then again
     }
     rot += d.burst*g*TAU*.25; sc += d.burst*.25;
     const k2 = T.stiff;
     DANCE.layer[k] = {rot: springTo(s.rot, rot*amt, dt, k2), dx: springTo(s.dx, dx*amt, dt, k2), dy: springTo(s.dy, dy*amt, dt, k2),
-      s: springTo(s.sc, 1 + (sc - 1)*amt, dt, k2*1.6)};
+      s: springTo(s.sc, 1 + (sc - 1)*amt, dt, k2*1.6) + hit*amt};   // (the kick lands on the beat: through the springs it peaked ~300 ms late)
   }
   for (const k in DANCE.layer) if (!D[k]) delete DANCE.layer[k];
   for (const key of objects) {
     const k = 'o:' + key, d = D[k], ch = chars[key] || {};
-    d.character = ch.moves; d.n = ch.sym || 4;
+    d.character = ch.moves; d.n = ch.sym || 4; d.reach = ch.reach;
     const t = (bar - d.bar + bp), s = d.s, g = d.sign, a = T.obj;
     d.kick *= Math.exp(-dt*7); d.burst *= Math.exp(-dt*1.2);
     if ((SIG.stab || 0) > .8) d.stab = 1; d.stab *= Math.exp(-dt*5);
-    let yaw = 0, pitch = 0, roll = 0, dx = 0, dy = 0, sz = 1, sq = 0, lift = 0;   // (centred: nothing steps sideways or rolls)
+    let yaw = 0, pitch = 0, roll = 0, dx = 0, dy = 0, sz = 1, sq = 0, lift = 0, hp = 0, hy = 0, hq = 0, hs = 0;   // (centred: nothing steps sideways or rolls; h…: the kick's, past the springs)
     const arc = f => Math.sin(Math.min(1, Math.max(0, f))*Math.PI);                        // out and back, once
     switch (d.move) {
-      case 'bang': pitch = a.bang*d.kick*big; break;                                         // a nod on the kick
-      case 'groove': dy = a.bounce*(d.kick - .3)*big; sq = a.squash*d.kick*big; break;       // a bounce with squash and stretch
+      case 'bang': hp = a.bang*d.kick*big; break;                                            // a nod on the kick
+      case 'groove': dy = -.3*a.bounce*big; hy = a.bounce*d.kick*big; hq = a.squash*d.kick*big; break;   // a bounce with squash and stretch
       case 'face': yaw = d.turn; break;                                                      // snap turns round its own symmetry
       case 'look': yaw = a.look*Math.sin(t*Math.PI*.5)*big; break;                           // turning to one side and the other, evenly
-      case 'pulse': sz = 1 + a.pulse*Math.max(d.kick*.6, d.stab)*big; break;                 // swelling on the kick and stabs
+      case 'pulse': hs = a.pulse*Math.max(d.kick*.6, d.stab)*big; break;                    // swelling on the kick and stabs
       case 'float': dy = a.float*Math.sin(t*Math.PI*.25); break;                             // rising and sinking slowly
       case 'spin': yaw = g*TAU*Math.min(1, t/4)**2*(3 - 2*Math.min(1, t/4)); break;          // one full turn over four bars, ending face on
       case 'lift': lift = arc(t/2)*big; break;
       case 'approach': sz = 1 + (ch.approach ?? a.approach)*arc(t/8); break;                 // coming slowly towards us over eight bars, and back
       case 'rise': pitch = -(ch.rise ?? a.rise)*arc(t/8); sz = 1 + .1*arc(t/8); break;       // tipping back to show its underside, and down again
+      case 'reach': { const e = Math.min(1, t/a.reachIn)*Math.max(0, Math.min(1, 1 - (t - a.reachHold)/a.reachOut));   // (a drop) lunging at us, holding, easing back
+        yaw = 0; pitch = a.reachTip*e*e*(3 - 2*e); sz = 1 + (ch.reachSize ?? a.reach)*e*e*(3 - 2*e); break; }   // face on, tipping its top towards us, coming close
     }
     yaw += d.burst*g*TAU; sz += d.burst*.15;
     const k2 = T.stiff*T.objStiff;
-    DANCE.obj[key] = {yaw: springTo(s.yaw, yaw*amt, dt, k2*.7), pitch: springTo(s.pitch, pitch*amt, dt, k2*2), roll: springTo(s.roll, roll*amt, dt, k2),
-      dx: springTo(s.dx, dx*amt, dt, k2), dy: springTo(s.dy, dy*amt, dt, k2*2), s: springTo(s.sc, 1 + (sz - 1)*amt, dt, k2*2),
-      sq: springTo(s.sq, sq*amt, dt, k2*2.5), lift: springTo(s.lift, lift*amt, dt, k2), part: ch.liftPart || 1};
+    // the poses ease in on springs; the kick's hits go straight on, so they land on the beat (through the springs they peaked ~300 ms late)
+    DANCE.obj[key] = {yaw: springTo(s.yaw, yaw*amt, dt, k2*.7), pitch: springTo(s.pitch, pitch*amt, dt, k2*2) + hp*amt, roll: springTo(s.roll, roll*amt, dt, k2),
+      dx: springTo(s.dx, dx*amt, dt, k2), dy: springTo(s.dy, dy*amt, dt, k2*2) + hy*amt, s: (springTo(s.sc, 1 + (sz - 1)*amt, dt, k2*2) + hs*amt)*DANCE.near,
+      sq: springTo(s.sq, sq*amt, dt, k2*2.5) + hq*amt, lift: springTo(s.lift, lift*amt, dt, k2), part: ch.liftPart || 1};
   }
   for (const k in DANCE.obj) if (!D['o:' + k]) delete DANCE.obj[k];
   // the comets' shape, easing in over a bar or two
   // in step with the bar: half a shape a bar, a little faster as the energy rises, so the three together draw it whole
   C.since += dt; C.amt = Math.min(1, C.since/T.shapeIn); C.t += dt*TAU*T.cometTurns/(4*Math.max(.25, S.beatPeriod || .5))*(1 + energy*.4);
   F.amt = Math.min(1, F.amt + dt/T.flowIn); DANCE.flow = {mode: F.mode, amt: F.amt*Math.min(1, amt)};
-  DANCE.comets = {shape: C.shape, amt: C.shape === 'free' ? 0 : C.amt*amt, t: C.t, k: C.k, a: C.a, b: C.b, kick, beat};
+  const g = genN(3, 12);   // (the genome's symmetry: a rose of its n petals, a star of its n points)
+  DANCE.comets = {shape: C.shape, amt: C.shape === 'free' ? 0 : C.amt*amt, t: C.t, k: g ? (g % 2 ? g : g/2) : C.k, m: g && g >= 5 ? g : g ? g*2 : 0, a: C.a, b: C.b, kick, beat};
 }
 
 // where comet i of n should be on the current shape (in the picture's units round centre c), or null to roam freely
@@ -181,7 +210,7 @@ function shapePoint(shape, i, n, c, R, S){
   switch (shape) {
     case 'rose': { const a = t*.4 + ph/S.k; const rr = r*Math.cos(S.k*a); return [c[0] + rr*Math.cos(a), c[1] + rr*Math.sin(a)]; }   // a flower of k petals
     case 'lissa': { const a = t*.8 + ph; return [c[0] + r*1.3*Math.sin(S.a*a + Math.PI/2), c[1] + r*Math.sin(S.b*a)]; }       // a Lissajous knot
-    case 'star': { const m = 5 + (S.k % 3)*2, q = Math.floor(m/2), f = (t*.15 + i/n)*m % m, k0 = Math.floor(f), u = f - k0;   // a star polygon {m/q}
+    case 'star': { const m = S.m || 5 + (S.k % 3)*2, q = m % 2 ? Math.floor(m/2) : m/2 - 1, f = (t*.15 + i/n)*m % m, k0 = Math.floor(f), u = f - k0;   // a star polygon {m/q}
       const p = j => [Math.cos(j*q*TAU/m + Math.PI/2), Math.sin(j*q*TAU/m + Math.PI/2)], A = p(k0), B = p(k0 + 1);
       return [c[0] + r*(A[0] + (B[0] - A[0])*u), c[1] + r*(A[1] + (B[1] - A[1])*u)]; }
     case 'spiral': { const f = (t*.25 + i/n) % 1, rr = r*(.1 + 1.1*f); return [c[0] + rr*Math.cos(t*3 + ph + f*TAU*S.a*.5), c[1] + rr*Math.sin(t*3 + ph + f*TAU*S.a*.5)]; }

@@ -19,8 +19,15 @@
   <p>Plug in an Xbox controller to play the visuals like an instrument.</p>
   <label class="pick btn" for="fileIn" id="pickBtn" tabindex="0">Choose MP3 files</label>
   <button class="pick" id="tutBtn">New here? A tutorial (T)</button>
+  <button class="pick" id="combosBtn">Walk-throughs: combinations (Shift+T)</button>
 </div>
 <div id="tutorial" hidden role="dialog" aria-label="Tutorial" aria-live="polite"></div>
+<div id="cmtPick" hidden aria-label="Click the part of the picture the comment is about"></div>
+<div id="cmtMark" hidden aria-hidden="true"></div>
+<div id="cmtBox" hidden role="dialog" aria-label="Comment">
+  <textarea id="cmtText" rows="3" maxlength="1000" placeholder="What needs refining here? (Enter saves, Shift+Enter a new line, Esc cancels)" aria-label="Comment"></textarea>
+  <div class="tbtns"><button id="cmtCancel" type="button">Cancel</button><button id="cmtSave" type="button">Save comment</button></div>
+</div>
 
 <div id="toast"></div>
 <pre id="fps" hidden aria-live="off"></pre>
@@ -30,22 +37,24 @@
 <div id="keyHud" aria-live="polite"></div>
 <div id="keyHelp" hidden role="dialog" aria-label="Every key">
   <h2>Keys</h2>
+  <p><button id="helpCombos" class="pick">Walk-throughs: combinations, step by step (Shift+T)</button></p>
   <p><b>A</b> Journey on or off. Off freezes what's on screen; on carries on from it, moving on when the music does. Any change below while Journey runs freezes it first.</p>
   <p>Pick a group with its letter, then use its numbers. The strip at the bottom shows the group, with a dot on what's on.</p>
   <table>
-    <tr><td><b>L</b></td><td>Layers</td><td>1–9 toggle ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbits; Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations, M the unfolding mandala, X the fractal. ← → the last one's speed, Shift+← → its size, B what sound it follows</td></tr>
-    <tr><td><b>W</b></td><td>Worlds</td><td>1–9 landscape, space, aurora, city, cosmos, night sea, underwater, dunes, forest (one at a time; again to turn it off)</td></tr>
+    <tr><td><b>L</b></td><td>Layers</td><td>1–9 toggle ring, scope, plasma, burst, comets, flow, ribbons, horizon, orbits; Z lasers, U waveform lines, I fireflies, J stargate, V vectorscope, Y mandala, Q mood ring, D rain, G constellations, M the unfolding mandala, X the fractal, N guilloché, H string art, P spiral galaxy. ← → the last one's speed, Shift+← → its size, B what sound it follows</td></tr>
+    <tr><td><b>W</b></td><td>Worlds</td><td>1–9 landscape, space, aurora, city, cosmos, night sea, underwater, dunes, forest; H the Hollow, N the Cathedral, V the Vessel, G the Geode, D the Corridor (one at a time; again to turn it off)</td></tr>
     <tr><td><b>E</b></td><td>Hits</td><td>1–6 toggle star flash, outline zoom, shockwaves, sparkles, lightning, glitch</td></tr>
-    <tr><td><b>O</b></td><td>Objects</td><td>1–8 skull, unicorn, sphere, torus, knot, dodecahedron, star, manta (one at a time); Y style: glass wire, solid, outline, hologram, points</td></tr>
-    <tr><td><b>K</b></td><td>Kaleidoscope</td><td>2–9 mirrors of the picture; E everything, B the world, G the glow, I inside the object; M the kind: wedges, a mirror box (a hall of mirrors), a dive (zooming in through its folds) (while Journey runs: a number keeps that many, 0 never)</td></tr>
+    <tr><td><b>O</b></td><td>Objects</td><td>1–9 skull, unicorn, sphere, torus, knot, dodecahedron, star, manta, lotus; J jellyfish, Q crystal, G goblin, U the lit goblin, I tentacle, H hand, B heart, P the Prism, R the gem orbit, X the full Prism, F ferrofluid, D liquid metal, V soap bubble, N living cell, A brain coral, Z growing crystals (one at a time); C objects through the 3D worlds or kept in the centre; Y style: glass wire, solid, outline, hologram, points, shaded; M the lit objects' look: real, toon, neon, chrome, marble</td></tr>
+    <tr><td><b>K</b></td><td>Kaleidoscope</td><td>2–9 mirrors of the picture; E everything, B the world, G the glow, I inside the object; P the Prism's own kaleidoscope (auto, off, skin, mirrors, tunnel); D the morphing objects wander under it (on or off); M the kind: wedges, a mirror box (a hall of mirrors), a dive (zooming in through its folds), then the broken symmetries: pinwheel, ripple, inverted pairs, odd one out, imperfect mirrors, colour wedges, tiles, hyperbolic, Droste spiral, curved mirrors, two centres (while Journey runs: a number keeps that many, 0 never)</td></tr>
+    <tr><td><b>G</b></td><td>Genome</td><td>(with Journey, outside the other groups) 3–9 its symmetry, ↑ ↓ more or fewer; M motif, T material, H colour, F what the kaleidoscope folds; N a new generation, ← the one before; 0 lets everything go; O on or off. What you set is held through new sections, as are the kaleidoscope's mirrors, kind and fold, an object's style or look, and a pinned piece's own traits; Journey casts towards it</td></tr>
     <tr><td><b>Shift+K</b></td><td>Glow folds</td><td>2–9 ghostly folds inside the trails, M mirror trails</td></tr>
     <tr><td><b>S</b></td><td>Scene</td><td>1 plain, 2 between, 3 split, 4 among, 5 held, 6 reflect, 7 inside, 8 window, 9 glass</td></tr>
     <tr><td><b>While Journey runs</b></td><td>Steering</td><td>in L, W, E, O or S a number keeps that thing (Journey builds round it), again never uses it, again frees it; 0 clears the group; <b>;</b> holds the look; <b>R</b> moves on; Shift+number takes over by hand</td></tr>
     <tr><td><b>C</b></td><td>Cosmos camera</td><td>1–7 shots, 8 black hole, 9 pulsar, 0 twin stars, S skim, U sunrise, J jump, G galaxy, B belt, K fold, W cage, L land, T take off (C or Esc leaves)</td></tr>
   </table>
   <p>In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> the last one more or less · <b>← →</b> its speed (<b>Shift</b>: its size; on the kaleidoscope: its turning) · <b>Esc</b> leaves (a few seconds untouched does too).</p>
-  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike (likes are in Adjust, under Liked)</p>
-  <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time</p>
+  <p><b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>'</b> movement speed (with the music, half, normal or double time; the pulse stays on the beat) · <b>R</b> randomize, or nudge Journey somewhere new · <b>+ −</b> like or dislike · <b>M</b> or 💬 comment on a part of the picture (it keeps the whole look and the point) (likes are in Adjust, under Liked)</p>
+  <p><b>Space</b> play or pause · <b>← →</b> presets · <b>N</b> next track · <b>Hold X</b> freeze the trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate · <b>Q</b> graphics: auto, best, balanced, fast, fastest (remembered) · <b>?</b> or <b>Esc</b> closes this · <b>T</b> the tutorial: one thing to try at a time · <b>Shift+T</b> walk-throughs: combinations, each from a clean slate</p>
 </div>
 <aside id="panel" aria-label="Adjust visuals">
   <section>
@@ -60,12 +69,21 @@
       <select id="jArc" aria-label="Set arc"><option value="0">Off</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="90">90 minutes</option><option value="120">2 hours</option></select></div>
     <div class="row"><label for="jSpeed">Evolution speed</label><output id="jSpeedOut">1.00×</output>
       <input type="range" id="jSpeed" min="0.25" max="3" step="0.05" value="1"></div>
+    <div class="row"><label for="jGear">Movement speed (<b>'</b>)</label><output id="jGearOut">Normal speed</output>
+      <select id="jGear" aria-label="Movement speed"><option value="-1">With the music (half, normal, double time)</option><option value="0">Half time</option><option value="1">Normal</option><option value="2">Double time</option></select></div>
+    <div class="row"><label for="jMove">Movement overall</label><output id="jMoveOut">1.00×</output>
+      <input type="range" id="jMove" min="0.3" max="1.5" step="0.05" value="1"></div>
     <div class="meter"><span>Energy</span><div><i id="jMeter"></i></div></div>
     <p class="note" id="jSection">Listening for sections</p>
     <p class="note" id="jGrid">Finding the beat</p>
     <p class="note" id="jHear"></p>
     <p class="note" id="jSteer"></p>
     <p class="note" id="jNote">Journey is steering the settings below; a dot marks what's on screen. Solo shows one thing alone; a preset, or A, turns Journey off to adjust them by hand.</p>
+  </section>
+  <section id="comments">
+    <h2>Comments</h2>
+    <p class="note" id="cmtNote"></p>
+    <ul id="cmtList" class="liked comments" aria-label="Comments, newest first"></ul>
   </section>
   <section id="liked">
     <h2>Liked</h2>
@@ -80,6 +98,11 @@
     <select id="scAdd" class="pick" aria-label="Add to the scene"></select>
     <p class="note" id="scNote"></p>
   </section>
+  <section id="morph">
+    <h2>Morphing objects</h2>
+    <p class="note">The ferrofluid, liquid metal, bubble, cell, coral and crystals (O then F, D, V, N, A, Z), and the Prism's own kaleidoscope: live, kept on this device. Copy settings to send them to Claude.</p>
+    <div id="morphTune"></div>
+  </section>
   <div id="sliders"></div>
   <h2>Response</h2>
   <div class="row"><label for="react">Reactivity</label><output id="reactOut">1.00</output>
@@ -87,7 +110,27 @@
   <div class="row"><label for="sync">Sync (visuals earlier or later)</label><output id="syncOut">0 ms</output>
     <input type="range" id="sync" min="-200" max="400" step="5" value="0"></div>
   <div class="row"><button id="tapSync" class="btn" type="button">Tap on the kick</button><output id="tapOut">tap along to set the sync (Bluetooth speakers)</output></div>
+  <div class="row"><label for="gfx">Graphics (Q; remembered on this device)</label><select id="gfx"></select></div>
+  <p class="note" id="gfxNote"></p>
+  <div class="row"><button id="phoneBtn" class="btn" type="button">Phone view</button><output>simple controls: Journey, the genome, the built-in song, likes (comes on by itself on a phone)</output></div>
+  <div class="row"><label for="heavyW">3D worlds in Journey (remembered on this device)</label><select id="heavyW">
+    <option value="all">All of them</option><option value="cosmos">All but the cosmos (the heaviest)</option><option value="none">None (only the flat worlds: lightest)</option></select></div>
+  <label class="check"><input type="checkbox" id="objWorld"> Objects travel through the 3D worlds and the cosmos (off: they stay in the centre; O then C)</label>
+  <p class="note"><b>Explore: moving into the picture</b> (each on or off, remembered on this device; off, Journey leaves it out, and by hand it still works)</p>
+  <label class="check"><input type="checkbox" data-explore="nest"> The nested kaleidoscope dive: each ring of the dive its own kaleidoscope, born from the one before (K, M, then N)</label>
+  <label class="check"><input type="checkbox" data-explore="near"> Objects come to you: far off when calm, drawn in through a build, filling the screen on the drop</label>
+  <label class="check"><input type="checkbox" data-explore="grow"> Growing branches: a tree of light growing towards you for ever (O then T)</label>
+  <label class="check"><input type="checkbox" data-explore="kifs"> Fractal depths: a kaleidoscopic fractal to fly through (W then F)</label>
+  <label class="check"><input type="checkbox" data-explore="stage"> Layers play round the object: lasers shine at it and catch on it, comets and orbits circle it, fireflies gather round it, and its facets light where they touch (off: each keeps to itself)</label>
+  <label class="check"><input type="checkbox" data-explore="space"> In 3D round the object: the comets and orbits fly round it in depth, passing behind it and in front, and light it as they pass (off: flat round it)</label>
+  <label class="check"><input type="checkbox" data-explore="link"> Connected: the branches, the fractal depths and the objects follow the kaleidoscope's symmetry, as one body (off: each its own)</label>
+  <p class="note"><b>Genome: the pieces conceived together</b> (remembered on this device): each section has one symmetry, shape, material and colour, and the world, the layers, the object and the kaleidoscope all take theirs from it; a returning section brings its own back, and Nudge grows a new one</p>
+  <label class="check"><input type="checkbox" data-gen="on"> Genome on</label>
+  <label class="check"><input type="checkbox" data-gen="geo"> Symmetry and shape (and the kaleidoscope: its mirrors, its kind and what it folds)</label>
+  <label class="check"><input type="checkbox" data-gen="col"> Material and colour</label>
+  <label class="check"><input type="checkbox" data-gen="line"> Each section grows from the last (off: each a new one)</label>
   <label class="check"><input type="checkbox" id="fpsOn"> Show frame rate</label>
+  <div class="row"><button id="stallCopy" class="btn" type="button">Copy the stall log</button><output id="stallOut">no freezes recorded</output></div>
   <label class="check"><input type="checkbox" data-lab="cosmos"> Cosmos lab: keep the cosmos on screen in Journey, and no other world, until this tab closes (to keep it for a while, W then its number while Journey runs). Whenever the cosmos is on screen, C then a key flies it (? lists them)</label>
   <p class="note">If the pulse looks late against the kick, slide Sync left; if it looks early (common with Bluetooth speakers), slide it right.</p>
   <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
@@ -98,15 +141,16 @@
   <textarea id="copyOut" readonly aria-label="Preset settings"></textarea>
   <div class="keys">
     <b>A</b> Journey on or off (off freezes what's on screen; on carries on from it)<br>
-    <b>L</b> layers · <b>W</b> worlds · <b>E</b> hits · <b>O</b> objects · <b>K</b> kaleidoscope · <b>S</b> scene · <b>C</b> cosmos camera: pick a group, then its numbers (a strip shows them)<br>
+    <b>L</b> layers · <b>W</b> worlds · <b>E</b> hits · <b>O</b> objects · <b>K</b> kaleidoscope · <b>S</b> scene · <b>G</b> genome · <b>C</b> cosmos camera: pick a group, then its numbers (a strip shows them)<br>
     In a group: <b>0</b> all off · <b>Shift+number</b> that one alone · <b>↑ ↓</b> more or less · <b>← →</b> the last layer's speed (Shift: size) · <b>Esc</b> leaves. A change while Journey runs freezes it first.<br>
-    <b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>R</b> randomize, or nudge Journey · <b>+ −</b> like or dislike · <b>?</b> every key · <b>T</b> tutorial<br>
+    <b>[ ]</b> calmer or more intense · <b>, .</b> evolve slower or faster · <b>'</b> movement speed · <b>R</b> randomize, or nudge Journey · <b>+ −</b> like or dislike · <b>?</b> every key · <b>T</b> tutorial<br>
     <b>Space</b> play or pause · <b>← →</b> change preset · <b>N</b> next track · <b>Hold X</b> freeze trails · <b>H</b> hide controls · <b>F</b> fullscreen · <b>P</b> frame rate<br>
     Under each slider, choose how that setting moves by itself.<br>
     Controller: A next preset, B randomize or nudge, hold X freeze, Y Journey, sticks steer, triggers zoom, bumpers change track.
   </div>
 </aside>
 
+<section id="dj" hidden aria-label="DJ decks and mixer"></section>
 <div id="bar">
   <div class="seekrow"><span id="tNow">0:00</span><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek"><span id="tDur">0:00</span></div>
   <div class="ctrl">
@@ -117,10 +161,12 @@
     <div class="preset">
       <button id="prevP" aria-label="Previous preset">‹</button><span id="pName">Tunnel</span><button id="nextP" aria-label="Next preset">›</button>
     </div>
-    <button id="likeBtn" class="rate" aria-label="I like this" title="I like this (+)">👍</button><button id="dislikeBtn" class="rate" aria-label="Not for me" title="Not for me (−)">👎</button>
+    <button id="likeBtn" class="rate" aria-label="I like this" title="I like this (+)">👍</button><button id="dislikeBtn" class="rate" aria-label="Not for me" title="Not for me (−)">👎</button><button id="cmtBtn" class="rate" aria-label="Comment on a part of the picture" title="Comment on a part of the picture (M)">💬</button>
     <button id="randBtn">Randomize</button>
     <button id="autoBtn" aria-pressed="true">Journey</button>
     <button id="adjBtn" aria-pressed="false">Adjust</button>
+    <button id="djBtn" aria-pressed="false" title="Two decks and a mixer under the picture">DJ</button>
+    <button id="playLabBtn" aria-pressed="false" title="The play lab: toys to make music with the picture, the mouse and the keys">Play</button>
     <label class="btn" for="fileIn" id="addBtn" tabindex="0">Add music</label>
     <button id="camBtn" aria-pressed="false" title="Point a camera into the mirror tunnel">Camera</button>
     <button id="fsBtn" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>

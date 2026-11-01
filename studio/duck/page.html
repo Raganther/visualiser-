@@ -1,0 +1,96 @@
+<meta charset="utf-8">
+<title>Ducking Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: the transport and which way is heard, the grooves, then a pair at a time (kick → bass, lead → pad, kick → pad):
+   what each way does to the gain over a bar, drawn, and each way's settings side by side; then the levels */
+:root {
+  --panel: #dfe3e1; --face: #eef1ef; --ink: #1c2321; --mute: #5a6663; --line: #b8c1be; --accent: #17806f; --accent-ink: #fff; --hot: #d2452c; --meter: #2fa38f; --comp: #b0662a; --key: rgba(28,35,33,.18);
+  --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --panel: #131716; --face: #1c2120; --ink: #e5ebe8; --mute: #95a39f; --line: #36403d; --accent: #3cc4ac; --accent-ink: #0b1714; --hot: #ff6a4d; --meter: #3cc4ac; --comp: #f0a35c; --key: rgba(229,235,232,.16); color-scheme: dark } }
+:root[data-theme="dark"] { --panel: #131716; --face: #1c2120; --ink: #e5ebe8; --mute: #95a39f; --line: #36403d; --accent: #3cc4ac; --accent-ink: #0b1714; --hot: #ff6a4d; --meter: #3cc4ac; --comp: #f0a35c; --key: rgba(229,235,232,.16); color-scheme: dark }
+body { background: var(--panel); color: var(--ink); font-family: var(--display); font-stretch: 92%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px } .wrap > * { min-width: 0 }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 800; font-stretch: 70%; letter-spacing: .02em; text-transform: uppercase; line-height: 1 }
+h1 small { font-weight: 500; color: var(--accent) }
+header p { margin: 0; color: var(--mute); max-width: 68ch; font-stretch: 100%; line-height: 1.45 }
+h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); text-wrap: balance }
+button, select { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#play { min-width: 100px; padding: 12px 18px; border: 0; border-radius: 4px; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase }
+#play[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.lbl { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); margin-bottom: 3px }
+.bar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 14px; max-width: 220px }
+.fader-h { display: grid; gap: 2px } .fader-h output, #pos { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums } .fader-h input { width: 130px; accent-color: var(--accent) }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--mute) } .check input { accent-color: var(--accent) }
+#matched { font: 12px var(--mono); color: var(--mute); min-width: 24ch }
+#scope { flex: 1 1 180px; height: 46px; min-width: 120px; background: var(--panel); border-radius: 3px }
+#kitWords { margin: 0; font-size: 12.5px; color: var(--mute); max-width: 70ch; line-height: 1.4 }
+.box { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; align-content: start }
+.boxhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px }
+.legend { font-size: 12px; color: var(--mute); font-stretch: 100% }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
+/* the processors */
+.two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)) }
+.chain { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) }
+#voice { display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) }
+.notes { display: grid; gap: 8px } textarea { font: 14px/1.45 system-ui, sans-serif; background: var(--face); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 10px; min-height: 84px; resize: vertical }
+.notes div { display: flex; gap: 12px; align-items: center } #copied { font-size: 13px; color: var(--mute) }
+/* the grooves, the pairs */
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)) }
+.card { text-align: left; display: grid; gap: 3px; align-content: start; background: var(--face); border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px }
+.card b { font-size: 16px; font-stretch: 85% } .card span { font-size: 12.5px; color: var(--mute); line-height: 1.35; font-stretch: 100% }
+.card[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
+#mode button { padding: 8px 11px; font-size: 13px }
+#hearing { font-size: 13px; color: var(--mute) }
+.pair { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0 }
+.pair[data-on="false"] .ways, .pair[data-on="false"] .trace { opacity: .45 }
+.pairhead { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center } .pairhead b { font-size: 17px; font-stretch: 85%; color: var(--ink) } .pairhead .ghost { margin-left: auto }
+.trace { width: 100%; height: 130px; background: var(--panel); border-radius: 4px; display: block }
+.keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px } .sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px } .sw.comp { background: var(--comp) } .sw.notes { background: var(--accent) } .sw.key { background: var(--key); height: 10px; width: 6px }
+.ways { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)) }
+.way { display: grid; gap: 8px; align-content: start; border-top: 3px solid var(--accent); padding-top: 8px } .way[data-way="comp"] { border-color: var(--comp) }
+.way h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; gap: 8px }
+#mix { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) }
+.chan { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center } .chan input { grid-column: 1 / 3; accent-color: var(--accent) } .chan output { font: 12px var(--mono) }
+.chan .meter { height: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; overflow: hidden } .chan .meter i { display: block; height: 100%; width: 0; background: var(--meter) }
+.chan .ghost[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+/*SHELLCSS*/
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Ducking Lab <small>· live</small></h1>
+    <p>One part making room for another, two ways. The sidechain compressor hears the kick, then reacts. The ducker reads the score: it knows each hit and note before it sounds, so it can move first. Press Play (or Space), then switch between them with 0, 1 and 2, or let them swap every two bars.</p>
+  </header>
+
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <div><span class="lbl">Bar · beat</span><span id="pos">–</span></div>
+    <label class="fader-h"><span class="lbl">Tempo</span><output id="bpmOut">124</output><input id="bpm" type="range" min="90" max="150" step="1" value="124"></label>
+    <div><span class="lbl">Ducking</span><div class="seg" id="mode" role="group" aria-label="Which ducking you hear"></div></div>
+    <label class="check"><input type="checkbox" id="swap"> Swap compressor and notes every 2 bars</label>
+    <span id="hearing" role="status"></span>
+    <canvas id="scope" aria-label="The waveform"></canvas>
+  </div>
+
+  <section><h2 style="margin-bottom:8px">Grooves · written so the parts collide</h2><div id="grooves" class="cards"></div></section>
+
+  <section style="display:grid;gap:12px"><h2>Pairs · who makes room for whom</h2><div id="pairs" style="display:grid;gap:12px"></div></section>
+
+  <section class="box"><h2>Levels</h2><div id="mix"></div></section>
+
+  <section class="notes">
+    <h2>Notes for Claude</h2>
+    <textarea id="notes" placeholder="What you hear: the notes version keeps the kick's click, the compressor pumps nicer on the pad, the bass sounds thin when it ducks only the lows…"></textarea>
+    <div><button id="copy" class="ghost">Copy notes and settings</button><span id="copied" role="status"></span></div>
+  </section>
+</div>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

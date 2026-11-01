@@ -1,0 +1,290 @@
+<title>Studio Listening Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column, a mixing desk's strip: the track, the tape (spectrogram with sections and notes), the transport, then the section sheet and the notes log */
+:root{
+  --bg:#eef0f3; --panel:#ffffff; --ink:#1b2230; --mute:#5d6676; --line:#d5d9e0;
+  --tape:#141922; --rec:#d6336c; --rec-soft:#fbe3ec; --cue:#2f7d74; --cue-soft:#dcefeb; --warm:#b26a14;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#10141b; --panel:#181e28; --ink:#e7eaf0; --mute:#97a0b0; --line:#2a3240; --tape:#0a0d12; --rec:#ff6b9a; --rec-soft:#3a1a27; --cue:#5cc2b4; --cue-soft:#163330; --warm:#e0a24a; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141b; --panel:#181e28; --ink:#e7eaf0; --mute:#97a0b0; --line:#2a3240; --tape:#0a0d12; --rec:#ff6b9a; --rec-soft:#3a1a27; --cue:#5cc2b4; --cue-soft:#163330; --warm:#e0a24a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.5 var(--body); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:20px 48px}
+.wrap{max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:20px}
+h1,h2{font-family:var(--display); font-weight:700; text-wrap:balance; margin:0; letter-spacing:-.01em}
+h1{font-size:clamp(28px, 5vw, 40px); line-height:1.05}
+h2{font-size:19px}
+.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.label{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+header{display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justify-content:space-between}
+.facts{display:flex; flex-wrap:wrap; gap:6px 18px; font:13px var(--mono); color:var(--mute)}
+.facts b{color:var(--ink); font-weight:500}
+.versions{display:flex; flex-wrap:wrap; gap:6px}
+.songs{display:flex; flex-wrap:wrap; gap:6px}
+.songs .chip{font:500 13px var(--body)}
+.verdict{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.verdict button{border:1px solid var(--line); background:transparent; border-radius:6px; padding:6px 12px; font:500 14px var(--body)}
+.verdict button[aria-pressed="true"]{background:var(--cue-soft); border-color:var(--cue)}
+.verdict button.no[aria-pressed="true"]{background:var(--rec-soft); border-color:var(--rec)}
+[hidden]{display:none!important}
+button{font:inherit; color:inherit; cursor:pointer}
+button:focus-visible, textarea:focus-visible, select:focus-visible{outline:2px solid var(--cue); outline-offset:2px}
+.chip{border:1px solid var(--line); background:var(--panel); border-radius:999px; padding:5px 12px; font:500 13px var(--mono)}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.desk{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:12px}
+/* the tape: the spectrogram, sections above, notes as pins below, the playhead */
+.tape{position:relative; height:150px; background:var(--tape); border-radius:6px; overflow:hidden; touch-action:none; cursor:pointer}
+.tape img{position:absolute; inset:22px 0 18px 0; width:100%; height:calc(100% - 40px); object-fit:fill; opacity:.92}
+.tape .secs{position:absolute; inset:0 0 auto 0; height:22px}
+.tape .sec{position:absolute; top:0; height:22px; border-left:1px solid #ffffff55; color:#e9ecf2; font:500 10px/22px var(--mono); padding-left:5px; white-space:nowrap; overflow:hidden; text-overflow:clip}
+.tape .sec:nth-child(odd){background:#ffffff10}
+.tape .pins{position:absolute; inset:auto 0 0 0; height:18px}
+.tape .pin{position:absolute; bottom:3px; width:10px; height:10px; margin-left:-5px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); background:#c9d0dc}
+.tape .pin.up{background:#5cc2b4} .tape .pin.down{background:#ff6b9a}
+.tape .head{position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:#fff; box-shadow:0 0 8px #fff8; pointer-events:none}
+.tape .empty{position:absolute; inset:0; display:grid; place-items:center; color:#97a0b0; font:13px var(--mono); text-align:center; padding:0 16px}
+.transport{display:flex; flex-wrap:wrap; align-items:center; gap:10px}
+.play{width:52px; height:52px; border-radius:50%; border:0; background:var(--rec); color:#fff; font-size:20px; display:grid; place-items:center}
+.play:disabled{opacity:.4; cursor:default}
+.nudge{border:1px solid var(--line); background:transparent; border-radius:6px; padding:7px 10px; font:500 13px var(--mono)}
+.clock{display:flex; flex-direction:column; gap:2px; margin-left:4px}
+.clock .t{font:500 22px/1 var(--mono); font-variant-numeric:tabular-nums}
+.clock .b{font:12px var(--mono); color:var(--mute)}
+.spacer{flex:1}
+/* the note composer */
+.compose{display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:start}
+.compose .at{font:500 13px var(--mono); background:var(--rec-soft); color:var(--rec); border-radius:6px; padding:9px 10px; white-space:nowrap}
+.compose textarea{width:100%; min-height:42px; resize:vertical; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); padding:9px 10px; font:inherit}
+.moods{display:flex; gap:6px}
+.mood{border:1px solid var(--line); background:transparent; border-radius:6px; padding:7px 10px; font-size:15px}
+.mood[aria-pressed="true"]{background:var(--cue-soft); border-color:var(--cue)}
+.mood.down[aria-pressed="true"]{background:var(--rec-soft); border-color:var(--rec)}
+#mic[aria-pressed="true"]{background:var(--rec); border-color:var(--rec); color:#fff}
+.save{grid-column:2 / 4; justify-self:end; border:0; border-radius:6px; background:var(--ink); color:var(--bg); padding:8px 16px; font-weight:600}
+.save:disabled{opacity:.4; cursor:default}
+.status{font:12px var(--mono); color:var(--mute); min-height:1em}
+@media (max-width:560px){.compose{grid-template-columns:1fr}.compose .at{justify-self:start}.save{grid-column:auto}}
+/* the section sheet */
+.sheet{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:14px; min-width:620px}
+th{text-align:left; font:500 11px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--mute); padding:6px 8px; border-bottom:1px solid var(--line)}
+td{padding:8px; border-bottom:1px solid var(--line); vertical-align:middle}
+td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; color:var(--mute)}
+tr.now td{background:var(--cue-soft)}
+.go{border:0; background:transparent; padding:0; font-weight:600; text-align:left}
+.votes{display:flex; gap:4px; white-space:nowrap}
+.votes button{border:1px solid var(--line); background:transparent; border-radius:5px; padding:2px 7px; font:13px var(--mono)}
+/* the notes log */
+.log{display:flex; flex-direction:column; gap:0}
+.note{display:grid; grid-template-columns:72px 1fr; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
+.note .when{border:0; background:transparent; padding:0; font:500 13px var(--mono); color:var(--cue); text-align:left; align-self:start}
+.note .txt{min-width:0; overflow-wrap:anywhere}
+.note .meta{font:11px var(--mono); color:var(--mute)}
+.note.down .when{color:var(--rec)}
+.changes{color:var(--mute); max-width:65ch; margin:0}
+.muted{color:var(--mute)}
+</style>
+
+<div class="wrap">
+  <div class="songs" id="songs" aria-label="Songs" hidden></div>
+  <header>
+    <div>
+      <div class="label">Studio · listening room</div>
+      <h1 id="title">Waiting for the first render</h1>
+    </div>
+    <div class="facts" id="facts"></div>
+  </header>
+  <div class="versions" id="versions" aria-label="Versions"></div>
+  <div class="verdict" id="verdict" hidden><span class="label">This song</span>
+    <button data-r="1" title="I like this song">👍 Like</button><button data-r="2" title="Some of it">Maybe</button><button class="no" data-r="-1" title="Not for me">👎 No</button></div>
+  <p class="changes" id="changes"></p>
+
+  <section class="desk" aria-label="Player">
+    <div class="tape" id="tape" role="slider" aria-label="Position" tabindex="0" aria-valuemin="0" aria-valuenow="0">
+      <img id="spec" alt="" hidden>
+      <div class="secs" id="secs"></div>
+      <div class="pins" id="pins"></div>
+      <div class="head" id="head" style="left:0"></div>
+      <div class="empty" id="empty">No track here yet. Claude adds each render as a new version.</div>
+    </div>
+    <div class="transport">
+      <button class="play" id="play" aria-label="Play" disabled>▶</button>
+      <button class="nudge" id="back" title="Back 8 bars">−8 bars</button>
+      <button class="nudge" id="fwd" title="Forward 8 bars">+8 bars</button>
+      <div class="clock"><span class="t" id="clock">0:00</span><span class="b" id="bars">bar 1</span></div>
+      <span class="spacer"></span>
+      <span class="label" id="secNow"></span>
+    </div>
+    <div class="compose">
+      <span class="at" id="at">at 0:00</span>
+      <textarea id="text" placeholder="What do you hear here? Too busy, the hats are harsh, love this chord…" aria-label="Note"></textarea>
+      <div class="moods">
+        <button class="mood up" id="up" aria-pressed="false" title="I like this moment">👍</button>
+        <button class="mood down" id="down" aria-pressed="false" title="I don't like this moment">👎</button>
+        <button class="mood" id="mic" aria-pressed="false" title="Dictate a note">🎙</button>
+      </div>
+      <button class="save" id="save" disabled>Save note</button>
+    </div>
+    <div class="status" id="status">Notes pin to the moment the music is at when you start typing.</div>
+  </section>
+
+  <section class="desk">
+    <h2>Sections</h2>
+    <div class="sheet"><table>
+      <thead><tr><th>Section</th><th>Bars</th><th style="text-align:right">Starts</th><th style="text-align:right">Level</th><th style="text-align:right">Width</th><th style="text-align:right">Pump</th><th>You</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="muted">The sections appear with the first render.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section class="desk">
+    <h2>Notes on this version</h2>
+    <div class="log" id="log"><p class="muted">No notes yet. Play the track and write what you hear; Claude reads every note before the next version.</p></div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.max(0, s || 0); return `${Math.floor(s/60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
+let db = null, tracks = [], cur = null, notes = [], audio = new Audio(), pinned = null, mood = null;
+audio.preload = 'auto';
+const barOf = s => cur ? s/(240/cur.bpm) : 0;
+const secOf = bar => bar*240/(cur?.bpm || 120);
+const sectionAt = s => cur?.sections?.find(x => barOf(s) >= x.from && barOf(s) < x.to);
+
+// every song, one chip each (its latest version), marked with the verdict given it
+let rates = {};
+function renderSongs(){
+  const el = $('songs'), titles = [...new Set(tracks.map(t => t.title))]; el.innerHTML = ''; el.hidden = titles.length < 2;
+  for (const ti of titles) { const b = document.createElement('button'), r = rates[ti]?.rating; b.className = 'chip';
+    b.textContent = (r === 1 ? '👍 ' : r === 2 ? '~ ' : r === -1 ? '👎 ' : '') + ti; b.setAttribute('aria-pressed', String(cur?.title === ti));
+    b.onclick = () => { const t = tracks.find(x => x.title === ti); if (t && t !== cur) pick(t, false); }; el.append(b); }
+  const v = $('verdict'); v.hidden = !cur; const r = cur && rates[cur.title]?.rating;
+  v.querySelectorAll('[data-r]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.r === r)));
+}
+async function rate(r){
+  if (!db || !cur) { $('status').textContent = 'Sign in to claude.ai to rate songs.'; return; }
+  const was = rates[cur.title]?.rating, rating = was === r ? 0 : r;
+  rates[cur.title] = {rating}; renderSongs();
+  try { await db.collection('notes').add({track: cur.id, tag: cur.tag, title: cur.title, t: 0, kind: 'rate', rating, at: new Date().toISOString()});
+    $('status').textContent = rating ? `${rating === 1 ? '👍' : rating === 2 ? 'Maybe' : '👎'} saved for ${cur.title}.` : `Verdict on ${cur.title} cleared.`; }
+  catch (e) { $('status').textContent = 'That wasn\'t saved (' + (e.code || e.message) + ').'; }
+}
+document.querySelectorAll('#verdict [data-r]').forEach(b => b.onclick = () => rate(+b.dataset.r));
+function renderTrack(){
+  renderSongs();
+  $('versions').innerHTML = '';
+  const byTitle = tracks.filter(t => !cur || t.title === cur.title);
+  for (const t of byTitle) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = t.tag; b.setAttribute('aria-pressed', String(t === cur)); b.onclick = () => pick(t, true); $('versions').append(b); }
+  if (!cur) return;
+  $('title').textContent = cur.title;
+  $('facts').innerHTML = [['Tempo', cur.bpm + ' BPM'], ['Key', cur.key || '—'], ['Length', fmt(cur.secs)], ['Loudness', cur.lufs != null ? cur.lufs + ' LUFS' : '—']].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+  $('changes').textContent = cur.changes || '';
+  $('empty').hidden = true; $('play').disabled = false;
+  const sp = $('spec'); if (cur.spectrogram) { sp.src = cur.spectrogram; sp.hidden = false; } else sp.hidden = true;
+  $('secs').innerHTML = ''; const D = cur.secs || 1;
+  for (const s of cur.sections || []) { const d = document.createElement('div'); d.className = 'sec'; d.style.left = (secOf(s.from)/D*100) + '%'; d.style.width = ((secOf(s.to) - secOf(s.from))/D*100) + '%'; d.textContent = s.name; $('secs').append(d); }
+  renderRows(); renderNotes();
+}
+function renderRows(){
+  const tb = $('rows'); tb.innerHTML = ''; if (!cur) return;
+  const now = sectionAt(audio.currentTime);
+  for (const s of cur.sections || []) {
+    const v = notes.filter(n => n.section === s.name && n.kind === 'vote'), up = v.filter(n => n.mood === 'up').length, dn = v.filter(n => n.mood === 'down').length;
+    const tr = document.createElement('tr'); if (s === now) tr.className = 'now';
+    tr.innerHTML = `<td><button class="go">${s.name}</button></td><td class="mono muted">${s.from + 1}–${s.to}</td><td class="num">${fmt(secOf(s.from))}</td><td class="num">${s.rmsDb ?? '—'} dB</td><td class="num">${s.width ?? '—'}</td><td class="num">${s.pumpDb ?? '—'} dB</td><td><span class="votes"><button data-m="up" title="Like this section">👍 ${up || ''}</button><button data-m="down" title="Don't like this section">👎 ${dn || ''}</button></span></td>`;
+    tr.querySelector('.go').onclick = () => seek(secOf(s.from), true);
+    tr.querySelectorAll('[data-m]').forEach(b => b.onclick = () => vote(s, b.dataset.m));
+    tb.append(tr);
+  }
+}
+function renderNotes(){
+  const list = notes.filter(n => n.kind !== 'vote' && n.kind !== 'rate').sort((a, b) => a.t - b.t);
+  $('pins').innerHTML = ''; const D = cur?.secs || 1;
+  for (const n of notes.filter(n => n.kind !== 'rate')) { const p = document.createElement('div'); p.className = 'pin ' + (n.mood || ''); p.style.left = (n.t/D*100) + '%'; p.title = `${fmt(n.t)} ${n.text || n.section || ''}`; $('pins').append(p); }
+  const log = $('log'); log.innerHTML = '';
+  if (!list.length) { log.innerHTML = '<p class="muted">No notes yet. Play the track and write what you hear; Claude reads every note before the next version.</p>'; return; }
+  for (const n of list) { const d = document.createElement('div'); d.className = 'note ' + (n.mood || '');
+    const w = document.createElement('button'); w.className = 'when'; w.textContent = (n.mood === 'up' ? '👍 ' : n.mood === 'down' ? '👎 ' : '') + fmt(n.t); w.onclick = () => seek(n.t, true);
+    const b = document.createElement('div'); b.className = 'txt'; const tx = document.createElement('div'); tx.textContent = n.text || ''; const m = document.createElement('div'); m.className = 'meta';
+    m.textContent = `bar ${Math.floor(barOf(n.t)) + 1}${n.section ? ' · ' + n.section : ''}${n.reply ? ' · Claude: ' + n.reply : ''}`; b.append(tx, m); d.append(w, b); log.append(d); }
+}
+function pick(t, keep){
+  const at = keep && cur ? audio.currentTime : 0, was = !audio.paused; cur = t; audio.src = t.audio;
+  audio.addEventListener('loadedmetadata', () => { audio.currentTime = Math.min(at, audio.duration || at); if (was) audio.play(); }, {once: true});
+  try { localStorage.setItem('studio.song', t.id); } catch {}
+  subscribeNotes(); renderTrack();
+}
+function seek(s, play){ if (!cur) return; audio.currentTime = Math.max(0, Math.min(s, cur.secs)); tick(); if (play) audio.play(); }
+function tick(){
+  const s = audio.currentTime, D = cur?.secs || 1; $('head').style.left = (s/D*100) + '%'; $('clock').textContent = fmt(s);
+  const b = barOf(s); $('bars').textContent = `bar ${Math.floor(b) + 1}.${Math.floor((b % 1)*4) + 1}`; $('tape').setAttribute('aria-valuenow', Math.round(s));
+  const sec = sectionAt(s); $('secNow').textContent = sec ? sec.name : '';
+  if (pinned == null) $('at').textContent = 'at ' + fmt(s);
+  if (sec !== tick.sec) { tick.sec = sec; renderRows(); }
+}
+audio.addEventListener('timeupdate', tick); audio.addEventListener('play', () => { $('play').textContent = '❚❚'; $('play').setAttribute('aria-label', 'Pause'); });
+audio.addEventListener('pause', () => { $('play').textContent = '▶'; $('play').setAttribute('aria-label', 'Play'); });
+(function frame(){ if (!audio.paused) tick(); requestAnimationFrame(frame); })();
+$('play').onclick = () => audio.paused ? audio.play() : audio.pause();
+$('back').onclick = () => seek(audio.currentTime - secOf(8)); $('fwd').onclick = () => seek(audio.currentTime + secOf(8));
+const tapeAt = e => { const r = $('tape').getBoundingClientRect(); return (e.clientX - r.left)/r.width*(cur?.secs || 0); };
+$('tape').addEventListener('pointerdown', e => { if (!cur) return; $('tape').setPointerCapture(e.pointerId); seek(tapeAt(e)); });
+$('tape').addEventListener('pointermove', e => { if (e.buttons && cur) seek(tapeAt(e)); });
+$('tape').addEventListener('keydown', e => { if (e.key === 'ArrowLeft') seek(audio.currentTime - secOf(1)); if (e.key === 'ArrowRight') seek(audio.currentTime + secOf(1)); if (e.key === ' ') { e.preventDefault(); $('play').click(); } });
+// a note pins to the moment typing starts, so the music can play on
+$('text').addEventListener('input', () => { if (pinned == null && $('text').value) { pinned = audio.currentTime; $('at').textContent = 'at ' + fmt(pinned); } if (!$('text').value && !mood) unpin(); canSave(); });
+const unpin = () => { pinned = null; $('at').textContent = 'at ' + fmt(audio.currentTime); };
+const canSave = () => { $('save').disabled = !db || !cur || !($('text').value.trim() || mood); };
+for (const m of ['up', 'down']) $(m).onclick = () => { mood = mood === m ? null : m; if (pinned == null) pinned = audio.currentTime; $('up').setAttribute('aria-pressed', String(mood === 'up')); $('down').setAttribute('aria-pressed', String(mood === 'down')); $('at').textContent = 'at ' + fmt(pinned); canSave(); };
+// dictation: the browser's speech recognition where the page may use the microphone; where it can't (pages on claude.ai
+// usually can't), the device's own dictation still types into the box: the keyboard's mic on a phone, Fn twice on a Mac, Win+H
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const dictateHelp = 'This page can\'t use the microphone itself. Tap in the box and use your keyboard\'s dictation instead: the 🎤 on a phone keyboard, Fn twice on a Mac, Win+H on Windows.';
+let rec = null, recBase = '';
+$('mic').onclick = () => {
+  if (rec) { rec.stop(); return; }
+  if (!SR) { $('status').textContent = dictateHelp; $('text').focus(); return; }
+  try { rec = new SR(); } catch { rec = null; $('status').textContent = dictateHelp; $('text').focus(); return; }
+  rec.continuous = true; rec.interimResults = true; rec.lang = navigator.language || 'en-GB';
+  if (pinned == null) { pinned = audio.currentTime; $('at').textContent = 'at ' + fmt(pinned); }
+  recBase = $('text').value ? $('text').value.replace(/\s*$/, ' ') : '';
+  rec.onresult = e => { let t = ''; for (const r of e.results) t += r[0].transcript; $('text').value = recBase + t.trim(); canSave(); };
+  rec.onerror = e => { $('status').textContent = /not-allowed|service-not-allowed|audio-capture/.test(e.error) ? dictateHelp : 'Dictation stopped (' + e.error + ').'; };
+  rec.onend = () => { rec = null; $('mic').setAttribute('aria-pressed', 'false'); if ($('text').value) $('status').textContent = 'Dictated. Check it, then Save note.'; $('text').focus(); };
+  try { rec.start(); $('mic').setAttribute('aria-pressed', 'true'); $('status').textContent = 'Listening… tap 🎙 again to stop.'; }
+  catch { rec = null; $('status').textContent = dictateHelp; $('text').focus(); }
+};
+$('save').onclick = async () => {
+  rec?.stop();
+  const t = pinned ?? audio.currentTime, sec = sectionAt(t);
+  $('save').disabled = true; $('status').textContent = 'Saving…';
+  try { await db.collection('notes').add({track: cur.id, tag: cur.tag, title: cur.title, t: +t.toFixed(2), bar: +(barOf(t) + 1).toFixed(2), section: sec?.name || null, text: $('text').value.trim(), mood, kind: 'note', at: new Date().toISOString()});
+    $('text').value = ''; mood = null; $('up').setAttribute('aria-pressed', 'false'); $('down').setAttribute('aria-pressed', 'false'); unpin(); $('status').textContent = `Saved. Claude will read it before ${cur.tag.replace(/\d+/, n => 'v' + (+n + 1)).replace('vv', 'v')}.`;
+  } catch (e) { $('status').textContent = 'That note wasn\'t saved (' + (e.code || e.message) + '). Your text is still in the box; try Save again.'; }
+  canSave();
+};
+async function vote(s, m){
+  if (!db || !cur) { $('status').textContent = 'Sign in to claude.ai to vote on sections.'; return; }
+  try { await db.collection('notes').add({track: cur.id, tag: cur.tag, title: cur.title, t: +secOf(s.from).toFixed(2), bar: s.from + 1, section: s.name, text: '', mood: m, kind: 'vote', at: new Date().toISOString()});
+    $('status').textContent = `${m === 'up' ? '👍' : '👎'} saved for ${s.name}.`; } catch (e) { $('status').textContent = 'That vote wasn\'t saved (' + (e.code || e.message) + ').'; }
+}
+let unsub = null;
+function subscribeNotes(){ unsub?.(); notes = []; if (!db || !cur) return;
+  unsub = db.collection('notes').where('track', '==', cur.id).onSnapshot(q => { notes = q.docs.map(d => ({id: d.id, ...d.data()})); renderNotes(); renderRows(); }, () => {}); }
+(async () => {
+  db = await window.claude?.use?.('db').catch(() => null) || null;
+  if (!db) { $('status').textContent = 'Open this page signed in to claude.ai to hear the tracks and leave notes.'; return; }
+  db.collection('notes').where('kind', '==', 'rate').onSnapshot(q => { rates = {};
+    for (const n of q.docs.map(d => d.data()).sort((a, b) => a.at < b.at ? -1 : 1)) rates[n.title] = n; renderSongs(); }, () => {});
+  db.collection('tracks').orderBy('order', 'desc').onSnapshot(q => {
+    tracks = q.docs.map(d => ({id: d.id, ...d.data()}));
+    let want = null; try { want = localStorage.getItem('studio.song'); } catch {}
+    const next = cur && tracks.find(t => t.id === cur.id) || tracks.find(t => t.id === want) || tracks[0];
+    if (next && next !== cur && (!cur || next.id !== cur.id)) pick(next, false); else { if (next) cur = next; renderTrack(); }
+    canSave();
+  }, e => { $('status').textContent = 'The tracks couldn\'t be loaded (' + e.code + ').'; });
+})();
+</script>

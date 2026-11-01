@@ -4,6 +4,8 @@
 // phrase line, the burin sweeping round once over the first bar; it turns a notch each bar, and the bass swells its waves.
 // Symmetric, calm and precise: the user's taste (docs/taste.md, principle 9). Simple mode draws the same curves as lines.
 import { S } from '../../state.js';
+import { genFold } from '../../scene/genome.js';
+
 const st = {k: 8, pk: 8, prog: 1, phase: -1, turn: 0};
 const LOBES = [5, 6, 7, 8, 9, 10, 12];
 const LINES = 12;
@@ -19,6 +21,7 @@ export default {
       if (st.phase !== -1) { st.pk = st.k; const T = J.tension || 0, i = Math.min(LOBES.length - 1, Math.floor(T*LOBES.length*.8 + (Math.sin(ph*91.7)*43758.5 % 1 + 1) % 1*3)); st.k = LOBES[i] === st.k ? LOBES[(i + 2) % LOBES.length] : LOBES[i]; st.prog = 0; }
       st.phase = ph;
     }
+    const gk = genFold(5, 12); if (gk && gk !== st.k) { st.pk = st.k; st.k = gk; st.prog = 0; }   // (the genome's symmetry: a rosette of its lobes)
     st.prog = Math.min(1, st.prog + x.dt/Math.max(1, 4*Math.max(.25, S.beatPeriod || .5)));   // (engraved over a bar)
     st.turn += ((J.bar || 0)*Math.PI/st.k/2 - st.turn)*Math.min(1, x.dt*2);   // a notch each bar, eased
     P.guil = [.17, .035 + .02*x.sBass*x.react*x.dim, st.k, st.turn + x.t*.02];

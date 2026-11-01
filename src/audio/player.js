@@ -15,9 +15,11 @@ import { F, foresee } from './foresee.js';
 /* ---------- audio ---------- */
 export let actx = null, analyser = null, source = null, buffer = null, stereo = null;
 export let playing = false, startedAt = 0, tracks = [], tIndex = -1, loadToken = 0;
-function ensureAudio(){
+export function ensureAudio(){
   if (!actx) {
-    actx = new (window.AudioContext || window.webkitAudioContext)();
+    // a phone renders the audio in bigger blocks ('playback'): with the picture drawing too, small ones ran out (crackles)
+    const AC = window.AudioContext || window.webkitAudioContext, phone = matchMedia('(pointer: coarse)').matches;
+    try { actx = new AC(phone ? {latencyHint: 'playback'} : undefined); } catch (e) { actx = new AC(); }
     analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .2;
     analyser.connect(actx.destination);
     // a small analyser on each channel, for how wide the sound is (audio/listen.js)

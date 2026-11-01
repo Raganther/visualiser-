@@ -1,9 +1,13 @@
 // Fireflies: soft out-of-focus lights drifting on the wind, each blinking in its own time, brighter and livelier with the
-// hi-hats. Bokeh for the calm parts: they give atmosphere without taking the eye.
+// hi-hats. Bokeh for the calm parts: they give atmosphere without taking the eye. With the genome's symmetry (scene/genome.js)
+// they gather round the centre in its n-fold rings: each group of n follows its first, turned by a share of the circle.
 import { L } from '../../audio/listen.js';
+import { genN } from '../../scene/genome.js';
+import { SUBJ, subjTouch } from '../../scene/subject.js';
 
 const N = 20, FA = new Float32Array(N*4);   // for the shader: x, y, size, brightness
 const rnd = i => { const v = Math.sin(i*91.7)*43758.5453; return v - Math.floor(v); };
+let sym = 0, symN = 6;   // (how far they've gathered into the genome's rings, eased, and how many ways)
 const flies = Array.from({length: N}, (_, i) => ({x: rnd(i) - .5, y: rnd(i + 40) - .5, s: .012 + rnd(i + 80)*.03, ph: rnd(i + 120)*6.28, v: .5 + rnd(i + 160)}));
 export default {
   key: 'fireflies', kind: 'layer', label: 'Fireflies',
@@ -12,13 +16,22 @@ export default {
   paint: 4.5,   // paint order in the trails: after the comets and shockwaves, before the flow
   accent: 'hit',   // how it fires when it's the accent
   params(P, x){
-    const h = L.hat, wx = P.wind ? P.wind.x : 0, wy = P.wind ? P.wind.y : 0;
+    const h = L.hat, wx = P.wind ? P.wind.x : 0, wy = P.wind ? P.wind.y : 0, g = genN(3, 10);
+    if (g) symN = g; sym += ((g ? 1 : 0) - sym)*Math.min(1, x.dt*.5);
     flies.forEach((f, i) => {
       f.x += (Math.sin(x.t*.4*f.v + f.ph)*.02 + wx*.15)*x.dt; f.y += (Math.cos(x.t*.33*f.v + f.ph*1.3)*.015 + wy*.15)*x.dt;
       const hw = x.asp/2 + .05; if (f.x > hw) f.x = -hw; if (f.x < -hw) f.x = hw; if (f.y > .55) f.y = -.55; if (f.y < -.55) f.y = .55;
       const blink = Math.pow(.5 + .5*Math.sin(x.t*(1.1 + f.v*.8)*(1 + h) + f.ph*3), 3);
       FA[i*4] = f.x; FA[i*4+1] = f.y; FA[i*4+2] = f.s; FA[i*4+3] = blink*(.35 + .65*h + P.beat*.2);
     });
+    if (sym > .001) for (let i = 0; i < N; i++) {   // gathered: each the first of its group turned by j/n of the circle, round the centre
+      const j = i % symN, i0 = i - j; if (i0 + symN > N) continue;
+      const so = SUBJ.on, cx = (P.cx || 0) + (SUBJ.x - (P.cx || 0))*so, cy = (P.cy || 0) + (SUBJ.y - (P.cy || 0))*so;   // (round the centrepiece, when there is one, and outside it)
+      const lx = FA[i0*4] - cx, ly = FA[i0*4+1] - cy, r = Math.max(SUBJ.r*1.25*so, Math.min(.45, Math.hypot(lx, ly))), a = Math.atan2(ly, lx) + j/symN*Math.PI*2;
+      FA[i*4] += (cx + Math.cos(a)*r - FA[i*4])*sym; FA[i*4+1] += (cy + Math.sin(a)*r - FA[i*4+1])*sym;
+      FA[i*4+2] += (FA[i0*4+2] - FA[i*4+2])*sym; FA[i*4+3] += (FA[i0*4+3] - FA[i*4+3])*sym;
+    }
+    if (SUBJ.on > .05) for (let i = 0; i < N; i++) { const d = Math.hypot(FA[i*4] - SUBJ.x, FA[i*4+1] - SUBJ.y); if (d < SUBJ.r*1.3 && FA[i*4+3] > .4) subjTouch(FA[i*4], FA[i*4+1], .5*SUBJ.on*FA[i*4+3]); }   // (one drifting close lights its side)
     P.flies = FA;
   },
   feedback: {

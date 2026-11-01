@@ -1,4 +1,5 @@
 // Star: a crisp star that snaps in on the downbeat, then snaps or flickers out.
+import { viewAsp } from '../../state.js';
 import { hc } from '../../util.js';
 
 export const STAR = {x:0, y:0, rot:0, n:5, size:.14, age:9, out:'snap'};
@@ -13,7 +14,7 @@ export default {
   // intense downbeats; stays crisp over a world
   suits: (rf, wOn, seed) => rf.perc*.4 + rf.T*.6 + seed + (wOn ? .1 : 0),
   fire(x){
-    const J = x.J, ty = x.ty, asp = innerWidth/innerHeight;
+    const J = x.J, ty = x.ty, asp = viewAsp();
     STAR.n = ty.starN || 5; STAR.out = ty.starOut || 'snap';
     if (ty.starScatter) { STAR.x = (Math.random() - .5)*asp*.6; STAR.y = (Math.random() - .5)*.5; } else { STAR.x = 0; STAR.y = 0; }
     STAR.rot = Math.random()*Math.PI*2; STAR.size = .1 + Math.random()*.05 + (J.on ? J.tension*.06 : .03); STAR.age = 0;

@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-25T20:30:23.760Z",
+  "base": "b3-sub",
+  "id": "u-mvnvrqw893",
+  "name": "Round sub (analog) (yours)",
+  "pack": "mine",
+  "role": "bass",
+  "src": {
+    "knobs": {
+      "res": 0.9,
+      "tone": 0.22
+    },
+    "native": "vasub",
+    "shift": 12
+  },
+  "words": "Your version of Round sub (analog)."
+}

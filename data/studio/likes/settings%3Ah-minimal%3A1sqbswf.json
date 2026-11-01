@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-21T21:51:40.900Z",
+  "data": {
+    "role": "hats",
+    "set": {
+      "arp": 0,
+      "echo": true,
+      "feel": 1,
+      "inv": 0,
+      "length": 1,
+      "motion": 0,
+      "oct": 0,
+      "play": 0,
+      "verb": true,
+      "voicing": 0,
+      "x": 0.94,
+      "y": 0.3
+    },
+    "sound": "h-minimal"
+  },
+  "key": "h-minimal:1sqbswf",
+  "kind": "settings",
+  "name": "Soft hats · bright, Off-beat lift",
+  "note": "",
+  "rating": 1,
+  "sum": "Hats"
+}

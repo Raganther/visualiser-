@@ -1,0 +1,140 @@
+{
+  "accent": "comets",
+  "at": "2026-09-29T08:41:40.222Z",
+  "bpm": 121.713,
+  "caption": null,
+  "centre": "dodeca",
+  "hit": "outline",
+  "journey": true,
+  "lead": "horizon",
+  "lens": 0,
+  "look": {
+    "centre": "dodeca",
+    "mods": {
+      "zoom": {
+        "amt": 0.1,
+        "src": "pulse"
+      }
+    },
+    "scene": [
+      {
+        "world": "all"
+      },
+      {
+        "trails": "main"
+      },
+      {
+        "object": "dodeca"
+      },
+      {
+        "world": "front"
+      },
+      {
+        "hits": true
+      },
+      {
+        "objects": true
+      }
+    ],
+    "sceneKey": "among",
+    "settings": {
+      "aurora": 0,
+      "burst": 0,
+      "city": 0,
+      "colorSpeed": 0.036,
+      "comets": 0.431,
+      "constellation": 0,
+      "cosmos": 1,
+      "decay": 0.894,
+      "deep": 0,
+      "dodeca": 0.9,
+      "dunes": 0,
+      "fireflies": 0,
+      "flow": 0,
+      "forest": 0,
+      "geosphere": 0,
+      "glitch": 0,
+      "grain": 0,
+      "horizon": 0.525,
+      "hueDrift": 0.01,
+      "kal": 6,
+      "kalTurn": 0,
+      "kalWhere": 3,
+      "knot": 0,
+      "land": 0,
+      "lasers": 0,
+      "lightning": 0,
+      "lines": 0,
+      "mandala": 0,
+      "mirror": 0,
+      "mood": 0,
+      "orbit": 0,
+      "outline": 0.8,
+      "plasma": 0,
+      "rain": 0,
+      "ribbons": 0,
+      "ring": 0,
+      "rot": -0.001,
+      "scope": 0,
+      "sea": 0,
+      "shock": 0,
+      "skull": 0,
+      "space": 0,
+      "sparkle": 0,
+      "spikes": 0,
+      "star": 0,
+      "stargate": 0,
+      "sym": 1,
+      "torus": 0,
+      "tunnel": 0,
+      "unicorn": 0,
+      "vectorscope": 0,
+      "wander": 0.063,
+      "warp": 0.45,
+      "zoom": 1.004
+    },
+    "tw": {}
+  },
+  "name": "City, Horizon, Wire dodecahedron",
+  "onScreen": "Cosmos; layers Comets, Horizon; hits Outline zoom; Wire dodecahedron. Set by Journey, from the Night drive recipe.",
+  "pace": "steady",
+  "place": {
+    "belt": false,
+    "shot": "orbit",
+    "star": "star",
+    "subject": "an ice world",
+    "system": 71453302
+  },
+  "pos": "3:05",
+  "preset": null,
+  "recipe": "Night drive",
+  "scene": "among",
+  "section": "B",
+  "settings": {
+    "colorSpeed": 0.036,
+    "comets": 0.431,
+    "cosmos": 1,
+    "decay": 0.894,
+    "dodeca": 0.9,
+    "flow": 0,
+    "horizon": 0.525,
+    "hueDrift": 0.01,
+    "kal": 6,
+    "kalWhere": 3,
+    "mood": 0,
+    "outline": 0.8,
+    "plasma": 0,
+    "rain": 0,
+    "ring": 0,
+    "rot": -0.001,
+    "sym": 1,
+    "wander": 0.063,
+    "warp": 0.45,
+    "zoom": 1.004
+  },
+  "tension": 0.438,
+  "thumb": "data:image/jpeg;base64,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",
+  "track": "Hypnotic Groove (1)",
+  "v": 1,
+  "world": "city"
+}

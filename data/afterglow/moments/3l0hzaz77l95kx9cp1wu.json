@@ -1,0 +1,143 @@
+{
+  "accent": "horizon",
+  "at": "2026-09-28T23:23:28.914Z",
+  "bpm": 122.581,
+  "caption": null,
+  "centre": "dodeca",
+  "hit": "shock",
+  "journey": false,
+  "lead": "ring",
+  "lens": 4,
+  "look": {
+    "centre": "geosphere",
+    "mods": {},
+    "scene": [
+      {
+        "world": "all"
+      },
+      {
+        "trails": "main"
+      },
+      {
+        "fill": {
+          "world": true
+        },
+        "object": "skull"
+      },
+      {
+        "hits": true
+      },
+      {
+        "objects": true
+      }
+    ],
+    "sceneKey": null,
+    "settings": {
+      "aurora": 0,
+      "burst": 0,
+      "city": 0,
+      "colorSpeed": 0.04,
+      "comets": 0,
+      "cosmos": 0,
+      "decay": 0.96,
+      "dodeca": 0,
+      "flow": 0,
+      "geosphere": 0.9,
+      "horizon": 0,
+      "hueDrift": 0.008,
+      "kal": 12,
+      "kalTurn": -0.3,
+      "kalWhere": 3,
+      "knot": 0,
+      "land": 1,
+      "lasers": 0.8,
+      "lines": 0.8,
+      "mirror": 0,
+      "orbit": 0,
+      "outline": 0,
+      "plasma": 0,
+      "ribbons": 0.8,
+      "ring": 0,
+      "rot": 0,
+      "scope": 0,
+      "shock": 0,
+      "skull": 0,
+      "space": 0,
+      "sparkle": 0,
+      "spikes": 0,
+      "star": 0,
+      "sym": 1,
+      "torus": 0,
+      "tunnel": 0,
+      "unicorn": 0,
+      "wander": 0,
+      "warp": 0.1,
+      "zoom": 1.002
+    },
+    "tw": {
+      "burst": {
+        "size": 2
+      },
+      "lasers": {
+        "src": "treb"
+      },
+      "lines": {
+        "speed": 0.25,
+        "src": "kick"
+      },
+      "plasma": {
+        "speed": 0.25
+      },
+      "ring": {
+        "size": 0.4,
+        "src": "kick"
+      },
+      "scope": {
+        "size": 1.25,
+        "src": "kick"
+      }
+    }
+  },
+  "name": "City comets",
+  "onScreen": "Landscape; layers Ribbons, Lasers, Waveform lines; Wire sphere. Set by the City comets preset.",
+  "pace": "frantic",
+  "place": null,
+  "pos": "1:29",
+  "preset": "City comets",
+  "recipe": "Liked: Space, Horizon",
+  "scene": "inside",
+  "section": "F",
+  "settings": {
+    "aurora": 0,
+    "colorSpeed": 0.04,
+    "comets": 0,
+    "cosmos": 0,
+    "decay": 0.96,
+    "dodeca": 0,
+    "geosphere": 0.9,
+    "horizon": 0,
+    "hueDrift": 0.008,
+    "kal": 12,
+    "kalTurn": -0.3,
+    "kalWhere": 3,
+    "land": 1,
+    "lasers": 0.8,
+    "lines": 0.8,
+    "orbit": 0,
+    "ribbons": 0.8,
+    "ring": 0,
+    "rot": 0,
+    "shock": 0,
+    "skull": 0,
+    "sym": 1,
+    "unicorn": 0,
+    "wander": 0,
+    "warp": 0.1,
+    "zoom": 1.002
+  },
+  "tension": 0.266,
+  "thumb": "data:image/jpeg;base64,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",
+  "track": "Hypnotic Groove (1)1 of 2",
+  "v": 1,
+  "world": "none"
+}

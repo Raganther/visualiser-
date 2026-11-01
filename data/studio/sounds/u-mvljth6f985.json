@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-25T12:02:01.400Z",
+  "base": "c-glassPad",
+  "id": "u-mvljth6f985",
+  "name": "Glass pad (yours)",
+  "pack": "mine",
+  "role": "chords",
+  "src": {
+    "palette": "glassPad",
+    "poly": {
+      "fa": 0.00218,
+      "fine": 5,
+      "spread": 1
+    }
+  },
+  "words": "Your version of Glass pad."
+}

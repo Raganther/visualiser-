@@ -1,0 +1,111 @@
+{
+  "accent": "comets",
+  "at": "2026-09-28T20:43:03.112Z",
+  "bpm": 122.678,
+  "caption": null,
+  "centre": null,
+  "hit": "outline",
+  "journey": false,
+  "lead": "horizon",
+  "lens": 0,
+  "look": {
+    "centre": "geosphere",
+    "mods": {},
+    "scene": [
+      {
+        "world": "all"
+      },
+      {
+        "mask": {
+          "keep": "outside",
+          "object": "geosphere"
+        },
+        "trails": "main"
+      },
+      {
+        "hits": true
+      },
+      {
+        "fill": {
+          "fold": 6,
+          "layers": [
+            "burst",
+            "ring"
+          ]
+        },
+        "object": "geosphere"
+      },
+      {
+        "objects": true
+      }
+    ],
+    "sceneKey": null,
+    "settings": {
+      "aurora": 0,
+      "burst": 1,
+      "city": 0,
+      "colorSpeed": 0.037,
+      "comets": 0,
+      "cosmos": 0,
+      "decay": 0.891,
+      "dodeca": 0,
+      "flow": 0,
+      "geosphere": 0.9,
+      "horizon": 0,
+      "hueDrift": 0.01,
+      "knot": 0,
+      "land": 0,
+      "mirror": 0,
+      "orbit": 0,
+      "outline": 0,
+      "plasma": 0,
+      "ribbons": 0,
+      "ring": 0,
+      "rot": 0.001,
+      "scope": 0,
+      "shock": 0,
+      "skull": 0,
+      "space": 0,
+      "sparkle": 0,
+      "spikes": 0,
+      "star": 0,
+      "sym": 2,
+      "torus": 0,
+      "tunnel": 0,
+      "unicorn": 0,
+      "wander": 0.124,
+      "warp": 0.291,
+      "zoom": 1
+    }
+  },
+  "name": "Spectrum burst alone",
+  "onScreen": "no world; layers Spectrum burst; Wire sphere; a 2-way kaleidoscope. Set by the Spectrum burst alone preset.",
+  "pace": "frantic",
+  "place": null,
+  "pos": "2:41",
+  "preset": "Spectrum burst alone",
+  "recipe": "Night drive",
+  "scene": "between",
+  "section": "A",
+  "settings": {
+    "burst": 1,
+    "city": 0,
+    "colorSpeed": 0.037,
+    "cosmos": 0,
+    "decay": 0.891,
+    "geosphere": 0.9,
+    "hueDrift": 0.01,
+    "mirror": 0,
+    "rot": 0.001,
+    "sym": 2,
+    "unicorn": 0,
+    "wander": 0.124,
+    "warp": 0.291,
+    "zoom": 1
+  },
+  "tension": 0.636,
+  "thumb": "data:image/jpeg;base64,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",
+  "track": "Hypnotic Groove",
+  "v": 1,
+  "world": "city"
+}

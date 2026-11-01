@@ -38,9 +38,9 @@ for (const mode of ['2d', 'gl']) {
 
 // the trails' shader built from the visuals drawing draws exactly what the full one does, over Journey's changes
 const runs = {};
-for (const q of ['?tune=render.fbCache=0', '']) {
+for (const q of ['?tune=render.fbCache=0', '?tune=render.fbSerial=1']) {   // (this browser builds shaders one at a time, where the page keeps the full one: fbSerial makes it build them anyway)
   const browser = await launch('gl'), page = await openPage(browser, url, {width: 160, height: 90, query: q + (q ? '&' : '?') + 'tune=render.auto.on=0'});
-  runs[q || 'built'] = await page.evaluate(async thumb => {
+  runs[q.includes('fbSerial') ? 'built' : q] = await page.evaluate(async thumb => {
     const fbInfo = () => (document.querySelector('#fps').textContent.match(/trails shader: (.*)/) || [, '?'])[1], out = [];
     for (let i = 0; i < 6; i++) { __step(60*3); out.push({px: eval(thumb), fb: fbInfo()}); }
     return out;

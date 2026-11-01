@@ -10,7 +10,7 @@ import GOBLIN from './meshes/goblin.js';
 const st = {sn: -.6, hit: 0};
 export default meshObject({key: 'goblin', label: 'Goblin', words: 'A goblin glowers and snarls with the music',
   mesh: {pieces: [GOBLIN], hinge: [0, 0, 0]},
-  dance: {moves: {bang: 1.6, look: 1.4, face: .8, pulse: 1, approach: 1.4, still: .8, groove: .4, float: .3, spin: .2, rise: .3, lift: .4}, sym: 4, liftPart: 2},   // it glares, head-bangs, leans in; the ears lift
+  dance: {moves: {bang: 1.6, look: 1.4, face: .8, pulse: 1, approach: 1.4, still: .8, groove: .4, float: .3, spin: .2, rise: .3, lift: .4}, sym: 4, reach: true, liftPart: 2},   // it glares, head-bangs, leans in; the ears lift
   onBeat(pos){ if (pos === 0) st.hit = 1; },
   motion(U, P, x){
     const T = TUNE.goblin, J = x.J, ten = (J && J.tension) || 0;

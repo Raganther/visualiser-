@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-25T15:41:59.016Z",
+  "base": "c3-strings",
+  "id": "u-mvnzw8pi173",
+  "name": "Ensemble (analog) (yours)",
+  "pack": "mine",
+  "role": "chords",
+  "src": {
+    "knobs": {
+      "stretch": 0.7
+    },
+    "native": "vastrings"
+  },
+  "words": "Your version of Ensemble (analog)."
+}

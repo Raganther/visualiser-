@@ -1,0 +1,109 @@
+<meta charset="utf-8">
+<title>Analog Drum Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one machine panel, top to bottom as a drum machine reads: transport, kit, beat, the steps, the voice's knobs */
+:root {
+  --panel: #dcdfe2; --face: #eef0f2; --ink: #1f2328; --mute: #5d6670; --line: #b9bfc6;
+  --s0: #d4432c; --s1: #e8791f; --s2: #e9bd25; --s3: #ece2c8; --lamp: #e0401f; --b: #2f6fb3;
+  --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --panel: #191b1e; --face: #23262a; --ink: #e7e4dc; --mute: #9aa1a9; --line: #3a3f46;
+  --s0: #e0553c; --s1: #f08a2e; --s2: #f0c83b; --s3: #d9cfb6; --lamp: #ff5a36; --b: #5d9be0; color-scheme: dark } }
+:root[data-theme="dark"] { --panel: #191b1e; --face: #23262a; --ink: #e7e4dc; --mute: #9aa1a9; --line: #3a3f46;
+  --s0: #e0553c; --s1: #f08a2e; --s2: #f0c83b; --s3: #d9cfb6; --lamp: #ff5a36; --b: #5d9be0; color-scheme: dark }
+body { background: var(--panel); color: var(--ink); font-family: var(--display); font-stretch: 92%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 800; font-stretch: 70%; letter-spacing: .02em; text-transform: uppercase; line-height: 1 }
+h1 small { font-weight: 500; color: var(--lamp) }
+header p { margin: 0; color: var(--mute); max-width: 62ch; font-stretch: 100%; line-height: 1.45 }
+h2 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mute) }
+button { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--b); outline-offset: 2px }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#play { min-width: 104px; padding: 12px 18px; border: 0; border-radius: 4px; background: var(--lamp); color: #fff; font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase }
+#play[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.fader { display: grid; gap: 2px; min-width: 150px } .fader span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute) }
+.fader output { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums }
+.fader input { width: 160px; accent-color: var(--lamp) }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden }
+.seg button { border: 0; background: transparent; padding: 8px 11px; font-size: 13px; font-weight: 600 } .seg button + button { border-left: 1px solid var(--line) }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+#side { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--mute); min-width: 0 }
+#side::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--line) }
+#side[data-side="a"]::before { background: var(--lamp); box-shadow: 0 0 8px var(--lamp) } #side[data-side="b"]::before { background: var(--b); box-shadow: 0 0 8px var(--b) }
+#scope { flex: 1 1 200px; height: 46px; min-width: 120px; background: var(--panel); border-radius: 3px }
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) }
+#kits { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) }
+.kit, .beat { text-align: left; display: grid; gap: 3px; align-content: start; background: var(--face); border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px }
+.kit b, .beat b { font-size: 16px; font-weight: 700; font-stretch: 85% } .kit span, .beat span { font-size: 12.5px; color: var(--mute); font-stretch: 100%; line-height: 1.35 }
+.kit[aria-pressed="true"], .beat[aria-pressed="true"] { border-color: var(--lamp); box-shadow: inset 0 0 0 1px var(--lamp) }
+.beat i { font-style: normal; font-size: 11px; color: var(--lamp); letter-spacing: .1em; text-transform: uppercase }
+.seq { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto }
+.seqhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
+#grid { display: grid; gap: 4px; min-width: 860px }
+.row { display: grid; grid-template-columns: 26px 92px 1fr; gap: 6px; align-items: center }
+.row[data-muted="true"] .steps { opacity: .35 }
+.mute { height: 24px; border: 1px solid var(--line); border-radius: 3px; background: transparent; font-size: 11px; font-weight: 700; color: var(--mute) }
+.mute[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.lab { height: 24px; text-align: left; border: 0; background: transparent; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--mute); border-radius: 3px }
+.lab[data-used="true"] { color: var(--ink) } .lab[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.steps { display: grid; grid-template-columns: repeat(32, 1fr); gap: 3px }
+.st { position: relative; height: 24px; border: 0; border-radius: 3px; padding: 0; background: color-mix(in srgb, var(--c) 14%, var(--panel)) }
+.st:nth-child(16n+1) { margin-left: 0 } .st:nth-child(17) { margin-left: 6px }
+.st[data-g="0"] { --c: var(--s0) } .st[data-g="1"] { --c: var(--s1) } .st[data-g="2"] { --c: var(--s2) } .st[data-g="3"] { --c: var(--s3) }
+.st[data-c="x"] { background: var(--c) } .st[data-c="X"] { background: var(--c); box-shadow: inset 0 0 0 2px var(--ink) }
+.st[data-c="o"] { background: color-mix(in srgb, var(--c) 55%, var(--panel)) }
+.st[data-c="r"] { background: repeating-linear-gradient(90deg, var(--c) 0 40%, transparent 40% 60%) }
+.st[data-now]::after { content: ""; position: absolute; inset: -2px; border-radius: 4px; border: 2px solid var(--lamp) }
+.legend { font-size: 12px; color: var(--mute); font-stretch: 100% }
+.voice { display: grid; gap: 10px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#knobs { display: grid; gap: 10px 18px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) }
+.knob { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12.5px } .knob span { color: var(--mute); letter-spacing: .04em }
+.knob input { grid-column: 1 / -1; width: 100%; accent-color: var(--lamp) } .knob output { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums }
+.notes { display: grid; gap: 8px } textarea { font: 14px/1.45 system-ui, sans-serif; background: var(--face); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 10px; min-height: 84px; resize: vertical }
+.notes div { display: flex; gap: 12px; align-items: center } #copied { font-size: 13px; color: var(--mute) }
+@media (prefers-reduced-motion: reduce) { #side::before { box-shadow: none !important } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Analog Drum Lab <small>· live</small></h1>
+    <p>The analog drum machine, computed sample by sample as it plays. Pick a kit and a beat, then press Play (or Space). Click steps to change them, turn a voice’s knobs while it plays, and A/B it against the browser kit it sits beside.</p>
+  </header>
+
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <label class="fader"><span>Tempo</span><output id="bpmOut">126</output><input id="bpm" type="range" min="70" max="160" step="1" value="126"></label>
+    <label class="fader"><span>Swing</span><output id="swingOut">6%</output><input id="swing" type="range" min="0" max="40" step="1" value="6"></label>
+    <div class="seg" role="group" aria-label="Which kit you hear"><button id="abA" aria-pressed="true">Analog</button><button id="abB" aria-pressed="false">Browser copy</button><button id="abSwap" aria-pressed="false">Swap every 2 bars</button></div>
+    <div id="side">Stopped</div>
+    <canvas id="scope" aria-label="The waveform as heard"></canvas>
+  </div>
+
+  <section><h2>Kit</h2><div id="kits" class="cards"></div></section>
+  <section><h2>Beat</h2><div id="beats" class="cards"></div></section>
+
+  <section class="seq">
+    <div class="seqhead"><h2 style="margin:0">Steps · two bars of sixteenths</h2><span class="legend">Click a step: hit → accent → ghost → roll → rest</span><button id="resetBeat" class="ghost">Reset this beat</button></div>
+    <div id="grid"></div>
+  </section>
+
+  <section class="voice">
+    <div class="seqhead"><h2 style="margin:0">Voice · <span id="voiceName">Kick</span></h2><span class="legend">Click a row’s name to shape it. Changes are heard at once and kept on this device.</span><button id="resetVoice" class="ghost">Reset this voice</button></div>
+    <div id="knobs"></div>
+  </section>
+
+  <section class="notes">
+    <h2>Notes for Claude</h2>
+    <textarea id="notes" placeholder="What sounds right or wrong: the kick needs more boom, the hats are too bright on Grit…"></textarea>
+    <div><button id="copy" class="ghost">Copy notes and settings</button><span id="copied" role="status"></span></div>
+  </section>
+</div>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

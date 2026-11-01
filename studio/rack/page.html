@@ -1,0 +1,114 @@
+<meta charset="utf-8">
+<title>Drum Rack Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a mixing desk read top to bottom: the transport, the channel strips side by side (the pads, then the bus, the
+   returns, the master), then the bus's processors beside the selected pad, then the returns */
+:root {
+  --panel: #dfe3e1; --face: #eef1ef; --ink: #1c2321; --mute: #5a6663; --line: #b8c1be; --accent: #17806f; --accent-ink: #fff; --hot: #d2452c; --meter: #2fa38f;
+  --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --panel: #131716; --face: #1c2120; --ink: #e5ebe8; --mute: #95a39f; --line: #36403d; --accent: #3cc4ac; --accent-ink: #0b1714; --hot: #ff6a4d; --meter: #3cc4ac; color-scheme: dark } }
+:root[data-theme="dark"] { --panel: #131716; --face: #1c2120; --ink: #e5ebe8; --mute: #95a39f; --line: #36403d; --accent: #3cc4ac; --accent-ink: #0b1714; --hot: #ff6a4d; --meter: #3cc4ac; color-scheme: dark }
+body { background: var(--panel); color: var(--ink); font-family: var(--display); font-stretch: 92%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px } .wrap > * { min-width: 0 }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 800; font-stretch: 70%; letter-spacing: .02em; text-transform: uppercase; line-height: 1 }
+h1 small { font-weight: 500; color: var(--accent) }
+header p { margin: 0; color: var(--mute); max-width: 68ch; font-stretch: 100%; line-height: 1.45 }
+h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); text-wrap: balance }
+button, select { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px }
+#play { min-width: 100px; padding: 12px 18px; border: 0; border-radius: 4px; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase }
+#play[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.lbl { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); margin-bottom: 3px }
+.bar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 14px; max-width: 220px }
+.fader-h { display: grid; gap: 2px } .fader-h output, #pos { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums } .fader-h input { width: 130px; accent-color: var(--accent) }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--mute) } .check input { accent-color: var(--accent) }
+#matched { font: 12px var(--mono); color: var(--mute); min-width: 24ch }
+#scope { flex: 1 1 180px; height: 46px; min-width: 120px; background: var(--panel); border-radius: 3px }
+#kitWords { margin: 0; font-size: 12.5px; color: var(--mute); max-width: 70ch; line-height: 1.4 }
+.box { background: var(--face); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; align-content: start }
+.boxhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px }
+.legend { font-size: 12px; color: var(--mute); font-stretch: 100% }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 10px; font-size: 12.5px }
+/* the channel strips */
+.mixwrap { overflow-x: auto } #mixer { display: flex; gap: 6px; min-width: max-content; padding-bottom: 4px }
+.strip { width: 82px; display: grid; gap: 6px; justify-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 8px 6px; align-content: start }
+.strip[data-used="false"] { opacity: .6 } .strip[data-sel="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent) }
+.strip.bus { background: color-mix(in srgb, var(--accent) 9%, var(--panel)) }
+.sname { border: 0; background: transparent; font-weight: 700; font-size: 13px; padding: 2px 0; text-align: center; font-stretch: 80% } .sname.static { cursor: default }
+.fadwrap { display: flex; gap: 6px; justify-content: center; height: 130px }
+.meter { width: 8px; background: var(--face); border: 1px solid var(--line); border-radius: 2px; display: flex; align-items: flex-end; overflow: hidden } .meter.tall { width: 14px }
+.meter i { display: block; width: 100%; height: 0; background: var(--meter) } .meter i[data-hot="true"] { background: var(--hot) }
+.fader { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 130px; accent-color: var(--accent); margin: 0 }
+.strip > output { text-align: center; font: 11.5px var(--mono); font-variant-numeric: tabular-nums }
+.small { display: grid; font-size: 10.5px; color: var(--mute); gap: 1px } .small output { font: 10.5px var(--mono); color: var(--ink) } .small input { width: 100%; accent-color: var(--accent); margin: 0 }
+.ms { display: flex; gap: 4px } .ms button { flex: 1; border: 1px solid var(--line); background: transparent; border-radius: 3px; font-size: 11px; font-weight: 700; padding: 3px 0 }
+.ms button[aria-pressed="true"] { background: var(--ink); color: var(--panel) }
+.route { border: 1px solid var(--line); background: transparent; border-radius: 3px; font-size: 11px; padding: 4px 0 } .route[aria-pressed="false"] { background: var(--ink); color: var(--panel) }
+.ins { font-style: normal; font-size: 10.5px; color: var(--accent); text-align: center } .strip-gr { text-align: center; font-size: 11px }
+/* the processors */
+.two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)) }
+.chain { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) }
+#voice { display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) }
+.notes { display: grid; gap: 8px } textarea { font: 14px/1.45 system-ui, sans-serif; background: var(--face); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 10px; min-height: 84px; resize: vertical }
+.notes div { display: flex; gap: 12px; align-items: center } #copied { font-size: 13px; color: var(--mute) }
+/*SHELLCSS*/
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Drum Rack Lab <small>· live</small></h1>
+    <p>The analog drum machine taken apart: every pad on its own channel, all summed into a bus whose processors you can switch off, move, take out or add to. Press Play (or Space), then switch the bus out with B: it's turned to the same loudness, so you hear what the bus does, not just that it's louder.</p>
+  </header>
+
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <div><span class="lbl">Bar · beat</span><span id="pos">–</span></div>
+    <label class="fader-h"><span class="lbl">Tempo</span><output id="bpmOut">120</output><input id="bpm" type="range" min="70" max="160" step="1" value="120"></label>
+    <label><span class="lbl">Kit</span><select id="kit"></select></label>
+    <label><span class="lbl">Beat</span><select id="beat"></select></label>
+    <div><span class="lbl">The bus</span><div class="seg" role="group" aria-label="The bus in or out"><button id="busIn" aria-pressed="true">In</button><button id="busOut" aria-pressed="false">Out (B)</button></div></div>
+    <div style="display:grid;gap:4px"><label class="check"><input type="checkbox" id="match" checked> Match loudness</label><label class="check"><input type="checkbox" id="abAuto"> Swap every 2 bars</label></div>
+    <span id="matched" role="status">bus in</span>
+    <canvas id="scope" aria-label="The waveform"></canvas>
+    <p id="kitWords"></p>
+  </div>
+
+  <section class="box">
+    <div class="boxhead"><h2>The rack · a channel for each pad</h2><span class="legend">Click a pad's name to shape it · faders double-click to 0 dB · → Bus sends it round the bus instead</span></div>
+    <div class="mixwrap"><div id="mixer"></div></div>
+  </section>
+
+  <div class="two">
+    <section class="box">
+      <div class="boxhead"><h2>The bus · in order, left to right</h2><button id="busReset" class="ghost">Back to the kit's bus</button></div>
+      <span class="legend">Click a processor's name to switch it off. The glue shows how far it's turning the sum down.</span>
+      <div id="busChain" class="chain"></div>
+    </section>
+    <section class="box">
+      <div class="boxhead"><h2>Pad · <span id="padName">Kick</span></h2><button id="padReset" class="ghost">Reset this pad</button></div>
+      <div id="voice"></div>
+      <h2 style="margin-top:6px">Its own processors</h2>
+      <div id="padChain" class="chain"></div>
+    </section>
+  </div>
+
+  <section class="box">
+    <div class="boxhead"><h2>Returns · what the pads send to</h2><button id="retReset" class="ghost">Reset the returns</button></div>
+    <div class="two"><div><h2 style="margin-bottom:8px">Echo</h2><div id="echoChain" class="chain"></div></div><div><h2 style="margin-bottom:8px">Room</h2><div id="roomChain" class="chain"></div></div></div>
+  </section>
+
+  <section class="notes">
+    <h2>Notes for Claude</h2>
+    <textarea id="notes" placeholder="What you hear: the glue pumps on the open hat, the kick loses its click through the tape, the room makes the clap better…"></textarea>
+    <div><button id="copy" class="ghost">Copy notes and settings</button><button id="allReset" class="ghost">Start again</button><span id="copied" role="status"></span></div>
+  </section>
+</div>
+<script id="worklet-src" type="text/plain">/*WORKLET*/</script>
+<script>/*APP*/</script>

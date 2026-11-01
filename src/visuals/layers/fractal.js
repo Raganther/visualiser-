@@ -7,13 +7,15 @@
 // vortex" setting, or Journey now and then) twists the dive into a logarithmic whirlpool that spins as it falls, turning
 // the other way after each drop. Simple mode draws the same dive at low resolution, scaled up.
 import { TUNE } from '../../tuning.js';
+import { genFold } from '../../scene/genome.js';
+
 const N = 4, IT = 7, REACH = .55;
 const st = {depth: 0, lt: null, surge: 0, drop: null, echo: 9, vort: 0, dir: 1, oct: []};
 const hh = x => { const s = Math.sin(x*12.9898)*43758.5453; return s - Math.floor(s); };
 // an octave's shape, chosen as it's born from the music at that moment: folds, branch angle, branching scale, hue
 function born(id, T){
   const F = TUNE.fractal, h = hh(id + 1.3), h2 = hh(id*1.7 + 4.1);
-  const folds = F.folds[Math.min(F.folds.length - 1, Math.floor(T*F.folds.length*.8 + h*F.folds.length*.5))];
+  const folds = genFold(4, 10) || F.folds[Math.min(F.folds.length - 1, Math.floor(T*F.folds.length*.8 + h*F.folds.length*.5))];
   return {id, n: folds, ang: .18 + .12*T + h2*.2, k: 1.5 + .12*folds + (hh(id + 9.2) - .3)*.25, hue: (((id % 3) + 3) % 3)};   // (more folds need a bigger scale, or it fills the plane)
 }
 function octave(id, T){ let o = st.oct.find(o => o.id === id); if (!o) { o = born(id, T); st.oct.push(o); if (st.oct.length > 8) st.oct.shift(); } return o; }
