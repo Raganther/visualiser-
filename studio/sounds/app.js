@@ -210,7 +210,7 @@ function paintCard(id){ const el = $('snd-' + id), r = S.rate[id] || {}; if (!el
   for (const b of el.querySelectorAll('.rate button')) b.setAttribute('aria-pressed', String(+b.dataset.v === r.rating)); }
 function paint(){ for (const b of document.querySelectorAll('.snd .play')) { const id = b.closest('.snd').id.slice(4); b.setAttribute('aria-pressed', String(S.playing?.id === id && S.playing.mode === b.dataset.mode)); }
   for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).setAttribute('aria-pressed', String(!!S.ed && S.playing?.id === S.ed && S.playing.mode === m));
-  $('stop').disabled = !S.playing; $('now').textContent = !S.playing ? 'Nothing playing' : S.playing.mode === 'palette' ? 'The palette, together' : S.playing.parts ? `${byId(S.playing.id).name}, ${S.playing.mode === 'band' ? 'with the band' : S.playing.mode === 'alone' && byId(S.playing.id).mkind !== 'idea' ? 'alone' : 'playing'}` : `${byId(S.playing.id).name}, ${MODES.find(m => m[0] === S.playing.mode)[1].toLowerCase()}`; if ($('palPlay')) { $('palPlay').setAttribute('aria-pressed', String(S.playing?.mode === 'palette')); $('palPlay').lastChild.textContent = S.playing?.mode === 'palette' ? 'Stop the palette' : 'Play the palette together'; } }
+  $('stop').disabled = !S.playing; $('mini').hidden = !S.playing; $('now').textContent = !S.playing ? 'Nothing playing' : S.playing.mode === 'palette' ? 'The palette, together' : S.playing.parts ? `${byId(S.playing.id).name}, ${S.playing.mode === 'band' ? 'with the band' : S.playing.mode === 'alone' && byId(S.playing.id).mkind !== 'idea' ? 'alone' : 'playing'}` : `${byId(S.playing.id).name}, ${MODES.find(m => m[0] === S.playing.mode)[1].toLowerCase()}`; $('miniName').textContent = $('now').textContent; if ($('palPlay')) { $('palPlay').setAttribute('aria-pressed', String(S.playing?.mode === 'palette')); $('palPlay').lastChild.textContent = S.playing?.mode === 'palette' ? 'Stop the palette' : 'Play the palette together'; } }
 function count(){ const all = shown(), n = all.filter(s => S.rate[s.id]?.rating).length, likes = all.filter(s => S.rate[s.id]?.rating === 1).length;
   $('count').textContent = `${n} of ${all.length} rated`; $('likes').textContent = likes ? `${likes} liked` : ''; $('bar').style.setProperty('--done', all.length ? n/all.length : 0); }
 
@@ -280,7 +280,7 @@ function fold(on){ const b = $('bench'); b.classList.toggle('folded', on); $('ed
   if (on) b.style.height = 'auto'; else b.style.height = ''; document.body.style.paddingBottom = on ? (b.getBoundingClientRect().height + 16) + 'px' : ''; }
 for (const [b, m] of [['edAlone', 'alone'], ['edPhrase', 'phrase'], ['edLoop', 'loop']]) $(b).onclick = () => play(S.ed, m);
 
-$('stop').onclick = stop; $('copy').onclick = copyRatings;
+$('stop').onclick = stop; $('mini').onclick = stop; $('copy').onclick = copyRatings;
 for (const b of document.querySelectorAll('#side button')) b.onclick = () => pickSide(b.dataset.side);
 $('bpm').oninput = e => setTempo(+e.target.value); $('bpmReset').onclick = () => setTempo(BPM); setTempo(S.bpm);
 $('vol').oninput = e => { S.vol = +e.target.value; if (out) out.gain.value = S.vol; };
