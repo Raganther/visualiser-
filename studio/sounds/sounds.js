@@ -293,7 +293,13 @@ const MINE808 = {kick: {body: .573, decay: .635, mids: -4.15, x: .491}, chh: {de
   rim: {atk: .495, decay: .595, mids: -4.4, tone: .374, tune: -6}, tomH: {decay: .656, mids: -5.34}};
 const withHats = (o, real, tone) => ({...o, chh: {...o.chh, real, tone, mids: -3}, ohh: {...o.ohh, real, tone, mids: -3}});
 const TIGHT = {kick: {decay: .65, mids: -4, vary: .4}, chh: {decay: .85, vary: .55, mids: -3}, ohh: {decay: 1, vary: .7, mids: -3}, rim: {mids: -4.5, tone: .45, tune: -5, decay: .65}, tomH: {decay: .65, mids: -5}, shaker: {mids: -3, vary: .5}};
+// the evolving pad written for Low Tide (the first song from these sounds): a pulse whose width the LFO sweeps beside a
+// detuned saw, through the soft ladder, its cutoff breathing on a slow LFO over two bars, warm, the mids cut
+export const LFO_PAD = {w1: 1, pw1: .45, lpwm: .22, w2: 0, fine2: -7, l1: .7, l2: .6, lsub: .12, ftype: 1, cut: 700, res: .14, fenv: .12, fkey: .4, fa: .4, fd: 1.2, fs: .7, fr: 1.4,
+  aa: .35, ad: 1.2, as: .9, ar: 1.6, lshape: 1, lsync: 1, lcut: 1.1, lamp: .12, lwide: .2, hpf: 150, chorus: 2, spread: .9, mode: 0, slop: .55, mids: -4, midf: 2200, tilt: -.25,
+  emix: .12, etime: 3, efb: .35, etone: .35, level: .5};
 const SYNTH5 = [
+  ['lfopad', 'chords', 'Evolving pad', 'The pad written for Low Tide: its cutoff breathing on a slow LFO over two bars, warm, the mids cut. The music side\'s chords play on it.', LFO_PAD, A.chord, P.pads, {room: .1}],
   ['pingtamed', 'lead', 'Filter ping, tamed', 'The filter ping you liked, its mids cut a long way and a little darker.', {...R4P('filterping'), mids: -8, midf: 1400, tilt: -.25}, A.lead, P.threes, {}],
   ['nppluck2', 'lead', 'Poly pluck, darker', 'The poly pluck you liked, its filter lower and a touch shorter, the chorus wider.', NP('Pluck', {cut: 330, res: .2, ad: .28, ar: .25, chorus: .45, drive: 0}), A.lead, P.threes, {engine: 'npoly'}],
   ['npbell2', 'lead', 'Poly bell, shorter', 'The poly glass bell rung shorter and softer at the top.', NP('Glass bell', {oct: 0, chorus: .4, ad: .9, ar: .9, cut: 5000}), A.lead, P.bell, {engine: 'npoly', room: .15}],
@@ -315,8 +321,8 @@ const DRUM5 = [
   ['ghost2', 'perc', 'Snare ghosts, darker', 'The snare ghosts you liked, darker and with a little more variation.', 'Analog Warm',
     {snare: {tone: .35, mids: -7, atk: 1, vary: .5}}, [['snare', .45], ['snare', .9]], {snare: '.g...g.o..g...o..g...g.o..g..go.'}, {}],
 ];
-const LEVEL = {g: .25, o: .45, x: .75, X: 1};
-const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) => c === '.' ? null : {s, v, vel: LEVEL[c]}).filter(Boolean));
+export const LEVEL = {g: .25, o: .45, x: .75, X: 1};
+export const rows = r => Object.entries(r).flatMap(([v, row]) => [...row].map((c, s) => c === '.' ? null : {s, v, vel: LEVEL[c]}).filter(Boolean));
 const synths = list => list.map(([id, role, name, words, patch, alone, phrase, x = {}]) => ({id, kind: 'synth', engine: x.engine || 'asynth', role, name, words, patch, alone, phrase, from: x.from, room: x.room || 0}));
 const drums = list => list.map(([id, role, name, words, kit, over, alone, pattern, x = {}]) => ({id, kind: 'drum', role, name, words, kit, over, alone: alone.map(([v, vel], i) => ({s: i*4, v, vel})), phrase: rows(pattern), from: x.from, room: x.room || 0}));
 export const ROUNDS = {1: [...synths(SYNTH), ...drums(DRUM)], 2: [...synths(SYNTH2), ...drums(DRUM2)], 3: [...synths(SYNTH3), ...drums(DRUM3)], 4: [...synths(SYNTH4), ...drums(DRUM4)], 5: [...synths(SYNTH5), ...drums(DRUM5)]};

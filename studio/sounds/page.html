@@ -142,6 +142,13 @@ body.benching { padding-bottom: calc(var(--benchH, 50vh) + 16px) }
 #palPlay { min-height: 44px; padding: 0 18px; border: 0; background: var(--accent); color: var(--accent-ink) } #palPlay[aria-pressed="true"] { background: var(--ink); color: var(--bg) }
 .palrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--sheet); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px }
 .palrow b { min-width: 92px; font-family: var(--display); font-size: 17px } .palrow select { flex: 1 1 220px; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; font: inherit; font-size: 14px }
+
+/* sounds or music: the two sides of the lab */
+.side { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-bottom: 10px }
+.side button { border: 0; background: transparent; padding: 8px 18px; font-family: var(--display); font-weight: 650; font-size: 17px }
+.side button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink) }
+.plays.two { grid-template-columns: repeat(2, 1fr) }
+#bpmOut { min-width: 7ch }
 @media (prefers-reduced-motion: reduce) { #bar::after { transition: none } }
 </style>
 
@@ -153,9 +160,11 @@ body.benching { padding-bottom: calc(var(--benchH, 50vh) + 16px) }
   </header>
 
   <div class="transport">
+    <div id="side" class="side" role="group" aria-label="Sounds or music"><button data-side="sounds" aria-pressed="true">Sounds</button><button data-side="music" aria-pressed="false">Music</button></div>
     <div class="tbar">
       <button id="stop" disabled>Stop</button>
       <span id="now" aria-live="polite">Nothing playing</span>
+      <label class="vol" for="bpm">Tempo <input id="bpm" type="range" min="90" max="140" step="1" value="122"><output id="bpmOut">122 BPM</output></label><button id="bpmReset" class="ghost" title="Back to 122">122</button>
       <label class="vol" for="vol">Volume <input id="vol" type="range" min="0" max="1.5" step=".01" value="1"></label>
       <label class="vol" for="room">Room <input id="room" type="range" min="0" max="2" step=".05" value="1"><output id="roomOut">100%</output></label>
       <div class="prog"><div class="nums"><b id="count">0 of 30 rated</b><span id="likes"></span></div><div id="bar"></div></div>

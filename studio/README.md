@@ -84,7 +84,12 @@ reads them and makes the next version.
   database (`palette/mine`). The lab plays each sound dry, as its instrument makes it: the synth's own tone stage, chorus and echo, the
   drum machine's own bus (tape, glue, weight), a room send and a soft ceiling, but none of the Arrangement's desk (the
   channel strips, the kick's sidechain, the buses, the master bus). **Pack 7** (`jam/make-pack-7.mjs`) brings the lab's
-  chosen sounds into the library, with the user's edits, so the DAW plays them on its desk.
+  chosen sounds into the library, with the user's edits, so the DAW plays them on its desk. The lab's **Music** side (`sounds/music.js`) does
+  the same for musical parts: drum grooves, bass lines, chord progressions, riffs and ideas (the parts together, eight
+  bars, parts coming in at their bars), all on the user's palette sounds (`KIT`) so only the music changes, each heard
+  alone or **with the band** (the same plain backing for each kind). A part is `{slot, sound, notes, len, from, swing}`;
+  the worklet plays each on its own slot. Ratings, notes and Keep as for sounds (`m1-…` ids). The **tempo** at the top
+  (`setTempo`, kept on the device) is every phrase's, groove's and idea's speed, the synths' LFOs and echoes following.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,
   `listen/synth-lab.html`: https://claude.ai/artifact/9iHiMbMP1a5zcV2kb5WVGL) plays `asynth.js`, an analog synth of our own (two

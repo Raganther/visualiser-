@@ -246,3 +246,7 @@ before writing or changing a piece; add to it when they react.
   Low Tide (`ideas.mjs` round 7, `arrange/songs/round7.json`), on pack 7 (`jam/make-pack-7.mjs`: the lab's sounds with
   their edits as library sounds, and the evolving pad), 144 bars at 122. They asked whether the palette has the
   Arrangement's mixing and mastering (it doesn't: see the README's sound lab entry).
+- 2026-11-02: On Low Tide: "the sounds are much more improved, in the right direction", but the musical choices and
+  direction need work. They asked to iterate on the music the way the sounds were: grooves, bass lines, progressions,
+  riffs to like or not, then small ideas with all the parts together. The lab's Music side, round 1: 10 grooves, 8 bass
+  lines, 6 progressions, 8 riffs, 6 ideas, on their palette, with a master tempo (they asked for one).

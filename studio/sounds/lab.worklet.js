@@ -25,7 +25,7 @@ class Lab extends AudioWorkletProcessor {
     if (want === 'kit') x.inst.load(m.kit, m.over || {}); else { x.inst.period = this.AS.period; x.inst.load(m.params); }
     Object.assign(x, {gain: m.gain, level: m.level ?? 1, send: m.room || 0, mute: !!m.mute}); }
   msg(m){
-    if (m.period) this.S.period = m.period;
+    if (m.period) { this.S.period = this.AS.period = this.NP.period = m.period; for (const x of Object.values(this.slots)) x.inst.period = m.period; }
     if (m.type === 'clock') { this.S.t0 = m.t0; return; }
     if (m.type === 'slot') { this.slot(m); return; }
     if (m.type === 'mix') { const x = this.slots[m.slot]; if (x) { if (m.level != null) x.level = m.level; if (m.mute != null) x.mute = m.mute; } return; }

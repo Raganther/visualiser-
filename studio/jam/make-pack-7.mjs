@@ -3,18 +3,14 @@
 // from them. Drums as voices of the analog drum machine (each with its settings, `over`), synths as the analog synth's
 // patches (`src.asynth`) or the native poly synth's (`src.palette` + `src.poly`). Usage: node studio/jam/make-pack-7.mjs
 import fs from 'node:fs';
-import { ALL } from '../sounds/sounds.js';
+import { ALL, LFO_PAD } from '../sounds/sounds.js';
 const here = new URL('packs/', import.meta.url).pathname, p4 = JSON.parse(fs.readFileSync(here + 'pack-4.json', 'utf8'));
 const S = id => { const s = ALL.find(x => x.id === id); if (!s) throw new Error('no lab sound ' + id); return s; };
 // a drum from a lab sound: its kit and that voice's settings (the lab's `over`), played as `voice` if it borrows one
 const drum = (id, v, as = v, more = {}) => { const s = S(id), o = {...(s.over[as] || {}), ...more}; return {kit: s.kit, ...(as !== v ? {voice: as} : {}), over: {[as]: o}}; };
 const syn = (id, palette) => { const s = S(id); return s.engine === 'npoly' ? {palette, poly: s.patch} : {asynth: s.patch, palette}; };
 
-// the evolving pad: two saws and a pulse whose width the LFO sweeps, through the soft ladder, its cutoff breathing on a
-// slow LFO in time (two bars), its mids cut and warm (the user's direction); the song moves its tone across sections
-export const LFO_PAD = {w1: 1, pw1: .45, lpwm: .22, w2: 0, fine2: -7, l1: .7, l2: .6, lsub: .12, ftype: 1, cut: 700, res: .14, fenv: .12, fkey: .4, fa: .4, fd: 1.2, fs: .7, fr: 1.4,
-  aa: .35, ad: 1.2, as: .9, ar: 1.6, lshape: 1, lsync: 1, lcut: 1.1, lamp: .12, lwide: .2, hpf: 150, chorus: 2, spread: .9, mode: 0, slop: .55, mids: -4, midf: 2200, tilt: -.25,
-  emix: .12, etime: 3, efb: .35, etone: .35, level: .5};
+// the evolving pad (sounds.js, LFO_PAD): one patch, the lab's and the library's
 
 const sounds = [
   {id: 'l7-kick', role: 'kick', name: 'Your 808 kick', words: 'The 808 kit\'s kick as you edited it in the sound lab: shorter, a little more punch, the mids cut.', voices: {kick: drum('kitmine', 'kick')}},
