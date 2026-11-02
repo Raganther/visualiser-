@@ -9,6 +9,7 @@ import { build } from 'esbuild';
 import { ALL as SOUNDS, BPM, BARS } from './sounds.js';
 import { PLIST, DEF, synthRender } from '../lib/native/asynth.js';
 import { AnalogKit } from '../lib/native/analogkit.js';
+import { MSOUNDS, MUSIC } from './music.js';
 import { NativePoly, DEF as NDEF } from '../lib/native/npoly.js';
 
 const here = path.dirname(new URL(import.meta.url).pathname), keys = new Set(PLIST.map(p => p.key)), sr = 48000, sd = 60/BPM/4, secs = BARS*16*sd;
@@ -26,7 +27,7 @@ function drums(s){ const K = new AnalogKit(sr, 11); K.load(s.kit, s.over); const
   for (let j = 0; j < n; j += 128) { while (h < hits.length && hits[h].s*sd*sr < j + 128) { K.on(hits[h].v, hits[h].vel); h++; } K.render(L, R, j, Math.min(n, j + 128)); }
   return {L, R}; }
 const gains = {}, report = [], seen = new Set();
-for (const s of SOUNDS) {
+for (const s of [...SOUNDS, ...MSOUNDS]) {
   if (seen.has(s.id)) throw new Error(`${s.id}: in two rounds`); seen.add(s.id);
   if (s.kind === 'synth' && s.engine !== 'npoly') { for (const [k, v] of Object.entries(s.patch)) { const p = PLIST.find(q => q.key === k); if (!p) throw new Error(`${s.id}: no setting ${k}`); if (v < p.min || v > p.max) throw new Error(`${s.id}: ${k} ${v} outside ${p.min}..${p.max}`); } }
   else for (const x of s.phrase) if (x.s >= BARS*16) throw new Error(`${s.id}: a hit past two bars`);

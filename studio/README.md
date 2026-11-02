@@ -88,7 +88,7 @@ reads them and makes the next version.
   the same for musical parts: drum grooves, bass lines, chord progressions, riffs and ideas (the parts together, eight
   bars, parts coming in at their bars), all on the user's palette sounds (`KIT`) so only the music changes, each heard
   alone or **with the band** (the same plain backing for each kind). A part is `{slot, sound, notes, len, from, swing}`;
-  the worklet plays each on its own slot. Ratings, notes and Keep as for sounds (`m1-…` ids). The **tempo** at the top
+  the worklet plays each on its own slot. Ratings, notes and Keep as for sounds (`m1-…`, `m2-…` ids), a tab a round (`MROUNDS`). Round 1 played everything on the palette; round 2 gives each part its own sound, among them the music's own new sounds (`MSOUNDS`, measured with the lab's by `build.mjs`), and a band of its own per kind (`band2`). The **tempo** at the top
   (`setTempo`, kept on the device) is every phrase's, groove's and idea's speed, the synths' LFOs and echoes following.
 - **Playgrounds** (one instrument each, apart from the DAW): the drum lab (`drums/`, `listen/drum-lab.html`:
   https://claude.ai/artifact/YKgxU7HuHwXHadYed9aAqQ) plays `analogkit.js` on twelve beats; the synth lab (`synth/`,

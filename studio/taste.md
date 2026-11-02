@@ -250,3 +250,15 @@ before writing or changing a piece; add to it when they react.
   direction need work. They asked to iterate on the music the way the sounds were: grooves, bass lines, progressions,
   riffs to like or not, then small ideas with all the parts together. The lab's Music side, round 1: 10 grooves, 8 bass
   lines, 6 progressions, 8 riffs, 6 ideas, on their palette, with a master tempo (they asked for one).
+- 2026-11-02: Music round 1 ratings (25 of 38): 7 liked, 15 maybe, 3 not. Liked grooves: broken kick, sparse dub ("what
+  would Thom Yorke write?"), half time, straight four ("not with that same pad again"), four with ghosts ("very happy
+  electronica, looking for a darker minimal vibe"); walking up liked among the basses, the rest "all very similar bass
+  sounds"; two notes on the and not ("arps, delayed basses, LFOs, something with pulsing and movement in the sounds");
+  shuffled 16ths not; Dorian lift not ("maybe it's the 13"); Deep and still "honky, the drums bouncing along on the beat";
+  Rolling "fast and a bit hectic". Above all: "hard to find a direction when all the songs are using the same pad".
+  Lessons: judge music on varied sounds, not one palette; darker (minor, flat sixth and second, no bright extensions);
+  open hats on every off-beat read as bouncy; they want sounds that move by themselves. Chords and riffs unrated, so
+  folded into round 2.
+- 2026-11-02: Music round 2 (`sounds/music.js`, 36): every part on its own sound, ten new moving ones (`MSOUNDS`: a
+  pulsing bass, a delayed bass, a slow sweep, sample and hold, the dub bass echoing, a dark arp, muted keys, a
+  throbbing chord, a low drone, a dark dub stab), darker grooves with few or no off-beat open hats, the band never the pad.

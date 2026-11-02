@@ -5,7 +5,7 @@
 // Each sound opens in the workbench: its instrument's settings (the synth's, or each drum's) to change as it plays, your
 // version kept with your rating (`edits`) and Back to the original, and keys to play it (on screen, or the computer's).
 import { ROUNDS, ALL, INTROS, GROUPS, ROUND, BPM, BARS, FAMILIES, grooveFor } from './sounds.js';
-import { MUSIC, MGROUPS, MROUND, KIT, LEVELS } from './music.js';
+import { MUSIC, MGROUPS, MROUND, MROUNDS, MSOUNDS, KIT, LEVELS } from './music.js';
 import { $, h } from '../lib/dom.js';
 import { control } from '../lib/parts/shell.js';
 import { PARAMS as APAR, DEF as ADEF } from '../lib/native/asynth.js';
@@ -20,7 +20,7 @@ const GAIN = __GAINS__, LEN = BARS*16;
 let sd = 60/BPM/4;
 const load = (k, d) => { try { const v = localStorage.getItem('soundlab.' + k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const keep = (k, v) => { try { localStorage.setItem('soundlab.' + k, JSON.stringify(v)); } catch {} };
-const S = {side: load('side', 'sounds'), mtab: load('mtab', 'new'), bpm: load('bpm', BPM), tab: ['families', 'new', 'kept', 'palette'].includes(load('tab', 'families')) ? load('tab', 'families') : 'families', pal: load('pal', null), palLv: load('palLv', {}), palMute: load('palMute', {}), sel: load('sel', {}), prev: {}, playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
+const S = {side: load('side', 'sounds'), mtab: MROUNDS[load('mtab', '')] || load('mtab', '') === 'kept' ? load('mtab', '') : 'm' + MROUND, bpm: load('bpm', BPM), tab: ['families', 'new', 'kept', 'palette'].includes(load('tab', 'families')) ? load('tab', 'families') : 'families', pal: load('pal', null), palLv: load('palLv', {}), palMute: load('palMute', {}), sel: load('sel', {}), prev: {}, playing: null, rate: {}, db: null, vol: 1, room: 1, ed: null, loaded: null, oct: 0, held: new Map()};
 let ctx = null, node = null, out = null, timer = 0, next = 0, slot = 0, endAt = 0;
 
 /* ---------- the sound ---------- */
@@ -29,7 +29,7 @@ async function start(){ if (ctx) { if (ctx.state !== 'running') await ctx.resume
   const u = URL.createObjectURL(new Blob([$('worklet-src').textContent], {type: 'text/javascript'})); await ctx.audioWorklet.addModule(u);
   node = new AudioWorkletNode(ctx, 'sound-lab', {numberOfInputs: 0, outputChannelCount: [2]}); node.port.postMessage({type: 'room', v: S.room}); out = ctx.createGain(); out.gain.value = S.vol; node.connect(out); out.connect(ctx.destination); }
 const send = m => node?.port.postMessage({...m, period: 4*sd});
-const byId = id => ALL.find(s => s.id === id) || MUSIC.find(s => s.id === id);
+const byId = id => ALL.find(s => s.id === id) || MSOUNDS.find(s => s.id === id) || MUSIC.find(s => s.id === id);
 // the sounds on the page: a round's, or the ones you've kept from any round
 const shown = () => S.tab === 'kept' ? ALL.filter(s => S.rate[s.id]?.keep) : S.tab === 'families' ? FAMILIES.map(f => byId(selOf(f))) : ROUNDS[ROUND];
 // the palette: a sound for each part, playing together on one loop (each its own phrase, all in A at 122)
@@ -66,9 +66,9 @@ function musicCard(m, i){ const r = S.rate[m.id] || {};
     h('div', {class: 'plays two', role: 'group', 'aria-label': 'Play ' + m.name}, ...(m.mkind === 'idea' ? [['alone', 'Play it']] : MMODES).map(([md, label]) => h('button', {class: 'play', 'data-mode': md, 'aria-pressed': 'false', onclick: () => playMusic(m.id, md)}, h('span', {class: 'ico', 'aria-hidden': 'true'}), label))),
     h('div', {class: 'rate', role: 'group', 'aria-label': 'Rate ' + m.name}, ...RATES.map(([v, label]) => h('button', {'data-v': v, 'aria-pressed': String(r.rating === v), onclick: () => rate(m.id, {rating: (S.rate[m.id]?.rating === v ? 0 : v)})}, label))),
     note); }
-function paintMusic(){ const list = S.mtab === 'kept' ? MUSIC.filter(m => S.rate[m.id]?.keep) : MUSIC;
-  $('meta').textContent = S.mtab === 'kept' ? `Music · kept · ${list.length}` : `Music · round ${MROUND} · ${list.length} parts and ideas · in A, at the tempo you set`;
-  $('lede').textContent = S.mtab === 'kept' ? 'The musical parts you have kept.' : 'Musical parts to like or not, as the sounds were: drum grooves, bass lines, chord progressions and riffs, and ideas with them all together. Everything plays on your own palette sounds, so only the music changes. Hear a part alone, or with the band: the same plain backing every time. Tempo at the top changes the speed of everything.';
+function paintMusic(){ const list = S.mtab === 'kept' ? MUSIC.filter(m => S.rate[m.id]?.keep) : MROUNDS[S.mtab];
+  $('meta').textContent = S.mtab === 'kept' ? `Music · kept · ${list.length}` : `Music · round ${S.mtab.slice(1)} · ${list.length} parts and ideas · in A, at the tempo you set`;
+  $('lede').textContent = S.mtab === 'kept' ? 'The musical parts you have kept.' : S.mtab === 'm2' ? 'Round 2, from your ratings: darker and more minimal, fewer open hats on the off-beat, more space; and every part on its own sound now, not the same pad and bass, with new sounds that move by themselves: a pulsing bass, a delayed bass, a slow sweep, sample and hold, a dark arp, muted keys, a throbbing chord, a drone, dub stabs. Ideas first. Hear a part alone, or with the band (plain and dark, never the pad). Tempo at the top changes the speed of everything.' : 'Musical parts to like or not, as the sounds were: drum grooves, bass lines, chord progressions and riffs, and ideas with them all together. Everything plays on your own palette sounds, so only the music changes. Hear a part alone, or with the band: the same plain backing every time. Tempo at the top changes the speed of everything.';
   const groups = MGROUPS.map(([k, title]) => { const xs = list.filter(m => m.mkind === k); if (!xs.length) return null;
     return h('section', {class: 'group'}, h('h2', {}, title, h('small', {}, ` ${xs.length}`)), h('div', {class: 'cards'}, ...xs.map(m => musicCard(m, list.indexOf(m))))); }).filter(Boolean);
   $('groups').replaceChildren(...(groups.length ? groups : [h('p', {class: 'empty'}, 'Nothing kept yet. Press ☆ Keep on any part and it will be here.')]));
@@ -128,7 +128,7 @@ function tick(){ const p = S.playing; if (!p) return;
 
 /* ---------- the ratings: the page's database, or this device ---------- */
 const RATES = [[1, 'Like'], [2, 'Maybe'], [-1, 'Not for me']];
-function rate(id, patch){ const s = byId(id), r = {...(S.rate[id] || {}), ...patch}; if (r.rating === undefined) r.rating = 0; S.rate[id] = r; keep('rate', S.rate); paintCard(id); count(); if ('rating' in patch && S.tab === 'families' && s.family) paintFamily(s.family); if (s.kind === 'music' && 'rating' in patch && S.side === 'music') { const n = MUSIC.filter(m => S.rate[m.id]?.rating).length; $('count').textContent = `${n} of ${MUSIC.length} rated`; }
+function rate(id, patch){ const s = byId(id), r = {...(S.rate[id] || {}), ...patch}; if (r.rating === undefined) r.rating = 0; S.rate[id] = r; keep('rate', S.rate); paintCard(id); count(); if ('rating' in patch && S.tab === 'families' && s.family) paintFamily(s.family); if (s.kind === 'music' && 'rating' in patch && S.side === 'music') { const L = S.mtab === 'kept' ? MUSIC.filter(m => S.rate[m.id]?.keep) : MROUNDS[S.mtab], n = L.filter(m => S.rate[m.id]?.rating).length; $('count').textContent = `${n} of ${L.length} rated`; }
   if (S.db) { saying('Saving…'); clearTimeout(rate.t[id]); rate.t[id] = setTimeout(() => S.db.doc('ratings/' + id).set({rating: r.rating, note: r.note || '', edits: r.edits || null, keep: !!r.keep, name: s.name, kind: s.kind, role: s.role, round: s.round, at: new Date().toISOString()})
     .then(() => saying('Saved'), e => saying(e?.code === 'not_granted' || e?.code === 'forbidden' ? 'Not saved: this page can only save for its owner' : 'Not saved: try again in a moment')), patch.note !== undefined || 'edits' in patch ? 700 : 0); } }
 rate.t = {};
@@ -198,8 +198,9 @@ function paintAll(){ paintSide(); if (S.side === 'music') { paintTabs(); paintMu
 function paintSide(){ for (const b of document.querySelectorAll('#side button')) b.setAttribute('aria-pressed', String(b.dataset.side === S.side)); }
 function pickSide(sd2){ if (S.ed) closeEd(); stop(); S.side = sd2; keep('side', sd2); paintAll(); scrollTo({top: 0}); }
 function paintTabs(){ if (S.side === 'music') { const kept = MUSIC.filter(m => S.rate[m.id]?.keep).length;
-    $('tabs').replaceChildren(h('button', {role: 'tab', 'aria-selected': String(S.mtab !== 'kept'), onclick: () => { S.mtab = 'new'; keep('mtab', 'new'); stop(); paintAll(); }}, `Round ${MROUND}`, h('small', {}, ` ${MUSIC.length}`)),
-      h('button', {role: 'tab', class: 'kepttab', 'aria-selected': String(S.mtab === 'kept'), onclick: () => { S.mtab = 'kept'; keep('mtab', 'kept'); stop(); paintAll(); }}, '★ Kept', h('small', {}, ` ${kept}`))); return; }
+    const mt = t => () => { S.mtab = t; keep('mtab', t); stop(); paintAll(); scrollTo({top: 0}); };
+    $('tabs').replaceChildren(...Object.entries(MROUNDS).map(([k, xs]) => h('button', {role: 'tab', 'aria-selected': String(S.mtab === k), onclick: mt(k)}, `Round ${k.slice(1)}`, h('small', {}, ` ${xs.length}`))),
+      h('button', {role: 'tab', class: 'kepttab', 'aria-selected': String(S.mtab === 'kept'), onclick: mt('kept')}, '★ Kept', h('small', {}, ` ${kept}`))); return; }
   const kept = ALL.filter(s => S.rate[s.id]?.keep).length;
   $('tabs').replaceChildren(h('button', {role: 'tab', 'aria-selected': String(S.tab === 'families'), onclick: () => pickTab('families')}, 'Every sound', h('small', {}, ` ${FAMILIES.length}`)),
     h('button', {role: 'tab', 'aria-selected': String(S.tab === 'new'), onclick: () => pickTab('new')}, `New in round ${ROUND}`, h('small', {}, ` ${ROUNDS[ROUND].length}`)),
