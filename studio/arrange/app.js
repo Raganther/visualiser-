@@ -17,6 +17,7 @@ import ROUND4 from './songs/round4.json';
 import ROUND5 from './songs/round5.json';
 import ROUND6 from './songs/round6.json';
 import ROUND7 from './songs/round7.json';
+import ROUND8 from './songs/round8.json';
 import LIBRARY from '../listen/packs/library.json';
 import { $, h, clone, clamp, hash36 } from '../lib/dom.js';
 import { putBig, getBig } from '../lib/bigdoc.js';
@@ -25,7 +26,7 @@ import { VNAME, noteName } from '../lib/names.js';
 
 
 
-const SONGS = [...ROUND4, ...ROUND5, ...ROUND6, ...ROUND7, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
+const SONGS = [...ROUND4, ...ROUND5, ...ROUND6, ...ROUND7, ...ROUND8, ...ROUND3], SND = Object.fromEntries(LIBRARY.sounds.map(s => [s.id, s]));
 const RULER = 72, LANE = 56, COLORS = {drums: '#c2563b', kick: '#c2563b', hats: '#d4a03a', perc: '#8a9a3c', bass: '#3f88c5', chords: '#8b5cc4', lead: '#3aa59a', lead2: '#2f8f6c'};
 const VORDER = ['kick', 'snare', 'clap', 'chh', 'ohh', 'ride', 'crash', 'tomL', 'tomH', 'log', 'logH', 'wood', 'rim', 'clave', 'cow', 'shaker', 'metal', 'bowl', 'gong'];
 const nn = noteName;

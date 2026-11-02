@@ -1,0 +1,4858 @@
+{
+ "format": "studio-jam-pack",
+ "id": "pack-8",
+ "name": "Pack 8: sounds that move",
+ "words": "The sound lab's music round 2 sounds, each moving by itself: a pulsing bass, a delayed bass, a slow sweep, sample and hold, the dub bass echoing, a dark arp, muted keys, a throbbing chord, a low drone, a dark dub stab.",
+ "bpm": 126,
+ "swing": 0.08,
+ "sounds": [
+  {
+   "id": "l8-pulse",
+   "role": "bass",
+   "name": "Pulsing bass",
+   "words": "A saw and a pulse with a sub under them through the ladder, nearly shut; the LFO opens it on every 16th, so a held note pulses by itself. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 0,
+     "w2": 1,
+     "pw2": 0.4,
+     "fine2": -5,
+     "l1": 0.6,
+     "l2": 0.4,
+     "lsub": 0.5,
+     "ftype": 0,
+     "cut": 200,
+     "res": 0.15,
+     "fenv": 0.12,
+     "fd": 0.3,
+     "fs": 0.4,
+     "fkey": 0.3,
+     "aa": 0.004,
+     "ad": 0.6,
+     "as": 0.9,
+     "ar": 0.15,
+     "lshape": 0,
+     "lsync": 5,
+     "lcut": 1.3,
+     "mode": 1,
+     "slop": 0.3,
+     "mids": -6,
+     "midf": 1200,
+     "tilt": -0.3,
+     "vdrive": 0.2,
+     "level": 0.6
+    },
+    "palette": "clean"
+   }
+  },
+  {
+   "id": "l8-echo",
+   "role": "bass",
+   "name": "Echo bass",
+   "words": "FM round made short, into a dark dotted-8th echo: you play one note, the echo answers it twice. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 3,
+     "w2": 3,
+     "oct2": 1,
+     "xmod": 0.55,
+     "xtype": 1,
+     "xenv": 0.85,
+     "xdec": 0.14,
+     "l1": 0.9,
+     "l2": 0,
+     "ftype": 1,
+     "cut": 2400,
+     "res": 0,
+     "fenv": 0,
+     "aa": 0.002,
+     "ad": 0.3,
+     "as": 0.2,
+     "ar": 0.1,
+     "mode": 1,
+     "slop": 0.2,
+     "vdrive": 0.25,
+     "level": 0.75,
+     "emix": 0.32,
+     "etime": 1,
+     "efb": 0.45,
+     "etone": 0.2
+    },
+    "palette": "clean"
+   }
+  },
+  {
+   "id": "l8-sweep",
+   "role": "bass",
+   "name": "Slow sweep bass",
+   "words": "A saw and a sub, the filter swept open and shut by a slow LFO over a bar; notes glide into each other. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 0,
+     "w2": 0,
+     "fine2": 6,
+     "l1": 0.55,
+     "l2": 0.35,
+     "lsub": 0.6,
+     "ftype": 0,
+     "cut": 150,
+     "res": 0.25,
+     "fenv": 0.1,
+     "fkey": 0.3,
+     "aa": 0.01,
+     "ad": 1,
+     "as": 1,
+     "ar": 0.2,
+     "lshape": 1,
+     "lsync": 1,
+     "lcut": 1.6,
+     "mode": 2,
+     "glide": 0.07,
+     "slop": 0.3,
+     "mids": -6,
+     "midf": 1100,
+     "tilt": -0.3,
+     "vdrive": 0.2,
+     "level": 0.6
+    },
+    "palette": "clean"
+   }
+  },
+  {
+   "id": "l8-random",
+   "role": "bass",
+   "name": "Sample-and-hold bass",
+   "words": "The pulsing bass with its LFO jumping to a new place each 16th: a held note that keeps changing colour, never the same twice. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 0,
+     "w2": 1,
+     "pw2": 0.4,
+     "fine2": -5,
+     "l1": 0.6,
+     "l2": 0.4,
+     "lsub": 0.45,
+     "ftype": 0,
+     "cut": 240,
+     "res": 0.28,
+     "fenv": 0.1,
+     "fkey": 0.3,
+     "aa": 0.004,
+     "ad": 0.6,
+     "as": 0.9,
+     "ar": 0.15,
+     "lshape": 4,
+     "lsync": 5,
+     "lcut": 1.4,
+     "mode": 1,
+     "slop": 0.3,
+     "mids": -7,
+     "midf": 1200,
+     "tilt": -0.3,
+     "vdrive": 0.2,
+     "level": 0.58
+    },
+    "palette": "clean"
+   }
+  },
+  {
+   "id": "l8-dubbass",
+   "role": "bass",
+   "name": "Dub bass, echoing",
+   "words": "The round dub bass you rated, its tail sent into a dark dotted echo. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 2,
+     "w2": 0,
+     "l1": 0.8,
+     "l2": 0.25,
+     "drive": 0.35,
+     "ftype": 1,
+     "cut": 480,
+     "res": 0.05,
+     "fenv": 0.15,
+     "fd": 0.5,
+     "fs": 0.5,
+     "aa": 0.005,
+     "ad": 0.8,
+     "as": 0.8,
+     "ar": 0.2,
+     "mode": 2,
+     "glide": 0.08,
+     "slop": 0.4,
+     "vdrive": 0.3,
+     "mids": -3,
+     "midf": 800,
+     "level": 0.7,
+     "emix": 0.25,
+     "etime": 1,
+     "efb": 0.4,
+     "etone": 0.2
+    },
+    "palette": "clean"
+   }
+  },
+  {
+   "id": "l8-arp",
+   "role": "lead",
+   "name": "Dark arp",
+   "words": "A narrow pulse and a detuned saw, plucked shut low down, into a dotted echo: written to be played as an arpeggio in 16ths. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 1,
+     "pw1": 0.3,
+     "w2": 0,
+     "fine2": 8,
+     "l1": 0.7,
+     "l2": 0.3,
+     "ftype": 1,
+     "cut": 480,
+     "res": 0.22,
+     "fenv": 0.5,
+     "fd": 0.12,
+     "fs": 0,
+     "fkey": 0.5,
+     "aa": 0.001,
+     "ad": 0.2,
+     "as": 0,
+     "ar": 0.15,
+     "emix": 0.3,
+     "etime": 1,
+     "efb": 0.5,
+     "etone": 0.3,
+     "chorus": 1,
+     "mids": -7,
+     "midf": 1600,
+     "tilt": -0.3,
+     "mode": 0,
+     "level": 0.55
+    },
+    "palette": "pluck"
+   }
+  },
+  {
+   "id": "l8-keys",
+   "role": "chords",
+   "name": "Muted keys",
+   "words": "A triangle and a sine an octave up, struck and fading, a slow tremolo across the stereo: a muffled electric piano. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 2,
+     "w2": 3,
+     "oct2": 1,
+     "l1": 0.8,
+     "l2": 0.25,
+     "ftype": 1,
+     "cut": 1300,
+     "res": 0,
+     "fenv": 0.2,
+     "fd": 0.5,
+     "fs": 0.2,
+     "aa": 0.003,
+     "ad": 1.4,
+     "as": 0.15,
+     "ar": 0.5,
+     "lshape": 1,
+     "lrate": 4.5,
+     "lamp": 0.15,
+     "lwide": 0.3,
+     "chorus": 1,
+     "tilt": -0.3,
+     "mids": -4,
+     "midf": 2200,
+     "mode": 0,
+     "level": 0.5
+    },
+    "palette": "warm"
+   }
+  },
+  {
+   "id": "l8-throb",
+   "role": "chords",
+   "name": "Throbbing chord",
+   "words": "Two saws, dark, the volume throbbing in 8ths on the LFO: a held chord that pulses with the tempo. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 0,
+     "w2": 0,
+     "fine2": -8,
+     "l1": 0.6,
+     "l2": 0.5,
+     "ftype": 1,
+     "cut": 650,
+     "res": 0.1,
+     "fenv": 0.1,
+     "fa": 0.3,
+     "fs": 0.6,
+     "aa": 0.2,
+     "ad": 1,
+     "as": 0.9,
+     "ar": 1,
+     "lshape": 1,
+     "lsync": 4,
+     "lamp": 0.8,
+     "hpf": 180,
+     "chorus": 2,
+     "spread": 0.8,
+     "mids": -5,
+     "midf": 2000,
+     "tilt": -0.3,
+     "mode": 0,
+     "level": 0.45
+    },
+    "palette": "warm"
+   }
+  },
+  {
+   "id": "l8-drone",
+   "role": "chords",
+   "name": "Low drone",
+   "words": "A pulse whose width and cutoff wander on a slow random LFO, fading in and out: a dark bed, never the same. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 1,
+     "pw1": 0.5,
+     "lpwm": 0.25,
+     "w2": 0,
+     "fine2": -5,
+     "l1": 0.6,
+     "l2": 0.35,
+     "ftype": 1,
+     "cut": 500,
+     "res": 0.1,
+     "fenv": 0,
+     "lshape": 5,
+     "lrate": 0.15,
+     "lcut": 0.8,
+     "aa": 1.5,
+     "ad": 1,
+     "as": 1,
+     "ar": 2.5,
+     "hpf": 120,
+     "chorus": 2,
+     "mids": -6,
+     "midf": 2000,
+     "tilt": -0.4,
+     "emix": 0.15,
+     "etime": 3,
+     "efb": 0.4,
+     "etone": 0.3,
+     "mode": 0,
+     "level": 0.45
+    },
+    "palette": "warm"
+   }
+  },
+  {
+   "id": "l8-dub",
+   "role": "chords",
+   "name": "Dub stab, dark",
+   "words": "A saw and a pulse plucked shut, into a long dark dotted echo: the dub-techno stab. (From the sound lab's music round 2.)",
+   "src": {
+    "asynth": {
+     "w1": 0,
+     "w2": 1,
+     "fine2": -9,
+     "l1": 0.6,
+     "l2": 0.4,
+     "ftype": 1,
+     "cut": 700,
+     "res": 0.2,
+     "fenv": 0.35,
+     "fd": 0.15,
+     "fs": 0,
+     "aa": 0.002,
+     "ad": 0.2,
+     "as": 0,
+     "ar": 0.2,
+     "hpf": 220,
+     "emix": 0.45,
+     "etime": 1,
+     "efb": 0.6,
+     "etone": 0.25,
+     "chorus": 1,
+     "mids": -7,
+     "midf": 1400,
+     "tilt": -0.2,
+     "mode": 0,
+     "level": 0.55
+    },
+    "palette": "dub"
+   }
+  }
+ ],
+ "clips": [
+  {
+   "id": "k3-four",
+   "role": "kick",
+   "name": "Four",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "kick",
+     1
+    ],
+    [
+     4,
+     "kick",
+     0.8
+    ],
+    [
+     8,
+     "kick",
+     0.8
+    ],
+    [
+     12,
+     "kick",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      5,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ],
+     [
+      15,
+      "kick",
+      1
+     ]
+    ],
+    [
+     [
+      4,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "k3-ghost",
+   "role": "kick",
+   "name": "Four, a ghost",
+   "len": 32,
+   "steps": [
+    [
+     0,
+     "kick",
+     1
+    ],
+    [
+     4,
+     "kick",
+     0.8
+    ],
+    [
+     8,
+     "kick",
+     0.8
+    ],
+    [
+     12,
+     "kick",
+     0.8
+    ],
+    [
+     16,
+     "kick",
+     1
+    ],
+    [
+     20,
+     "kick",
+     0.8
+    ],
+    [
+     24,
+     "kick",
+     0.8
+    ],
+    [
+     28,
+     "kick",
+     0.8
+    ],
+    [
+     31,
+     "kick",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "kick",
+      1
+     ],
+     [
+      4,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ],
+     [
+      16,
+      "kick",
+      1
+     ],
+     [
+      21,
+      "kick",
+      0.8
+     ],
+     [
+      24,
+      "kick",
+      0.8
+     ],
+     [
+      28,
+      "kick",
+      0.8
+     ]
+    ],
+    [
+     [
+      0,
+      "kick",
+      1
+     ],
+     [
+      3,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ],
+     [
+      16,
+      "kick",
+      1
+     ],
+     [
+      22,
+      "kick",
+      0.8
+     ],
+     [
+      24,
+      "kick",
+      0.8
+     ],
+     [
+      28,
+      "kick",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "k3-skip",
+   "role": "kick",
+   "name": "Skip every third bar",
+   "len": 48,
+   "steps": [
+    [
+     0,
+     "kick",
+     1
+    ],
+    [
+     4,
+     "kick",
+     0.8
+    ],
+    [
+     8,
+     "kick",
+     0.8
+    ],
+    [
+     12,
+     "kick",
+     0.8
+    ],
+    [
+     16,
+     "kick",
+     1
+    ],
+    [
+     20,
+     "kick",
+     0.8
+    ],
+    [
+     24,
+     "kick",
+     0.8
+    ],
+    [
+     28,
+     "kick",
+     0.8
+    ],
+    [
+     32,
+     "kick",
+     1
+    ],
+    [
+     36,
+     "kick",
+     0.8
+    ],
+    [
+     40,
+     "kick",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "kick",
+      1
+     ],
+     [
+      3,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ],
+     [
+      16,
+      "kick",
+      1
+     ],
+     [
+      20,
+      "kick",
+      0.8
+     ],
+     [
+      24,
+      "kick",
+      0.8
+     ],
+     [
+      28,
+      "kick",
+      0.8
+     ],
+     [
+      32,
+      "kick",
+      1
+     ],
+     [
+      36,
+      "kick",
+      0.8
+     ],
+     [
+      40,
+      "kick",
+      0.8
+     ]
+    ],
+    [
+     [
+      0,
+      "kick",
+      1
+     ],
+     [
+      3,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ],
+     [
+      16,
+      "kick",
+      1
+     ],
+     [
+      20,
+      "kick",
+      0.8
+     ],
+     [
+      24,
+      "kick",
+      0.8
+     ],
+     [
+      28,
+      "kick",
+      0.8
+     ],
+     [
+      32,
+      "kick",
+      1
+     ],
+     [
+      36,
+      "kick",
+      0.8
+     ],
+     [
+      39,
+      "kick",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "k3-broken",
+   "role": "kick",
+   "name": "Broken four",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "kick",
+     1
+    ],
+    [
+     4,
+     "kick",
+     0.8
+    ],
+    [
+     8,
+     "kick",
+     0.8
+    ],
+    [
+     11,
+     "kick",
+     0.45
+    ],
+    [
+     12,
+     "kick",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      4,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      10,
+      "kick",
+      0.45
+     ],
+     [
+      11,
+      "kick",
+      0.45
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ]
+    ],
+    [
+     [
+      0,
+      "kick",
+      0.45
+     ],
+     [
+      4,
+      "kick",
+      0.8
+     ],
+     [
+      8,
+      "kick",
+      0.8
+     ],
+     [
+      11,
+      "kick",
+      0.45
+     ],
+     [
+      12,
+      "kick",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "k3-sparse",
+   "role": "kick",
+   "name": "One and three",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "kick",
+     1
+    ],
+    [
+     8,
+     "kick",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      1,
+      "kick",
+      1
+     ],
+     [
+      9,
+      "kick",
+      0.8
+     ]
+    ],
+    [
+     [
+      1,
+      "kick",
+      1
+     ],
+     [
+      7,
+      "kick",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-off",
+   "role": "hats",
+   "name": "Off-beats",
+   "len": 16,
+   "steps": [
+    [
+     2,
+     "chh",
+     0.8
+    ],
+    [
+     6,
+     "chh",
+     0.8
+    ],
+    [
+     10,
+     "chh",
+     0.8
+    ],
+    [
+     14,
+     "chh",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "chh",
+      0.8
+     ],
+     [
+      2,
+      "chh",
+      0.8
+     ],
+     [
+      6,
+      "chh",
+      0.8
+     ],
+     [
+      10,
+      "chh",
+      0.8
+     ]
+    ],
+    [
+     [
+      1,
+      "chh",
+      0.8
+     ],
+     [
+      2,
+      "chh",
+      0.8
+     ],
+     [
+      6,
+      "chh",
+      0.8
+     ],
+     [
+      10,
+      "chh",
+      0.8
+     ],
+     [
+      11,
+      "chh",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-16",
+   "role": "hats",
+   "name": "16ths",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "chh",
+     0.8
+    ],
+    [
+     1,
+     "chh",
+     0.45
+    ],
+    [
+     2,
+     "chh",
+     0.8
+    ],
+    [
+     3,
+     "chh",
+     0.45
+    ],
+    [
+     4,
+     "chh",
+     0.8
+    ],
+    [
+     5,
+     "chh",
+     0.45
+    ],
+    [
+     6,
+     "chh",
+     0.8
+    ],
+    [
+     7,
+     "chh",
+     0.45
+    ],
+    [
+     8,
+     "chh",
+     0.8
+    ],
+    [
+     9,
+     "chh",
+     0.45
+    ],
+    [
+     10,
+     "chh",
+     0.8
+    ],
+    [
+     11,
+     "chh",
+     0.45
+    ],
+    [
+     12,
+     "chh",
+     0.8
+    ],
+    [
+     13,
+     "chh",
+     0.45
+    ],
+    [
+     14,
+     "chh",
+     0.8
+    ],
+    [
+     15,
+     "chh",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "chh",
+      0.8
+     ],
+     [
+      1,
+      "chh",
+      0.45
+     ],
+     [
+      2,
+      "chh",
+      0.8
+     ],
+     [
+      3,
+      "chh",
+      0.45
+     ],
+     [
+      4,
+      "chh",
+      0.8
+     ],
+     [
+      5,
+      "chh",
+      0.45
+     ],
+     [
+      6,
+      "chh",
+      0.8
+     ],
+     [
+      7,
+      "chh",
+      0.45
+     ],
+     [
+      9,
+      "chh",
+      0.45
+     ],
+     [
+      10,
+      "chh",
+      0.8
+     ],
+     [
+      11,
+      "chh",
+      0.45
+     ],
+     [
+      12,
+      "chh",
+      0.8
+     ],
+     [
+      13,
+      "chh",
+      0.45
+     ],
+     [
+      14,
+      "chh",
+      0.8
+     ],
+     [
+      15,
+      "chh",
+      0.45
+     ]
+    ],
+    [
+     [
+      0,
+      "chh",
+      0.8
+     ],
+     [
+      1,
+      "chh",
+      0.45
+     ],
+     [
+      2,
+      "chh",
+      0.8
+     ],
+     [
+      3,
+      "chh",
+      0.45
+     ],
+     [
+      4,
+      "chh",
+      0.8
+     ],
+     [
+      5,
+      "chh",
+      0.45
+     ],
+     [
+      6,
+      "chh",
+      0.8
+     ],
+     [
+      7,
+      "chh",
+      0.45
+     ],
+     [
+      9,
+      "chh",
+      0.45
+     ],
+     [
+      10,
+      "chh",
+      0.8
+     ],
+     [
+      11,
+      "chh",
+      0.45
+     ],
+     [
+      12,
+      "chh",
+      0.8
+     ],
+     [
+      13,
+      "chh",
+      0.45
+     ],
+     [
+      14,
+      "chh",
+      1
+     ],
+     [
+      15,
+      "chh",
+      0.45
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-gaps",
+   "role": "hats",
+   "name": "16ths with gaps",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "chh",
+     0.8
+    ],
+    [
+     2,
+     "chh",
+     0.45
+    ],
+    [
+     3,
+     "chh",
+     0.8
+    ],
+    [
+     5,
+     "chh",
+     0.8
+    ],
+    [
+     7,
+     "chh",
+     0.45
+    ],
+    [
+     8,
+     "chh",
+     0.8
+    ],
+    [
+     9,
+     "chh",
+     0.8
+    ],
+    [
+     11,
+     "chh",
+     0.45
+    ],
+    [
+     13,
+     "chh",
+     0.8
+    ],
+    [
+     15,
+     "chh",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "chh",
+      0.8
+     ],
+     [
+      2,
+      "chh",
+      0.45
+     ],
+     [
+      3,
+      "chh",
+      0.8
+     ],
+     [
+      5,
+      "chh",
+      0.8
+     ],
+     [
+      7,
+      "chh",
+      1
+     ],
+     [
+      8,
+      "chh",
+      0.8
+     ],
+     [
+      9,
+      "chh",
+      0.8
+     ],
+     [
+      11,
+      "chh",
+      0.45
+     ],
+     [
+      13,
+      "chh",
+      0.8
+     ],
+     [
+      15,
+      "chh",
+      0.45
+     ]
+    ],
+    [
+     [
+      1,
+      "chh",
+      0.45
+     ],
+     [
+      2,
+      "chh",
+      0.45
+     ],
+     [
+      3,
+      "chh",
+      0.8
+     ],
+     [
+      5,
+      "chh",
+      0.8
+     ],
+     [
+      7,
+      "chh",
+      1
+     ],
+     [
+      8,
+      "chh",
+      0.8
+     ],
+     [
+      9,
+      "chh",
+      0.8
+     ],
+     [
+      11,
+      "chh",
+      0.45
+     ],
+     [
+      13,
+      "chh",
+      0.8
+     ],
+     [
+      15,
+      "chh",
+      0.45
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-open",
+   "role": "hats",
+   "name": "Open off-beats, ticks between",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "chh",
+     0.45
+    ],
+    [
+     2,
+     "ohh",
+     1
+    ],
+    [
+     3,
+     "chh",
+     0.45
+    ],
+    [
+     5,
+     "chh",
+     0.45
+    ],
+    [
+     6,
+     "ohh",
+     1
+    ],
+    [
+     8,
+     "chh",
+     0.45
+    ],
+    [
+     10,
+     "ohh",
+     1
+    ],
+    [
+     11,
+     "chh",
+     0.45
+    ],
+    [
+     13,
+     "chh",
+     0.45
+    ],
+    [
+     14,
+     "ohh",
+     1
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "chh",
+      0.45
+     ],
+     [
+      2,
+      "ohh",
+      1
+     ],
+     [
+      3,
+      "chh",
+      0.45
+     ],
+     [
+      5,
+      "chh",
+      0.45
+     ],
+     [
+      6,
+      "ohh",
+      1
+     ],
+     [
+      8,
+      "chh",
+      0.45
+     ],
+     [
+      10,
+      "ohh",
+      1
+     ],
+     [
+      12,
+      "chh",
+      0.45
+     ],
+     [
+      13,
+      "chh",
+      0.45
+     ],
+     [
+      14,
+      "ohh",
+      1
+     ]
+    ],
+    [
+     [
+      0,
+      "chh",
+      0.45
+     ],
+     [
+      2,
+      "ohh",
+      1
+     ],
+     [
+      3,
+      "chh",
+      0.45
+     ],
+     [
+      5,
+      "chh",
+      0.45
+     ],
+     [
+      6,
+      "ohh",
+      1
+     ],
+     [
+      8,
+      "chh",
+      0.45
+     ],
+     [
+      9,
+      "chh",
+      0.45
+     ],
+     [
+      10,
+      "ohh",
+      1
+     ],
+     [
+      12,
+      "chh",
+      0.45
+     ],
+     [
+      13,
+      "chh",
+      0.45
+     ],
+     [
+      15,
+      "ohh",
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-three",
+   "role": "hats",
+   "name": "In threes",
+   "len": 3,
+   "steps": [
+    [
+     0,
+     "chh",
+     0.8
+    ],
+    [
+     2,
+     "chh",
+     0.4
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "chh",
+      0.4
+     ],
+     [
+      1,
+      "chh",
+      0.8
+     ]
+    ],
+    [
+     [
+      0,
+      "chh",
+      0.4
+     ],
+     [
+      1,
+      "chh",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "h3-ride",
+   "role": "hats",
+   "name": "Ride 8ths",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "ride",
+     0.8
+    ],
+    [
+     2,
+     "ride",
+     0.45
+    ],
+    [
+     4,
+     "ride",
+     0.8
+    ],
+    [
+     6,
+     "ride",
+     0.45
+    ],
+    [
+     8,
+     "ride",
+     0.8
+    ],
+    [
+     10,
+     "ride",
+     0.45
+    ],
+    [
+     12,
+     "ride",
+     0.8
+    ],
+    [
+     14,
+     "ride",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      2,
+      "ride",
+      0.45
+     ],
+     [
+      4,
+      "ride",
+      0.8
+     ],
+     [
+      6,
+      "ride",
+      0.45
+     ],
+     [
+      8,
+      "ride",
+      0.8
+     ],
+     [
+      10,
+      "ride",
+      0.45
+     ],
+     [
+      11,
+      "ride",
+      0.8
+     ],
+     [
+      14,
+      "ride",
+      0.45
+     ],
+     [
+      15,
+      "ride",
+      0.8
+     ]
+    ],
+    [
+     [
+      2,
+      "ride",
+      0.45
+     ],
+     [
+      4,
+      "ride",
+      0.8
+     ],
+     [
+      5,
+      "ride",
+      0.45
+     ],
+     [
+      8,
+      "ride",
+      0.8
+     ],
+     [
+      10,
+      "ride",
+      0.45
+     ],
+     [
+      11,
+      "ride",
+      0.8
+     ],
+     [
+      14,
+      "ride",
+      0.45
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-three",
+   "role": "perc",
+   "name": "Rim in threes",
+   "len": 3,
+   "steps": [
+    [
+     0,
+     "rim",
+     0.7
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "rim",
+      0.7
+     ]
+    ],
+    [
+     [
+      2,
+      "rim",
+      0.7
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-clicks",
+   "role": "perc",
+   "name": "Clicks with gaps",
+   "len": 16,
+   "steps": [
+    [
+     1,
+     "clave",
+     0.45
+    ],
+    [
+     3,
+     "clave",
+     0.8
+    ],
+    [
+     6,
+     "clave",
+     0.45
+    ],
+    [
+     9,
+     "clave",
+     0.8
+    ],
+    [
+     11,
+     "clave",
+     0.45
+    ],
+    [
+     15,
+     "clave",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      1,
+      "clave",
+      0.45
+     ],
+     [
+      3,
+      "clave",
+      0.8
+     ],
+     [
+      5,
+      "clave",
+      0.45
+     ],
+     [
+      9,
+      "clave",
+      0.8
+     ],
+     [
+      15,
+      "clave",
+      0.45
+     ]
+    ],
+    [
+     [
+      0,
+      "clave",
+      0.45
+     ],
+     [
+      1,
+      "clave",
+      0.45
+     ],
+     [
+      3,
+      "clave",
+      0.8
+     ],
+     [
+      5,
+      "clave",
+      0.45
+     ],
+     [
+      9,
+      "clave",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-five",
+   "role": "perc",
+   "name": "Fives",
+   "len": 5,
+   "steps": [
+    [
+     0,
+     "metal",
+     0.7
+    ],
+    [
+     3,
+     "metal",
+     0.35
+    ]
+   ],
+   "variations": [
+    [
+     [
+      1,
+      "metal",
+      0.7
+     ],
+     [
+      3,
+      "metal",
+      1
+     ]
+    ],
+    [
+     [
+      1,
+      "metal",
+      0.7
+     ],
+     [
+      3,
+      "metal",
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-seven",
+   "role": "perc",
+   "name": "Sevens",
+   "len": 7,
+   "steps": [
+    [
+     0,
+     "rim",
+     0.75
+    ],
+    [
+     4,
+     "wood",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "rim",
+      1
+     ],
+     [
+      5,
+      "wood",
+      0.45
+     ]
+    ],
+    [
+     [
+      0,
+      "rim",
+      1
+     ],
+     [
+      6,
+      "wood",
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-nine",
+   "role": "perc",
+   "name": "Nines",
+   "len": 9,
+   "steps": [
+    [
+     0,
+     "wood",
+     0.7
+    ],
+    [
+     5,
+     "tomH",
+     0.45
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "wood",
+      0.7
+     ],
+     [
+      4,
+      "tomH",
+      0.45
+     ],
+     [
+      6,
+      "tomH",
+      0.45
+     ]
+    ],
+    [
+     [
+      0,
+      "wood",
+      0.7
+     ],
+     [
+      4,
+      "tomH",
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-shake",
+   "role": "perc",
+   "name": "Shaker 16ths",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "shaker",
+     0.45
+    ],
+    [
+     1,
+     "shaker",
+     0.8
+    ],
+    [
+     2,
+     "shaker",
+     0.45
+    ],
+    [
+     3,
+     "shaker",
+     0.8
+    ],
+    [
+     4,
+     "shaker",
+     0.45
+    ],
+    [
+     5,
+     "shaker",
+     0.8
+    ],
+    [
+     6,
+     "shaker",
+     0.45
+    ],
+    [
+     7,
+     "shaker",
+     0.8
+    ],
+    [
+     8,
+     "shaker",
+     0.45
+    ],
+    [
+     9,
+     "shaker",
+     0.8
+    ],
+    [
+     10,
+     "shaker",
+     0.45
+    ],
+    [
+     11,
+     "shaker",
+     0.8
+    ],
+    [
+     12,
+     "shaker",
+     0.45
+    ],
+    [
+     13,
+     "shaker",
+     0.8
+    ],
+    [
+     14,
+     "shaker",
+     0.45
+    ],
+    [
+     15,
+     "shaker",
+     0.8
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "shaker",
+      0.45
+     ],
+     [
+      1,
+      "shaker",
+      0.8
+     ],
+     [
+      2,
+      "shaker",
+      0.45
+     ],
+     [
+      3,
+      "shaker",
+      0.8
+     ],
+     [
+      4,
+      "shaker",
+      0.45
+     ],
+     [
+      5,
+      "shaker",
+      0.8
+     ],
+     [
+      6,
+      "shaker",
+      0.45
+     ],
+     [
+      7,
+      "shaker",
+      0.8
+     ],
+     [
+      8,
+      "shaker",
+      0.45
+     ],
+     [
+      9,
+      "shaker",
+      0.8
+     ],
+     [
+      10,
+      "shaker",
+      0.45
+     ],
+     [
+      11,
+      "shaker",
+      0.8
+     ],
+     [
+      12,
+      "shaker",
+      0.45
+     ],
+     [
+      13,
+      "shaker",
+      0.8
+     ],
+     [
+      14,
+      "shaker",
+      0.45
+     ],
+     [
+      15,
+      "shaker",
+      0.8
+     ]
+    ],
+    [
+     [
+      0,
+      "shaker",
+      0.45
+     ],
+     [
+      1,
+      "shaker",
+      0.8
+     ],
+     [
+      2,
+      "shaker",
+      0.45
+     ],
+     [
+      3,
+      "shaker",
+      0.8
+     ],
+     [
+      4,
+      "shaker",
+      0.45
+     ],
+     [
+      5,
+      "shaker",
+      0.8
+     ],
+     [
+      6,
+      "shaker",
+      0.45
+     ],
+     [
+      7,
+      "shaker",
+      0.8
+     ],
+     [
+      8,
+      "shaker",
+      0.45
+     ],
+     [
+      9,
+      "shaker",
+      0.8
+     ],
+     [
+      10,
+      "shaker",
+      0.45
+     ],
+     [
+      11,
+      "shaker",
+      0.8
+     ],
+     [
+      12,
+      "shaker",
+      0.45
+     ],
+     [
+      13,
+      "shaker",
+      0.8
+     ],
+     [
+      14,
+      "shaker",
+      0.45
+     ],
+     [
+      15,
+      "shaker",
+      0.8
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-hands",
+   "role": "perc",
+   "name": "Hand groove",
+   "len": 16,
+   "steps": [
+    [
+     2,
+     "tomH",
+     0.5
+    ],
+    [
+     3,
+     "tomL",
+     0.7
+    ],
+    [
+     7,
+     "tomH",
+     0.45
+    ],
+    [
+     10,
+     "tomL",
+     0.6
+    ],
+    [
+     13,
+     "tomH",
+     0.5
+    ],
+    [
+     14,
+     "logH",
+     0.4
+    ]
+   ],
+   "variations": [
+    [
+     [
+      2,
+      "tomH",
+      0.5
+     ],
+     [
+      4,
+      "tomL",
+      0.7
+     ],
+     [
+      7,
+      "tomH",
+      0.45
+     ],
+     [
+      10,
+      "tomL",
+      0.6
+     ],
+     [
+      13,
+      "tomH",
+      0.5
+     ],
+     [
+      14,
+      "logH",
+      0.4
+     ]
+    ],
+    [
+     [
+      2,
+      "tomH",
+      0.5
+     ],
+     [
+      4,
+      "tomL",
+      0.7
+     ],
+     [
+      6,
+      "tomH",
+      0.45
+     ],
+     [
+      9,
+      "tomL",
+      0.6
+     ],
+     [
+      13,
+      "tomH",
+      0.5
+     ],
+     [
+      14,
+      "logH",
+      0.4
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-rolling",
+   "role": "perc",
+   "name": "Rolling low",
+   "len": 32,
+   "steps": [
+    [
+     0,
+     "log",
+     0.75
+    ],
+    [
+     6,
+     "logH",
+     0.5
+    ],
+    [
+     12,
+     "log",
+     0.5
+    ],
+    [
+     18,
+     "logH",
+     0.5
+    ],
+    [
+     24,
+     "log",
+     0.5
+    ],
+    [
+     30,
+     "logH",
+     0.5
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "log",
+      0.75
+     ],
+     [
+      6,
+      "logH",
+      0.5
+     ],
+     [
+      12,
+      "log",
+      0.5
+     ],
+     [
+      18,
+      "logH",
+      0.5
+     ],
+     [
+      25,
+      "log",
+      0.5
+     ],
+     [
+      29,
+      "logH",
+      0.5
+     ]
+    ],
+    [
+     [
+      0,
+      "log",
+      0.75
+     ],
+     [
+      5,
+      "logH",
+      0.5
+     ],
+     [
+      12,
+      "log",
+      0.5
+     ],
+     [
+      18,
+      "logH",
+      0.5
+     ],
+     [
+      25,
+      "log",
+      0.5
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "p3-air",
+   "role": "perc",
+   "name": "A swell every 4 bars",
+   "len": 64,
+   "steps": [
+    [
+     0,
+     "gong",
+     0.6
+    ],
+    [
+     40,
+     "bowl",
+     0.5
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      "gong",
+      0.6
+     ],
+     [
+      30,
+      "bowl",
+      0.5
+     ],
+     [
+      40,
+      "bowl",
+      0.5
+     ],
+     [
+      59,
+      "bowl",
+      0.5
+     ]
+    ],
+    [
+     [
+      0,
+      "gong",
+      0.6
+     ],
+     [
+      30,
+      "bowl",
+      0.5
+     ],
+     [
+      40,
+      "bowl",
+      0.5
+     ],
+     [
+      59,
+      "bowl",
+      0.5
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-off",
+   "role": "bass",
+   "name": "Off-beat 8ths",
+   "len": 16,
+   "steps": [
+    [
+     2,
+     0,
+     1.5,
+     0.85
+    ],
+    [
+     6,
+     0,
+     1.5,
+     0.65
+    ],
+    [
+     10,
+     0,
+     1.5,
+     0.85
+    ],
+    [
+     14,
+     0,
+     1.5,
+     0.65
+    ]
+   ],
+   "variations": [
+    [
+     [
+      2,
+      1,
+      1.5,
+      0.85
+     ],
+     [
+      6,
+      0,
+      1.5,
+      0.65
+     ],
+     [
+      10,
+      0,
+      1.5,
+      0.85
+     ],
+     [
+      14,
+      1,
+      1.5,
+      0.65
+     ]
+    ],
+    [
+     [
+      6,
+      0,
+      1.5,
+      0.65
+     ],
+     [
+      10,
+      0,
+      1.5,
+      0.85
+     ],
+     [
+      14,
+      1,
+      1.5,
+      0.65
+     ],
+     [
+      15,
+      1,
+      1.5,
+      0.65
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-rumble",
+   "role": "bass",
+   "name": "Rumbling 16ths",
+   "len": 16,
+   "steps": [
+    [
+     1,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     2,
+     0,
+     0.9,
+     0.85
+    ],
+    [
+     3,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     5,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     6,
+     0,
+     0.9,
+     0.85
+    ],
+    [
+     7,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     9,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     10,
+     0,
+     0.9,
+     0.85
+    ],
+    [
+     11,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     13,
+     0,
+     0.9,
+     0.5
+    ],
+    [
+     14,
+     0,
+     0.9,
+     0.85
+    ],
+    [
+     15,
+     0,
+     0.9,
+     0.5
+    ]
+   ],
+   "variations": [
+    [
+     [
+      1,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      2,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      3,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      5,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      6,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      8,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      9,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      10,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      11,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      13,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      14,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      15,
+      0,
+      0.9,
+      0.5
+     ]
+    ],
+    [
+     [
+      1,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      2,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      3,
+      -1,
+      0.9,
+      0.5
+     ],
+     [
+      5,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      6,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      8,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      9,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      10,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      11,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      13,
+      0,
+      0.9,
+      0.5
+     ],
+     [
+      14,
+      0,
+      0.9,
+      0.85
+     ],
+     [
+      15,
+      0,
+      0.9,
+      0.5
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-three",
+   "role": "bass",
+   "name": "Three-step stab",
+   "len": 3,
+   "steps": [
+    [
+     0,
+     0,
+     0.8,
+     0.85
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      1,
+      0.8,
+      0.85
+     ],
+     [
+      2,
+      1,
+      0.8,
+      0.85
+     ]
+    ],
+    [
+     [
+      0,
+      1,
+      0.8,
+      0.85
+     ],
+     [
+      1,
+      2,
+      0.8,
+      0.85
+     ],
+     [
+      2,
+      1,
+      0.8,
+      0.85
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-seven",
+   "role": "bass",
+   "name": "Seven-step line",
+   "len": 7,
+   "steps": [
+    [
+     0,
+     0,
+     1,
+     0.85
+    ],
+    [
+     2,
+     0,
+     1,
+     0.55
+    ],
+    [
+     3,
+     2,
+     1,
+     0.6
+    ],
+    [
+     5,
+     1,
+     1,
+     0.6
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      0,
+      1,
+      0.85
+     ],
+     [
+      1,
+      0,
+      1,
+      0.55
+     ],
+     [
+      3,
+      2,
+      1,
+      0.6
+     ],
+     [
+      5,
+      2,
+      1,
+      0.6
+     ]
+    ],
+    [
+     [
+      0,
+      0,
+      1,
+      0.85
+     ],
+     [
+      1,
+      1,
+      1,
+      0.55
+     ],
+     [
+      3,
+      1,
+      1,
+      0.6
+     ],
+     [
+      5,
+      2,
+      1,
+      0.6
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-roll",
+   "role": "bass",
+   "name": "Rolling threes",
+   "len": 16,
+   "steps": [
+    [
+     1,
+     0,
+     1.2,
+     0.85
+    ],
+    [
+     4,
+     0,
+     1.2,
+     0.6
+    ],
+    [
+     7,
+     0,
+     1.2,
+     0.6
+    ],
+    [
+     10,
+     2,
+     1.2,
+     0.6
+    ],
+    [
+     13,
+     0,
+     1.2,
+     0.6
+    ]
+   ],
+   "variations": [
+    [
+     [
+      0,
+      0,
+      1.2,
+      0.85
+     ],
+     [
+      1,
+      0,
+      1.2,
+      0.85
+     ],
+     [
+      4,
+      0,
+      1.2,
+      0.6
+     ],
+     [
+      8,
+      0,
+      1.2,
+      0.6
+     ],
+     [
+      10,
+      2,
+      1.2,
+      0.6
+     ],
+     [
+      13,
+      0,
+      1.2,
+      0.6
+     ]
+    ],
+    [
+     [
+      0,
+      0,
+      1.2,
+      0.85
+     ],
+     [
+      1,
+      0,
+      1.2,
+      0.85
+     ],
+     [
+      2,
+      2,
+      1.2,
+      0.6
+     ],
+     [
+      4,
+      0,
+      1.2,
+      0.6
+     ],
+     [
+      8,
+      0,
+      1.2,
+      0.6
+     ],
+     [
+      10,
+      2,
+      1.2,
+      0.6
+     ],
+     [
+      13,
+      0,
+      1.2,
+      0.6
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "b3-and",
+   "role": "bass",
+   "name": "On the and, long",
+   "len": 32,
+   "steps": [
+    [
+     6,
+     0,
+     6,
+     0.85
+    ],
+    [
+     22,
+     0,
+     4,
+     0.8
+    ],
+    [
+     28,
+     2,
+     2,
+     0.6
+    ]
+   ],
+   "variations": [
+    [
+     [
+      22,
+      0,
+      4,
+      0.8
+     ],
+     [
+      28,
+      3,
+      2,
+      0.6
+     ]
+    ],
+    [
+     [
+      7,
+      3,
+      2,
+      0.6
+     ],
+     [
+      22,
+      0,
+      4,
+      0.8
+     ],
+     [
+      28,
+      3,
+      2,
+      0.6
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-and",
+   "role": "chords",
+   "name": "Stab on the and",
+   "len": 16,
+   "steps": [
+    [
+     2,
+     "chord",
+     1.2,
+     0.6
+    ],
+    [
+     10,
+     "chord",
+     1.2,
+     0.5
+    ]
+   ],
+   "sound": "c3-dub",
+   "variations": [
+    [
+     [
+      2,
+      "chord",
+      1.2,
+      0.6
+     ],
+     [
+      9,
+      "chord",
+      1.2,
+      1
+     ]
+    ],
+    [
+     [
+      2,
+      "chord",
+      1.2,
+      0.6
+     ],
+     [
+      10,
+      "chord",
+      1.2,
+      1
+     ],
+     [
+      15,
+      "chord",
+      1.2,
+      0.6
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-threes",
+   "role": "chords",
+   "name": "Stabs in threes",
+   "len": 48,
+   "steps": [
+    [
+     0,
+     "chord",
+     1,
+     0.55
+    ],
+    [
+     3,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     6,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     9,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     12,
+     "chord",
+     1,
+     0.55
+    ],
+    [
+     15,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     18,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     21,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     24,
+     "chord",
+     1,
+     0.55
+    ],
+    [
+     27,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     30,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     33,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     36,
+     "chord",
+     1,
+     0.55
+    ],
+    [
+     39,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     42,
+     "chord",
+     1,
+     0.38
+    ],
+    [
+     45,
+     "chord",
+     1,
+     0.38
+    ]
+   ],
+   "sound": "c3-stab",
+   "variations": [
+    [
+     [
+      0,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      3,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      6,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      9,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      12,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      15,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      18,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      21,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      24,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      26,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      30,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      36,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      39,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      42,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      45,
+      "chord",
+      1,
+      0.38
+     ]
+    ],
+    [
+     [
+      0,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      4,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      5,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      9,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      12,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      15,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      18,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      21,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      24,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      26,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      30,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      36,
+      "chord",
+      1,
+      0.55
+     ],
+     [
+      39,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      42,
+      "chord",
+      1,
+      0.38
+     ],
+     [
+      45,
+      "chord",
+      1,
+      0.38
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-fives",
+   "role": "chords",
+   "name": "Stabs in fives",
+   "len": 80,
+   "steps": [
+    [
+     2,
+     "chord",
+     1.5,
+     0.58
+    ],
+    [
+     7,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     12,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     17,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     22,
+     "chord",
+     1.5,
+     0.58
+    ],
+    [
+     27,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     32,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     37,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     42,
+     "chord",
+     1.5,
+     0.58
+    ],
+    [
+     47,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     52,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     57,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     62,
+     "chord",
+     1.5,
+     0.58
+    ],
+    [
+     67,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     72,
+     "chord",
+     1.5,
+     0.4
+    ],
+    [
+     77,
+     "chord",
+     1.5,
+     0.4
+    ]
+   ],
+   "sound": "c3-dub",
+   "variations": [
+    [
+     [
+      2,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      7,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      12,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      17,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      22,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      27,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      33,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      37,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      42,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      47,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      52,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      57,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      59,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      62,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      67,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      72,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      77,
+      "chord",
+      1.5,
+      0.4
+     ]
+    ],
+    [
+     [
+      2,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      7,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      12,
+      "chord",
+      1.5,
+      1
+     ],
+     [
+      17,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      22,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      27,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      33,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      37,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      42,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      47,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      52,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      57,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      59,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      60,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      62,
+      "chord",
+      1.5,
+      0.58
+     ],
+     [
+      67,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      72,
+      "chord",
+      1.5,
+      0.4
+     ],
+     [
+      77,
+      "chord",
+      1.5,
+      0.4
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-swell",
+   "role": "chords",
+   "name": "Dub swells",
+   "len": 32,
+   "steps": [
+    [
+     3,
+     "chord",
+     4,
+     0.55
+    ],
+    [
+     19,
+     "chord",
+     4,
+     0.5
+    ],
+    [
+     27,
+     "chord",
+     2,
+     0.35
+    ]
+   ],
+   "sound": "c3-dub",
+   "variations": [
+    [
+     [
+      3,
+      "chord",
+      4,
+      0.55
+     ],
+     [
+      19,
+      "chord",
+      4,
+      0.5
+     ],
+     [
+      22,
+      "chord",
+      4,
+      0.55
+     ],
+     [
+      27,
+      "chord",
+      2,
+      0.35
+     ]
+    ],
+    [
+     [
+      3,
+      "chord",
+      4,
+      0.55
+     ],
+     [
+      22,
+      "chord",
+      4,
+      0.55
+     ],
+     [
+      28,
+      "chord",
+      2,
+      0.35
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-gated",
+   "role": "chords",
+   "name": "Gated 16ths",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     1,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     2,
+     "chord",
+     0.8,
+     0.52
+    ],
+    [
+     3,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     4,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     5,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     6,
+     "chord",
+     0.8,
+     0.52
+    ],
+    [
+     7,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     8,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     9,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     10,
+     "chord",
+     0.8,
+     0.52
+    ],
+    [
+     11,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     12,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     13,
+     "chord",
+     0.8,
+     0.3
+    ],
+    [
+     14,
+     "chord",
+     0.8,
+     0.52
+    ],
+    [
+     15,
+     "chord",
+     0.8,
+     0.3
+    ]
+   ],
+   "sound": "c3-gate",
+   "variations": [
+    [
+     [
+      0,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      1,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      2,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      3,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      4,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      5,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      6,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      7,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      8,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      9,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      10,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      11,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      12,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      13,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      14,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      15,
+      "chord",
+      0.8,
+      0.3
+     ]
+    ],
+    [
+     [
+      0,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      1,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      2,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      3,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      4,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      5,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      6,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      7,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      8,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      9,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      10,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      11,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      12,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      13,
+      "chord",
+      0.8,
+      0.3
+     ],
+     [
+      14,
+      "chord",
+      0.8,
+      0.52
+     ],
+     [
+      15,
+      "chord",
+      0.8,
+      0.3
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "c3-phrase",
+   "role": "chords",
+   "name": "One chord a phrase",
+   "len": 64,
+   "steps": [
+    [
+     0,
+     "chord",
+     60,
+     0.5
+    ]
+   ],
+   "sound": "c3-formant",
+   "variations": [
+    [
+     [
+      0,
+      "chord",
+      60,
+      0.5
+     ]
+    ],
+    [
+     [
+      0,
+      "chord",
+      60,
+      0.5
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "l3-drops",
+   "role": "lead",
+   "name": "Drops",
+   "len": 16,
+   "steps": [
+    [
+     0,
+     4,
+     1,
+     0.7
+    ],
+    [
+     3,
+     2,
+     1,
+     0.5
+    ],
+    [
+     6,
+     5,
+     1,
+     0.55
+    ],
+    [
+     11,
+     3,
+     1,
+     0.5
+    ]
+   ],
+   "sound": "l3-drops",
+   "variations": [
+    [
+     [
+      0,
+      4,
+      1,
+      0.7
+     ],
+     [
+      3,
+      3,
+      1,
+      0.5
+     ],
+     [
+      7,
+      5,
+      1,
+      0.55
+     ],
+     [
+      11,
+      3,
+      1,
+      0.5
+     ]
+    ],
+    [
+     [
+      0,
+      4,
+      1,
+      0.7
+     ],
+     [
+      3,
+      3,
+      1,
+      0.5
+     ],
+     [
+      7,
+      5,
+      1,
+      0.55
+     ],
+     [
+      11,
+      3,
+      1,
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "l3-seven",
+   "role": "lead",
+   "name": "Blip in seven",
+   "len": 7,
+   "steps": [
+    [
+     0,
+     2,
+     0.8,
+     0.6
+    ],
+    [
+     3,
+     4,
+     0.8,
+     0.45
+    ]
+   ],
+   "sound": "l3-blip",
+   "variations": [
+    [
+     [
+      0,
+      1,
+      0.8,
+      0.6
+     ],
+     [
+      3,
+      3,
+      0.8,
+      0.45
+     ]
+    ],
+    [
+     [
+      0,
+      1,
+      0.8,
+      0.6
+     ],
+     [
+      2,
+      3,
+      0.8,
+      0.45
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "l3-birds",
+   "role": "lead",
+   "name": "Bird calls",
+   "len": 64,
+   "steps": [
+    [
+     6,
+     5,
+     3,
+     0.6
+    ],
+    [
+     9,
+     6,
+     2,
+     0.5
+    ],
+    [
+     38,
+     4,
+     3,
+     0.6
+    ],
+    [
+     41,
+     5,
+     2,
+     0.5
+    ],
+    [
+     44,
+     7,
+     2,
+     0.45
+    ]
+   ],
+   "sound": "l3-bird",
+   "variations": [
+    [
+     [
+      6,
+      5,
+      3,
+      0.6
+     ],
+     [
+      9,
+      5,
+      2,
+      1
+     ],
+     [
+      38,
+      4,
+      3,
+      0.6
+     ],
+     [
+      41,
+      5,
+      2,
+      0.5
+     ],
+     [
+      44,
+      7,
+      2,
+      0.45
+     ]
+    ],
+    [
+     [
+      6,
+      4,
+      3,
+      1
+     ],
+     [
+      9,
+      5,
+      2,
+      1
+     ],
+     [
+      38,
+      4,
+      3,
+      0.6
+     ],
+     [
+      41,
+      5,
+      2,
+      0.5
+     ],
+     [
+      44,
+      7,
+      2,
+      0.45
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "l3-answer",
+   "role": "lead",
+   "name": "Bamboo answer",
+   "len": 32,
+   "steps": [
+    [
+     2,
+     0,
+     2,
+     0.7
+    ],
+    [
+     5,
+     2,
+     2,
+     0.55
+    ],
+    [
+     18,
+     3,
+     2,
+     0.6
+    ],
+    [
+     21,
+     1,
+     2,
+     0.55
+    ],
+    [
+     26,
+     0,
+     2,
+     0.5
+    ]
+   ],
+   "sound": "l3-bamboo",
+   "variations": [
+    [
+     [
+      2,
+      0,
+      2,
+      0.7
+     ],
+     [
+      18,
+      3,
+      2,
+      0.6
+     ],
+     [
+      21,
+      1,
+      2,
+      0.55
+     ],
+     [
+      26,
+      0,
+      2,
+      1
+     ]
+    ],
+    [
+     [
+      1,
+      0,
+      2,
+      0.7
+     ],
+     [
+      17,
+      3,
+      2,
+      0.6
+     ],
+     [
+      21,
+      1,
+      2,
+      0.55
+     ],
+     [
+      26,
+      0,
+      2,
+      1
+     ]
+    ]
+   ]
+  },
+  {
+   "id": "l3-drone",
+   "role": "lead",
+   "name": "One note, held",
+   "len": 64,
+   "steps": [
+    [
+     0,
+     4,
+     62,
+     0.5
+    ]
+   ],
+   "sound": "l3-glass",
+   "variations": [
+    [
+     [
+      0,
+      2,
+      62,
+      0.5
+     ]
+    ],
+    [
+     [
+      0,
+      3,
+      62,
+      1
+     ]
+    ]
+   ]
+  }
+ ],
+ "harmonies": [
+  {
+   "id": "f-madd9-3",
+   "name": "F minor add 9",
+   "words": "One chord, low and heavy (you chose it twice).",
+   "bars": [
+    "F:madd9"
+   ]
+  },
+  {
+   "id": "a-m7-3",
+   "name": "A minor 7",
+   "words": "One plain chord: the movement all in the rhythm.",
+   "bars": [
+    "A:m7"
+   ]
+  },
+  {
+   "id": "d-m9-3",
+   "name": "D minor 9",
+   "words": "One chord, a little brighter.",
+   "bars": [
+    "D:m9"
+   ]
+  },
+  {
+   "id": "g-m7-3",
+   "name": "G minor 7",
+   "words": "Dub techno’s chord.",
+   "bars": [
+    "G:m7"
+   ]
+  },
+  {
+   "id": "cs-m11-3",
+   "name": "C♯ minor 11",
+   "words": "One chord, wide and dark.",
+   "bars": [
+    "C#:m11"
+   ]
+  },
+  {
+   "id": "e-q-3",
+   "name": "Fourths on E",
+   "words": "Stacked fourths: floating, unresolved.",
+   "bars": [
+    "E:q"
+   ]
+  },
+  {
+   "id": "a-pedal-3",
+   "name": "A pedal, the top moving",
+   "words": "A minor 7, sus4, minor 9 over the same A.",
+   "bars": [
+    "A:m7",
+    "A:m7",
+    "A:m7",
+    "A:m7",
+    "A:sus4",
+    "A:sus4",
+    "A:m9",
+    "A:m9"
+   ]
+  },
+  {
+   "id": "d-m7m9",
+   "name": "D minor 7 ↔ 9",
+   "words": "One root, the ninth coming and going.",
+   "bars": [
+    "D:m7",
+    "D:m7",
+    "D:m7",
+    "D:m7",
+    "D:m9",
+    "D:m9",
+    "D:m9",
+    "D:m9"
+   ]
+  },
+  {
+   "id": "phryg-3",
+   "name": "A semitone up and back",
+   "words": "E minor 7, then F major 7, 8 bars each.",
+   "bars": [
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "E:m7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7",
+    "F:maj7"
+   ]
+  },
+  {
+   "id": "sus-3",
+   "name": "Sus2 drift",
+   "words": "C sus2 and D sus2, 4 bars each.",
+   "bars": [
+    "C:sus2",
+    "C:sus2",
+    "C:sus2",
+    "C:sus2",
+    "D:sus2",
+    "D:sus2",
+    "D:sus2",
+    "D:sus2"
+   ]
+  }
+ ],
+ "columns": [
+  {
+   "id": "col0",
+   "role": "kick",
+   "sound": "l7-kick"
+  },
+  {
+   "id": "col1",
+   "role": "hats",
+   "sound": "l7-hats",
+   "feel": 1
+  },
+  {
+   "id": "col2",
+   "role": "perc",
+   "sound": "l7-perc",
+   "feel": 9
+  },
+  {
+   "id": "col3",
+   "role": "bass",
+   "sound": "l8-pulse"
+  },
+  {
+   "id": "col4",
+   "role": "chords",
+   "sound": "l8-keys",
+   "voicing": 1
+  },
+  {
+   "id": "col5",
+   "role": "lead",
+   "sound": "l8-arp"
+  },
+  {
+   "id": "col6",
+   "role": "lead",
+   "sound": "l8-arp",
+   "echo": true
+  }
+ ],
+ "scenes": [
+  {
+   "name": "Warm up",
+   "clips": [
+    "k3-four",
+    "h3-off",
+    "p3-three",
+    "b3-off",
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "Groove",
+   "clips": [
+    "k3-ghost",
+    "h3-gaps",
+    "p3-seven",
+    "b3-roll",
+    "c3-and",
+    "l3-drops",
+    null
+   ]
+  },
+  {
+   "name": "Rumble",
+   "clips": [
+    "k3-four",
+    "h3-16",
+    "p3-clicks",
+    "b3-rumble",
+    "c3-threes",
+    null,
+    null
+   ]
+  },
+  {
+   "name": "Dub",
+   "clips": [
+    "k3-four",
+    "h3-open",
+    "p3-air",
+    "b3-and",
+    "c3-swell",
+    null,
+    "l3-drone"
+   ]
+  },
+  {
+   "name": "Forest",
+   "clips": [
+    "k3-sparse",
+    "h3-three",
+    "p3-nine",
+    "b3-seven",
+    "c3-phrase",
+    "l3-birds",
+    "l3-answer"
+   ]
+  },
+  {
+   "name": "Peak",
+   "clips": [
+    "k3-skip",
+    "h3-16",
+    "p3-hands",
+    "b3-roll",
+    "c3-fives",
+    "l3-seven",
+    "l3-drops"
+   ]
+  },
+  {
+   "name": "Break",
+   "clips": [
+    null,
+    "h3-ride",
+    "p3-air",
+    null,
+    "c3-phrase",
+    "l3-birds",
+    "l3-drone"
+   ]
+  },
+  {
+   "name": "Hypnotic",
+   "clips": [
+    "k3-four",
+    "h3-gaps",
+    "p3-five",
+    "b3-three",
+    "c3-gated",
+    "l3-seven",
+    null
+   ]
+  }
+ ]
+}

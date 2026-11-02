@@ -423,7 +423,75 @@ function round7(){ const S16 = SNAPS['Scene 16']; if (!S16) throw new Error('nee
       ['Ebb', 16, 'lib-deep', {kick: K13, perc: P1, bass: BLONG, chords: PAD(.6, [.6, .14], {mix: MX('chords', {vol: -6})}), lead: M7}, 'The kick thins, the bass in long notes fading, the evolving pad back and closing, the marimba as it began.'],
     ])),
   ]; }
-const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5, 6: round6, 7: round7}[ROUND]();
+
+// round 8: the sketchbook, sixteen ideas as scenes for the Session and Scene views (the user asked to mix and match
+// ideas and change their sounds there, after the sound lab's music round 2): darker and minimal, every scene eight bars
+// on its own ground, the parts on the moving sounds (pack 8) and the user's palette (pack 7). Nine tracks: the drums (a
+// rack), Bass and Bass 2, Chords and Pad, Lead and Arp, so an idea can be heard on two sounds side by side.
+function round8(){ const S16 = SNAPS['Scene 16']; if (!S16) throw new Error('needs Scene 16 in ' + dir);
+  const {base, GROUND, song, n0} = kit(S16, 808, {echo: false, verb: true, y: .25});
+  const {beat, tune, HK, KK} = grooves();
+  // two more columns: a second bass and a pad (each a copy of its kind's column), named; the second lead is the arp
+  COL.bass2 = 7; COL.pad = 8;
+  base.cols.push({...clone(base.cols[COL.bass]), name: 'Bass 2'}, {...clone(base.cols[COL.chords]), name: 'Pad'}); base.cols[COL.lead2].name = 'Arp';
+  const SND = {kick: 'l7-kick', hats: 'l7-hats', perc: 'l7-perc', bass: 'l8-pulse', bass2: 'l8-echo', chords: 'l8-keys', pad: 'l8-drone', lead: 'l7-marimba', lead2: 'l8-arp'};
+  const VOL = {kick: 0, hats: -3, perc: -3, bass: -1, bass2: -2, chords: -6, pad: -8, lead: -5, lead2: -8};
+  for (const [k, i] of Object.entries(COL)) { const c = base.cols[i]; c.sound = SND[k]; c.locked = true; c.mix = {...c.mix, vol: VOL[k], duck: 0}; delete c.x; delete c.ramp; }
+  // the grounds: the library's darker ones, and a few written here
+  const G8 = (id, name, list) => (GROUND[id] = {id, name, words: '', mode: 'minor', key: 'A', bars: list.flatMap(([s, n]) => Array(n).fill(s))}, id);
+  const still = G8('g8-still', 'A minor 7, still', [['A:m7', 8]]), fall = G8('g8-fall', 'Falling: A minor, G, F', [['A:m7', 2], ['G:add9', 2], ['F:maj7', 4]]),
+    two = G8('g8-two', 'A minor and E minor', [['A:m7', 4], ['E:m7', 4]]), dub = G8('g8-dub', 'Dub: i and iv', [['A:m7', 2], ['D:m7', 2]]),
+    minv = G8('g8-minv', 'Minor four, minor five', [['D:m7', 2], ['E:m7', 2], ['A:m7', 4]]);
+  for (const id of ['lib-phryg', 'lib-halfdim', 'lib-elevens', 'lib-open']) GROUND[id] ??= inKey(LIB.find(h => h.id === id), 'A');
+  // drums bar by bar (the percussion's own letters here: n the snare)
+  const PK = {T: 'tomL', t: 'tomH', L: 'log', l: 'logH', w: 'wood', d: 'rim', s: 'shaker', c: 'clave', b: 'bowl', G: 'gong', n: 'snare'};
+  const KD = beat('Deep four', KK, ['K...k...k...k...']), KB = beat('Broken kick', KK, ['K.....k...k.....', 'K.......k..k....']), KH = beat('Half time', KK, ['K.........k.....', 'K.......k.k.....']),
+    KS = beat('Stutter', KK, ['K..k....k.k.....', 'K...k..k..k.....']), KSP = beat('Kick and space', KK, ['K.....k.........', 'K.....k.........', 'K.....k.........', 'K.....k.....g...']);
+  const HD = beat('Dark 16ths', HK, [['g.gog.gog.gog.go', '2.242.242.242.24']]), HS = beat('Off-beat, short', HK, [['..o...o...o...o.', '..4...3...4...3.']]),
+    HG = beat('Ghosts on the e', HK, [['goggg.gggoggg.gg', '3522.2223522.22.'.replace(/\./g, '2')]]), HST = beat('Stutter hats', HK, ['x..g.x..g..x.g..', '.x..g.x...g.x..g']),
+    HO = beat('One open hat', HK, ['..g...g...g...g.', '..g...g...q...g.']);
+  const PR = beat('Rim, far apart', PK, [['..........d.....', '..........5.....'], ['..........d..d..', '..........5..3..']]), PDUB = beat('Rim off the backbeat', PK, [['.......d.......d', '.......6.......3'], ['.......d......d.', '.......6......4.']]),
+    PSN = beat('Half-time snare', PK, [['........n.......', '........5.......'], ['........n....T..', '........5....3..']]), PSH = beat('Shaker', PK, [['s.ss'.repeat(4), '3.23'.repeat(4)]]),
+    PT3 = beat('Toms in threes, low', PK, [['T..T..T..T..T..T', '4..3..3..4..3..3'], ['..T..T..T..T..T.', '..3..4..3..3..4.'], ['.T..T..T..T..T..', '.3..3..4..3..3..']]),
+    PW = beat('Wood and logs', PK, [['...L..w....l..w.', '...5..3....4..3.'], ['...L.....w.l....', '...5.....3.4....']]);
+  // lines: [step, rung of the chord, length, loudness, octave]; the chords' rhythm alone (they play the ground)
+  const BP = tune('Root held', [[[0, 0, 14, .8]], [[0, 0, 10, .75], [12, 1, 3, .6]]]), BE = tune('Three notes, echoed', [[[2, 0, 2, .85]], [[2, 0, 2, .8], [11, -1, 2, .6]]]),
+    BSW = tune('Slow glide', [[[0, 0, 24, .8]], [[8, 1, 8, .7]]]),
+    BA = tune('Arpeggiated', [[[0, 0, 1, .85], [2, 2, 1, .55], [3, 0, 1, .6], [5, 1, 1, .6], [7, 2, 1, .5], [8, 0, 1, .75], [10, 3, 1, .5], [11, 0, 1, .55], [13, 1, 1, .6], [14, 2, 1, .5]]]),
+    BD = tune('Dub, falling', [[[0, 0, 6, .85], [12, 0, 2, .6]], [[0, 0, 6, .8], [10, -2, 3, .7]]]),
+    BW = tune('Walking down', [[[0, 0, 3, .85], [4, 0, 3, .6], [8, -1, 3, .72], [12, -1, 3, .6]], [[0, -2, 3, .75], [4, -2, 3, .6], [8, -3, 3, .72], [12, -1, 3, .6]]]),
+    BPK = tune('In the pocket', [[[3, 0, 2, .8], [10, 0, 1, .55]], [[3, 0, 2, .78], [9, 1, 2, .6], [14, 0, 1, .5]]]);
+  const crd = (name, bars) => { const t = tune(name, bars.map(b => b.map(([s, l, v]) => [s, 0, l, v]))); return {R: t.R, N: {seq: [], name, base: name, ops: []}}; };
+  const CH = crd('Held', [[[0, 31, .7]], []]), CK = crd('Struck off the beat', [[[0, 3, .62], [6, 3, .5], [10, 3, .58]]]), CDUB = crd('Dub stabs', [[[2, 1, .6], [11, 1, .45]]]),
+    CSY = crd('Syncopated', [[[0, 2, .6], [3, 2, .45], [8, 2, .55], [14, 2, .45]]]), CBAR = crd('One a bar', [[[0, 15, .6]]]);
+  // a loop of any length (a riff in sevens, threes, fives)
+  const loop = (name, len, hits) => ({R: {len, hits: hits.map(([s, , l, v]) => [s, l, v]), feel: 0, name, base: name, ops: []}, N: {seq: hits.map(([, r, , , o = 0]) => [r, o]), name, base: name, ops: []}});
+  const L7 = loop('Seven against four', 7, [[0, 2, 1, .6], [3, 4, 1, .45], [5, 3, 1, .5]]), LBELL = loop('Few notes, falling', 32, [[0, 4, 2, .6], [11, 3, 2, .5], [22, 2, 3, .55]]),
+    LBL = loop('Off the grid', 32, [[3, 4, 1, .5], [6, 2, 1, .4], [13, 3, 1, .45], [19, 4, 1, .5], [25, 5, 1, .4], [30, 2, 1, .35]]),
+    LM = loop('Low, five a bar', 16, [[0, 0, 1, .7, -1], [3, 1, 1, .5, -1], [6, -1, 1, .55, -1], [10, 0, 1, .6, -1], [14, 2, 1, .5, -1]]);
+  const A3 = loop('Threes against four', 3, [[0, 0, 1, .7], [1, 1, 1, .45], [2, 2, 1, .5]]), A16 = loop('Up and down in 8ths', 16, [0, 1, 2, 3, 4, 3, 2, 1].map((r, i) => [i*2, r, 1, i ? .5 : .7])),
+    A5 = loop('Fives', 5, [[0, 0, 1, .6], [2, 2, 1, .45]]), AOFF = loop('Off the 16ths', 16, [[1, 2, 1, .45], [3, 0, 1, .5], [6, 3, 1, .4], [9, 1, 1, .5], [11, 2, 1, .42], [14, 4, 1, .45]]);
+  return [
+    (n0(), song('r8-1', 'Sketchbook', 'Sixteen ideas to mix and match in the Session and Scene views: launch the drums from one, the bass from another, the chords from a third; change a track\'s sound (Y) to hear an idea on another; keep what works as a new scene. Darker and minimal, every part on a sound that moves by itself (pack 8) or one from your palette (pack 7). Two basses (the pulsing bass and the delayed FM round), two chord tracks (muted keys struck, a low drone held), a lead (your FM marimba) and an arp.', 120, [
+      ['Pulse', 8, still, {kick: KD, hats: HD, bass: BP, pad: CH}, 'The pulsing bass on one held note, the drone under it, the deep four and dark 16ths: everything moving by itself.'],
+      ['Shadow', 8, 'lib-phryg', {kick: KD, hats: HD, perc: PR, bass: BP, pad: CH, lead2: A3}, 'Three bars of A minor and one of B flat a semitone above; the arp in threes against the four.'],
+      ['Eraser', 8, 'lib-phryg', {kick: KS, hats: HST, perc: PR, bass2: BE, lead: LBL}, 'A stuttering kick and hats, the delayed bass\'s three notes, the marimba off the grid.'],
+      ['Deep dub', 8, dub, {kick: KB, hats: HO, perc: PDUB, bass2: BD, chords: CDUB, lead: LBELL}, 'The broken kick with space, the rim off the backbeat, the echoing bass falling, dub stabs on the keys, a few notes on the marimba.'],
+      ['Half light', 8, fall, {kick: KH, hats: HS, perc: PSN, bass: BSW, chords: CK, lead2: AOFF}, 'Half time with a soft snare on the 3, the bass gliding under keys falling A minor, G, F, the arp on the off 16ths.'],
+      ['Night drive', 8, two, {kick: KD, hats: HG, bass2: BA, pad: CH, lead2: A16}, 'An arpeggiated bass under A minor then E minor, the arp up and down above it, the drone holding.'],
+      ['Kick and space', 8, still, {kick: KSP, perc: PR, bass: BP, lead: L7}, 'Hardly anything: the kick on the 1 and the and of 2, a rim, the pulsing bass, the marimba\'s seven steps.'],
+      ['Slow toms', 8, 'lib-elevens', {kick: KD, hats: HS, perc: PT3, bass2: BW, pad: CH}, 'Low toms in threes under A minor 11 and F major 7, the bass walking down.'],
+      ['Falling keys', 8, fall, {kick: KD, hats: HD, perc: PSH, bass2: BPK, chords: CK, lead: LM}, 'The keys struck off the beat falling, a bass in the pocket, the marimba low.'],
+      ['Sigh', 8, 'lib-halfdim', {kick: KH, hats: HO, bass: BSW, pad: CH, lead: LBELL}, 'Half time, A minor and the half-diminished II: a sigh and home, the bell-like marimba falling.'],
+      ['Minor four, five', 8, minv, {kick: KD, hats: HG, perc: PW, bass: BP, chords: CSY, lead2: A5}, 'D minor, E minor, home to A minor; wood and logs, the keys syncopated, the arp in fives.'],
+      ['Open fifths', 8, 'lib-open', {kick: KB, hats: HD, bass2: BE, pad: CH, lead2: A3}, 'Bare fifths then fourths on A: the broken kick, the echoed bass, the arp in threes.'],
+      ['Stutter dub', 8, dub, {kick: KS, hats: HST, perc: PDUB, bass: BD, chords: CDUB}, 'The stutter groove under dub stabs, the pulsing bass playing the dub line.'],
+      ['Drone', 8, still, {perc: PW, bass: BSW, pad: CH, lead: LBL}, 'No kick: wood and logs, the gliding bass, the drone, a few notes off the grid. A breakdown to launch between the others.'],
+      ['Rolling, slow', 8, two, {kick: KD, hats: HD, perc: PT3, bass2: BA, chords: CBAR, lead: L7}, 'Toms in threes, the arpeggiated bass, the keys once a bar, the marimba in sevens: polyrhythms, slowly.'],
+      ['Everything moving', 8, 'lib-phryg', {kick: KD, hats: HD, perc: PR, bass: BP, bass2: BE, pad: CH, lead2: A16, lead: LBL}, 'All of it at once: both basses, the drone, the arp and the marimba. Take parts away from here.'],
+    ])),
+  ]; }
+const ideas = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5, 6: round6, 7: round7, 8: round8}[ROUND]();
 ideas.forEach((x, i) => { x.order = i; x.id = `r${ROUND}-${i + 1}`; x.at = new Date().toISOString(); });
 for (const x of ideas) for (const y of x.sections || []) y.at = x.at;
 for (const x of ideas) for (const c of x.cols || []) { if (c.vars.length !== c.made.length || c.lens && c.lens.length !== c.vars.length) throw new Error(x.name + ': strip out of step'); if (c.lens) while (c.lens.length < c.vars.length) c.lens.push(null); }

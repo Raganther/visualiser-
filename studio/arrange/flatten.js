@@ -33,7 +33,7 @@ export function partNotes(c, H, bars, {swing = .06, smooth = true, voicing = 0, 
 export function flatten(song, {swing = .06} = {}){
   const S = song.sections, tracks = [], marks = [], chords = [], seed = hashOf(song.id || song.name || 'song'); let at = 0;
   const first = S[0];
-  first.cols.forEach((c, i) => tracks.push({id: 't' + i, role: c.role, name: colName(i, c.role), sound: c.sound, mix: {vol: 0, pan: 0, duck: 0, lo: 0, mid: 0, hi: 0, ...c.mix, solo: false},
+  first.cols.forEach((c, i) => tracks.push({id: 't' + i, role: c.role, name: c.name || colName(i, c.role), sound: c.sound, mix: {vol: 0, pan: 0, duck: 0, lo: 0, mid: 0, hi: 0, ...c.mix, solo: false},
     set: {x: c.x, y: c.y, motion: c.motion || 0, length: c.length ?? 1, echo: !!c.echo, verb: !!c.verb}, mute: false, clips: []}));
   for (const [si, x] of S.entries()) { const H = {id: x.harmony, name: x.harmonyName, bars: x.harmonyBars}, bars = x.bars, voicing = x.cols.find(c => c.role === 'chords')?.voicing || 0;
     marks.push({id: x.id, name: (x.name || '').split(': ').slice(1).join(': ') || x.name, at, bars, why: x.why || '', harmony: H.name});

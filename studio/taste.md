@@ -262,3 +262,8 @@ before writing or changing a piece; add to it when they react.
 - 2026-11-02: Music round 2 (`sounds/music.js`, 36): every part on its own sound, ten new moving ones (`MSOUNDS`: a
   pulsing bass, a delayed bass, a slow sweep, sample and hold, the dub bass echoing, a dark arp, muted keys, a
   throbbing chord, a low drone, a dark dub stab), darker grooves with few or no off-beat open hats, the band never the pad.
+- 2026-11-02: Asked which format to test music in: they like the palette's mixing and matching, and the jam (whose ideas
+  became the Session and Scene views). Recommended building in the Session and Scene views (the same scenes; Jam v2
+  left as it is). Built the Sketchbook (`ideas.mjs` round 8, `arrange/songs/round8.json`): sixteen eight-bar ideas as
+  scenes, nine tracks (drums as a rack, Bass and Bass 2, Chords and Pad, Lead and Arp) so an idea can be heard on two
+  sounds side by side, on pack 8 (`jam/make-pack-8.mjs`: music round 2's moving sounds) and pack 7, at 120.
